@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build
+.next/
+out/
+dist/
+build/
+
+# env / secrets — NEVER commit real credentials
+.env
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# test / coverage
+coverage/
+*.lcov
+
+# misc
+*.log
+tmp/
