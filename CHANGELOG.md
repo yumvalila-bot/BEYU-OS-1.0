@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.3.1] — Post-audit remediation: placeholders completed — 2026-08-19
+
+Closes the findings raised by the independent audit of `9605774`, moving the
+repository from YELLOW to GREEN for the next governed mutation.
+
+### Fixed (Security)
+- **A-01 (HIGH) Idempotency was unsafe.** The in-process `Map` was keyed only on
+  the raw `Idempotency-Key` header, so a different actor reusing a key received
+  the first actor's response body, a different payload silently replayed the old
+  result, and concurrent duplicates both committed. Replaced with
+  `src/lib/idempotency.ts` + the `idempotency_records` table: scoped to
+  `(tenant, actor, endpoint)`, pinned to a canonical payload hash, claimed
+  atomically so concurrent callers serialise, released on failure, durable across
+  restarts and replicas.
+- **A-02 (MEDIUM) Registry leaked HIGHLY_RESTRICTED metadata.** The data-asset
+  catalogue rendered every row regardless of clearance — a RESTRICTED principal
+  could see the HIGHLY_RESTRICTED family registry entry. Now filtered through the
+  kernel's `filterByClearance()` with a suppression notice.
+- **A-03 (MEDIUM) `TRUSTEE_BOARD` was unsatisfiable** — quorum 2, UNANIMOUS, zero
+  seated members. Trustees are now seated (2 voting members).
+- **J-7 No role granted `governance:resolution.vote`**, so a vote endpoint would
+  have been unreachable. Granted to the four roles that actually hold governance
+  seats, consistent with `governance_members`.
+
+### Fixed (Correctness)
+- `auditTrailFor()` filtered `objectType` **after** `limit(50)`, so a busy ledger
+  could return an empty trail for an object that had audit records. The predicate
+  is now part of the query; added `auditTrailsFor()` for batch lookup.
+- `createSession()` was dead code duplicating the login handler's session insert.
+  Replaced by `newSessionValues()`, now the single definition of a session row,
+  consumed by both the transactional login path and the standalone helper.
+- `assertSameTenant()` was never called. It now throws a typed
+  `TenantIsolationError`, and the new `assertWithinScope()` is enforced on the
+  governance write path as a last-line invariant (mapped to 403, not 500).
+
+### Fixed (Test quality)
+- **A-04/A-05** Five tests asserted on **source text** rather than behaviour, and
+  there were **no HTTP-level tests**. `TEST 1` claimed to prove unauthenticated
+  access was blocked but only grepped for `guarded(`. Replaced with tests that
+  execute the real route, the real Zod contract and the real running server.
+- Added `tests/governance/resolution-http.test.ts` (14 end-to-end tests) and
+  `tests/security/idempotency.test.ts` (10 tests). Suite: **58 → 82**.
+- Extracted `src/lib/governance-contract.ts` so the request contract is directly
+  testable instead of grep-asserted.
+- CI now starts the application and runs the end-to-end suite against it.
+
+### Fixed (Hygiene)
+- `package-lock.json` still declared `nextjs-postgresql-template`; regenerated.
+
+### Verified, not changed
+The `DRAFT` initial lifecycle state was challenged during the audit and confirmed
+correct: `beyu_decision_status` is `DRAFT → TABLED → VOTED → APPROVED | REJECTED |
+WITHDRAWN | DEFERRED`, the column default is `DRAFT`, and `PROPOSED` appears
+nowhere in the schema, seed, application or documentation. No lifecycle change was
+made. Reference allocation was stress-tested (30 concurrent across 3 bodies): no
+duplicates, contiguous numbering, no gaps after rollback.
+
 ## [0.3.0] — Phase 1 Hardening + First Governed Mutation — 2026-08-19
 
 ### Added

@@ -82,11 +82,32 @@ jobs:
       - name: Seed bootstrap data
         run: npm run seed
 
-      - name: Tests
-        run: npm test
-
       - name: Production build
         run: npm run build
+
+      # The end-to-end suite drives the real HTTP surface (401, the 422 forgery
+      # guards, idempotency replay/mismatch/cross-actor). Without a running server
+      # those tests skip, so CI starts one and fails if it never becomes ready.
+      - name: Start application for end-to-end tests
+        run: |
+          npx next start -H 127.0.0.1 -p 3100 &
+          echo $! > /tmp/beyu-server.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "server ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::application did not become ready"; exit 1
+
+      - name: Tests
+        env:
+          BEYU_TEST_BASE_URL: http://127.0.0.1:3100
+        run: npm test
+
+      - name: Stop application
+        if: always()
+        run: kill "$(cat /tmp/beyu-server.pid)" 2>/dev/null || true
 
       - name: Credential literal scan
         run: |

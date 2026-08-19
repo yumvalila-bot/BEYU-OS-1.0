@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { ZodError, type ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
+import {
+  claimIdempotencyKey,
+  completeIdempotencyKey,
+  releaseIdempotencyKey,
+} from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
 import { setDatabaseTenantContext } from "./tenant-scope";
 import { SYSTEM_VERSION, type PermissionCode } from "./constants";
@@ -55,22 +60,95 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
 
 /* --------------------------- idempotency ----------------------------- */
 
-const idempotencyStore = new Map<string, { at: number; body: unknown }>();
+/**
+ * Idempotency is implemented by `lib/idempotency.ts` against a durable, scoped
+ * ledger. The previous in-process Map was removed (finding A-01): it was keyed
+ * only on the raw header, so a different actor reusing a key received the first
+ * actor's response, a different payload silently replayed the old result, and
+ * concurrent duplicates both committed.
+ *
+ * Use `withIdempotency()` below rather than reading/writing a cache directly.
+ */
+export type IdempotentResult = { status: number; body: unknown };
 
-export function readIdempotent(key: string | null): unknown | undefined {
-  if (!key) return undefined;
-  const hit = idempotencyStore.get(key);
-  if (!hit) return undefined;
-  if (Date.now() - hit.at > 15 * 60_000) {
-    idempotencyStore.delete(key);
-    return undefined;
+/**
+ * Run a governed mutation under an Idempotency-Key.
+ *
+ * - no key .................. executes normally (callers may still require one)
+ * - key + same payload ...... replays the stored response, does NOT re-execute
+ * - key + different payload . 409 IDEMPOTENCY_KEY_REUSED
+ * - key held concurrently ... 409 REQUEST_IN_PROGRESS
+ * - handler throws .......... claim released so a retry is possible
+ *
+ * The handler may return an `IdempotentResult` (success, which is recorded and
+ * becomes replayable) or a `NextResponse` (a domain error, which releases the
+ * claim so the caller can correct the request and retry with the same key).
+ */
+export async function withIdempotency(
+  ctx: HandlerContext,
+  endpoint: string,
+  payload: unknown,
+  handler: () => Promise<IdempotentResult | NextResponse>,
+): Promise<NextResponse> {
+  const rawKey = ctx.request.headers.get("idempotency-key");
+  const claim = await claimIdempotencyKey(ctx.principal, endpoint, rawKey, payload);
+
+  if (claim.kind === "MISMATCH") {
+    return apiError(
+      "IDEMPOTENCY_KEY_REUSED",
+      "This Idempotency-Key was already used with a different request payload.",
+      409,
+      ctx.traceId,
+    );
   }
-  return hit.body;
-}
+  if (claim.kind === "IN_FLIGHT") {
+    return apiError(
+      "REQUEST_IN_PROGRESS",
+      "An identical request is currently being processed. Retry shortly.",
+      409,
+      ctx.traceId,
+    );
+  }
+  if (claim.kind === "REPLAY") {
+    return NextResponse.json(claim.body, {
+      status: claim.statusCode,
+      headers: {
+        "x-beyu-system": SYSTEM_VERSION,
+        "x-trace-id": ctx.traceId,
+        "idempotent-replay": "true",
+      },
+    });
+  }
 
-export function writeIdempotent(key: string | null, body: unknown) {
-  if (!key) return;
-  idempotencyStore.set(key, { at: Date.now(), body });
+  if (claim.kind === "NO_KEY") {
+    const result = await handler();
+    return result instanceof NextResponse ? result : apiOk(result.body, ctx.traceId, result.status);
+  }
+
+  try {
+    const result = await handler();
+
+    // A domain error is not a completed mutation: release the claim so the same
+    // key may be retried once the caller fixes the request.
+    if (result instanceof NextResponse) {
+      await releaseIdempotencyKey(claim);
+      return result;
+    }
+
+    const envelope = {
+      data: result.body,
+      meta: { traceId: ctx.traceId, system: SYSTEM_VERSION, at: new Date().toISOString() },
+    };
+    await completeIdempotencyKey(claim, result.status, envelope, ctx.traceId);
+    return NextResponse.json(envelope, {
+      status: result.status,
+      headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": ctx.traceId },
+    });
+  } catch (err) {
+    // A failed mutation must not poison the key.
+    await releaseIdempotencyKey(claim);
+    throw err;
+  }
 }
 
 /* --------------------------- route wrapper --------------------------- */

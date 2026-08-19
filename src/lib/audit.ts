@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog, enterpriseEvents } from "@/db/schema";
 import { newId, ID_PREFIX } from "./ids";
@@ -255,15 +255,63 @@ export async function verifyAuditChain(limit?: number): Promise<ChainVerificatio
   };
 }
 
-export async function auditTrailFor(objectType: string, objectId: string, tenantId?: string | null) {
-  const conditions = [eq(auditLog.objectId, objectId)];
-  if (tenantId) conditions.push(eq(auditLog.tenantId, tenantId));
-  else conditions.push(isNull(auditLog.tenantId));
+/**
+ * Provenance trail for a single governed object: who did what, when, under which
+ * authority and with which outcome.
+ *
+ * `objectType` is part of the WHERE clause rather than a post-filter. Previously
+ * it was applied after `limit(50)`, so a busy ledger could return an empty trail
+ * for an object that genuinely had audit records.
+ *
+ * `tenantId` must be supplied by a caller that has already resolved the object
+ * inside the principal's tenant scope; passing null restricts to platform-level
+ * (tenant-less) records rather than matching every tenant.
+ */
+export async function auditTrailFor(
+  objectType: string,
+  objectId: string,
+  tenantId?: string | null,
+  limit = 50,
+) {
   return db
     .select()
     .from(auditLog)
-    .where(and(...conditions))
+    .where(
+      and(
+        eq(auditLog.objectType, objectType),
+        eq(auditLog.objectId, objectId),
+        tenantId ? eq(auditLog.tenantId, tenantId) : isNull(auditLog.tenantId),
+      ),
+    )
     .orderBy(desc(auditLog.sequence))
-    .limit(50)
-    .then((rows) => rows.filter((r) => r.objectType === objectType));
+    .limit(limit);
+}
+
+/** Provenance trails for many objects of one type in a single query. */
+export async function auditTrailsFor(
+  objectType: string,
+  objectIds: string[],
+  tenantIds: string[],
+): Promise<Map<string, (typeof auditLog.$inferSelect)[]>> {
+  const trails = new Map<string, (typeof auditLog.$inferSelect)[]>();
+  if (objectIds.length === 0 || tenantIds.length === 0) return trails;
+
+  const rows = await db
+    .select()
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.objectType, objectType),
+        inArray(auditLog.objectId, objectIds),
+        inArray(auditLog.tenantId, tenantIds),
+      ),
+    )
+    .orderBy(desc(auditLog.sequence));
+
+  for (const row of rows) {
+    const list = trails.get(row.objectId) ?? [];
+    list.push(row);
+    trails.set(row.objectId, list);
+  }
+  return trails;
 }

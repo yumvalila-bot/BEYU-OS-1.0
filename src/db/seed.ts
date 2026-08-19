@@ -414,6 +414,11 @@ async function main() {
     { key: "TAX_CFO", body: B.tax, party: "DAUDI_MOSHI", seat: "CHAIR" },
     { key: "TAX_CGO", body: B.tax, party: "GRACE_KILELE", seat: "MEMBER" },
     { key: "TAX_RISK", body: B.tax, party: "JOHN_MREMA", seat: "MEMBER" },
+    // Remediation A-03: TRUSTEE_BOARD declared quorumMinimum 2 with UNANIMOUS
+    // majority but had zero seated members, making its quorum unsatisfiable and
+    // any future vote against it impossible to carry. Seat the trustees.
+    { key: "TRS_PRIN", body: B.trustees, party: "NEEMA_BEYU", seat: "CHAIR" },
+    { key: "TRS_CGO", body: B.trustees, party: "GRACE_KILELE", seat: "MEMBER" },
   ];
   await db
     .insert(s.governanceMembers)

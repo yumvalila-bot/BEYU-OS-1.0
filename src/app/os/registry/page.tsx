@@ -1,7 +1,8 @@
 import { db } from "@/db";
 import { architectureDecisions, dataAssets, integrations, metricDefinitions, osRegistry, sourceOfTruth } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { Badge, Denied, Panel, stateTone } from "@/components/brand";
+import { filterByClearance } from "@/lib/authz";
+import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function RegistryPage() {
   const access = await requireAccess("platform:registry.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="platform:registry.read" />;
 
-  const [osRows, sotRows, adrRows, integrationRows, metricRows, assetRows] = await Promise.all([
+  const [osRows, sotRows, adrRows, integrationRows, metricRows, allAssetRows] = await Promise.all([
     db.select().from(osRegistry).orderBy(osRegistry.kind),
     db.select().from(sourceOfTruth).orderBy(sourceOfTruth.capability),
     db.select().from(architectureDecisions).orderBy(architectureDecisions.adrNumber),
@@ -24,6 +25,15 @@ export default async function RegistryPage() {
     db.select().from(metricDefinitions),
     db.select().from(dataAssets),
   ]);
+
+  /**
+   * A-02: the data-asset catalogue is enterprise reference metadata, but individual
+   * entries carry their own classification (the family & beneficiary registry is
+   * HIGHLY_RESTRICTED). Registry read access is not a clearance override, so the
+   * catalogue is filtered through the kernel's classification ceiling.
+   */
+  const assetRows = filterByClearance(access.principal, allAssetRows);
+  const suppressedAssets = allAssetRows.length - assetRows.length;
 
   return (
     <div className="space-y-6">
@@ -144,8 +154,17 @@ export default async function RegistryPage() {
                       <td className="text-[11.5px]">{d.retentionCode}</td>
                     </tr>
                   ))}
+                  {assetRows.length === 0 && (
+                    <tr><td colSpan={5}><EmptyState message="No data assets are visible at your clearance level." /></td></tr>
+                  )}
                 </tbody>
               </table>
+              {suppressedAssets > 0 && (
+                <p className="mt-2 text-[11px] beyu-muted">
+                  {suppressedAssets} data asset{suppressedAssets === 1 ? "" : "s"} suppressed: classification
+                  exceeds your {access.principal.clearance} clearance ceiling.
+                </p>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="beyu-table">

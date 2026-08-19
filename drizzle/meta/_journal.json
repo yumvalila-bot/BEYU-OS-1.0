@@ -15,6 +15,13 @@
       "when": 1786843810441,
       "tag": "0001_kernel_gate1_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787171475676,
+      "tag": "0002_governed_idempotency",
+      "breakpoints": true
     }
   ]
 }

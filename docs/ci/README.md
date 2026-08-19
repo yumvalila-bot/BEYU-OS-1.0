@@ -44,6 +44,7 @@ invalidate the guarantees they exist to prove.
 5. **Migration drift check** — fails if `drizzle-kit generate` produces a new
    migration, i.e. if the committed migrations no longer describe `src/db/schema`
 6. `npm run seed`
-7. `npm test` — 58 tests across 6 suites
+7. Start the application, then `npm test` — 82 tests across 8 suites (the
+   end-to-end suite drives the real HTTP surface)
 8. `npm run build`
 9. **Credential literal scan** — fails on committed secrets

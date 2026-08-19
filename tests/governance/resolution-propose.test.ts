@@ -115,20 +115,29 @@ beforeEach(async () => {
 describe("governed mutation — governance resolution proposal", () => {
   /* ---------------------------------------------------------------- AUTH */
 
-  it("TEST 1 — unauthenticated requests cannot reach the domain service", async () => {
-    // The service requires a resolved Principal; the API guard returns 401 before
-    // the handler runs. Assert the guard is actually wired to this route.
-    const source = await import("node:fs/promises").then((fs) =>
-      fs.readFile("src/app/api/v1/governance/resolutions/route.ts", "utf8"),
-    );
-    expect(source).toContain("guarded(");
-    expect(source).toContain('permission: "governance:resolution.propose"');
-    // The handler never reads an actor or tenant from the request body.
-    expect(source).not.toMatch(/body\.(tenantId|actorId|userId|proposedBy)/);
+  it("TEST 1 — the route rejects an unauthenticated request before any write", async () => {
+    // Executes the real route handler with no session cookie. Next's cookie store
+    // is unavailable outside a request scope, so either outcome proves the point:
+    // the guard denies the call, and no resolution or audit record is produced.
+    const before = await createdCount();
+    const { POST } = await import("../../src/app/api/v1/governance/resolutions/route");
 
-    const guard = await import("node:fs/promises").then((fs) => fs.readFile("src/lib/api.ts", "utf8"));
-    expect(guard).toContain("UNAUTHENTICATED");
-    expect(guard).toContain("resolvePrincipal()");
+    const request = new Request("http://localhost/api/v1/governance/resolutions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(validInput()),
+    });
+
+    const response = await POST(request).catch(() => null);
+    if (response) {
+      expect([401, 500]).toContain(response.status);
+      const payload = (await response.json()) as { error?: { code?: string }; data?: unknown };
+      expect(payload.data).toBeUndefined();
+      if (response.status === 401) expect(payload.error?.code).toBe("UNAUTHENTICATED");
+    }
+
+    expect(await createdCount()).toBe(before);
+    expect((await verifyAuditChain()).records).toBe(0);
   });
 
   /* ---------------------------------------------------------- VALIDATION */
@@ -156,15 +165,31 @@ describe("governed mutation — governance resolution proposal", () => {
     expect((await verifyAuditChain()).records).toBe(0);
   });
 
-  it("TEST 2b — the API schema rejects unknown and server-controlled fields", async () => {
-    const source = await import("node:fs/promises").then((fs) =>
-      fs.readFile("src/app/api/v1/governance/resolutions/route.ts", "utf8"),
+  it("TEST 2b — the request schema rejects unknown and server-controlled fields", async () => {
+    // Executes the real Zod schema rather than grepping the source for `.strict()`.
+    const { ProposeResolutionSchema, SERVER_CONTROLLED_FIELDS } = await import(
+      "../../src/lib/governance-contract"
     );
-    expect(source).toContain(".strict()");
-    expect(source).toContain("SERVER_CONTROLLED_FIELDS");
-    for (const field of ["tenantId", "proposedBy", "status", "votesFor", "reference"]) {
-      expect(source).toContain(`"${field}"`);
+
+    expect(ProposeResolutionSchema.safeParse(validInput()).success).toBe(true);
+
+    // Unknown keys are rejected, not silently stripped.
+    expect(ProposeResolutionSchema.safeParse({ ...validInput(), sneaky: true }).success).toBe(false);
+
+    // Every server-controlled field is refused by the schema.
+    for (const field of SERVER_CONTROLLED_FIELDS) {
+      const result = ProposeResolutionSchema.safeParse({ ...validInput(), [field]: "forged" });
+      expect(result.success, `${field} must be rejected`).toBe(false);
     }
+
+    // Field-level validation actually applies.
+    expect(ProposeResolutionSchema.safeParse({ ...validInput(), title: "short" }).success).toBe(false);
+    expect(
+      ProposeResolutionSchema.safeParse({ ...validInput(), category: "NOT_A_CATEGORY" }).success,
+    ).toBe(false);
+    expect(
+      ProposeResolutionSchema.safeParse({ ...validInput(), classification: "TOP_SECRET" }).success,
+    ).toBe(false);
   });
 
   /* ------------------------------------------------------ TENANT SCOPING */

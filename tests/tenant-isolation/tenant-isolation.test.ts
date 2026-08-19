@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
@@ -72,11 +71,17 @@ describe("C-02 tenant isolation", () => {
     expect(names).not.toContain("BEYU Holdings Ltd");
     expect(names).not.toContain("BEYU Foundation");
 
-    // The page must obtain scope from the canonical helper, not query globally.
-    const source = await readFile("src/app/os/tax/page.tsx", "utf8");
-    expect(source).toContain("tenantScopeIds");
-    expect(source).toContain("inArray(legalEntities.tenantId, scope)");
-    expect(source).not.toMatch(/db\.select\(\)\.from\(legalEntities\)\s*,/);
+    // The scope helper itself must be the thing that constrains the result: an
+    // enterprise principal legitimately sees the subtree, a sector one must not.
+    const enterprise = await principalFor("AMANI_BEYU");
+    const enterpriseScope = await tenantScopeIds(enterprise);
+    const enterpriseRows = await db
+      .select()
+      .from(legalEntities)
+      .where(inArray(legalEntities.tenantId, enterpriseScope));
+    expect(enterpriseRows.length).toBeGreaterThan(scoped.length);
+    expect(enterpriseScope).toContain(sector.tenantId);
+    expect(await tenantScopeIds(sector)).not.toContain(enterprise.tenantId);
   });
 
   /**
@@ -103,11 +108,20 @@ describe("C-02 tenant isolation", () => {
     expect(foundationVisibleToSector.length).toBe(0);
     expect(foundationVisibleToEnterprise.length).toBe(1);
 
-    const source = await readFile("src/app/os/foundation/page.tsx", "utf8");
-    expect(source).toContain("tenantScopeIds");
-    expect(source).toContain("inArray(tenants.id, scope)");
-    // The legal entity lookup is scoped too, not addressed by bare code.
-    expect(source).toContain("inArray(legalEntities.tenantId, foundationScope)");
+    // The foundation legal entity must also be unreachable by bare code lookup
+    // for an out-of-scope principal.
+    const fdnForSector = await db
+      .select()
+      .from(legalEntities)
+      .where(and(eq(legalEntities.code, "BEYU-FDN"), inArray(legalEntities.tenantId, sectorScope)));
+    expect(fdnForSector.length).toBe(0);
+
+    const foundationScope = foundationVisibleToEnterprise.map((t) => t.id);
+    const fdnForEnterprise = await db
+      .select()
+      .from(legalEntities)
+      .where(and(eq(legalEntities.code, "BEYU-FDN"), inArray(legalEntities.tenantId, foundationScope)));
+    expect(fdnForEnterprise.length).toBe(1);
   });
 
   it("RLS policies are enabled on critical tenant-scoped tables", async () => {

@@ -25,7 +25,25 @@ Error (never leaks secrets, personal data, stack traces or DB internals):
 | `VALIDATION_FAILED` | 422 | Schema violation |
 | `RATE_LIMITED` | 429 | Capability rate limit exceeded |
 | `NOT_FOUND` | 404 | Object not found in the authorised scope |
+| `IDEMPOTENCY_KEY_REUSED` | 409 | Key already used with a different payload |
+| `REQUEST_IN_PROGRESS` | 409 | An identical request is currently executing |
 | `INTERNAL_ERROR` | 500 | Structured, trace-correlated, non-leaking |
+
+## Idempotency
+
+Mutating endpoints accept an `Idempotency-Key` header backed by the durable
+`idempotency_records` ledger (`src/lib/idempotency.ts`).
+
+| Situation | Behaviour |
+| --- | --- |
+| Same key, same payload | Original response replayed with `Idempotent-Replay: true`; the mutation does **not** run again |
+| Same key, different payload | `409 IDEMPOTENCY_KEY_REUSED` — never a silently stale result |
+| Same key, concurrent request | One caller proceeds; the other receives `409 REQUEST_IN_PROGRESS` |
+| Same key, different principal | **Isolated.** Keys are scoped to `(tenant, acting user, endpoint)`, so a key is meaningless outside the principal that created it |
+| Mutation failed | Claim released; the key may be retried |
+
+Keys are retained for 24 hours. A key is never a bearer token: possessing another
+principal's key discloses nothing.
 
 ## Endpoints
 

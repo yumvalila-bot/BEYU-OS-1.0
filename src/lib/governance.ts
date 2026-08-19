@@ -4,7 +4,7 @@ import { governanceBodies, policies, resolutions } from "@/db/schema";
 import { can, type Principal } from "./authz";
 import { evaluatePolicy, type PolicyObligation } from "./policy";
 import { withAuditTransaction } from "./audit";
-import { tenantScopeIds } from "./tenant-scope";
+import { assertWithinScope, tenantScopeIds, TenantIsolationError } from "./tenant-scope";
 import { newId, ID_PREFIX } from "./ids";
 import { classificationRank, type Classification } from "./constants";
 
@@ -278,7 +278,20 @@ export async function proposeResolution(
     );
   }
 
-  /* ---- 5–8. MUTATE + AUDIT + EVENT, ATOMICALLY ------------------------
+  /* ---- 5. WRITE-PATH TENANT INVARIANT ---------------------------------
+   * The body was already located inside the principal's scope, so this can only
+   * fire if that query is ever refactored incorrectly. Asserting immediately
+   * before the mutation converts a silent cross-tenant write into a hard failure. */
+  try {
+    await assertWithinScope(principal, governingBody.tenantId);
+  } catch (err) {
+    if (err instanceof TenantIsolationError) {
+      throw new GovernanceError("TENANT_SCOPE_DENIED", err.message);
+    }
+    throw err;
+  }
+
+  /* ---- 6–9. MUTATE + AUDIT + EVENT, ATOMICALLY ------------------------
    * A single database transaction. If the audit append or the event append
    * fails, the resolution insert is rolled back with it. */
   const year = new Date().getUTCFullYear();
@@ -397,6 +410,10 @@ export async function proposeResolution(
         "CONFLICT",
         "A concurrent proposal claimed the same reference. Retry the request.",
       );
+    }
+    if (err instanceof TenantIsolationError) {
+      // Surfaced as an authorisation failure, never as an internal error.
+      throw new GovernanceError("TENANT_SCOPE_DENIED", err.message);
     }
     throw err;
   }

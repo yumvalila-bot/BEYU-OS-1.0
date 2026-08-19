@@ -4,6 +4,7 @@ import { governanceBodies, governanceMembers, parties, policies, resolutions } f
 import { requireAccess } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { auditTrailsFor } from "@/lib/audit";
 import { CLASSIFICATION_ORDER, classificationRank } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { ProposeResolution } from "./propose";
@@ -33,6 +34,17 @@ export default async function GovernancePage() {
 
   const visible = resolutionRows.filter(
     (r) => classificationRank(r.classification) <= classificationRank(access.principal.clearance),
+  );
+
+  /**
+   * Provenance from the immutable ledger. This is what distinguishes a resolution
+   * genuinely created through the governed mutation from one that was seeded:
+   * a transactional resolution has audit records, seeded historical data does not.
+   */
+  const trails = await auditTrailsFor(
+    "RESOLUTION",
+    visible.map((r) => r.id),
+    scope,
   );
 
   // A principal may only propose at or below their own clearance ceiling.
@@ -137,6 +149,39 @@ export default async function GovernancePage() {
                     <span>· votes {r.votesFor} for / {r.votesAgainst} against / {r.votesAbstain} abstain{total ? ` (${total} cast)` : ""}</span>
                     <span>· decided {r.decisionDate ? new Date(r.decisionDate).toISOString().slice(0, 10) : "pending"}</span>
                   </div>
+
+                  {(() => {
+                    const trail = trails.get(r.id) ?? [];
+                    if (trail.length === 0) {
+                      return (
+                        <div className="mt-2 text-[11px] beyu-muted">
+                          <Badge tone="slate">REFERENCE DATA</Badge>{" "}
+                          No entries in the immutable ledger — this record predates the governed
+                          mutation and was not produced by a transaction in this system.
+                        </div>
+                      );
+                    }
+                    const origin = trail[trail.length - 1];
+                    return (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[11px] text-[#b08d1c]">
+                          <Badge tone="green">GOVERNED</Badge>{" "}
+                          {trail.length} ledger {trail.length === 1 ? "entry" : "entries"} · originated{" "}
+                          {new Date(origin.occurredAt).toISOString().slice(0, 16).replace("T", " ")}
+                        </summary>
+                        <ul className="mt-1.5 space-y-1">
+                          {trail.map((a) => (
+                            <li key={a.id} className="text-[11px] beyu-muted">
+                              <span className="font-mono">{a.action}</span> · {a.outcome} ·{" "}
+                              {new Date(a.occurredAt).toISOString().slice(0, 16).replace("T", " ")}
+                              {a.authority ? ` · under ${a.authority}` : ""}
+                              <span className="ml-1 font-mono opacity-70">{a.hash.slice(0, 12)}…</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    );
+                  })()}
                 </div>
               );
             })}

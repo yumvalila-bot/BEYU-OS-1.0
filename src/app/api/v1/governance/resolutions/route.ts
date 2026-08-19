@@ -1,62 +1,18 @@
-import { z } from "zod";
-import { apiError, apiOk, guarded, readIdempotent, writeIdempotent } from "@/lib/api";
+import { apiError, guarded, withIdempotency } from "@/lib/api";
+import {
+  ProposeResolutionSchema,
+  findServerControlledField,
+} from "@/lib/governance-contract";
 import {
   GovernanceError,
   NON_PROPOSABLE_STATUSES,
-  RESOLUTION_CATEGORIES,
   proposeResolution,
   type GovernanceErrorCode,
 } from "@/lib/governance";
-import { CLASSIFICATION_ORDER } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Proposal payload contract.
- *
- * `.strict()` is essential: it rejects any attempt to smuggle server-controlled
- * fields (tenantId, proposedBy, status, votes, reference, decisionDate) rather
- * than silently ignoring them, so actor/tenant/status forgery attempts fail
- * loudly with 422 instead of succeeding as a no-op.
- */
-const ProposeSchema = z
-  .object({
-    bodyId: z.string().min(3).max(64),
-    title: z.string().trim().min(8).max(200),
-    category: z.enum(RESOLUTION_CATEGORIES),
-    summary: z.string().trim().min(20).max(2000),
-    rationale: z.string().trim().min(20).max(2000),
-    dataBasis: z.string().trim().min(10).max(2000),
-    consequences: z.string().trim().min(10).max(2000),
-    classification: z.enum(CLASSIFICATION_ORDER),
-    authorityPolicyId: z.string().min(3).max(64).nullish(),
-    linkedObjectType: z.string().min(2).max(64).nullish(),
-    linkedObjectId: z.string().min(2).max(64).nullish(),
-  })
-  .strict();
 
-/**
- * Fields the server derives from trusted state. A client that supplies any of
- * these is attempting actor impersonation, tenant escalation, lifecycle forgery
- * or vote injection, and is rejected.
- */
-const SERVER_CONTROLLED_FIELDS = [
-  "id",
-  "tenantId",
-  "reference",
-  "status",
-  "proposedBy",
-  "proposedByUserId",
-  "actorId",
-  "userId",
-  "requiredMajority",
-  "quorumMet",
-  "votesFor",
-  "votesAgainst",
-  "votesAbstain",
-  "decisionDate",
-  "createdAt",
-] as const;
 
 const STATUS_BY_CODE: Record<GovernanceErrorCode, number> = {
   NOT_FOUND: 404,
@@ -88,10 +44,6 @@ export async function POST(request: Request) {
       audit: { objectType: "RESOLUTION" },
     },
     async (ctx) => {
-      const idempotencyKey = ctx.request.headers.get("idempotency-key");
-      const cached = readIdempotent(idempotencyKey);
-      if (cached) return apiOk(cached, ctx.traceId);
-
       // Read the payload once so server-controlled fields can be rejected
       // explicitly before schema validation. `.strict()` would already reject
       // them, but an explicit, named error makes the lifecycle and actor/tenant
@@ -109,27 +61,31 @@ export async function POST(request: Request) {
           ctx.traceId,
         );
       }
-      for (const field of SERVER_CONTROLLED_FIELDS) {
-        if (field in raw) {
-          return apiError(
-            "SERVER_CONTROLLED_FIELD",
-            `'${field}' is derived from the authenticated context and cannot be supplied by the client.`,
-            422,
-            ctx.traceId,
-          );
-        }
+      const forged = findServerControlledField(raw);
+      if (forged) {
+        return apiError(
+          "SERVER_CONTROLLED_FIELD",
+          `'${forged}' is derived from the authenticated context and cannot be supplied by the client.`,
+          422,
+          ctx.traceId,
+        );
       }
 
-      const body = ProposeSchema.parse(raw);
+      const body = ProposeResolutionSchema.parse(raw);
 
       try {
-        const result = await proposeResolution(ctx.principal, body, {
-          traceId: ctx.traceId,
-          ipAddress: ctx.ip,
-          userAgent: ctx.userAgent,
+        // Idempotency is scoped to (tenant, actor, endpoint) and pinned to the
+        // payload hash, so a replay returns the original 201 without creating a
+        // second resolution, and a different payload under the same key is a
+        // conflict rather than a silently wrong answer.
+        return await withIdempotency(ctx, "governance.resolutions.propose", body, async () => {
+          const result = await proposeResolution(ctx.principal, body, {
+            traceId: ctx.traceId,
+            ipAddress: ctx.ip,
+            userAgent: ctx.userAgent,
+          });
+          return { status: 201, body: result };
         });
-        writeIdempotent(idempotencyKey, result);
-        return apiOk(result, ctx.traceId, 201);
       } catch (err) {
         if (err instanceof GovernanceError) {
           // Domain-safe messages only; no SQL, driver or schema detail is exposed.

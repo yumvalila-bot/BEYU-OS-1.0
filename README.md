@@ -13,7 +13,7 @@ cp .env.example .env        # then fill in DATABASE_URL and the secrets
 npm ci                      # reproducible install from the committed lockfile
 npm run migrate             # apply versioned migrations (scripts/migrate.ts)
 npm run seed                # idempotent constitutional bootstrap
-npm test                    # 58 tests across 6 suites (PostgreSQL required)
+npm test                    # 82 tests across 8 suites (PostgreSQL required)
 npm run build && npm start  # production build
 ```
 
@@ -24,6 +24,15 @@ with `npm run migrate:generate` and commit the generated migration.
 Most suites require a live PostgreSQL instance — tenant isolation, audit-chain
 concurrency, transaction atomicity and the governed-mutation tests assert against
 real database state rather than mocks.
+
+The end-to-end suite additionally drives the running HTTP surface (authentication,
+the request-forgery guards and idempotency). It skips when no server is reachable;
+to run it, start the app and point the tests at it:
+
+```bash
+npm run build && npx next start -p 3100 &
+BEYU_TEST_BASE_URL=http://127.0.0.1:3100 npm test
+```
 
 Bootstrap identities (password supplied only by `BEYU_BOOTSTRAP_PASSWORD`; valid TOTP required):
 
