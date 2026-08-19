@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* BEYU canonical visual identity                                      */
+/* dark navy · gold accents · light enterprise surfaces · dark mode    */
+/* ------------------------------------------------------------------ */
+
+@theme {
+  --color-navy-950: #050f22;
+  --color-navy-900: #0b1d3a;
+  --color-navy-800: #0e2445;
+  --color-navy-700: #1b3057;
+  --color-navy-600: #24406f;
+  --color-gold-500: #d4af37;
+  --color-gold-400: #e2c25f;
+  --color-gold-300: #efd98f;
+  --color-sage-600: #4c6f4e;
+  --color-slateink-500: #6b7280;
+}
+
+:root {
+  --beyu-navy: #0b1d3a;
+  --beyu-navy-deep: #050f22;
+  --beyu-navy-soft: #16294a;
+  --beyu-gold: #d4af37;
+  --beyu-gold-soft: #efd98f;
+  --beyu-sage: #4c6f4e;
+  --beyu-surface: #f7f9fc;
+  --beyu-line: rgba(11, 29, 58, 0.1);
+  --beyu-text: #0b1d3a;
+  --beyu-muted: #5b6b85;
+  --beyu-card: #ffffff;
+}
+
+.dark {
+  --beyu-surface: #050f22;
+  --beyu-line: rgba(212, 175, 55, 0.16);
+  --beyu-text: #eef2f8;
+  --beyu-muted: #93a4bd;
+  --beyu-card: #0b1d3a;
+}
+
+html,
+body {
+  background: var(--beyu-surface);
+  color: var(--beyu-text);
+}
+
+body {
+  font-feature-settings: "cv02", "cv03", "cv04";
+}
+
+.beyu-panel {
+  background: var(--beyu-card);
+  border: 1px solid var(--beyu-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(5, 15, 34, 0.04), 0 12px 32px -24px rgba(5, 15, 34, 0.5);
+}
+
+.beyu-gold-rule {
+  background: linear-gradient(90deg, transparent, var(--beyu-gold), transparent);
+  height: 1px;
+}
+
+.beyu-shell {
+  background:
+    radial-gradient(1200px 480px at 12% -10%, rgba(212, 175, 55, 0.14), transparent 60%),
+    linear-gradient(180deg, var(--beyu-navy-deep), var(--beyu-navy) 55%, #071531);
+}
+
+.beyu-muted {
+  color: var(--beyu-muted);
+}
+
+.beyu-kicker {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.beyu-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.beyu-scroll::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 8px;
+}
+
+table.beyu-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.beyu-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--beyu-muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--beyu-line);
+  white-space: nowrap;
+}
+table.beyu-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--beyu-line);
+  vertical-align: top;
+}
+table.beyu-table tr:last-child td {
+  border-bottom: none;
+}
