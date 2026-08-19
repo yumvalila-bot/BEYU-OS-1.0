@@ -2,8 +2,11 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { can } from "@/lib/authz";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { CLASSIFICATION_ORDER, classificationRank } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
+import { ProposeResolution } from "./propose";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +31,15 @@ export default async function GovernancePage() {
     db.select().from(policies),
   ]);
 
-  const visible = resolutionRows.filter((r) => {
-    const rank = ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"];
-    return rank.indexOf(r.classification) <= rank.indexOf(access.principal.clearance);
-  });
+  const visible = resolutionRows.filter(
+    (r) => classificationRank(r.classification) <= classificationRank(access.principal.clearance),
+  );
+
+  // A principal may only propose at or below their own clearance ceiling.
+  const canPropose = can(access.principal, "governance:resolution.propose").allowed;
+  const proposableClassifications = CLASSIFICATION_ORDER.filter(
+    (c) => classificationRank(c) <= classificationRank(access.principal.clearance),
+  );
 
   return (
     <div className="space-y-6">
@@ -77,6 +85,21 @@ export default async function GovernancePage() {
           );
         })}
       </div>
+
+      <ProposeResolution
+        canPropose={canPropose}
+        clearance={access.principal.clearance}
+        classifications={[...proposableClassifications]}
+        bodies={bodies
+          .filter((b) => b.status === "ACTIVE")
+          .map((b) => ({
+            id: b.id,
+            name: b.name,
+            code: b.code,
+            majorityRule: b.majorityRule,
+            reservedMatters: b.reservedMatters,
+          }))}
+      />
 
       <Panel kicker="Decision record" title="Resolutions">
         {visible.length === 0 ? (

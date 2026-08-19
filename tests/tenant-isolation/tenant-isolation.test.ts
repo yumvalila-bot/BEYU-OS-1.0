@@ -1,6 +1,7 @@
 import "dotenv/config";
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { legalEntities, tenants, users } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
@@ -50,6 +51,63 @@ describe("C-02 tenant isolation", () => {
     expect(scope.length).toBeGreaterThan(1);
     const rows = await db.select().from(legalEntities).where(inArray(legalEntities.tenantId, scope));
     expect(rows.some((r) => r.legalName === "BEYU Family Trust")).toBe(true);
+  });
+
+  /**
+   * H-NEW-1 regression: the tax page previously enumerated ALL legal entities
+   * globally and passed them to the assessment workbench dropdown, exposing entity
+   * names outside the principal's tenant. This asserts the page's query path.
+   */
+  it("H-NEW-1: the tax page entity query cannot leak entities across tenants", async () => {
+    const sector = await principalFor("SARA_LEMA");
+    const scope = await tenantScopeIds(sector);
+
+    const scoped = await db.select().from(legalEntities).where(inArray(legalEntities.tenantId, scope));
+    const all = await db.select().from(legalEntities);
+
+    expect(all.length).toBeGreaterThan(scoped.length);
+    expect(scoped.every((e) => e.tenantId === sector.tenantId)).toBe(true);
+    const names = scoped.map((e) => e.legalName);
+    expect(names).not.toContain("BEYU Family Trust");
+    expect(names).not.toContain("BEYU Holdings Ltd");
+    expect(names).not.toContain("BEYU Foundation");
+
+    // The page must obtain scope from the canonical helper, not query globally.
+    const source = await readFile("src/app/os/tax/page.tsx", "utf8");
+    expect(source).toContain("tenantScopeIds");
+    expect(source).toContain("inArray(legalEntities.tenantId, scope)");
+    expect(source).not.toMatch(/db\.select\(\)\.from\(legalEntities\)\s*,/);
+  });
+
+  /**
+   * H-NEW-2 regression: the foundation page resolved its tenant and legal entity
+   * by hardcoded code, bypassing the principal's scope entirely.
+   */
+  it("H-NEW-2: the foundation page is tenant-scoped, not code-addressed", async () => {
+    const sector = await principalFor("SARA_LEMA");
+    const enterprise = await principalFor("AMANI_BEYU");
+
+    const sectorScope = await tenantScopeIds(sector);
+    const enterpriseScope = await tenantScopeIds(enterprise);
+
+    const foundationVisibleToSector = await db
+      .select()
+      .from(tenants)
+      .where(and(eq(tenants.code, "BEYU-FOUNDATION"), inArray(tenants.id, sectorScope)));
+    const foundationVisibleToEnterprise = await db
+      .select()
+      .from(tenants)
+      .where(and(eq(tenants.code, "BEYU-FOUNDATION"), inArray(tenants.id, enterpriseScope)));
+
+    // The sector operator is denied; the enterprise governance identity is not.
+    expect(foundationVisibleToSector.length).toBe(0);
+    expect(foundationVisibleToEnterprise.length).toBe(1);
+
+    const source = await readFile("src/app/os/foundation/page.tsx", "utf8");
+    expect(source).toContain("tenantScopeIds");
+    expect(source).toContain("inArray(tenants.id, scope)");
+    // The legal entity lookup is scoped too, not addressed by bare code.
+    expect(source).toContain("inArray(legalEntities.tenantId, foundationScope)");
   });
 
   it("RLS policies are enabled on critical tenant-scoped tables", async () => {

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Typecheck · Lint · Tests · Build
+    runs-on: ubuntu-latest
+
+    # The BEYU OS test suite is not purely unit-level: tenant isolation, audit-chain
+    # concurrency, atomic-transaction and governed-mutation suites assert against a
+    # real PostgreSQL instance. A service container is therefore required, not
+    # optional — mocking these would invalidate exactly the guarantees they prove.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyu_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
+      # Non-production bootstrap values for CI only. Real secrets are never
+      # committed and never printed (SECURITY.md).
+      BEYU_BOOTSTRAP_PASSWORD: ci_bootstrap_password_not_a_secret
+      AUTH_SECRET: ci_auth_secret_value_used_only_in_continuous_integration
+      MFA_ENCRYPTION_KEY: ci_mfa_encryption_key_used_only_in_integration
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Apply versioned migrations
+        # scripts/migrate.ts is the only migration runner; drizzle-kit push is
+        # never used against a managed database.
+        run: npm run migrate
+
+      - name: Verify no migration drift
+        # drizzle-kit must agree the committed migrations fully describe the
+        # schema. If it wants to generate a new migration, the journal or the
+        # migrations are out of sync with src/db/schema.
+        run: |
+          set -euo pipefail
+          before=$(ls drizzle/*.sql | wc -l)
+          npx drizzle-kit generate --name=ci_drift_check
+          after=$(ls drizzle/*.sql | wc -l)
+          if [ "$before" != "$after" ]; then
+            echo "::error::Migration drift detected — drizzle-kit generated a new migration."
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "No migration drift."
+
+      - name: Seed bootstrap data
+        run: npm run seed
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Credential literal scan
+        run: |
+          set -euo pipefail
+          if grep -rIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               -E "BeyuOS#|password\s*=\s*[\"'][^\"']{8,}" src/ scripts/ tests/; then
+            echo "::error::Possible credential literal committed."
+            exit 1
+          fi
+          echo "No credential literals found."

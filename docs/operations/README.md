@@ -6,17 +6,17 @@
 | --- | --- |
 | Runtime | Next.js (App Router) server + PostgreSQL |
 | Config | Environment variables only; `DATABASE_URL` required; no secrets in code or DB |
-| Schema | Drizzle migrations — `npx drizzle-kit push` in sandboxes, generated migrations in production |
-| Bootstrap | `npx tsx src/db/seed.ts` (idempotent constitutional bootstrap) |
+| Schema | Versioned Drizzle migrations applied by `npm run migrate` in every environment; author with `npm run migrate:generate`. `drizzle-kit push` is prohibited outside a disposable local database. |
+| Bootstrap | `npm run seed` (idempotent constitutional bootstrap) |
 | Probes | `GET /api/health` (liveness + readiness, DB check, latency) |
 | Portability | Domain engines are framework-free and portable to NestJS/Kubernetes/Lambda |
 
 ## Pipeline gates (must all pass before deploy)
 
-1. `npx next typegen`
-2. `npm exec tsc -- --noEmit`
-3. `npm run lint`
-4. `npx vitest run` — 21 deterministic control tests
+1. `npm run typecheck`
+2. `npm run lint`
+3. `npm run migrate` — versioned migrations, then a drizzle-kit drift check
+4. `npm test` — 58 tests across 6 suites (requires PostgreSQL)
 5. `npm run build`
 6. Dependency, secret, container and IaC scanning
 7. Migration validation (pre-check → backup → migrate → validate → reconcile → post-check)

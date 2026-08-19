@@ -15,20 +15,20 @@
 ## Development Workflow
 
 ```bash
-git checkout -b feature/your-feature develop
-npm install
+git checkout -b feature/your-feature main
+npm ci                # reproducible install from the committed lockfile
 cp .env.example .env  # fill in local values
-npx tsx scripts/migrate.ts
-BEYU_BOOTSTRAP_PASSWORD=your-local-pw npx tsx src/db/seed.ts
+npm run migrate
+BEYU_BOOTSTRAP_PASSWORD=your-local-pw npm run seed
 npm run dev
-npx vitest run
+npm test
 npm run build
 ```
 
 ## Pull Request Requirements
 
-- [ ] TypeScript clean (`npx tsc --noEmit`)
-- [ ] Tests pass (`npx vitest run`)
+- [ ] TypeScript clean (`npm run typecheck`)
+- [ ] Tests pass (`npm test`)
 - [ ] Production build passes (`npm run build`)
 - [ ] No credential literals in source
 - [ ] Tenant-scoped queries use `tenantScopeIds()`

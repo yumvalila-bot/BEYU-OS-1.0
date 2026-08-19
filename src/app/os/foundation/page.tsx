@@ -1,7 +1,8 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { capitalRequests, foundationPrograms, legalEntities, osRegistry, tenants } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -10,15 +11,43 @@ export default async function FoundationPage() {
   const access = await requireAccess("platform:dashboard.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="platform:dashboard.read" />;
 
-  const foundationTenant = await db.select().from(tenants).where(eq(tenants.code, "BEYU-FOUNDATION")).limit(1);
-  const programs = foundationTenant[0]
-    ? await db.select().from(foundationPrograms).where(eq(foundationPrograms.tenantId, foundationTenant[0].id))
-    : [];
-  const entity = await db.select().from(legalEntities).where(eq(legalEntities.code, "BEYU-FDN")).limit(1);
+  /**
+   * H-NEW-2: the Foundation is a distinct tenant, not a global namespace. Its
+   * records are resolved by tenant identity and then intersected with the
+   * principal's canonical tenant scope. The BEYU-FOUNDATION code is used only to
+   * identify the tenant — never to bypass scope. A principal outside the
+   * Foundation subtree is denied rather than shown another tenant's data.
+   */
+  const scope = await tenantScopeIds(access.principal);
+  const [foundationTenant] = await db
+    .select()
+    .from(tenants)
+    .where(and(eq(tenants.code, "BEYU-FOUNDATION"), inArray(tenants.id, scope)))
+    .limit(1);
+
+  if (!foundationTenant) {
+    return (
+      <Denied
+        reason="Tenant isolation: the BEYU Foundation tenant is outside your authorised scope."
+        capability="platform:dashboard.read"
+      />
+    );
+  }
+
+  const foundationScope = [foundationTenant.id];
+  const programs = await db
+    .select()
+    .from(foundationPrograms)
+    .where(inArray(foundationPrograms.tenantId, foundationScope));
+  const entity = await db
+    .select()
+    .from(legalEntities)
+    .where(and(eq(legalEntities.code, "BEYU-FDN"), inArray(legalEntities.tenantId, foundationScope)))
+    .limit(1);
   const funding = await db
     .select()
     .from(capitalRequests)
-    .where(inArray(capitalRequests.sectorCode, ["FOUNDATION"]));
+    .where(and(eq(capitalRequests.sectorCode, "FOUNDATION"), inArray(capitalRequests.tenantId, scope)));
   const charter = await db.select().from(osRegistry).where(eq(osRegistry.code, "FOUNDATION_OS")).limit(1);
 
   const budget = programs.reduce((a, p) => a + Number(p.budget), 0);

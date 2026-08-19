@@ -59,6 +59,31 @@ Jurisdiction-gated; unlawful positions are hard-blocked; every outcome carries l
 documentation, risk, governance requirement and a non-reliance disclaimer.
 Emits `TAX_STRATEGY_ASSESSED`.
 
+### `POST /api/v1/governance/resolutions`
+Capability `governance:resolution.propose` · rate limit 20/min · supports `Idempotency-Key`.
+
+**The canonical BEYU OS governed mutation.** Body:
+`{ bodyId, title, category, summary, rationale, dataBasis, consequences, classification,
+authorityPolicyId?, linkedObjectType?, linkedObjectId? }`
+
+Returns `201` with the persisted resolution: `{ id, reference, status, tenantId, bodyId, bodyName,
+title, category, classification, requiredMajority, proposedBy, quorumMet, createdAt, obligations,
+appliedPolicies }`. Emits `GOVERNANCE_RESOLUTION_PROPOSED`.
+
+Server-derived and **rejected if supplied by the client** (`422 SERVER_CONTROLLED_FIELD`):
+`tenantId` (from the governance body), `proposedBy` (from the session's role grants), `reference`
+(allocated under an advisory lock), `status`, `requiredMajority` (from the body's majority rule),
+all vote counters and `decisionDate`.
+
+Lifecycle integrity: a proposal is always created in the initial `DRAFT` state with zero votes and
+no decision date. Requesting a decided status returns `422 STATUS_NOT_PROPOSABLE`. Voting and
+approval are separate governed mutations and are **not yet implemented**.
+
+Additional error codes: `CLASSIFICATION_DENIED` (403), `RULE_VIOLATION` (422), `CONFLICT` (409).
+
+The domain write, the hash-chained audit record and the domain event are committed in a **single
+database transaction** — if any one fails, all three roll back.
+
 ### `GET /api/v1/system/self-test`
 Capability `audit:log.read`. Executes nine deterministic control tests (audit chain, policy
 hierarchy, tenant isolation, classification ceiling, waterfall determinism, tax blocking,

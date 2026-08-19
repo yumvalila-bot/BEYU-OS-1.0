@@ -28,7 +28,7 @@ src/
 
 drizzle/              # Versioned SQL migrations
 scripts/              # Migration runner, evidence runner
-tests/                # 5 suites, 37 tests
+tests/                # 6 suites, 58 tests
 docs/                 # Architecture, constitution, security, API, events, AI, operations, runbooks, ADR, compliance, remediation
 ```
 
@@ -52,8 +52,8 @@ docs/                 # Architecture, constitution, security, API, events, AI, o
 ## Deployment
 
 1. `npm ci`
-2. `npx tsx scripts/migrate.ts` (applies pending migrations with advisory lock)
-3. `BEYU_BOOTSTRAP_PASSWORD=... npx tsx src/db/seed.ts` (one-time constitutional bootstrap; refuses production without explicit override)
+2. `npm run migrate` (applies pending migrations with advisory lock)
+3. `BEYU_BOOTSTRAP_PASSWORD=... npm run seed` (one-time constitutional bootstrap; refuses production without explicit override)
 4. `npm run build && npm start`
 
 ## Known Limitations (documented, not hidden)

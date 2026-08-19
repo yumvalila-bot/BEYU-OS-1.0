@@ -1,6 +1,8 @@
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { legalEntities, taxStrategies } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
@@ -18,10 +20,18 @@ export default async function TaxPage() {
   const access = await requireAccess("finance:tax.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:tax.read" />;
 
-  const [strategies, entities] = await Promise.all([
+  // H-NEW-1: legal entities are tenant-scoped data and must never be enumerated
+  // globally. Scope is derived from the authenticated principal via the canonical
+  // tenant-scope helper, then narrowed further by the principal's ABAC entity scope.
+  const scope = await tenantScopeIds(access.principal);
+  const [strategies, scopedEntities] = await Promise.all([
     db.select().from(taxStrategies).orderBy(taxStrategies.jurisdictionCode),
-    db.select().from(legalEntities),
+    db.select().from(legalEntities).where(inArray(legalEntities.tenantId, scope)),
   ]);
+  const entities =
+    access.principal.entityScope.length > 0
+      ? scopedEntities.filter((e) => access.principal.entityScope.includes(e.id))
+      : scopedEntities;
   const canAssess = can(access.principal, "finance:tax.assess").allowed;
   const assessable = strategies.filter((s) => s.position !== "PROHIBITED_EVASION");
 
