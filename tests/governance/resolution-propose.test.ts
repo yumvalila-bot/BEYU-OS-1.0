@@ -521,6 +521,59 @@ describe("governed mutation — governance resolution proposal", () => {
     expect(c.requiredMajority).toBe("TWO_THIRDS");
   });
 
+  it("refuses a CAPITAL proposal that is really a reserved matter (miscategorisation)", async () => {
+    const governance = await principalFor("GRACE_KILELE");
+    const before = await createdCount();
+    await expect(
+      proposeResolution(governance, validInput({ category: "CAPITAL", amount: 5_000_000 }), ctx),
+    ).rejects.toMatchObject({ code: "RULE_VIOLATION" });
+    expect(await createdCount()).toBe(before);
+  });
+
+  it("refuses routing a reserved capital allocation to a non-competent body", async () => {
+    const governance = await principalFor("GRACE_KILELE");
+    const taxBody = fixedId(ID_PREFIX.body, "TAX_GOVERNANCE_COMMITTEE");
+    const before = await createdCount();
+    await expect(
+      proposeResolution(
+        governance,
+        validInput({
+          bodyId: taxBody,
+          category: "RESERVED_MATTER",
+          matterTrigger: "CAPITAL_ALLOCATION",
+          amount: 5_000_000,
+        }),
+        ctx,
+      ),
+    ).rejects.toMatchObject({ code: "RULE_VIOLATION" });
+    expect(await createdCount()).toBe(before);
+  });
+
+  it("POSITIVE: a correctly categorised reserved capital proposal to the Board is accepted", async () => {
+    const governance = await principalFor("GRACE_KILELE");
+    const ok = await proposeResolution(
+      governance,
+      validInput({
+        category: "RESERVED_MATTER",
+        matterTrigger: "CAPITAL_ALLOCATION",
+        amount: 5_000_000,
+      }),
+      ctx,
+    );
+    expect(ok.category).toBe("RESERVED_MATTER");
+    expect(ok.bodyId).toBe(BODY_GROUP_BOARD);
+  });
+
+  it("a small CAPITAL proposal that no body reserves is ordinary business", async () => {
+    const governance = await principalFor("GRACE_KILELE");
+    const ok = await proposeResolution(
+      governance,
+      validInput({ category: "CAPITAL", amount: 100 }),
+      ctx,
+    );
+    expect(ok.category).toBe("CAPITAL");
+  });
+
   it("refuses a reserved-matter proposal to a body with no reserved matters", async () => {
     const governance = await principalFor("GRACE_KILELE");
     // Seed the case by clearing reserved matters on a scratch body would mutate

@@ -447,8 +447,14 @@ describe("audit service — positive controls on real ledger activity", () => {
     expect(byActor.data.records.length).toBeGreaterThanOrEqual(3);
     expect(byActor.data.records.every((x) => x.actorUserId === "USR_GENERATOR")).toBe(true);
 
-    const byOutcome = await searchAuditRecords(ctx(), { window: WINDOW, outcome: "DENIED" });
-    // No denials were generated; the empty result must be explained, not presented as assurance.
+    const byOutcome = await searchAuditRecords(ctx(), {
+      window: WINDOW,
+      outcome: "DENIED",
+      actorUserId: "USR_GENERATOR",
+    });
+    // This suite generated no denials for USR_GENERATOR. Other suites (HTTP 403,
+    // TOTP replay) may append DENIED rows to the same tenant ledger; a global
+    // empty-DENIED assertion is therefore not an invariant of this module.
     expect(byOutcome.data.records).toHaveLength(0);
     expect(byOutcome.explanation.join(" ")).toMatch(/not evidence that the activity never occurred/i);
   });

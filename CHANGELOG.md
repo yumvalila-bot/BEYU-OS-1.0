@@ -1,5 +1,85 @@
 # Changelog
 
+## [Unreleased] — HCM-1: production-complete HCM without a second master — 2026-08-23
+
+### Added — genuine HCM-1 gaps only
+- `getEmployee` / `GET /api/v1/hcm/employees/:id` (same master, non-enumerating 404).
+- Derived employment view from employees + employment_events.
+- `observeWorkforce` (empty scope = DATA_NOT_AVAILABLE, never 0).
+- `assessWorkforceQuality` (advisory, does not repair).
+- `listOrganizations` (seed empty → DATA_NOT_AVAILABLE).
+- `proposeEmploymentChange` SIMULATION write chain → AUTHORITY_CHAIN_INCOMPLETE.
+
+### Not implemented (deliberately)
+- No second employee/employment/job table, no payroll, no HCMWorkflow2, no financial mutation.
+
+## [Unreleased] — Phase 12: HCM completeness & canonical compliance — 2026-08-23
+
+### Added — genuine HCM gaps only
+- Entity isolation and employing-entity tenant reach on `listWorkforce()`.
+- Temporal classifier (`CURRENT` / `FUTURE` / `EXPIRED` / `TERMINATED`) and a
+  refuse-to-write lifecycle primitive (`recordEmploymentChange` → REQUIRES_AUTHORITY).
+- Manager-hierarchy integrity asserts (cycle, self, cross-tenant/entity, dates).
+- `filterByClearance` fails closed on unknown principal clearance (common platform).
+- UI and Noelia now consume `listWorkforce` instead of querying `employees` directly.
+- Phase 12 HCM completeness matrix (`src/lib/architecture/hcm.ts`).
+
+### Not implemented (deliberately)
+- No second employee master, no payroll, no Sector OS, no HCM write, no financial mutation.
+
+## [Unreleased] — Phase 11: production readiness & isolated execution simulation — 2026-08-23
+
+### Added
+- `simulateGovernedExecution()` — composes the existing 6C / scoped-authority /
+  epistemic / writer / SoD / workflow / lineage primitives as a SIMULATION.
+  Verdicts are only SIMULATION_ELIGIBLE | SIMULATION_DENIED. Production state
+  is structurally untouched (`mutatedProductionState: false`).
+- Production readiness matrix (`src/lib/architecture/readiness.ts`).
+
+### Not implemented (deliberately)
+- No P1–P11 activation, no posting, no second gate, no Legal engine.
+
+## [Unreleased] — Phase 10: canonical architecture reconciliation — 2026-08-23
+
+### Added — common platform only
+- **Identity graph** (`src/lib/identity.ts`) — resolves employee → party → GlobalUserID
+  (`users.id`) → tenant → entity. Fails closed on missing, tenant mismatch, and two
+  logins for one party. Not a second identity store.
+- HCM consumption records now carry `globalUserId`. Compensation remains RESTRICTED-gated.
+- `assertPermissionCatalogParity()` — detects drift between `ROLES` and `role_permissions`
+  without changing the runtime source (H-01 remains open).
+- Phase 10 maturity matrices (`src/lib/architecture/phase10.ts`) and invariant suite
+  (INVARIANTS 1–18).
+
+### Not implemented (deliberately)
+- No H-01 runtime cutover, no Legal engine, no AR/AP/FA/Inventory, no ratification.
+
+## [Unreleased] — Phase 9: canonical architecture completion & integration audit — 2026-08-23
+
+### Added — genuine gaps only
+- **Reserved-matter enforcement at the proposal and capital-authorization boundaries.**
+  `proposeResolution()` now runs `requiresReservedMatterTreatment` + `checkBodyCompetence`.
+  A `CAPITAL` proposal of USD 5,000,000 is refused as miscategorisation; routing a reserved
+  capital allocation to the Tax Committee is refused as `RESERVED_MATTER_BYPASS`. The only
+  inferred trigger is `CAPITAL → CAPITAL_ALLOCATION`; other mappings would invent law.
+  Capital authorization is unchanged (Board vs IC competence at USD 250k is the
+  reserved-matter engine's existing rule, not a new one).
+- **Constitution constraint engine** (`src/lib/governance/constitution.ts`) — evaluates
+  article *hierarchy* (Art. 1 supreme). Article prose is not compiled into rules.
+- **Enterprise completeness matrix** (`src/lib/architecture/completeness.ts`) — machine-derived,
+  cannot self-flatter. Composes Finance OS and Governance registries.
+- **HCM consumption API** `GET /api/v1/hcm/employees` — the declared Sector-OS read path.
+  Compensation stripped below RESTRICTED. Read-only.
+- Tax specialist exports `assertLiabilityUncomputed` and `relianceOf` for independent FI.
+
+### Not implemented (deliberately)
+- No Sector OS, no AR/AP/FA/Inventory, no Docker/Supabase, no CI workflow activation,
+  no P1–P11 ratification, no financial mutation.
+
+### Verified
+- Migration fingerprint unchanged: `611865f1aca2f81eeb72a6c418b49732`.
+- Financial and authority state: BEFORE == AFTER.
+
 ## [Unreleased] — Phase 5A: ledger integrity invariants (substrate BLOCKED) — 2026-08-21
 
 ### Added — enforced by PostgreSQL, not application code (migration `0005_ledger_integrity_invariants`)

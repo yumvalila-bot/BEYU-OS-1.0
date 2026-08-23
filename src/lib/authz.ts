@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
 import {
   classificationRank,
+  isKnownClassification,
   HIGH_RISK_PERMISSIONS,
   PERMISSIONS,
   ROLES,
@@ -163,6 +164,10 @@ export function filterByClearance<T extends { classification?: string | null }>(
   principal: Principal,
   rows: T[],
 ): T[] {
+  // Unknown principal clearance is a privilege-escalation vector: classificationRank()
+  // ranks unknown DATA high (deny) but would rank an unknown PRINCIPAL above
+  // HIGHLY_RESTRICTED (allow). Fail closed in the common primitive.
+  if (!isKnownClassification(principal.clearance)) return [];
   return rows.filter(
     (r) => !r.classification || classificationRank(r.classification) <= classificationRank(principal.clearance),
   );

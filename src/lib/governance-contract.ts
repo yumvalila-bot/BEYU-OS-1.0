@@ -54,6 +54,24 @@ export const ProposeResolutionSchema = z
     authorityPolicyId: z.string().min(3).max(64).nullish(),
     linkedObjectType: z.string().min(2).max(64).nullish(),
     linkedObjectId: z.string().min(2).max(64).nullish(),
+    amount: z.number().nonnegative().finite().nullish(),
+    matterTrigger: z
+      .enum([
+        "CAPITAL_ALLOCATION",
+        "OWNERSHIP_CHANGE",
+        "NEW_SECTOR_OS",
+        "POLICY_CONSTITUTION",
+        "DISTRIBUTION",
+        "RISK_ACCEPTANCE",
+        "AUDIT_FINDING_CLOSURE",
+        "AGGRESSIVE_TAX_POSITION",
+        "BENEFICIARY_ELIGIBILITY",
+        "SUCCESSION",
+        "FAMILY_CONSTITUTION",
+        "TRUST_DISTRIBUTION",
+        "TRUST_AMENDMENT",
+      ])
+      .nullish(),
   })
   .strict();
 

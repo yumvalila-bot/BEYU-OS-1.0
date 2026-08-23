@@ -1,12 +1,17 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { governanceBodies, policies, resolutions } from "@/db/schema";
+import { capitalRequests, governanceBodies, policies, resolutions } from "@/db/schema";
 import { can, type Principal } from "./authz";
 import { evaluatePolicy, type PolicyObligation } from "./policy";
 import { withAuditTransaction } from "./audit";
 import { assertWithinScope, tenantScopeIds, TenantIsolationError } from "./tenant-scope";
 import { newId, ID_PREFIX } from "./ids";
 import { classificationRank, type Classification } from "./constants";
+import {
+  checkBodyCompetence,
+  requiresReservedMatterTreatment,
+  type MatterTrigger,
+} from "./governance/reserved-matters";
 
 /**
  * BEYU OS — Governance domain service.
@@ -136,6 +141,18 @@ export type ProposeResolutionInput = {
   authorityPolicyId?: string | null;
   linkedObjectType?: string | null;
   linkedObjectId?: string | null;
+  /**
+   * Monetary amount of the operation, when known. Required to evaluate
+   * `CAPITAL>N` reserved matters. Omitting it does NOT escape a monetary
+   * reservation — the reserved-matters engine fails closed.
+   */
+  amount?: number | null;
+  /**
+   * Which reserved-matter trigger this proposal engages. Inferred as
+   * CAPITAL_ALLOCATION when category is CAPITAL. Other mappings are not
+   * inferred — that would invent law.
+   */
+  matterTrigger?: MatterTrigger | null;
 };
 
 export type ProposeResolutionContext = {
@@ -209,6 +226,39 @@ async function nextReference(
 
 function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err !== null && (err as { code?: string }).code === "23505";
+}
+
+/**
+ * Infer a reserved-matter trigger from the proposal.
+ *
+ * CAPITAL → CAPITAL_ALLOCATION is the only inference: the ratified reserved
+ * strings are written `CAPITAL>N`. Mapping POLICY → POLICY_CONSTITUTION or
+ * TAX → AGGRESSIVE_TAX_POSITION would invent law — those require an explicit
+ * matterTrigger from the caller.
+ */
+export function inferMatterTrigger(
+  category: ResolutionCategory,
+  matterTrigger?: MatterTrigger | null,
+): MatterTrigger | null {
+  if (matterTrigger) return matterTrigger;
+  if (category === "CAPITAL") return "CAPITAL_ALLOCATION";
+  return null;
+}
+
+async function resolveProposalAmount(input: ProposeResolutionInput): Promise<number | null> {
+  if (typeof input.amount === "number" && Number.isFinite(input.amount)) return input.amount;
+  if (input.linkedObjectType === "CAPITAL_REQUEST" && input.linkedObjectId) {
+    const [req] = await db
+      .select({ amount: capitalRequests.amount })
+      .from(capitalRequests)
+      .where(eq(capitalRequests.id, input.linkedObjectId))
+      .limit(1);
+    if (req?.amount != null) {
+      const n = Number(req.amount);
+      return Number.isFinite(n) ? n : null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -305,6 +355,40 @@ export async function proposeResolution(
       "RULE_VIOLATION",
       "This body has no reserved matters; the proposal cannot be categorised as a reserved matter.",
     );
+  }
+
+  /* ---- 4b. RESERVED-MATTER COMPETENCE (Phase 9 integration) --------------
+   * The reserved-matters engine existed and was tested in isolation. A capital
+   * allocation of 5,000,000 categorised CAPITAL (not RESERVED_MATTER) still
+   * passed this service. The engine is now the API-boundary control. */
+  const trigger = inferMatterTrigger(input.category, input.matterTrigger);
+  if (trigger) {
+    const amount = await resolveProposalAmount(input);
+    const treatment = await requiresReservedMatterTreatment({
+      trigger,
+      amount,
+      declaredCategory: input.category,
+    });
+    if (treatment.decision === "MISCATEGORISED_RESERVED_MATTER") {
+      throw new GovernanceError("RULE_VIOLATION", treatment.reason, {
+        competentBodies: treatment.competentBodies,
+      });
+    }
+    const competence = await checkBodyCompetence({
+      bodyId: governingBody.id,
+      trigger,
+      amount,
+    });
+    if (
+      competence.decision === "RESERVED_MATTER_BYPASS" ||
+      competence.decision === "BODY_NOT_FOUND" ||
+      competence.decision === "UNPARSEABLE_MATTER"
+    ) {
+      throw new GovernanceError("RULE_VIOLATION", competence.reason, {
+        decision: competence.decision,
+        competentBodies: competence.competentBodies,
+      });
+    }
   }
 
   /* ---- 5. WRITE-PATH TENANT INVARIANT ---------------------------------

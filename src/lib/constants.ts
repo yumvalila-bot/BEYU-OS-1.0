@@ -23,6 +23,11 @@ export function classificationRank(c: string): number {
   return idx < 0 ? CLASSIFICATION_ORDER.length : idx;
 }
 
+/** Known catalogue only. Unknown strings must never be treated as a clearance. */
+export function isKnownClassification(c: string): c is Classification {
+  return (CLASSIFICATION_ORDER as readonly string[]).includes(c);
+}
+
 /**
  * Canonical permission catalogue (domain:object.action).
  * A capability that is not listed here does not exist constitutionally.

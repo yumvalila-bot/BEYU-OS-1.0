@@ -147,6 +147,29 @@ export function listTaxRules(): TaxRule[] {
 }
 
 /**
+ * EXPORTED FOR DIRECT TESTING. FI on tax: a computed number here would be an
+ * unratified tax position. The pipeline used to hide this behind "candidates
+ * exist", so deleting `computedLiability: null` was invisible. The invariant
+ * must be assertable on its own.
+ */
+export function assertLiabilityUncomputed(liability: unknown): void {
+  if (liability !== null) {
+    throw new SpecialistError(
+      "RULE_VIOLATION",
+      "Tax liability is never computed by this module. A number here would be an unratified tax position.",
+    );
+  }
+}
+
+/**
+ * EXPORTED FOR DIRECT TESTING. Only AUTHORITATIVE rules may be relied upon.
+ * Any other status is specialist-review, never a silent promotion to applicable.
+ */
+export function relianceOf(authority: TaxRuleAuthority): "APPLICABLE" | "REQUIRES_SPECIALIST_REVIEW" {
+  return authority === "AUTHORITATIVE" ? "APPLICABLE" : "REQUIRES_SPECIALIST_REVIEW";
+}
+
+/**
  * Pure assessment. Selects candidate treatments; never computes a liability.
  * Exported for deterministic unit testing without a database or principal.
  */
@@ -199,7 +222,8 @@ export function assess(request: TaxAssessmentRequest): TaxAssessmentOutput {
       };
     }
 
-    if (rule.authority !== "AUTHORITATIVE") {
+    const reliance = relianceOf(rule.authority);
+    if (reliance !== "APPLICABLE") {
       return {
         ruleCode: rule.ruleCode,
         legalSource: rule.legalSource,
@@ -241,7 +265,7 @@ export function assess(request: TaxAssessmentRequest): TaxAssessmentOutput {
           "LOW",
         );
 
-  return {
+  const output: TaxAssessmentOutput = {
     jurisdictionCode: request.jurisdictionCode,
     taxType: request.taxType,
     asOf: request.asOf,
@@ -255,6 +279,8 @@ export function assess(request: TaxAssessmentRequest): TaxAssessmentOutput {
     complianceChecklist: checklist,
     overallRisk,
   };
+  assertLiabilityUncomputed(output.computedLiability);
+  return output;
 }
 
 /**
@@ -279,6 +305,7 @@ export async function assessTax(
     context,
     async () => {
       const output = assess(request);
+      assertLiabilityUncomputed(output.computedLiability);
 
       return {
         data: output,

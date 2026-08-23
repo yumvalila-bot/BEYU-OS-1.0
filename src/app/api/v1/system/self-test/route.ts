@@ -4,6 +4,7 @@ import { policies } from "@/db/schema";
 import { apiOk, guarded } from "@/lib/api";
 import { verifyAuditChain } from "@/lib/audit";
 import { detectHierarchyConflicts, evaluatePolicy } from "@/lib/policy";
+import { evaluateConstitution } from "@/lib/governance/constitution";
 import { runWaterfall } from "@/lib/waterfall";
 import { assessTaxStrategy } from "@/lib/tax";
 import { can } from "@/lib/authz";
@@ -181,6 +182,16 @@ export async function GET(request: Request) {
         expectation: "No orphaned employee master records",
         passed: Number(orphans?.count ?? 0) === 0,
         detail: `${orphans?.count ?? 0} orphan(s)`,
+      });
+
+      // 10. Constitution article hierarchy (structural — does not interpret prose)
+      const constitution = await evaluateConstitution();
+      results.push({
+        control: "CTL-CON-010",
+        area: "CONSTITUTION",
+        expectation: "Art. 1 is ACTIVE and no lower-cited article overrides a higher DENY",
+        passed: constitution.decision === "CONSISTENT",
+        detail: constitution.reason,
       });
 
       const passed = results.filter((r) => r.passed).length;
