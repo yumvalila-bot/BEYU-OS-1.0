@@ -41,7 +41,7 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
 
 describe("HCM workforce consumption", () => {
   it("versions are pinned", () => {
-    expect(HCM_VERSION).toBe("hcm-1.0.0");
+    expect(HCM_VERSION).toBe("hcm-1.1.0");
   });
 
   it("POSITIVE: an authorised principal reads the single employee master", async () => {
@@ -51,6 +51,7 @@ describe("HCM workforce consumption", () => {
     expect(result.records.length).toBe(7);
     expect(new Set(result.records.map((r) => r.employeeNo)).size).toBe(result.records.length);
     expect(result.records.every((r) => r.partyId.startsWith("PTY_"))).toBe(true);
+    expect(result.records.every((r) => r.globalUserId?.startsWith("USR_"))).toBe(true);
   });
 
   it("NEGATIVE: a principal without hcm:employee.read is denied", async () => {

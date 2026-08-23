@@ -69,11 +69,11 @@ export const ENTERPRISE_DOMAINS: readonly ArchitectureDomain[] = [
   {
     domain: "Identity",
     canonicalSource: "identity.parties / identity.users (ONE GlobalUserID = users.id → parties.id)",
-    module: "src/db/schema/identity.ts + src/lib/session.ts + src/lib/authz.ts",
+    module: "src/db/schema/identity.ts + src/lib/identity.ts + src/lib/session.ts + src/lib/authz.ts",
     evidence: E(),
     blockers: [],
     missingComponent: "—",
-    notes: "ONE party MDM, ONE user, sessions, roles, grants, MFA, emergency access. Runtime permissions still resolve from constants.ts (H-01), mirrored into role_permissions at seed.",
+    notes: "ONE party MDM, ONE GlobalUserID (users.id), sessions, roles, grants, MFA. Runtime permissions still resolve from constants.ts (H-01); role_permissions is a parity-checked mirror.",
   },
   {
     domain: "Security",
@@ -217,7 +217,7 @@ export const ENTERPRISE_DOMAINS: readonly ArchitectureDomain[] = [
     evidence: E(),
     blockers: [],
     missingComponent: "—",
-    notes: "THREE registries, one concern each. This one is the enterprise roll-up.",
+    notes: "THREE registries, one concern each. This one is the enterprise roll-up. Phase 10 exposes the three required matrices from the same evidence.",
   },
   {
     domain: "Workflow",

@@ -1,5 +1,5 @@
 /**
- * BEYU OS — HCM consumption service (Phase 9).
+ * BEYU OS — HCM consumption service (Phase 9 / 10).
  *
  * HCM is the ONE employee/master. Sector OSs consume this service; they do not
  * hold an independent employee identity. This module is READ-ONLY: creating or
@@ -8,20 +8,26 @@
  *
  * Compensation is classified RESTRICTED and is stripped unless the principal's
  * clearance meets that ceiling — matching the existing HCM page.
+ *
+ * Phase 10 attaches GlobalUserID from the canonical identity graph. Finance
+ * may consume that id; it does not receive pay data through the identity graph.
  */
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { employees, legalEntities, parties, positions } from "@/db/schema";
 import { can, filterByClearance, type Principal } from "./authz";
 import { classificationRank } from "./constants";
+import { globalUserIdsForParties, type GlobalUserID } from "./identity";
 import { tenantScopeIds } from "./tenant-scope";
 
-export const HCM_VERSION = "hcm-1.0.0";
+export const HCM_VERSION = "hcm-1.1.0";
 
 export type WorkforceRecord = {
   employeeId: string;
   employeeNo: string;
   partyId: string;
+  /** Canonical login identity. Null only if the party has no user row. */
+  globalUserId: GlobalUserID | null;
   displayName: string;
   tenantId: string;
   legalEntityId: string;
@@ -89,6 +95,7 @@ export async function listWorkforce(principal: Principal): Promise<{
 
   const visible = filterByClearance(principal, rows);
   const showPay = classificationRank(principal.clearance) >= classificationRank("RESTRICTED");
+  const logins = await globalUserIdsForParties(visible.map((r) => r.partyId));
 
   return {
     source: "people.employees",
@@ -97,6 +104,7 @@ export async function listWorkforce(principal: Principal): Promise<{
       employeeId: r.employeeId,
       employeeNo: r.employeeNo,
       partyId: r.partyId,
+      globalUserId: logins.get(r.partyId) ?? null,
       displayName: r.displayName,
       tenantId: r.tenantId,
       legalEntityId: r.legalEntityId,

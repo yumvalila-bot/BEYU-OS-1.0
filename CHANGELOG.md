@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased] — Phase 10: canonical architecture reconciliation — 2026-08-23
+
+### Added — common platform only
+- **Identity graph** (`src/lib/identity.ts`) — resolves employee → party → GlobalUserID
+  (`users.id`) → tenant → entity. Fails closed on missing, tenant mismatch, and two
+  logins for one party. Not a second identity store.
+- HCM consumption records now carry `globalUserId`. Compensation remains RESTRICTED-gated.
+- `assertPermissionCatalogParity()` — detects drift between `ROLES` and `role_permissions`
+  without changing the runtime source (H-01 remains open).
+- Phase 10 maturity matrices (`src/lib/architecture/phase10.ts`) and invariant suite
+  (INVARIANTS 1–18).
+
+### Not implemented (deliberately)
+- No H-01 runtime cutover, no Legal engine, no AR/AP/FA/Inventory, no ratification.
+
 ## [Unreleased] — Phase 9: canonical architecture completion & integration audit — 2026-08-23
 
 ### Added — genuine gaps only
