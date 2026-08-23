@@ -63,8 +63,10 @@ Sets an HttpOnly, SameSite=Lax, Secure (in production) session cookie. Emits `US
 Revokes the session server-side and clears the cookie.
 
 ### `POST /api/v1/ai/noelia`
-Capability `ai:noelia.query` · rate limit 30/min. Body `{ question }`.
-Returns the governed answer: `outputClass` (FACT | INFERENCE | RECOMMENDATION | PREDICTION |
+Capability `ai:noelia.query` · rate limit 30/min. Body:
+`{ question, context?: { tenantId?, legalEntityId?, countryCode? } }` (strict schema).
+Requested context is never a grant; every target is resolved through the registered-tool composite
+scope and denied if its tenant/entity/country relationship is not authorized. Returns the governed answer: `outputClass` (FACT | INFERENCE | RECOMMENDATION | PREDICTION |
 UNCERTAINTY | REQUIRES_HUMAN_REVIEW), findings, narrative, sources, confidence,
 `humanReviewRequired`, `deniedScopes`, `policyDecision`, `toolsUsed`, `latencyMs`, `decisionId`.
 Persists an `ai_decisions` record and emits `AI_DECISION_RECORDED`.

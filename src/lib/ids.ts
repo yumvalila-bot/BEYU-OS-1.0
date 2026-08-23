@@ -76,6 +76,7 @@ export const ID_PREFIX = {
   event: "EVT",
   audit: "AUD",
   aiDecision: "AID",
+  noeliaAction: "NAR",
   knowledge: "KNW",
   notification: "NTF",
   integration: "INT",

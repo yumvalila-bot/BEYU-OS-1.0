@@ -1017,7 +1017,7 @@ describe("risk module — leaves governance and financial state untouched", () =
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(11);
+    expect(n).toBe(15);
   });
 
   it("leaves all triggers enabled", async () => {

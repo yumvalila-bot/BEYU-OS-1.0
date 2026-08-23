@@ -230,7 +230,8 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'APPROVED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
-            approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
+            approval_date = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST',
+            scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P6'
       `);
       expect((await verifyDecisionAuthority("P6")).verdict).toBe("APPROVED_NOT_EFFECTIVE");
@@ -263,7 +264,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
         update governance_decision_registry
         set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
             approval_date = null, effective_from = null, effective_to = null, approving_body = null,
-            decision_maker = null, scope = null, evidence = null
+            decision_maker = null, scope = null, conditions = null, evidence = null
         where decision_id = 'P6'
       `);
       await db.execute(
@@ -281,7 +282,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'RATIFIED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
-            effective_from = '2020-01-01', effective_to = ${yesterday}::date,
+            approval_date = '2020-01-01', effective_from = '2020-01-01', effective_to = ${yesterday}::date,
             approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P6'
       `);
@@ -291,7 +292,8 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
-            effective_from = null, effective_to = null, approving_body = null, decision_maker = null, evidence = null
+            approval_date = null, effective_from = null, effective_to = null, approving_body = null,
+            decision_maker = null, scope = null, conditions = null, evidence = null
         where decision_id = 'P6'
       `);
     }
@@ -314,7 +316,8 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
-            effective_from = null, approving_body = null, decision_maker = null, evidence = null
+            approval_date = null, effective_from = null, approving_body = null, decision_maker = null,
+            scope = null, conditions = null, evidence = null
         where decision_id = 'P6'
       `);
     }
@@ -329,7 +332,8 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'RATIFIED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
-            effective_from = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
+            approval_date = '2020-01-01', effective_from = '2020-01-01', approving_body = 'TEST',
+            decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P7'
       `);
       const check = await verifyDecisionAuthority("P7");
@@ -339,7 +343,8 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
-            effective_from = null, approving_body = null, decision_maker = null, evidence = null
+            approval_date = null, effective_from = null, approving_body = null, decision_maker = null,
+            scope = null, conditions = null, evidence = null
         where decision_id = 'P7'
       `);
     }

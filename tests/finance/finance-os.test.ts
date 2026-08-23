@@ -445,7 +445,7 @@ describe("Finance OS service contract", () => {
       tenantId: cachedTenant, legalEntityId: null, asOf: ASOF,
     });
     expect(r.permitted).toBe(false);
-    expect(r.decision).toBe("CAPABILITY_LOCKED");
+    expect(r.decision).toBe("AUTHORITY_CHAIN_INCOMPLETE");
   });
 
   it("denies a principal asserting another tenant", async () => {

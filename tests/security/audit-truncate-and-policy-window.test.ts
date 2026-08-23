@@ -18,9 +18,11 @@
  *
  * These are behavioural tests: they exercise the running database, never source text.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { publishEvent } from "@/lib/audit";
+import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 const ROLLBACK = "__ROLLBACK__";
 
@@ -50,6 +52,32 @@ async function scalar(query: Parameters<typeof db.execute>[0]): Promise<number> 
   const rows = result.rows ?? (result as unknown as Array<{ n: number }>);
   return Number(rows[0].n);
 }
+
+beforeAll(async () => {
+  // The canonical seed intentionally creates no operational event. Establish a
+  // real append through the production writer so destructive probes are never
+  // vacuous when this file runs first in an isolated suite.
+  if (await scalar(sql`select count(*)::int n from enterprise_events`)) return;
+  await withDatabaseRlsContext([], true, () => publishEvent({
+    type: "SECURITY_TEST_LEDGER_INITIALIZED",
+    source: "beyu-os/security-test",
+    domain: "AUDIT",
+    operation: "INITIALIZE_APPEND_ONLY_PROBE",
+    destinationDomain: null,
+    tenantId: null,
+    legalEntityId: null,
+    subjectType: "SECURITY_TEST",
+    subjectId: "AUDIT_TRUNCATE_PROBE",
+    actorType: "SERVICE",
+    classification: "INTERNAL",
+    payload: { purpose: "non-vacuous append-only test" },
+    traceId: "SECURITY_TEST_AUDIT_TRUNCATE",
+    correlationId: "SECURITY_TEST_AUDIT_TRUNCATE",
+    causationId: null,
+    authorityContext: null,
+    policyVersion: null,
+  }));
+});
 
 describe("audit ledger is append-only against TRUNCATE (Constitution Art. 8)", () => {
   it("blocks TRUNCATE on enterprise_events and leaves the ledger intact", async () => {

@@ -808,7 +808,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
   });
 
   it("adds no migration", async () => {
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(11);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(15);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

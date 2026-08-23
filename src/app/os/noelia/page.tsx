@@ -1,9 +1,10 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { aiDecisions, knowledgeSources, osRegistry } from "@/db/schema";
+import { aiDecisions, osRegistry } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { filterByClearance } from "@/lib/authz";
+import { listGovernedMemoryCatalog } from "@/lib/noelia/memory";
+import { resolveNoeliaAuthorizedScope } from "@/lib/noelia/scope-service";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { NoeliaConsole } from "./console";
 
@@ -19,20 +20,12 @@ export default async function NoeliaPage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="ai:noelia.query" />;
   return withTenantDatabaseContext(access.principal, async () => {
 
-  const [recent, knowledgeRows, hive] = await Promise.all([
+  const scope = await resolveNoeliaAuthorizedScope(access.principal);
+  const [recent, knowledge, hive] = await Promise.all([
     db.select().from(aiDecisions).where(eq(aiDecisions.tenantId, access.principal.tenantId)).orderBy(desc(aiDecisions.occurredAt)).limit(8),
-    db.select().from(knowledgeSources),
+    listGovernedMemoryCatalog({ principal: access.principal, scope }),
     db.select().from(osRegistry).where(eq(osRegistry.code, "HIVE_RUNTIME")).limit(1),
   ]);
-
-  const today = new Date().toISOString().slice(0, 10);
-  const knowledge = filterByClearance(access.principal, knowledgeRows).filter(
-    (source) =>
-      source.authorityStatus === "AUTHORITATIVE" &&
-      source.effectiveFrom <= today &&
-      source.reviewDate >= today &&
-      (!source.expiresAt || source.expiresAt >= today),
-  );
 
   return (
     <div className="space-y-6">
@@ -106,10 +99,10 @@ export default async function NoeliaPage() {
 
           <Panel kicker="Retrieval corpus" title="Authoritative knowledge available to Noelia">
             <div className="space-y-1.5">
-              {knowledge.map((k) => (
-                <div key={k.id} className="flex items-center justify-between gap-2 text-[11.5px]">
-                  <span>{k.title}</span>
-                  <Badge tone={stateTone(k.authorityStatus)}>{k.domain}</Badge>
+              {knowledge.map((item) => (
+                <div key={item.source.ref} className="flex items-center justify-between gap-2 text-[11.5px]">
+                  <span>{item.source.label}</span>
+                  <Badge tone={stateTone(item.source.authority)}>{item.scopeType}</Badge>
                 </div>
               ))}
             </div>

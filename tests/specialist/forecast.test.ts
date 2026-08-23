@@ -937,7 +937,7 @@ describe("forecast service — hostile inputs", () => {
   });
 
   it("adds no migration and no table", async () => {
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(11);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(15);
     expect(await count(sql`
       select count(*)::int as n from information_schema.tables
       where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')
