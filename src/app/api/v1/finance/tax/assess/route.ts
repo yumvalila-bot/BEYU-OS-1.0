@@ -6,7 +6,7 @@ import { apiError, apiOk, guarded, parseBody } from "@/lib/api";
 import { assessTaxStrategy } from "@/lib/tax";
 import { evaluatePolicy } from "@/lib/policy";
 import { tenantScopeIds } from "@/lib/tenant-scope";
-import { recordAudit, publishEvent } from "@/lib/audit";
+import { withAuditTransaction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -107,29 +107,34 @@ export async function POST(request: Request) {
           "Machine assessment only. It is not legal or tax advice and may not be relied upon until reviewed and approved by a qualified human through the Tax Governance workflow.",
       };
 
-      await recordAudit({
-        tenantId: ctx.principal.tenantId,
-        actorUserId: ctx.principal.userId,
-        action: "finance.tax.assess",
-        objectType: "TAX_STRATEGY",
-        objectId: strategy.id,
-        newValue: { entity: entity.code, eligibility: outcome.eligibility, blocked: outcome.blocked },
-        authority: "finance:tax.assess",
-        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(","),
-        ipAddress: ctx.ip,
-        traceId: ctx.traceId,
-      });
-      await publishEvent({
-        type: "TAX_STRATEGY_ASSESSED",
-        source: "beyu-os/finance",
-        tenantId: ctx.principal.tenantId,
-        subjectType: "TAX_STRATEGY",
-        subjectId: strategy.id,
-        actorUserId: ctx.principal.userId,
-        classification: "RESTRICTED",
-        payload: { eligibility: outcome.eligibility, entity: entity.code },
-        traceId: ctx.traceId,
-      });
+      // Tax assessment is non-authoritative analysis, but its audit and event
+      // evidence must still be committed as one traceable observation.
+      await withAuditTransaction(
+        async () => payload,
+        () => ({
+          tenantId: ctx.principal.tenantId,
+          actorUserId: ctx.principal.userId,
+          action: "finance.tax.assess",
+          objectType: "TAX_STRATEGY",
+          objectId: strategy.id,
+          newValue: { entity: entity.code, eligibility: outcome.eligibility, blocked: outcome.blocked },
+          authority: "finance:tax.assess",
+          policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(","),
+          ipAddress: ctx.ip,
+          traceId: ctx.traceId,
+        }),
+        () => ({
+          type: "TAX_STRATEGY_ASSESSED",
+          source: "beyu-os/finance",
+          tenantId: ctx.principal.tenantId,
+          subjectType: "TAX_STRATEGY",
+          subjectId: strategy.id,
+          actorUserId: ctx.principal.userId,
+          classification: "RESTRICTED" as const,
+          payload: { eligibility: outcome.eligibility, entity: entity.code },
+          traceId: ctx.traceId,
+        }),
+      );
 
       return apiOk(payload, ctx.traceId);
     },

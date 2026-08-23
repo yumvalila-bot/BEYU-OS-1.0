@@ -1,0 +1,16 @@
+-- BEYU OS Phase 13 — durable GlobalUserID uniqueness
+--
+-- ONE GlobalUserID is users.id and one login identity is permitted for each
+-- canonical party. lib/identity.ts still detects and reports DATA_CONFLICT, but
+-- detection by a reader is not a durable prevention control: duplicate users can
+-- authenticate before a graph consumer runs.
+--
+-- This is policy-independent identity integrity. It does not create a second
+-- identity store and does not change any user, party, employee or session row.
+-- The index intentionally fails the migration if an existing database contains
+-- duplicate party_id values. Those records require an explicit identity-data
+-- reconciliation; silently selecting a winner would fabricate identity truth.
+--
+-- Clean installs and already-clean upgrades apply this forward migration in the
+-- same transaction used by scripts/migrate.ts.
+CREATE UNIQUE INDEX "users_party_uidx" ON "users" USING btree ("party_id");

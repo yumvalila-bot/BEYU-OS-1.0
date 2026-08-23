@@ -78,6 +78,13 @@
       "when": 1787368929366,
       "tag": "0010_governance_decision_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787472337528,
+      "tag": "0011_global_user_party_uniqueness",
+      "breakpoints": true
     }
   ]
 }

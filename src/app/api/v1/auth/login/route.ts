@@ -72,46 +72,107 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   if (user.mfaEnrolled) {
-    if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) {
-      await recordAudit({ actorUserId: user.id, action: "identity.mfa.verify", objectType: "USER", objectId: user.id, outcome: "DENIED", reason: "MFA locked", ipAddress: ip, traceId });
-      return apiError("MFA_LOCKED", "MFA verification is temporarily locked.", 423, traceId);
-    }
-    if (!body.mfaCode || !user.mfaSecretEncrypted) {
-      await recordAudit({ actorUserId: user.id, action: "identity.mfa.verify", objectType: "USER", objectId: user.id, outcome: "DENIED", reason: "MFA code required", ipAddress: ip, traceId });
-      return apiError("MFA_REQUIRED", "A valid MFA code is required.", 428, traceId);
-    }
+    /**
+     * MFA is a one-time credential claim. The read, verification and state update
+     * must be serialized on the user row; otherwise two parallel requests can
+     * both observe the same mfaLastAcceptedStep/recovery-code set and both create
+     * sessions. This is deliberately a transaction inside the existing identity
+     * path, not a second authentication system.
+     */
+    const mfaResult = await db.transaction(async (rawTx) => {
+      const tx = rawTx as unknown as typeof db;
+      const [current] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, user.id))
+        .for("update")
+        .limit(1);
 
-    const secret = decryptSecret(user.mfaSecretEncrypted);
-    const totp = verifyTotp({ secret, code: body.mfaCode, lastAcceptedStep: user.mfaLastAcceptedStep });
-    let mfaOk = false;
-    let acceptedStep: number | null = null;
-    let recoveryHashes = user.mfaRecoveryCodesHash;
-
-    if (totp.ok) {
-      mfaOk = true;
-      acceptedStep = totp.step;
-    } else {
-      const recoveryHash = hashRecoveryCode(body.mfaCode);
-      if (recoveryHashes.includes(recoveryHash)) {
-        mfaOk = true;
-        recoveryHashes = recoveryHashes.filter((h) => h !== recoveryHash);
+      if (!current || (current.mfaLockedUntil && current.mfaLockedUntil > new Date())) {
+        await recordAuditTx(tx, {
+          actorUserId: user.id,
+          action: "identity.mfa.verify",
+          objectType: "USER",
+          objectId: user.id,
+          outcome: "DENIED",
+          reason: "MFA locked",
+          ipAddress: ip,
+          traceId,
+        });
+        return { ok: false as const, code: "MFA_LOCKED" as const };
       }
-    }
 
-    if (!mfaOk) {
-      const attempts = user.mfaFailedAttempts + 1;
-      await db
+      if (!body.mfaCode || !current.mfaSecretEncrypted) {
+        await recordAuditTx(tx, {
+          actorUserId: user.id,
+          action: "identity.mfa.verify",
+          objectType: "USER",
+          objectId: user.id,
+          outcome: "DENIED",
+          reason: "MFA code required",
+          ipAddress: ip,
+          traceId,
+        });
+        return { ok: false as const, code: "MFA_REQUIRED" as const };
+      }
+
+      const secret = decryptSecret(current.mfaSecretEncrypted);
+      const totp = verifyTotp({ secret, code: body.mfaCode, lastAcceptedStep: current.mfaLastAcceptedStep });
+      let acceptedStep: number | null = null;
+      let recoveryHashes = current.mfaRecoveryCodesHash;
+
+      if (totp.ok) {
+        acceptedStep = totp.step;
+      } else {
+        const recoveryHash = hashRecoveryCode(body.mfaCode);
+        if (recoveryHashes.includes(recoveryHash)) {
+          recoveryHashes = recoveryHashes.filter((h) => h !== recoveryHash);
+        } else {
+          const attempts = current.mfaFailedAttempts + 1;
+          await tx
+            .update(users)
+            .set({
+              mfaFailedAttempts: attempts,
+              mfaLockedUntil: attempts >= 5 ? new Date(Date.now() + 10 * 60_000) : null,
+            })
+            .where(eq(users.id, user.id));
+          await recordAuditTx(tx, {
+            actorUserId: user.id,
+            action: "identity.mfa.verify",
+            objectType: "USER",
+            objectId: user.id,
+            outcome: "DENIED",
+            reason: totp.reason,
+            ipAddress: ip,
+            traceId,
+          });
+          return { ok: false as const, code: "INVALID_MFA" as const };
+        }
+      }
+
+      // The row lock makes both TOTP step and recovery-code consumption atomic
+      // with respect to competing requests for this identity.
+      await tx
         .update(users)
         .set({
-          mfaFailedAttempts: attempts,
-          mfaLockedUntil: attempts >= 5 ? new Date(Date.now() + 10 * 60_000) : null,
+          mfaLastAcceptedStep: acceptedStep ?? current.mfaLastAcceptedStep,
+          mfaRecoveryCodesHash: recoveryHashes,
+          mfaFailedAttempts: 0,
+          mfaLockedUntil: null,
         })
         .where(eq(users.id, user.id));
-      await recordAudit({ actorUserId: user.id, action: "identity.mfa.verify", objectType: "USER", objectId: user.id, outcome: "DENIED", reason: totp.ok ? "Invalid MFA" : totp.reason, ipAddress: ip, traceId });
+      return { ok: true as const };
+    });
+
+    if (!mfaResult.ok) {
+      if (mfaResult.code === "MFA_LOCKED") {
+        return apiError("MFA_LOCKED", "MFA verification is temporarily locked.", 423, traceId);
+      }
+      if (mfaResult.code === "MFA_REQUIRED") {
+        return apiError("MFA_REQUIRED", "A valid MFA code is required.", 428, traceId);
+      }
       return apiError("INVALID_MFA", "MFA verification failed.", 401, traceId);
     }
-
-    await db.update(users).set({ mfaLastAcceptedStep: acceptedStep ?? user.mfaLastAcceptedStep, mfaRecoveryCodesHash: recoveryHashes, mfaFailedAttempts: 0, mfaLockedUntil: null }).where(eq(users.id, user.id));
   }
 
   const mfaSatisfied = user.mfaEnrolled;

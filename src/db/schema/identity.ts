@@ -76,7 +76,13 @@ export const users = pgTable(
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_uidx").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_uidx").on(t.email),
+    // ONE GlobalUserID per canonical party. Existing duplicate detection in
+    // lib/identity.ts remains useful for pre-migration diagnostics, but durable
+    // identity uniqueness must not rely on consumers noticing a conflict.
+    uniqueIndex("users_party_uidx").on(t.partyId),
+  ],
 );
 
 export const sessions = pgTable(

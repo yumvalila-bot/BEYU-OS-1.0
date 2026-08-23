@@ -12,11 +12,6 @@ if (!password) throw new Error("BEYU_BOOTSTRAP_PASSWORD is required for evidence
 type Evidence = { id: string; passed: boolean; detail: Record<string, unknown> };
 const evidence: Evidence[] = [];
 
-async function resetAuditLedger() {
-  await db.execute(sql`truncate table audit_log`);
-  await db.execute(sql`insert into audit_chain_heads(chain_name,current_hash) values ('AUDIT_LOG', null) on conflict(chain_name) do update set current_hash = null, updated_at = now()`);
-}
-
 async function duplicateParents() {
   const r = await db.execute<{ count: string }>(sql`
     select count(*)::text as count from (
@@ -27,11 +22,14 @@ async function duplicateParents() {
 }
 
 async function auditConcurrency(n: number) {
-  await resetAuditLedger();
+  // Never truncate or disable the constitutional audit ledger. The evidence
+  // procedure appends to the isolated evidence database and compares the
+  // post-run length with the pre-run length instead of destroying history.
+  const before = await verifyAuditChain();
   await Promise.all(Array.from({ length: n }, (_, i) => recordAudit({ tenantId: "TEN_BEYU_GROUP", actorUserId: "USR_EVIDENCE", action: "evidence.audit.concurrent", objectType: "EVIDENCE", objectId: `${n}-${i}` })));
   const chain = await verifyAuditChain();
   const dup = await duplicateParents();
-  evidence.push({ id: `C-01-${n}-concurrent-audit-writes`, passed: chain.verified && chain.records === n && dup === 0, detail: { requestedWrites: n, chain, duplicateParents: dup } });
+  evidence.push({ id: `C-01-${n}-concurrent-audit-writes`, passed: before.verified && chain.verified && chain.records === before.records + n && dup === 0, detail: { requestedWrites: n, recordsBefore: before.records, chain, duplicateParents: dup } });
 }
 
 async function totp(email: string, at = Date.now()) {
