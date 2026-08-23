@@ -5,24 +5,12 @@ import {
 } from "@/lib/governance-contract";
 import {
   GovernanceError,
+  GOVERNANCE_ERROR_STATUS,
   NON_PROPOSABLE_STATUSES,
   proposeResolution,
-  type GovernanceErrorCode,
 } from "@/lib/governance";
 
 export const dynamic = "force-dynamic";
-
-
-
-const STATUS_BY_CODE: Record<GovernanceErrorCode, number> = {
-  NOT_FOUND: 404,
-  TENANT_SCOPE_DENIED: 403,
-  FORBIDDEN: 403,
-  CLASSIFICATION_DENIED: 403,
-  POLICY_DENIED: 403,
-  RULE_VIOLATION: 422,
-  CONFLICT: 409,
-};
 
 /**
  * POST /api/v1/governance/resolutions
@@ -89,7 +77,7 @@ export async function POST(request: Request) {
       } catch (err) {
         if (err instanceof GovernanceError) {
           // Domain-safe messages only; no SQL, driver or schema detail is exposed.
-          return apiError(err.code, err.message, STATUS_BY_CODE[err.code], ctx.traceId, err.detail);
+          return apiError(err.code, err.message, GOVERNANCE_ERROR_STATUS[err.code], ctx.traceId, err.detail);
         }
         throw err; // handled by guarded(): logged server-side, generic 500 to caller
       }

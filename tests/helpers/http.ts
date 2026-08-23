@@ -96,6 +96,26 @@ export async function apiGet(path: string, cookie?: string | null): Promise<{ st
   return { status: res.status, html: await res.text() };
 }
 
+/**
+ * GET a JSON API route.
+ *
+ * Separate from `apiGet`, which returns raw text for page-rendering assertions;
+ * this mirrors `apiPost`'s options shape for JSON endpoints.
+ */
+export async function apiGetJson<T = Record<string, unknown>>(
+  path: string,
+  options: { cookie?: string | null } = {},
+): Promise<ApiResponse<T>> {
+  const res = await fetch(`${baseUrl()}${path}`, {
+    headers: options.cookie ? { cookie: options.cookie } : {},
+  });
+  return {
+    status: res.status,
+    body: (await res.json().catch(() => null)) as T,
+    headers: res.headers,
+  };
+}
+
 /** A valid proposal payload; override fields per test. */
 export function proposalPayload(overrides: Record<string, unknown> = {}) {
   return {

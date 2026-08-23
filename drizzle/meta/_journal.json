@@ -22,6 +22,62 @@
       "when": 1787171475676,
       "tag": "0002_governed_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787174366664,
+      "tag": "0003_governance_voting",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787195117423,
+      "tag": "0004_governance_decision",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787281517423,
+      "tag": "0005_ledger_integrity_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787333836072,
+      "tag": "0006_journal_scope_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787337452896,
+      "tag": "0007_policy_provenance_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787339310798,
+      "tag": "0008_audit_truncate_and_policy_window_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787340968665,
+      "tag": "0009_governance_provenance_referential_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787368929366,
+      "tag": "0010_governance_decision_registry",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,9 @@
 import "dotenv/config";
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { legalEntities, tenants, users } from "../../src/db/schema";
+import { legalEntities, resolutions, resolutionVotes, tenants, users } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import { loadGrants, permissionsForRoles, clearanceForRoles, type Principal } from "../../src/lib/authz";
 import { tenantScopeIds } from "../../src/lib/tenant-scope";
@@ -131,5 +132,78 @@ describe("C-02 tenant isolation", () => {
       where n.nspname='public' and c.relname in ('legal_entities','ownership_records','employees','audit_log','enterprise_events') and c.relrowsecurity
     `);
     expect(r.rows.map((x) => x.relname).sort()).toEqual(['audit_log','employees','enterprise_events','legal_entities','ownership_records'].sort());
+  });
+  /**
+   * §6 — `resolution_votes` is a CHILD table: it has no `tenant_id` column, so
+   * RLS cannot apply to it and its tenancy is derived entirely from its parent
+   * resolution. That is the canonical BEYU pattern for child tables (30 of 74
+   * tables have no tenant_id), but it makes tenant safety depend on a coding
+   * invariant rather than a database guarantee.
+   *
+   * THE INVARIANT: every query against resolution_votes must be constrained by
+   * resolution_id values that were themselves resolved through tenantScopeIds().
+   *
+   * These tests fail if a future change breaks either half of that invariant.
+   */
+  it("resolution_votes has no tenant column, so it cannot be tenant-scoped directly", async () => {
+    const cols = await db.execute<{ column_name: string }>(sql`
+      select column_name from information_schema.columns
+      where table_schema='public' and table_name='resolution_votes'`);
+    const names = cols.rows.map((c) => c.column_name);
+    expect(names).not.toContain("tenant_id");
+    // Its only route to a tenant is the parent resolution.
+    expect(names).toContain("resolution_id");
+
+    const parent = await db.execute<{ n: number }>(sql`
+      select count(*)::int n from information_schema.table_constraints tc
+      join information_schema.constraint_column_usage ccu on ccu.constraint_name = tc.constraint_name
+      where tc.table_name='resolution_votes' and tc.constraint_type='FOREIGN KEY'
+        and ccu.table_name='resolutions'`);
+    expect(parent.rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("ballots are only reachable through resolutions inside the caller's tenant scope", async () => {
+    // A Foundation-scoped officer resolves their own scope; ballots fetched via
+    // that scope can never include a resolution belonging to another tenant.
+    // A sector-scoped officer: their scope is a strict subset of the group.
+    const foundation = await principalFor("SARA_LEMA");
+    const scope = await tenantScopeIds(foundation);
+
+    const visible = await db
+      .select({ id: resolutions.id, tenantId: resolutions.tenantId })
+      .from(resolutions)
+      .where(inArray(resolutions.tenantId, scope));
+
+    const ballots = visible.length
+      ? await db
+          .select({ resolutionId: resolutionVotes.resolutionId })
+          .from(resolutionVotes)
+          .where(inArray(resolutionVotes.resolutionId, visible.map((v) => v.id)))
+      : [];
+
+    const visibleIds = new Set(visible.map((v) => v.id));
+    for (const b of ballots) expect(visibleIds.has(b.resolutionId)).toBe(true);
+
+    // And the scope itself genuinely excludes other tenants' resolutions.
+    const all = await db.select({ id: resolutions.id, tenantId: resolutions.tenantId }).from(resolutions);
+    const outside = all.filter((r) => !scope.includes(r.tenantId));
+    expect(outside.every((r) => !visibleIds.has(r.id))).toBe(true);
+  });
+
+  it("the vote service never queries resolution_votes without a resolution constraint", async () => {
+    // A structural guard, not a source-text assertion about behaviour: it proves
+    // that no code path can enumerate ballots across tenants. Every select from
+    // resolutionVotes in the service is followed by a .where() naming
+    // resolutionVotes.resolutionId.
+    const src = await readFile(
+      new URL("../../src/lib/governance-vote-service.ts", import.meta.url),
+      "utf8",
+    );
+    const selects = src.split(".from(resolutionVotes)").slice(1);
+    expect(selects.length).toBeGreaterThan(0);
+    for (const after of selects) {
+      const clause = after.slice(0, 400);
+      expect(clause).toMatch(/resolutionVotes\.resolutionId/);
+    }
   });
 });

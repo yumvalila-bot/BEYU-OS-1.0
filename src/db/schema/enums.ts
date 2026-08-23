@@ -84,6 +84,34 @@ export const versionStatusEnum = pgEnum("beyu_version_status", [
   "RETIRED",
 ]);
 
+/**
+ * Canonical decision lifecycle.
+ *
+ * DRAFT      — proposed; not yet before the body. No votes may be cast.
+ * TABLED     — placed before the body by a presiding officer; voting is OPEN.
+ * VOTED      — voting concluded (the window closed, or every eligible member
+ *              voted). The ballots are final but NO decision has been taken.
+ *              Produced by the vote endpoint as its terminal state; only the
+ *              decision authority (`governance:resolution.approve`) may move a
+ *              resolution out of VOTED.
+ * APPROVED   — carried under the body's majority rule.
+ * REJECTED   — failed the body's majority rule.
+ * DEADLOCKED — FOR and AGAINST are tied. There is NO automatic tie-break and no
+ *              chair casting vote; escalation is a separate governed action.
+ * WITHDRAWN  — withdrawn before decision.
+ * DEFERRED   — voting closed without quorum; no decision was reachable.
+ *
+ * APPROVED, REJECTED, DEADLOCKED, DEFERRED and WITHDRAWN are TERMINAL: no vote,
+ * tabling or decision may alter a resolution that has reached one. Reversal, if
+ * it is ever permitted, must be its own governed amendment transaction.
+ *
+ * Only DRAFT → TABLED → VOTED → (terminal) is reachable, and each arrow is a
+ * distinct governed mutation with its own authority:
+ *   DRAFT  → TABLED   `tableResolution`         presiding seat + .approve
+ *   TABLED → VOTED    `castVote`                eligible seat  + .vote
+ *   TABLED |
+ *   VOTED  → terminal `decideResolutionClosure` presiding seat + .approve
+ */
 export const decisionStatusEnum = pgEnum("beyu_decision_status", [
   "DRAFT",
   "TABLED",
@@ -92,6 +120,7 @@ export const decisionStatusEnum = pgEnum("beyu_decision_status", [
   "REJECTED",
   "WITHDRAWN",
   "DEFERRED",
+  "DEADLOCKED",
 ]);
 
 export const approvalDecisionEnum = pgEnum("beyu_approval_decision", [
@@ -136,6 +165,39 @@ export const authorityStatusEnum = pgEnum("beyu_authority_status", [
   "SUPERSEDED",
   "EXPIRED",
   "REJECTED",
+]);
+
+/**
+ * Activation lifecycle of a governance decision in the pre-ratification registry.
+ *
+ * Phase 6C. A new enum was required rather than reusing an existing one, and the analysis is
+ * recorded here because adding a status is otherwise prohibited:
+ *
+ *   - `beyu_version_status` (DRAFT|IN_REVIEW|APPROVED|ACTIVE|SUSPENDED|SUPERSEDED|RETIRED)
+ *     describes a *document version*. It cannot distinguish EFFECTIVE from RATIFIED, and has no
+ *     concept of activation readiness.
+ *   - `beyu_decision_status` (DRAFT|TABLED|VOTED|APPROVED|...) is the *resolution voting*
+ *     lifecycle. It ends at the vote and never reaches execution.
+ *   - `beyu_authority_status` (AUTHORITATIVE|UNDER_REVIEW|SUPERSEDED|EXPIRED|REJECTED) is the
+ *     closest fit but collapses RATIFIED and ACTIVATED into a single AUTHORITATIVE value, and is
+ *     already in use on four unrelated tables — widening it would silently change their meaning.
+ *
+ * The distinctions this enum must preserve, and which no existing enum expresses:
+ *   PENDING != RATIFIED · RATIFIED != ACTIVATED · APPROVED != EXECUTION AUTHORITY
+ *
+ * This enum describes only the *authority state* of a decision. It never encodes accounting
+ * content.
+ */
+export const decisionActivationStateEnum = pgEnum("beyu_decision_activation_state", [
+  "PENDING",
+  "APPROVED",
+  "EFFECTIVE",
+  "RATIFIED",
+  "ACTIVATION_READY",
+  "ACTIVATED",
+  "SUSPENDED",
+  "SUPERSEDED",
+  "RETIRED",
 ]);
 
 export const taxPositionEnum = pgEnum("beyu_tax_position", [

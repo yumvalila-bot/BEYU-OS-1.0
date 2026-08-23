@@ -28,7 +28,7 @@ src/
 
 drizzle/              # Versioned SQL migrations
 scripts/              # Migration runner, evidence runner
-tests/                # 8 suites, 82 tests
+tests/                # 11 suites, 155 tests
 docs/                 # Architecture, constitution, security, API, events, AI, operations, runbooks, ADR, compliance, remediation
 ```
 

@@ -5,9 +5,15 @@ import { requireAccess } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { auditTrailsFor } from "@/lib/audit";
+import {
+  canDecideResolutions,
+  canTableResolutions,
+  votingSnapshots,
+} from "@/lib/governance-vote-service";
 import { CLASSIFICATION_ORDER, classificationRank } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { ProposeResolution } from "./propose";
+import { VotePanel } from "./vote-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +47,15 @@ export default async function GovernancePage() {
    * genuinely created through the governed mutation from one that was seeded:
    * a transactional resolution has audit records, seeded historical data does not.
    */
-  const trails = await auditTrailsFor(
-    "RESOLUTION",
-    visible.map((r) => r.id),
-    scope,
-  );
+  const visibleIds = visible.map((r) => r.id);
+  const [trails, snapshots, tableable, decidable] = await Promise.all([
+    auditTrailsFor("RESOLUTION", visibleIds, scope),
+    // Eligibility, window state, tally and quorum are all computed server-side.
+    votingSnapshots(access.principal, visibleIds),
+    canTableResolutions(access.principal, visibleIds),
+    // Decision authority is resolved server-side too; the panel only renders it.
+    canDecideResolutions(access.principal, visibleIds),
+  ]);
 
   // A principal may only propose at or below their own clearance ceiling.
   const canPropose = can(access.principal, "governance:resolution.propose").allowed;
@@ -149,6 +159,17 @@ export default async function GovernancePage() {
                     <span>· votes {r.votesFor} for / {r.votesAgainst} against / {r.votesAbstain} abstain{total ? ` (${total} cast)` : ""}</span>
                     <span>· decided {r.decisionDate ? new Date(r.decisionDate).toISOString().slice(0, 10) : "pending"}</span>
                   </div>
+
+                  {snapshots.get(r.id) && (
+                    <VotePanel
+                      snapshot={snapshots.get(r.id)!}
+                      status={r.status}
+                      canTable={tableable.has(r.id)}
+                      canDecide={decidable.has(r.id)}
+                      decidedByMemberId={r.decidedByMemberId}
+                      decisionDate={r.decisionDate ? r.decisionDate.toISOString() : null}
+                    />
+                  )}
 
                   {(() => {
                     const trail = trails.get(r.id) ?? [];

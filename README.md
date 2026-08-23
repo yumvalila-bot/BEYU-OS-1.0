@@ -13,7 +13,7 @@ cp .env.example .env        # then fill in DATABASE_URL and the secrets
 npm ci                      # reproducible install from the committed lockfile
 npm run migrate             # apply versioned migrations (scripts/migrate.ts)
 npm run seed                # idempotent constitutional bootstrap
-npm test                    # 82 tests across 8 suites (PostgreSQL required)
+npm test                    # 155 tests across 11 suites (PostgreSQL required)
 npm run build && npm start  # production build
 ```
 

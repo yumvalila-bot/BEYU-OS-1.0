@@ -74,7 +74,36 @@ export type GovernanceErrorCode =
   | "CLASSIFICATION_DENIED"
   | "POLICY_DENIED"
   | "RULE_VIOLATION"
-  | "CONFLICT";
+  | "CONFLICT"
+  /** Closure attempted before voting has legitimately concluded. */
+  | "NOT_READY_FOR_DECISION"
+  /** Closure attempted on a resolution already in a terminal state. */
+  | "ALREADY_DECIDED"
+  /** A downstream domain action lacks its governance prerequisite. */
+  | "GOVERNANCE_NOT_SATISFIED"
+  /** The domain object is in a state that cannot accept the transition. */
+  | "INVALID_CAPITAL_STATE";
+
+/**
+ * Canonical transport mapping for the governance failure taxonomy.
+ *
+ * Defined once so every governance route reports the same status for the same
+ * governance failure, and so adding a code cannot leave a route silently
+ * returning `undefined` as its HTTP status.
+ */
+export const GOVERNANCE_ERROR_STATUS: Record<GovernanceErrorCode, number> = {
+  NOT_FOUND: 404,
+  TENANT_SCOPE_DENIED: 403,
+  FORBIDDEN: 403,
+  CLASSIFICATION_DENIED: 403,
+  POLICY_DENIED: 403,
+  RULE_VIOLATION: 422,
+  CONFLICT: 409,
+  NOT_READY_FOR_DECISION: 422,
+  ALREADY_DECIDED: 409,
+  GOVERNANCE_NOT_SATISFIED: 422,
+  INVALID_CAPITAL_STATE: 422,
+};
 
 export class GovernanceError extends Error {
   constructor(

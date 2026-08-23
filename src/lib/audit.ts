@@ -15,7 +15,16 @@ import { SYSTEM_VERSION } from "./constants";
  * - domain mutations can call recordAuditTx()/publishEventTx() inside the same transaction
  */
 
-type Tx = Pick<typeof db, "insert" | "execute">;
+/**
+ * Transaction handle passed to governed mutations.
+ *
+ * Domain services need to read and update inside the same transaction as the
+ * audit append (e.g. recomputing a vote tally under a lock, then transitioning
+ * the resolution status), so `select` and `update` are exposed alongside
+ * `insert`/`execute`. This is the kernel's single transaction abstraction —
+ * services must not open their own.
+ */
+export type Tx = Pick<typeof db, "insert" | "execute" | "select" | "update" | "delete">;
 
 export type AuditInput = {
   tenantId?: string | null;
@@ -173,16 +182,32 @@ export async function publishEventTx(tx: Tx, input: EventInput): Promise<string>
   return appendEvent(tx, input);
 }
 
+/**
+ * Run a domain mutation, its audit record and its durable domain event(s) in ONE
+ * transaction.
+ *
+ * `event` may return a single event or an array: a decision-producing mutation
+ * emits both the act (e.g. VOTE_CAST) and its consequence (e.g. DECIDED), and
+ * both must be durable atomically with the state transition. If any append
+ * fails, the domain mutation rolls back with it.
+ */
 export async function withAuditTransaction<T>(
   operation: (tx: Tx) => Promise<T>,
   audit: (result: T) => AuditInput,
-  event?: (result: T) => EventInput,
+  event?: (result: T) => EventInput | EventInput[],
 ): Promise<T> {
   return db.transaction(async (rawTx) => {
     const tx = rawTx as Tx;
     const result = await operation(tx);
     await recordAuditTx(tx, audit(result));
-    if (event) await publishEventTx(tx, event(result));
+    if (event) {
+      const produced = event(result);
+      // Appends are sequential: each event links to the previous hash, so the
+      // chain must be extended one entry at a time.
+      for (const e of Array.isArray(produced) ? produced : [produced]) {
+        await publishEventTx(tx, e);
+      }
+    }
     return result;
   });
 }

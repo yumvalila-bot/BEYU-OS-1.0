@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { recordAudit, verifyAuditChain } from "../../src/lib/audit";
+import { resetAuditLedgers } from "../helpers/ledger-reset";
 
 async function resetAuditLedger() {
-  await db.execute(sql`truncate table audit_log`);
+  await resetAuditLedgers();
   await db.execute(sql`insert into audit_chain_heads(chain_name,current_hash) values ('AUDIT_LOG', null) on conflict(chain_name) do update set current_hash = null, updated_at = now()`);
 }
 

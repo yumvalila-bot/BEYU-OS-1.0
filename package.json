@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "verify": "node scripts/verify.mjs",
     "test:watch": "vitest",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:generate": "drizzle-kit generate",

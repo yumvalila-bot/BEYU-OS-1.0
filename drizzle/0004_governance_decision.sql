@@ -1,0 +1,1 @@
+ALTER TABLE "resolutions" ADD COLUMN "decided_by_member_id" text;

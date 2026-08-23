@@ -17,6 +17,7 @@ import {
   proposeResolution,
 } from "../../src/lib/governance";
 import type { Classification } from "../../src/lib/constants";
+import { resetAuditLedgers } from "../helpers/ledger-reset";
 
 /**
  * Governed mutation tests — governance resolution proposal.
@@ -91,8 +92,7 @@ async function createdCount(): Promise<number> {
 }
 
 async function resetLedgers() {
-  await db.execute(sql`truncate table audit_log`);
-  await db.execute(sql`truncate table enterprise_events`);
+  await resetAuditLedgers();
   await db.execute(
     sql`insert into audit_chain_heads(chain_name,current_hash) values ('AUDIT_LOG', null),('ENTERPRISE_EVENTS', null)
         on conflict(chain_name) do update set current_hash = null, updated_at = now()`,

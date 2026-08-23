@@ -16,7 +16,7 @@
 1. `npm run typecheck`
 2. `npm run lint`
 3. `npm run migrate` — versioned migrations, then a drizzle-kit drift check
-4. `npm test` — 82 tests across 8 suites (requires PostgreSQL; set BEYU_TEST_BASE_URL for the end-to-end suite)
+4. `npm test` — 155 tests across 11 suites (requires PostgreSQL; set BEYU_TEST_BASE_URL for the end-to-end suites)
 5. `npm run build`
 6. Dependency, secret, container and IaC scanning
 7. Migration validation (pre-check → backup → migrate → validate → reconcile → post-check)

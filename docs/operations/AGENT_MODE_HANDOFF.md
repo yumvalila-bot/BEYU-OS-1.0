@@ -73,7 +73,7 @@ npm run build
 
 - [ ] `npm run typecheck` — zero errors
 - [ ] `npm run lint` — zero errors
-- [ ] `npm test` — 82 tests across 8 suites, all pass (requires PostgreSQL)
+- [ ] `npm test` — 155 tests across 11 suites, all pass (requires PostgreSQL)
 - [ ] `npm run migrate` then `npm run migrate:generate` — no drift detected
 - [ ] `npm run build` — production build succeeds
 - [ ] Live self-test (`GET /api/v1/system/self-test`) — 9/9 controls PASS
