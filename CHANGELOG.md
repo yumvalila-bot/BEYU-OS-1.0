@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased] — Phase 11: production readiness & isolated execution simulation — 2026-08-23
+
+### Added
+- `simulateGovernedExecution()` — composes the existing 6C / scoped-authority /
+  epistemic / writer / SoD / workflow / lineage primitives as a SIMULATION.
+  Verdicts are only SIMULATION_ELIGIBLE | SIMULATION_DENIED. Production state
+  is structurally untouched (`mutatedProductionState: false`).
+- Production readiness matrix (`src/lib/architecture/readiness.ts`).
+
+### Not implemented (deliberately)
+- No P1–P11 activation, no posting, no second gate, no Legal engine.
+
 ## [Unreleased] — Phase 10: canonical architecture reconciliation — 2026-08-23
 
 ### Added — common platform only
