@@ -69,4 +69,6 @@ PostgreSQL via Drizzle ORM as the authoritative transactional store. The domain 
 NestJS services, workers or Lambda handlers without change, preserving cloud portability.
 
 See `docs/adr/` for the recorded architectural decisions and `docs/domain-model/README.md` for the
-entity model.
+entity model. Phase completion records: `PHASE_9_CANONICAL_ARCHITECTURE.md`,
+`PHASE_10_CANONICAL_RECONCILIATION.md`, `PHASE_11_PRODUCTION_READINESS.md`,
+`PHASE_12_HCM_COMPLETENESS.md`.

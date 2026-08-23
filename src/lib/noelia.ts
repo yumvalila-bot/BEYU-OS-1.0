@@ -5,9 +5,7 @@ import {
   complianceAssessments,
   complianceObligations,
   capitalRequests,
-  employees,
   knowledgeSources,
-  legalEntities,
   resolutions,
   risks,
   taxStrategies,
@@ -15,6 +13,7 @@ import {
   waterfallRuns,
   type AiSource,
 } from "@/db/schema";
+import { listWorkforce } from "./hcm";
 import { newId, ID_PREFIX } from "./ids";
 import { HIVE_RUNTIME, NOELIA_IDENTITY, NOELIA_PROMPT_VERSION, type PermissionCode } from "./constants";
 import { can, type Principal } from "./authz";
@@ -311,18 +310,16 @@ export async function askNoelia(params: {
       }
       case "WORKFORCE": {
         toolsUsed.push("hcm.employee.aggregate");
-        const rows = await db
-          .select({
-            entity: legalEntities.legalName,
-            n: sql<number>`count(*)`,
-            active: sql<number>`count(*) filter (where ${employees.status} = 'ACTIVE')`,
-          })
-          .from(employees)
-          .innerJoin(legalEntities, eq(legalEntities.id, employees.legalEntityId))
-          .where(eq(employees.tenantId, tenantId))
-          .groupBy(legalEntities.legalName);
-        for (const r of rows) {
-          findings.push({ label: `Headcount · ${r.entity}`, value: `${r.active} active of ${r.n}`, kind: "FACT" });
+        const workforce = await listWorkforce(principal);
+        const byEntity = new Map<string, { n: number; active: number }>();
+        for (const r of workforce.records) {
+          const bucket = byEntity.get(r.legalEntityName) ?? { n: 0, active: 0 };
+          bucket.n += 1;
+          if (r.status === "ACTIVE") bucket.active += 1;
+          byEntity.set(r.legalEntityName, bucket);
+        }
+        for (const [entity, r] of byEntity) {
+          findings.push({ label: `Headcount · ${entity}`, value: `${r.active} active of ${r.n}`, kind: "FACT" });
         }
         headline = "Workforce figures drawn from the single HCM employee master.";
         narrative =

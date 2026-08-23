@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased] — Phase 12: HCM completeness & canonical compliance — 2026-08-23
+
+### Added — genuine HCM gaps only
+- Entity isolation and employing-entity tenant reach on `listWorkforce()`.
+- Temporal classifier (`CURRENT` / `FUTURE` / `EXPIRED` / `TERMINATED`) and a
+  refuse-to-write lifecycle primitive (`recordEmploymentChange` → REQUIRES_AUTHORITY).
+- Manager-hierarchy integrity asserts (cycle, self, cross-tenant/entity, dates).
+- `filterByClearance` fails closed on unknown principal clearance (common platform).
+- UI and Noelia now consume `listWorkforce` instead of querying `employees` directly.
+- Phase 12 HCM completeness matrix (`src/lib/architecture/hcm.ts`).
+
+### Not implemented (deliberately)
+- No second employee master, no payroll, no Sector OS, no HCM write, no financial mutation.
+
 ## [Unreleased] — Phase 11: production readiness & isolated execution simulation — 2026-08-23
 
 ### Added

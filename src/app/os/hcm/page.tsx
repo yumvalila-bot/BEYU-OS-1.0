@@ -1,9 +1,5 @@
-import { eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { employees, employmentEvents, legalEntities, parties, positions } from "@/db/schema";
+import { listEmploymentHistory, listEstablishment, listWorkforce } from "@/lib/hcm";
 import { requireAccess } from "@/lib/guard";
-import { classificationRank } from "@/lib/constants";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -11,38 +7,16 @@ export const dynamic = "force-dynamic";
 export default async function HcmPage() {
   const access = await requireAccess("hcm:employee.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="hcm:employee.read" />;
-  const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
 
-  const rows = await db
-    .select({
-      id: employees.id,
-      employeeNo: employees.employeeNo,
-      name: parties.displayName,
-      entity: legalEntities.legalName,
-      position: positions.title,
-      grade: positions.grade,
-      hireDate: employees.hireDate,
-      status: employees.status,
-      employmentType: employees.employmentType,
-      country: employees.countryCode,
-      salary: employees.baseSalary,
-      currency: employees.salaryCurrency,
-      classification: employees.classification,
-      contractRef: employees.contractRef,
-    })
-    .from(employees)
-    .innerJoin(parties, eq(parties.id, employees.partyId))
-    .innerJoin(legalEntities, eq(legalEntities.id, employees.legalEntityId))
-    .leftJoin(positions, eq(positions.id, employees.positionId))
-    .where(inArray(employees.tenantId, scope))
-    .orderBy(employees.employeeNo);
-
-  const events = await db.select().from(employmentEvents).orderBy(employmentEvents.effectiveFrom);
-  const positionRows = await db.select().from(positions).where(inArray(positions.tenantId, scope));
-
-  const showCompensation = classificationRank(access.principal.clearance) >= classificationRank("RESTRICTED");
+  const [workforce, events, positionRows] = await Promise.all([
+    listWorkforce(access.principal),
+    listEmploymentHistory(access.principal),
+    listEstablishment(access.principal),
+  ]);
+  const rows = workforce.records;
+  const showCompensation = !workforce.suppressedCompensation;
   const byEntity = new Map<string, number>();
-  for (const r of rows) byEntity.set(r.entity, (byEntity.get(r.entity) ?? 0) + 1);
+  for (const r of rows) byEntity.set(r.legalEntityName, (byEntity.get(r.legalEntityName) ?? 0) + 1);
 
   return (
     <div className="space-y-6">
@@ -74,16 +48,16 @@ export default async function HcmPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id}>
+                <tr key={r.employeeId}>
                   <td className="font-mono text-[11.5px]">{r.employeeNo}</td>
-                  <td className="font-medium">{r.name}<div className="text-[11px] beyu-muted">{r.contractRef}</div></td>
-                  <td className="text-[11.5px]">{r.entity}</td>
-                  <td className="text-[11.5px]">{r.position ?? "—"}{r.grade ? ` · ${r.grade}` : ""}</td>
+                  <td className="font-medium">{r.displayName}<div className="text-[11px] beyu-muted">{r.globalUserId ?? "no login"}</div></td>
+                  <td className="text-[11.5px]">{r.legalEntityName}</td>
+                  <td className="text-[11.5px]">{r.positionTitle ?? "—"}{r.positionGrade ? ` · ${r.positionGrade}` : ""}</td>
                   <td className="text-[11.5px] beyu-muted">{r.hireDate}</td>
                   <td className="text-[11.5px]">{r.employmentType}</td>
                   <td><Badge tone={stateTone(r.status)}>{r.status}</Badge></td>
                   {showCompensation && (
-                    <td className="tabular-nums text-[11.5px]">{r.salary ? money(r.salary, r.currency ?? "USD") : "—"}</td>
+                    <td className="tabular-nums text-[11.5px]">{r.baseSalary ? money(r.baseSalary, r.salaryCurrency ?? "USD") : "—"}</td>
                   )}
                   <td><Badge tone={stateTone(r.classification)}>{r.classification}</Badge></td>
                 </tr>
@@ -105,18 +79,15 @@ export default async function HcmPage() {
             <table className="beyu-table">
               <thead><tr><th>Employee</th><th>Event</th><th>Effective</th><th>Approved by</th><th>Recorded by</th></tr></thead>
               <tbody>
-                {events.map((e) => {
-                  const emp = rows.find((r) => r.id === e.employeeId);
-                  return (
-                    <tr key={e.id}>
-                      <td className="text-[11.5px]">{emp?.name ?? e.employeeId}</td>
-                      <td><Badge tone="navy">{e.eventType}</Badge></td>
-                      <td className="text-[11.5px] beyu-muted">{e.effectiveFrom}</td>
-                      <td className="text-[11.5px]">{e.approvedBy ?? "—"}</td>
-                      <td className="text-[11px] beyu-muted">{e.recordedBy}</td>
-                    </tr>
-                  );
-                })}
+                {events.map((e) => (
+                  <tr key={e.eventId}>
+                    <td className="text-[11.5px]">{e.displayName}</td>
+                    <td><Badge tone="navy">{e.eventType}</Badge></td>
+                    <td className="text-[11.5px] beyu-muted">{e.effectiveFrom}</td>
+                    <td className="text-[11.5px]">{e.approvedBy ?? "—"}</td>
+                    <td className="text-[11px] beyu-muted">{e.recordedBy}</td>
+                  </tr>
+                ))}
                 {events.length === 0 && <tr><td colSpan={5}><EmptyState message="No employment events." /></td></tr>}
               </tbody>
             </table>
@@ -129,11 +100,11 @@ export default async function HcmPage() {
               <thead><tr><th>Position</th><th>Grade</th><th>Job family</th><th>Reports to</th><th>Budget</th></tr></thead>
               <tbody>
                 {positionRows.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.positionId}>
                     <td><div className="font-medium">{p.title}</div><div className="font-mono text-[10.5px] beyu-muted">{p.code}</div></td>
                     <td className="text-[11.5px]">{p.grade}</td>
                     <td className="text-[11.5px]">{p.jobFamily ?? "—"}</td>
-                    <td className="text-[11.5px]">{positionRows.find((x) => x.id === p.reportsToPositionId)?.title ?? "—"}</td>
+                    <td className="text-[11.5px]">{positionRows.find((x) => x.positionId === p.reportsToPositionId)?.title ?? "—"}</td>
                     <td className="tabular-nums text-[11.5px]">{p.headcountBudget}</td>
                   </tr>
                 ))}
