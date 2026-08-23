@@ -39,6 +39,7 @@ import {
 import { recordAuditTx, publishEventTx } from "@/lib/audit";
 import { can, type Principal } from "@/lib/authz";
 import { requireCapability } from "@/lib/decision-authority";
+import { newId, ID_PREFIX } from "@/lib/ids";
 
 /** Period statuses that may accept a posting. Which statuses are postable is P7/P8 and is NOT
  *  decided here: this is the structural floor (a hard-closed period can never accept a posting
@@ -216,6 +217,7 @@ export async function postJournal(
 
   // --- 6/7/8. Everything below is inside one transaction. ---
   const entryId = `JE_${crypto.randomUUID()}`;
+  const traceId = newId(ID_PREFIX.event);
 
   return db.transaction(async (tx) => {
     // Accounts must exist and be in the same tenant. Re-read inside the transaction.
@@ -316,15 +318,21 @@ export async function postJournal(
         totalDebit: structure.totalDebit,
         lineCount: input.lines.length,
       },
+      traceId,
     });
 
     await publishEventTx(tx, {
       tenantId: input.tenantId,
       type: "JOURNAL_ENTRY_POSTED",
       source: "finance.posting-engine",
+      domain: "FINANCE",
+      operation: "POST_JOURNAL",
+      destinationDomain: null,
+      legalEntityId: input.legalEntityId,
       subjectType: "JOURNAL_ENTRY",
       subjectId: entryId,
       actorUserId: principal.userId,
+      classification: "RESTRICTED",
       payload: {
         reference: input.reference,
         legalEntityId: input.legalEntityId,
@@ -332,6 +340,11 @@ export async function postJournal(
         totalDebit: structure.totalDebit,
         totalCredit: structure.totalCredit,
       },
+      traceId,
+      correlationId: traceId,
+      causationId: null,
+      authorityContext: { authorityId: null, decisionId: null, capabilityCode: "CAP_POSTING", permissionCode: "finance:ledger.post", policyVersion: null },
+      policyVersion: null,
     });
 
     return {

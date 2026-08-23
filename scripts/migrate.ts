@@ -10,6 +10,14 @@ if (!url) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString: url });
 const dir = join(process.cwd(), "drizzle");
 
+/**
+ * Historical migration 0001 contains candidate-sandbox TRUNCATE statements used
+ * to discard pre-hardening forks. It must never execute against an existing
+ * schema: audit/event history is constitutional evidence and cannot be silently
+ * destroyed. Clean installs have no history, so 0001 remains valid there.
+ */
+const DESTRUCTIVE_EXISTING_SCHEMA_MIGRATIONS = new Set(["0001_kernel_gate1_hardening"]);
+
 function sha256(s: string) {
   return createHash("sha256").update(s).digest("hex");
 }
@@ -74,6 +82,13 @@ async function migrate() {
     if (existing) {
       if (existing !== checksum) throw new Error(`Migration checksum drift for ${version}`);
       continue;
+    }
+
+    if (!empty && DESTRUCTIVE_EXISTING_SCHEMA_MIGRATIONS.has(version)) {
+      throw new Error(
+        `Refusing ${version} against an existing schema: this historical migration contains destructive audit/event truncation. ` +
+          "Archive and reconcile the existing ledgers through an explicit operator procedure before hardening; no audit history may be silently deleted.",
+      );
     }
 
     if (!empty && version.startsWith("0000_")) {

@@ -5,7 +5,7 @@ import { waterfallConfigs, waterfallTiers } from "@/db/schema";
 import { apiError, guarded, parseBody, withIdempotency } from "@/lib/api";
 import { runWaterfall, type TierType } from "@/lib/waterfall";
 import { evaluatePolicy } from "@/lib/policy";
-import { recordAudit, publishEvent } from "@/lib/audit";
+import { withAuditTransaction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       action: "finance.waterfall.simulate",
       rateLimit: { limit: 60, windowMs: 60_000 },
       audit: { objectType: "WATERFALL_RUN" },
+      databaseContext: "handler",
     },
     async (ctx) => {
       const body = await parseBody(ctx.request, SimulateSchema);
@@ -120,40 +121,60 @@ export async function POST(request: Request) {
             },
           };
 
-          await recordAudit({
-            tenantId: ctx.principal.tenantId,
-            actorUserId: ctx.principal.userId,
-            action: "finance.waterfall.simulate",
-            objectType: "WATERFALL_CONFIG",
-            objectId: config.id,
-            newValue: {
-              grossAmount: body.grossAmount,
-              scenario: body.scenario,
-              checksum: result.checksum,
-            },
-            authority: "finance:waterfall.simulate",
-            policyVersion: policy.appliedPolicies
-              .map((p) => `${p.code}@${p.version}`)
-              .join(","),
-            ipAddress: ctx.ip,
-            userAgent: ctx.userAgent,
-            traceId: ctx.traceId,
-          });
-          await publishEvent({
-            type: "WATERFALL_SIMULATED",
-            source: "beyu-os/finance",
-            tenantId: ctx.principal.tenantId,
-            subjectType: "WATERFALL_CONFIG",
-            subjectId: config.id,
-            actorUserId: ctx.principal.userId,
-            classification: "RESTRICTED",
-            payload: {
-              scenario: body.scenario,
-              gross: body.grossAmount,
-              checksum: result.checksum,
-            },
-            traceId: ctx.traceId,
-          });
+          // A simulation is non-mutating financial analysis, but its audit and
+          // event evidence still form one governed observation. Append both in
+          // one transaction so a partial ledger/event pair cannot be committed.
+          await withAuditTransaction(
+            async () => payload,
+            () => ({
+              tenantId: ctx.principal.tenantId,
+              actorUserId: ctx.principal.userId,
+              action: "finance.waterfall.simulate",
+              objectType: "WATERFALL_CONFIG",
+              objectId: config.id,
+              newValue: {
+                grossAmount: body.grossAmount,
+                scenario: body.scenario,
+                checksum: result.checksum,
+              },
+              authority: "finance:waterfall.simulate",
+              policyVersion: policy.appliedPolicies
+                .map((p) => `${p.code}@${p.version}`)
+                .join(","),
+              ipAddress: ctx.ip,
+              userAgent: ctx.userAgent,
+              traceId: ctx.traceId,
+            }),
+            () => ({
+              type: "WATERFALL_SIMULATED",
+              source: "beyu-os/finance",
+              domain: "FINANCE",
+              operation: "SIMULATE_WATERFALL",
+              destinationDomain: null,
+              tenantId: ctx.principal.tenantId,
+              legalEntityId: config.legalEntityId,
+              subjectType: "WATERFALL_CONFIG",
+              subjectId: config.id,
+              actorUserId: ctx.principal.userId,
+              classification: "RESTRICTED" as const,
+              payload: {
+                scenario: body.scenario,
+                gross: body.grossAmount,
+                checksum: result.checksum,
+              },
+              traceId: ctx.traceId,
+              correlationId: ctx.traceId,
+              causationId: null,
+              authorityContext: {
+                authorityId: null,
+                decisionId: null,
+                capabilityCode: null,
+                permissionCode: "finance:waterfall.simulate",
+                policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+              },
+              policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+            }),
+          );
 
           return { status: 200, body: payload };
         },

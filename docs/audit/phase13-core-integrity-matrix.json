@@ -1,0 +1,252 @@
+{
+  "title": "PHASE 13 — BEYU OS current-main core integrity matrix",
+  "auditDate": "2026-08-23",
+  "source": {
+    "branch": "arena/01a02d6d-beyu-os-1-0",
+    "baselineCommit": "a8472078bc32984728b954a25dad89082a05158a",
+    "mainBaseline": "8516162052a59ad7f538d78cfb7539fcb2f97c40",
+    "supabase": "EXCLUDED",
+    "database": "DATA_NOT_AVAILABLE",
+    "fullTests": "DATA_NOT_AVAILABLE"
+  },
+  "allowedStatuses": [
+    "COMPLETE",
+    "PARTIAL",
+    "READY",
+    "REQUIRES_AUTHORITY",
+    "DATA_NOT_AVAILABLE",
+    "NOT_AVAILABLE"
+  ],
+  "capabilities": [
+    {
+      "capability": "Identity",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "users.id is GlobalUserID and a forward unique users_party_uidx migration is prepared; live duplicate scan and migration proof were unavailable."
+    },
+    {
+      "capability": "Governance",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Constitution, bodies, resolutions and voting exist; ratification/provenance and live DB state are not proven."
+    },
+    {
+      "capability": "Authority",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Fail-closed 6C/scoped gates exist, but no live ratified execution authority or governed activation API is available."
+    },
+    {
+      "capability": "HCM",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "One employee master and read consumption exist; lifecycle writes correctly remain blocked."
+    },
+    {
+      "capability": "Finance",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Ledger rails and sole posting writer exist; accounting authority and live financial state are unavailable."
+    },
+    {
+      "capability": "Tax",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Tax intelligence blocks evasion and stale/future strategies; no authoritative liability or treatment is created."
+    },
+    {
+      "capability": "Legal",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Matter/document evidence exists; binding legal interpretation remains human/authority work."
+    },
+    {
+      "capability": "Security",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "PARTIAL",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "MFA/session/RBAC/ABAC primitives exist, but pooled RLS, residual auth races, rate-limit deployment and dependency proof remain."
+    },
+    {
+      "capability": "Audit",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "Append-only chain exists; historical migration 0001 contains destructive SQL, although the runner now refuses it for existing schemas."
+    },
+    {
+      "capability": "Events",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "One event writer exists; hash coverage and live append/rollback proof are unavailable."
+    },
+    {
+      "capability": "Lineage",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "Financial lineage is real but not universal across all enterprise outputs."
+    },
+    {
+      "capability": "Workflow",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "One pure workflow/SoD primitive exists; persisted workflow execution is not wired."
+    },
+    {
+      "capability": "Noelia/HIVE",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "One governed deterministic AI identity exists; no external tool/LLM or human-disposition workflow exists."
+    },
+    {
+      "capability": "Compliance",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Read/analysis register exists; authoritative assessment/enforcement remains governed and unavailable."
+    },
+    {
+      "capability": "Risk",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Risk analysis exists; appetite/limit enforcement is authority-bound."
+    },
+    {
+      "capability": "Intercompany",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Attribution and reconciliation rails exist; consolidation/elimination policy is not ratified."
+    },
+    {
+      "capability": "Reporting",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Read-only derivations exist; live ledger/period data and reporting policy are unavailable."
+    },
+    {
+      "capability": "FX",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Implied-rate fabrication is blocked; no governed rate source is available."
+    },
+    {
+      "capability": "Period/Close",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Period schema and structural checks exist; no period lifecycle writer or ratified close policy exists."
+    },
+    {
+      "capability": "Capital",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Governance prerequisite can be recorded; funding/execution remains unavailable and unauthorized."
+    },
+    {
+      "capability": "Treasury",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "DATA_NOT_AVAILABLE",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "Observed positions and analysis exist; database balances and attribution state were not available."
+    },
+    {
+      "capability": "Tenant/entity isolation",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "Application scope and selected RLS policies exist, but pooled session GUC context is not connection-pinned and live attacks could not run."
+    },
+    {
+      "capability": "PostgreSQL/migration parity",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "12 migrations/12 snapshots are present after the identity uniqueness migration; no PostgreSQL environment was available for parity."
+    }
+  ]
+}

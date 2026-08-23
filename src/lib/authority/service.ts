@@ -21,12 +21,14 @@ import { db } from "@/db";
 import {
   governanceCapabilityRegistry,
   governanceDecisionRegistry,
+  legalEntities,
   policies,
   resolutions,
 } from "@/db/schema";
 import { checksumOf } from "@/lib/crypto";
 import { checkCapabilityActivation } from "@/lib/decision-authority";
 import type { Principal } from "@/lib/authz";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 import {
   AUTHORITY_ENGINE_VERSION,
   assessDecisionReadiness,
@@ -165,14 +167,15 @@ export async function checkScopedCapability(input: {
     };
   }
 
-  // --- The principal's OWN scope, checked before anything else.
-  //     runSpecialist() already enforces this upstream, but this gate must be independently safe:
-  //     a caller that reaches it directly must not be able to assert a tenant it does not hold. ---
-  if (input.principal.tenantId !== input.tenantId) {
+  // --- The principal's resolved scope, checked before anything else.
+  //     Enterprise governance principals may act for descendants in their explicit
+  //     subtree; a direct caller still cannot assert an unrelated tenant.
+  const principalScope = await tenantScopeIds(input.principal);
+  if (!principalScope.includes(input.tenantId)) {
     return {
       permitted: false,
       decision: "TENANT_SCOPE_MISMATCH",
-      reason: `Principal belongs to tenant ${input.principal.tenantId} and cannot act for ${input.tenantId}.`,
+      reason: `Tenant ${input.tenantId} is outside the principal's authorised scope.`,
       capabilityExists: true,
       capabilityEnabled: false,
       authorityEvaluations: [],
@@ -194,6 +197,43 @@ export async function checkScopedCapability(input: {
       capabilityEnabled: false,
       authorityEvaluations: [],
       blockedBy: [],
+    };
+  }
+
+  // Entity identity is part of the authority boundary, not merely an input
+  // format check. A valid entity id belonging to a different tenant must not be
+  // usable with a capability scoped to the requested tenant.
+  if (input.legalEntityId !== null) {
+    const [entity] = await db
+      .select({ id: legalEntities.id, tenantId: legalEntities.tenantId })
+      .from(legalEntities)
+      .where(eq(legalEntities.id, input.legalEntityId))
+      .limit(1);
+    if (!entity || entity.tenantId !== input.tenantId || !principalScope.includes(entity.tenantId)) {
+      return {
+        permitted: false,
+        decision: "ENTITY_SCOPE_MISMATCH",
+        reason: "The legal entity is outside the requested tenant scope.",
+        capabilityExists: true,
+        capabilityEnabled: false,
+        authorityEvaluations: [],
+        blockedBy: [],
+      };
+    }
+  }
+
+  // A capability without a bound execution permission cannot satisfy the
+  // principal-authorisation leg of the canonical gate. Do not let a malformed
+  // activated registry row become a permissionless execution path.
+  if (!cap.executionPermission) {
+    return {
+      permitted: false,
+      decision: "AUTHORITY_CHAIN_INCOMPLETE",
+      reason: `${input.capabilityCode} has no execution permission; the authority chain is incomplete.`,
+      capabilityExists: true,
+      capabilityEnabled: false,
+      authorityEvaluations: [],
+      blockedBy: [input.capabilityCode],
     };
   }
 

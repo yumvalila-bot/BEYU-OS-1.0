@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { constitutionArticles, policies, workflows } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { POLICY_LEVEL_ORDER } from "@/lib/policy";
 
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ConstitutionPage() {
   const access = await requireAccess("governance:policy.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="governance:policy.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const [articles, policyRows, workflowRows] = await Promise.all([
     db.select().from(constitutionArticles).orderBy(constitutionArticles.articleNo),
@@ -124,5 +126,5 @@ export default async function ConstitutionPage() {
         </div>
       </Panel>
     </div>
-  );
+  );  });
 }

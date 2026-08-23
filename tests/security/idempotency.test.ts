@@ -138,6 +138,25 @@ describe("A-01 governed idempotency", () => {
     expect(rows.length).toBe(1);
   });
 
+  it("does not auto-reclaim an uncertain in-flight claim after a timeout", async () => {
+    const p = await principalFor("GRACE_KILELE");
+    const scope = idempotencyScope(p, ENDPOINT);
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    await db.insert(idempotencyRecords).values({
+      scope,
+      idempotencyKey: "key-crashed",
+      requestHash: hashRequest({ title: "uncertain" }),
+      state: "IN_FLIGHT",
+      tenantId: p.tenantId,
+      actorUserId: p.userId,
+      createdAt: old,
+      expiresAt: old,
+    });
+
+    const result = await claimIdempotencyKey(p, ENDPOINT, "key-crashed", { title: "uncertain" });
+    expect(result.kind).toBe("IN_FLIGHT");
+  });
+
   it("releases a claim when the mutation fails so a retry can proceed", async () => {
     const p = await principalFor("GRACE_KILELE");
     const payload = { title: "failing" };

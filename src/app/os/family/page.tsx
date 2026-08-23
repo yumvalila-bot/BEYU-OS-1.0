@@ -2,8 +2,8 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { beneficiaries, familyMembers, familyVaultItems, governanceBodies, legalEntities, parties, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function FamilyPage() {
   const access = await requireAccess("family:member.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="family:member.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
   const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
 
   const [members, beneficiaryRows, vault, entities, councils, resolutionRows] = await Promise.all([
@@ -176,5 +177,5 @@ export default async function FamilyPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasDatabaseTransactionContext } from "@/db";
 import { ZodError, type ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
@@ -8,7 +9,7 @@ import {
   releaseIdempotencyKey,
 } from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
-import { setDatabaseTenantContext } from "./tenant-scope";
+import { withTenantDatabaseContext } from "./tenant-scope";
 import { SYSTEM_VERSION, type PermissionCode } from "./constants";
 
 /**
@@ -19,7 +20,14 @@ import { SYSTEM_VERSION, type PermissionCode } from "./constants";
  */
 
 export type ApiErrorBody = {
-  error: { code: string; message: string; traceId: string; details?: unknown };
+  error: {
+    code: string;
+    message: string;
+    traceId: string;
+    correlationId: string;
+    causationId: string | null;
+    details?: unknown;
+  };
 };
 
 export function apiError(
@@ -28,17 +36,39 @@ export function apiError(
   status: number,
   traceId: string,
   details?: unknown,
+  correlationId = traceId,
+  causationId: string | null = null,
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json(
-    { error: { code, message, traceId, ...(details ? { details } : {}) } },
-    { status, headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": traceId } },
+    { error: { code, message, traceId, correlationId, causationId, ...(details ? { details } : {}) } },
+    {
+      status,
+      headers: {
+        "x-beyu-system": SYSTEM_VERSION,
+        "x-trace-id": traceId,
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
-export function apiOk<T>(data: T, traceId: string, status = 200): NextResponse {
+export function apiOk<T>(
+  data: T,
+  traceId: string,
+  status = 200,
+  correlationId = traceId,
+  causationId: string | null = null,
+): NextResponse {
   return NextResponse.json(
-    { data, meta: { traceId, system: SYSTEM_VERSION, at: new Date().toISOString() } },
-    { status, headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": traceId } },
+    { data, meta: { traceId, correlationId, causationId, system: SYSTEM_VERSION, at: new Date().toISOString() } },
+    {
+      status,
+      headers: {
+        "x-beyu-system": SYSTEM_VERSION,
+        "x-trace-id": traceId,
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
@@ -78,7 +108,7 @@ export type IdempotentResult = { status: number; body: unknown };
  * - key + same payload ...... replays the stored response, does NOT re-execute
  * - key + different payload . 409 IDEMPOTENCY_KEY_REUSED
  * - key held concurrently ... 409 REQUEST_IN_PROGRESS
- * - handler throws .......... claim released so a retry is possible
+ * - unexpected handler throw  claim remains IN_FLIGHT until domain state is reconciled
  *
  * The handler may return an `IdempotentResult` (success, which is recorded and
  * becomes replayable) or a `NextResponse` (a domain error, which releases the
@@ -90,6 +120,10 @@ export async function withIdempotency(
   payload: unknown,
   handler: () => Promise<IdempotentResult | NextResponse>,
 ): Promise<NextResponse> {
+  if (hasDatabaseTransactionContext()) {
+    throw new Error("withIdempotency must run outside an active request transaction");
+  }
+
   const rawKey = ctx.request.headers.get("idempotency-key");
   const claim = await claimIdempotencyKey(ctx.principal, endpoint, rawKey, payload);
 
@@ -115,18 +149,22 @@ export async function withIdempotency(
       headers: {
         "x-beyu-system": SYSTEM_VERSION,
         "x-trace-id": ctx.traceId,
+        "x-correlation-id": ctx.traceId,
         "idempotent-replay": "true",
       },
     });
   }
 
   if (claim.kind === "NO_KEY") {
-    const result = await handler();
+    const result = await withTenantDatabaseContext(ctx.principal, handler);
     return result instanceof NextResponse ? result : apiOk(result.body, ctx.traceId, result.status);
   }
 
   try {
-    const result = await handler();
+    // The claim was committed before this transaction began. Completion is
+    // written through the current transaction, so domain state and completion
+    // commit together; rollback leaves the durable claim IN_FLIGHT.
+    const result = await withTenantDatabaseContext(ctx.principal, handler);
 
     // A domain error is not a completed mutation: release the claim so the same
     // key may be retried once the caller fixes the request.
@@ -137,7 +175,7 @@ export async function withIdempotency(
 
     const envelope = {
       data: result.body,
-      meta: { traceId: ctx.traceId, system: SYSTEM_VERSION, at: new Date().toISOString() },
+      meta: { traceId: ctx.traceId, correlationId: ctx.traceId, causationId: null, system: SYSTEM_VERSION, at: new Date().toISOString() },
     };
     await completeIdempotencyKey(claim, result.status, envelope, ctx.traceId);
     return NextResponse.json(envelope, {
@@ -145,8 +183,10 @@ export async function withIdempotency(
       headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": ctx.traceId },
     });
   } catch (err) {
-    // A failed mutation must not poison the key.
-    await releaseIdempotencyKey(claim);
+    // Do not release on an unknown failure. The domain transaction may have
+    // committed immediately before the response/completion step failed; an
+    // automatic retry could otherwise execute a non-idempotent action twice.
+    // Operators must reconcile and explicitly release an IN_FLIGHT claim.
     throw err;
   }
 }
@@ -156,6 +196,8 @@ export async function withIdempotency(
 export type HandlerContext = {
   principal: Principal;
   traceId: string;
+  correlationId: string;
+  causationId: string | null;
   ip: string | null;
   userAgent: string | null;
   request: Request;
@@ -166,6 +208,12 @@ export type GuardOptions = {
   action: string;
   rateLimit?: { limit: number; windowMs: number };
   audit?: { objectType: string; objectId?: string };
+  /**
+   * `handler` leaves the authorization transaction before the handler starts.
+   * Idempotent handlers then establish their own context after their durable
+   * claim commits, avoiding a second pool checkout and preserving crash safety.
+   */
+  databaseContext?: "guard" | "handler";
 };
 
 export async function guarded(
@@ -181,37 +229,59 @@ export async function guarded(
       return apiError("UNAUTHENTICATED", "A valid BEYU OS session is required.", 401, traceId);
     }
 
-    await setDatabaseTenantContext(principal);
+    const context: HandlerContext = {
+      principal,
+      traceId,
+      correlationId: meta.correlationId,
+      causationId: meta.causationId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      request,
+    };
 
-    const rl = options.rateLimit ?? { limit: 120, windowMs: 60_000 };
-    const limited = rateLimit(`${principal.userId}:${options.permission}`, rl.limit, rl.windowMs);
-    if (!limited.ok) {
-      return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
+    const authorize = async (): Promise<NextResponse | null> => {
+      const rl = options.rateLimit ?? { limit: 120, windowMs: 60_000 };
+      const limited = rateLimit(`${principal.userId}:${options.permission}`, rl.limit, rl.windowMs);
+      if (!limited.ok) {
+        return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
+      }
+
+      const decision = can(principal, options.permission);
+      if (!decision.allowed) {
+        await recordAudit({
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          action: options.action,
+          objectType: options.audit?.objectType ?? "API",
+          objectId: options.audit?.objectId ?? options.permission,
+          outcome: "DENIED",
+          reason: decision.reason,
+          ipAddress: meta.ip,
+          userAgent: meta.userAgent,
+          traceId,
+        });
+        return apiError(
+          decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
+          decision.reason,
+          decision.requiresMfa ? 428 : 403,
+          traceId,
+        );
+      }
+      return null;
+    };
+
+    if (options.databaseContext === "handler") {
+      // Keep authorization/audit scoped, then release the connection before an
+      // idempotency claim. The handler owns the transaction that follows.
+      const denied = await withTenantDatabaseContext(principal, authorize);
+      if (denied) return denied;
+      return handler(context);
     }
 
-    const decision = can(principal, options.permission);
-    if (!decision.allowed) {
-      await recordAudit({
-        tenantId: principal.tenantId,
-        actorUserId: principal.userId,
-        action: options.action,
-        objectType: options.audit?.objectType ?? "API",
-        objectId: options.audit?.objectId ?? options.permission,
-        outcome: "DENIED",
-        reason: decision.reason,
-        ipAddress: meta.ip,
-        userAgent: meta.userAgent,
-        traceId,
-      });
-      return apiError(
-        decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-        decision.reason,
-        decision.requiresMfa ? 428 : 403,
-        traceId,
-      );
-    }
-
-    return await handler({ principal, traceId, ip: meta.ip, userAgent: meta.userAgent, request });
+    return withTenantDatabaseContext(principal, async () => {
+      const denied = await authorize();
+      return denied ?? handler(context);
+    });
   } catch (err) {
     if (err instanceof ZodError) {
       return apiError("VALIDATION_FAILED", "Request payload failed schema validation.", 422, traceId, err.issues);

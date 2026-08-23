@@ -4,6 +4,11 @@ import { auditLog, enterpriseEvents } from "@/db/schema";
 import { newId, ID_PREFIX } from "./ids";
 import { sha256, stableStringify } from "./crypto";
 import { SYSTEM_VERSION } from "./constants";
+import {
+  assertInteroperabilityEnvelope,
+  type AuthorityContext,
+  type InteropClassification,
+} from "./interoperability/contract";
 
 /**
  * Tamper-evident append-only ledgers.
@@ -46,6 +51,7 @@ export type AuditInput = {
   traceId?: string;
 };
 
+/** Legacy v1 payload. Retained only to verify historical audit rows. */
 export function canonicalAuditPayload(input: AuditInput, id: string, occurredAt: string): string {
   return stableStringify([
     id,
@@ -58,6 +64,41 @@ export function canonicalAuditPayload(input: AuditInput, id: string, occurredAt:
     input.outcome ?? "SUCCESS",
     input.oldValue ?? null,
     input.newValue ?? null,
+    occurredAt,
+  ]);
+}
+
+/**
+ * Version 2 covers the complete audit envelope. The version marker itself is
+ * hashed so a row cannot be silently re-labelled as another algorithm.
+ */
+export function canonicalAuditPayloadV2(
+  input: AuditInput,
+  id: string,
+  occurredAt: string,
+  systemVersion = SYSTEM_VERSION,
+): string {
+  return stableStringify([
+    "2",
+    id,
+    input.tenantId ?? null,
+    input.actorUserId ?? null,
+    input.actorType ?? "HUMAN",
+    input.action,
+    input.objectType,
+    input.objectId,
+    input.outcome ?? "SUCCESS",
+    input.reason ?? null,
+    input.authority ?? null,
+    input.approvalRef ?? null,
+    input.policyVersion ?? null,
+    systemVersion,
+    input.aiVersion ?? null,
+    input.oldValue ?? null,
+    input.newValue ?? null,
+    input.ipAddress ?? null,
+    input.userAgent ?? null,
+    input.traceId ?? null,
     occurredAt,
   ]);
 }
@@ -82,7 +123,8 @@ async function appendAudit(tx: Tx, input: AuditInput): Promise<string> {
   const id = newId(ID_PREFIX.audit);
   const occurredAt = new Date().toISOString();
   const prevHash = await lockChainHead(tx, "AUDIT_LOG");
-  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalAuditPayload(input, id, occurredAt)}`);
+  const hashVersion = "2";
+  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalAuditPayloadV2(input, id, occurredAt)}`);
 
   await tx.insert(auditLog).values({
     id,
@@ -106,6 +148,7 @@ async function appendAudit(tx: Tx, input: AuditInput): Promise<string> {
     traceId: input.traceId,
     occurredAt: new Date(occurredAt),
     prevHash,
+    hashVersion,
     hash,
   });
   await updateChainHead(tx, "AUDIT_LOG", hash);
@@ -123,25 +166,71 @@ export async function recordAuditTx(tx: Tx, input: AuditInput): Promise<string> 
 export type EventInput = {
   type: string;
   source: string;
-  tenantId?: string | null;
+  /** Common interoperability envelope fields. */
+  domain: string;
+  operation: string;
+  destinationDomain: string | null;
+  tenantId: string | null;
+  legalEntityId: string | null;
   subjectType: string;
   subjectId: string;
   actorUserId?: string | null;
   actorType?: "HUMAN" | "SERVICE" | "AI";
-  classification?: "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED" | "HIGHLY_RESTRICTED";
+  classification: InteropClassification;
   payload?: Record<string, unknown>;
-  traceId?: string;
+  traceId: string;
+  correlationId: string;
+  causationId: string | null;
+  authorityContext: AuthorityContext | null;
+  policyVersion: string | null;
+  /** Optional at the input boundary for legacy callers; the writer records a controlled default. */
+  eventVersion?: string;
   schemaVersion?: string;
 };
 
-function canonicalEventPayload(input: EventInput, id: string, occurredAt: string) {
+/** Version 1 is retained solely for verification of historical events. */
+function canonicalEventPayloadV1(input: {
+  type: string;
+  tenantId: string | null;
+  subjectType: string;
+  subjectId: string;
+  payload: Record<string, unknown>;
+}, id: string, occurredAt: string) {
   return stableStringify([
     id,
     input.type,
-    input.tenantId ?? null,
+    input.tenantId,
     input.subjectType,
     input.subjectId,
+    input.payload,
+    occurredAt,
+  ]);
+}
+
+/** Version 2 hashes the complete interoperability identity and correlation envelope. */
+function canonicalEventPayloadV2(input: EventInput, id: string, occurredAt: string) {
+  return stableStringify([
+    id,
+    input.type,
+    input.eventVersion ?? "1",
+    input.schemaVersion ?? "1",
+    input.source,
+    input.domain,
+    input.operation,
+    input.destinationDomain,
+    input.tenantId,
+    input.legalEntityId,
+    input.subjectType,
+    input.subjectId,
+    input.actorUserId ?? null,
+    input.actorType ?? "HUMAN",
+    input.classification,
     input.payload ?? {},
+    input.traceId,
+    input.correlationId,
+    input.causationId,
+    input.authorityContext,
+    input.policyVersion,
     occurredAt,
   ]);
 }
@@ -149,22 +238,56 @@ function canonicalEventPayload(input: EventInput, id: string, occurredAt: string
 async function appendEvent(tx: Tx, input: EventInput): Promise<string> {
   const id = newId(ID_PREFIX.event);
   const occurredAt = new Date().toISOString();
+  const actorType = input.actorType ?? "HUMAN";
+  assertInteroperabilityEnvelope({
+    messageId: id,
+    messageType: "DOMAIN_EVENT",
+    eventType: input.type,
+    eventVersion: input.eventVersion ?? "1",
+    schemaVersion: input.schemaVersion ?? "1",
+    sourceDomain: input.domain,
+    destinationDomain: input.destinationDomain,
+    operation: input.operation,
+    globalUserId: input.actorUserId ?? null,
+    principalId: input.actorUserId ?? null,
+    actorType,
+    tenantId: input.tenantId,
+    legalEntityId: input.legalEntityId,
+    traceId: input.traceId,
+    correlationId: input.correlationId,
+    causationId: input.causationId,
+    occurredAt,
+    classification: input.classification,
+    authorityContext: input.authorityContext,
+    policyVersion: input.policyVersion,
+    payload: input.payload ?? {},
+  });
   const prevHash = await lockChainHead(tx, "ENTERPRISE_EVENTS");
-  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalEventPayload(input, id, occurredAt)}`);
+  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalEventPayloadV2(input, id, occurredAt)}`);
 
   await tx.insert(enterpriseEvents).values({
     id,
     type: input.type,
     source: input.source,
+    eventVersion: input.eventVersion ?? "1",
     schemaVersion: input.schemaVersion ?? "1",
-    tenantId: input.tenantId ?? null,
+    domain: input.domain,
+    operation: input.operation,
+    destinationDomain: input.destinationDomain,
+    tenantId: input.tenantId,
+    legalEntityId: input.legalEntityId,
     subjectType: input.subjectType,
     subjectId: input.subjectId,
     actorUserId: input.actorUserId ?? null,
-    actorType: input.actorType ?? "HUMAN",
-    classification: input.classification ?? "INTERNAL",
+    actorType,
+    classification: input.classification,
     payload: input.payload ?? {},
-    traceId: input.traceId ?? id,
+    traceId: input.traceId,
+    correlationId: input.correlationId,
+    causationId: input.causationId,
+    authorityContext: input.authorityContext,
+    policyVersion: input.policyVersion,
+    hashVersion: "2",
     occurredAt: new Date(occurredAt),
     prevHash,
     hash,
@@ -220,7 +343,39 @@ export type ChainVerification = {
   headMatches: boolean;
 };
 
-async function expectedAuditHash(row: typeof auditLog.$inferSelect, prev: string | null): Promise<string> {
+function expectedAuditHash(row: typeof auditLog.$inferSelect, prev: string | null): string | null {
+  if (row.hashVersion === "2") {
+    return sha256(
+      `${prev ?? "GENESIS"}|${canonicalAuditPayloadV2(
+        {
+          tenantId: row.tenantId,
+          actorUserId: row.actorUserId,
+          actorType: row.actorType as "HUMAN" | "SERVICE" | "AI",
+          action: row.action,
+          objectType: row.objectType,
+          objectId: row.objectId,
+          outcome: row.outcome as "SUCCESS" | "DENIED" | "FAILURE",
+          reason: row.reason ?? undefined,
+          authority: row.authority ?? undefined,
+          approvalRef: row.approvalRef ?? undefined,
+          policyVersion: row.policyVersion ?? undefined,
+          aiVersion: row.aiVersion ?? undefined,
+          oldValue: row.oldValue ?? null,
+          newValue: row.newValue ?? null,
+          ipAddress: row.ipAddress ?? null,
+          userAgent: row.userAgent ?? null,
+          traceId: row.traceId ?? undefined,
+        },
+        row.id,
+        row.occurredAt.toISOString(),
+        row.systemVersion,
+      )}`,
+    );
+  }
+
+  // NULL/"1" rows are legacy hashes. They are still checked using the exact
+  // historical algorithm, but are not represented as v2-complete evidence.
+  if (row.hashVersion !== null && row.hashVersion !== "1") return null;
   return sha256(
     `${prev ?? "GENESIS"}|${canonicalAuditPayload(
       {
@@ -260,8 +415,8 @@ export async function verifyAuditChain(limit?: number): Promise<ChainVerificatio
 
   let prev: string | null = null;
   for (const row of rows) {
-    const expected = await expectedAuditHash(row, prev);
-    if (expected !== row.hash || row.prevHash !== prev) {
+    const expected = expectedAuditHash(row, prev);
+    if (expected === null || expected !== row.hash || row.prevHash !== prev) {
       return { verified: false, records: rows.length, brokenAt: row.id, duplicateParents, headMatches: false };
     }
     prev = row.hash;
@@ -269,6 +424,90 @@ export async function verifyAuditChain(limit?: number): Promise<ChainVerificatio
 
   const head = await db.execute<{ current_hash: string | null }>(
     sql`select current_hash from audit_chain_heads where chain_name = 'AUDIT_LOG'`,
+  );
+  const headHash = head.rows[0]?.current_hash ?? null;
+  return {
+    verified: duplicateParents === 0 && headHash === prev,
+    records: rows.length,
+    brokenAt: null,
+    duplicateParents,
+    headMatches: headHash === prev,
+  };
+}
+
+export type EventChainVerification = ChainVerification;
+
+function expectedEventHash(row: typeof enterpriseEvents.$inferSelect, prev: string | null): string {
+  const occurredAt = row.occurredAt.toISOString();
+  const hashPayload =
+    row.hashVersion === "2"
+      ? canonicalEventPayloadV2({
+          type: row.type,
+          source: row.source,
+          domain: row.domain ?? "",
+          operation: row.operation ?? "",
+          destinationDomain: row.destinationDomain ?? null,
+          tenantId: row.tenantId ?? null,
+          legalEntityId: row.legalEntityId ?? null,
+          subjectType: row.subjectType,
+          subjectId: row.subjectId,
+          actorUserId: row.actorUserId ?? null,
+          actorType: row.actorType as "HUMAN" | "SERVICE" | "AI",
+          eventVersion: row.eventVersion ?? "1",
+          schemaVersion: row.schemaVersion,
+          classification: row.classification as InteropClassification,
+          payload: row.payload ?? {},
+          traceId: row.traceId,
+          correlationId: row.correlationId ?? "",
+          causationId: row.causationId ?? null,
+          authorityContext: (row.authorityContext ?? null) as AuthorityContext | null,
+          policyVersion: row.policyVersion ?? null,
+        }, row.id, occurredAt)
+      : canonicalEventPayloadV1({
+          type: row.type,
+          tenantId: row.tenantId ?? null,
+          subjectType: row.subjectType,
+          subjectId: row.subjectId,
+          payload: row.payload ?? {},
+        }, row.id, occurredAt);
+  return sha256(`${prev ?? "GENESIS"}|${hashPayload}`);
+}
+
+/** Re-computes the complete enterprise event hash chain, including legacy v1 events. */
+export async function verifyEventChain(limit?: number): Promise<EventChainVerification> {
+  let query = db.select().from(enterpriseEvents).orderBy(enterpriseEvents.sequence).$dynamic();
+  if (limit) query = query.limit(limit);
+  const rows = await query;
+  const forks = await db.execute<{ count: string }>(sql`
+    select count(*)::text as count
+    from (
+      select prev_hash from enterprise_events
+      where prev_hash is not null group by prev_hash having count(*) > 1
+    ) forks
+  `);
+  const duplicateParents = Number(forks.rows[0]?.count ?? 0);
+  let prev: string | null = null;
+  for (const row of rows) {
+    if (
+      row.hashVersion !== null &&
+      row.hashVersion !== "1" &&
+      row.hashVersion !== "2"
+    ) {
+      return { verified: false, records: rows.length, brokenAt: row.id, duplicateParents, headMatches: false };
+    }
+    if (
+      row.hashVersion === "2" &&
+      (!row.eventVersion || !row.domain || !row.operation || !row.correlationId || !row.traceId || !row.schemaVersion)
+    ) {
+      return { verified: false, records: rows.length, brokenAt: row.id, duplicateParents, headMatches: false };
+    }
+    if (expectedEventHash(row, prev) !== row.hash || row.prevHash !== prev) {
+      return { verified: false, records: rows.length, brokenAt: row.id, duplicateParents, headMatches: false };
+    }
+    prev = row.hash;
+  }
+  const head = await db.execute<{ current_hash: string | null }>(
+    sql`select current_hash from audit_chain_heads where chain_name = 'ENTERPRISE_EVENTS'`,
   );
   const headHash = head.rows[0]?.current_hash ?? null;
   return {

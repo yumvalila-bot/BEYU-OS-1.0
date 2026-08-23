@@ -14,7 +14,7 @@
  * GlobalUserID is attached from the identity graph (users.id). Finance may
  * consume that id; it does not receive pay data through the identity graph.
  */
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { employees, employmentEvents, legalEntities, orgUnits, parties, positions } from "@/db/schema";
 import { can, type Principal } from "./authz";
@@ -354,8 +354,10 @@ function inEntityScope(principal: Principal, legalEntityId: string): boolean {
 }
 
 /**
- * Canonical workforce read. Tenant-scoped (employee tenant OR employing-entity
- * tenant), entity-scoped, clearance-filtered, compensation-gated.
+ * Canonical workforce read. The employing legal entity's tenant must be inside
+ * the principal's tenant scope; the employee row may be held at the enterprise
+ * tenant for shared HCM, but a mismatched/foreign employing entity is never
+ * admitted. Entity scope, clearance and compensation gates are then applied.
  * Never returns an employee the principal cannot see.
  */
 export async function listWorkforce(
@@ -407,7 +409,7 @@ export async function listWorkforce(
     .innerJoin(legalEntities, eq(legalEntities.id, employees.legalEntityId))
     .leftJoin(positions, eq(positions.id, employees.positionId))
     .leftJoin(orgUnits, eq(orgUnits.id, positions.orgUnitId))
-    .where(or(inArray(employees.tenantId, scope), inArray(legalEntities.tenantId, scope)))
+    .where(inArray(legalEntities.tenantId, scope))
     .orderBy(employees.employeeNo);
 
   const scoped = rows.filter((r) => inEntityScope(principal, r.legalEntityId));

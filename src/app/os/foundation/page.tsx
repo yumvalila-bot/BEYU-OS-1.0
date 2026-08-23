@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { capitalRequests, foundationPrograms, legalEntities, osRegistry, tenants } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { tenantScopeIds } from "@/lib/tenant-scope";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function FoundationPage() {
   const access = await requireAccess("platform:dashboard.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="platform:dashboard.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   /**
    * H-NEW-2: the Foundation is a distinct tenant, not a global namespace. Its
@@ -140,5 +141,5 @@ export default async function FoundationPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

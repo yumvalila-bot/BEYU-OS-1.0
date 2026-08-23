@@ -112,7 +112,7 @@ export async function resolvePrincipal(): Promise<Principal | null> {
   const grants = await loadGrants(row.userId, row.tenantId);
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
-  const emergencyPermissions = await activeEmergencyPermissions(row.userId);
+  const emergencyPermissions = await activeEmergencyPermissions(row.userId, row.tenantId);
 
   return {
     userId: row.userId,
@@ -133,11 +133,29 @@ export async function resolvePrincipal(): Promise<Principal | null> {
   };
 }
 
+/**
+ * Resolve a client address only when the deployment explicitly declares a
+ * trusted reverse proxy. Direct clients can forge forwarding headers; treating
+ * them as an authentication rate-limit identity would let an attacker rotate
+ * `X-Forwarded-For` values to evade the control.
+ */
+export function trustedClientIp(h: Headers): string | null {
+  if (process.env.BEYU_TRUST_PROXY !== "true") return null;
+  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded && forwarded.length <= 128 ? forwarded : null;
+}
+
 export async function requestMeta() {
   const h = await headers();
+  // Incoming trace headers are untrusted input. A caller may supply an external
+  // correlation identifier separately, but it must not be able to forge or
+  // collide with the BEYU internal trace used for audit/security decisions.
+  const traceId = newId(ID_PREFIX.event);
   return {
-    ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip: trustedClientIp(h),
     userAgent: h.get("user-agent"),
-    traceId: h.get("x-trace-id") ?? newId(ID_PREFIX.event),
+    traceId,
+    correlationId: traceId,
+    causationId: null,
   };
 }

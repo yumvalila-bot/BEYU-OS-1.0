@@ -668,8 +668,18 @@ describe("governed vote — atomicity and concurrency", () => {
         () => ({
           type: null as never, // NOT NULL violation
           source: "beyu-os/governance",
+          domain: "GOVERNANCE",
+          operation: "CAST_VOTE",
+          destinationDomain: null,
           tenantId: "TEN_BEYU_GROUP",
+          legalEntityId: null,
           subjectType: "RESOLUTION",
+          classification: "RESTRICTED",
+          traceId: "TRACE-EVENT-FAIL",
+          correlationId: "TRACE-EVENT-FAIL",
+          causationId: null,
+          authorityContext: null,
+          policyVersion: null,
           subjectId: r.id,
         }),
       ),

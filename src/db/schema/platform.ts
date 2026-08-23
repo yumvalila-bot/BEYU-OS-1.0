@@ -85,9 +85,15 @@ export const enterpriseEvents = pgTable(
     sequence: bigserial("sequence", { mode: "number" }).notNull(),
     type: text("type").notNull(),
     specVersion: text("spec_version").notNull().default("1.0"),
+    eventVersion: text("event_version"),
     schemaVersion: text("schema_version").notNull().default("1"),
+    /** Interoperability contract fields. Nullable for historical events; new app writes require them. */
+    domain: text("domain"),
+    operation: text("operation"),
+    destinationDomain: text("destination_domain"),
     source: text("source").notNull(),
     tenantId: text("tenant_id").references(() => tenants.id),
+    legalEntityId: text("legal_entity_id"),
     subjectType: text("subject_type").notNull(),
     subjectId: text("subject_id").notNull(),
     actorUserId: text("actor_user_id"),
@@ -95,11 +101,21 @@ export const enterpriseEvents = pgTable(
     classification: classificationEnum("classification").notNull().default("INTERNAL"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
     traceId: text("trace_id").notNull(),
+    correlationId: text("correlation_id"),
+    causationId: text("causation_id"),
+    authorityContext: jsonb("authority_context").$type<Record<string, string | null> | null>(),
+    policyVersion: text("policy_version"),
+    hashVersion: text("hash_version"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     prevHash: text("prev_hash"),
     hash: text("hash").notNull(),
   },
-  (t) => [index("events_type_idx").on(t.type), index("events_tenant_idx").on(t.tenantId)],
+  (t) => [
+    index("events_type_idx").on(t.type),
+    index("events_tenant_idx").on(t.tenantId),
+    index("events_correlation_idx").on(t.correlationId),
+    index("events_causation_idx").on(t.causationId),
+  ],
 );
 
 /** Tamper-evident audit ledger. Append only — never updated or deleted. */
@@ -128,6 +144,7 @@ export const auditLog = pgTable(
     traceId: text("trace_id"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     prevHash: text("prev_hash"),
+    hashVersion: text("hash_version"),
     hash: text("hash").notNull(),
   },
   (t) => [

@@ -66,6 +66,9 @@ export function assessTaxStrategy(input: {
 }): EligibilityOutcome {
   const { strategy, facts } = input;
   const asOf = input.asOf ?? new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+    throw new Error("asOf must be an ISO date (YYYY-MM-DD).");
+  }
   const rationale: string[] = [];
 
   // 1. Absolute prohibition — never returned as an option.
@@ -102,7 +105,12 @@ export function assessTaxStrategy(input: {
   }
 
   // 3. Knowledge authority gate — expired/under review knowledge is not authoritative.
-  if (strategy.authorityStatus !== "AUTHORITATIVE" || (strategy.effectiveTo && strategy.effectiveTo < asOf)) {
+  if (
+    strategy.authorityStatus !== "AUTHORITATIVE" ||
+    strategy.effectiveFrom > asOf ||
+    (strategy.effectiveTo && strategy.effectiveTo < asOf) ||
+    strategy.reviewDate < asOf
+  ) {
     return {
       eligibility: "UNDER_REVIEW",
       metCriteria: [],

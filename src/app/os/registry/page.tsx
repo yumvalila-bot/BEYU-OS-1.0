@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { architectureDecisions, dataAssets, integrations, metricDefinitions, osRegistry, sourceOfTruth } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { filterByClearance } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 
@@ -16,6 +17,7 @@ const KIND_TONE: Record<string, string> = {
 export default async function RegistryPage() {
   const access = await requireAccess("platform:registry.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="platform:registry.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const [osRows, sotRows, adrRows, integrationRows, metricRows, allAssetRows] = await Promise.all([
     db.select().from(osRegistry).orderBy(osRegistry.kind),
@@ -186,5 +188,5 @@ export default async function RegistryPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

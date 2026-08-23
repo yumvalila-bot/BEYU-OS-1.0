@@ -183,6 +183,33 @@ describe("activation gate — forged authority is rejected", () => {
       ),
     ).toBe(0);
   });
+
+  it("rejects an ACTIVATED decision when authority scope or conditions are missing", async () => {
+    const approved = await one<{ id: string }>(
+      sql`select id from resolutions where status = 'APPROVED' limit 1`,
+    );
+    expect(approved?.id).toBeTruthy();
+    try {
+      await db.execute(sql`
+        update governance_decision_registry
+        set status = 'ACTIVATED', activation_status = 'ACTIVATED', resolution_id = ${approved.id},
+            provenance = 'GOVERNED', approval_date = '2020-01-01', effective_from = '2020-01-01',
+            approving_body = 'TEST', decision_maker = 'TEST', scope = null, conditions = null, evidence = 'test'
+        where decision_id = 'P6'
+      `);
+      const result = await verifyDecisionAuthority("P6");
+      expect(result.verdict).toBe("PENDING");
+      expect(result.reason).toMatch(/scope|conditions/i);
+    } finally {
+      await db.execute(sql`
+        update governance_decision_registry
+        set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
+            approval_date = null, effective_from = null, effective_to = null, approving_body = null,
+            decision_maker = null, scope = null, conditions = null, evidence = null
+        where decision_id = 'P6'
+      `);
+    }
+  });
 });
 
 describe("activation gate — positive control: genuine authority DOES open the gate", () => {
@@ -203,7 +230,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'APPROVED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
-            approving_body = 'TEST', decision_maker = 'TEST', evidence = 'test'
+            approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P6'
       `);
       expect((await verifyDecisionAuthority("P6")).verdict).toBe("APPROVED_NOT_EFFECTIVE");
@@ -255,7 +282,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
         update governance_decision_registry
         set status = 'RATIFIED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
             effective_from = '2020-01-01', effective_to = ${yesterday}::date,
-            approving_body = 'TEST', decision_maker = 'TEST', evidence = 'test'
+            approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P6'
       `);
       expect((await verifyDecisionAuthority("P6")).verdict).toBe("EXPIRED");
@@ -278,7 +305,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'RATIFIED', resolution_id = ${approved.id}, provenance = 'REFERENCE_DATA',
-            effective_from = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST', evidence = 'test'
+            effective_from = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P6'
       `);
       // Seed/reference data must never authorise, mirroring getGovernanceDecisionAuthorization().
@@ -302,7 +329,7 @@ describe("activation gate — positive control: genuine authority DOES open the 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'RATIFIED', resolution_id = ${approved.id}, provenance = 'GOVERNED',
-            effective_from = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST', evidence = 'test'
+            effective_from = '2020-01-01', approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb, conditions = 'test', evidence = 'test'
         where decision_id = 'P7'
       `);
       const check = await verifyDecisionAuthority("P7");

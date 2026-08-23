@@ -2,7 +2,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { legalEntities, taxStrategies } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { tenantScopeIds } from "@/lib/tenant-scope";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
@@ -19,6 +19,7 @@ const POSITION_TONE: Record<string, string> = {
 export default async function TaxPage() {
   const access = await requireAccess("finance:tax.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:tax.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   // H-NEW-1: legal entities are tenant-scoped data and must never be enumerated
   // globally. Scope is derived from the authenticated principal via the canonical
@@ -112,5 +113,5 @@ export default async function TaxPage() {
         </div>
       </Panel>
     </div>
-  );
+  );  });
 }

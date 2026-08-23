@@ -60,6 +60,7 @@ export async function POST(request: Request, ctxParam: { params: Promise<{ id: s
       action: "finance.capital.governance_authorize",
       rateLimit: { limit: 20, windowMs: 60_000 },
       audit: { objectType: "CAPITAL_REQUEST", objectId: id },
+      databaseContext: "handler",
     },
     async (ctx) => {
       const raw = (await ctx.request.json().catch(() => ({}))) as Record<string, unknown>;

@@ -5,6 +5,7 @@
  * and that the constants.ts / role_permissions catalogues have not drifted.
  */
 import { describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { fixedId, ID_PREFIX } from "@/lib/ids";
@@ -80,6 +81,15 @@ describe("identity graph", () => {
     for (const [partyId, ids] of byParty) {
       expect(() => assertSingleGlobalUser(ids, partyId)).not.toThrow();
     }
+  });
+
+  it("database enforces one GlobalUserID per party", async () => {
+    const result = await db.execute<{ indexname: string }>(sql`
+      select indexname from pg_indexes
+      where schemaname = 'public' and tablename = 'users'
+        and indexname = 'users_party_uidx'
+    `);
+    expect(result.rows).toHaveLength(1);
   });
 });
 

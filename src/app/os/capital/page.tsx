@@ -2,8 +2,8 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { capitalRequests, legalEntities, resolutions, treasuryPositions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { evaluatePolicy } from "@/lib/policy";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { capitalGovernanceAuthorizations } from "@/lib/governance-authorization";
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function CapitalPage() {
   const access = await requireAccess("finance:capital.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:capital.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
   const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
 
   const [requests, treasury, entities, resolutionRows] = await Promise.all([
@@ -187,5 +188,5 @@ export default async function CapitalPage() {
         )}
       </Panel>
     </div>
-  );
+  );  });
 }

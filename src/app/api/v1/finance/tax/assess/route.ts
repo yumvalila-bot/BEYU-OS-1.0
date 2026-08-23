@@ -1,11 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { legalEntities, taxStrategies } from "@/db/schema";
 import { apiError, apiOk, guarded, parseBody } from "@/lib/api";
 import { assessTaxStrategy } from "@/lib/tax";
 import { evaluatePolicy } from "@/lib/policy";
-import { recordAudit, publishEvent } from "@/lib/audit";
+import { tenantScopeIds } from "@/lib/tenant-scope";
+import { withAuditTransaction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +34,23 @@ export async function POST(request: Request) {
     async (ctx) => {
       const body = await parseBody(ctx.request, AssessSchema);
 
+      const scope = await tenantScopeIds(ctx.principal);
       const [strategy] = await db.select().from(taxStrategies).where(eq(taxStrategies.id, body.strategyId)).limit(1);
       if (!strategy) return apiError("NOT_FOUND", "Tax strategy not found.", 404, ctx.traceId);
 
-      const [entity] = await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1);
-      if (!entity) return apiError("NOT_FOUND", "Legal entity not found.", 404, ctx.traceId);
+      // The entity is client-selected input, not authority. Resolve it only inside
+      // the caller's canonical tenant and legal-entity scope. Without this
+      // predicate a sector principal could assess (and receive the name of) an
+      // entity from another tenant whenever database RLS was not the connection
+      // that served this query.
+      const [entity] = await db
+        .select()
+        .from(legalEntities)
+        .where(and(eq(legalEntities.id, body.legalEntityId), inArray(legalEntities.tenantId, scope)))
+        .limit(1);
+      if (!entity || (ctx.principal.entityScope.length > 0 && !ctx.principal.entityScope.includes(entity.id))) {
+        return apiError("NOT_FOUND", "Legal entity not found.", 404, ctx.traceId);
+      }
 
       const policy = await evaluatePolicy({
         action: "finance:tax.assess",
@@ -94,29 +107,48 @@ export async function POST(request: Request) {
           "Machine assessment only. It is not legal or tax advice and may not be relied upon until reviewed and approved by a qualified human through the Tax Governance workflow.",
       };
 
-      await recordAudit({
-        tenantId: ctx.principal.tenantId,
-        actorUserId: ctx.principal.userId,
-        action: "finance.tax.assess",
-        objectType: "TAX_STRATEGY",
-        objectId: strategy.id,
-        newValue: { entity: entity.code, eligibility: outcome.eligibility, blocked: outcome.blocked },
-        authority: "finance:tax.assess",
-        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(","),
-        ipAddress: ctx.ip,
-        traceId: ctx.traceId,
-      });
-      await publishEvent({
-        type: "TAX_STRATEGY_ASSESSED",
-        source: "beyu-os/finance",
-        tenantId: ctx.principal.tenantId,
-        subjectType: "TAX_STRATEGY",
-        subjectId: strategy.id,
-        actorUserId: ctx.principal.userId,
-        classification: "RESTRICTED",
-        payload: { eligibility: outcome.eligibility, entity: entity.code },
-        traceId: ctx.traceId,
-      });
+      // Tax assessment is non-authoritative analysis, but its audit and event
+      // evidence must still be committed as one traceable observation.
+      await withAuditTransaction(
+        async () => payload,
+        () => ({
+          tenantId: ctx.principal.tenantId,
+          actorUserId: ctx.principal.userId,
+          action: "finance.tax.assess",
+          objectType: "TAX_STRATEGY",
+          objectId: strategy.id,
+          newValue: { entity: entity.code, eligibility: outcome.eligibility, blocked: outcome.blocked },
+          authority: "finance:tax.assess",
+          policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(","),
+          ipAddress: ctx.ip,
+          traceId: ctx.traceId,
+        }),
+        () => ({
+          type: "TAX_STRATEGY_ASSESSED",
+          source: "beyu-os/finance",
+          domain: "TAX",
+          operation: "ASSESS_STRATEGY",
+          destinationDomain: null,
+          tenantId: ctx.principal.tenantId,
+          legalEntityId: entity.id,
+          subjectType: "TAX_STRATEGY",
+          subjectId: strategy.id,
+          actorUserId: ctx.principal.userId,
+          classification: "RESTRICTED" as const,
+          payload: { eligibility: outcome.eligibility, entity: entity.code },
+          traceId: ctx.traceId,
+          correlationId: ctx.traceId,
+          causationId: null,
+          authorityContext: {
+            authorityId: null,
+            decisionId: null,
+            capabilityCode: null,
+            permissionCode: "finance:tax.assess",
+            policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+          },
+          policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+        }),
+      );
 
       return apiOk(payload, ctx.traceId);
     },

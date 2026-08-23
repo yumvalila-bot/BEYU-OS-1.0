@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withIndependentDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 import { sha256, stableStringify } from "./crypto";
 import type { Principal } from "./authz";
@@ -21,15 +21,20 @@ import type { Principal } from "./authz";
  *   - HASH   = canonical hash of the request payload. Same key + same payload
  *              replays; same key + different payload is a 409 CONFLICT.
  *   - CLAIM  = an IN_FLIGHT row inserted before the domain write. Concurrent
- *              duplicates collide on the primary key and are rejected, so a
- *              retried mutation cannot execute twice.
+ *              duplicates collide on the primary key and are rejected. An
+ *              uncertain claim is never auto-reclaimed because the domain may
+ *              have committed just before the response was lost.
  */
 
 /** How long a completed idempotent response remains replayable. */
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** A stale IN_FLIGHT claim (crashed request) may be reclaimed after this. */
-const IN_FLIGHT_RECLAIM_MS = 60_000;
+/**
+ * IN_FLIGHT claims are intentionally not auto-reclaimed. A crash can happen
+ * after the domain transaction commits but before completion is recorded; retrying
+ * then would execute a non-idempotent domain action twice. Recovery requires an
+ * operator to reconcile the claim against domain state before release.
+ */
 
 export type IdempotencyOutcome =
   | { kind: "PROCEED"; scope: string; key: string; requestHash: string }
@@ -74,12 +79,21 @@ export async function claimIdempotencyKey(
   const requestHash = hashRequest(payload);
   const now = new Date();
 
-  // Opportunistic cleanup of expired rows keeps the ledger bounded without a job.
-  await db.delete(idempotencyRecords).where(lt(idempotencyRecords.expiresAt, now));
+  // The claim must commit independently of the request/domain transaction. If
+  // that transaction later rolls back or the process crashes, the durable
+  // IN_FLIGHT record remains and forces operator reconciliation rather than
+  // permitting an uncertain mutation to execute twice.
+  return withIndependentDatabase(async (database) => {
+  // Completed responses may be cleaned up after their TTL. IN_FLIGHT rows are
+  // retained indefinitely: expiry must never turn an uncertain outcome into a
+  // second execution opportunity.
+  await database
+    .delete(idempotencyRecords)
+    .where(and(eq(idempotencyRecords.state, "COMPLETED"), lt(idempotencyRecords.expiresAt, now)));
 
   // Claim atomically. ON CONFLICT DO NOTHING means exactly one concurrent caller
   // inserts the row; everyone else falls through to inspect the existing record.
-  const inserted = await db
+  const inserted = await database
     .insert(idempotencyRecords)
     .values({
       scope,
@@ -95,7 +109,7 @@ export async function claimIdempotencyKey(
 
   if (inserted.length > 0) return { kind: "PROCEED", scope, key, requestHash };
 
-  const [existing] = await db
+  const [existing] = await database
     .select()
     .from(idempotencyRecords)
     .where(and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)))
@@ -117,24 +131,11 @@ export async function claimIdempotencyKey(
     };
   }
 
-  // A crashed request can leave a stale claim; allow reclaim after a grace period.
-  if (now.getTime() - existing.createdAt.getTime() > IN_FLIGHT_RECLAIM_MS) {
-    const reclaimed = await db
-      .update(idempotencyRecords)
-      .set({ createdAt: now, requestHash })
-      .where(
-        and(
-          eq(idempotencyRecords.scope, scope),
-          eq(idempotencyRecords.idempotencyKey, key),
-          eq(idempotencyRecords.state, "IN_FLIGHT"),
-          lt(idempotencyRecords.createdAt, new Date(now.getTime() - IN_FLIGHT_RECLAIM_MS)),
-        ),
-      )
-      .returning({ scope: idempotencyRecords.scope });
-    if (reclaimed.length > 0) return { kind: "PROCEED", scope, key, requestHash };
-  }
-
+  // An uncertain/crashed request is fail-closed. The claim must be reconciled
+  // against the domain state by an operator before it can be released; automatic
+  // reclaim would defeat replay safety for non-idempotent domain operations.
   return { kind: "IN_FLIGHT" };
+  });
 }
 
 /** Record the response so an identical retry replays instead of re-executing. */
@@ -144,7 +145,7 @@ export async function completeIdempotencyKey(
   body: unknown,
   traceId?: string,
 ): Promise<void> {
-  await db
+  const completed = await db
     .update(idempotencyRecords)
     .set({
       state: "COMPLETED",
@@ -157,13 +158,23 @@ export async function completeIdempotencyKey(
       and(
         eq(idempotencyRecords.scope, claim.scope),
         eq(idempotencyRecords.idempotencyKey, claim.key),
+        eq(idempotencyRecords.requestHash, claim.requestHash),
+        eq(idempotencyRecords.state, "IN_FLIGHT"),
       ),
-    );
+    )
+    .returning({ scope: idempotencyRecords.scope });
+  if (completed.length !== 1) {
+    // The domain operation may already have committed. Do not silently return a
+    // response that cannot be replayed, and do not release the uncertain claim.
+    throw new Error("Idempotency completion could not be recorded; claim requires reconciliation.");
+  }
 }
 
 /**
- * Release a claim when the mutation failed, so the caller may retry.
- * Only IN_FLIGHT claims are released; a COMPLETED response is never withdrawn.
+ * Release a claim only when the caller has established that no domain mutation
+ * committed (for example a validated/domain error). Only IN_FLIGHT claims are
+ * released; a COMPLETED response is never withdrawn. Unknown failures must not
+ * call this function.
  */
 export async function releaseIdempotencyKey(
   claim: Extract<IdempotencyOutcome, { kind: "PROCEED" }>,

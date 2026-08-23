@@ -57,8 +57,8 @@ HTTP request
   → can(permission, context)     RBAC ∧ ABAC ∧ tenancy ∧ classification ∧ step-up
   → evaluatePolicy()             constitution → … → transaction control; DENY is final
   → domain engine                deterministic, explainable (waterfall / tax / risk)
-  → recordAudit() + publishEvent()  hash-chained, tamper evident
-  → structured response envelope (no secrets, no internals, trace id attached)
+  → recordAudit() + publishEventTx()  hash-chained, tamper evident, contract-correlated
+  → structured response envelope (no secrets, no internals, trace/correlation metadata attached)
 ```
 
 ## Technology
@@ -71,4 +71,6 @@ NestJS services, workers or Lambda handlers without change, preserving cloud por
 See `docs/adr/` for the recorded architectural decisions and `docs/domain-model/README.md` for the
 entity model. Phase completion records: `PHASE_9_CANONICAL_ARCHITECTURE.md`,
 `PHASE_10_CANONICAL_RECONCILIATION.md`, `PHASE_11_PRODUCTION_READINESS.md`,
-`PHASE_12_HCM_COMPLETENESS.md`, `PHASE_HCM_1_PRODUCTION.md`.
+`PHASE_12_HCM_COMPLETENESS.md`, `PHASE_HCM_1_PRODUCTION.md`,
+`PHASE_14_INTEROPERABILITY_CONNECTIVITY_CONTINUITY_ONENESS.md`.
+The machine-readable Phase 14 matrix is `phase14-interoperability-matrix.json`.

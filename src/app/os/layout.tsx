@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { BeyuWordmark, Badge } from "@/components/brand";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
@@ -55,6 +56,7 @@ const NAV: { group: string; items: { href: string; label: string; permission?: s
 
 export default async function OsLayout({ children }: { children: ReactNode }) {
   const principal = await requirePrincipal();
+  return withTenantDatabaseContext(principal, async () => {
   const alerts = await db
     .select()
     .from(notifications)
@@ -163,4 +165,5 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+  });
 }

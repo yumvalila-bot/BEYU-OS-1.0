@@ -2,8 +2,8 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { legalEntities, resolutions, waterfallConfigs, waterfallRunLines, waterfallRuns, waterfallTiers } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Panel, money, stateTone } from "@/components/brand";
 import { WaterfallWorkbench } from "./workbench";
 
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function WaterfallPage() {
   const access = await requireAccess("finance:waterfall.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:waterfall.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
   const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
 
   const configs = await db.select().from(waterfallConfigs).where(inArray(waterfallConfigs.tenantId, scope));
@@ -150,5 +151,5 @@ export default async function WaterfallPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

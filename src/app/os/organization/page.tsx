@@ -2,8 +2,8 @@ import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { countries, jurisdictions, legalEntities, ownershipRecords, tenants } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ function EntityNode({ entity, all, depth }: { entity: EntityRow; all: EntityRow[
 export default async function OrganizationPage() {
   const access = await requireAccess("organization:entity.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="organization:entity.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const scope = await tenantScopeIds(access.principal);
   const ownershipAllowed = can(access.principal, "organization:ownership.read").allowed;
@@ -147,5 +148,5 @@ export default async function OrganizationPage() {
         </p>
       </Panel>
     </div>
-  );
+  );  });
 }

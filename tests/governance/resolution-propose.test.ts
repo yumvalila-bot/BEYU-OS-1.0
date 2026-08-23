@@ -475,8 +475,18 @@ describe("governed mutation — governance resolution proposal", () => {
         (r) => ({
           type: null as never, // violates NOT NULL → event append fails
           source: "beyu-os/governance",
+          domain: "GOVERNANCE",
+          operation: "PROPOSE_RESOLUTION",
+          destinationDomain: null,
           tenantId: "TEN_BEYU_GROUP",
+          legalEntityId: null,
           subjectType: "RESOLUTION",
+          classification: "RESTRICTED",
+          traceId: "TRACE-EVENT-FAIL",
+          correlationId: "TRACE-EVENT-FAIL",
+          causationId: null,
+          authorityContext: null,
+          policyVersion: null,
           subjectId: r.id,
         }),
       ),

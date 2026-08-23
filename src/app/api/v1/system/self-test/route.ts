@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { policies } from "@/db/schema";
 import { apiOk, guarded } from "@/lib/api";
-import { verifyAuditChain } from "@/lib/audit";
+import { verifyAuditChain, verifyEventChain } from "@/lib/audit";
 import { detectHierarchyConflicts, evaluatePolicy } from "@/lib/policy";
 import { evaluateConstitution } from "@/lib/governance/constitution";
 import { runWaterfall } from "@/lib/waterfall";
@@ -36,7 +36,19 @@ export async function GET(request: Request) {
           : `chain broken at ${chain.brokenAt}; duplicate parents ${chain.duplicateParents}; head matched ${chain.headMatches}`,
       });
 
-      // 2. Policy hierarchy integrity
+      // 2. Enterprise event chain integrity and interoperability envelope.
+      const events = await verifyEventChain();
+      results.push({
+        control: "CTL-EVT-001",
+        area: "EVENTS",
+        expectation: "Enterprise event hash chain is unbroken, complete, head-matched and fork-free",
+        passed: events.verified,
+        detail: events.verified
+          ? `${events.records} events verified; duplicate parents ${events.duplicateParents}; head matched ${events.headMatches}`
+          : `event chain broken at ${events.brokenAt}; duplicate parents ${events.duplicateParents}; head matched ${events.headMatches}`,
+      });
+
+      // 3. Policy hierarchy integrity
       const all = await db.select({ code: policies.code, level: policies.level, rules: policies.rules }).from(policies);
       const conflicts = detectHierarchyConflicts(all);
       results.push({

@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, knowledgeSources, osRegistry } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
+import { filterByClearance } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { NoeliaConsole } from "./console";
 
@@ -15,12 +17,22 @@ const PIPELINE = [
 export default async function NoeliaPage() {
   const access = await requireAccess("ai:noelia.query");
   if (!access.allowed) return <Denied reason={access.reason} capability="ai:noelia.query" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
-  const [recent, knowledge, hive] = await Promise.all([
+  const [recent, knowledgeRows, hive] = await Promise.all([
     db.select().from(aiDecisions).where(eq(aiDecisions.tenantId, access.principal.tenantId)).orderBy(desc(aiDecisions.occurredAt)).limit(8),
     db.select().from(knowledgeSources),
     db.select().from(osRegistry).where(eq(osRegistry.code, "HIVE_RUNTIME")).limit(1),
   ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const knowledge = filterByClearance(access.principal, knowledgeRows).filter(
+    (source) =>
+      source.authorityStatus === "AUTHORITATIVE" &&
+      source.effectiveFrom <= today &&
+      source.reviewDate >= today &&
+      (!source.expiresAt || source.expiresAt >= today),
+  );
 
   return (
     <div className="space-y-6">
@@ -105,5 +117,5 @@ export default async function NoeliaPage() {
         </div>
       </div>
     </div>
-  );
+  );  });
 }
