@@ -155,7 +155,7 @@ export const FINANCE_DOMAINS: readonly DomainRecord[] = [
     domain: "TAX",
     serviceName: "finance.tax",
     module: "src/lib/specialist/tax-intelligence.ts",
-    criteria: ALL({ canonicalSource: true, faultInjection: false }),
+    criteria: ALL({ canonicalSource: true }),
     blockedBy: ["AUTHORITY: no tax rate, treatment or basis may be computed (P8/TGC)"],
     limitations: ["Strategy records only. Tax strategy is never a tax liability."],
   },

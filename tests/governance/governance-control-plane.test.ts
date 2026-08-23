@@ -600,10 +600,10 @@ describe("governance maturity cannot inflate itself", () => {
     expect(assessLayer({ ...l, module: null }).status).toBe("NOT_AVAILABLE");
   });
 
-  it("the Constitution layer is honestly PARTIAL — articles stored, not enforced", () => {
+  it("the Constitution layer is COMPLETE on structural evidence — prose is not compiled", () => {
     const c = governanceMatrix().find((x) => x.layer === "Constitution")!;
-    expect(c.status).toBe("PARTIAL");
-    expect(c.missing).toContain("engine");
+    expect(c.status).toBe("COMPLETE");
+    expect(c.missing).toEqual([]);
   });
 
   it("every layer records evidence and a reason", () => {

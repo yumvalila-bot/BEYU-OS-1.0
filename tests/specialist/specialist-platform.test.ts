@@ -28,9 +28,11 @@ import { detectFindings, scanAuditIntelligence, verifyLedgerImmutability } from 
 import {
   assess,
   assessTax,
+  assertLiabilityUncomputed,
   clearTaxRules,
   listTaxRules,
   registerTaxRule,
+  relianceOf,
   type TaxRule,
 } from "@/lib/specialist/tax-intelligence";
 
@@ -627,6 +629,19 @@ describe("tax intelligence", () => {
     expect(result.provenance.blockedBy).toContain("P3");
     expect(result.data.computedLiability).toBeNull();
     expect(result.explanation.join(" ")).toMatch(/no legal conclusion is asserted/i);
+  });
+
+  it("FI: a non-null liability MUST throw — independently of assess()", () => {
+    expect(() => assertLiabilityUncomputed(null)).not.toThrow();
+    expect(() => assertLiabilityUncomputed(0)).toThrow(/never computed/);
+    expect(() => assertLiabilityUncomputed(12_500)).toThrow(/unratified tax position/);
+  });
+
+  it("FI: only AUTHORITATIVE authority is reliable — independently of assess()", () => {
+    expect(relianceOf("AUTHORITATIVE")).toBe("APPLICABLE");
+    expect(relianceOf("UNVERIFIED")).toBe("REQUIRES_SPECIALIST_REVIEW");
+    expect(relianceOf("DRAFT")).toBe("REQUIRES_SPECIALIST_REVIEW");
+    expect(relianceOf("SUPERSEDED")).toBe("REQUIRES_SPECIALIST_REVIEW");
   });
 
   it("NEGATIVE: denies a principal without tax read permission", async () => {

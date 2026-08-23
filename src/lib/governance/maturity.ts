@@ -63,11 +63,13 @@ const NONE: LayerEvidence = {
 export const GOVERNANCE_LAYERS: readonly GovernanceLayer[] = [
   {
     layer: "Constitution",
-    module: "src/db/schema/governance.ts + constitution_articles",
-    evidence: E({ engine: false, faultInjection: false }),
+    module: "src/lib/governance/constitution.ts",
+    evidence: E(),
     substrateRows: 12,
-    blockers: ["ENGINE: articles are stored and referenced but not evaluated as constraints"],
-    notes: "12 articles exist and policies reference them. No engine enforces article hierarchy.",
+    blockers: [],
+    notes:
+      "Article hierarchy is evaluated structurally (Art. 1 supreme). A lower-cited article cannot " +
+      "ALLOW what a higher-cited article DENYs. Article prose is not compiled into rules.",
   },
   {
     layer: "Authority",
