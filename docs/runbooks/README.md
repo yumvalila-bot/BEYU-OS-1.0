@@ -3,10 +3,13 @@
 ## RB-01 · Bootstrap a fresh environment
 
 ```bash
-npx drizzle-kit push          # apply the canonical schema
-npx tsx src/db/seed.ts        # idempotent constitutional bootstrap
+npm ci                        # reproducible install from the committed lockfile
+npm run migrate               # apply versioned migrations (scripts/migrate.ts)
+npm run seed                  # idempotent constitutional bootstrap
 curl -s localhost:3000/api/health
 ```
+`npm run migrate` is the only supported schema-application path in every
+environment. `drizzle-kit push` is prohibited outside a disposable local database.
 Bootstrap identities are created only when `BEYU_BOOTSTRAP_PASSWORD` is supplied. The seed prints no credentials and refuses production execution without the governed one-time bootstrap override. Rotate or disable bootstrap identities before any production use.
 
 ## RB-02 · Verify audit-ledger integrity

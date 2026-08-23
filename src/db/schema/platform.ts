@@ -11,6 +11,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -314,6 +315,45 @@ export const architectureDecisions = pgTable(
     decidedOn: date("decided_on").notNull(),
   },
   (t) => [uniqueIndex("adr_number_uidx").on(t.adrNumber)],
+);
+
+/**
+ * Idempotency ledger for governed mutations.
+ *
+ * Replaces the in-process Map, which was global, unscoped and lost on restart.
+ * The primary key is (scope, idempotency_key) where scope binds the record to the
+ * acting principal and tenant, so one actor can never read back another actor's
+ * response by reusing a guessable key.
+ *
+ * request_hash pins the key to the exact payload: replaying the SAME body returns
+ * the stored response, while a DIFFERENT body under the same key is a conflict
+ * rather than a silently wrong answer.
+ *
+ * state = IN_FLIGHT is claimed inside the caller's transaction before the domain
+ * write, so concurrent requests with the same key serialise on the primary key
+ * instead of both committing.
+ */
+export const idempotencyRecords = pgTable(
+  "idempotency_records",
+  {
+    /** `${tenantId}:${userId}:${endpoint}` — never client-supplied. */
+    scope: text("scope").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    state: text("state").notNull().default("IN_FLIGHT"), // IN_FLIGHT | COMPLETED
+    statusCode: integer("status_code"),
+    responseBody: jsonb("response_body").$type<Record<string, unknown> | null>(),
+    tenantId: text("tenant_id"),
+    actorUserId: text("actor_user_id"),
+    traceId: text("trace_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.scope, t.idempotencyKey] }),
+    index("idempotency_expiry_idx").on(t.expiresAt),
+  ],
 );
 
 /** Regulatory change watch — external law never becomes policy automatically. */

@@ -2,8 +2,18 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { can } from "@/lib/authz";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { auditTrailsFor } from "@/lib/audit";
+import {
+  canDecideResolutions,
+  canTableResolutions,
+  votingSnapshots,
+} from "@/lib/governance-vote-service";
+import { CLASSIFICATION_ORDER, classificationRank } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
+import { ProposeResolution } from "./propose";
+import { VotePanel } from "./vote-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +38,30 @@ export default async function GovernancePage() {
     db.select().from(policies),
   ]);
 
-  const visible = resolutionRows.filter((r) => {
-    const rank = ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"];
-    return rank.indexOf(r.classification) <= rank.indexOf(access.principal.clearance);
-  });
+  const visible = resolutionRows.filter(
+    (r) => classificationRank(r.classification) <= classificationRank(access.principal.clearance),
+  );
+
+  /**
+   * Provenance from the immutable ledger. This is what distinguishes a resolution
+   * genuinely created through the governed mutation from one that was seeded:
+   * a transactional resolution has audit records, seeded historical data does not.
+   */
+  const visibleIds = visible.map((r) => r.id);
+  const [trails, snapshots, tableable, decidable] = await Promise.all([
+    auditTrailsFor("RESOLUTION", visibleIds, scope),
+    // Eligibility, window state, tally and quorum are all computed server-side.
+    votingSnapshots(access.principal, visibleIds),
+    canTableResolutions(access.principal, visibleIds),
+    // Decision authority is resolved server-side too; the panel only renders it.
+    canDecideResolutions(access.principal, visibleIds),
+  ]);
+
+  // A principal may only propose at or below their own clearance ceiling.
+  const canPropose = can(access.principal, "governance:resolution.propose").allowed;
+  const proposableClassifications = CLASSIFICATION_ORDER.filter(
+    (c) => classificationRank(c) <= classificationRank(access.principal.clearance),
+  );
 
   return (
     <div className="space-y-6">
@@ -78,6 +108,21 @@ export default async function GovernancePage() {
         })}
       </div>
 
+      <ProposeResolution
+        canPropose={canPropose}
+        clearance={access.principal.clearance}
+        classifications={[...proposableClassifications]}
+        bodies={bodies
+          .filter((b) => b.status === "ACTIVE")
+          .map((b) => ({
+            id: b.id,
+            name: b.name,
+            code: b.code,
+            majorityRule: b.majorityRule,
+            reservedMatters: b.reservedMatters,
+          }))}
+      />
+
       <Panel kicker="Decision record" title="Resolutions">
         {visible.length === 0 ? (
           <EmptyState message="No resolutions are visible at your clearance level." />
@@ -114,6 +159,50 @@ export default async function GovernancePage() {
                     <span>· votes {r.votesFor} for / {r.votesAgainst} against / {r.votesAbstain} abstain{total ? ` (${total} cast)` : ""}</span>
                     <span>· decided {r.decisionDate ? new Date(r.decisionDate).toISOString().slice(0, 10) : "pending"}</span>
                   </div>
+
+                  {snapshots.get(r.id) && (
+                    <VotePanel
+                      snapshot={snapshots.get(r.id)!}
+                      status={r.status}
+                      canTable={tableable.has(r.id)}
+                      canDecide={decidable.has(r.id)}
+                      decidedByMemberId={r.decidedByMemberId}
+                      decisionDate={r.decisionDate ? r.decisionDate.toISOString() : null}
+                    />
+                  )}
+
+                  {(() => {
+                    const trail = trails.get(r.id) ?? [];
+                    if (trail.length === 0) {
+                      return (
+                        <div className="mt-2 text-[11px] beyu-muted">
+                          <Badge tone="slate">REFERENCE DATA</Badge>{" "}
+                          No entries in the immutable ledger — this record predates the governed
+                          mutation and was not produced by a transaction in this system.
+                        </div>
+                      );
+                    }
+                    const origin = trail[trail.length - 1];
+                    return (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[11px] text-[#b08d1c]">
+                          <Badge tone="green">GOVERNED</Badge>{" "}
+                          {trail.length} ledger {trail.length === 1 ? "entry" : "entries"} · originated{" "}
+                          {new Date(origin.occurredAt).toISOString().slice(0, 16).replace("T", " ")}
+                        </summary>
+                        <ul className="mt-1.5 space-y-1">
+                          {trail.map((a) => (
+                            <li key={a.id} className="text-[11px] beyu-muted">
+                              <span className="font-mono">{a.action}</span> · {a.outcome} ·{" "}
+                              {new Date(a.occurredAt).toISOString().slice(0, 16).replace("T", " ")}
+                              {a.authority ? ` · under ${a.authority}` : ""}
+                              <span className="ml-1 font-mono opacity-70">{a.hash.slice(0, 12)}…</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    );
+                  })()}
                 </div>
               );
             })}

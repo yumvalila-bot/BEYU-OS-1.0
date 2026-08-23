@@ -8,9 +8,9 @@ import { sha256, verifyPassword } from "@/lib/crypto";
 import { decryptSecret, hashRecoveryCode, verifyTotp } from "@/lib/mfa";
 import { recordAudit, recordAuditTx, publishEventTx } from "@/lib/audit";
 import { apiError, apiOk, rateLimit } from "@/lib/api";
-import { SESSION_COOKIE, SESSION_TTL_HOURS } from "@/lib/constants";
+import { SESSION_COOKIE } from "@/lib/constants";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { newSecret } from "@/lib/crypto";
+import { newSessionValues } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -114,28 +114,29 @@ export async function POST(request: Request): Promise<NextResponse> {
     await db.update(users).set({ mfaLastAcceptedStep: acceptedStep ?? user.mfaLastAcceptedStep, mfaRecoveryCodesHash: recoveryHashes, mfaFailedAttempts: 0, mfaLockedUntil: null }).where(eq(users.id, user.id));
   }
 
-  const rawToken = newSecret(32);
-  const sessionId = newId(ID_PREFIX.session);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 3600_000);
   const mfaSatisfied = user.mfaEnrolled;
   const riskScore = ip ? 10 : 25;
 
+  // Single canonical definition of a BEYU OS session row (lib/session.ts). The
+  // values are built here and inserted inside the transaction below so session
+  // creation, the user update, the audit record and the event stay atomic.
+  const {
+    token: rawToken,
+    sessionId,
+    expiresAt,
+    values: sessionValues,
+  } = newSessionValues({
+    userId: user.id,
+    tenantId: user.primaryTenantId,
+    ip,
+    userAgent,
+    mfaSatisfied,
+    riskScore,
+  });
+
   await db.transaction(async (rawTx) => {
     const tx = rawTx as unknown as typeof db;
-    await tx.insert(sessions).values({
-      id: sessionId,
-      userId: user.id,
-      tokenHash: sha256(rawToken),
-      tenantId: user.primaryTenantId,
-      expiresAt,
-      ipAddress: ip,
-      userAgent,
-      deviceTrust: "UNMANAGED",
-      riskScore,
-      mfaSatisfied,
-      mfaSatisfiedAt: mfaSatisfied ? new Date() : null,
-      mfaExpiresAt: mfaSatisfied ? new Date(Date.now() + 15 * 60_000) : null,
-    });
+    await tx.insert(sessions).values(sessionValues);
     await tx.update(users).set({ failedAttempts: 0, lastLoginAt: new Date() }).where(eq(users.id, user.id));
     await recordAuditTx(tx, {
       tenantId: user.primaryTenantId,

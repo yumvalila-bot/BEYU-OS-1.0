@@ -8,6 +8,8 @@ node_modules/
 out/
 dist/
 build/
+next-env.d.ts
+*.tsbuildinfo
 
 # env / secrets — NEVER commit real credentials
 .env

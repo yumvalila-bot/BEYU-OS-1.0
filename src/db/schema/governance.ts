@@ -18,6 +18,7 @@ import {
 import {
   approvalDecisionEnum,
   classificationEnum,
+  decisionActivationStateEnum,
   decisionStatusEnum,
   policyLevelEnum,
   versionStatusEnum,
@@ -150,6 +151,30 @@ export const resolutions = pgTable(
     votesFor: integer("votes_for").notNull().default(0),
     votesAgainst: integer("votes_against").notNull().default(0),
     votesAbstain: integer("votes_abstain").notNull().default(0),
+    /**
+     * Server-enforced voting window, set when the resolution is TABLED.
+     *
+     * No equivalent existed in the schema, so these are the smallest addition that
+     * makes the window deterministic. Boundary semantics are half-open:
+     *   votingOpensAt <= now < votingClosesAt
+     * A vote at exactly votingOpensAt is accepted; a vote at exactly
+     * votingClosesAt is rejected. The server clock is authoritative; the client
+     * clock is never consulted.
+     */
+    votingOpensAt: timestamp("voting_opens_at", { withTimezone: true }),
+    votingClosesAt: timestamp("voting_closes_at", { withTimezone: true }),
+    /** Governance member id of the presiding officer who tabled the resolution. */
+    tabledByMemberId: text("tabled_by_member_id"),
+    tabledAt: timestamp("tabled_at", { withTimezone: true }),
+    /**
+     * Governance member id of the decision authority who closed the resolution.
+     *
+     * Mirrors `tabled_by_member_id`. `decision_date` already records WHEN a
+     * resolution was decided but nothing recorded WHO decided it, so a decision
+     * could not be attributed from the domain row alone. Provenance must not
+     * depend on reading the audit ledger.
+     */
+    decidedByMemberId: text("decided_by_member_id"),
     decisionDate: timestamp("decision_date", { withTimezone: true }),
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -283,3 +308,97 @@ export const strategicObjectives = pgTable("strategic_objectives", {
   status: text("status").notNull().default("ON_TRACK"),
   reviewCadence: text("review_cadence").notNull().default("QUARTERLY"),
 });
+
+/**
+ * Pre-ratification decision registry (Phase 6C).
+ *
+ * Represents the EXISTENCE of a governance decision that BEYU OS is waiting on, without
+ * representing its CONTENT. A row here says "P1 recognition basis is pending, and here is who
+ * must decide it and what would have to be true for it to become executable". It never says what
+ * the recognition basis is.
+ *
+ * Policy-dependent columns are deliberately nullable and are expected to stay NULL until a real
+ * authority supplies them. Nothing in the seed populates them.
+ *
+ * `resolutionId` carries a foreign key to `resolutions` with ON DELETE RESTRICT, matching the
+ * precedent set by migrations 0007 and 0009: a decision may only cite governance evidence that
+ * actually exists, and that evidence cannot then be deleted out from under it.
+ */
+export const governanceDecisionRegistry = pgTable(
+  "governance_decision_registry",
+  {
+    decisionId: text("decision_id").primaryKey(), // P1..P11, C1..C5
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+
+    /** Authority state. PENDING until a real authority moves it. */
+    status: decisionActivationStateEnum("status").notNull().default("PENDING"),
+
+    /** Who must decide. Descriptive requirement, not a grant of authority. */
+    requiredAuthority: text("required_authority").notNull(),
+
+    // --- Supplied only by a genuine ratification. NULL until then. ---
+    approvingBody: text("approving_body"),
+    decisionMaker: text("decision_maker"),
+    resolutionId: text("resolution_id").references(() => resolutions.id, { onDelete: "restrict" }),
+    /** GOVERNED | REFERENCE_DATA | NONE — mirrors getGovernanceDecisionAuthorization(). */
+    provenance: text("provenance"),
+    approvalDate: timestamp("approval_date", { withTimezone: true }),
+    effectiveFrom: date("effective_from"),
+    effectiveTo: date("effective_to"),
+    scope: jsonb("scope").$type<Record<string, unknown>>(),
+    conditions: text("conditions"),
+    evidence: text("evidence"),
+    supersedes: text("supersedes"),
+    auditReference: text("audit_reference"),
+
+    // --- Engineering-side metadata. Policy-neutral. ---
+    /** Other decision_ids that must be ACTIVATED first. */
+    dependencies: jsonb("dependencies").$type<string[]>().notNull().default([]),
+    /** How a ratified decision will be proven implemented. Never states the decision itself. */
+    acceptanceCriteria: text("acceptance_criteria").notNull(),
+    /** NOT_IMPLEMENTED | INTERFACE_PREPARED | IMPLEMENTED */
+    implementationStatus: text("implementation_status").notNull().default("NOT_IMPLEMENTED"),
+    /** LOCKED | ACTIVATION_READY | ACTIVATED — the execution switch. Never LOCKED->ACTIVATED implicitly. */
+    activationStatus: text("activation_status").notNull().default("LOCKED"),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("governance_decision_registry_status_idx").on(t.status),
+    index("governance_decision_registry_activation_idx").on(t.activationStatus),
+  ],
+);
+
+/**
+ * Capability registry (Phase 6C).
+ *
+ * Maps a future engineering capability to the decision(s) that must be ratified before it may
+ * execute. Supports PARTIAL activation: if P1 is ratified and P6 is not, the recognition
+ * capability may become ready while the chart-of-accounts capability stays LOCKED.
+ *
+ * A row here grants nothing. It records a dependency, so the activation gate can compute whether
+ * a capability is executable and deny by default when it is not.
+ */
+export const governanceCapabilityRegistry = pgTable(
+  "governance_capability_registry",
+  {
+    capabilityCode: text("capability_code").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    /** decision_ids from governance_decision_registry that must ALL be ACTIVATED. */
+    requiredDecisions: jsonb("required_decisions").$type<string[]>().notNull().default([]),
+    /** LOCKED | ACTIVATION_READY | ACTIVATED. Fail-closed default. */
+    activationStatus: text("activation_status").notNull().default("LOCKED"),
+    /**
+     * Permission that would gate execution once activated. Recording the NAME here does not
+     * create the permission and does not grant it; permissions remain defined solely in
+     * src/lib/constants.ts.
+     */
+    executionPermission: text("execution_permission"),
+    implementationStatus: text("implementation_status").notNull().default("NOT_IMPLEMENTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("governance_capability_registry_activation_idx").on(t.activationStatus)],
+);

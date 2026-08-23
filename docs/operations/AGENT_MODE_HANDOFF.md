@@ -12,10 +12,10 @@ non-negotiable.
 - Maintain ONE GlobalUserID — never create competing identity models
 - Maintain tenant isolation via `tenantScopeIds()` and RLS
 - Maintain audit atomicity: `withAuditTransaction()` or `recordAuditTx()`
-- Use versioned migrations (`drizzle-kit generate` + `scripts/migrate.ts`)
+- Use versioned migrations (`npm run migrate:generate` + `npm run migrate`)
 - Keep HCM, Family Office and Tax Intelligence inside their canonical locations
 - Keep Noelia as the single AI identity operating under BEYU OS governance
-- Run tests before merging (`npx vitest run`, `npx tsc --noEmit`, `npm run build`)
+- Run tests before merging (`npm test`, `npm run typecheck`, `npm run lint`, `npm run build`)
 - Document architectural changes with ADRs
 - Search for credential literals before committing
 
@@ -31,24 +31,30 @@ non-negotiable.
 
 ### Branch Strategy
 
+The repository currently uses a **trunk-based** model: `main` is the only
+long-lived branch, and work merges into it via pull request once CI is green.
+
 | Branch | Purpose |
 |--------|---------|
-| `main` | Production-ready, CI-green, tagged releases |
-| `develop` | Integration branch for feature work |
+| `main` | Production-ready, CI-green, tagged releases. The only long-lived branch. |
 | `feature/*` | New capabilities |
 | `fix/*` | Bug fixes |
 | `security/*` | Security remediations (expedited review) |
 | `migration/*` | Schema changes |
 
+A `develop` integration branch is **not** in use. Earlier revisions of this
+document described one; it never existed in the repository. Introduce it only as a
+deliberate, documented change.
+
 ### Development Cycle
 
 ```
-git checkout -b feature/name develop
-# implement
-npx vitest run
-npx tsc --noEmit
+# implement on your working branch
+npm run typecheck
+npm run lint
+npm test
 npm run build
-# PR → CI → review → merge → release
+# PR → CI (.github/workflows/ci.yml) → review → merge → release
 ```
 
 ### Priority Queue (post-handoff)
@@ -65,8 +71,10 @@ npm run build
 
 ### Architecture Verification Checklist (run before every release)
 
-- [ ] `npx tsc --noEmit` — zero errors
-- [ ] `npx vitest run` — 37+ tests, all pass
+- [ ] `npm run typecheck` — zero errors
+- [ ] `npm run lint` — zero errors
+- [ ] `npm test` — 155 tests across 11 suites, all pass (requires PostgreSQL)
+- [ ] `npm run migrate` then `npm run migrate:generate` — no drift detected
 - [ ] `npm run build` — production build succeeds
 - [ ] Live self-test (`GET /api/v1/system/self-test`) — 9/9 controls PASS
 - [ ] No credential literals: `grep -rl "BeyuOS\|api_key.*=\|BEGIN PRIVATE" src/ tests/` → 0

@@ -9,10 +9,29 @@ policies.
 ## Quick start
 
 ```bash
-npx drizzle-kit push        # apply the canonical schema
-npx tsx src/db/seed.ts      # idempotent constitutional bootstrap
+cp .env.example .env        # then fill in DATABASE_URL and the secrets
+npm ci                      # reproducible install from the committed lockfile
+npm run migrate             # apply versioned migrations (scripts/migrate.ts)
+npm run seed                # idempotent constitutional bootstrap
+npm test                    # 155 tests across 11 suites (PostgreSQL required)
 npm run build && npm start  # production build
-npx vitest run              # 21 deterministic control tests
+```
+
+`npm run migrate` is the only supported way to apply schema changes. `drizzle-kit
+push` must never be used against a shared or production database; author changes
+with `npm run migrate:generate` and commit the generated migration.
+
+Most suites require a live PostgreSQL instance — tenant isolation, audit-chain
+concurrency, transaction atomicity and the governed-mutation tests assert against
+real database state rather than mocks.
+
+The end-to-end suite additionally drives the running HTTP surface (authentication,
+the request-forgery guards and idempotency). It skips when no server is reachable;
+to run it, start the app and point the tests at it:
+
+```bash
+npm run build && npx next start -p 3100 &
+BEYU_TEST_BASE_URL=http://127.0.0.1:3100 npm test
 ```
 
 Bootstrap identities (password supplied only by `BEYU_BOOTSTRAP_PASSWORD`; valid TOTP required):

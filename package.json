@@ -1,12 +1,20 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "beyu-os",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "node scripts/verify.mjs",
+    "test:watch": "vitest",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:generate": "drizzle-kit generate",
+    "seed": "tsx src/db/seed.ts",
+    "evidence:gate1": "tsx scripts/evidence/kernel-gate1.ts"
   },
   "dependencies": {
     "dotenv": "17.3.1",

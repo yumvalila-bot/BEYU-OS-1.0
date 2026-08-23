@@ -414,6 +414,11 @@ async function main() {
     { key: "TAX_CFO", body: B.tax, party: "DAUDI_MOSHI", seat: "CHAIR" },
     { key: "TAX_CGO", body: B.tax, party: "GRACE_KILELE", seat: "MEMBER" },
     { key: "TAX_RISK", body: B.tax, party: "JOHN_MREMA", seat: "MEMBER" },
+    // Remediation A-03: TRUSTEE_BOARD declared quorumMinimum 2 with UNANIMOUS
+    // majority but had zero seated members, making its quorum unsatisfiable and
+    // any future vote against it impossible to carry. Seat the trustees.
+    { key: "TRS_PRIN", body: B.trustees, party: "NEEMA_BEYU", seat: "CHAIR" },
+    { key: "TRS_CGO", body: B.trustees, party: "GRACE_KILELE", seat: "MEMBER" },
   ];
   await db
     .insert(s.governanceMembers)
@@ -1177,6 +1182,223 @@ async function main() {
       { id: fixedId(ID_PREFIX.anomaly, "AN1"), tenantId: T.group, detector: "payments.duplicate_v2", signalType: "DUPLICATE_PAYMENT", subjectType: "PAYMENT_BATCH", subjectId: "PB-2025-11-004", severity: "HIGH", confidence: "0.9120", evidence: { matchedFields: ["supplier", "amount", "invoiceRef"], amount: 48200, currency: "USD", occurrences: 2 }, assignedRole: "GROUP_CFO" },
       { id: fixedId(ID_PREFIX.anomaly, "AN2"), tenantId: T.group, detector: "identity.privilege_drift", signalType: "UNUSUAL_GRANT", subjectType: "ROLE_ASSIGNMENT", subjectId: "RAS-SAMPLE-9931", severity: "MEDIUM", confidence: "0.7400", evidence: { grantedOutsideChangeWindow: true, privileged: true }, assignedRole: "PLATFORM_ADMIN" },
       { id: fixedId(ID_PREFIX.anomaly, "AN3"), tenantId: T.group, detector: "procurement.conflict_of_interest", signalType: "CONFLICT_OF_INTEREST", subjectType: "SUPPLIER", subjectId: "SUP-2211", severity: "MEDIUM", confidence: "0.6800", evidence: { sharedDirector: true, source: "ownership_registry" }, assignedRole: "CHIEF_GOVERNANCE_OFFICER" },
+    ])
+    .onConflictDoNothing();
+
+
+  /**
+   * Phase 6C — pre-ratification decision and capability registry.
+   *
+   * Seeds the EXISTENCE of each pending decision, never its CONTENT. Every policy-dependent
+   * column (approving body, decision maker, resolution, provenance, approval date, effective
+   * dates, scope, conditions, evidence) is deliberately left NULL, and every row is PENDING with
+   * activation_status LOCKED. No accounting value is expressed anywhere below.
+   *
+   * onConflictDoNothing so a real ratification recorded later is never overwritten by a re-seed.
+   */
+  await db
+    .insert(s.governanceDecisionRegistry)
+    .values([
+      { decisionId: "P1", title: "Recognition basis", description: "What event triggers accounting recognition of a capital transaction?", requiredAuthority: "Group CFO", dependencies: [], acceptanceCriteria: "A posting derived from the ratified basis produces the ratified recognition event, evidenced by the named artefact." },
+      { decisionId: "P2", title: "Measurement", description: "How is the recognised amount measured, including materiality and rounding?", requiredAuthority: "Group CFO + tax specialist (VAT)", dependencies: ["P1"], acceptanceCriteria: "Carrying value equals the ratified measurement basis; rounding and materiality are applied by the service." },
+      { decisionId: "P3", title: "VAT treatment", description: "Is VAT recoverable, and are amounts VAT-inclusive or exclusive?", requiredAuthority: "Group CFO + tax specialist", dependencies: ["P1"], acceptanceCriteria: "VAT is treated per the ratified position; a test proves the alternative treatment is rejected." },
+      { decisionId: "P4", title: "FX / IAS 21", description: "What is the reporting currency and the named FX rate source with its rate-date convention?", requiredAuthority: "Group CFO + IAS 21 specialist", dependencies: [], acceptanceCriteria: "A single-functional-currency posting uses fx_rate = 1; cross-currency resolves from the ratified source, never treasury balances." },
+      { decisionId: "P5", title: "Fiscal year and periods", description: "What is the fiscal year-end, the period frequency, and who may open a period?", requiredAuthority: "Group CFO; Group Board for the fiscal-year convention", dependencies: [], acceptanceCriteria: "Generated periods match the ratified year-end and frequency with no gaps or overlaps." },
+      { decisionId: "P6", title: "Chart of accounts", description: "What is the CoA scope model, numbering scheme and owner?", requiredAuthority: "Group CFO + Architecture Review Board (Art. 11)", dependencies: [], acceptanceCriteria: "Account codes conform to the ratified scheme; a test proves an out-of-scheme code is rejected." },
+      { decisionId: "P7", title: "Period linkage", description: "Must every journal entry carry a period, and which period statuses are postable?", requiredAuthority: "Group CFO", dependencies: ["P5"], acceptanceCriteria: "Posting is permitted only into a period whose status the ratification declares postable." },
+      { decisionId: "P8", title: "Opening balances", description: "Are opening balances required, and what evidence supports them?", requiredAuthority: "Group CFO + external auditor", dependencies: ["P1", "P6"], acceptanceCriteria: "Opening balances match the ratified evidence and reconcile to it exactly." },
+      { decisionId: "P9", title: "Posting controls", description: "What is the maker/checker model, and may the CFO self-approve?", requiredAuthority: "Group CFO; Group Board if authority moves", dependencies: [], acceptanceCriteria: "The ratified separation is enforced by the service; a test proves prohibited self-approval fails." },
+      { decisionId: "P10", title: "Capital accounting", description: "How is a capital request translated into accounting entries?", requiredAuthority: "Group CFO under ENT-FIN-002", dependencies: ["P1", "P2", "P6", "P7", "P9"], acceptanceCriteria: "A capital posting is balanced, linked to its governance provenance, with full before/after evidence." },
+      { decisionId: "P11", title: "Intercompany / related party", description: "How are intercompany and related-party transactions identified and treated?", requiredAuthority: "Group CFO + Group Board", dependencies: ["P1", "P6"], acceptanceCriteria: "Intercompany entries are identified and eliminated per the ratified rule." },
+      { decisionId: "C1", title: "Policy provenance", description: "Must every ACTIVE policy carry provenance to an approving resolution?", requiredAuthority: "Group Board / Chief Governance Officer", dependencies: [], acceptanceCriteria: "Policy provenance is enforced exactly as ratified, without deactivating existing controls." },
+      { decisionId: "C2", title: "Resolution lifecycle", description: "May a capital request reference a resolution that is not APPROVED?", requiredAuthority: "Group Board / Group CFO", dependencies: [], acceptanceCriteria: "Referencing behaviour matches the ratified rule; authorising on a non-APPROVED resolution remains impossible." },
+      { decisionId: "C3", title: "Policy lifecycle", description: "Which policy status transitions are legal?", requiredAuthority: "Group Board / Chief Governance Officer", dependencies: [], acceptanceCriteria: "Only ratified transitions succeed; all others are refused." },
+      { decisionId: "C4", title: "Resolution mutability", description: "May an APPROVED resolution be amended, and under what procedure?", requiredAuthority: "Group Board / Chief Governance Officer", dependencies: [], acceptanceCriteria: "Amendment follows the ratified procedure and is fully audited." },
+      { decisionId: "C5", title: "Ratification and execution authority", description: "How are RATIFIED and EXECUTION-ELIGIBLE represented and conferred?", requiredAuthority: "Group Board", dependencies: ["C1"], acceptanceCriteria: "The ratified representation distinguishes ratified from execution-eligible, and the gate enforces it." },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7C — FP&A capabilities.
+   *
+   * READ / ANALYSE / SIMULATE / REPORT declare no required decisions: they consume existing
+   * authoritative data and write no financial truth, so gating them would be security theatre
+   * while blocking legitimate management analysis. Anything that would turn a plan into an
+   * authorised baseline declares its blocking decisions and stays LOCKED.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_FPNA_READ", name: "FP&A — read actuals", description: "Reads the canonical ledger and treasury. Creates no second source of truth.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FPNA_ANALYSE", name: "FP&A — variance and analysis", description: "Computes variances and KPIs from supplied inputs. Writes no financial truth.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FPNA_SIMULATE", name: "FP&A — scenario simulation", description: "Compares scenarios. Hypothetical only; mutates nothing.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FPNA_REPORT", name: "FP&A — management reporting", description: "Generates management reports classified FACT/FORECAST/ASSUMPTION/SCENARIO/RECOMMENDATION.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FPNA_COMMIT_BUDGET", name: "FP&A — commit budget baseline", description: "Commits a plan as an authorised budget. LOCKED.", requiredDecisions: ["P1", "P5", "P6"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7H — Forecasting, Scenario & Cross-Specialist capabilities.
+   *
+   * The analytical capabilities declare no required decisions: they perform arithmetic over
+   * observations the caller already holds, write nothing, and create no binding instruction.
+   * A projection is an opinion about the future, and opinions do not need ratification — acting
+   * on them does.
+   *
+   * The three capabilities that would convert a projection into a commitment stay LOCKED.
+   * Committing a forecast as an authorised plan, executing against it, and allocating capital on
+   * its strength are all governance or execution acts. This is the exact seam where a forecast
+   * would otherwise become a financial instruction without anyone deciding that it should.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_FORECAST_ASSESS", name: "Forecast — input quality assessment", description: "Assesses whether supplied history can support a projection. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_PROJECT", name: "Forecast — series projection", description: "Projects observed history forward by arithmetic transformation. Writes nothing.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_SCENARIO", name: "Forecast — scenario modelling", description: "Applies explicitly attributed assumptions. Output is SCENARIO, never fact.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_SENSITIVITY", name: "Forecast — sensitivity analysis", description: "Shifts assumptions independently to show dependence. Hypothetical only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_STRESS", name: "Forecast — stress testing", description: "Applies an attributed downside scenario. Not a prediction.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_COMPARE", name: "Forecast — scenario comparison", description: "Compares scenarios side by side without nominating a preferred one.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_REPORT", name: "Forecast — reporting and cross-specialist composition", description: "Composes specialist sources with separate provenance; surfaces DATA_CONFLICT.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_EXECUTE", name: "Forecast — execute against a forecast", description: "Acts on a projection. LOCKED: a forecast is an opinion and may never drive execution.", requiredDecisions: ["P1", "P5", "P6", "P9"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_FORECAST_ALLOCATE", name: "Forecast — allocate capital on a forecast", description: "Commits capital on projected figures. LOCKED: allocation is execution.", requiredDecisions: ["P1", "P2", "P5", "P6"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7G — Audit Intelligence capabilities.
+   *
+   * The analytical capabilities declare no required decisions: they read the append-only audit and
+   * event ledgers and write nothing. Restricting audit visibility pending ratification would be
+   * precisely backwards — the ability to inspect what the system did is what makes the rest of the
+   * governance model verifiable.
+   *
+   * The three capabilities that would let an audit finding change the world stay LOCKED.
+   * Remediation, freezing an account and enforcement are all actions taken AGAINST a person or a
+   * balance on the strength of an observation. An analytical layer that detects a pattern must
+   * never be the thing that acts on it.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_AUDIT_SEARCH", name: "Audit — record search", description: "Searches the append-only audit ledger within a stated window. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_ASSESS", name: "Audit — activity and evidence assessment", description: "Actor activity, failed actions, privileged actions and evidence-chain linkage.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_ANALYZE", name: "Audit — correlation and governance analysis", description: "Correlates audit records with enterprise events and analyses governance activity.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_REPORT", name: "Audit — reporting", description: "Consolidated audit report with observations, basis and explicit unsupported analyses.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_REMEDIATE", name: "Audit — remediate a finding", description: "Acts to correct an audited condition. LOCKED: remediation changes real state on the strength of an observation.", requiredDecisions: ["P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_FREEZE", name: "Audit — freeze an account or position", description: "Suspends an actor, account or position. LOCKED: freezing acts against a person or a balance.", requiredDecisions: ["P1", "P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_ENFORCE", name: "Audit — enforce an audit finding", description: "Executes a consequence of an audit finding. LOCKED: enforcement is execution, never analysis.", requiredDecisions: ["P1", "P2", "P6", "P9"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7F — Treasury Intelligence capabilities.
+   *
+   * The analytical capabilities declare no required decisions: they read canonical treasury data,
+   * write nothing, and move no money. Withholding cash visibility pending ratification would make
+   * the group less safe, not more — knowing where the cash sits is a prerequisite for governing it.
+   *
+   * Everything that could move, commit or constrain money stays LOCKED. Setting a treasury limit
+   * is a governance instrument (it decides what exposure is acceptable); settlement, transfer and
+   * approval are execution and belong strictly below the authority boundary.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_TREASURY_ASSESS", name: "Treasury — position and cash assessment", description: "Reads positions and reports cash by currency. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_ANALYZE", name: "Treasury — exposure and liquidity analysis", description: "Concentration, currency, counterparty and liquidity analysis over observed balances.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_REPORT", name: "Treasury — reporting", description: "Reports treasury posture with basis, provenance and data-quality findings.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_SIMULATE", name: "Treasury — scenario simulation", description: "Recomputes exposure under hypothetical adjustments. Mutates nothing.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_SET_LIMIT", name: "Treasury — set treasury limit", description: "Establishes binding treasury limits or minimum liquidity. LOCKED: a limit is a governance instrument, not an analytical output.", requiredDecisions: ["P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_ENFORCE_BREACH", name: "Treasury — enforce limit breach", description: "Acts on a breach (blocking or unwinding a position). LOCKED: enforcement is execution.", requiredDecisions: ["P1", "P2", "P6", "P9"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_SETTLE", name: "Treasury — settle", description: "Settles a treasury transaction. LOCKED: settlement moves money and requires ratified accounting authority.", requiredDecisions: ["P1", "P5", "P6", "P9"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_TRANSFER", name: "Treasury — transfer funds", description: "Moves funds between accounts or entities. LOCKED: intercompany movement requires ratified authority.", requiredDecisions: ["P1", "P5", "P6", "P9"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TREASURY_APPROVE", name: "Treasury — approve treasury action", description: "Approves a treasury instruction. LOCKED: approval is a governance act.", requiredDecisions: ["P1", "P6"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7E — Compliance & Obligation Intelligence capabilities.
+   *
+   * The analytical capabilities declare no required decisions: they read governed compliance
+   * registers and write nothing. Suppressing compliance visibility pending ratification would
+   * make the organisation less safe, not more — an unassessed obligation is a fact management
+   * needs today.
+   *
+   * The three capabilities that would let an analytical finding change the world stay LOCKED.
+   * Asserting a compliance state, accepting evidence as satisfying an obligation, and acting on a
+   * breach are all governance acts: they determine legal exposure, and no analytical module may
+   * perform them on its own authority.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_ASSESS", name: "Compliance — obligation assessment", description: "Reads obligations, assessments, evidence and controls to report compliance posture. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_MONITOR", name: "Compliance — deadline and exception monitoring", description: "Monitors recorded due dates and surfaces exceptions. Advisory only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_REPORT", name: "Compliance — reporting", description: "Reports posture with basis, provenance and data-quality findings.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_ASSERT_STATE", name: "Compliance — assert compliance state", description: "Writes an authoritative compliance determination. LOCKED: asserting compliance is a governance act with legal consequence.", requiredDecisions: ["P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_ACCEPT_EVIDENCE", name: "Compliance — accept evidence as satisfying an obligation", description: "Declares evidence sufficient. LOCKED: sufficiency of evidence is a professional judgement, not a computation.", requiredDecisions: ["P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_COMPLIANCE_ENFORCE", name: "Compliance — enforce a breach", description: "Acts on a compliance breach (filing, payment, suspension, remediation execution). LOCKED: enforcement is execution.", requiredDecisions: ["P1", "P2", "P6", "P9"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7D — Financial Risk Intelligence capabilities.
+   *
+   * The read-only measures declare no required decisions: they compute derived facts from data
+   * that already exists under governance and write nothing. Blocking risk visibility would make
+   * the organisation less safe, not more.
+   *
+   * The two capabilities that would give a risk number *force* — setting an appetite/limit, and
+   * acting on a breach — stay LOCKED. A limit is a governance instrument: whoever sets the
+   * threshold decides what counts as an acceptable loss, and BEYU has ratified no such authority.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_RISK_ASSESS", name: "Risk — exposure assessment", description: "Measures concentration, liquidity, counterparty, currency and capital exposure from observed data. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_RISK_SIMULATE", name: "Risk — scenario simulation", description: "Recomputes exposure under hypothetical adjustments. Hypothetical only; mutates nothing.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_RISK_REPORT", name: "Risk — risk reporting", description: "Reports measures with basis, provenance and unresolved policy dependencies.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_RISK_SET_APPETITE", name: "Risk — set risk appetite / limits", description: "Establishes binding risk thresholds. LOCKED: a limit is a governance instrument, not an analytical output.", requiredDecisions: ["P2", "P6"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_RISK_ENFORCE_BREACH", name: "Risk — enforce limit breach", description: "Acts on a breach (blocking, unwinding or settling a position). LOCKED: enforcement is execution.", requiredDecisions: ["P1", "P2", "P6", "P9"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  /**
+   * Phase 7B — specialist capabilities.
+   *
+   * Read-only analytical capabilities declare no required decisions: they write no financial
+   * truth, so gating them would be security theatre. Anything that could convert an opinion into
+   * execution declares its blocking decisions and stays LOCKED.
+   */
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_SPEC_FORECAST", name: "Forecasting Intelligence — projection", description: "Projects observed history forward. Read-only; writes no financial truth.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_AUDIT_SCAN", name: "Audit Intelligence — scan", description: "Analyses immutable audit/event history for findings. Read-only.", requiredDecisions: [], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TAX_ASSESS", name: "Tax Intelligence — assessment", description: "Selects candidate tax treatments with evidence requirements. Computes no liability.", requiredDecisions: ["P3"], executionPermission: null },
+      { capabilityCode: "CAP_SPEC_TAX_EXECUTE", name: "Tax Intelligence — execution", description: "Applies a ratified tax treatment to a posting. LOCKED.", requiredDecisions: ["P1", "P3", "P6", "P9"], executionPermission: "finance:tax.post" },
+      { capabilityCode: "CAP_SPEC_FORECAST_COMMIT", name: "Forecasting — commit to budget", description: "Commits a forecast as an authorised budget baseline. LOCKED.", requiredDecisions: ["P1", "P5", "P6"], executionPermission: null },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(s.governanceCapabilityRegistry)
+    .values([
+      { capabilityCode: "CAP_RECOGNITION", name: "Recognition engine", description: "Applies the ratified recognition basis to a transaction.", requiredDecisions: ["P1"], executionPermission: null },
+      { capabilityCode: "CAP_MEASUREMENT", name: "Measurement rules", description: "Applies the ratified measurement, materiality and rounding rules.", requiredDecisions: ["P2"], executionPermission: null },
+      { capabilityCode: "CAP_VAT", name: "VAT treatment", description: "Applies the ratified VAT position.", requiredDecisions: ["P3"], executionPermission: null },
+      { capabilityCode: "CAP_FX", name: "FX conversion", description: "Applies the ratified reporting currency and rate source.", requiredDecisions: ["P4"], executionPermission: null },
+      { capabilityCode: "CAP_FISCAL_PERIOD", name: "Fiscal period management", description: "Creates and manages financial periods.", requiredDecisions: ["P5"], executionPermission: "finance:period.manage" },
+      { capabilityCode: "CAP_CHART_OF_ACCOUNTS", name: "Chart of accounts", description: "Creates and manages ledger accounts.", requiredDecisions: ["P6"], executionPermission: "finance:coa.manage" },
+      { capabilityCode: "CAP_PERIOD_LINKAGE", name: "Journal period linkage", description: "Enforces period linkage and postable statuses.", requiredDecisions: ["P5", "P7"], executionPermission: null },
+      { capabilityCode: "CAP_OPENING_BALANCES", name: "Opening balances", description: "Posts ratified opening balances.", requiredDecisions: ["P1", "P6", "P8"], executionPermission: "finance:openingbalance.post" },
+      { capabilityCode: "CAP_POSTING", name: "Journal posting", description: "Posts balanced journal entries to the ledger.", requiredDecisions: ["P1", "P6", "P7", "P9"], executionPermission: "finance:ledger.post" },
+      { capabilityCode: "CAP_MAKER_CHECKER", name: "Maker/checker", description: "Enforces the ratified approval separation.", requiredDecisions: ["P9"], executionPermission: "finance:ledger.approve" },
+      { capabilityCode: "CAP_CAPITAL_ACCOUNTING", name: "Capital accounting", description: "Translates a capital request into accounting entries.", requiredDecisions: ["P1", "P2", "P6", "P7", "P9", "P10"], executionPermission: "capital:execute" },
+      { capabilityCode: "CAP_INTERCOMPANY", name: "Intercompany treatment", description: "Identifies and eliminates intercompany transactions.", requiredDecisions: ["P1", "P6", "P11"], executionPermission: null },
+      { capabilityCode: "CAP_TREASURY_SETTLEMENT", name: "Treasury settlement", description: "Moves money in response to a ratified instruction.", requiredDecisions: ["P1", "P9", "P10"], executionPermission: "treasury:settle" },
+      { capabilityCode: "CAP_REVERSAL", name: "Reversal mechanism", description: "Reverses a posted entry under the ratified correction rule.", requiredDecisions: ["P1", "P9"], executionPermission: null },
     ])
     .onConflictDoNothing();
 

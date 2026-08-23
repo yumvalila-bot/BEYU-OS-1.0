@@ -13,32 +13,59 @@ import {
   type Principal,
 } from "./authz";
 
-/** Establishes a governed session. Returns the raw token (never persisted). */
-export async function createSession(opts: {
+export type SessionOptions = {
   userId: string;
   tenantId: string;
   ip?: string | null;
   userAgent?: string | null;
   mfaSatisfied: boolean;
   riskScore: number;
-}): Promise<{ token: string; sessionId: string; expiresAt: Date }> {
+};
+
+export type IssuedSession = { token: string; sessionId: string; expiresAt: Date };
+
+/** Step-up window during which a satisfied MFA remains valid for high-risk actions. */
+export const MFA_STEP_UP_WINDOW_MS = 15 * 60_000;
+
+/**
+ * Build the canonical session row without inserting it.
+ *
+ * The login handler must create the session, update the user and append the audit
+ * and event records in ONE transaction, so it cannot call a function that inserts
+ * on its own connection. This factory is therefore the single definition of what
+ * a BEYU OS session row is; both the transactional login path and the standalone
+ * `createSession()` below derive from it, so the two can never drift apart.
+ */
+export function newSessionValues(opts: SessionOptions) {
   const token = newSecret(32);
   const sessionId = newId(ID_PREFIX.session);
   const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 3600_000);
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId: opts.userId,
-    tokenHash: sha256(token),
-    tenantId: opts.tenantId,
+  const now = new Date();
+  return {
+    token,
+    sessionId,
     expiresAt,
-    ipAddress: opts.ip ?? null,
-    userAgent: opts.userAgent ?? null,
-    deviceTrust: "UNMANAGED",
-    riskScore: opts.riskScore,
-    mfaSatisfied: opts.mfaSatisfied,
-    mfaSatisfiedAt: opts.mfaSatisfied ? new Date() : null,
-    mfaExpiresAt: opts.mfaSatisfied ? new Date(Date.now() + 15 * 60_000) : null,
-  });
+    values: {
+      id: sessionId,
+      userId: opts.userId,
+      tokenHash: sha256(token),
+      tenantId: opts.tenantId,
+      expiresAt,
+      ipAddress: opts.ip ?? null,
+      userAgent: opts.userAgent ?? null,
+      deviceTrust: "UNMANAGED" as const,
+      riskScore: opts.riskScore,
+      mfaSatisfied: opts.mfaSatisfied,
+      mfaSatisfiedAt: opts.mfaSatisfied ? now : null,
+      mfaExpiresAt: opts.mfaSatisfied ? new Date(now.getTime() + MFA_STEP_UP_WINDOW_MS) : null,
+    },
+  };
+}
+
+/** Establishes a governed session. Returns the raw token (never persisted). */
+export async function createSession(opts: SessionOptions): Promise<IssuedSession> {
+  const { token, sessionId, expiresAt, values } = newSessionValues(opts);
+  await db.insert(sessions).values(values);
   return { token, sessionId, expiresAt };
 }
 

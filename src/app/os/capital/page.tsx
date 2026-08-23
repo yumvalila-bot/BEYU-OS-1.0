@@ -6,6 +6,9 @@ import { can } from "@/lib/authz";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { evaluatePolicy } from "@/lib/policy";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { capitalGovernanceAuthorizations } from "@/lib/governance-authorization";
+import { capitalRequestsAwaitingGovernance } from "@/lib/capital-governance-service";
+import { GovernanceAuthorizeButton } from "./governance-authorize-button";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,26 @@ export default async function CapitalPage() {
     db.select().from(legalEntities),
     db.select().from(resolutions).where(inArray(resolutions.tenantId, scope)),
   ]);
+
+  /**
+   * Read-only governance authorization signal, resolved server-side from the
+   * persisted decision. It displays provenance only: it grants nothing, and the
+   * page re-reads it from the database on every render rather than caching or
+   * optimistically deriving it.
+   */
+  const govAuthorizations = await capitalGovernanceAuthorizations(
+    access.principal,
+    requests.map((r) => r.id),
+  );
+
+  /**
+   * Which requests may still have their governance prerequisite recorded.
+   * Server-resolved; the service re-verifies everything before mutating.
+   */
+  const awaitingGovernance = await capitalRequestsAwaitingGovernance(
+    access.principal,
+    requests.map((r) => r.id),
+  );
 
   const canTreasury = can(access.principal, "finance:treasury.read").allowed;
   const entityName = (id: string) => entities.find((e) => e.id === id)?.legalName ?? id;
@@ -66,7 +89,7 @@ export default async function CapitalPage() {
             <thead>
               <tr>
                 <th>Code</th><th>Request</th><th>Entity</th><th>Type</th><th>Amount</th>
-                <th>IRR / NPV</th><th>Payback</th><th>Risk-adj.</th><th>Governance required</th><th>Status</th>
+                <th>IRR / NPV</th><th>Payback</th><th>Risk-adj.</th><th>Governance required</th><th>Governance authority</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -95,6 +118,39 @@ export default async function CapitalPage() {
                         ))}
                         {(g?.obligations ?? []).length === 0 && <span className="text-[11px] beyu-muted">delegated authority</span>}
                       </div>
+                    </td>
+                    <td>
+                      {(() => {
+                        const a = govAuthorizations.get(r.id);
+                        if (!a || a.provenance === "NONE") {
+                          return <span className="text-[11px] beyu-muted">no governing resolution</span>;
+                        }
+                        const satisfied = r.status === "GOVERNANCE_AUTHORIZED";
+                        return (
+                          <div className="text-[11px]">
+                            <Badge tone={satisfied ? "green" : a.authorized ? "amber" : "slate"}>
+                              {satisfied
+                                ? "GOVERNANCE AUTHORIZED"
+                                : a.authorized
+                                  ? "GOVERNANCE SATISFIABLE"
+                                  : `GOVERNANCE NOT SATISFIED (${a.decision})`}
+                            </Badge>
+                            <div className="beyu-muted mt-1">
+                              {a.reference} · {a.governanceBodyCode}
+                              {a.decidedAt ? ` · decided ${a.decidedAt.slice(0, 10)}` : ""}
+                            </div>
+                            {a.provenance === "REFERENCE_DATA" && (
+                              <div className="beyu-muted">reference data — no ledger provenance</div>
+                            )}
+                            {satisfied && (
+                              <div className="beyu-muted">Execution not performed.</div>
+                            )}
+                            {!satisfied && a.authorized && awaitingGovernance.has(r.id) && (
+                              <GovernanceAuthorizeButton capitalRequestId={r.id} code={r.code} />
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td><Badge tone={stateTone(r.status)}>{r.status}</Badge></td>
                   </tr>

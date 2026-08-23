@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog, enterpriseEvents } from "@/db/schema";
 import { newId, ID_PREFIX } from "./ids";
@@ -15,7 +15,16 @@ import { SYSTEM_VERSION } from "./constants";
  * - domain mutations can call recordAuditTx()/publishEventTx() inside the same transaction
  */
 
-type Tx = Pick<typeof db, "insert" | "execute">;
+/**
+ * Transaction handle passed to governed mutations.
+ *
+ * Domain services need to read and update inside the same transaction as the
+ * audit append (e.g. recomputing a vote tally under a lock, then transitioning
+ * the resolution status), so `select` and `update` are exposed alongside
+ * `insert`/`execute`. This is the kernel's single transaction abstraction —
+ * services must not open their own.
+ */
+export type Tx = Pick<typeof db, "insert" | "execute" | "select" | "update" | "delete">;
 
 export type AuditInput = {
   tenantId?: string | null;
@@ -173,16 +182,32 @@ export async function publishEventTx(tx: Tx, input: EventInput): Promise<string>
   return appendEvent(tx, input);
 }
 
+/**
+ * Run a domain mutation, its audit record and its durable domain event(s) in ONE
+ * transaction.
+ *
+ * `event` may return a single event or an array: a decision-producing mutation
+ * emits both the act (e.g. VOTE_CAST) and its consequence (e.g. DECIDED), and
+ * both must be durable atomically with the state transition. If any append
+ * fails, the domain mutation rolls back with it.
+ */
 export async function withAuditTransaction<T>(
   operation: (tx: Tx) => Promise<T>,
   audit: (result: T) => AuditInput,
-  event?: (result: T) => EventInput,
+  event?: (result: T) => EventInput | EventInput[],
 ): Promise<T> {
   return db.transaction(async (rawTx) => {
     const tx = rawTx as Tx;
     const result = await operation(tx);
     await recordAuditTx(tx, audit(result));
-    if (event) await publishEventTx(tx, event(result));
+    if (event) {
+      const produced = event(result);
+      // Appends are sequential: each event links to the previous hash, so the
+      // chain must be extended one entry at a time.
+      for (const e of Array.isArray(produced) ? produced : [produced]) {
+        await publishEventTx(tx, e);
+      }
+    }
     return result;
   });
 }
@@ -255,15 +280,63 @@ export async function verifyAuditChain(limit?: number): Promise<ChainVerificatio
   };
 }
 
-export async function auditTrailFor(objectType: string, objectId: string, tenantId?: string | null) {
-  const conditions = [eq(auditLog.objectId, objectId)];
-  if (tenantId) conditions.push(eq(auditLog.tenantId, tenantId));
-  else conditions.push(isNull(auditLog.tenantId));
+/**
+ * Provenance trail for a single governed object: who did what, when, under which
+ * authority and with which outcome.
+ *
+ * `objectType` is part of the WHERE clause rather than a post-filter. Previously
+ * it was applied after `limit(50)`, so a busy ledger could return an empty trail
+ * for an object that genuinely had audit records.
+ *
+ * `tenantId` must be supplied by a caller that has already resolved the object
+ * inside the principal's tenant scope; passing null restricts to platform-level
+ * (tenant-less) records rather than matching every tenant.
+ */
+export async function auditTrailFor(
+  objectType: string,
+  objectId: string,
+  tenantId?: string | null,
+  limit = 50,
+) {
   return db
     .select()
     .from(auditLog)
-    .where(and(...conditions))
+    .where(
+      and(
+        eq(auditLog.objectType, objectType),
+        eq(auditLog.objectId, objectId),
+        tenantId ? eq(auditLog.tenantId, tenantId) : isNull(auditLog.tenantId),
+      ),
+    )
     .orderBy(desc(auditLog.sequence))
-    .limit(50)
-    .then((rows) => rows.filter((r) => r.objectType === objectType));
+    .limit(limit);
+}
+
+/** Provenance trails for many objects of one type in a single query. */
+export async function auditTrailsFor(
+  objectType: string,
+  objectIds: string[],
+  tenantIds: string[],
+): Promise<Map<string, (typeof auditLog.$inferSelect)[]>> {
+  const trails = new Map<string, (typeof auditLog.$inferSelect)[]>();
+  if (objectIds.length === 0 || tenantIds.length === 0) return trails;
+
+  const rows = await db
+    .select()
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.objectType, objectType),
+        inArray(auditLog.objectId, objectIds),
+        inArray(auditLog.tenantId, tenantIds),
+      ),
+    )
+    .orderBy(desc(auditLog.sequence));
+
+  for (const row of rows) {
+    const list = trails.get(row.objectId) ?? [];
+    list.push(row);
+    trails.set(row.objectId, list);
+  }
+  return trails;
 }
