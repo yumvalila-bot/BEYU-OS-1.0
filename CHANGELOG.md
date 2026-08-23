@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] — HCM-1: production-complete HCM without a second master — 2026-08-23
+
+### Added — genuine HCM-1 gaps only
+- `getEmployee` / `GET /api/v1/hcm/employees/:id` (same master, non-enumerating 404).
+- Derived employment view from employees + employment_events.
+- `observeWorkforce` (empty scope = DATA_NOT_AVAILABLE, never 0).
+- `assessWorkforceQuality` (advisory, does not repair).
+- `listOrganizations` (seed empty → DATA_NOT_AVAILABLE).
+- `proposeEmploymentChange` SIMULATION write chain → AUTHORITY_CHAIN_INCOMPLETE.
+
+### Not implemented (deliberately)
+- No second employee/employment/job table, no payroll, no HCMWorkflow2, no financial mutation.
+
 ## [Unreleased] — Phase 12: HCM completeness & canonical compliance — 2026-08-23
 
 ### Added — genuine HCM gaps only

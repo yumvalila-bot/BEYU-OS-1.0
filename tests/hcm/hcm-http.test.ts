@@ -63,4 +63,19 @@ describe.skipIf(!available)("HCM employees API over HTTP", () => {
     expect(data.suppressedCompensation).toBe(true);
     expect(data.records.every((r) => r.baseSalary === null)).toBe(true);
   });
+
+  it("GET :id returns one employee; forged id is 404 not 403", async () => {
+    const ok = await apiGetJson("/api/v1/hcm/employees/EMP_ASHA_NDULU", { cookie: hcmCookie });
+    expect(ok.status).toBe(200);
+    const data = (ok.body as { data: { employee: { employeeId: string }; employment: { source: string } } }).data;
+    expect(data.employee.employeeId).toBe("EMP_ASHA_NDULU");
+    expect(data.employment.source).toBe("people.employees + people.employment_events");
+
+    const hidden = await apiGetJson("/api/v1/hcm/employees/EMP_AMANI_BEYU", { cookie: sectorCookie });
+    const missing = await apiGetJson("/api/v1/hcm/employees/EMP_NOPE", { cookie: sectorCookie });
+    expect(hidden.status).toBe(404);
+    expect(missing.status).toBe(404);
+    expect((hidden.body as { error?: { code?: string } }).error?.code).toBe("NOT_FOUND");
+    expect((missing.body as { error?: { code?: string } }).error?.code).toBe("NOT_FOUND");
+  });
 });

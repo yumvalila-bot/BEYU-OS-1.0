@@ -37,11 +37,17 @@ describe("HCM completeness matrix", () => {
     }
   });
 
-  it("uses only the Phase-12 status vocabulary", () => {
+  it("uses only the HCM-1 status vocabulary", () => {
     for (const r of hcmCompletenessMatrix()) {
-      expect(["COMPLETE", "PARTIAL", "REQUIRES_AUTHORITY", "DATA_NOT_AVAILABLE", "NOT_AVAILABLE"]).toContain(
-        r.status,
-      );
+      expect([
+        "COMPLETE",
+        "PARTIAL",
+        "REQUIRES_AUTHORITY",
+        "DATA_NOT_AVAILABLE",
+        "NOT_AVAILABLE",
+        "NOT_APPLICABLE",
+        "BLOCKED",
+      ]).toContain(r.status);
     }
   });
 
@@ -56,6 +62,11 @@ describe("HCM completeness matrix", () => {
     expect(e.unknownClearanceClosed).toBe(true);
     expect(e.uiUsesService).toBe(true);
     expect(e.noeliaUsesService).toBe(true);
+    expect(e.singleRecord).toBe(true);
+    expect(e.observation).toBe(true);
+    expect(e.qualityScan).toBe(true);
+    expect(e.writeChain).toBe(true);
+    expect(e.orgRead).toBe(true);
   });
 
   it("lifecycle writes are REQUIRES_AUTHORITY, not COMPLETE", () => {
@@ -89,14 +100,16 @@ describe("HCM completeness matrix", () => {
         s.partial.length +
         s.requiresAuthority.length +
         s.dataNotAvailable.length +
-        s.notAvailable.length,
+        s.notAvailable.length +
+        s.notApplicable.length +
+        s.blocked.length,
     ).toBe(s.total);
     expect(s.total).toBe(m.length);
   });
 
   it("does not invent payroll or a Sector OS as missing kernel work", () => {
     const names = hcmCompletenessMatrix().map((r) => r.capability);
-    expect(names).not.toContain("Payroll");
+    expect(hcmCompletenessMatrix().find((r) => r.capability === "Payroll")?.status).toBe("NOT_APPLICABLE");
     expect(names).not.toContain("Recruitment ATS");
     expect(hcmCompletenessMatrix().find((r) => r.capability === "Compensation boundary")?.status).toBe("COMPLETE");
   });

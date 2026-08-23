@@ -19,6 +19,8 @@ export const HCM_MATRIX_STATUS = [
   "REQUIRES_AUTHORITY",
   "DATA_NOT_AVAILABLE",
   "NOT_AVAILABLE",
+  "NOT_APPLICABLE",
+  "BLOCKED",
 ] as const;
 export type HcmMatrixStatus = (typeof HCM_MATRIX_STATUS)[number];
 
@@ -60,6 +62,11 @@ export function hcmEvidence(): {
   managerIntegrity: boolean;
   uiUsesService: boolean;
   noeliaUsesService: boolean;
+  singleRecord: boolean;
+  observation: boolean;
+  qualityScan: boolean;
+  writeChain: boolean;
+  orgRead: boolean;
 } {
   const schemaHits = walk("src/db/schema").filter((f) => /pgTable\(\s*"employees"/.test(src(f)));
   const inserts = walk("src").filter((f) => {
@@ -71,6 +78,7 @@ export function hcmEvidence(): {
   const authz = src("src/lib/authz.ts");
   const page = src("src/app/os/hcm/page.tsx");
   const noelia = src("src/lib/noelia.ts");
+  const observe = src("src/lib/hcm-observe.ts");
   return {
     employeeTables: schemaHits,
     employeeInserts: inserts,
@@ -85,6 +93,11 @@ export function hcmEvidence(): {
     managerIntegrity: /assertManagerAcyclic/.test(hcm) && /assertManagerSameScope/.test(hcm),
     uiUsesService: /listWorkforce/.test(page) && /listEmploymentHistory/.test(page),
     noeliaUsesService: /listWorkforce/.test(noelia),
+    singleRecord: /export async function getEmployee/.test(observe),
+    observation: /export async function observeWorkforce/.test(observe),
+    qualityScan: /export async function assessWorkforceQuality/.test(observe),
+    writeChain: /AUTHORITY_CHAIN_INCOMPLETE/.test(observe) && /mutated: false/.test(observe),
+    orgRead: /export async function listOrganizations/.test(observe),
   };
 }
 
@@ -219,9 +232,117 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     ),
     row(
       "API layer",
-      e.consumptionApi && e.uiUsesService ? "COMPLETE" : "PARTIAL",
-      "One GET. UI and Noelia reuse listWorkforce. No duplicate workforce API.",
+      e.consumptionApi && e.uiUsesService && e.singleRecord ? "COMPLETE" : "PARTIAL",
+      "GET /employees and GET /employees/:id. UI and Noelia reuse listWorkforce. No duplicate master API.",
       "—",
+    ),
+    row(
+      "Person model",
+      "COMPLETE",
+      "identity.parties is the MDM person. HCM does not create a second person table.",
+      "—",
+    ),
+    row(
+      "User model",
+      "COMPLETE",
+      "identity.users. GlobalUserID = users.id. Users without employees remain valid.",
+      "—",
+    ),
+    row(
+      "Employment",
+      e.singleRecord ? "PARTIAL" : "NOT_AVAILABLE",
+      "Employment is a derived view of people.employees + employment_events. Not a second master.",
+      "ONE row per party; history is events",
+    ),
+    row(
+      "HCM read model",
+      e.observation ? "COMPLETE" : "PARTIAL",
+      "listWorkforce / getEmployee / observeWorkforce. Empty scope is DATA_NOT_AVAILABLE.",
+      "—",
+    ),
+    row(
+      "HCM write boundary",
+      e.writeChain ? "REQUIRES_AUTHORITY" : "PARTIAL",
+      "proposeEmploymentChange is SIMULATION and mutated: false.",
+      "No ratified HCM write capability",
+    ),
+    row(
+      "Governance integration",
+      "PARTIAL",
+      "Writes refuse without ratified authority. Reserved-matter engine is not forked.",
+      "No HCM reserved-matter mapping invented",
+    ),
+    row(
+      "Authority integration",
+      e.writeChain ? "REQUIRES_AUTHORITY" : "PARTIAL",
+      "AUTHORITY_CHAIN_INCOMPLETE on every write. 6C remains common.",
+      "16/16 PENDING",
+    ),
+    row(
+      "Workflow integration",
+      "PARTIAL",
+      "Structural employment transitions only. Finance workflow is not forked.",
+      "No HCMWorkflow2",
+    ),
+    row(
+      "SoD integration",
+      "PARTIAL",
+      "Common ROLE_INCOMPATIBILITY exists. HCM writes never reach maker/checker.",
+      "Write path unratified",
+    ),
+    row(
+      "Lineage",
+      "PARTIAL",
+      "Consumption records source: people.employees. Derived analytics are not canonical.",
+      "—",
+    ),
+    row(
+      "Noelia/HIVE integration",
+      e.noeliaUsesService ? "COMPLETE" : "PARTIAL",
+      "Noelia calls listWorkforce. It cannot write employees.",
+      "—",
+    ),
+    row(
+      "Finance integration",
+      "COMPLETE",
+      "Finance has no employee table. It may consume HCM; it does not own workforce truth.",
+      "—",
+    ),
+    row(
+      "Sector OS integration",
+      "PARTIAL",
+      "Declared consumption API exists. Sector OS runtimes are not built.",
+      "Do not build Sector OSs here",
+    ),
+    row(
+      "Workforce analytics",
+      e.observation ? "PARTIAL" : "NOT_AVAILABLE",
+      "observeWorkforce: OBSERVED headcount/occupancy. No invented targets or turnover policy.",
+      "Manager span DATA_NOT_AVAILABLE in seed",
+    ),
+    row(
+      "Data quality",
+      e.qualityScan ? "PARTIAL" : "NOT_AVAILABLE",
+      "assessWorkforceQuality is advisory and does not repair.",
+      "—",
+    ),
+    row(
+      "Import/integration",
+      "NOT_APPLICABLE",
+      "No external workforce import exists. One is not invented.",
+      "—",
+    ),
+    row(
+      "Payroll",
+      "NOT_APPLICABLE",
+      "Payroll is a future capability. No payroll ledger or settlement.",
+      "—",
+    ),
+    row(
+      "Organization read",
+      e.orgRead ? "DATA_NOT_AVAILABLE" : "PARTIAL",
+      "listOrganizations reads core.org_units. Seed has zero org units.",
+      "Not a missing second org master",
     ),
   ];
 }
@@ -233,6 +354,8 @@ export function hcmCompletenessSummary(): {
   requiresAuthority: string[];
   dataNotAvailable: string[];
   notAvailable: string[];
+  notApplicable: string[];
+  blocked: string[];
 } {
   const m = hcmCompletenessMatrix();
   return {
@@ -242,5 +365,7 @@ export function hcmCompletenessSummary(): {
     requiresAuthority: m.filter((r) => r.status === "REQUIRES_AUTHORITY").map((r) => r.capability),
     dataNotAvailable: m.filter((r) => r.status === "DATA_NOT_AVAILABLE").map((r) => r.capability),
     notAvailable: m.filter((r) => r.status === "NOT_AVAILABLE").map((r) => r.capability),
+    notApplicable: m.filter((r) => r.status === "NOT_APPLICABLE").map((r) => r.capability),
+    blocked: m.filter((r) => r.status === "BLOCKED").map((r) => r.capability),
   };
 }

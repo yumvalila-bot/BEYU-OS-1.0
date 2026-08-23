@@ -22,7 +22,7 @@ import { classificationRank, isKnownClassification } from "./constants";
 import { globalUserIdsForParties, type GlobalUserID } from "./identity";
 import { tenantScopeIds } from "./tenant-scope";
 
-export const HCM_VERSION = "hcm-1.2.0";
+export const HCM_VERSION = "hcm-1.3.0";
 
 export const EMPLOYMENT_STATUS = ["ACTIVE", "ON_LEAVE", "SUSPENDED", "TERMINATED"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUS)[number];
@@ -52,6 +52,7 @@ export type WorkforceRecord = {
   legalEntityId: string;
   legalEntityName: string;
   legalEntityTenantId: string;
+  positionId: string | null;
   positionTitle: string | null;
   positionGrade: string | null;
   jobFamily: string | null;
@@ -95,9 +96,18 @@ export type PositionRecord = {
   status: string;
 };
 
+export type HcmErrorCode =
+  | "DENIED"
+  | "NOT_FOUND"
+  | "REQUIRES_AUTHORITY"
+  | "INTEGRITY"
+  | "AUTHORITY_CHAIN_INCOMPLETE"
+  | "INVALID_LIFECYCLE_TRANSITION"
+  | "DATA_NOT_AVAILABLE";
+
 export class HcmError extends Error {
   constructor(
-    readonly code: "DENIED" | "NOT_FOUND" | "REQUIRES_AUTHORITY" | "INTEGRITY",
+    readonly code: HcmErrorCode,
     message: string,
   ) {
     super(message);
@@ -256,7 +266,7 @@ export function recordEmploymentChange(
 
 export class HcmIntegrityError extends Error {
   constructor(
-    readonly code: "CIRCULAR_MANAGER" | "CROSS_SCOPE_MANAGER" | "SELF_MANAGER" | "INVALID_DATES",
+    readonly code: "CIRCULAR_MANAGER" | "CIRCULAR_ORG" | "CROSS_SCOPE_MANAGER" | "SELF_MANAGER" | "INVALID_DATES",
     message: string,
   ) {
     super(message);
@@ -376,6 +386,7 @@ export async function listWorkforce(
       legalEntityId: employees.legalEntityId,
       legalEntityName: legalEntities.legalName,
       legalEntityTenantId: legalEntities.tenantId,
+      positionId: positions.id,
       positionTitle: positions.title,
       positionGrade: positions.grade,
       jobFamily: positions.jobFamily,
@@ -421,6 +432,7 @@ export async function listWorkforce(
         legalEntityId: r.legalEntityId,
         legalEntityName: r.legalEntityName,
         legalEntityTenantId: r.legalEntityTenantId,
+        positionId: r.positionId,
         positionTitle: r.positionTitle,
         positionGrade: r.positionGrade,
         jobFamily: r.jobFamily,
