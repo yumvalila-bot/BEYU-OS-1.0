@@ -17,8 +17,9 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { aiOutputClassEnum, authorityStatusEnum, classificationEnum } from "./enums";
-import { tenants } from "./core";
+import { countries, legalEntities, tenants } from "./core";
 import { users } from "./identity";
+import { approvals } from "./governance";
 
 /**
  * Serialized append head for tamper-evident ledgers. Writers must lock the
@@ -195,6 +196,50 @@ export type AiSource = {
   authority: string;
 };
 
+/**
+ * Durable intent envelope for actions prepared by Noelia.
+ *
+ * The requesting human, executing AI identity and approving human are separate
+ * columns by design. A request is evidence, not authority: domain execution may
+ * only follow an explicit HUMAN approval and remains subject to the tool gate.
+ */
+export const noeliaActionRequests = pgTable(
+  "noelia_action_requests",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    requestingHumanId: text("requesting_human_id")
+      .notNull()
+      .references(() => users.id),
+    executingAi: text("executing_ai").notNull().default("NOELIA"),
+    approvingHumanId: text("approving_human_id").references(() => users.id),
+    approvalId: text("approval_id").references(() => approvals.id),
+    toolName: text("tool_name").notNull(),
+    input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+    // Requested target is evidence, not a resolved FK: retaining an unknown or
+    // out-of-scope identifier must not create an existence oracle or roll back
+    // denial evidence. Tool authorization resolves it independently.
+    targetTenantId: text("target_tenant_id").notNull(),
+    legalEntityId: text("legal_entity_id"),
+    countryCode: text("country_code"),
+    risk: text("risk").notNull(), // LOW | HIGH
+    status: text("status").notNull(), // DENIED | PENDING_APPROVAL | APPROVED | COMPLETED | FAILED
+    denialCode: text("denial_code"),
+    reason: text("reason").notNull(),
+    output: jsonb("output").$type<Record<string, unknown> | null>(),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("noelia_action_tenant_idx").on(t.tenantId),
+    index("noelia_action_status_idx").on(t.status),
+    index("noelia_action_approval_idx").on(t.approvalId),
+  ],
+);
+
 export const knowledgeSources = pgTable(
   "knowledge_sources",
   {
@@ -205,6 +250,11 @@ export const knowledgeSources = pgTable(
     sourceUri: text("source_uri"),
     ownerRole: text("owner_role").notNull(),
     jurisdictionCode: text("jurisdiction_code"),
+    /** GLOBAL | ENTERPRISE | TENANT | ENTITY | COUNTRY (unknown values fail closed). */
+    scopeType: text("scope_type").notNull().default("GLOBAL"),
+    tenantId: text("tenant_id").references(() => tenants.id),
+    legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    countryCode: text("country_code").references(() => countries.code),
     version: text("version").notNull().default("1.0.0"),
     authorityStatus: authorityStatusEnum("authority_status").notNull().default("AUTHORITATIVE"),
     provenance: text("provenance").notNull(),
@@ -215,7 +265,12 @@ export const knowledgeSources = pgTable(
     content: text("content").notNull(),
     keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
   },
-  (t) => [uniqueIndex("knowledge_sources_code_uidx").on(t.code)],
+  (t) => [
+    uniqueIndex("knowledge_sources_code_uidx").on(t.code),
+    index("knowledge_sources_scope_idx").on(t.scopeType, t.tenantId),
+    index("knowledge_sources_entity_idx").on(t.legalEntityId),
+    index("knowledge_sources_country_idx").on(t.countryCode),
+  ],
 );
 
 export const notifications = pgTable("notifications", {

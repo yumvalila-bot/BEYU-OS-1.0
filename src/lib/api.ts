@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseTransactionContext } from "@/db";
-import { ZodError, type ZodSchema } from "zod";
+import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
 import {
@@ -29,6 +29,52 @@ export type ApiErrorBody = {
     details?: unknown;
   };
 };
+
+export type ApplicationBoundaryError = {
+  code: "VALIDATION_FAILED";
+  message: string;
+  status: 422;
+  details: Array<{ code: string; path: Array<string | number>; message: string }>;
+};
+
+/**
+ * Convert transport-library errors into BEYU's canonical application envelope.
+ *
+ * Next's production bundler can load route code and this shared boundary from
+ * different chunks. In that situation a genuine ZodError may fail an
+ * `instanceof ZodError` check even though it carries Zod's stable public shape.
+ * Normalize that shape explicitly, without changing the error, its prototype or
+ * its message. Only safe validation fields cross the HTTP boundary; stack,
+ * input values and arbitrary error properties are never returned.
+ */
+export function normalizeApplicationBoundaryError(error: unknown): ApplicationBoundaryError | null {
+  if (!error || typeof error !== "object") return null;
+
+  const candidate = error as { name?: unknown; issues?: unknown };
+  // Deliberately avoid `instanceof`: constructor identity is exactly what is
+  // unstable across the production chunks this boundary joins.
+  if (candidate.name !== "ZodError" || !Array.isArray(candidate.issues)) return null;
+
+  const details = candidate.issues.flatMap((issue) => {
+    if (!issue || typeof issue !== "object") return [];
+    const value = issue as { code?: unknown; path?: unknown; message?: unknown };
+    if (typeof value.code !== "string" || typeof value.message !== "string" || !Array.isArray(value.path)) {
+      return [];
+    }
+    const path = value.path.filter((part): part is string | number =>
+      typeof part === "string" || (typeof part === "number" && Number.isFinite(part)),
+    );
+    return [{ code: value.code, path, message: value.message }];
+  });
+
+  if (details.length === 0 && candidate.issues.length > 0) return null;
+  return {
+    code: "VALIDATION_FAILED",
+    message: "Request payload failed schema validation.",
+    status: 422,
+    details,
+  };
+}
 
 export function apiError(
   code: string,
@@ -275,16 +321,28 @@ export async function guarded(
       // idempotency claim. The handler owns the transaction that follows.
       const denied = await withTenantDatabaseContext(principal, authorize);
       if (denied) return denied;
-      return handler(context);
+      // Await inside this try so asynchronous handler failures reach the
+      // canonical application-error boundary below.
+      return await handler(context);
     }
 
-    return withTenantDatabaseContext(principal, async () => {
+    // `return promise` would bypass this function's catch on rejection. Await
+    // the request transaction so validation and other handler failures are
+    // normalized before they reach the framework.
+    return await withTenantDatabaseContext(principal, async () => {
       const denied = await authorize();
       return denied ?? handler(context);
     });
   } catch (err) {
-    if (err instanceof ZodError) {
-      return apiError("VALIDATION_FAILED", "Request payload failed schema validation.", 422, traceId, err.issues);
+    const applicationError = normalizeApplicationBoundaryError(err);
+    if (applicationError) {
+      return apiError(
+        applicationError.code,
+        applicationError.message,
+        applicationError.status,
+        traceId,
+        applicationError.details,
+      );
     }
     console.error(JSON.stringify({ level: "error", traceId, action: options.action, message: String(err) }));
     return apiError("INTERNAL_ERROR", "The request could not be completed.", 500, traceId);

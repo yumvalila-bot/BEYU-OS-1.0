@@ -405,24 +405,37 @@ describe("authorization signal — integrity", () => {
     const cap = await makeCapitalRequest(id);
     const reader = await principalFor(SECRETARY);
 
-    // Open a transaction that decides but does NOT commit, and read the signal
-    // from OUTSIDE it. The uncommitted decision must be invisible.
-    await db
+    // Open a transaction that decides but does NOT commit. Phase 15 correctly
+    // routes calls made *inside* the callback through that transaction, so the
+    // external observer must run from the parent async context while the writer
+    // is held open.
+    let signalUpdated!: () => void;
+    let releaseWriter!: () => void;
+    const updated = new Promise<void>((resolve) => { signalUpdated = resolve; });
+    const holdWriter = new Promise<void>((resolve) => { releaseWriter = resolve; });
+    const writer = db
       .transaction(async (tx) => {
         await tx
           .update(resolutions)
           .set({ status: "APPROVED", decisionDate: new Date(), decidedByMemberId: "GMB_BRD_CEO" })
           .where(eq(resolutions.id, id));
-
-        const during = await getGovernanceDecisionAuthorization(reader, "CAPITAL_REQUEST", cap.id);
-        expect(during.authorized).toBe(false);
-        expect(during.decision).toBe("VOTED");
-
+        signalUpdated();
+        await holdWriter;
         throw new Error("rollback");
       })
       .catch((e) => {
         if (!/rollback/.test(String(e))) throw e;
       });
+
+    await updated;
+    try {
+      const during = await getGovernanceDecisionAuthorization(reader, "CAPITAL_REQUEST", cap.id);
+      expect(during.authorized).toBe(false);
+      expect(during.decision).toBe("VOTED");
+    } finally {
+      releaseWriter();
+      await writer;
+    }
 
     // 23. After the rolled-back transaction there is still no authorization.
     const after = await getGovernanceDecisionAuthorization(reader, "CAPITAL_REQUEST", cap.id);

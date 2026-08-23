@@ -80,6 +80,12 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Drizzle maps timestamp columns to Date; compare canonical ISO days, never Date.toString(). */
+function isoDay(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+}
+
 function emptyChecks(): AuthorityCheck["checks"] {
   return {
     identity: false,
@@ -200,27 +206,30 @@ export async function verifyDecisionAuthority(decisionId: string): Promise<Autho
   // Approval cannot be dated in the future and effective dating is evaluated
   // against the server date. Absent dates are explicit non-effective states.
   const now = today();
-  if (!row.approvalDate || String(row.approvalDate).slice(0, 10) > now) {
+  const approvalDate = isoDay(row.approvalDate);
+  const effectiveFrom = isoDay(row.effectiveFrom);
+  const effectiveTo = isoDay(row.effectiveTo);
+  if (!approvalDate || approvalDate > now) {
     return {
       ...base,
       verdict: "APPROVED_NOT_EFFECTIVE",
-      reason: !row.approvalDate
+      reason: !approvalDate
         ? `${decisionId} records no approval date.`
         : `${decisionId} records an approval date in the future.`,
     };
   }
-  if (!row.effectiveFrom) {
+  if (!effectiveFrom) {
     return {
       ...base,
       verdict: "APPROVED_NOT_EFFECTIVE",
       reason: `${decisionId} has no effective_from date.`,
     };
   }
-  checks.effectiveDateReached = String(row.effectiveFrom) <= now;
-  checks.notExpired = !row.effectiveTo || String(row.effectiveTo) >= now;
+  checks.effectiveDateReached = effectiveFrom <= now;
+  checks.notExpired = !effectiveTo || effectiveTo >= now;
 
   if (!checks.notExpired) {
-    return { ...base, verdict: "EXPIRED", reason: `${decisionId} authority expired on ${row.effectiveTo}.` };
+    return { ...base, verdict: "EXPIRED", reason: `${decisionId} authority expired on ${effectiveTo}.` };
   }
 
   // --- Dependencies must all be ACTIVATED. ---

@@ -748,8 +748,11 @@ describe("scoped capability gate", () => {
       asOf: ASOF,
     });
     expect(r.permitted).toBe(false);
-    expect(r.decision).toBe("CAPABILITY_LOCKED");
-    expect(r.blockedBy.length).toBeGreaterThan(0);
+    // The registered capability intentionally has no execution permission.
+    // Phase 15's authority firewall reports the incomplete chain before the
+    // activation state; either defect denies, but missing permission is primary.
+    expect(r.decision).toBe("AUTHORITY_CHAIN_INCOMPLETE");
+    expect(r.blockedBy).toContain("CAP_SPEC_FORECAST_EXECUTE");
   });
 
   it("denies a principal asserting a tenant it does not belong to", async () => {

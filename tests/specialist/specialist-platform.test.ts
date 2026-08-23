@@ -98,8 +98,9 @@ async function withActivated<T>(capability: string, decisions: string[], fn: () 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'ACTIVATED', activation_status = 'ACTIVATED', resolution_id = ${approved.id},
-            provenance = 'GOVERNED', effective_from = '2020-01-01', approving_body = 'TEST',
-            decision_maker = 'TEST', evidence = 'test'
+            provenance = 'GOVERNED', approval_date = '2020-01-01', effective_from = '2020-01-01',
+            approving_body = 'TEST', decision_maker = 'TEST', scope = '{}'::jsonb,
+            conditions = 'test', evidence = 'test'
         where decision_id = ${d}
       `);
     }
@@ -112,8 +113,8 @@ async function withActivated<T>(capability: string, decisions: string[], fn: () 
       await db.execute(sql`
         update governance_decision_registry
         set status = 'PENDING', activation_status = 'LOCKED', resolution_id = null, provenance = null,
-            effective_from = null, effective_to = null, approving_body = null, decision_maker = null,
-            evidence = null
+            approval_date = null, effective_from = null, effective_to = null, approving_body = null,
+            decision_maker = null, scope = null, conditions = null, evidence = null
         where decision_id = ${d}
       `);
     }

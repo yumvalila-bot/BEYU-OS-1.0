@@ -77,7 +77,7 @@ export function hcmEvidence(): {
   const hcm = src("src/lib/hcm.ts");
   const authz = src("src/lib/authz.ts");
   const page = src("src/app/os/hcm/page.tsx");
-  const noelia = src("src/lib/noelia.ts");
+  const noelia = `${src("src/lib/noelia.ts")}\n${src("src/lib/noelia/read-services.ts")}`;
   const observe = src("src/lib/hcm-observe.ts");
   return {
     employeeTables: schemaHits,

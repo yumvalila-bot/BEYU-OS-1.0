@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased] — Noelia governed runtime boundary — 2026-08-23
+
+### Added
+- Fail-closed Noelia tool registry with RBAC/ABAC, composite tenant/entity/country scope,
+  classification and separate accountable-human approval checks.
+- Scoped RAG memory (`GLOBAL`, `ENTERPRISE`, `TENANT`, `ENTITY`, `COUNTRY`) with SQL-level
+  authority-window, classification and scope filtering. Enterprise memory is not global.
+- Durable `noelia_action_requests` evidence separating requesting human, executing Noelia AI and
+  approving human. Denials persist without domain mutation; approved execution/completion/audit is
+  atomic through registered BEYU services.
+- Migration `0014_noelia_governance_boundary.sql`, RLS, scope/identity checks, unit/integration/
+  security/production-HTTP coverage, and fresh migration+seed evidence.
+
+### Fixed — pre-existing common-platform defects
+- `guarded()` now awaits asynchronous handler/transaction promises inside its error boundary and
+  explicitly normalizes safe Zod issue fields; malformed Noelia and resolutions requests return
+  canonical 422 rather than framework 500.
+- Authority dates returned by Drizzle as `Date` are normalized to ISO days before comparison;
+  genuine historical approval/effective dates no longer fail closed as if future.
+- Phase 15 positive-control fixtures now provide all required authority metadata and completely
+  restore their mutations; the uncommitted authorization observer now runs outside ALS context.
+
+### Preserved
+- Noelia receives no DB handle and has no independent authority. Identity, policy, permissions,
+  human accountability, canonical service boundaries, transaction-local tenant context and audit
+  remain BEYU OS responsibilities.
+
 ## [Unreleased] — HCM-1: production-complete HCM without a second master — 2026-08-23
 
 ### Added — genuine HCM-1 gaps only
