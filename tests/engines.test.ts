@@ -135,6 +135,28 @@ describe("tax strategy intelligence", () => {
     expect(r.humanReviewRequired).toBe(true);
   });
 
+  it("does not apply a strategy before its effective date or after its review date", () => {
+    const future = assessTaxStrategy({
+      strategy: { ...baseStrategy, effectiveFrom: "2030-01-01" },
+      taxpayerJurisdiction: "TZ",
+      facts: { assetInUse: true },
+      baseAmount: 100,
+      asOf: "2026-08-23",
+    });
+    expect(future.eligibility).toBe("UNDER_REVIEW");
+    expect(future.estimatedBenefit).toBeNull();
+
+    const stale = assessTaxStrategy({
+      strategy: { ...baseStrategy, reviewDate: "2026-01-01" },
+      taxpayerJurisdiction: "TZ",
+      facts: { assetInUse: true },
+      baseAmount: 100,
+      asOf: "2026-08-23",
+    });
+    expect(stale.eligibility).toBe("UNDER_REVIEW");
+    expect(stale.estimatedBenefit).toBeNull();
+  });
+
   it("computes benefit only when statutory criteria are satisfied", () => {
     const ok = assessTaxStrategy({ strategy: baseStrategy, taxpayerJurisdiction: "TZ", facts: { assetInUse: true }, baseAmount: 1_000_000 });
     expect(ok.eligibility).toBe("ELIGIBLE");

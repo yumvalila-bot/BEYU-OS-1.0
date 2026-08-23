@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { legalEntities, taxStrategies } from "@/db/schema";
 import { apiError, apiOk, guarded, parseBody } from "@/lib/api";
 import { assessTaxStrategy } from "@/lib/tax";
 import { evaluatePolicy } from "@/lib/policy";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 import { recordAudit, publishEvent } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +34,23 @@ export async function POST(request: Request) {
     async (ctx) => {
       const body = await parseBody(ctx.request, AssessSchema);
 
+      const scope = await tenantScopeIds(ctx.principal);
       const [strategy] = await db.select().from(taxStrategies).where(eq(taxStrategies.id, body.strategyId)).limit(1);
       if (!strategy) return apiError("NOT_FOUND", "Tax strategy not found.", 404, ctx.traceId);
 
-      const [entity] = await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1);
-      if (!entity) return apiError("NOT_FOUND", "Legal entity not found.", 404, ctx.traceId);
+      // The entity is client-selected input, not authority. Resolve it only inside
+      // the caller's canonical tenant and legal-entity scope. Without this
+      // predicate a sector principal could assess (and receive the name of) an
+      // entity from another tenant whenever database RLS was not the connection
+      // that served this query.
+      const [entity] = await db
+        .select()
+        .from(legalEntities)
+        .where(and(eq(legalEntities.id, body.legalEntityId), inArray(legalEntities.tenantId, scope)))
+        .limit(1);
+      if (!entity || (ctx.principal.entityScope.length > 0 && !ctx.principal.entityScope.includes(entity.id))) {
+        return apiError("NOT_FOUND", "Legal entity not found.", 404, ctx.traceId);
+      }
 
       const policy = await evaluatePolicy({
         action: "finance:tax.assess",

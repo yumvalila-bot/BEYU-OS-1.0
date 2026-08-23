@@ -78,12 +78,23 @@ export async function tenantAncestry(tenantId: string): Promise<string[]> {
   return chain;
 }
 
-export async function activeEmergencyPermissions(userId: string): Promise<PermissionCode[]> {
+export async function activeEmergencyPermissions(
+  userId: string,
+  tenantId: string,
+): Promise<PermissionCode[]> {
   const now = new Date();
   const rows = await db
     .select()
     .from(emergencyAccessGrants)
-    .where(and(eq(emergencyAccessGrants.userId, userId), gte(emergencyAccessGrants.expiresAt, now), isNull(emergencyAccessGrants.revokedAt)));
+    .where(
+      and(
+        eq(emergencyAccessGrants.userId, userId),
+        eq(emergencyAccessGrants.tenantId, tenantId),
+        lte(emergencyAccessGrants.activatedAt, now),
+        gte(emergencyAccessGrants.expiresAt, now),
+        isNull(emergencyAccessGrants.revokedAt),
+      ),
+    );
   return rows.flatMap((r) => r.permissionCodes as PermissionCode[]);
 }
 

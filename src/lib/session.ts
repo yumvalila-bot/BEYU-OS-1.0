@@ -112,7 +112,7 @@ export async function resolvePrincipal(): Promise<Principal | null> {
   const grants = await loadGrants(row.userId, row.tenantId);
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
-  const emergencyPermissions = await activeEmergencyPermissions(row.userId);
+  const emergencyPermissions = await activeEmergencyPermissions(row.userId, row.tenantId);
 
   return {
     userId: row.userId,

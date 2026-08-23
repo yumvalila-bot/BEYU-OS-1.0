@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiDecisions,
@@ -15,7 +15,16 @@ import {
 } from "@/db/schema";
 import { listWorkforce } from "./hcm";
 import { newId, ID_PREFIX } from "./ids";
-import { HIVE_RUNTIME, NOELIA_IDENTITY, NOELIA_PROMPT_VERSION, type PermissionCode } from "./constants";
+import {
+  CLASSIFICATION_ORDER,
+  HIVE_RUNTIME,
+  NOELIA_IDENTITY,
+  NOELIA_PROMPT_VERSION,
+  classificationRank,
+  isKnownClassification,
+  type Classification,
+  type PermissionCode,
+} from "./constants";
 import { can, type Principal } from "./authz";
 import { evaluatePolicy } from "./policy";
 import { recordAuditTx, publishEventTx } from "./audit";
@@ -81,13 +90,18 @@ const ENGINE_PERMISSION: Record<NoeliaEngine, PermissionCode> = {
   KNOWLEDGE: "platform:dashboard.read",
 };
 
-async function retrieveKnowledge(question: string): Promise<AiSource[]> {
+async function retrieveKnowledge(question: string, clearance: Classification): Promise<AiSource[]> {
   const terms = question
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length > 3)
     .slice(0, 6);
-  if (terms.length === 0) return [];
+  if (terms.length === 0 || !isKnownClassification(clearance)) return [];
+
+  const visibleClassifications = CLASSIFICATION_ORDER.filter(
+    (classification) => classificationRank(classification) <= classificationRank(clearance),
+  );
+  const today = new Date().toISOString().slice(0, 10);
   const rows = await db
     .select({
       code: knowledgeSources.code,
@@ -99,6 +113,10 @@ async function retrieveKnowledge(question: string): Promise<AiSource[]> {
     .where(
       and(
         eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
+        inArray(knowledgeSources.classification, visibleClassifications),
+        lte(knowledgeSources.effectiveFrom, today),
+        gte(knowledgeSources.reviewDate, today),
+        or(isNull(knowledgeSources.expiresAt), gte(knowledgeSources.expiresAt, today)),
         sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.content}) ~ ${terms.join("|")}`,
       ),
     )
@@ -339,7 +357,7 @@ export async function askNoelia(params: {
     }
   }
 
-  const knowledge = await retrieveKnowledge(question);
+  const knowledge = await retrieveKnowledge(question, principal.clearance);
   sources.push(...knowledge);
   if (knowledge.length > 0) toolsUsed.push("knowledge.rag.search");
   if (sources.length === 0 && outputClass !== "REQUIRES_HUMAN_REVIEW") {

@@ -197,6 +197,21 @@ export async function checkScopedCapability(input: {
     };
   }
 
+  // A capability without a bound execution permission cannot satisfy the
+  // principal-authorisation leg of the canonical gate. Do not let a malformed
+  // activated registry row become a permissionless execution path.
+  if (!cap.executionPermission) {
+    return {
+      permitted: false,
+      decision: "AUTHORITY_CHAIN_INCOMPLETE",
+      reason: `${input.capabilityCode} has no execution permission; the authority chain is incomplete.`,
+      capabilityExists: true,
+      capabilityEnabled: false,
+      authorityEvaluations: [],
+      blockedBy: [input.capabilityCode],
+    };
+  }
+
   // --- Decision-level authority, delegated to the existing 6C engine ---
   const gate = await checkCapabilityActivation(input.capabilityCode);
 

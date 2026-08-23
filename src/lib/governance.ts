@@ -368,6 +368,7 @@ export async function proposeResolution(
       trigger,
       amount,
       declaredCategory: input.category,
+      tenantIds: scope,
     });
     if (treatment.decision === "MISCATEGORISED_RESERVED_MATTER") {
       throw new GovernanceError("RULE_VIOLATION", treatment.reason, {
@@ -378,6 +379,7 @@ export async function proposeResolution(
       bodyId: governingBody.id,
       trigger,
       amount,
+      tenantIds: scope,
     });
     if (
       competence.decision === "RESERVED_MATTER_BYPASS" ||

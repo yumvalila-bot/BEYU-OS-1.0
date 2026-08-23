@@ -29,7 +29,7 @@
  * enforces them; it never adds one. `CAPITAL>1M` is interpreted as a threshold because that is
  * what the ratified string says — the threshold is read, not chosen.
  */
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies } from "@/db/schema";
 
@@ -186,12 +186,20 @@ export async function checkBodyCompetence(input: {
   bodyId: string;
   trigger: MatterTrigger;
   amount?: number | null;
+  /** Optional scope of governance bodies supplied by the caller's principal. */
+  tenantIds?: readonly string[];
+  /** Backward-compatible exact-tenant scope for direct callers. */
   tenantId?: string;
 }): Promise<CompetenceVerdict> {
+  const tenantScope = input.tenantIds ?? (input.tenantId ? [input.tenantId] : undefined);
   const [body] = await db
     .select()
     .from(governanceBodies)
-    .where(eq(governanceBodies.id, input.bodyId))
+    .where(
+      tenantScope
+        ? and(eq(governanceBodies.id, input.bodyId), inArray(governanceBodies.tenantId, tenantScope))
+        : eq(governanceBodies.id, input.bodyId),
+    )
     .limit(1);
 
   if (!body) {
@@ -212,8 +220,13 @@ export async function checkBodyCompetence(input: {
     amount: input.amount,
   });
 
-  // Every other body that reserves this operation.
-  const allBodies = await db.select().from(governanceBodies);
+  // Every other body that reserves this operation. When invoked from a request,
+  // only bodies inside that principal's resolved tenant subtree may affect the
+  // result; a body in another tenant must neither veto nor be disclosed.
+  const allBodies = await db
+    .select()
+    .from(governanceBodies)
+    .where(tenantScope ? inArray(governanceBodies.tenantId, tenantScope) : undefined);
   const otherCompetent = allBodies
     .filter((b) => b.id !== body.id)
     .filter((b) => {
@@ -284,6 +297,8 @@ export async function requiresReservedMatterTreatment(input: {
   trigger: MatterTrigger;
   amount?: number | null;
   declaredCategory: string;
+  /** Optional scope of governance bodies supplied by the caller's principal. */
+  tenantIds?: readonly string[];
 }): Promise<{
   required: boolean;
   correctlyCategorised: boolean;
@@ -291,7 +306,10 @@ export async function requiresReservedMatterTreatment(input: {
   competentBodies: string[];
   reason: string;
 }> {
-  const bodies = await db.select().from(governanceBodies);
+  const bodies = await db
+    .select()
+    .from(governanceBodies)
+    .where(input.tenantIds ? inArray(governanceBodies.tenantId, input.tenantIds) : undefined);
 
   const competent = bodies
     .filter((b) => {

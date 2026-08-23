@@ -155,9 +155,68 @@ export async function verifyDecisionAuthority(decisionId: string): Promise<Autho
   checks.conditionsRecorded = row.conditions !== null;
   checks.evidencePresent = Boolean(row.evidence);
 
-  // --- Effective dating. Absent dates are treated as NOT effective (fail-closed). ---
+  // A still-pending registry item is an honest queue state; it is blocked
+  // regardless of which future authority fields have not yet been supplied.
+  if (row.status === "PENDING") {
+    return { ...base, verdict: "PENDING", reason: `${decisionId} has not been decided.` };
+  }
+
+  // Seeded/reference data must never authorise. Mirrors getGovernanceDecisionAuthorization().
+  const genuinelyApproved = resolutionApproved && checks.provenanceGoverned;
+  if (!genuinelyApproved) {
+    return {
+      ...base,
+      verdict: "PENDING",
+      reason:
+        `${decisionId} claims ${row.status} but has no APPROVED resolution with GOVERNED ` +
+        `provenance; seeded or unverified records do not confer authority.`,
+    };
+  }
+
+  // A status flag is not a complete authority chain. Before an activated row
+  // can be executable, the record must carry the issuer, decision maker,
+  // governance evidence, scope and effective approval metadata. These columns
+  // are nullable because the pre-ratification registry is also an intake queue;
+  // null is therefore an explicit execution blocker, never an implicit
+  // group-wide/default value.
+  const missingAuthorityMetadata = [
+    ["approving_body", row.approvingBody],
+    ["decision_maker", row.decisionMaker],
+    ["scope", row.scope],
+    ["conditions", row.conditions],
+    ["evidence", row.evidence],
+  ]
+    .filter(([, value]) => value === null || value === undefined || value === "")
+    .map(([name]) => name);
+
+  if (missingAuthorityMetadata.length > 0) {
+    return {
+      ...base,
+      verdict: "PENDING",
+      reason: `${decisionId} is missing required authority metadata: ${missingAuthorityMetadata.join(", ")}.`,
+    };
+  }
+
+  // Approval cannot be dated in the future and effective dating is evaluated
+  // against the server date. Absent dates are explicit non-effective states.
   const now = today();
-  checks.effectiveDateReached = Boolean(row.effectiveFrom) && String(row.effectiveFrom) <= now;
+  if (!row.approvalDate || String(row.approvalDate).slice(0, 10) > now) {
+    return {
+      ...base,
+      verdict: "APPROVED_NOT_EFFECTIVE",
+      reason: !row.approvalDate
+        ? `${decisionId} records no approval date.`
+        : `${decisionId} records an approval date in the future.`,
+    };
+  }
+  if (!row.effectiveFrom) {
+    return {
+      ...base,
+      verdict: "APPROVED_NOT_EFFECTIVE",
+      reason: `${decisionId} has no effective_from date.`,
+    };
+  }
+  checks.effectiveDateReached = String(row.effectiveFrom) <= now;
   checks.notExpired = !row.effectiveTo || String(row.effectiveTo) >= now;
 
   if (!checks.notExpired) {
@@ -183,21 +242,6 @@ export async function verifyDecisionAuthority(decisionId: string): Promise<Autho
   checks.dependenciesSatisfied = base.unmetDependencies.length === 0;
 
   // --- Ladder. Each rung requires everything below it. ---
-  if (row.status === "PENDING") {
-    return { ...base, verdict: "PENDING", reason: `${decisionId} has not been decided.` };
-  }
-
-  const genuinelyApproved = resolutionApproved && checks.provenanceGoverned;
-  if (!genuinelyApproved) {
-    return {
-      ...base,
-      verdict: "PENDING",
-      reason:
-        `${decisionId} claims ${row.status} but has no APPROVED resolution with GOVERNED ` +
-        `provenance; seeded or unverified records do not confer authority.`,
-    };
-  }
-
   if (!checks.effectiveDateReached) {
     return {
       ...base,

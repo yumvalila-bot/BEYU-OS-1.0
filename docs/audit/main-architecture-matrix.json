@@ -1,0 +1,292 @@
+{
+  "title": "BEYU OS — current main comprehensive architecture matrix",
+  "auditDate": "2026-08-23",
+  "source": {
+    "branch": "arena/01a02d6d-beyu-os-1-0",
+    "mainRef": "origin/main",
+    "head": "8516162052a59ad7f538d78cfb7539fcb2f97c40",
+    "supabase": "EXCLUDED",
+    "databaseEvidence": "DATA_NOT_AVAILABLE",
+    "testEvidence": "PARTIAL — PostgreSQL-dependent suites could not collect without DATABASE_URL"
+  },
+  "allowedStatuses": [
+    "READY",
+    "PARTIAL",
+    "BLOCKED",
+    "REQUIRES_AUTHORITY",
+    "DATA_NOT_AVAILABLE",
+    "NOT_AVAILABLE"
+  ],
+  "capabilities": [
+    {
+      "capability": "Constitutional control plane",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "PARTIAL",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Constitution, policy hierarchy and governance lifecycle primitives exist, but policy provenance/ratification and production DB evidence are unavailable."
+    },
+    {
+      "capability": "Canonical identity and GlobalUserID",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "users.id is the GlobalUserID and the graph is implemented, but users.party_id has no database uniqueness constraint and the live identity state was not available."
+    },
+    {
+      "capability": "Enterprise identity graph",
+      "exists": "READY",
+      "complete": "READY",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Read-only graph resolver exists and fails closed on duplicate users, but its database duplicate-prevention invariant is not durable."
+    },
+    {
+      "capability": "HCM employee master and consumption",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "One employees table, identity linkage, temporal reads and sector consumption exist; all employee lifecycle writes correctly remain authority-blocked."
+    },
+    {
+      "capability": "Governance bodies, resolutions, voting and decisions",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Propose/table/vote/closure services exist, but seeded/reference rows are not ratified authority and live DB proofs were unavailable."
+    },
+    {
+      "capability": "Authority and capability activation gate",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Fail-closed gate exists; all seeded decisions are intended to remain PENDING/LOCKED and authority ratification is absent from available evidence."
+    },
+    {
+      "capability": "Policy hierarchy and provenance",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Effective-window evaluation exists, but the active seed policies have no approving resolution and are deliberately consumed pending the C-1 decision."
+    },
+    {
+      "capability": "Canonical permission model",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Runtime authorization reads ROLES in constants.ts while permissions/role_permissions are also persisted; parity is checked but the source-of-truth cutover is incomplete."
+    },
+    {
+      "capability": "Capability registry",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Capability dependencies and LOCKED defaults exist; no production capability may be activated without governed decisions and explicit activation."
+    },
+    {
+      "capability": "Tenant isolation",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "BLOCKED",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Application predicates are widespread and RLS covers selected tables, but setDatabaseTenantContext uses pooled non-transactional session state; isolation was not live-tested."
+    },
+    {
+      "capability": "Legal-entity isolation",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Entity checks exist in core mutation paths, but most tenant/entity relationships are not composite database constraints and the live data was unavailable."
+    },
+    {
+      "capability": "Finance OS financial truth and ledger",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Single posting writer, ledger schema, double-entry triggers and immutability exist; P1/P6/P7/P9 remain unratified and no posting is authorized."
+    },
+    {
+      "capability": "Treasury observations and reconciliation",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "DATA_NOT_AVAILABLE",
+      "productionReady": "DATA_NOT_AVAILABLE",
+      "blocker": "Treasury schema and read-only specialists exist, but live positions, attribution findings and reconciliation state could not be fingerprinted."
+    },
+    {
+      "capability": "Capital allocation control plane",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Capital governance authorization is a non-executing transition; capital execution/funding remains absent and authority-blocked."
+    },
+    {
+      "capability": "Tax Strategy / Compliance / Risk / Governance",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Tax intelligence distinguishes positions and blocks evasion; no authoritative liability/treatment is created and tax execution is not activated."
+    },
+    {
+      "capability": "Legal evidence and matter register",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Legal matter/document storage exists; legal interpretation and binding legal conclusions are intentionally not implemented."
+    },
+    {
+      "capability": "Epistemic/data-trust model",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "PARTIAL",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Finance epistemic classes and promotion guards exist, but not every UI/Noelia/dashboard output uses the canonical unavailable-value representation."
+    },
+    {
+      "capability": "Audit ledger",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "BLOCKED",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Hash chain and immutable triggers exist, but migration 0001 contains destructive TRUNCATE statements and audit metadata/hash coverage is not complete."
+    },
+    {
+      "capability": "Enterprise events",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "BLOCKED",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "One append writer and hash chain exist; event/audit writes outside withAuditTransaction remain independently committed in simulation/tax routes."
+    },
+    {
+      "capability": "Trace/correlation",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Trace IDs exist across API responses and governed services, but AuditInput.traceId is optional and posting/logout paths can omit it."
+    },
+    {
+      "capability": "Lineage",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "Finance lineage is implemented and rejects derived canonical truth; universal enterprise reverse lineage is not evidenced."
+    },
+    {
+      "capability": "Workflow primitive and SoD",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "One pure workflow primitive exists; persisted workflow_instances/tasks have no execution service and financial transitions require authority."
+    },
+    {
+      "capability": "HIVE / Noelia intelligence",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "REQUIRES_AUTHORITY",
+      "blocker": "Single deterministic Noelia identity with audit/policy inheritance exists; no external LLM/tool execution or human-review disposition workflow exists."
+    },
+    {
+      "capability": "Security and operational hardening",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "PARTIAL",
+      "security": "BLOCKED",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "MFA, session hashing and headers exist, but pooled RLS context, concurrent MFA replay, CSRF/origin defense and current dependency advisories remain unresolved/unverified."
+    },
+    {
+      "capability": "Sector OS consumption beneath BEYU OS",
+      "exists": "PARTIAL",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "PARTIAL",
+      "authority": "REQUIRES_AUTHORITY",
+      "productionReady": "NOT_AVAILABLE",
+      "blocker": "Sector registries and Foundation/Health consumption seams exist; no actual Sector OS implementation is present in this repository."
+    },
+    {
+      "capability": "CI, deployment, backup and restore infrastructure",
+      "exists": "PARTIAL",
+      "complete": "BLOCKED",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "BLOCKED",
+      "authority": "DATA_NOT_AVAILABLE",
+      "productionReady": "BLOCKED",
+      "blocker": "Repository contains documentation/sample CI configuration, but no live database, deployment, role/permission evidence or restore evidence was available."
+    },
+    {
+      "capability": "PostgreSQL schema and migration parity",
+      "exists": "READY",
+      "complete": "PARTIAL",
+      "tests": "DATA_NOT_AVAILABLE",
+      "security": "BLOCKED",
+      "authority": "PARTIAL",
+      "productionReady": "BLOCKED",
+      "blocker": "11 SQL migrations and 72 baseline tables are present; clean-install/upgrade parity and actual fingerprint could not be executed without PostgreSQL."
+    }
+  ]
+}
