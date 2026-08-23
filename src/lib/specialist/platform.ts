@@ -281,10 +281,15 @@ export async function runSpecialist<T>(
       await publishEventTx(tx, {
         type: "SPECIALIST_ANALYSIS_PRODUCED",
         source: `specialist.${descriptor.specialist.toLowerCase()}`,
+        domain: descriptor.specialist.toUpperCase(),
+        operation: descriptor.operation,
+        destinationDomain: null,
         tenantId: context.tenantId,
+        legalEntityId: entityId,
         subjectType: "SPECIALIST_RESULT",
         subjectId: context.traceId,
         actorUserId: context.principal.userId,
+        classification: "RESTRICTED",
         // Phase 7G: previously defaulted to the event's own id, so an event could not be joined
         // to the audit row it accompanied. Both now carry the caller's trace id.
         traceId: context.traceId,
@@ -295,6 +300,10 @@ export async function runSpecialist<T>(
           qualifier,
           legalEntityId: entityId,
         },
+        correlationId: context.traceId,
+        causationId: null,
+        authorityContext: { authorityId: null, decisionId: null, capabilityCode: descriptor.capabilityCode ?? null, permissionCode: descriptor.permission, policyVersion: null },
+        policyVersion: null,
       });
     });
   }

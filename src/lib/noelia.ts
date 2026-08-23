@@ -406,13 +406,28 @@ export async function askNoelia(params: {
     await publishEventTx(tx, {
       type: "AI_DECISION_RECORDED",
       source: "beyu-os/ai",
+      domain: "AI",
+      operation: "NOELIA_QUERY",
+      destinationDomain: null,
       tenantId: principal.tenantId,
+      legalEntityId: null,
       subjectType: "AI_DECISION",
       subjectId: decisionId,
       actorUserId: principal.userId,
       actorType: "AI",
+      classification: "RESTRICTED",
       payload: { engine, outputClass, humanReviewRequired, confidence },
       traceId: params.traceId,
+      correlationId: params.traceId,
+      causationId: null,
+      authorityContext: {
+        authorityId: null,
+        decisionId: null,
+        capabilityCode: null,
+        permissionCode: "ai:noelia.query",
+        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+      },
+      policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
     });
   });
 

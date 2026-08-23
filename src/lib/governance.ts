@@ -499,7 +499,11 @@ export async function proposeResolution(
       (result) => ({
         type: "GOVERNANCE_RESOLUTION_PROPOSED",
         source: "beyu-os/governance",
+        domain: "GOVERNANCE",
+        operation: "PROPOSE_RESOLUTION",
+        destinationDomain: null,
         tenantId: result.tenantId,
+        legalEntityId: governingBody.legalEntityId ?? null,
         subjectType: "RESOLUTION",
         subjectId: result.id,
         actorUserId: principal.userId,
@@ -517,6 +521,16 @@ export async function proposeResolution(
           proposedBy: result.proposedBy,
         },
         traceId: context.traceId,
+        correlationId: context.traceId,
+        causationId: null,
+        authorityContext: {
+          authorityId: null,
+          decisionId: null,
+          capabilityCode: null,
+          permissionCode: "governance:resolution.propose",
+          policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+        },
+        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
       }),
     );
   } catch (err) {

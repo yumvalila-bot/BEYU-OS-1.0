@@ -1,0 +1,1144 @@
+{
+  "title": "PHASE 14 \u2014 BEYU OS interoperability, connectivity, continuity and oneness matrix",
+  "auditDate": "2026-08-23",
+  "source": {
+    "branch": "arena/01a02d6d-beyu-os-1-0",
+    "baselineCommit": "b68cdf5ed33dc13ec101ca6bcac295eaf465b223",
+    "mainBaseline": "8516162052a59ad7f538d78cfb7539fcb2f97c40",
+    "supabase": "EXCLUDED",
+    "database": "DATA_NOT_AVAILABLE",
+    "fullValidation": "DATA_NOT_AVAILABLE"
+  },
+  "allowedStatuses": [
+    "COMPLETE",
+    "PARTIAL",
+    "BLOCKED",
+    "REQUIRES_AUTHORITY",
+    "DATA_NOT_AVAILABLE",
+    "NOT_AVAILABLE"
+  ],
+  "capabilities": [
+    {
+      "capability": "Identity",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Identity Kernel",
+      "evidence": "users.id, parties, identity graph, session/authz and durable users_party_uidx migration",
+      "gap": "Live duplicate/orphan/cross-tenant identity scan and migration application unavailable",
+      "action": "Run isolated PostgreSQL migration and identity data verification; no second identity source"
+    },
+    {
+      "capability": "GlobalUserID",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Identity Kernel",
+      "evidence": "GlobalUserID is explicitly users.id; HCM consumes graph IDs",
+      "gap": "Database state and uniqueness index application unavailable",
+      "action": "Apply 0011 only after duplicate reconciliation"
+    },
+    {
+      "capability": "HCM",
+      "status": "PARTIAL",
+      "canonicalOwner": "HCM within BEYU OS",
+      "evidence": "employees is the single master; HCM API and temporal/clearance reads exist",
+      "gap": "No lifecycle write endpoint; live employee/sector consumption proof unavailable",
+      "action": "Preserve HCM as master; do not create sector employee copies"
+    },
+    {
+      "capability": "Governance",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Governance",
+      "evidence": "constitution, policies, bodies, resolutions, votes and decision services",
+      "gap": "Policy provenance/ratification and live governance state unavailable",
+      "action": "Keep specialist and Finance calls below the common governance plane"
+    },
+    {
+      "capability": "Authority",
+      "status": "REQUIRES_AUTHORITY",
+      "canonicalOwner": "BEYU OS Authority Kernel",
+      "evidence": "6C activation gate and scoped capability gate",
+      "gap": "No ratified execution authority or governed registry activation service",
+      "action": "Refuse execution; do not invent or activate P1\u2013P11"
+    },
+    {
+      "capability": "RBAC",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Security Kernel",
+      "evidence": "common can(), role assignments and TypeScript runtime catalogue",
+      "gap": "Database permission mirror is not a runtime fail-closed source",
+      "action": "Perform separately authorized single-source cutover or parity gate"
+    },
+    {
+      "capability": "ABAC",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Security Kernel",
+      "evidence": "classification, tenant and entity scope checks in common services",
+      "gap": "Pooled RLS GUC context is not connection-pinned",
+      "action": "Build one request-scoped DB context and test concurrent requests"
+    },
+    {
+      "capability": "Tenant",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Tenant Kernel",
+      "evidence": "tenantScopeIds and scoped app predicates/RLS policies",
+      "gap": "Live A\u2192B/B\u2192A pool leakage proof unavailable",
+      "action": "Make session context transaction/connection-safe"
+    },
+    {
+      "capability": "Entity",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Core / legal entity registry",
+      "evidence": "legal_entities and service-level entity scope checks",
+      "gap": "Most tenant/entity relations lack composite database constraints",
+      "action": "Scan live data before considering narrowly scoped constraints"
+    },
+    {
+      "capability": "Finance",
+      "status": "REQUIRES_AUTHORITY",
+      "canonicalOwner": "Finance OS under BEYU OS governance",
+      "evidence": "ledger, posting engine, financial truth registry and common authority consumption",
+      "gap": "Accounting authority and live financial state unavailable",
+      "action": "No posting, settlement, or policy invention"
+    },
+    {
+      "capability": "Tax",
+      "status": "REQUIRES_AUTHORITY",
+      "canonicalOwner": "Finance OS Tax capability",
+      "evidence": "jurisdiction-gated strategy intelligence and candidate assessment",
+      "gap": "No authoritative liability/treatment or tax execution",
+      "action": "Remain candidate intelligence and human-review bound"
+    },
+    {
+      "capability": "Legal",
+      "status": "REQUIRES_AUTHORITY",
+      "canonicalOwner": "Human legal governance",
+      "evidence": "legal matter/document/evidence schemas and read surface",
+      "gap": "No legal interpretation or binding legal conclusion engine",
+      "action": "Do not convert documents into executable law"
+    },
+    {
+      "capability": "Events",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Audit/Event Kernel",
+      "evidence": "one enterprise_events writer, v2 envelope fields, versioned hash verification",
+      "gap": "Historical event fields nullable; live event chain proof unavailable",
+      "action": "Run migration and verify v1/v2 chain without rewriting history"
+    },
+    {
+      "capability": "Audit",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Audit Kernel",
+      "evidence": "one audit_log writer, hash chain, append-only triggers and atomic transaction primitive",
+      "gap": "Historical destructive SQL remains in 0001; full metadata hash versioning is not implemented",
+      "action": "Use safe runner refusal and define non-destructive historical upgrade procedure"
+    },
+    {
+      "capability": "Trace",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Observability Kernel",
+      "evidence": "server-generated trace, API correlation metadata, audit/event trace fields",
+      "gap": "Causation is root-null in current synchronous paths; audit trace fields remain legacy-compatible",
+      "action": "Preserve trace/correlation and add causal IDs only at real async boundaries"
+    },
+    {
+      "capability": "Lineage",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Data Governance",
+      "evidence": "Finance lineage and specialist provenance",
+      "gap": "No universal persisted enterprise reverse-lineage record",
+      "action": "Reuse financial lineage; do not add a second lineage store"
+    },
+    {
+      "capability": "Workflow",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Workflow Kernel",
+      "evidence": "one finance workflow evaluator plus persisted governance definitions",
+      "gap": "No durable workflow executor or async worker boundary",
+      "action": "Keep transitions fail-closed and authority-bound"
+    },
+    {
+      "capability": "AI/Noelia",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Governed Intelligence Layer",
+      "evidence": "single Noelia/HIVE identity, inherited permissions, policy, classification and audit",
+      "gap": "No external tool/LLM executor or human-review disposition workflow",
+      "action": "Keep output advisory and epistemically classified"
+    },
+    {
+      "capability": "Domain Registry",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Architecture/Data Governance",
+      "evidence": "new common domain registry covering enterprise and registered Sector OS domains",
+      "gap": "Registry is code metadata; live registration/data state unavailable",
+      "action": "Treat architecture registry as metadata, not a missing domain implementation"
+    },
+    {
+      "capability": "Interoperability",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform",
+      "evidence": "one envelope contract required by enterprise event writer and API correlation metadata",
+      "gap": "Only current event/API surfaces are wired; no async command/query consumers exist",
+      "action": "Extend existing contract at real boundaries, never per specialist"
+    },
+    {
+      "capability": "Connectivity",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform",
+      "evidence": "one machine-readable connectivity graph with governed cross-domain edges",
+      "gap": "No live connector/broker/consumer runtime is present",
+      "action": "Do not invent Kafka or shadow integration infrastructure"
+    },
+    {
+      "capability": "Continuity",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform",
+      "evidence": "idempotency ledger, atomic mutation primitive and pure safe continuity simulation",
+      "gap": "No outbox/inbox/consumer runtime or live recovery evidence",
+      "action": "Use local atomicity/idempotency now; require authority/data for distributed recovery"
+    },
+    {
+      "capability": "Oneness",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Architecture Governance",
+      "evidence": "duplicate architecture scan finds one active writer/model per principal concern",
+      "gap": "Permission mirror and existing architecture completeness registries require ownership clarity",
+      "action": "Classify projections as derived; do not delete historical registries blindly"
+    },
+    {
+      "capability": "API Contracts",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS API Kernel",
+      "evidence": "versioned routes, common guarded wrapper, uniform response envelope and server trace",
+      "gap": "No API for async command delivery or downstream consumer acknowledgements",
+      "action": "Keep all current routes on guarded/common envelope; add only real boundary contracts"
+    },
+    {
+      "capability": "Data Contracts",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform",
+      "evidence": "typed interoperability envelope, domain registry and existing schemas",
+      "gap": "Historical rows lack v2 envelope values and no contract registry is persisted",
+      "action": "Keep historical compatibility and validate every new event at one writer"
+    },
+    {
+      "capability": "Security Propagation",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Security Kernel",
+      "evidence": "principal/tenant/entity/clearance/permission/capability gates in common services",
+      "gap": "RLS pool context and live cross-boundary attack evidence unavailable",
+      "action": "Fix shared DB context once and test all consumers"
+    },
+    {
+      "capability": "Failure Handling",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform",
+      "evidence": "structured errors, rollback, fail-closed authority and safe simulation decisions",
+      "gap": "No live unavailable dependency/timeout/consumer failure test",
+      "action": "Run failure matrix against isolated PostgreSQL/server"
+    },
+    {
+      "capability": "Recovery",
+      "status": "DATA_NOT_AVAILABLE",
+      "canonicalOwner": "BEYU OS Operations",
+      "evidence": "continuity_plans schema and operational documentation",
+      "gap": "No live backup/restore/failover evidence in this environment",
+      "action": "Perform authorized restore test and reconcile audit/financial state"
+    },
+    {
+      "capability": "Idempotency",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS API Kernel",
+      "evidence": "durable scoped idempotency_records and mutation route integration",
+      "gap": "Domain event consumer idempotency does not exist because no consumers/workers exist",
+      "action": "Retain current mutation boundary; add consumer inbox only with a real consumer"
+    },
+    {
+      "capability": "Replay Safety",
+      "status": "PARTIAL",
+      "canonicalOwner": "BEYU OS Common Platform + Finance OS",
+      "evidence": "idempotency claims, immutable ledger, simulation-only paths and no financial replay",
+      "gap": "No live duplicate event/consumer replay test",
+      "action": "Test event replay before introducing asynchronous side effects"
+    }
+  ],
+  "domainRegistry": [
+    {
+      "domainId": "DOM-IDENTITY",
+      "domainCode": "IDENTITY",
+      "domainName": "Identity Fabric",
+      "owner": "BEYU OS Kernel",
+      "systemOfRecord": "parties, users, sessions, roles, permissions",
+      "dataClass": "CONFIDENTIAL",
+      "apiContract": [
+        "session resolution",
+        "identity graph",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "USER_AUTHENTICATED",
+        "DOMAIN_EVENT"
+      ],
+      "authorityModel": "common authority/permission model",
+      "securityModel": "RBAC + ABAC + MFA + tenant/entity scope",
+      "tenantModel": "canonical tenant scope",
+      "entityModel": "legal entity scope where applicable",
+      "traceModel": "server trace + correlation; actor is GlobalUserID",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "SECURITY"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-GOVERNANCE",
+      "domainCode": "GOVERNANCE",
+      "domainName": "Constitutional Governance",
+      "owner": "BEYU OS Governance",
+      "systemOfRecord": "constitution_articles, policies, governance_bodies, resolutions",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "governed resolution lifecycle",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "GOVERNANCE_RESOLUTION_PROPOSED",
+        "GOVERNANCE_RESOLUTION_DECIDED",
+        "DOMAIN_EVENT",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "constitution \u2192 policy \u2192 decision \u2192 capability",
+      "securityModel": "common RBAC/ABAC + body membership + SoD",
+      "tenantModel": "tenant subtree with parent governance scope",
+      "entityModel": "governance body legal entity scope",
+      "traceModel": "mutation trace bound to audit/event pair",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "AUTHORITY",
+        "SECURITY",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-AUTHORITY",
+      "domainCode": "AUTHORITY",
+      "domainName": "Authority and Capability Gate",
+      "owner": "BEYU OS Kernel",
+      "systemOfRecord": "governance_decision_registry, governance_capability_registry",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "6C activation",
+        "scoped capability evaluation",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS",
+        "DOMAIN_EVENT",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "one composed 6C/scoped authority model",
+      "securityModel": "fail closed on existence/effectiveness/scope/principal",
+      "tenantModel": "resolved tenant subtree",
+      "entityModel": "target legal entity and authority scope",
+      "traceModel": "authority explanation and operation trace",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "IDENTITY",
+        "GOVERNANCE",
+        "SECURITY"
+      ],
+      "status": "REQUIRES_AUTHORITY"
+    },
+    {
+      "domainId": "DOM-SECURITY",
+      "domainCode": "SECURITY",
+      "domainName": "Security Kernel",
+      "owner": "BEYU OS Kernel",
+      "systemOfRecord": "identity/authz/session/audit controls",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "guarded API",
+        "tenant scope",
+        "clearance filtering",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "USER_AUTHENTICATED",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "common permission and authority gate",
+      "securityModel": "RBAC + ABAC + MFA + RLS defense in depth",
+      "tenantModel": "canonical tenant scope",
+      "entityModel": "canonical legal entity scope",
+      "traceModel": "request trace/correlation",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "IDENTITY",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-HCM",
+      "domainCode": "HCM",
+      "domainName": "Human Capital Management",
+      "owner": "HCM Director",
+      "systemOfRecord": "employees, employment_events, positions, org_units",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "HCM workforce consumption",
+        "employment observation",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_EVENT",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "common authority gate for lifecycle writes",
+      "securityModel": "common RBAC/ABAC + compensation clearance",
+      "tenantModel": "employing legal entity tenant within principal scope",
+      "entityModel": "employing legal entity",
+      "traceModel": "consumer request trace; source HCM master",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "IDENTITY",
+        "SECURITY",
+        "GOVERNANCE"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-FINANCE",
+      "domainCode": "FINANCE",
+      "domainName": "Finance OS",
+      "owner": "Group CFO",
+      "systemOfRecord": "journal_entries, journal_lines, treasury_positions, capital_requests",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "posting boundary",
+        "financial read/analysis",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "JOURNAL_ENTRY_POSTED",
+        "DOMAIN_STATUS",
+        "DOMAIN_EVENT",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "Governance \u2192 authority/capability \u2192 Finance execution",
+      "securityModel": "common RBAC/ABAC + financial controls + SoD",
+      "tenantModel": "tenant and legal-entity financial scope",
+      "entityModel": "legal entity and financial period",
+      "traceModel": "posting trace bound to ledger/audit/event",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "IDENTITY",
+        "GOVERNANCE",
+        "AUTHORITY",
+        "HCM",
+        "AUDIT",
+        "LINEAGE"
+      ],
+      "status": "REQUIRES_AUTHORITY"
+    },
+    {
+      "domainId": "DOM-TAX",
+      "domainCode": "TAX",
+      "domainName": "Tax Strategy and Compliance Intelligence",
+      "owner": "Finance OS / Tax Governance",
+      "systemOfRecord": "tax_strategies, tax_strategy_assessments",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "candidate assessment",
+        "jurisdiction-gated analysis",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "TAX_STRATEGY_ASSESSED",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "tax governance authority; no liability invention",
+      "securityModel": "common RBAC/ABAC + jurisdiction/entity scope",
+      "tenantModel": "taxpayer tenant/entity scope",
+      "entityModel": "taxpayer legal entity and jurisdiction",
+      "traceModel": "assessment trace with strategy provenance",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "FINANCE",
+        "GOVERNANCE",
+        "LEGAL",
+        "AUDIT"
+      ],
+      "status": "REQUIRES_AUTHORITY"
+    },
+    {
+      "domainId": "DOM-LEGAL",
+      "domainCode": "LEGAL",
+      "domainName": "Legal Evidence and Matters",
+      "owner": "Human legal governance",
+      "systemOfRecord": "legal_matters, documents, regulatory_changes",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "legal matter read",
+        "document/evidence registry",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS",
+        "DOMAIN_DOCUMENT"
+      ],
+      "authorityModel": "human legal authority; interpretation is not automated",
+      "securityModel": "common RBAC/ABAC + classification",
+      "tenantModel": "matter tenant scope",
+      "entityModel": "matter legal entity and jurisdiction",
+      "traceModel": "evidence/document provenance and operation trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "GOVERNANCE",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-CAPITAL",
+      "domainCode": "CAPITAL",
+      "domainName": "Strategic Capital Allocation",
+      "owner": "BEYU OS Governance + Finance OS",
+      "systemOfRecord": "capital_requests, resolutions",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "capital request governance prerequisite",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "CAPITAL_REQUEST_GOVERNANCE_AUTHORIZED",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "Governance \u2192 capital authorization \u2192 Finance execution",
+      "securityModel": "common RBAC/ABAC + authority + entity reach",
+      "tenantModel": "capital request tenant scope",
+      "entityModel": "capital request legal entity",
+      "traceModel": "resolution/request/audit/event trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "GOVERNANCE",
+        "AUTHORITY",
+        "FINANCE",
+        "AUDIT"
+      ],
+      "status": "REQUIRES_AUTHORITY"
+    },
+    {
+      "domainId": "DOM-TREASURY",
+      "domainCode": "TREASURY",
+      "domainName": "Treasury Observation and Settlement",
+      "owner": "Finance OS",
+      "systemOfRecord": "treasury_positions",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "treasury observation",
+        "reconciliation analysis",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "settlement requires governed capability",
+      "securityModel": "common RBAC/ABAC + attribution controls",
+      "tenantModel": "position tenant and legal entity",
+      "entityModel": "position legal entity",
+      "traceModel": "observation/reconciliation trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "FINANCE",
+        "AUTHORITY",
+        "AUDIT"
+      ],
+      "status": "DATA_NOT_AVAILABLE"
+    },
+    {
+      "domainId": "DOM-COMPLIANCE",
+      "domainCode": "COMPLIANCE",
+      "domainName": "Compliance Intelligence",
+      "owner": "Chief Risk and Compliance Officer",
+      "systemOfRecord": "compliance_obligations, compliance_assessments, controls",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "compliance observation",
+        "evidence assessment",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "human confirmation for authoritative assertions",
+      "securityModel": "common RBAC/ABAC + jurisdiction/entity scope",
+      "tenantModel": "obligation tenant scope",
+      "entityModel": "obligation legal entity",
+      "traceModel": "obligation/evidence/assessment trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "LEGAL",
+        "GOVERNANCE",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-RISK",
+      "domainCode": "RISK",
+      "domainName": "Risk Intelligence",
+      "owner": "Chief Risk and Compliance Officer",
+      "systemOfRecord": "risks, controls, anomaly_signals",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "risk analysis",
+        "risk observation",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "risk appetite/enforcement requires governance",
+      "securityModel": "common RBAC/ABAC + classification",
+      "tenantModel": "risk tenant scope",
+      "entityModel": "risk legal entity",
+      "traceModel": "risk/evidence trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "GOVERNANCE",
+        "FINANCE",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-AUDIT",
+      "domainCode": "AUDIT",
+      "domainName": "Audit Fabric",
+      "owner": "Internal Audit",
+      "systemOfRecord": "audit_log",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "append audit",
+        "verify chain",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "audit is evidence, not authority",
+      "securityModel": "append-only hash chain + immutable DB triggers",
+      "tenantModel": "audit tenant or explicit enterprise scope",
+      "entityModel": "entity carried in governed payload where applicable",
+      "traceModel": "trace/correlation linkage required for new events",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "IDENTITY",
+        "SECURITY"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-LINEAGE",
+      "domainCode": "LINEAGE",
+      "domainName": "Data Lineage",
+      "owner": "BEYU OS Data Governance",
+      "systemOfRecord": "financial lineage/provenance contracts",
+      "dataClass": "INTERNAL",
+      "apiContract": [
+        "source/transformation/output provenance",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "lineage proves provenance; never grants authority",
+      "securityModel": "inherits common scope and classification",
+      "tenantModel": "source tenant scope",
+      "entityModel": "source entity scope",
+      "traceModel": "reverse trace through trace/correlation IDs",
+      "continuityClass": "LOCAL_ATOMIC",
+      "dependencies": [
+        "AUDIT",
+        "IDENTITY"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-WORKFLOW",
+      "domainCode": "WORKFLOW",
+      "domainName": "Workflow Primitive",
+      "owner": "BEYU OS Kernel",
+      "systemOfRecord": "governance workflows/workflow_instances/tasks",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "transition evaluation",
+        "SoD evaluation",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "delegates to common capability/authority gate",
+      "securityModel": "common RBAC/ABAC + role separation",
+      "tenantModel": "workflow tenant scope",
+      "entityModel": "workflow object entity scope",
+      "traceModel": "every transition requires trace",
+      "continuityClass": "MULTI_STEP_GOVERNED",
+      "dependencies": [
+        "IDENTITY",
+        "AUTHORITY",
+        "AUDIT"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-AI",
+      "domainCode": "AI",
+      "domainName": "Noelia / HIVE Intelligence",
+      "owner": "AI Governance",
+      "systemOfRecord": "ai_decisions, knowledge_sources",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "governed Noelia query",
+        "common identity",
+        "common authorization",
+        "common trace envelope"
+      ],
+      "eventContract": [
+        "AI_DECISION_RECORDED",
+        "DOMAIN_STATUS"
+      ],
+      "authorityModel": "inherits human principal; never self-authorizes",
+      "securityModel": "common RBAC/ABAC + policy + classification",
+      "tenantModel": "principal tenant scope",
+      "entityModel": "principal/request entity scope",
+      "traceModel": "request trace through decision/audit/event",
+      "continuityClass": "SIMULATION",
+      "dependencies": [
+        "IDENTITY",
+        "SECURITY",
+        "GOVERNANCE",
+        "AUDIT",
+        "LINEAGE"
+      ],
+      "status": "PARTIAL"
+    },
+    {
+      "domainId": "DOM-HEALTH",
+      "domainCode": "HEALTH",
+      "domainName": "Health Sector OS",
+      "owner": "Sector OS owner under BEYU OS",
+      "systemOfRecord": "NOT_AVAILABLE in this repository",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "consume identity/HCM/Finance/governance contracts"
+      ],
+      "eventContract": [
+        "consume common DOMAIN_EVENT"
+      ],
+      "authorityModel": "BEYU OS authority above Sector OS",
+      "securityModel": "must consume common security model",
+      "tenantModel": "registered sector tenant",
+      "entityModel": "registered legal entity",
+      "traceModel": "common envelope required",
+      "continuityClass": "EVENTUAL",
+      "dependencies": [
+        "IDENTITY",
+        "HCM",
+        "FINANCE",
+        "GOVERNANCE",
+        "SECURITY"
+      ],
+      "status": "NOT_AVAILABLE"
+    },
+    {
+      "domainId": "DOM-AGRICULTURE",
+      "domainCode": "AGRICULTURE",
+      "domainName": "Agriculture Sector OS",
+      "owner": "Sector OS owner under BEYU OS",
+      "systemOfRecord": "NOT_AVAILABLE in this repository",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "consume identity/HCM/Finance/governance contracts"
+      ],
+      "eventContract": [
+        "consume common DOMAIN_EVENT"
+      ],
+      "authorityModel": "BEYU OS authority above Sector OS",
+      "securityModel": "must consume common security model",
+      "tenantModel": "registered sector tenant",
+      "entityModel": "registered legal entity",
+      "traceModel": "common envelope required",
+      "continuityClass": "EVENTUAL",
+      "dependencies": [
+        "IDENTITY",
+        "HCM",
+        "FINANCE",
+        "GOVERNANCE",
+        "SECURITY"
+      ],
+      "status": "NOT_AVAILABLE"
+    },
+    {
+      "domainId": "DOM-FOUNDATION",
+      "domainCode": "FOUNDATION",
+      "domainName": "Foundation Sector OS",
+      "owner": "Sector OS owner under BEYU OS",
+      "systemOfRecord": "foundation_programs",
+      "dataClass": "RESTRICTED",
+      "apiContract": [
+        "consume common identity/HCM/Finance/governance contracts"
+      ],
+      "eventContract": [
+        "consume common DOMAIN_EVENT"
+      ],
+      "authorityModel": "BEYU OS authority above Sector OS",
+      "securityModel": "must consume common security model",
+      "tenantModel": "foundation tenant scope",
+      "entityModel": "foundation legal entity",
+      "traceModel": "common envelope required",
+      "continuityClass": "EVENTUAL",
+      "dependencies": [
+        "IDENTITY",
+        "HCM",
+        "FINANCE",
+        "GOVERNANCE",
+        "SECURITY"
+      ],
+      "status": "PARTIAL"
+    }
+  ],
+  "connectivityGraph": [
+    {
+      "source": "IDENTITY",
+      "destination": "HCM",
+      "contract": "identity graph / HCM workforce consumption",
+      "authority": "common permission + HCM read authority",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "QUERY",
+      "trace": "request trace \u2192 HCM response",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "employee reads may be retried; no identity invention"
+    },
+    {
+      "source": "IDENTITY",
+      "destination": "GOVERNANCE",
+      "contract": "resolved principal / body membership",
+      "authority": "governance permission + seat authority",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "QUERY",
+      "trace": "principal trace \u2192 governance mutation",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "no governance transition without resolved principal"
+    },
+    {
+      "source": "GOVERNANCE",
+      "destination": "AUTHORITY",
+      "contract": "decision and capability registry",
+      "authority": "constitution and ratified decision",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "STATUS",
+      "trace": "decision trace \u2192 capability evaluation",
+      "failureMode": "REQUIRES_AUTHORITY",
+      "continuityRequirement": "activation state is durable and must not be inferred on retry"
+    },
+    {
+      "source": "AUTHORITY",
+      "destination": "SECURITY",
+      "contract": "scoped capability / permission binding",
+      "authority": "6C authority gate",
+      "dataClass": "RESTRICTED",
+      "direction": "BIDIRECTIONAL",
+      "interaction": "QUERY",
+      "trace": "authority explanation \u2192 request trace",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "unknown authority cannot become permission"
+    },
+    {
+      "source": "GOVERNANCE",
+      "destination": "FINANCE",
+      "contract": "governed resolution / capital authorization signal",
+      "authority": "governance decision plus Finance capability gate",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "COMMAND",
+      "trace": "resolution trace \u2192 Finance audit/event",
+      "failureMode": "REQUIRES_AUTHORITY",
+      "continuityRequirement": "duplicate request is idempotent; no funding replay"
+    },
+    {
+      "source": "HCM",
+      "destination": "FINANCE",
+      "contract": "workforce identity/reference only",
+      "authority": "HCM read permission and Finance consumer scope",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "REFERENCE",
+      "trace": "consumer trace \u2192 source HCM record",
+      "failureMode": "DATA_NOT_AVAILABLE",
+      "continuityRequirement": "no payroll or employee copy is created in Finance"
+    },
+    {
+      "source": "FINANCE",
+      "destination": "TAX",
+      "contract": "financial/entity facts for candidate tax analysis",
+      "authority": "Finance read + tax analysis permission",
+      "dataClass": "RESTRICTED",
+      "direction": "BIDIRECTIONAL",
+      "interaction": "QUERY",
+      "trace": "assessment trace \u2192 tax strategy/evidence",
+      "failureMode": "REQUIRES_AUTHORITY",
+      "continuityRequirement": "tax analysis never mutates ledger or creates liability"
+    },
+    {
+      "source": "LEGAL",
+      "destination": "GOVERNANCE",
+      "contract": "legal evidence/matter reference",
+      "authority": "human legal governance",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "DOCUMENT",
+      "trace": "document provenance \u2192 governance decision",
+      "failureMode": "REQUIRES_AUTHORITY",
+      "continuityRequirement": "missing legal interpretation is human review, not default allow"
+    },
+    {
+      "source": "FINANCE",
+      "destination": "AUDIT",
+      "contract": "financial mutation audit/event pair",
+      "authority": "Finance operation plus common audit writer",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "EVENT",
+      "trace": "financial operation trace \u2192 audit/event chain",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "local transaction rolls back domain mutation if evidence append fails"
+    },
+    {
+      "source": "GOVERNANCE",
+      "destination": "AUDIT",
+      "contract": "governance transition audit/event pair",
+      "authority": "governance permission and body authority",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "EVENT",
+      "trace": "governance trace \u2192 audit/event chain",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "decision and evidence commit atomically"
+    },
+    {
+      "source": "AI",
+      "destination": "AUDIT",
+      "contract": "Noelia decision register and event",
+      "authority": "inherited human principal; AI cannot self-authorize",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "EVENT",
+      "trace": "Noelia request trace \u2192 ai_decisions/audit/event",
+      "failureMode": "FAIL_CLOSED",
+      "continuityRequirement": "answer is not returned as durable decision if evidence transaction fails"
+    },
+    {
+      "source": "HEALTH",
+      "destination": "HCM",
+      "contract": "future Sector OS HCM consumption contract",
+      "authority": "BEYU OS registration and HCM read authority",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "QUERY",
+      "trace": "common envelope required",
+      "failureMode": "DATA_NOT_AVAILABLE",
+      "continuityRequirement": "Sector OS must not create a workforce fallback master"
+    },
+    {
+      "source": "AGRICULTURE",
+      "destination": "FINANCE",
+      "contract": "future Sector OS Finance consumption contract",
+      "authority": "BEYU OS authority/capability gate",
+      "dataClass": "RESTRICTED",
+      "direction": "OUTBOUND",
+      "interaction": "COMMAND",
+      "trace": "common envelope required",
+      "failureMode": "DATA_NOT_AVAILABLE",
+      "continuityRequirement": "no sector-side financial truth or replayable mutation"
+    },
+    {
+      "source": "FOUNDATION",
+      "destination": "GOVERNANCE",
+      "contract": "Foundation programme/resolution reference",
+      "authority": "BEYU OS governance and Foundation tenant scope",
+      "dataClass": "RESTRICTED",
+      "direction": "BIDIRECTIONAL",
+      "interaction": "STATUS",
+      "trace": "common envelope required",
+      "failureMode": "REQUIRES_AUTHORITY",
+      "continuityRequirement": "programme funding remains separate from execution settlement"
+    }
+  ],
+  "continuityInventory": [
+    {
+      "service": "identity.session",
+      "domain": "IDENTITY",
+      "dependencies": [
+        "PostgreSQL",
+        "MFA key material"
+      ],
+      "mode": "LOCAL_ATOMIC",
+      "recovery": "retry only after database outcome is known; session token is hash-backed",
+      "failureMode": "reject authentication or session resolution",
+      "degradationMode": "no anonymous fallback",
+      "rtoClass": "DATA_NOT_AVAILABLE",
+      "rpoClass": "REQUIRES_AUTHORITY",
+      "auditRequirement": "authentication denial/success is audited",
+      "authorityRequirement": "active identity and role assignment"
+    },
+    {
+      "service": "governance.mutation",
+      "domain": "GOVERNANCE",
+      "dependencies": [
+        "identity",
+        "policy",
+        "authority",
+        "PostgreSQL",
+        "audit/event chain"
+      ],
+      "mode": "MULTI_STEP_GOVERNED",
+      "recovery": "idempotency key and transaction rollback; re-read state before retry",
+      "failureMode": "rollback resolution/vote/decision when evidence append fails",
+      "degradationMode": "safe refusal; no partial governance transition",
+      "rtoClass": "REQUIRES_AUTHORITY",
+      "rpoClass": "REQUIRES_AUTHORITY",
+      "auditRequirement": "audit and event must commit with the governance transition",
+      "authorityRequirement": "common governance permission and body authority"
+    },
+    {
+      "service": "finance.posting",
+      "domain": "FINANCE",
+      "dependencies": [
+        "authority gate",
+        "Finance ledger",
+        "PostgreSQL",
+        "audit/event chain"
+      ],
+      "mode": "LOCAL_ATOMIC",
+      "recovery": "idempotency and one transaction around entry, lines, audit and event",
+      "failureMode": "no journal survives a failed control/evidence append",
+      "degradationMode": "no posting when authority/data is unavailable",
+      "rtoClass": "REQUIRES_AUTHORITY",
+      "rpoClass": "REQUIRES_AUTHORITY",
+      "auditRequirement": "full financial mutation provenance",
+      "authorityRequirement": "P1\u2013P11-dependent capability activation"
+    },
+    {
+      "service": "finance.analysis",
+      "domain": "FINANCE",
+      "dependencies": [
+        "Finance observations",
+        "common scope",
+        "audit/event chain"
+      ],
+      "mode": "SIMULATION",
+      "recovery": "repeat read/analysis with a new trace; do not replay a mutation",
+      "failureMode": "return DATA_NOT_AVAILABLE or REQUIRES_AUTHORITY",
+      "degradationMode": "advisory output only; no financial write",
+      "rtoClass": "DATA_NOT_AVAILABLE",
+      "rpoClass": "DATA_NOT_AVAILABLE",
+      "auditRequirement": "analysis trace and epistemic class",
+      "authorityRequirement": "read permission; no execution authority"
+    },
+    {
+      "service": "tax.assessment",
+      "domain": "TAX",
+      "dependencies": [
+        "Finance/entity facts",
+        "tax strategy source",
+        "policy",
+        "audit/event chain"
+      ],
+      "mode": "MULTI_STEP_GOVERNED",
+      "recovery": "idempotent observation replay; never create liability on retry",
+      "failureMode": "fail closed to human review or unavailable",
+      "degradationMode": "candidate strategy only, no accounting/tax mutation",
+      "rtoClass": "REQUIRES_AUTHORITY",
+      "rpoClass": "DATA_NOT_AVAILABLE",
+      "auditRequirement": "strategy, facts, output class and trace",
+      "authorityRequirement": "tax governance and human review for material reliance"
+    },
+    {
+      "service": "ai.noelia",
+      "domain": "AI",
+      "dependencies": [
+        "identity",
+        "policy",
+        "tenant/entity scope",
+        "knowledge",
+        "audit/event chain"
+      ],
+      "mode": "SIMULATION",
+      "recovery": "repeat analysis with a new request trace; no side-effect replay",
+      "failureMode": "do not return an authoritative action when a dependency is unavailable",
+      "degradationMode": "uncertainty/human review, never self-authorization",
+      "rtoClass": "DATA_NOT_AVAILABLE",
+      "rpoClass": "DATA_NOT_AVAILABLE",
+      "auditRequirement": "ai_decisions plus audit/event evidence",
+      "authorityRequirement": "inherits human principal; no AI authority"
+    },
+    {
+      "service": "sector.consumer",
+      "domain": "HEALTH",
+      "dependencies": [
+        "BEYU OS identity",
+        "HCM",
+        "Finance",
+        "enterprise event fabric"
+      ],
+      "mode": "EVENTUAL",
+      "recovery": "consumer must use idempotent event handling and preserve causation",
+      "failureMode": "reject or quarantine uncorrelatable/unscoped message",
+      "degradationMode": "no local employee, governance or financial shadow master",
+      "rtoClass": "DATA_NOT_AVAILABLE",
+      "rpoClass": "DATA_NOT_AVAILABLE",
+      "auditRequirement": "common event envelope at the Sector boundary",
+      "authorityRequirement": "BEYU OS registration and common authority"
+    }
+  ]
+}

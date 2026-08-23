@@ -126,13 +126,27 @@ export async function POST(request: Request) {
         () => ({
           type: "TAX_STRATEGY_ASSESSED",
           source: "beyu-os/finance",
+          domain: "TAX",
+          operation: "ASSESS_STRATEGY",
+          destinationDomain: null,
           tenantId: ctx.principal.tenantId,
+          legalEntityId: entity.id,
           subjectType: "TAX_STRATEGY",
           subjectId: strategy.id,
           actorUserId: ctx.principal.userId,
           classification: "RESTRICTED" as const,
           payload: { eligibility: outcome.eligibility, entity: entity.code },
           traceId: ctx.traceId,
+          correlationId: ctx.traceId,
+          causationId: null,
+          authorityContext: {
+            authorityId: null,
+            decisionId: null,
+            capabilityCode: null,
+            permissionCode: "finance:tax.assess",
+            policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+          },
+          policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
         }),
       );
 

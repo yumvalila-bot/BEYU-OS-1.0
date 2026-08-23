@@ -135,9 +135,15 @@ export async function resolvePrincipal(): Promise<Principal | null> {
 
 export async function requestMeta() {
   const h = await headers();
+  // Incoming trace headers are untrusted input. A caller may supply an external
+  // correlation identifier separately, but it must not be able to forge or
+  // collide with the BEYU internal trace used for audit/security decisions.
+  const traceId = newId(ID_PREFIX.event);
   return {
     ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     userAgent: h.get("user-agent"),
-    traceId: h.get("x-trace-id") ?? newId(ID_PREFIX.event),
+    traceId,
+    correlationId: traceId,
+    causationId: null,
   };
 }

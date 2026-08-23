@@ -213,12 +213,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     await publishEventTx(tx, {
       type: "USER_AUTHENTICATED",
       source: "beyu-os/identity",
+      domain: "IDENTITY",
+      operation: "LOGIN",
+      destinationDomain: null,
       tenantId: user.primaryTenantId,
+      legalEntityId: null,
       subjectType: "USER",
       subjectId: user.id,
       actorUserId: user.id,
+      classification: "INTERNAL",
       payload: { mfaSatisfied, passwordMustChange: user.passwordMustChange },
       traceId,
+      correlationId: traceId,
+      causationId: null,
+      authorityContext: null,
+      policyVersion: null,
     });
   });
 

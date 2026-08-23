@@ -7,11 +7,14 @@ rate limited, validated with JSON Schema (Zod), audited, and return a uniform en
 
 Success:
 ```json
-{ "data": { }, "meta": { "traceId": "EVT_…", "system": "BEYU-OS/1.0.0", "at": "…" } }
+{ "data": { }, "meta": { "traceId": "EVT_…", "correlationId": "EVT_…", "causationId": null, "system": "BEYU-OS/1.0.0", "at": "…" } }
 ```
+The server creates the internal `traceId`; an inbound caller cannot overwrite the audit/security
+trace. Root requests use the trace as their correlation id and have `causationId: null`.
+
 Error (never leaks secrets, personal data, stack traces or DB internals):
 ```json
-{ "error": { "code": "FORBIDDEN", "message": "…", "traceId": "EVT_…", "details": [] } }
+{ "error": { "code": "FORBIDDEN", "message": "…", "traceId": "EVT_…", "correlationId": "EVT_…", "causationId": null, "details": [] } }
 ```
 
 | Code | HTTP | Meaning |
@@ -40,7 +43,8 @@ Mutating endpoints accept an `Idempotency-Key` header backed by the durable
 | Same key, different payload | `409 IDEMPOTENCY_KEY_REUSED` — never a silently stale result |
 | Same key, concurrent request | One caller proceeds; the other receives `409 REQUEST_IN_PROGRESS` |
 | Same key, different principal | **Isolated.** Keys are scoped to `(tenant, acting user, endpoint)`, so a key is meaningless outside the principal that created it |
-| Mutation failed | Claim released; the key may be retried |
+| Validated/domain rejection | Claim released; the corrected request may be retried |
+| Unexpected failure after claim | Claim remains `IN_FLIGHT` until an operator reconciles domain state; automatic reclaim is forbidden because it could duplicate a committed mutation |
 
 Keys are retained for 24 hours. A key is never a bearer token: possessing another
 principal's key discloses nothing.

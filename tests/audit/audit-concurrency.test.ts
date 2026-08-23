@@ -2,7 +2,7 @@ import "dotenv/config";
 import { beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { recordAudit, verifyAuditChain } from "../../src/lib/audit";
+import { publishEvent, recordAudit, verifyAuditChain, verifyEventChain } from "../../src/lib/audit";
 import { resetAuditLedgers } from "../helpers/ledger-reset";
 
 async function resetAuditLedger() {
@@ -67,5 +67,31 @@ describe("C-01 audit chain serialized append", () => {
         values('AUD_DUPLICATE_PARENT','HUMAN','test.audit.fork','X','3','SUCCESS','test',now(),${row.hash},'bad')
       `),
     ).rejects.toThrow();
+  });
+
+  it("verifies the v2 interoperability event chain", async () => {
+    await publishEvent({
+      type: "TEST_EVENT",
+      source: "tests/audit",
+      domain: "AUDIT",
+      operation: "TEST_EVENT",
+      destinationDomain: null,
+      tenantId: "TEN_BEYU_GROUP",
+      legalEntityId: null,
+      subjectType: "AUDIT_TEST",
+      subjectId: "EVENT_1",
+      actorUserId: "USR_TEST",
+      classification: "INTERNAL",
+      payload: { ok: true },
+      traceId: "TRACE_EVENT_1",
+      correlationId: "TRACE_EVENT_1",
+      causationId: null,
+      authorityContext: null,
+      policyVersion: null,
+    });
+    const chain = await verifyEventChain();
+    expect(chain.verified).toBe(true);
+    expect(chain.records).toBe(1);
+    expect(chain.headMatches).toBe(true);
   });
 });

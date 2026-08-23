@@ -380,7 +380,11 @@ export async function authorizeCapitalRequestGovernance(
     (result) => ({
       type: "CAPITAL_REQUEST_GOVERNANCE_AUTHORIZED",
       source: "beyu-os/finance",
+      domain: "CAPITAL",
+      operation: "AUTHORIZE_GOVERNANCE_PREREQUISITE",
+      destinationDomain: "FINANCE",
       tenantId: request.tenantId,
+      legalEntityId: request.legalEntityId,
       subjectType: "CAPITAL_REQUEST",
       subjectId: result.capitalRequestId,
       actorUserId: principal.userId,
@@ -403,6 +407,16 @@ export async function authorizeCapitalRequestGovernance(
         executed: false,
       },
       traceId: context.traceId,
+      correlationId: context.traceId,
+      causationId: null,
+      authorityContext: {
+        authorityId: result.resolutionId,
+        decisionId: null,
+        capabilityCode: null,
+        permissionCode: "finance:capital.manage",
+        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+      },
+      policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
     }),
   );
 }

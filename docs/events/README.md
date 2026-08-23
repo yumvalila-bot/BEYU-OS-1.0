@@ -10,14 +10,19 @@ auditable**. The envelope is CloudEvents-aligned and hash-chained.
 | `id` | Immutable event identifier (`EVT_…`) |
 | `sequence` | Monotonic ledger position |
 | `type` | Event type (see catalogue) |
-| `specVersion` / `schemaVersion` | Envelope and payload versions |
-| `source` | Emitting service, e.g. `beyu-os/finance` |
-| `tenantId` / `subjectType` / `subjectId` | Tenant isolation + subject binding |
-| `actorUserId` / `actorType` | HUMAN · SERVICE · AI |
+| `specVersion` / `eventVersion` / `schemaVersion` | Envelope, event and payload versions |
+| `source` / `domain` / `operation` / `destinationDomain` | Emitting service and common domain contract |
+| `tenantId` / `legalEntityId` / `subjectType` / `subjectId` | Tenant/entity isolation + subject binding |
+| `actorUserId` / `actorType` | HUMAN · SERVICE · AI; `actorUserId` is the canonical GlobalUserID where present |
 | `classification` | PUBLIC → HIGHLY_RESTRICTED (no event may leak beyond its boundary) |
 | `payload` | Minimal, purpose-limited JSON |
-| `traceId` | Correlates audit, logs and traces |
-| `prevHash` / `hash` | Tamper-evident chain |
+| `traceId` / `correlationId` / `causationId` | Request trace, operation correlation and causal parent (`null` for a root event) |
+| `authorityContext` / `policyVersion` | Explicit authority/capability/permission context; `null` when no authority is applicable |
+| `prevHash` / `hash` / `hashVersion` | Tamper-evident chain; v2 covers the interoperability envelope |
+
+New application events are validated by `src/lib/interoperability/contract.ts` and appended only
+through `src/lib/audit.ts`. Historical v1 rows remain verifiable without being rewritten; new rows
+use v2 envelope hashing. `verifyEventChain()` verifies both versions.
 
 ## Catalogue
 

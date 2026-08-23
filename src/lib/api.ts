@@ -19,7 +19,14 @@ import { SYSTEM_VERSION, type PermissionCode } from "./constants";
  */
 
 export type ApiErrorBody = {
-  error: { code: string; message: string; traceId: string; details?: unknown };
+  error: {
+    code: string;
+    message: string;
+    traceId: string;
+    correlationId: string;
+    causationId: string | null;
+    details?: unknown;
+  };
 };
 
 export function apiError(
@@ -28,17 +35,39 @@ export function apiError(
   status: number,
   traceId: string,
   details?: unknown,
+  correlationId = traceId,
+  causationId: string | null = null,
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json(
-    { error: { code, message, traceId, ...(details ? { details } : {}) } },
-    { status, headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": traceId } },
+    { error: { code, message, traceId, correlationId, causationId, ...(details ? { details } : {}) } },
+    {
+      status,
+      headers: {
+        "x-beyu-system": SYSTEM_VERSION,
+        "x-trace-id": traceId,
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
-export function apiOk<T>(data: T, traceId: string, status = 200): NextResponse {
+export function apiOk<T>(
+  data: T,
+  traceId: string,
+  status = 200,
+  correlationId = traceId,
+  causationId: string | null = null,
+): NextResponse {
   return NextResponse.json(
-    { data, meta: { traceId, system: SYSTEM_VERSION, at: new Date().toISOString() } },
-    { status, headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": traceId } },
+    { data, meta: { traceId, correlationId, causationId, system: SYSTEM_VERSION, at: new Date().toISOString() } },
+    {
+      status,
+      headers: {
+        "x-beyu-system": SYSTEM_VERSION,
+        "x-trace-id": traceId,
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
@@ -78,7 +107,7 @@ export type IdempotentResult = { status: number; body: unknown };
  * - key + same payload ...... replays the stored response, does NOT re-execute
  * - key + different payload . 409 IDEMPOTENCY_KEY_REUSED
  * - key held concurrently ... 409 REQUEST_IN_PROGRESS
- * - handler throws .......... claim released so a retry is possible
+ * - unexpected handler throw  claim remains IN_FLIGHT until domain state is reconciled
  *
  * The handler may return an `IdempotentResult` (success, which is recorded and
  * becomes replayable) or a `NextResponse` (a domain error, which releases the
@@ -115,6 +144,7 @@ export async function withIdempotency(
       headers: {
         "x-beyu-system": SYSTEM_VERSION,
         "x-trace-id": ctx.traceId,
+        "x-correlation-id": ctx.traceId,
         "idempotent-replay": "true",
       },
     });
@@ -137,7 +167,7 @@ export async function withIdempotency(
 
     const envelope = {
       data: result.body,
-      meta: { traceId: ctx.traceId, system: SYSTEM_VERSION, at: new Date().toISOString() },
+      meta: { traceId: ctx.traceId, correlationId: ctx.traceId, causationId: null, system: SYSTEM_VERSION, at: new Date().toISOString() },
     };
     await completeIdempotencyKey(claim, result.status, envelope, ctx.traceId);
     return NextResponse.json(envelope, {
@@ -145,8 +175,10 @@ export async function withIdempotency(
       headers: { "x-beyu-system": SYSTEM_VERSION, "x-trace-id": ctx.traceId },
     });
   } catch (err) {
-    // A failed mutation must not poison the key.
-    await releaseIdempotencyKey(claim);
+    // Do not release on an unknown failure. The domain transaction may have
+    // committed immediately before the response/completion step failed; an
+    // automatic retry could otherwise execute a non-idempotent action twice.
+    // Operators must reconcile and explicitly release an IN_FLIGHT claim.
     throw err;
   }
 }
@@ -156,6 +188,8 @@ export async function withIdempotency(
 export type HandlerContext = {
   principal: Principal;
   traceId: string;
+  correlationId: string;
+  causationId: string | null;
   ip: string | null;
   userAgent: string | null;
   request: Request;
@@ -211,7 +245,15 @@ export async function guarded(
       );
     }
 
-    return await handler({ principal, traceId, ip: meta.ip, userAgent: meta.userAgent, request });
+    return await handler({
+      principal,
+      traceId,
+      correlationId: meta.correlationId,
+      causationId: meta.causationId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      request,
+    });
   } catch (err) {
     if (err instanceof ZodError) {
       return apiError("VALIDATION_FAILED", "Request payload failed schema validation.", 422, traceId, err.issues);

@@ -334,7 +334,11 @@ export async function tableResolution(
     (result) => ({
       type: "GOVERNANCE_RESOLUTION_TABLED",
       source: "beyu-os/governance",
+      domain: "GOVERNANCE",
+      operation: "TABLE_RESOLUTION",
+      destinationDomain: null,
       tenantId: ctx.resolution.tenantId,
+      legalEntityId: ctx.body.legalEntityId ?? null,
       subjectType: "RESOLUTION",
       subjectId: result.resolutionId,
       actorUserId: principal.userId,
@@ -347,6 +351,16 @@ export async function tableResolution(
         votingClosesAt: result.votingClosesAt,
       },
       traceId: context.traceId,
+      correlationId: context.traceId,
+      causationId: null,
+      authorityContext: {
+        authorityId: null,
+        decisionId: null,
+        capabilityCode: null,
+        permissionCode: "governance:resolution.approve",
+        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+      },
+      policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
     }),
   );
 }
@@ -640,7 +654,11 @@ export async function castVote(
               ? "GOVERNANCE_RESOLUTION_VOTE_CHANGED"
               : "GOVERNANCE_RESOLUTION_VOTE_CAST",
             source: "beyu-os/governance",
+            domain: "GOVERNANCE",
+            operation: result.changed ? "CHANGE_VOTE" : "CAST_VOTE",
+            destinationDomain: null,
             tenantId: ctx.resolution.tenantId,
+            legalEntityId: ctx.body.legalEntityId ?? null,
             subjectType: "RESOLUTION",
             subjectId: result.resolutionId,
             actorUserId: principal.userId,
@@ -657,6 +675,16 @@ export async function castVote(
               status: result.status,
             },
             traceId: context.traceId,
+            correlationId: context.traceId,
+            causationId: null,
+            authorityContext: {
+              authorityId: null,
+              decisionId: null,
+              capabilityCode: null,
+              permissionCode: "governance:resolution.vote",
+              policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+            },
+            policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
           },
         ];
 
@@ -664,7 +692,11 @@ export async function castVote(
           events.push({
             type: "GOVERNANCE_RESOLUTION_VOTING_CONCLUDED",
             source: "beyu-os/governance",
+            domain: "GOVERNANCE",
+            operation: "VOTING_CONCLUDED",
+            destinationDomain: null,
             tenantId: ctx.resolution.tenantId,
+            legalEntityId: ctx.body.legalEntityId ?? null,
             subjectType: "RESOLUTION",
             subjectId: result.resolutionId,
             actorUserId: principal.userId,
@@ -683,6 +715,16 @@ export async function castVote(
               explanation: result.explanation,
             },
             traceId: context.traceId,
+            correlationId: context.traceId,
+            causationId: null,
+            authorityContext: {
+              authorityId: null,
+              decisionId: null,
+              capabilityCode: null,
+              permissionCode: "governance:resolution.vote",
+              policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+            },
+            policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
           });
         }
 
@@ -1007,7 +1049,11 @@ export async function decideResolutionClosure(
     (result) => ({
       type: "GOVERNANCE_RESOLUTION_DECIDED",
       source: "beyu-os/governance",
+      domain: "GOVERNANCE",
+      operation: "DECIDE_RESOLUTION",
+      destinationDomain: null,
       tenantId: ctx.resolution.tenantId,
+      legalEntityId: ctx.body.legalEntityId ?? null,
       subjectType: "RESOLUTION",
       subjectId: result.resolutionId,
       actorUserId: principal.userId,
@@ -1027,6 +1073,16 @@ export async function decideResolutionClosure(
         decisionDate: result.decisionDate,
       },
       traceId: context.traceId,
+      correlationId: context.traceId,
+      causationId: null,
+      authorityContext: {
+        authorityId: result.resolutionId,
+        decisionId: null,
+        capabilityCode: null,
+        permissionCode: "governance:resolution.approve",
+        policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+      },
+      policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
     }),
   );
 }

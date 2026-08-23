@@ -147,7 +147,11 @@ export async function POST(request: Request) {
             () => ({
               type: "WATERFALL_SIMULATED",
               source: "beyu-os/finance",
+              domain: "FINANCE",
+              operation: "SIMULATE_WATERFALL",
+              destinationDomain: null,
               tenantId: ctx.principal.tenantId,
+              legalEntityId: config.legalEntityId,
               subjectType: "WATERFALL_CONFIG",
               subjectId: config.id,
               actorUserId: ctx.principal.userId,
@@ -158,6 +162,16 @@ export async function POST(request: Request) {
                 checksum: result.checksum,
               },
               traceId: ctx.traceId,
+              correlationId: ctx.traceId,
+              causationId: null,
+              authorityContext: {
+                authorityId: null,
+                decisionId: null,
+                capabilityCode: null,
+                permissionCode: "finance:waterfall.simulate",
+                policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
+              },
+              policyVersion: policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null,
             }),
           );
 
