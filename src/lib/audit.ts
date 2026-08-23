@@ -51,6 +51,7 @@ export type AuditInput = {
   traceId?: string;
 };
 
+/** Legacy v1 payload. Retained only to verify historical audit rows. */
 export function canonicalAuditPayload(input: AuditInput, id: string, occurredAt: string): string {
   return stableStringify([
     id,
@@ -63,6 +64,41 @@ export function canonicalAuditPayload(input: AuditInput, id: string, occurredAt:
     input.outcome ?? "SUCCESS",
     input.oldValue ?? null,
     input.newValue ?? null,
+    occurredAt,
+  ]);
+}
+
+/**
+ * Version 2 covers the complete audit envelope. The version marker itself is
+ * hashed so a row cannot be silently re-labelled as another algorithm.
+ */
+export function canonicalAuditPayloadV2(
+  input: AuditInput,
+  id: string,
+  occurredAt: string,
+  systemVersion = SYSTEM_VERSION,
+): string {
+  return stableStringify([
+    "2",
+    id,
+    input.tenantId ?? null,
+    input.actorUserId ?? null,
+    input.actorType ?? "HUMAN",
+    input.action,
+    input.objectType,
+    input.objectId,
+    input.outcome ?? "SUCCESS",
+    input.reason ?? null,
+    input.authority ?? null,
+    input.approvalRef ?? null,
+    input.policyVersion ?? null,
+    systemVersion,
+    input.aiVersion ?? null,
+    input.oldValue ?? null,
+    input.newValue ?? null,
+    input.ipAddress ?? null,
+    input.userAgent ?? null,
+    input.traceId ?? null,
     occurredAt,
   ]);
 }
@@ -87,7 +123,8 @@ async function appendAudit(tx: Tx, input: AuditInput): Promise<string> {
   const id = newId(ID_PREFIX.audit);
   const occurredAt = new Date().toISOString();
   const prevHash = await lockChainHead(tx, "AUDIT_LOG");
-  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalAuditPayload(input, id, occurredAt)}`);
+  const hashVersion = "2";
+  const hash = sha256(`${prevHash ?? "GENESIS"}|${canonicalAuditPayloadV2(input, id, occurredAt)}`);
 
   await tx.insert(auditLog).values({
     id,
@@ -111,6 +148,7 @@ async function appendAudit(tx: Tx, input: AuditInput): Promise<string> {
     traceId: input.traceId,
     occurredAt: new Date(occurredAt),
     prevHash,
+    hashVersion,
     hash,
   });
   await updateChainHead(tx, "AUDIT_LOG", hash);
@@ -305,7 +343,39 @@ export type ChainVerification = {
   headMatches: boolean;
 };
 
-async function expectedAuditHash(row: typeof auditLog.$inferSelect, prev: string | null): Promise<string> {
+function expectedAuditHash(row: typeof auditLog.$inferSelect, prev: string | null): string | null {
+  if (row.hashVersion === "2") {
+    return sha256(
+      `${prev ?? "GENESIS"}|${canonicalAuditPayloadV2(
+        {
+          tenantId: row.tenantId,
+          actorUserId: row.actorUserId,
+          actorType: row.actorType as "HUMAN" | "SERVICE" | "AI",
+          action: row.action,
+          objectType: row.objectType,
+          objectId: row.objectId,
+          outcome: row.outcome as "SUCCESS" | "DENIED" | "FAILURE",
+          reason: row.reason ?? undefined,
+          authority: row.authority ?? undefined,
+          approvalRef: row.approvalRef ?? undefined,
+          policyVersion: row.policyVersion ?? undefined,
+          aiVersion: row.aiVersion ?? undefined,
+          oldValue: row.oldValue ?? null,
+          newValue: row.newValue ?? null,
+          ipAddress: row.ipAddress ?? null,
+          userAgent: row.userAgent ?? null,
+          traceId: row.traceId ?? undefined,
+        },
+        row.id,
+        row.occurredAt.toISOString(),
+        row.systemVersion,
+      )}`,
+    );
+  }
+
+  // NULL/"1" rows are legacy hashes. They are still checked using the exact
+  // historical algorithm, but are not represented as v2-complete evidence.
+  if (row.hashVersion !== null && row.hashVersion !== "1") return null;
   return sha256(
     `${prev ?? "GENESIS"}|${canonicalAuditPayload(
       {
@@ -345,8 +415,8 @@ export async function verifyAuditChain(limit?: number): Promise<ChainVerificatio
 
   let prev: string | null = null;
   for (const row of rows) {
-    const expected = await expectedAuditHash(row, prev);
-    if (expected !== row.hash || row.prevHash !== prev) {
+    const expected = expectedAuditHash(row, prev);
+    if (expected === null || expected !== row.hash || row.prevHash !== prev) {
       return { verified: false, records: rows.length, brokenAt: row.id, duplicateParents, headMatches: false };
     }
     prev = row.hash;

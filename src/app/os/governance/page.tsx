@@ -2,8 +2,8 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { auditTrailsFor } from "@/lib/audit";
 import {
   canDecideResolutions,
@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function GovernancePage() {
   const access = await requireAccess("governance:resolution.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="governance:resolution.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const scope = await tenantScopeIds(access.principal);
   const [bodies, members, resolutionRows, policyRows] = await Promise.all([
@@ -210,5 +211,5 @@ export default async function GovernancePage() {
         )}
       </Panel>
     </div>
-  );
+  );  });
 }

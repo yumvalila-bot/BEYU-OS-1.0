@@ -10,8 +10,8 @@ import {
   risks,
 } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ const HEAT = (score: number, appetite: number) =>
 export default async function AssurancePage() {
   const access = await requireAccess("risk:register.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="risk:register.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
   const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
 
   const [riskRows, controlRows, obligationRows, assessmentRows, legalRows, anomalyRows, bcpRows] = await Promise.all([
@@ -207,5 +208,5 @@ export default async function AssurancePage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

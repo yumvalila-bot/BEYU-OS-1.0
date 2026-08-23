@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { can, type Principal } from "./authz";
 import { resolvePrincipal } from "./session";
-import { setDatabaseTenantContext } from "./tenant-scope";
+
 import type { PermissionCode } from "./constants";
 
 export type PageAccess =
@@ -12,7 +12,6 @@ export type PageAccess =
 export async function requirePrincipal(): Promise<Principal> {
   const principal = await resolvePrincipal();
   if (!principal) redirect("/");
-  await setDatabaseTenantContext(principal);
   return principal;
 }
 

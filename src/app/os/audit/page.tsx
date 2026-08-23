@@ -2,7 +2,7 @@ import { desc, inArray, or, isNull, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, auditLog, enterpriseEvents } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { tenantScopeIds, hasGlobalGovernanceScope } from "@/lib/tenant-scope";
+import { withTenantDatabaseContext, tenantScopeIds, hasGlobalGovernanceScope } from "@/lib/tenant-scope";
 import { verifyAuditChain } from "@/lib/audit";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { SelfTestPanel } from "./self-test";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AuditPage() {
   const access = await requireAccess("audit:log.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="audit:log.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const scope = await tenantScopeIds(access.principal);
   const global = hasGlobalGovernanceScope(access.principal);
@@ -129,5 +130,5 @@ export default async function AuditPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

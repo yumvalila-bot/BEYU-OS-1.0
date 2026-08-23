@@ -1,5 +1,5 @@
 import { inArray, sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withDatabaseTransactionContext } from "@/db";
 import { tenants } from "@/db/schema";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Principal } from "./authz";
@@ -47,10 +47,35 @@ export async function tenantPredicate<T extends PgColumn>(principal: Principal, 
   return inArray(column, ids);
 }
 
-export async function setDatabaseTenantContext(principal: Principal): Promise<void> {
+/**
+ * Lower-level trusted context primitive for pre-auth/system flows that do not
+ * have a fully resolved Principal yet. The caller supplies an explicit finite
+ * tenant set; it is never inferred from client input.
+ */
+export async function withDatabaseRlsContext<T>(
+  tenantIds: string[],
+  globalScope: boolean,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (tenantIds.length === 0 && !globalScope) throw new Error("RLS context requires an explicit tenant scope");
+  return withDatabaseTransactionContext(async (tx) => {
+    await tx.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantIds.join(",")}, true)`);
+    await tx.execute(sql`select set_config('beyu.global_scope', ${globalScope ? "on" : "off"}, true)`);
+    return operation();
+  });
+}
+
+/**
+ * Run one request on a connection-pinned transaction with transaction-local RLS
+ * context. `SET LOCAL` state is cleared by PostgreSQL on both commit and
+ * rollback; no tenant or global-scope value can survive pool release.
+ */
+export async function withTenantDatabaseContext<T>(
+  principal: Principal,
+  operation: () => Promise<T>,
+): Promise<T> {
   const ids = await tenantScopeIds(principal);
-  await db.execute(sql`select set_config('beyu.current_tenant_ids', ${ids.join(",")}, false)`);
-  await db.execute(sql`select set_config('beyu.global_scope', ${hasGlobalGovernanceScope(principal) ? "on" : "off"}, false)`);
+  return withDatabaseRlsContext(ids, hasGlobalGovernanceScope(principal), operation);
 }
 
 /**

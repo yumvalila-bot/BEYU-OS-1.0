@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, knowledgeSources, osRegistry } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { filterByClearance } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { NoeliaConsole } from "./console";
@@ -16,6 +17,7 @@ const PIPELINE = [
 export default async function NoeliaPage() {
   const access = await requireAccess("ai:noelia.query");
   if (!access.allowed) return <Denied reason={access.reason} capability="ai:noelia.query" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const [recent, knowledgeRows, hive] = await Promise.all([
     db.select().from(aiDecisions).where(eq(aiDecisions.tenantId, access.principal.tenantId)).orderBy(desc(aiDecisions.occurredAt)).limit(8),
@@ -115,5 +117,5 @@ export default async function NoeliaPage() {
         </div>
       </div>
     </div>
-  );
+  );  });
 }

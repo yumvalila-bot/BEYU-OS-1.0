@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       action: "finance.waterfall.simulate",
       rateLimit: { limit: 60, windowMs: 60_000 },
       audit: { objectType: "WATERFALL_RUN" },
+      databaseContext: "handler",
     },
     async (ctx) => {
       const body = await parseBody(ctx.request, SimulateSchema);

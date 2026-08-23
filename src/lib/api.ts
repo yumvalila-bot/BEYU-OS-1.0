@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasDatabaseTransactionContext } from "@/db";
 import { ZodError, type ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
@@ -8,7 +9,7 @@ import {
   releaseIdempotencyKey,
 } from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
-import { setDatabaseTenantContext } from "./tenant-scope";
+import { withTenantDatabaseContext } from "./tenant-scope";
 import { SYSTEM_VERSION, type PermissionCode } from "./constants";
 
 /**
@@ -119,6 +120,10 @@ export async function withIdempotency(
   payload: unknown,
   handler: () => Promise<IdempotentResult | NextResponse>,
 ): Promise<NextResponse> {
+  if (hasDatabaseTransactionContext()) {
+    throw new Error("withIdempotency must run outside an active request transaction");
+  }
+
   const rawKey = ctx.request.headers.get("idempotency-key");
   const claim = await claimIdempotencyKey(ctx.principal, endpoint, rawKey, payload);
 
@@ -151,12 +156,15 @@ export async function withIdempotency(
   }
 
   if (claim.kind === "NO_KEY") {
-    const result = await handler();
+    const result = await withTenantDatabaseContext(ctx.principal, handler);
     return result instanceof NextResponse ? result : apiOk(result.body, ctx.traceId, result.status);
   }
 
   try {
-    const result = await handler();
+    // The claim was committed before this transaction began. Completion is
+    // written through the current transaction, so domain state and completion
+    // commit together; rollback leaves the durable claim IN_FLIGHT.
+    const result = await withTenantDatabaseContext(ctx.principal, handler);
 
     // A domain error is not a completed mutation: release the claim so the same
     // key may be retried once the caller fixes the request.
@@ -200,6 +208,12 @@ export type GuardOptions = {
   action: string;
   rateLimit?: { limit: number; windowMs: number };
   audit?: { objectType: string; objectId?: string };
+  /**
+   * `handler` leaves the authorization transaction before the handler starts.
+   * Idempotent handlers then establish their own context after their durable
+   * claim commits, avoiding a second pool checkout and preserving crash safety.
+   */
+  databaseContext?: "guard" | "handler";
 };
 
 export async function guarded(
@@ -215,37 +229,7 @@ export async function guarded(
       return apiError("UNAUTHENTICATED", "A valid BEYU OS session is required.", 401, traceId);
     }
 
-    await setDatabaseTenantContext(principal);
-
-    const rl = options.rateLimit ?? { limit: 120, windowMs: 60_000 };
-    const limited = rateLimit(`${principal.userId}:${options.permission}`, rl.limit, rl.windowMs);
-    if (!limited.ok) {
-      return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
-    }
-
-    const decision = can(principal, options.permission);
-    if (!decision.allowed) {
-      await recordAudit({
-        tenantId: principal.tenantId,
-        actorUserId: principal.userId,
-        action: options.action,
-        objectType: options.audit?.objectType ?? "API",
-        objectId: options.audit?.objectId ?? options.permission,
-        outcome: "DENIED",
-        reason: decision.reason,
-        ipAddress: meta.ip,
-        userAgent: meta.userAgent,
-        traceId,
-      });
-      return apiError(
-        decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-        decision.reason,
-        decision.requiresMfa ? 428 : 403,
-        traceId,
-      );
-    }
-
-    return await handler({
+    const context: HandlerContext = {
       principal,
       traceId,
       correlationId: meta.correlationId,
@@ -253,6 +237,50 @@ export async function guarded(
       ip: meta.ip,
       userAgent: meta.userAgent,
       request,
+    };
+
+    const authorize = async (): Promise<NextResponse | null> => {
+      const rl = options.rateLimit ?? { limit: 120, windowMs: 60_000 };
+      const limited = rateLimit(`${principal.userId}:${options.permission}`, rl.limit, rl.windowMs);
+      if (!limited.ok) {
+        return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
+      }
+
+      const decision = can(principal, options.permission);
+      if (!decision.allowed) {
+        await recordAudit({
+          tenantId: principal.tenantId,
+          actorUserId: principal.userId,
+          action: options.action,
+          objectType: options.audit?.objectType ?? "API",
+          objectId: options.audit?.objectId ?? options.permission,
+          outcome: "DENIED",
+          reason: decision.reason,
+          ipAddress: meta.ip,
+          userAgent: meta.userAgent,
+          traceId,
+        });
+        return apiError(
+          decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
+          decision.reason,
+          decision.requiresMfa ? 428 : 403,
+          traceId,
+        );
+      }
+      return null;
+    };
+
+    if (options.databaseContext === "handler") {
+      // Keep authorization/audit scoped, then release the connection before an
+      // idempotency claim. The handler owns the transaction that follows.
+      const denied = await withTenantDatabaseContext(principal, authorize);
+      if (denied) return denied;
+      return handler(context);
+    }
+
+    return withTenantDatabaseContext(principal, async () => {
+      const denied = await authorize();
+      return denied ?? handler(context);
     });
   } catch (err) {
     if (err instanceof ZodError) {

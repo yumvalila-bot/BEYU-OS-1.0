@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, withIndependentDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 import { sha256, stableStringify } from "./crypto";
 import type { Principal } from "./authz";
@@ -79,16 +79,21 @@ export async function claimIdempotencyKey(
   const requestHash = hashRequest(payload);
   const now = new Date();
 
+  // The claim must commit independently of the request/domain transaction. If
+  // that transaction later rolls back or the process crashes, the durable
+  // IN_FLIGHT record remains and forces operator reconciliation rather than
+  // permitting an uncertain mutation to execute twice.
+  return withIndependentDatabase(async (database) => {
   // Completed responses may be cleaned up after their TTL. IN_FLIGHT rows are
   // retained indefinitely: expiry must never turn an uncertain outcome into a
   // second execution opportunity.
-  await db
+  await database
     .delete(idempotencyRecords)
     .where(and(eq(idempotencyRecords.state, "COMPLETED"), lt(idempotencyRecords.expiresAt, now)));
 
   // Claim atomically. ON CONFLICT DO NOTHING means exactly one concurrent caller
   // inserts the row; everyone else falls through to inspect the existing record.
-  const inserted = await db
+  const inserted = await database
     .insert(idempotencyRecords)
     .values({
       scope,
@@ -104,7 +109,7 @@ export async function claimIdempotencyKey(
 
   if (inserted.length > 0) return { kind: "PROCEED", scope, key, requestHash };
 
-  const [existing] = await db
+  const [existing] = await database
     .select()
     .from(idempotencyRecords)
     .where(and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)))
@@ -130,6 +135,7 @@ export async function claimIdempotencyKey(
   // against the domain state by an operator before it can be released; automatic
   // reclaim would defeat replay safety for non-idempotent domain operations.
   return { kind: "IN_FLIGHT" };
+  });
 }
 
 /** Record the response so an identical retry replays instead of re-executing. */

@@ -1,5 +1,6 @@
 import { listEmploymentHistory, listEstablishment, listWorkforce } from "@/lib/hcm";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function HcmPage() {
   const access = await requireAccess("hcm:employee.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="hcm:employee.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const [workforce, events, positionRows] = await Promise.all([
     listWorkforce(access.principal),
@@ -114,5 +116,5 @@ export default async function HcmPage() {
         </Panel>
       </div>
     </div>
-  );
+  );  });
 }

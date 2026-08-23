@@ -17,14 +17,15 @@ import {
   waterfallRuns,
 } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
+import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
 
 export default async function ControlCentre() {
   const principal = await requirePrincipal();
+  return withTenantDatabaseContext(principal, async () => {
   const scope = await tenantScopeIds(principal);
   const tenantId = principal.tenantId;
 
@@ -236,5 +237,5 @@ export default async function ControlCentre() {
         </div>
       </Panel>
     </div>
-  );
+  );  });
 }

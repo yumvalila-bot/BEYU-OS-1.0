@@ -1,0 +1,163 @@
+{
+  "phase": "PHASE_15",
+  "title": "BEYU OS Production Integrity, Continuity & Runtime Hardening",
+  "auditDate": "2026-08-23",
+  "repository": "yumvalila-bot/BEYU-OS-1.0",
+  "branch": "arena/01a02d6d-beyu-os-1-0",
+  "phase14Baseline": "12d6deacd183e53635dbfeec29333f659219d346",
+  "mainBaseline": "8516162052a59ad7f538d78cfb7539fcb2f97c40",
+  "supabase": "EXCLUDED",
+  "overallGate": {
+    "status": "RED",
+    "reason": "Source hardening was applied, but PostgreSQL, live RLS/pool/HTTP/fault-injection/recovery validation is unavailable and residual security gaps remain."
+  },
+  "environment": {
+    "databaseUrl": "UNSET",
+    "postgresql": "UNAVAILABLE",
+    "localExecutables": {
+      "postgres": false,
+      "psql": false,
+      "pg_ctl": false,
+      "initdb": false,
+      "docker": false,
+      "podman": false
+    },
+    "databaseState": "DATA_NOT_AVAILABLE",
+    "databaseOperationsIssued": false,
+    "seedState": "DATA_NOT_AVAILABLE",
+    "rolesAclState": "DATA_NOT_AVAILABLE",
+    "rlsState": "DATA_NOT_AVAILABLE",
+    "financialState": "DATA_NOT_AVAILABLE",
+    "governanceAuthorityState": "DATA_NOT_AVAILABLE"
+  },
+  "staticCounts": {
+    "drizzleTables": 75,
+    "postgresEnums": 18,
+    "numberedMigrations": 14,
+    "migrationSnapshots": 14,
+    "apiRouteHandlers": 15,
+    "osPageComponents": 15,
+    "testFiles": 55
+  },
+  "remediations": [
+    {
+      "id": "P15-RLS-001",
+      "classification": "ENGINEERING_DEFECT",
+      "status": "SOURCE_REMEDIATED_LIVE_PROOF_PENDING",
+      "object": "Pooled tenant/entity/global request context",
+      "before": "Session-level set_config(false) on a shared pool with no connection pinning or reset",
+      "after": "One context-aware canonical db proxy routed by AsyncLocalStorage to one transaction; set_config(..., true) is cleared on commit/rollback",
+      "files": ["src/db/index.ts", "src/lib/tenant-scope.ts", "src/lib/api.ts", "src/lib/guard.ts"],
+      "authorityStatus": "No authority mutation"
+    },
+    {
+      "id": "P15-IDEMP-002",
+      "classification": "ENGINEERING_DEFECT",
+      "status": "SOURCE_REMEDIATED_LIVE_PROOF_PENDING",
+      "object": "Idempotency crash boundary",
+      "before": "A surrounding request transaction could roll back a durable claim after context wrapping",
+      "after": "Claim commits independently on the same canonical pool; handler domain work and completion share the request transaction; unexpected failure leaves IN_FLIGHT",
+      "files": ["src/lib/idempotency.ts", "src/lib/api.ts"],
+      "authorityStatus": "No domain authority change"
+    },
+    {
+      "id": "P15-AUD-003",
+      "classification": "ENGINEERING_DEFECT",
+      "status": "FORWARD_REMEDIATED_HISTORICAL_LIMIT_REMAINS",
+      "object": "Audit hash metadata coverage",
+      "before": "Legacy hash omitted material audit metadata",
+      "after": "New hash_version=2 records hash the complete audit envelope; null/1 historical rows use legacy verification without rewrite",
+      "files": ["src/lib/audit.ts", "src/db/schema/platform.ts", "drizzle/0013_audit_hash_version.sql"],
+      "authorityStatus": "Evidence integrity only"
+    },
+    {
+      "id": "P15-AUTH-004",
+      "classification": "ENGINEERING_DEFECT",
+      "status": "SOURCE_REMEDIATED_LIVE_PROOF_PENDING",
+      "object": "Invalid-password counter race",
+      "before": "Counter increment was based on a stale pre-read user row",
+      "after": "Current user row is locked and incremented inside a transaction",
+      "files": ["src/app/api/v1/auth/login/route.ts"],
+      "authorityStatus": "Identity control only"
+    },
+    {
+      "id": "P15-NET-005",
+      "classification": "ENGINEERING_DEFECT",
+      "status": "SOURCE_REMEDIATED_DEPLOYMENT_CONFIGURATION_REQUIRED",
+      "object": "Forwarded IP rate-limit identity",
+      "before": "First X-Forwarded-For value was always trusted",
+      "after": "Forwarded IP is used only when BEYU_TRUST_PROXY=true; otherwise the control fails closed to an unknown bucket",
+      "files": ["src/lib/session.ts", ".env.example"],
+      "authorityStatus": "Deployment trust configuration required"
+    }
+  ],
+  "triage": [
+    {"finding": "pooled RLS context safety", "classification": "REAL_DEFECT", "disposition": "REMEDIATED_IN_SOURCE_LIVE_TEST_PENDING"},
+    {"finding": "PostgreSQL/runtime validation unavailability", "classification": "ENVIRONMENT_LIMITATION", "disposition": "OPEN"},
+    {"finding": "HTTP validation unavailability", "classification": "INFRASTRUCTURE_LIMITATION", "disposition": "OPEN"},
+    {"finding": "continuity validation unavailability", "classification": "DATA_NOT_AVAILABLE", "disposition": "OPEN"},
+    {"finding": "legacy audit migration/hash concerns", "classification": "REAL_DEFECT", "disposition": "FORWARD_HASH_VERSION_REMEDIATED_HISTORICAL_LIMIT_REMAINS"},
+    {"finding": "incomplete asynchronous consumer infrastructure", "classification": "INFRASTRUCTURE_NOT_PROVISIONED", "disposition": "NO_SPECULATIVE_BROKER_ADDED"},
+    {"finding": "dependency advisories", "classification": "REAL_DEFECT_AND_DEV_ONLY_MIXED", "disposition": "DIRECT_PATCHES_APPLIED_REMAINING_ADVISORIES_REVIEW_PENDING"},
+    {"finding": "clean-install parity", "classification": "DATA_NOT_AVAILABLE", "disposition": "OPEN"},
+    {"finding": "migration parity", "classification": "DATA_NOT_AVAILABLE", "disposition": "STATIC_CHECK_ONLY"},
+    {"finding": "event-chain persistence", "classification": "DATA_NOT_AVAILABLE", "disposition": "SOURCE_PRESENT_LIVE_CHAIN_UNPROVEN"},
+    {"finding": "idempotency crash recovery", "classification": "REAL_DEFECT", "disposition": "TRANSACTION_BOUNDARY_REMEDIATED_LIVE_CRASH_TEST_PENDING"},
+    {"finding": "trace continuity", "classification": "DATA_NOT_AVAILABLE", "disposition": "SOURCE_PRESENT_LIVE_TRACE_TEST_PENDING"},
+    {"finding": "audit continuity", "classification": "DATA_NOT_AVAILABLE", "disposition": "SOURCE_PRESENT_LIVE_CHAIN_TEST_PENDING"}
+  ],
+  "validation": {
+    "npmCi": {"status": "PASS", "detail": "435 packages installed; npm reported 11 vulnerabilities"},
+    "typecheck": {"status": "PASS", "command": "npm run typecheck"},
+    "lint": {"status": "PASS", "command": "npm run lint"},
+    "build": {"status": "PASS_WITH_PLACEHOLDER_DATABASE_URL", "detail": "Compilation and page generation only; database connectivity not proven"},
+    "drizzleKitCheck": {"status": "PASS_WITH_PLACEHOLDER_DATABASE_URL", "detail": "Static migration/schema consistency check only"},
+    "targetedCommonPlatformTests": {"status": "PASS", "testFiles": 8, "tests": 80},
+    "fullTestSuite": {"status": "COLLECTION_BLOCKED", "failedSuites": 47, "passedSuites": 8, "passedTests": 80, "reason": "DATABASE_URL is required at src/db/index.ts:7; PostgreSQL unavailable"},
+    "zeroSkipped": {"status": "NOT_ACHIEVED", "detail": "HTTP suites remained unavailable/skip-gated; no skipped suite was counted as PASS"},
+    "npmAuditOmitDev": {"status": "NONZERO_ADVISORIES", "total": 8, "moderate": 3, "high": 4, "critical": 1, "detail": "Next/PostCSS direct patch versions applied; remaining findings include transitive sharp/PostCSS and dev-only Vitest/Vite paths"},
+    "gitDiffCheck": {"status": "PASS"},
+    "livePostgresql": {"status": "DATA_NOT_AVAILABLE"},
+    "liveHttp": {"status": "INFRASTRUCTURE_NOT_PROVISIONED"},
+    "faultInjection": {"status": "DATA_NOT_AVAILABLE"},
+    "backupRestoreFailover": {"status": "DATA_NOT_AVAILABLE"}
+  },
+  "productionReadinessMatrix": [
+    {"layer": "Identity", "status": "PARTIAL", "evidence": "Canonical users/session path; row-locked invalid-password counter", "remainingBlocker": "Password lifecycle and live database proof"},
+    {"layer": "HCM", "status": "PARTIAL", "evidence": "One employee master and common context boundary", "remainingBlocker": "Live employee/event continuity proof"},
+    {"layer": "Governance", "status": "PARTIAL", "evidence": "Existing governed services and idempotent route boundary", "remainingBlocker": "Live governance and authority state unavailable"},
+    {"layer": "Authority", "status": "REQUIRES_AUTHORITY", "evidence": "Existing fail-closed gates", "remainingBlocker": "P1-P11 and policy provenance not ratified"},
+    {"layer": "RBAC/ABAC", "status": "PARTIAL", "evidence": "Common can() plus entity and clearance checks", "remainingBlocker": "Permission mirror ownership and live grants"},
+    {"layer": "Tenant isolation", "status": "PARTIAL", "evidence": "Request-scoped context plus query predicates", "remainingBlocker": "Live RLS and complete tenant-bearing table coverage"},
+    {"layer": "Entity isolation", "status": "PARTIAL", "evidence": "Principal entity scope and route checks", "remainingBlocker": "Composite persistence constraints absent"},
+    {"layer": "RLS", "status": "DATA_NOT_AVAILABLE", "evidence": "Forced RLS and transaction-local GUC source path", "remainingBlocker": "Actual role, policies, ACLs and RLS state"},
+    {"layer": "Audit integrity", "status": "PARTIAL", "evidence": "Append chain plus v2 complete hash for new rows", "remainingBlocker": "Historical v1 coverage and live tamper proof"},
+    {"layer": "Event integrity", "status": "PARTIAL", "evidence": "One v1/v2 chain and immutable writer", "remainingBlocker": "Live persisted-chain and fault proof"},
+    {"layer": "Trace continuity", "status": "PARTIAL", "evidence": "Server trace plus event/audit trace fields", "remainingBlocker": "Concurrent API/DB/async live proof"},
+    {"layer": "Idempotency", "status": "PARTIAL", "evidence": "Durable scoped claim, no auto-reclaim, atomic completion boundary", "remainingBlocker": "Live crash/retry/multi-replica proof"},
+    {"layer": "Async continuity", "status": "NOT_AVAILABLE", "evidence": "No consumer infrastructure exists", "remainingBlocker": "Provisioning decision and tests"},
+    {"layer": "Migration safety", "status": "PARTIAL", "evidence": "Runner refuses destructive historical 0001; additive 0013", "remainingBlocker": "Existing DB upgrade and rollback proof"},
+    {"layer": "Dependency security", "status": "PARTIAL", "evidence": "Direct patch upgrades and advisory classification", "remainingBlocker": "Transitive and dev-only advisory review"},
+    {"layer": "Interoperability", "status": "READY", "evidence": "Phase-14 contract and static regression tests", "remainingBlocker": "Live cross-domain execution proof"},
+    {"layer": "Connectivity", "status": "READY", "evidence": "One Phase-14 graph reused", "remainingBlocker": "Live integration evidence"},
+    {"layer": "Continuity", "status": "PARTIAL", "evidence": "Common classes plus transaction/idempotency boundaries", "remainingBlocker": "Restore/failover/recovery tests; targets require authority"},
+    {"layer": "Oneness", "status": "READY", "evidence": "No duplicate identity/HCM/finance/governance/event/audit primitive added", "remainingBlocker": "Continued drift monitoring"},
+    {"layer": "Finance", "status": "REQUIRES_AUTHORITY", "evidence": "Canonical Finance truth and locked execution boundary", "remainingBlocker": "P1-P11, live financial state and policy"},
+    {"layer": "Tax", "status": "REQUIRES_AUTHORITY", "evidence": "Non-authoritative analysis and jurisdiction gates", "remainingBlocker": "Tax treatment and liability authority"},
+    {"layer": "Legal", "status": "REQUIRES_AUTHORITY", "evidence": "Legal evidence feeds governance", "remainingBlocker": "Legal interpretation and ratification"},
+    {"layer": "AI/Noelia", "status": "PARTIAL", "evidence": "One Noelia identity, inherited Principal and auditable path", "remainingBlocker": "Live knowledge/AI state and runtime proof"}
+  ],
+  "authorityAndMutationGate": {
+    "p1ToP11Activated": false,
+    "financialMutation": false,
+    "governanceMutation": false,
+    "hcmMutation": false,
+    "identityCreation": false,
+    "globalUserIdsCreated": false,
+    "auditEventHistoryRewritten": false,
+    "sectorOsCreated": false,
+    "secondControlPlaneCreated": false,
+    "status": "PRESERVED"
+  },
+  "nextGate": "Provision authorized isolated PostgreSQL; fingerprint state; run clean-install/upgrade parity and live pooled-RLS, audit/event, idempotency, HTTP, recovery and fault-injection tests before reassessing the gate."
+}

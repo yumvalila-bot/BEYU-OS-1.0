@@ -10,7 +10,8 @@ import { recordAudit, recordAuditTx, publishEventTx } from "@/lib/audit";
 import { apiError, apiOk, rateLimit } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/constants";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { newSessionValues } from "@/lib/session";
+import { newSessionValues, trustedClientIp } from "@/lib/session";
+import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ function productionMode() {
 /** Credential authentication with real TOTP step-up, replay prevention, lockout and atomic audit. */
 export async function POST(request: Request): Promise<NextResponse> {
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = trustedClientIp(h);
   const userAgent = h.get("user-agent");
   const traceId = newId(ID_PREFIX.event);
 
@@ -47,27 +48,77 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Uniform response; still audit the denial without revealing account existence.
   if (!user || user.status !== "ACTIVE") {
-    await recordAudit({ action: "identity.login", objectType: "USER", objectId: body.email, outcome: "DENIED", reason: "Unknown or inactive identity", ipAddress: ip, traceId });
+    // No tenant is known for this denial. The short-lived transaction-local
+    // platform scope is used only for this tenant-less audit append; it is never
+    // retained on the pool and performs no tenant data read.
+    await withDatabaseRlsContext([], true, async () => {
+      await recordAudit({
+        action: "identity.login",
+        objectType: "USER",
+        objectId: body.email,
+        outcome: "DENIED",
+        reason: "Unknown or inactive identity",
+        ipAddress: ip,
+        userAgent,
+        traceId,
+      });
+    });
     // Roughly equalise timing to reduce enumeration signal.
     verifyPassword(body.password, "scrypt$00000000000000000000000000000000$" + "0".repeat(128));
     return fail();
   }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
-    await recordAudit({ actorUserId: user.id, action: "identity.login", objectType: "USER", objectId: user.id, outcome: "DENIED", reason: "Account temporarily locked", ipAddress: ip, traceId });
+    await withDatabaseRlsContext([user.primaryTenantId], false, async () => {
+      await recordAudit({
+        tenantId: user.primaryTenantId,
+        actorUserId: user.id,
+        action: "identity.login",
+        objectType: "USER",
+        objectId: user.id,
+        outcome: "DENIED",
+        reason: "Account temporarily locked",
+        ipAddress: ip,
+        userAgent,
+        traceId,
+      });
+    });
     return apiError("ACCOUNT_LOCKED", "This identity is temporarily locked.", 423, traceId);
   }
 
   if (!verifyPassword(body.password, user.passwordHash)) {
-    const attempts = user.failedAttempts + 1;
-    await db
-      .update(users)
-      .set({
-        failedAttempts: attempts,
-        lockedUntil: attempts >= 5 ? new Date(Date.now() + 15 * 60_000) : null,
-      })
-      .where(eq(users.id, user.id));
-    await recordAudit({ actorUserId: user.id, action: "identity.login", objectType: "USER", objectId: user.id, outcome: "DENIED", reason: "Invalid credential", ipAddress: ip, traceId });
+    await withDatabaseRlsContext([user.primaryTenantId], false, async () => {
+      await db.transaction(async (rawTx) => {
+        const tx = rawTx as unknown as typeof db;
+        const [current] = await tx
+          .select({ failedAttempts: users.failedAttempts, lockedUntil: users.lockedUntil })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .for("update")
+          .limit(1);
+        if (!current) return;
+        const attempts = current.failedAttempts + 1;
+        await tx
+          .update(users)
+          .set({
+            failedAttempts: attempts,
+            lockedUntil: attempts >= 5 ? new Date(Date.now() + 15 * 60_000) : null,
+          })
+          .where(eq(users.id, user.id));
+        await recordAuditTx(tx, {
+          tenantId: user.primaryTenantId,
+          actorUserId: user.id,
+          action: "identity.login",
+          objectType: "USER",
+          objectId: user.id,
+          outcome: "DENIED",
+          reason: "Invalid credential",
+          ipAddress: ip,
+          userAgent,
+          traceId,
+        });
+      });
+    });
     return fail();
   }
 
@@ -79,7 +130,8 @@ export async function POST(request: Request): Promise<NextResponse> {
      * sessions. This is deliberately a transaction inside the existing identity
      * path, not a second authentication system.
      */
-    const mfaResult = await db.transaction(async (rawTx) => {
+    const mfaResult = await withDatabaseRlsContext([user.primaryTenantId], false, async () =>
+      db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as typeof db;
       const [current] = await tx
         .select()
@@ -90,6 +142,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       if (!current || (current.mfaLockedUntil && current.mfaLockedUntil > new Date())) {
         await recordAuditTx(tx, {
+          tenantId: user.primaryTenantId,
           actorUserId: user.id,
           action: "identity.mfa.verify",
           objectType: "USER",
@@ -104,6 +157,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
       if (!body.mfaCode || !current.mfaSecretEncrypted) {
         await recordAuditTx(tx, {
+          tenantId: user.primaryTenantId,
           actorUserId: user.id,
           action: "identity.mfa.verify",
           objectType: "USER",
@@ -137,6 +191,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             })
             .where(eq(users.id, user.id));
           await recordAuditTx(tx, {
+            tenantId: user.primaryTenantId,
             actorUserId: user.id,
             action: "identity.mfa.verify",
             objectType: "USER",
@@ -162,7 +217,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         })
         .where(eq(users.id, user.id));
       return { ok: true as const };
-    });
+      }),
+    );
 
     if (!mfaResult.ok) {
       if (mfaResult.code === "MFA_LOCKED") {
@@ -195,7 +251,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     riskScore,
   });
 
-  await db.transaction(async (rawTx) => {
+  await withDatabaseRlsContext([user.primaryTenantId], false, async () =>
+    db.transaction(async (rawTx) => {
     const tx = rawTx as unknown as typeof db;
     await tx.insert(sessions).values(sessionValues);
     await tx.update(users).set({ failedAttempts: 0, lastLoginAt: new Date() }).where(eq(users.id, user.id));
@@ -229,7 +286,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       authorityContext: null,
       policyVersion: null,
     });
-  });
+    }),
+  );
 
   const jar = await cookies();
   jar.set(SESSION_COOKIE, rawToken, {

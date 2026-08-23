@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { documents, knowledgeSources, regulatoryChanges, retentionPolicies } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { classificationRank } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function DocumentsPage() {
   const access = await requireAccess("documents:registry.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="documents:registry.read" />;
+  return withTenantDatabaseContext(access.principal, async () => {
 
   const [docs, knowledge, retention, changes] = await Promise.all([
     db.select().from(documents).where(eq(documents.tenantId, access.principal.tenantId)),
@@ -136,5 +138,5 @@ export default async function DocumentsPage() {
         </div>
       </div>
     </div>
-  );
+  );  });
 }

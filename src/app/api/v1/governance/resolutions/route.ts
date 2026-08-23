@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       action: "governance.resolution.propose",
       rateLimit: { limit: 20, windowMs: 60_000 },
       audit: { objectType: "RESOLUTION" },
+      databaseContext: "handler",
     },
     async (ctx) => {
       // Read the payload once so server-controlled fields can be rejected

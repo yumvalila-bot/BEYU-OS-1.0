@@ -144,6 +144,7 @@ export const auditLog = pgTable(
     traceId: text("trace_id"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     prevHash: text("prev_hash"),
+    hashVersion: text("hash_version"),
     hash: text("hash").notNull(),
   },
   (t) => [
