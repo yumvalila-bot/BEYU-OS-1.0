@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-08-25",
+  "gate": "PRODUCTION_BLOCKED",
+  "matrix": [
+    { "link": "GitHub", "status": "PASS", "evidence": "branch arena/01a035aa-beyu-os-1-0 pushed; tree clean; diff-check clean" },
+    { "link": "Vercel deployment", "status": "BLOCKED", "evidence": "no Vercel token/project access; never deployed from this branch" },
+    { "link": "Application (next build/start)", "status": "PASS", "evidence": "next build clean; production server on :3100 serving HTTP suites" },
+    { "link": "Supabase", "status": "BLOCKED", "evidence": "no production Supabase credentials; local PostgreSQL 18.4 stands in" },
+    { "link": "PostgreSQL", "status": "PASS (local)", "evidence": "migrations 0000–0017 applied; seed idempotent; fingerprints recorded" },
+    { "link": "Authentication", "status": "PASS (local)", "evidence": "login + MFA exercised by HTTP suites and smoke" },
+    { "link": "Authorization", "status": "PASS (local)", "evidence": "403s proven (workflow create CFO, self-authorize, schedule CFO)" },
+    { "link": "Noelia", "status": "PASS (local)", "evidence": "1610/1610 tests; live HTTP smoke 12/12" },
+    { "link": "HIVE", "status": "PASS (local)", "evidence": "deterministic internal analyst; external providers DENY" },
+    { "link": "Audit", "status": "PASS (local)", "evidence": "hash chain v2; atomic decision+audit+event" },
+    { "link": "Events", "status": "PASS (local)", "evidence": "OUTBOX→consumer watermark" },
+    { "link": "Scheduler", "status": "PASS (local)", "evidence": "run-once; dead-letter; replay-safe" },
+    { "link": "Workflow", "status": "PASS (local)", "evidence": "full HTTP loop COMPLETED; quorum/expiry gates tested" },
+    { "link": "Production HTTP", "status": "BLOCKED", "evidence": "production origin unexercised; local prod server only" },
+    { "link": "RLS in production", "status": "BLOCKED", "evidence": "local dev role is superuser (bypasses RLS); enforcement proven via non-superuser probe role; production role must be non-superuser" }
+  ]
+}
