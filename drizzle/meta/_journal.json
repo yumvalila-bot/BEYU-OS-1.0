@@ -120,6 +120,13 @@
       "when": 1787629353892,
       "tag": "0016_noelia_scheduler_offsets",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787631723936,
+      "tag": "0017_approval_quorum_model_metadata",
+      "breakpoints": true
     }
   ]
 }

@@ -516,6 +516,14 @@ export const modelRegistry = pgTable(
     costPerToken: jsonb("cost_per_token").$type<Record<string, unknown>>().notNull().default({}),
     approvedBy: text("approved_by").notNull(),
     approvedAt: timestamp("approved_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Expected invocation latency (ms) — metadata for fallback ordering, never a guarantee. */
+    latencyMs: integer("latency_ms"),
+    /** Fallback model id (model_registry.id) used when this model is unavailable. */
+    fallbackModelId: text("fallback_model_id"),
+    /** Earliest date the model may be used; NULL means no effective-date restriction. */
+    effectiveFrom: date("effective_from"),
+    /** Retirement timestamp; a retired model must not be selected. */
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("model_registry_provider_model_version_uidx").on(t.provider, t.model, t.version)],
 );

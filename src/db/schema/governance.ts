@@ -222,6 +222,21 @@ export const approvals = pgTable(
     requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
+    /**
+     * Decision validity window: once `validUntil` passes, an APPROVED
+     * approval is no longer sufficient authority for execution. NULL means
+     * the decision never expires (conservative default: no invented
+     * policy threshold).
+     */
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    /**
+     * Quorum: how many distinct approvers must APPROVE this object before
+     * it is executable. NULL means a single approval suffices. The value is
+     * request metadata, never a derived authority threshold.
+     */
+    quorum: integer("quorum"),
+    /** Delegation: this approval was cast on behalf of another accountable human. */
+    delegatedFrom: text("delegated_from"),
     comment: text("comment"),
   },
   (t) => [index("approvals_object_idx").on(t.objectType, t.objectId)],
