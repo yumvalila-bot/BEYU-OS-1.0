@@ -1,7 +1,7 @@
 {
   "schema": "beyu.noelia-capability-matrix/v1",
-  "updatedAt": "2026-08-25T14:55:00Z",
-  "iteration": 13,
+  "updatedAt": "2026-08-25T15:00:00Z",
+  "iteration": 14,
   "legend": {
     "GREEN": "implemented and verified by tests",
     "PARTIAL": "implemented but verification or coverage is incomplete",
@@ -108,9 +108,10 @@
         "tests/finance/capital-governance-http.test.ts (14)",
         "tests/noelia/http.test.ts (5), tests/hcm/hcm-http.test.ts (5), tests/api/validation-http.test.ts (2)",
         "scripts/route-inventory.mts (46-check semantics sweep, npm run verify:routes)",
-        "docs/audit/http-completeness.md"
+        "docs/audit/http-completeness.md",
+        "tests/api/contract-integrity.test.ts (91 checks: guarded boundary, catalogue-registered permissions, strict schemas incl. imported contract modules, rateLimit+audit on every POST, withIdempotency on governed writes, no raw Response, tool registration integrity)"
       ],
-      "note": "Iteration 13: live-HTTP verification complete on the production build \u2014 auth boundary, RBAC (role-based, incl. PLATFORM_ADMIN 403s), 404/422/405/429 semantics, idempotency, TOTP replay prevention, no dead routes, no HTML on /api, no silent 200s."
+      "note": "Iterations 13-14: live-HTTP verified on the production build (80/80 suite + 49-check sweep) AND structurally locked: 3 strict-schema hardenings (login/tax/waterfall forged-field 422) regression-locked in the contract-integrity suite."
     },
     {
       "id": "execution.workflow-runtime",

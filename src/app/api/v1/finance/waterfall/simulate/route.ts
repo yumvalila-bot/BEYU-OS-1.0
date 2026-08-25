@@ -9,12 +9,16 @@ import { withAuditTransaction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-const SimulateSchema = z.object({
-  configId: z.string().min(3),
-  grossAmount: z.number().nonnegative().max(1_000_000_000_000),
-  scenario: z.enum(["BASE", "UPSIDE", "DOWNSIDE", "STRESS"]).default("BASE"),
-  overrides: z.record(z.string(), z.number()).optional(),
-});
+// `.strict()`: an unknown field is a contract violation (possible forged or
+// mis-directed input) and must fail loudly with 422, never be silently ignored.
+const SimulateSchema = z
+  .object({
+    configId: z.string().min(3),
+    grossAmount: z.number().nonnegative().max(1_000_000_000_000),
+    scenario: z.enum(["BASE", "UPSIDE", "DOWNSIDE", "STRESS"]).default("BASE"),
+    overrides: z.record(z.string(), z.number()).optional(),
+  })
+  .strict();
 
 /**
  * POST /api/v1/finance/waterfall/simulate

@@ -15,11 +15,15 @@ import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 export const dynamic = "force-dynamic";
 
-const LoginSchema = z.object({
-  email: z.string().email().max(200),
-  password: z.string().min(8).max(200),
-  mfaCode: z.string().min(6).max(16).optional(),
-});
+// `.strict()`: a login carrying unknown fields (e.g. a forged `role`) is a
+// contract violation and must fail loudly with 422, never be silently ignored.
+const LoginSchema = z
+  .object({
+    email: z.string().email().max(200),
+    password: z.string().min(8).max(200),
+    mfaCode: z.string().min(6).max(16).optional(),
+  })
+  .strict();
 
 function productionMode() {
   return process.env.NODE_ENV === "production" || process.env.BEYU_ENV === "production";

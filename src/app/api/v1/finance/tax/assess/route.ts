@@ -10,12 +10,16 @@ import { withAuditTransaction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-const AssessSchema = z.object({
-  strategyId: z.string().min(3),
-  legalEntityId: z.string().min(3),
-  baseAmount: z.number().nonnegative().max(1_000_000_000_000),
-  facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])),
-});
+// `.strict()`: an unknown field is a contract violation (possible forged or
+// mis-directed input) and must fail loudly with 422, never be silently ignored.
+const AssessSchema = z
+  .object({
+    strategyId: z.string().min(3),
+    legalEntityId: z.string().min(3),
+    baseAmount: z.number().nonnegative().max(1_000_000_000_000),
+    facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])),
+  })
+  .strict();
 
 /**
  * POST /api/v1/finance/tax/assess
