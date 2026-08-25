@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify": "node scripts/verify.mjs",
+    "verify:routes": "tsx scripts/route-inventory.mts assert",
     "test:watch": "vitest",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:generate": "drizzle-kit generate",

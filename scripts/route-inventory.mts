@@ -44,6 +44,7 @@ interface Check {
   method: "GET" | "POST";
   as: Principal;
   body?: unknown;
+  query?: string; // appended verbatim, e.g. "?objectType=RESOLUTION&objectId=X"
   expectStatus: number;
   expectCode?: string; // structured error code in body.error.code
   note: string;
@@ -59,7 +60,12 @@ const CHECKS: Check[] = [
 
   // ---- governance read: role-based, platform admin has no grant ----
   { route: "/api/v1/governance/authorization", method: "GET", as: "anon", expectStatus: 401, expectCode: "UNAUTHENTICATED", note: "no session -> 401" },
-  { route: "/api/v1/governance/authorization", method: "GET", as: "governance", expectStatus: 200, note: "CHIEF_GOVERNANCE_OFFICER reads authorization state" },
+  // The authorization query is parameterized: missing params fail validation
+  // BEFORE existence (422), a missing object is 404 within the caller's
+  // authorised scope, and a real object returns the authorization state (200).
+  { route: "/api/v1/governance/authorization", method: "GET", as: "governance", query: "?objectType=RESOLUTION&objectId=RES_DOES_NOT_EXIST", expectStatus: 404, expectCode: "NOT_FOUND", note: "missing object -> 404 within authorised scope" },
+  { route: "/api/v1/governance/authorization", method: "GET", as: "governance", query: "?objectType=NOT_A_TYPE&objectId=RES_DOES_NOT_EXIST", expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "unknown objectType -> structured 422" },
+  { route: "/api/v1/governance/authorization", method: "GET", as: "governance", query: "?objectType=RESOLUTION&objectId=__REAL_RESOLUTION__", expectStatus: 200, note: "real object -> authorization state (200)" },
   { route: "/api/v1/governance/authorization", method: "GET", as: "admin", expectStatus: 403, expectCode: "FORBIDDEN", note: "PLATFORM_ADMIN lacks governance:resolution.read (role-based RBAC)" },
 
   // ---- hcm read: role-based + object-level 404 ----
@@ -88,11 +94,16 @@ const CHECKS: Check[] = [
   { route: "/api/v1/governance/resolutions", method: "POST", as: "anon", expectStatus: 401, expectCode: "UNAUTHENTICATED", note: "no session -> 401" },
   { route: "/api/v1/governance/resolutions", method: "POST", as: "governance", body: {}, expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "empty proposal -> structured 422 (nothing is created)" },
   { route: "/api/v1/governance/resolutions/RES_DOES_NOT_EXIST/table", method: "POST", as: "governance", body: {}, expectStatus: 404, note: "missing resolution -> 404" },
-  { route: "/api/v1/governance/resolutions/RES_DOES_NOT_EXIST/votes", method: "POST", as: "governance", body: {}, expectStatus: 404, note: "missing resolution -> 404" },
+  { route: "/api/v1/governance/resolutions/RES_DOES_NOT_EXIST/votes", method: "POST", as: "governance", body: { vote: "FOR" }, expectStatus: 404, note: "missing resolution -> 404 (valid vote payload passes schema first)" },
   { route: "/api/v1/governance/resolutions/RES_DOES_NOT_EXIST/decision", method: "POST", as: "governance", body: {}, expectStatus: 404, note: "missing resolution -> 404" },
 
   // ---- auth endpoints ----
   { route: "/api/v1/auth/login", method: "POST", as: "anon", body: {}, expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "empty login -> structured 422" },
+  // forged-field hardening (Iteration 14): unknown fields on a strict schema
+  // must fail loudly with 422, never be silently dropped
+  { route: "/api/v1/auth/login", method: "POST", as: "anon", body: { email: "x@y.z", password: "wrong-password-1", role: "GROUP_CEO" }, expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "forged field on login -> 422 (strict schema), not a silent drop" },
+  { route: "/api/v1/finance/tax/assess", method: "POST", as: "cfo", body: { strategyId: "TAX_TZ_CAP_ALLOW_01", legalEntityId: "LEN_BEYU_TZ_HOLDING", baseAmount: 1, facts: {}, jurisdiction: "US" }, expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "forged field on tax/assess -> 422 (strict schema)" },
+  { route: "/api/v1/finance/waterfall/simulate", method: "POST", as: "cfo", body: { configId: "WFC_WF_GROUP_V21", grossAmount: 1, distributeCash: true }, expectStatus: 422, expectCode: "VALIDATION_FAILED", note: "forged field on waterfall/simulate -> 422 (strict schema)" },
   // logout LAST — it invalidates the caller's session
   { route: "/api/v1/auth/logout", method: "POST", as: "admin", expectStatus: 200, note: "logout -> 200 + authenticated:false" },
 ];
@@ -126,7 +137,9 @@ async function login(email: string): Promise<string> {
   const mfaCode = user.mfaSecretEncrypted ? generateTotpCode(decryptSecret(user.mfaSecretEncrypted), Date.now()) : undefined;
 
   // TOTP replay prevention: a consumed step is rejected. Wait for a fresh 30s step on 401.
-  for (let attempt = 0; attempt < 4; attempt++) {
+  // The login endpoint is also rate-limited; on 429 the caller waits out the
+  // window (60s limiter; 65s clears it with margin). We NEVER weaken the limiter.
+  for (let attempt = 0; attempt < 6; attempt++) {
     const fresh = user.mfaSecretEncrypted ? generateTotpCode(decryptSecret(user.mfaSecretEncrypted), Date.now()) : undefined;
     const res = await fetch(`${BASE}/api/v1/auth/login`, {
       method: "POST",
@@ -141,9 +154,13 @@ async function login(email: string): Promise<string> {
       await new Promise((r) => setTimeout(r, 31_000)); // next TOTP window
       continue;
     }
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 65_000)); // rate-limit window cooldown
+      continue;
+    }
     throw new Error(`login failed for ${email}: ${res.status} ${body.slice(0, 200)}`);
   }
-  throw new Error(`login failed for ${email} after TOTP retries`);
+  throw new Error(`login failed for ${email} after TOTP/rate-limit retries`);
 }
 
 async function sessionFor(p: Principal): Promise<string | null> {
@@ -187,7 +204,7 @@ async function hit(path: string, method: string, cookie: string | null, body: un
 
 async function runCheck(c: Check): Promise<{ ok: boolean; observed: Observed }> {
   const cookie = await sessionFor(c.as);
-  const observed = await hit(c.route, c.method, cookie, c.body);
+  const observed = await hit(`${c.route}${c.query ?? ""}`, c.method, cookie, c.body);
   const ok =
     observed.status === c.expectStatus &&
     (c.expectCode ? observed.code === c.expectCode : observed.kind === "json" || c.expectStatus === 405) &&
@@ -214,7 +231,23 @@ async function main() {
 
   if (mode !== "assert") throw new Error(`unknown mode ${mode} (use probe|assert)`);
 
-  for (const c of CHECKS) {
+  // Resolve __REAL_RESOLUTION__ to a seeded resolution so the happy path is
+  // exercised against real server state (never a fabricated object).
+  const governanceSchema = await import("../src/db/schema/governance");
+  const [realResolution] = await db
+    .select({ id: governanceSchema.resolutions.id })
+    .from(governanceSchema.resolutions)
+    .limit(1);
+  const realResolutionId = realResolution?.id;
+  if (!realResolutionId) throw new Error("no seeded resolution found — run npm run seed");
+
+  const activeChecks = CHECKS.map((c) =>
+    c.query?.includes("__REAL_RESOLUTION__")
+      ? { ...c, query: c.query.replace("__REAL_RESOLUTION__", encodeURIComponent(realResolutionId)) }
+      : c,
+  );
+
+  for (const c of activeChecks) {
     const { ok, observed } = await runCheck(c);
     const expected = `${c.expectStatus}${c.expectCode ? ` (${c.expectCode})` : ""}`;
     const observedStr = `${observed.status} ${observed.kind}${observed.code ? ` (${observed.code})` : ""} — ${observed.preview.slice(0, 80)}`;

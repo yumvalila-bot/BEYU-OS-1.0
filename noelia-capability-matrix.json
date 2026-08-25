@@ -1,7 +1,7 @@
 {
   "schema": "beyu.noelia-capability-matrix/v1",
-  "updatedAt": "2026-08-25",
-  "iteration": 12,
+  "updatedAt": "2026-08-25T14:55:00Z",
+  "iteration": 13,
   "legend": {
     "GREEN": "implemented and verified by tests",
     "PARTIAL": "implemented but verification or coverage is incomplete",
@@ -102,12 +102,15 @@
     {
       "id": "noelia.api",
       "name": "Noelia API route (/api/v1/ai/noelia) semantics",
-      "status": "PARTIAL",
+      "status": "GREEN",
       "evidence": [
-        "tests/noelia/http.test.ts (server-gated)",
-        "src/app/api/v1/ai/noelia/route.ts"
+        "tests/governance/{decision,vote,resolution,authorization}-http.test.ts (54 live tests, 80/80 suite run on production build)",
+        "tests/finance/capital-governance-http.test.ts (14)",
+        "tests/noelia/http.test.ts (5), tests/hcm/hcm-http.test.ts (5), tests/api/validation-http.test.ts (2)",
+        "scripts/route-inventory.mts (46-check semantics sweep, npm run verify:routes)",
+        "docs/audit/http-completeness.md"
       ],
-      "note": "Live-HTTP verification is due in Iteration 13."
+      "note": "Iteration 13: live-HTTP verification complete on the production build \u2014 auth boundary, RBAC (role-based, incl. PLATFORM_ADMIN 403s), 404/422/405/429 semantics, idempotency, TOTP replay prevention, no dead routes, no HTML on /api, no silent 200s."
     },
     {
       "id": "execution.workflow-runtime",
