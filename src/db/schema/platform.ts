@@ -3,6 +3,7 @@
  * AI governance, knowledge, notifications, integrations, configuration.
  */
 import {
+  bigint,
   bigserial,
   boolean,
   date,
@@ -262,6 +263,8 @@ export const knowledgeSources = pgTable(
     effectiveFrom: date("effective_from").notNull(),
     reviewDate: date("review_date").notNull(),
     expiresAt: date("expires_at"),
+    /** Supersession: when a newer authoritative source replaces this one. */
+    supersedesCode: text("supersedes_code"),
     content: text("content").notNull(),
     keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
   },
@@ -443,3 +446,235 @@ export const regulatoryChanges = pgTable("regulatory_changes", {
   adoptionResolutionId: text("adoption_resolution_id"),
   ownerRole: text("owner_role").notNull(),
 });
+
+/**
+ * Noelia — governed long-term enterprise memory (section 14).
+ *
+ * Memory is NOT authority. Current authoritative data always supersedes stale
+ * memory; memory cannot override current policy. Every persistent memory
+ * object carries owner, tenant, entity, country, classification, provenance,
+ * confidence, retention, expiry, supersession, deletion policy, legal hold,
+ * access control and auditability.
+ */
+export const enterpriseMemory = pgTable(
+  "enterprise_memory",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    ownerUserId: text("owner_user_id").references(() => users.id),
+    memoryClass: text("memory_class").notNull(),
+    content: text("content").notNull(),
+    classification: classificationEnum("classification").notNull().default("INTERNAL"),
+    scopeType: text("scope_type").notNull().default("TENANT"), // GLOBAL | ENTERPRISE | TENANT | ENTITY | COUNTRY
+    legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    countryCode: text("country_code").references(() => countries.code),
+    provenance: text("provenance").notNull(),
+    confidence: numeric("confidence", { precision: 5, scale: 4 }),
+    retentionCode: text("retention_code").notNull().default("STANDARD"),
+    legalHold: boolean("legal_hold").notNull().default(false),
+    effectiveFrom: date("effective_from").notNull(),
+    expiresAt: date("expires_at"),
+    supersedesId: text("supersedes_id"),
+    status: text("status").notNull().default("ACTIVE"), // ACTIVE | SUPERSEDED | EXPIRED | DELETED
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("enterprise_memory_tenant_idx").on(t.tenantId),
+    index("enterprise_memory_class_idx").on(t.memoryClass),
+    index("enterprise_memory_scope_idx").on(t.scopeType, t.tenantId),
+  ],
+);
+
+/**
+ * Governed Model Gateway registry (section 19).
+ *
+ * No external model provider may be invoked unless it is registered here,
+ * approved by an accountable human, within its data-classification limits and
+ * jurisdiction restrictions. Until such a provider is registered and
+ * activated, execution remains deterministic/internal (the HIVE analyst).
+ */
+export const modelRegistry = pgTable(
+  "model_registry",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    version: text("version").notNull(),
+    status: text("status").notNull().default("ACTIVE"), // ACTIVE | SUSPENDED | RETIRED
+    capabilityMetadata: jsonb("capability_metadata").$type<Record<string, unknown>>().notNull().default({}),
+    maxClassification: classificationEnum("max_classification").notNull().default("INTERNAL"),
+    jurisdictionRestrictions: jsonb("jurisdiction_restrictions").$type<string[]>().notNull().default([]),
+    timeoutMs: integer("timeout_ms").notNull().default(30000),
+    retryPolicy: jsonb("retry_policy").$type<Record<string, unknown> | null>(),
+    circuitBreaker: jsonb("circuit_breaker").$type<Record<string, unknown> | null>(),
+    costPerToken: jsonb("cost_per_token").$type<Record<string, unknown>>().notNull().default({}),
+    approvedBy: text("approved_by").notNull(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("model_registry_provider_model_version_uidx").on(t.provider, t.model, t.version)],
+);
+
+/**
+ * Noelia governed schedule registry (section 23).
+ *
+ * Scheduled executive intelligence runs under a SERVICE identity with its own
+ * authority, tenant scope, policy evaluation, idempotency, audit, events,
+ * retry and failure handling. Schedules are never executed by unsafe
+ * in-process timers or cron endpoints: a governed worker claims due runs.
+ */
+export const noeliaSchedules = pgTable(
+  "noelia_schedules",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull(),
+    cadence: text("cadence").notNull(), // DAILY | WEEKLY | MONTHLY | QUARTERLY | ANNUAL | HORIZON
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    countryCode: text("country_code").references(() => countries.code),
+    horizon: text("horizon").notNull().default("HORIZON_2_NEAR_TERM"),
+    briefingFocus: text("briefing_focus").notNull().default("STANDARD"),
+    classification: classificationEnum("classification").notNull().default("RESTRICTED"),
+    enabled: boolean("enabled").notNull().default(true),
+    ownerRole: text("owner_role").notNull(),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    runCount: integer("run_count").notNull().default(0),
+    failureCount: integer("failure_count").notNull().default(0),
+    status: text("status").notNull().default("ACTIVE"), // ACTIVE | SUSPENDED | CANCELLED
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("noelia_schedules_code_uidx").on(t.code),
+    index("noelia_schedules_next_run_idx").on(t.nextRunAt),
+  ],
+);
+
+/**
+ * Governed consumer watermark for the enterprise-event OUTBOX (section 17/12).
+ *
+ * The canonical event store is append-only and never replayed from zero: each
+ * governed consumer records its own last-consumed sequence here, so old
+ * events cannot crowd out new ones and reprocessing is bounded. Offsets are
+ * tenant-scoped and RLS-protected like every other tenant row.
+ */
+export const noeliaSchedulerOffsets = pgTable(
+  "noelia_scheduler_offsets",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    consumer: text("consumer").notNull(), // e.g. "noelia-schedule-runner"
+    lastSequence: bigint("last_sequence", { mode: "number" }).notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("noelia_scheduler_offsets_consumer_uidx").on(t.tenantId, t.consumer),
+  ],
+);
+
+/** One governed schedule run: service identity, idempotency, audit, retry. */
+export const noeliaScheduleRuns = pgTable(
+  "noelia_schedule_runs",
+  {
+    id: text("id").primaryKey(),
+    scheduleId: text("schedule_id")
+      .notNull()
+      .references(() => noeliaSchedules.id),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    status: text("status").notNull(), // SUCCESS | FAILED | SKIPPED | CANCELLED
+    decisionId: text("decision_id"),
+    errorCode: text("error_code"),
+    errorDetail: text("error_detail"),
+    traceId: text("trace_id").notNull(),
+    executedBy: text("executed_by").notNull().default("NOELIA_SCHEDULER"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("noelia_schedule_runs_once_uidx").on(t.scheduleId, t.scheduledFor),
+    index("noelia_schedule_runs_status_idx").on(t.status),
+  ],
+);
+
+/**
+ * Noelia agentic workflow (section 15).
+ *
+ * PLAN → VALIDATE → AUTHORIZE → EXECUTE TOOL → OBSERVE RESULT → REASSESS →
+ * CONTINUE/ESCALATE/STOP → AUDIT. Every step carries trace/correlation/
+ * causation ids, actor, capability, policy decision, scope, classifications
+ * and audit evidence. Loops are bounded by maxSteps, timeout and budget;
+ * unknown tools/capabilities and unauthorized transitions DENY.
+ */
+export const noeliaWorkflows = pgTable(
+  "noelia_workflows",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    goal: text("goal").notNull(),
+    status: text("status").notNull(), // PLANNED | VALIDATED | AUTHORIZED | RUNNING | COMPLETED | ESCALATED | STOPPED | FAILED | CANCELLED | TIMED_OUT
+    plan: jsonb("plan").$type<Array<{ step: number; toolName: string; input: Record<string, unknown> }>>().notNull().default([]),
+    maxSteps: integer("max_steps").notNull().default(8),
+    currentStep: integer("current_step").notNull().default(0),
+    timeoutMs: integer("timeout_ms").notNull().default(60000),
+    budget: jsonb("budget").$type<Record<string, unknown> | null>(),
+    retryPolicy: jsonb("retry_policy").$type<Record<string, unknown> | null>(),
+    failureState: jsonb("failure_state").$type<Record<string, unknown> | null>(),
+    cancellationRequested: boolean("cancellation_requested").notNull().default(false),
+    requestedBy: text("requested_by").notNull(),
+    executingAi: text("executing_ai").notNull().default("NOELIA"),
+    approvingHumanId: text("approving_human_id").references(() => users.id),
+    approvalId: text("approval_id").references(() => approvals.id),
+    traceId: text("trace_id").notNull(),
+    correlationId: text("correlation_id"),
+    causationId: text("causation_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("noelia_workflows_tenant_idx").on(t.tenantId),
+    index("noelia_workflows_status_idx").on(t.status),
+  ],
+);
+
+/** One governed workflow step with full audit evidence. */
+export const noeliaWorkflowSteps = pgTable(
+  "noelia_workflow_steps",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => noeliaWorkflows.id),
+    stepIndex: integer("step_index").notNull(),
+    toolName: text("tool_name").notNull(),
+    capability: text("capability").notNull(),
+    policyDecision: text("policy_decision").notNull(),
+    scope: jsonb("scope").$type<Record<string, unknown>>().notNull().default({}),
+    inputClassification: classificationEnum("input_classification").notNull().default("INTERNAL"),
+    outputClassification: classificationEnum("output_classification").notNull().default("INTERNAL"),
+    status: text("status").notNull(), // PENDING | ALLOWED | DENIED | COMPLETED | FAILED | SKIPPED
+    denialCode: text("denial_code"),
+    output: jsonb("output").$type<Record<string, unknown> | null>(),
+    observations: jsonb("observations").$type<Record<string, unknown> | null>(),
+    traceId: text("trace_id").notNull(),
+    auditRef: text("audit_ref"),
+    durationMs: integer("duration_ms"),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("noelia_workflow_steps_workflow_idx").on(t.workflowId),
+    uniqueIndex("noelia_workflow_steps_index_uidx").on(t.workflowId, t.stepIndex),
+  ],
+);
