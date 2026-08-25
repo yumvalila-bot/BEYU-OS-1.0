@@ -37,7 +37,7 @@ UNAVAILABLE**, **BLOCKED** by missing infrastructure/credentials, or
 | Data Governance (§XIX) | ✅ IMPLEMENTED — every source carries source-of-truth/owner/classification/scope/tenant/entity/country/effective period/freshness/quality/provenance/authority/version; unknown metadata DENY | `NOELIA_DATA_GOVERNANCE.md` |
 | API (§XX) | ✅ IMPLEMENTED — 11 governed routes; authn/authz/strict validation/server-derived identity+tenant/scope/classification/policy/rate limit/sanitized errors/audit/events/idempotency | live HTTP suites + smoke |
 | Database (§XXI) | ✅ IMPLEMENTED — Drizzle only; 0000–0017; additive; RLS-aware; checksum-controlled; snapshot-committed; fresh-install tested | `scripts/migrate.ts` |
-| Tests (§XXII) | ✅ IMPLEMENTED — 1612 tests, categories per mandate | `noelia-test-matrix.json` |
+| Tests (§XXII) | ✅ IMPLEMENTED — 1617 tests, categories per mandate | `noelia-test-matrix.json` |
 | Production readiness (§XXIII) | ⚪ BLOCKED — Vercel/Supabase credentials unavailable; local chain verified only | `NOELIA_PRODUCTION_READINESS.md` |
 
 ## 3. Open items (explicit classifications)
@@ -71,5 +71,5 @@ were made behind the boundary.
 
 ## 6. Regression
 
-1612/1612 PASS (1600 prior + 12 new), tsc clean, eslint clean, next build
+1617/1617 PASS (1600 prior + 17 new), tsc clean, eslint clean, next build
 clean, live HTTP suites + smoke PASS.

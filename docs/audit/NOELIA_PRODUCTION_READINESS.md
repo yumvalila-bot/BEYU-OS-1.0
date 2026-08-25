@@ -11,7 +11,7 @@
 | PostgreSQL (local 18.4) | ✅ PASS | migrations 0000–0017 applied, seed complete |
 | Authentication | ✅ PASS | login + MFA flow exercised by HTTP suites |
 | Authorization (RBAC/ABAC) | ✅ PASS | 403s proven (CFO workflow, self-approve) |
-| Noelia | ✅ PASS | 1612/1612 tests, live HTTP smoke 12/12 |
+| Noelia | ✅ PASS | 1617/1617 tests, live HTTP smoke 12/12 |
 | HIVE | ✅ PASS | deterministic internal analyst; external providers DENY |
 | Audit | ✅ PASS | hash chain v2; atomic decision+audit+event |
 | Events | ✅ PASS | OUTBOX→consumer with watermark |

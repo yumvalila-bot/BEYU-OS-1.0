@@ -1,8 +1,8 @@
 {
   "generatedAt": "2026-08-25",
   "regression": {
-    "total": 1612,
-    "passed": 1612,
+    "total": 1617,
+    "passed": 1617,
     "skipped": 0,
     "failed": 0,
     "command": "npx vitest run (live HTTP server on :3100)"
@@ -111,6 +111,26 @@
     {
       "area": "Engine tool registration (no dead-end dispatchers)",
       "suite": "completeness-expansion registry test",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 2: STRATEGIC_VARIANCE (DERIVED 71.4%; out-of-scope UNAVAILABLE)",
+      "suite": "completeness-expansion",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 2: OPPORTUNITY_DETECTION (candidates only, honest NONE_OBSERVED)",
+      "suite": "completeness-expansion",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 2: EARLY_WARNING (observed deterioration + human review)",
+      "suite": "completeness-expansion",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 2: governance.strategic.objectives tool + brief evidence",
+      "suite": "completeness-expansion + HTTP smoke v2 (12 checks)",
       "result": "PASS"
     }
   ]

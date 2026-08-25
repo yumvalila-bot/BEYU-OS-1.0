@@ -26,10 +26,10 @@
 
 ## 2. Enterprise Analytics (§IV)
 
-17 governed types — KPI, TREND, VARIANCE, ANOMALY, FORECAST, SENSITIVITY,
+20 governed types — KPI, TREND, VARIANCE, ANOMALY, FORECAST, SENSITIVITY,
 SCENARIO_COMPARISON, STRESS_TEST, CONCENTRATION, LIQUIDITY, PERFORMANCE,
 WORKFORCE, COMPLIANCE, RISK, CAPITAL, **GOVERNANCE** (new), and
-CROSS_DOMAIN_CORRELATION. All numeric measures come from the canonical
+CROSS_DOMAIN_CORRELATION, STRATEGIC_VARIANCE, OPPORTUNITY_DETECTION, EARLY_WARNING. All numeric measures come from the canonical
 specialist engines (treasury/risk/FP&A/forecast) with tenant/entity/country/
 classification pushdown; no engine is duplicated.
 

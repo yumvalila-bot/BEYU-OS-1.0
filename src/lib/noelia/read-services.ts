@@ -1,10 +1,11 @@
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import {
   capitalRequests,
   complianceAssessments,
   complianceObligations,
   resolutions,
+  strategicObjectives,
   risks,
   taxStrategies,
   treasuryPositions,
@@ -235,6 +236,50 @@ export class BeyuNoeliaReadService {
       sources: rows.map((row) => ({ kind: "RESOLUTION", ref: row.reference, label: row.title, authority: "GOVERNANCE_ENGINE" })),
       narrative: "Noelia may summarize governance evidence but cannot vote, approve, table or decide a resolution.",
       confidence: 0.94,
+    };
+  }
+
+  /** Strategic objectives — governance evidence; progress is DERIVED from current vs target, never invented. */
+  async strategicObjectives(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const rows = await db
+      .select({
+        code: strategicObjectives.code,
+        title: strategicObjectives.title,
+        horizon: strategicObjectives.horizon,
+        status: strategicObjectives.status,
+        targetValue: strategicObjectives.targetValue,
+        currentValue: strategicObjectives.currentValue,
+        unit: strategicObjectives.unit,
+      })
+      .from(strategicObjectives)
+      .where(inArray(strategicObjectives.tenantId, context.scope.tenantIds))
+      .orderBy(asc(strategicObjectives.code))
+      .limit(20);
+    if (rows.length === 0) {
+      return {
+        headline: "Strategic objectives: UNAVAILABLE — no objectives in scope.",
+        findings: [{ label: "Strategic objectives", value: "DATA_NOT_AVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
+        confidence: 0.3,
+      };
+    }
+    return {
+      headline: `${rows.length} strategic objective(s) in scope.`,
+      findings: rows.map((row) => {
+        const target = row.targetValue === null ? null : Number(row.targetValue);
+        const current = row.currentValue === null ? null : Number(row.currentValue);
+        const progress = target !== null && target > 0 && current !== null ? (current / target) * 100 : null;
+        return {
+          label: `${row.code} · ${row.title}`,
+          value: `${row.status} · ${row.horizon} · progress ${progress === null ? "not quantifiable" : `${progress.toFixed(1)}%`}`,
+          kind: "FACT",
+          status: current !== null ? "OBSERVED" : "UNVERIFIED",
+          provenance: `STRATEGIC_OBJECTIVE:${row.code}`,
+        };
+      }),
+      sources: rows.map((row) => ({ kind: "STRATEGIC_OBJECTIVE", ref: row.code, label: row.title, authority: "GOVERNANCE_ENGINE" })),
+      narrative: "Strategic objectives are governance evidence; progress is derived from current vs target values and creates no authority.",
+      confidence: 0.9,
     };
   }
 

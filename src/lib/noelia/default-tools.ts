@@ -385,6 +385,28 @@ export function createDefaultNoeliaToolRegistry(
     execute: (context) => services.governance(context),
   });
 
+  registry.register({
+    name: "governance.strategic.objectives",
+    permission: "governance:resolution.read",
+    risk: "LOW",
+    description: "Read strategic objectives with DERIVED progress (current vs governed target); evidence, never authority.",
+    metadata: {
+      stableId: "cap-governance-strategic-objectives",
+      version: "1.0.0",
+      ownerRole: "GROUP_CEO",
+      domain: "GOVERNANCE",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+    },
+    execute: (context) => services.strategicObjectives(context),
+  });
+
   /* ---------------- Tax / legal intelligence ---------------- */
 
   registry.register({

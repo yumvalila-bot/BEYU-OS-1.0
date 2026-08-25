@@ -39,6 +39,7 @@ export const ENGINE_TOOLS: Record<NoeliaEngine, readonly string[]> = {
     "risk.register.query",
     "compliance.obligation.query",
     "governance.resolution.query",
+    "governance.strategic.objectives",
     "hcm.workforce.observe",
     "health.runtime.status",
     "knowledge.rag.search",

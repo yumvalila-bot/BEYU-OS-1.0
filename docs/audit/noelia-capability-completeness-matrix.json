@@ -2,7 +2,7 @@
   "generatedAt": "2026-08-25",
   "gate": "GREEN_LOCAL_IMPLEMENTATION / BLOCKED_PRODUCTION_DEPLOYMENT",
   "regression": {
-    "passed": 1612,
+    "passed": 1617,
     "skipped": 0,
     "failed": 0
   },
@@ -302,6 +302,38 @@
       "permission": "ai:executive.read",
       "api": "/brief",
       "evidence": "completeness-expansion comparison test"
+    },
+    {
+      "id": "STRATEGIC_VARIANCE",
+      "capability": "Strategic variance analysis (objective progress vs governed target)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (STRATEGIC_VARIANCE)",
+      "evidence": "SO-1 71.4% DERIVED; out-of-scope UNAVAILABLE; HTTP 200"
+    },
+    {
+      "id": "OPPORTUNITY_DETECTION",
+      "capability": "Opportunity detection (observed positive signals only)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (OPPORTUNITY_DETECTION)",
+      "evidence": "candidate-labeled findings; NONE_OBSERVED honest path"
+    },
+    {
+      "id": "EARLY_WARNING",
+      "capability": "Early warning (observed deterioration signals)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (EARLY_WARNING)",
+      "evidence": "appetite breaches/overdue obligations; humanReviewRequired"
+    },
+    {
+      "id": "STRATEGIC_OBJECTIVES_BRIEF",
+      "capability": "Strategic objectives in executive brief",
+      "status": "IMPLEMENTED",
+      "permission": "governance:resolution.read",
+      "api": "/brief + governance.strategic.objectives tool",
+      "evidence": "brief toolsUsed + STRATEGIC_OBJECTIVE provenance (HTTP)"
     }
   ]
 }

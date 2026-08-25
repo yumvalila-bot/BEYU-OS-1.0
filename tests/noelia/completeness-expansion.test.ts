@@ -88,6 +88,81 @@ describe("Noelia completeness expansion", () => {
     expect(out.output.findings?.length ?? 0).toBeGreaterThan(0);
   });
 
+  it("STRATEGIC_VARIANCE derives objective progress from governed targets (DERIVED, never invented)", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const analytics = new BeyuNoeliaAnalyticsService();
+    const out = await withTenantDatabaseContext(cfo, async () => {
+      const context = await tenantContext(cfo);
+      return analytics.analyze("STRATEGIC_VARIANCE", context);
+    });
+    expect(out.findings?.length ?? 0).toBeGreaterThan(0);
+    const so1 = (out.findings ?? []).find((f) => f.label.includes("SO-1"));
+    expect(so1).toBeDefined();
+    expect(so1?.status).toBe("DERIVED");
+    // Seeded SO-1: 28,560,000 / 40,000,000 = 71.4%
+    expect(so1?.value).toContain("71.4%");
+  });
+
+  it("STRATEGIC_VARIANCE is UNAVAILABLE outside the resolved scope (no cross-tenant inference)", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const analytics = new BeyuNoeliaAnalyticsService();
+    const out = await withTenantDatabaseContext(cfo, async () => {
+      const context = await tenantContext(cfo);
+      context.scope = { ...context.scope, tenantIds: ["TEN_DOES_NOT_EXIST"], entities: [] };
+      return analytics.analyze("STRATEGIC_VARIANCE", context);
+    });
+    expect(out.findings?.[0]?.status).toBe("UNAVAILABLE");
+    expect(out.findings?.[0]?.value).toBe("DATA_NOT_AVAILABLE");
+  });
+
+  it("OPPORTUNITY_DETECTION emits only observed positive signals, labeled as candidates", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const analytics = new BeyuNoeliaAnalyticsService();
+    const out = await withTenantDatabaseContext(cfo, async () => {
+      const context = await tenantContext(cfo);
+      return analytics.analyze("OPPORTUNITY_DETECTION", context);
+    });
+    const findings = out.findings ?? [];
+    if (findings.length === 0 || findings[0]?.status === "UNAVAILABLE") {
+      // Honest NONE_OBSERVED path — acceptable, but it must not fabricate.
+      expect((out.headline ?? "").toLowerCase()).toContain("unavailable");
+    } else {
+      expect((out.headline ?? "").toLowerCase()).toContain("candidate");
+      for (const f of findings) {
+        expect(["OBSERVED", "DERIVED"].includes(f.status ?? "")).toBe(true);
+      }
+    }
+  });
+
+  it("EARLY_WARNING reports only observed deterioration signals and flags human review", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const analytics = new BeyuNoeliaAnalyticsService();
+    const out = await withTenantDatabaseContext(cfo, async () => {
+      const context = await tenantContext(cfo);
+      return analytics.analyze("EARLY_WARNING", context);
+    });
+    const findings = out.findings ?? [];
+    if (findings.some((f) => f.status === "OBSERVED" && f.label !== "Early-warning signals")) {
+      expect(out.humanReviewRequired).toBe(true);
+    }
+    for (const f of findings) {
+      expect(["FACT", "INFERENCE", "RECOMMENDATION"].includes(f.kind)).toBe(true);
+      expect(["OBSERVED", "DERIVED", "UNAVAILABLE"].includes(f.status ?? "")).toBe(true);
+    }
+  });
+
+  it("governance.strategic.objectives tool is registered and returns scoped objectives", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const registry = createDefaultNoeliaToolRegistry();
+    const out = await withTenantDatabaseContext(cfo, async () => {
+      const context = await tenantContext(cfo);
+      return registry.invoke("governance.strategic.objectives", context, {});
+    });
+    expect(out.allowed).toBe(true);
+    if (!out.allowed) throw new Error("strategic objectives tool must be allowed");
+    expect(out.output.findings?.some((f) => f.label.includes("SO-1"))).toBe(true);
+  });
+
   it("GOVERNANCE_ANALYSIS reports scoped control-plane posture (OBSERVED/UNAVAILABLE, never fabricated)", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
     const analytics = new BeyuNoeliaAnalyticsService();

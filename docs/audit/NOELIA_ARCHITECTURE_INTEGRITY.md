@@ -53,7 +53,7 @@ duplicated or replaced.
 
 - `git diff --check` clean; no secrets; migrations + snapshots tracked.
 - Fresh-install path verified (0000→0017 on a clean database).
-- Full regression 1612/1612; tsc/eslint/build clean; live HTTP verified.
+- Full regression 1617/1617; tsc/eslint/build clean; live HTTP verified.
 - Noelia's authority surface measured: reads from registered adapters only;
   writes only to its own evidence/memory/schedule/workflow tables through the
   governed services; audit+event writes atomic with decisions.

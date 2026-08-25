@@ -33,6 +33,7 @@ import {
 } from "@/lib/specialist/treasury/engines";
 import type { TreasuryPositionView } from "@/lib/specialist/treasury/model";
 import { classifyTrend, canonicalStatus, detectAnomalies, metric } from "./epistemics";
+import { parseHorizon } from "./executive";
 import type { NoeliaAnalysisType, NoeliaFinding, NoeliaToolOutput, ToolInvocationContext } from "./types";
 
 /**
@@ -217,6 +218,9 @@ export class BeyuNoeliaAnalyticsService {
       case "RISK_ANALYSIS": return this.riskAnalysis(context);
       case "CAPITAL_ANALYSIS": return this.capitalAnalysis(context);
       case "GOVERNANCE_ANALYSIS": return this.governanceAnalysis(context);
+      case "STRATEGIC_VARIANCE": return this.strategicVariance(context);
+      case "OPPORTUNITY_DETECTION": return this.opportunityDetection(context);
+      case "EARLY_WARNING": return this.earlyWarning(context);
       case "CROSS_DOMAIN_CORRELATION": return this.crossDomainCorrelation(context);
       default: {
         const exhaustive: never = analysisType;
@@ -979,6 +983,179 @@ export class BeyuNoeliaAnalyticsService {
       narrative: "Governance analysis reports observed control-plane state; it never creates or modifies governance authority.",
       confidence: 0.85,
       humanReviewRequired: overdueObligations.length > 0 || openResolutions.length > 0,
+    };
+  }
+
+  /**
+   * STRATEGIC_VARIANCE — progress of strategic objectives against their
+   * governed targets (current vs target, DERIVED). Objectives are governance
+   * evidence; progress creates no authority and never fabricates a target.
+   */
+  async strategicVariance(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    const objectives = await db
+      .select({
+        code: strategicObjectives.code,
+        title: strategicObjectives.title,
+        horizon: strategicObjectives.horizon,
+        status: strategicObjectives.status,
+        targetValue: strategicObjectives.targetValue,
+        currentValue: strategicObjectives.currentValue,
+        unit: strategicObjectives.unit,
+      })
+      .from(strategicObjectives)
+      .where(inArray(strategicObjectives.tenantId, context.scope.tenantIds));
+    if (objectives.length === 0) {
+      return {
+        headline: "Strategic variance is UNAVAILABLE: no objectives in scope.",
+        findings: [{ label: "Strategic objectives", value: "DATA_NOT_AVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
+        confidence: 0.3,
+      };
+    }
+    const findings: NoeliaFinding[] = objectives.map((o) => {
+      const target = o.targetValue === null ? null : Number(o.targetValue);
+      const current = o.currentValue === null ? null : Number(o.currentValue);
+      const progress = target !== null && target > 0 && current !== null
+        ? (current / target) * 100
+        : null;
+      const variance = current !== null && target !== null ? current - target : null;
+      return {
+        label: `${o.code} · ${o.title}`,
+        value: progress !== null
+          ? `${progress.toFixed(1)}% of target (${variance! >= 0 ? "ahead" : "behind"} by ${Math.abs(variance!).toFixed(0)} ${o.unit ?? ""}) · ${o.status}`
+          : `target not quantified · ${o.status}`,
+        kind: "FACT",
+        status: progress !== null ? "DERIVED" : "UNVERIFIED",
+        provenance: `STRATEGIC_OBJECTIVE:${o.code}`,
+        horizon: parseHorizon(o.horizon),
+      };
+    });
+    const offTrack = objectives.filter((o) => o.status !== "ON_TRACK");
+    return {
+      headline: `Strategic variance: ${objectives.length} objective(s), ${offTrack.length} not on track.`,
+      findings,
+      narrative: "Strategic variance is derived from governed objective targets; it is evidence for decision-making, never an authority to change the objective.",
+      confidence: 0.86,
+      humanReviewRequired: offTrack.length > 0,
+    };
+  }
+
+  /**
+   * OPPORTUNITY_DETECTION — candidate opportunities assembled ONLY from
+   * observed positive signals (improving metrics, on-track objectives,
+   * approved capital). Candidates are signals, not determinations; no
+   * opportunity is invented.
+   */
+  async opportunityDetection(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    const objectives = await db
+      .select({ code: strategicObjectives.code, title: strategicObjectives.title, status: strategicObjectives.status })
+      .from(strategicObjectives)
+      .where(inArray(strategicObjectives.tenantId, context.scope.tenantIds));
+    const capital = await this.loadCapital(context);
+    const treasury = await this.loadTreasury(context);
+    const improvingMetrics = treasury.length > 0
+      ? [metric({
+          code: "SIGNAL_CASH_TREND",
+          label: "Consolidated cash trend",
+          value: cashPosition(treasury, { asOf: new Date().toISOString().slice(0, 10) }).baseCurrencyTotal === null
+            ? "DATA_NOT_AVAILABLE"
+            : String(cashPosition(treasury, { asOf: new Date().toISOString().slice(0, 10) }).baseCurrencyTotal),
+          status: "OBSERVED",
+          source: "TREASURY_POSITIONS",
+          trend: classifyTrend(treasury.map((p) => Number(p.baseCurrencyBalance))),
+        })].filter((m) => m.trend === "UP" && m.status === "OBSERVED")
+      : [];
+    const onTrack = objectives.filter((o) => o.status === "ON_TRACK");
+    const approvedCapital = capital.filter((c) => c.status === "APPROVED");
+    const findings: NoeliaFinding[] = [
+      ...improvingMetrics.map((m) => ({
+        label: `Improving signal · ${m.label}`,
+        value: `${m.value} (trend UP)`,
+        kind: "INFERENCE" as const,
+        status: "DERIVED" as const,
+        provenance: m.source ?? undefined,
+      })),
+      ...onTrack.map((o) => ({
+        label: `On-track objective · ${o.code}`,
+        value: o.title,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: `STRATEGIC_OBJECTIVE:${o.code}`,
+      })),
+      ...approvedCapital.slice(0, 5).map((c) => ({
+        label: `Approved capital · ${c.code}`,
+        value: c.code,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: `CAPITAL:${c.code}`,
+      })),
+    ];
+    if (findings.length === 0) {
+      return {
+        headline: "Opportunity detection: no observed positive signal in scope; nothing is invented (UNAVAILABLE).",
+        findings: [{ label: "Candidate opportunities", value: "NONE_OBSERVED", kind: "INFERENCE", status: "UNAVAILABLE" }],
+        confidence: 0.35,
+      };
+    }
+    return {
+      headline: `${findings.length} candidate opportunity signal(s) from observed positive indicators.`,
+      findings,
+      narrative: "Candidates are observed signals; opportunity determination and pursuit remain accountable-human decisions (REQUIRES_AUTHORITY where action is involved).",
+      confidence: 0.72,
+    };
+  }
+
+  /** EARLY_WARNING — observed deterioration signals only (risk appetite breaches, overdue obligations, off-track objectives). */
+  async earlyWarning(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    const risksRows = await this.loadRisks(context);
+    const obligations = await db
+      .select({ code: complianceObligations.code, framework: complianceObligations.framework, nextDueAt: complianceObligations.nextDueAt, status: complianceObligations.status })
+      .from(complianceObligations)
+      .where(inArray(complianceObligations.tenantId, context.scope.tenantIds));
+    const objectives = await db
+      .select({ code: strategicObjectives.code, title: strategicObjectives.title, status: strategicObjectives.status })
+      .from(strategicObjectives)
+      .where(inArray(strategicObjectives.tenantId, context.scope.tenantIds));
+    const today = new Date().toISOString().slice(0, 10);
+    const breaches = risksRows.filter((r) => (r.residualLikelihood * r.residualImpact) > r.appetiteThreshold);
+    const overdue = obligations.filter((o) => o.nextDueAt && o.nextDueAt < today);
+    const offTrack = objectives.filter((o) => o.status !== "ON_TRACK");
+    const findings: NoeliaFinding[] = [
+      ...breaches.slice(0, 10).map((r) => ({
+        label: `Risk appetite breach · ${r.code}`,
+        value: `residual ${r.residualLikelihood * r.residualImpact} > appetite ${r.appetiteThreshold}`,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: `RISK:${r.code}`,
+      })),
+      ...overdue.slice(0, 10).map((o) => ({
+        label: `Overdue obligation · ${o.code}`,
+        value: `${o.framework} · overdue since ${o.nextDueAt}`,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: `OBLIGATION:${o.code}`,
+      })),
+      ...offTrack.slice(0, 10).map((o) => ({
+        label: `Off-track objective · ${o.code}`,
+        value: `${o.title} (${o.status})`,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: `STRATEGIC_OBJECTIVE:${o.code}`,
+      })),
+    ];
+    if (findings.length === 0) {
+      return {
+        headline: "Early warning: no deterioration signal observed in scope.",
+        findings: [{ label: "Early-warning signals", value: "NONE_OBSERVED", kind: "INFERENCE", status: "OBSERVED" }],
+        confidence: 0.7,
+      };
+    }
+    return {
+      headline: `${findings.length} early-warning signal(s) from observed deterioration.`,
+      findings,
+      risks: findings.map((f) => f.label),
+      humanReviewRequired: true,
+      narrative: "Early-warning signals are observed deterioration; they escalate attention but create no authority to act.",
+      confidence: 0.8,
     };
   }
 
