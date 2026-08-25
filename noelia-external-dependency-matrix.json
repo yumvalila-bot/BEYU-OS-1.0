@@ -1,0 +1,41 @@
+{
+  "schema": "beyu.noelia-external-dependency-matrix/v1",
+  "updatedAt": "2026-08-25",
+  "iteration": 12,
+  "classificationLegend": {
+    "REQUIRES_INFRASTRUCTURE": "external infrastructure absent; internal contract + adapter + unavailable-state behavior implemented and tested",
+    "REQUIRES_AUTHORITY": "external governance ratification absent; internal boundary implemented and fail-closed"
+  },
+  "dependencies": [
+    {
+      "id": "vector-retrieval-infra",
+      "name": "Vector / semantic retrieval infrastructure",
+      "classification": "REQUIRES_INFRASTRUCTURE",
+      "internalBoundary": "src/lib/noelia/rag-provider.ts — KnowledgeRetrievalProvider contract; GovernedKeywordRetrievalProvider (active); VectorRetrievalProvider (declared, inactive, reports UNAVAILABLE)",
+      "unavailableBehavior": "retrieve() → { status: UNAVAILABLE, sources: [], reason }; never fabricates semantic results",
+      "activationRequirements": [
+        "external vector index (pgvector or external vector database) provisioned and governed",
+        "embedding model ratified through the model gateway (Iteration 17) with data-egress authorization",
+        "ingestion pipeline that chunks, classifies, checksums and version-controls documents BEFORE indexing",
+        "tenant/entity/country + classification + authority + freshness filters pushed INTO the vector query (no post-hoc filtering of unauthorized content)"
+      ],
+      "tests": ["tests/noelia/rag.test.ts › unavailable retrieval (vector infrastructure)"],
+      "neverFabricated": true
+    },
+    {
+      "id": "external-model-providers",
+      "name": "External LLM / embedding model providers",
+      "classification": "REQUIRES_INFRASTRUCTURE",
+      "internalBoundary": "src/lib/noelia/platform-services.ts — deterministic in-repo analyst (beyu-hive-deterministic-analyst); model/modelVersion/promptVersion recorded on every ai_decisions row",
+      "unavailableBehavior": "No external provider is invoked anywhere in the runtime; the deterministic analyst is the only active model path",
+      "activationRequirements": [
+        "provider registered in a governed model registry with classification, jurisdiction, cost, latency and risk attributes (Iteration 17)",
+        "data-egress authorization for the specific classification levels",
+        "fallback to the deterministic analyst on provider failure",
+        "no data may leave the BEYU boundary unless the provider is authorized"
+      ],
+      "tests": ["tests/noelia/epistemics-integration.test.ts (decision persistence with model identity)"],
+      "neverFabricated": true
+    }
+  ]
+}

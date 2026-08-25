@@ -1,6 +1,7 @@
 import type { Principal } from "@/lib/authz";
 import type { Classification, PermissionCode } from "@/lib/constants";
 import type { PolicyEvaluation } from "@/lib/policy";
+import type { EpistemicClass } from "./epistemics";
 
 export type NoeliaEngine =
   | "FINANCIAL"
@@ -22,6 +23,33 @@ export type NoeliaSource = {
   ref: string;
   label: string;
   authority: string;
+  /**
+   * Epistemic class of the underlying datum (canonical model). Omitted values
+   * are treated conservatively as DERIVED, never as direct observation.
+   */
+  epistemicClass?: EpistemicClass;
+  /** Governing authority status of the source; anything but AUTHORITATIVE downgrades the answer. */
+  authorityStatus?: string;
+  /** Validity window (YYYY-MM-DD). Used for STALE_IS_NOT_CURRENT checks. */
+  effectiveFrom?: string;
+  reviewDate?: string;
+  expiresAt?: string | null;
+};
+
+/** The answer's explicit uncertainty classification (Iteration 10). */
+export type NoeliaAnswerUncertainty = {
+  /** Weakest epistemic class the answer may claim. */
+  classification: EpistemicClass;
+  /** Confidence above this cap would be fabricated certainty. */
+  confidenceCap: number;
+  /** Ordered, human-readable list of applied downgrades. */
+  factors: string[];
+  missingSources: boolean;
+  staleSources: boolean;
+  conflictingSources: boolean;
+  missingProvenance: boolean;
+  unverifiedAuthority: boolean;
+  toolDenials: boolean;
 };
 
 export type NoeliaAnswer = {
@@ -44,6 +72,12 @@ export type NoeliaAnswer = {
   policyDecision: string;
   toolsUsed: string[];
   latencyMs: number;
+  /** Explicit epistemic uncertainty — never implied, always stated. */
+  uncertainty: NoeliaAnswerUncertainty;
+  /** Explicit assumptions behind the answer. */
+  assumptions: string[];
+  /** Explicit limitations of the answer. */
+  limitations: string[];
 };
 
 export type NoeliaTargetContext = {
@@ -86,6 +120,10 @@ export type NoeliaToolOutput = {
   confidence?: number;
   humanReviewRequired?: boolean;
   metadata?: Record<string, unknown>;
+  /** Explicit assumptions behind this tool's output. */
+  assumptions?: string[];
+  /** Explicit limitations of this tool's output. */
+  limitations?: string[];
 };
 
 export type ToolDenialCode =

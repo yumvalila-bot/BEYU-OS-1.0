@@ -808,7 +808,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
   });
 
   it("adds no migration", async () => {
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(15);
+      // Baseline includes migration 0015 (Iteration 11 memory governance); the specialist module itself adds none.
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(16);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

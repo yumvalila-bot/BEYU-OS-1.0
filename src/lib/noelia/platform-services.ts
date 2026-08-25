@@ -17,7 +17,14 @@ export class BeyuNoeliaPolicyService implements NoeliaPolicyPort {
       tenantId: input.target.tenantId,
       jurisdictionCode: input.target.countryCode,
       roles: input.principal.roles,
-      classification: input.classification,
+      // The data a Noelia query can touch is bounded by the principal's
+      // clearance. The classification must be evaluated against that bound:
+      // CONST-AI-001 r4 ("AI output over highly restricted data requires
+      // human review") is conditional on the data classification, and an
+      // undefined classification would make it fire unconditionally —
+      // fail-safe, but it destroys the output-class semantics the rule
+      // exists to refine. A caller-provided classification always wins.
+      classification: input.classification ?? input.principal.clearance,
       riskScore: input.principal.riskScore,
       aiInitiated: true,
     });
@@ -62,6 +69,9 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
           headline: input.answer.headline,
           narrative: input.answer.narrative,
           findings: input.answer.findings,
+          uncertainty: input.answer.uncertainty,
+          assumptions: input.answer.assumptions,
+          limitations: input.answer.limitations,
         },
         outputClass: input.answer.outputClass,
         confidence: input.answer.confidence.toFixed(4),

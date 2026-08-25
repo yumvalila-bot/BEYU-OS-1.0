@@ -90,6 +90,8 @@ export const PERMISSIONS = {
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
   "ai:decision.review": "Review and dispose AI decisions",
+  // Memory
+  "knowledge:source.write": "Create, update or decommission governed enterprise memory",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -126,6 +128,7 @@ export const ROLES: Record<
       "audit:event.read",
       "documents:registry.read",
       "organization:entity.read",
+      "knowledge:source.write",
     ],
   },
   GROUP_CEO: {
@@ -194,6 +197,7 @@ export const ROLES: Record<
       "audit:event.read",
       "ai:noelia.query",
       "ai:decision.review",
+      "knowledge:source.write",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {

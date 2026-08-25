@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import { knowledgeSources } from "@/db/schema";
 import type { Principal } from "@/lib/authz";
@@ -10,7 +10,21 @@ import {
 } from "@/lib/constants";
 import type { NoeliaAuthorizedScope, NoeliaSource } from "./types";
 
-export const KNOWLEDGE_SCOPE_TYPES = ["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"] as const;
+/**
+ * Canonical memory scope classes. Unknown values fail closed everywhere:
+ * ORGANIZATIONAL is org-wide memory for one tenant (no enterprise flag
+ * needed); LONG_TERM_CONTINUITY is continuity memory — enterprise-only and
+ * never expires (enforced by the DB CHECK as well).
+ */
+export const KNOWLEDGE_SCOPE_TYPES = [
+  "GLOBAL",
+  "ENTERPRISE",
+  "TENANT",
+  "ENTITY",
+  "COUNTRY",
+  "ORGANIZATIONAL",
+  "LONG_TERM_CONTINUITY",
+] as const;
 export type KnowledgeScopeType = (typeof KNOWLEDGE_SCOPE_TYPES)[number];
 
 export type MemoryVisibilityRecord = {
@@ -36,7 +50,9 @@ export type MemoryVisibilityDecision = {
     | "TENANT_DENIED"
     | "ENTERPRISE_DENIED"
     | "ENTITY_DENIED"
-    | "COUNTRY_DENIED";
+    | "COUNTRY_DENIED"
+    | "ORGANIZATIONAL_DENIED"
+    | "CONTINUITY_DENIED";
   reason: string;
 };
 
@@ -84,6 +100,19 @@ export function decideMemoryVisibility(
         Boolean(record.countryCode && scope.countryCodes.includes(record.countryCode))
         ? { allowed: true, code: "ALLOWED", reason: "Authorized country knowledge." }
         : { allowed: false, code: "COUNTRY_DENIED", reason: "Country memory is outside the resolved scope." };
+    case "ORGANIZATIONAL":
+      // Org-wide memory for one tenant: visible to any principal within that
+      // tenant's subtree — it is organizational, not global and not
+      // enterprise-restricted.
+      return record.tenantId && scope.tenantIds.includes(record.tenantId)
+        ? { allowed: true, code: "ALLOWED", reason: "Authorized organizational memory." }
+        : { allowed: false, code: "ORGANIZATIONAL_DENIED", reason: "Organizational memory is outside the resolved tenant scope." };
+    case "LONG_TERM_CONTINUITY":
+      // Continuity memory is the most sensitive tenant-level class:
+      // enterprise principals only, in-window, and it never expires.
+      return scope.enterprise && record.tenantId && scope.tenantIds.includes(record.tenantId) && !record.expiresAt
+        ? { allowed: true, code: "ALLOWED", reason: "Authorized long-term continuity memory." }
+        : { allowed: false, code: "CONTINUITY_DENIED", reason: "Long-term continuity memory requires an enterprise principal and no expiry." };
     default:
       return { allowed: false, code: "SCOPE_UNKNOWN", reason: "Unknown memory scope is denied by default." };
   }
@@ -113,10 +142,21 @@ function scopePredicates(scope: NoeliaAuthorizedScope): SQL[] {
       eq(knowledgeSources.scopeType, "TENANT"),
       inArray(knowledgeSources.tenantId, scope.tenantIds),
     )!);
+    // Organizational memory is visible to any principal in the tenant subtree.
+    predicates.push(and(
+      eq(knowledgeSources.scopeType, "ORGANIZATIONAL"),
+      inArray(knowledgeSources.tenantId, scope.tenantIds),
+    )!);
     if (scope.enterprise) {
       predicates.push(and(
         eq(knowledgeSources.scopeType, "ENTERPRISE"),
         inArray(knowledgeSources.tenantId, scope.tenantIds),
+      )!);
+      // Long-term continuity memory: enterprise-only, and never expires.
+      predicates.push(and(
+        eq(knowledgeSources.scopeType, "LONG_TERM_CONTINUITY"),
+        inArray(knowledgeSources.tenantId, scope.tenantIds),
+        isNull(knowledgeSources.expiresAt),
       )!);
     }
   }
@@ -187,6 +227,14 @@ async function queryGovernedMemory(input: {
         ref: row.code,
         label: row.title,
         authority: row.authorityStatus,
+        // Governed, in-window knowledge is a direct observation of the
+        // canonical record; the validity window is carried for staleness
+        // checks (STALE_IS_NOT_CURRENT) even though the query pre-filters it.
+        epistemicClass: "OBSERVED",
+        authorityStatus: row.authorityStatus,
+        effectiveFrom: row.effectiveFrom,
+        reviewDate: row.reviewDate,
+        expiresAt: row.expiresAt,
       },
       excerpt: row.content.slice(0, 500),
       classification: row.classification,

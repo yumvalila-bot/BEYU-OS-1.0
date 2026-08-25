@@ -1,0 +1,232 @@
+{
+  "schema": "beyu.noelia-capability-matrix/v1",
+  "updatedAt": "2026-08-25",
+  "iteration": 12,
+  "legend": {
+    "GREEN": "implemented and verified by tests",
+    "PARTIAL": "implemented but verification or coverage is incomplete",
+    "BLOCKED": "work is blocked on an internal defect",
+    "REQUIRES_AUTHORITY": "needs an external governance ratification; internal boundary implemented and fail-closed",
+    "REQUIRES_INFRASTRUCTURE": "needs external infrastructure; internal contract/adapter + unavailable-state behavior implemented",
+    "NOT_APPLICABLE": "not part of the BEYU/Noelia surface"
+  },
+  "capabilities": [
+    {
+      "id": "epistemics.model",
+      "name": "Canonical epistemic model (13 states, single source of truth)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/noelia/epistemics.test.ts \u203a canonical epistemic model",
+        "src/lib/finance/epistemics.ts (Phase 7J \u00a75)"
+      ],
+      "note": "13 states (brief said 12; REQUIRES_POLICY added by Phase 7J). Complete 13\u00d713 transition matrix verified."
+    },
+    {
+      "id": "memory.write-governance",
+      "name": "Governed memory writes (RBAC, tenant subtree, classification ceiling, AI\u2192UNDER_REVIEW anti-poisoning, provenance, window, checksum, versioning, replay, decommission, integrity verification)",
+      "status": "GREEN",
+      "evidence": [
+        "src/lib/noelia/memory-write.ts",
+        "drizzle/0015_memory_governance.sql",
+        "tests/noelia/memory-write.test.ts (15 adversarial)"
+      ],
+      "note": "ORGANIZATIONAL and LONG_TERM_CONTINUITY classes added; no hard-delete path exists (decommission only)."
+    },
+    {
+      "id": "epistemics.honesty-rules",
+      "name": "Seven honesty rules (missing\u2260zero, forecast\u2260actual, inference\u2260fact, stale\u2260current, unverified\u2260authoritative, unavailable\u2260negative, absence-of-evidence\u2260evidence-of-absence)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/noelia/epistemics.test.ts \u203a honesty rules",
+        "src/lib/noelia/epistemics.ts"
+      ]
+    },
+    {
+      "id": "epistemics.adversarial",
+      "name": "12 adversarial epistemic scenarios",
+      "status": "GREEN",
+      "evidence": [
+        "tests/noelia/epistemics.test.ts \u203a adversarial epistemic scenarios (A1\u2013A12)",
+        "tests/noelia/epistemics-integration.test.ts"
+      ]
+    },
+    {
+      "id": "epistemics.recommendation-envelope",
+      "name": "Recommendation envelope (evidence, assumptions, confidence, uncertainty, limitations, alternatives, change conditions, provenance, source-of-truth, freshness, classification, scope, materiality, risk, authorization)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/noelia/epistemics.test.ts \u203a recommendation envelope",
+        "src/lib/noelia/epistemics.ts buildRecommendation/verifyRecommendation"
+      ]
+    },
+    {
+      "id": "epistemics.answer-pipeline",
+      "name": "Source\u2192quality\u2192provenance\u2192state\u2192confidence\u2192uncertainty\u2192recommendation pipeline with weakest-link confidence and explicit uncertainty block",
+      "status": "GREEN",
+      "evidence": [
+        "src/lib/noelia/runtime.ts",
+        "src/lib/noelia/platform-services.ts (persists uncertainty to ai_decisions)",
+        "tests/noelia/epistemics.test.ts \u203a NoeliaRuntime epistemic behaviour"
+      ]
+    },
+    {
+      "id": "memory.governed-retrieval",
+      "name": "Governed memory retrieval (scope pushdown + visibility gate)",
+      "status": "GREEN",
+      "evidence": [
+        "src/lib/noelia/memory.ts (7 canonical classes, SQL pushdown + pure gate)",
+        "tests/noelia/memory-integration.test.ts",
+        "tests/noelia/memory-security.test.ts"
+      ],
+      "note": "Extended in Iteration 10 with epistemic provenance (epistemicClass/authorityStatus/validity window) on every retrieved source."
+    },
+    {
+      "id": "knowledge.rag",
+      "name": "RAG / knowledge retrieval (keyword provider active; vector/semantic provider declared, UNAVAILABLE until infrastructure)",
+      "status": "REQUIRES_INFRASTRUCTURE",
+      "evidence": [
+        "src/lib/noelia/rag-provider.ts",
+        "tests/noelia/rag.test.ts (12 adversarial)"
+      ],
+      "note": "Keyword retrieval governed and verified. Vector/semantic = REQUIRES_INFRASTRUCTURE (noelia-external-dependency-matrix.json \u2192 vector-retrieval-infra). Citation integrity verified via verifyCitations."
+    },
+    {
+      "id": "tool-registry.authorization",
+      "name": "HIVE tool registry fail-closed authorization (RBAC/ABAC + tenant/entity/country + human approval for HIGH risk)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/noelia/tool-registry.test.ts",
+        "tests/noelia/architecture-boundary.test.ts"
+      ]
+    },
+    {
+      "id": "noelia.api",
+      "name": "Noelia API route (/api/v1/ai/noelia) semantics",
+      "status": "PARTIAL",
+      "evidence": [
+        "tests/noelia/http.test.ts (server-gated)",
+        "src/app/api/v1/ai/noelia/route.ts"
+      ],
+      "note": "Live-HTTP verification is due in Iteration 13."
+    },
+    {
+      "id": "execution.workflow-runtime",
+      "name": "Agentic workflow runtime (plan\u2192validate\u2192authorize\u2192execute\u2192verify, crash recovery, idempotency)",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/lib/execution/simulate.ts",
+        "src/lib/noelia/actions.ts"
+      ],
+      "note": "Iteration 14 workstream: crash recovery, stale authorization, replay, duplicate execution."
+    },
+    {
+      "id": "approval.orchestration",
+      "name": "Human approval orchestration (maker/checker, quorum, delegation, expiry, SLA escalation)",
+      "status": "PARTIAL",
+      "evidence": [
+        "tests/governance/",
+        "src/lib/governance/"
+      ],
+      "note": "Iteration 15 workstream: quorum calculation, delegation revocation, SLA escalation evidence."
+    },
+    {
+      "id": "scheduler.outbox",
+      "name": "Governed scheduler / outbox (watermark, dedup, dead letter, recovery)",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/lib/audit.ts (enterprise_events outbox table)"
+      ],
+      "note": "No durable consumer/watermark/dead-letter runtime exists yet \u2192 Iteration 16 workstream (internal implementation; activation classified separately)."
+    },
+    {
+      "id": "models.gateway",
+      "name": "Model gateway / model registry (classification, jurisdiction, effectiveFrom/retiredAt, provider authorization, fallback)",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/lib/noelia/platform-services.ts (hardcoded model constants)"
+      ],
+      "note": "Iteration 17 workstream: governed model registry + fail-closed selection; external providers REQUIRES_INFRASTRUCTURE / REQUIRES_AUTHORITY."
+    },
+    {
+      "id": "cross-os.governance",
+      "name": "Cross-OS governance for the 12 canonical domains",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/lib/interoperability/",
+        "tests/architecture/interoperability.test.ts"
+      ],
+      "note": "Iteration 18 workstream: per-domain authorization/data-boundary/unavailable-behavior matrix."
+    },
+    {
+      "id": "finance.boundary",
+      "name": "Finance OS boundary (Noelia read-only; mutations only via authorized execution paths)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/finance/",
+        "src/lib/finance/"
+      ],
+      "note": "Iteration 19 re-verifies mutation boundaries adversarially."
+    },
+    {
+      "id": "hcm.boundary",
+      "name": "HCM boundary (single workforce source of truth; Noelia read-only)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/hcm/",
+        "src/lib/hcm.ts",
+        "src/lib/hcm-observe.ts"
+      ],
+      "note": "Iteration 20 re-verifies: terminated users, stale status, privilege escalation."
+    },
+    {
+      "id": "health.boundary",
+      "name": "Health OS / clinical safety boundary",
+      "status": "REQUIRES_INFRASTRUCTURE",
+      "evidence": [
+        "src/lib/constants.ts (tenant BEYU-HEALTH exists; no clinical data model)"
+      ],
+      "note": "No clinical source of truth exists in-repo. Noelia must not fabricate clinical data; Iteration 21 implements fail-closed boundary + classification."
+    },
+    {
+      "id": "legal-tax.compliance",
+      "name": "Legal / tax / compliance / jurisdiction boundaries",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/lib/specialist/tax-intelligence.ts",
+        "src/lib/specialist/compliance/",
+        "src/lib/tax.ts"
+      ],
+      "note": "Iteration 22 workstream: effective/expiry/authority/citation fail-closed rules; actual legal/tax positions REQUIRES_AUTHORITY."
+    },
+    {
+      "id": "database.rls",
+      "name": "Database RLS / migrations / integrity",
+      "status": "GREEN",
+      "evidence": [
+        "tests/database/",
+        "tests/tenant-isolation/",
+        "drizzle/0000..0014"
+      ],
+      "note": "Iteration 24 workstream: fresh-install, seed idempotency, non-superuser enforcement."
+    },
+    {
+      "id": "audit.forensics",
+      "name": "Audit / observability / forensics (append-only, hash chain, WHO/WHAT/WHEN/WHERE/WHY/authority/model/tool/result)",
+      "status": "GREEN",
+      "evidence": [
+        "tests/audit/",
+        "src/lib/audit.ts"
+      ],
+      "note": "Iteration 25 workstream: tamper testing + forensic reconstruction matrix."
+    },
+    {
+      "id": "production.readiness",
+      "name": "Production readiness (build, live HTTP, chaos, concurrency)",
+      "status": "PARTIAL",
+      "evidence": [
+        "docs/audit/PRODUCTION_INTEGRATION_GATE.md"
+      ],
+      "note": "Iteration 26 workstream: controlled failure + concurrency; production deployment REQUIRES_INFRASTRUCTURE."
+    }
+  ]
+}

@@ -250,7 +250,12 @@ export const knowledgeSources = pgTable(
     sourceUri: text("source_uri"),
     ownerRole: text("owner_role").notNull(),
     jurisdictionCode: text("jurisdiction_code"),
-    /** GLOBAL | ENTERPRISE | TENANT | ENTITY | COUNTRY (unknown values fail closed). */
+    /**
+     * Canonical memory scope classes. Unknown values fail closed (both in SQL
+     * CHECK and in the application visibility gate):
+     * GLOBAL, ENTERPRISE, TENANT, ENTITY, COUNTRY, ORGANIZATIONAL
+     * (org-wide for one tenant), LONG_TERM_CONTINUITY (enterprise-only, no expiry).
+     */
     scopeType: text("scope_type").notNull().default("GLOBAL"),
     tenantId: text("tenant_id").references(() => tenants.id),
     legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
@@ -264,12 +269,22 @@ export const knowledgeSources = pgTable(
     expiresAt: date("expires_at"),
     content: text("content").notNull(),
     keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    /** Application-computed SHA-256 over content. NULL = UNVERIFIED_LEGACY (fail closed). */
+    contentChecksum: text("content_checksum"),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    updatedByUserId: text("updated_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Soft decommission marker. Memory is evidence; never physically deleted. */
+    decommissionedAt: timestamp("decommissioned_at", { withTimezone: true }),
   },
   (t) => [
     uniqueIndex("knowledge_sources_code_uidx").on(t.code),
     index("knowledge_sources_scope_idx").on(t.scopeType, t.tenantId),
     index("knowledge_sources_entity_idx").on(t.legalEntityId),
     index("knowledge_sources_country_idx").on(t.countryCode),
+    index("knowledge_sources_status_idx").on(t.authorityStatus),
+    index("knowledge_sources_decommissioned_idx").on(t.decommissionedAt),
   ],
 );
 

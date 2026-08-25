@@ -1,7 +1,9 @@
 import type { Principal } from "@/lib/authz";
+import { assessEvidence, resolveOutputClass, type EvidenceRecord } from "./epistemics";
 import { NoeliaToolRegistry } from "./tool-registry";
 import type {
   NoeliaAnswer,
+  NoeliaAnswerUncertainty,
   NoeliaAuthorizedScope,
   NoeliaEngine,
   NoeliaEvidencePort,
@@ -65,12 +67,20 @@ function defaultHeadline(engine: NoeliaEngine): string {
   return labels[engine];
 }
 
-function outputClassFor(engine: NoeliaEngine, hasSources: boolean): NoeliaAnswer["outputClass"] {
-  if (engine === "TAX") return "REQUIRES_HUMAN_REVIEW";
-  if (engine === "RISK") return "RECOMMENDATION";
-  if (engine === "FINANCIAL") return "INFERENCE";
-  if (engine === "KNOWLEDGE" && !hasSources) return "UNCERTAINTY";
-  return "FACT";
+function uncertaintyFrom(
+  assessment: ReturnType<typeof assessEvidence>,
+): NoeliaAnswerUncertainty {
+  return {
+    classification: assessment.claimedClass,
+    confidenceCap: assessment.confidenceCap,
+    factors: assessment.factors.map((factor) => `${factor.rule}: ${factor.detail}`),
+    missingSources: assessment.flags.missingSources,
+    staleSources: assessment.flags.staleSources,
+    conflictingSources: assessment.flags.conflictingSources,
+    missingProvenance: assessment.flags.missingProvenance,
+    unverifiedAuthority: assessment.flags.unverifiedAuthority,
+    toolDenials: assessment.flags.toolDenials,
+  };
 }
 
 export class NoeliaRuntime {
@@ -86,8 +96,11 @@ export class NoeliaRuntime {
     traceId: string;
     target: NoeliaTargetContext;
     scope: NoeliaAuthorizedScope;
+    /** The as-of date (YYYY-MM-DD) against which source windows are judged. */
+    asOf?: string;
   }): Promise<NoeliaAnswer> {
     const started = Date.now();
+    const asOf = input.asOf ?? new Date().toISOString().slice(0, 10);
     const engine = routeEngine(input.question);
     const policy = await this.policy.evaluate({ principal: input.principal, target: input.target });
     const findings: NoeliaAnswer["findings"] = [];
@@ -120,35 +133,93 @@ export class NoeliaRuntime {
       }
     }
 
-    const uniqueSources = [...new Map(sources.map((source) => [`${source.kind}:${source.ref}`, source])).values()];
+    // Deduplicate only *identical* claims. Distinct claims about the same
+    // subject (different authority or epistemic class) are contradictory
+    // evidence and must survive to be classified — silently collapsing them
+    // would hide a conflict the answer is required to surface.
+    const claimsBySubject = new Map<string, typeof sources>();
+    for (const source of sources) {
+      const key = `${source.kind}:${source.ref}`;
+      const claims = claimsBySubject.get(key) ?? [];
+      if (!claims.some((existing) => existing.authority === source.authority && existing.epistemicClass === source.epistemicClass)) {
+        claims.push(source);
+      }
+      claimsBySubject.set(key, claims);
+    }
+    const uniqueSources = [...claimsBySubject.values()].flat();
     const domainToolsUsed = toolsUsed.filter((tool) => tool !== "knowledge.rag.search");
     const completelyDenied = policy.effect === "DENY" ||
       (engine === "KNOWLEDGE" ? toolsUsed.length === 0 : domainToolsUsed.length === 0);
     const obligationsRequireHuman = policy.obligations.some((obligation) =>
       obligation.type === "HUMAN_REVIEW" || obligation.type === "APPROVAL");
 
+    // Weakest-link confidence: the answer is never more certain than the
+    // best self-reported tool confidence, and never more certain than its
+    // evidence deserves (assessEvidence).
+    const rawConfidence = outputs.reduce((current, output) => Math.max(current, output.confidence ?? 0), 0.6);
+    const evidence: EvidenceRecord[] = uniqueSources.map((source) => ({
+      source,
+      epistemicClass: source.epistemicClass ?? "DERIVED",
+      authorityStatus: source.authorityStatus,
+      effectiveFrom: source.effectiveFrom,
+      reviewDate: source.reviewDate,
+      expiresAt: source.expiresAt,
+    }));
+    const assessment = assessEvidence({ evidence, toolDenials: deniedScopes, asOf, baseConfidence: rawConfidence });
+
     let headline = outputs.find((output) => output.headline)?.headline ?? defaultHeadline(engine);
     let narrative = outputs.find((output) => output.narrative)?.narrative ?? defaultNarrative(engine);
-    let outputClass = outputClassFor(engine, uniqueSources.length > 0);
-    let confidence = outputs.reduce((current, output) => Math.max(current, output.confidence ?? 0), 0.6);
+    let confidence = Math.min(rawConfidence, assessment.confidenceCap);
     let humanReviewRequired = obligationsRequireHuman || outputs.some((output) => output.humanReviewRequired);
 
     if (policy.effect === "DENY") {
       headline = "Request blocked by enterprise policy.";
       narrative = policy.denials.map((denial) => `${denial.policyCode}: ${denial.message}`).join(" ") ||
         "The policy engine denied this AI request.";
-      outputClass = "REQUIRES_HUMAN_REVIEW";
       confidence = 1;
       humanReviewRequired = true;
     } else if (completelyDenied) {
       headline = "Insufficient authority for this intelligence domain.";
       narrative = "Noelia operates only through registered capabilities within the requesting human's RBAC/ABAC scope.";
-      outputClass = "REQUIRES_HUMAN_REVIEW";
       confidence = 1;
       humanReviewRequired = true;
-    } else if (engine === "KNOWLEDGE" && uniqueSources.length === 0) {
-      confidence = Math.min(confidence, 0.55);
+    } else if (assessment.flags.conflictingSources) {
+      humanReviewRequired = true;
     }
+
+    const policyDenied = policy.effect === "DENY";
+    const outputClass =
+      policyDenied || completelyDenied
+        ? "REQUIRES_HUMAN_REVIEW"
+        : resolveOutputClass({
+            engine,
+            policyDenied,
+            completelyDenied,
+            findings,
+            assessment,
+            confidence,
+            obligationsRequireHuman,
+          });
+
+    // When the answer claims nothing about the world (denial, denial of
+    // scope, or no evidence), its epistemic status is the explicit
+    // non-value class, never an implied fact.
+    const uncertainty =
+      policyDenied || completelyDenied
+        ? {
+            ...uncertaintyFrom(assessment),
+            classification: (policyDenied ? "REQUIRES_AUTHORITY" : "GOVERNANCE_REVIEW_REQUIRED") as NoeliaAnswerUncertainty["classification"],
+            confidenceCap: 1,
+            factors: [
+              ...(policyDenied
+                ? ["REQUIRES_AUTHORITY: enterprise policy denied this request."]
+                : ["GOVERNANCE_REVIEW_REQUIRED: no authorized capability produced evidence."]),
+            ],
+          }
+        : uncertaintyFrom(assessment);
+
+    const assumptions = [...new Set(outputs.flatMap((output) => output.assumptions ?? []))];
+    const limitations = [...new Set(outputs.flatMap((output) => output.limitations ?? []))];
 
     const answerWithoutIds: Omit<NoeliaAnswer, "decisionId" | "latencyMs"> = {
       engine,
@@ -162,6 +233,9 @@ export class NoeliaRuntime {
       deniedScopes,
       policyDecision: policy.effect,
       toolsUsed,
+      uncertainty,
+      assumptions,
+      limitations,
     };
     const latencyMs = Date.now() - started;
     const decisionId = await this.evidence.recordDecision({

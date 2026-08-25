@@ -1016,8 +1016,9 @@ describe("risk module — leaves governance and financial state untouched", () =
   });
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
+    // Baseline includes migration 0015 (Iteration 11 memory governance); the specialist module itself adds none.
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(15);
+    expect(n).toBe(16);
   });
 
   it("leaves all triggers enabled", async () => {
