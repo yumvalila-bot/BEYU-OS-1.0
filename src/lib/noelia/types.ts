@@ -144,11 +144,16 @@ export type NoeliaAnswer = {
   correlationId?: string;
 };
 
+/** Board/executive/operational briefing structure (presentation metadata only). */
+export type NoeliaBriefingStructure = "BOARD" | "EXECUTIVE" | "OPERATIONAL";
+
 /** Executive briefing: the full structured intelligence contract. */
 export type NoeliaExecutiveBriefing = NoeliaAnswer & {
   engine: "EXECUTIVE";
   analysisType: "EXECUTIVE_BRIEFING";
   horizon: NoeliaHorizon;
+  /** Briefing structure — presentation metadata, never an authority level. */
+  structure: NoeliaBriefingStructure;
   summary: string;
   metrics: NoeliaMetricView[];
   recommendations: NoeliaRecommendation[];
@@ -156,6 +161,27 @@ export type NoeliaExecutiveBriefing = NoeliaAnswer & {
   derivedConclusions: string[];
   forecasts: string[];
   scenarios: string[];
+  /** Enterprise position statement derived only from OBSERVED capability output. */
+  enterprisePosition: string[];
+  /** Variance signals derived from registered metric trends (never invented). */
+  strategicVariance: string[];
+  /** KPI interpretation lines — only for metrics with an observed source. */
+  kpiInterpretation: string[];
+  /**
+   * Candidate material items (deterioration/risk signals). Candidates are
+   * derived signals; materiality determination remains a governance decision.
+   */
+  materialItems: string[];
+  /** Opportunities emitted by registered capabilities (empty = none reported). */
+  opportunities: string[];
+  /** Recommendation vs alternative comparisons with source conditions. */
+  recommendationComparison: Array<{
+    decision: string;
+    optionA: string;
+    optionB: string;
+    tradeOff: string;
+    condition: string;
+  }>;
   whatIsMissing: string[];
   requiresHumanDecision: string[];
   deteriorating: string[];
@@ -222,6 +248,8 @@ export type NoeliaToolOutput = {
   deteriorating?: string[];
   improving?: string[];
   managementAttentionRequired?: string[];
+  /** Opportunities the registered capability can honestly report; absence is not denial of existence. */
+  opportunities?: string[];
   metadata?: Record<string, unknown>;
 };
 
@@ -345,6 +373,7 @@ export const NOELIA_ANALYSIS_TYPES = [
   "COMPLIANCE_ANALYSIS",
   "RISK_ANALYSIS",
   "CAPITAL_ANALYSIS",
+  "GOVERNANCE_ANALYSIS",
   "CROSS_DOMAIN_CORRELATION",
 ] as const;
 export type NoeliaAnalysisType = (typeof NOELIA_ANALYSIS_TYPES)[number];

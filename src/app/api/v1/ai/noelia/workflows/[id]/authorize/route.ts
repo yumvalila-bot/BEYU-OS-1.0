@@ -6,6 +6,20 @@ export const dynamic = "force-dynamic";
 
 const AuthorizeSchema = z.object({
   comment: z.string().trim().max(2000).nullish(),
+  /**
+   * Decision validity window (ISO 8601). After this instant the approval is
+   * no longer sufficient authority for execution. Omit for a non-expiring
+   * decision. Values are request metadata, never a derived policy threshold.
+   */
+  validUntil: z.string().datetime({ offset: true }).nullable().optional(),
+  /**
+   * Quorum: number of distinct approvers required before execution. Omit for
+   * single-approver workflows. The requester can never approve their own
+   * workflow, so every quorum member is a distinct accountable human.
+   */
+  quorum: z.number().int().min(1).max(5).nullable().optional(),
+  /** Delegation evidence: approval cast on behalf of this human. */
+  delegatedFrom: z.string().trim().min(3).max(128).nullable().optional(),
 }).strict();
 
 /**
@@ -34,6 +48,9 @@ export async function POST(request: Request, ctxParam: { params: Promise<{ id: s
           workflowId: id,
           traceId: ctx.traceId,
           comment: body.comment ?? undefined,
+          validUntil: body.validUntil ? new Date(body.validUntil) : null,
+          quorum: body.quorum ?? null,
+          delegatedFrom: body.delegatedFrom ?? null,
         });
         if (result.code === "NOT_FOUND") return apiError("NOT_FOUND", result.reason, 404, ctx.traceId);
         if (result.code === "AUTHORIZATION_DENIED") return apiError("AUTHORIZATION_DENIED", result.reason, 403, ctx.traceId);

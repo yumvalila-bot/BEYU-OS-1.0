@@ -14,7 +14,7 @@ import { createDefaultNoeliaToolRegistry } from "./noelia/default-tools";
 import { BeyuNoeliaEvidenceService, BeyuNoeliaPolicyService } from "./noelia/platform-services";
 import { NoeliaRuntime, routeEngine } from "./noelia/runtime";
 import { requestedNoeliaTarget, resolveNoeliaAuthorizedScope } from "./noelia/scope-service";
-import type { NoeliaAnalysisType, NoeliaAnswer, NoeliaExecutiveBriefing, NoeliaTargetContext } from "./noelia/types";
+import type { NoeliaAnalysisType, NoeliaAnswer, NoeliaBriefingStructure, NoeliaExecutiveBriefing, NoeliaTargetContext } from "./noelia/types";
 
 export { routeEngine };
 export type { NoeliaAnswer, NoeliaEngine, NoeliaExecutiveBriefing } from "./noelia/types";
@@ -57,6 +57,7 @@ export async function briefNoelia(params: {
   target?: Partial<NoeliaTargetContext> | null;
   horizon?: string | null;
   focus?: string | null;
+  structure?: NoeliaBriefingStructure;
 }): Promise<NoeliaExecutiveBriefing> {
   return withTenantDatabaseContext(params.principal, async () => {
     const scope = await resolveNoeliaAuthorizedScope(params.principal);
@@ -75,6 +76,7 @@ export async function briefNoelia(params: {
       scope,
       horizon: params.horizon,
       focus: params.focus,
+      structure: params.structure,
     });
   });
 }

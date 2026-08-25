@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { NOELIA_ANALYSIS_TYPES } from "./types";
 import { NoeliaToolRegistry } from "./tool-registry";
+import type { NoeliaFinding, NoeliaSource } from "./types";
 import { BeyuNoeliaReadService } from "./read-services";
 import { BeyuNoeliaAnalyticsService } from "./analytics-service";
 import { BeyuNoeliaWorkforceService } from "./workforce-service";
@@ -326,6 +328,41 @@ export function createDefaultNoeliaToolRegistry(
     },
     execute: (context) => analytics.complianceAnalysis(context),
   });
+
+  /* ---------------- Analytics dispatcher (17 governed types) ---------------- */
+
+  registry.register({
+    name: "analytics.run",
+    permission: "ai:analytics.read",
+    risk: "LOW",
+    description: "Governed analytics dispatcher over the 17 canonical analysis types; every measure comes from a specialist engine with scope pushdown.",
+    metadata: {
+      stableId: "cap-analytics-run",
+      version: "1.0.0",
+      ownerRole: "GROUP_CFO",
+      domain: "ANALYTICS",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 30000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({
+        analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
+        options: z.record(z.unknown()).optional(),
+      }).strict(),
+    },
+    execute: (context, input) => {
+      const { analysisType, options } = z.object({
+        analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
+        options: z.record(z.unknown()).optional(),
+      }).parse(input ?? {});
+      return analytics.analyze(analysisType, context, options ?? {});
+    },
+  });
+
   registry.register({
     name: "governance.resolution.query",
     permission: "governance:resolution.read",
@@ -734,46 +771,69 @@ export function createDefaultNoeliaToolRegistry(
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
       inputSchema: z.object({
-        domains: z.array(z.enum(["FINANCE", "HCM", "RISK", "COMPLIANCE", "GOVERNANCE", "TAX", "LEGAL"])).min(2).max(6),
+        domains: z.array(z.enum([
+          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
+          "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
+        ])).min(2).max(10),
         focus: z.string().max(300).optional(),
       }).strict(),
     },
     execute: async (context, input) => {
       const { domains } = z.object({
-        domains: z.array(z.enum(["FINANCE", "HCM", "RISK", "COMPLIANCE", "GOVERNANCE", "TAX", "LEGAL"])).min(2).max(6),
+        domains: z.array(z.enum([
+          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
+          "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
+        ])).min(2).max(10),
         focus: z.string().max(300).optional(),
       }).parse(input ?? {});
       // Each domain must be independently authorized: possessing one domain's
-      // permission never implies another's.
+      // permission never implies another's. Domains without a registered
+      // governed capability report UNAVAILABLE — never fabricated findings.
       const domainPermission: Record<string, string> = {
         FINANCE: "finance:treasury.read",
         HCM: "hcm:employee.read",
+        HEALTH: "ai:noelia.query",
         RISK: "risk:register.read",
         COMPLIANCE: "compliance:obligation.read",
         GOVERNANCE: "governance:resolution.read",
         TAX: "finance:tax.read",
         LEGAL: "legal:matter.read",
       };
-      const findings = [];
-      const sources = [];
+      const toolByDomain: Record<string, string> = {
+        FINANCE: "finance.treasury.aggregate",
+        HCM: "hcm.workforce.observe",
+        HEALTH: "health.runtime.status",
+        RISK: "risk.register.query",
+        COMPLIANCE: "compliance.obligation.query",
+        GOVERNANCE: "governance.resolution.query",
+        TAX: "tax.knowledge.query",
+        LEGAL: "legal.knowledge.query",
+      };
+      const findings: NoeliaFinding[] = [];
+      const sources: NoeliaSource[] = [];
       const denied: string[] = [];
+      const unavailable: string[] = [];
       for (const domain of domains) {
+        const tool = toolByDomain[domain];
+        if (!tool) {
+          // No governed capability is registered for this domain in the
+          // canonical registry; intelligence is UNAVAILABLE, never invented.
+          unavailable.push(domain);
+          findings.push({
+            label: `${domain} intelligence`,
+            value: "No governed capability registered; UNAVAILABLE.",
+            kind: "INFERENCE",
+            status: "UNAVAILABLE",
+            provenance: "CROSS_OS:REGISTRY",
+          });
+          continue;
+        }
         const permission = domainPermission[domain] as Parameters<typeof can>[1];
         const access = can(context.principal, permission);
         if (!access.allowed) {
           denied.push(`${domain}:${access.reason.split(":")[0]}`);
           continue;
         }
-        const toolByDomain: Record<string, string> = {
-          FINANCE: "finance.treasury.aggregate",
-          HCM: "hcm.workforce.observe",
-          RISK: "risk.register.query",
-          COMPLIANCE: "compliance.obligation.query",
-          GOVERNANCE: "governance.resolution.query",
-          TAX: "tax.knowledge.query",
-          LEGAL: "legal.knowledge.query",
-        };
-        const tool = toolByDomain[domain];
         const result = await registry.invoke(tool, context, {});
         if (!result.allowed) {
           denied.push(`${domain}:${result.decision.code}`);
@@ -783,12 +843,12 @@ export function createDefaultNoeliaToolRegistry(
         sources.push(...(result.output.sources ?? []));
       }
       return {
-        headline: denied.length
-          ? `Cross-OS view assembled with ${denied.length} domain(s) denied.`
+        headline: denied.length || unavailable.length
+          ? `Cross-OS view assembled with ${denied.length} domain(s) denied and ${unavailable.length} unavailable.`
           : "Cross-OS view assembled.",
         findings,
         sources,
-        metadata: { domains, denied },
+        metadata: { domains, denied, unavailable },
         confidence: sources.length > 0 ? 0.8 : 0.4,
         humanReviewRequired: denied.length > 0,
       };

@@ -22,6 +22,7 @@ export const MEMORY_CLASSES = [
   "TASK",
   "USER",
   "ORGANIZATIONAL",
+  "ENTERPRISE",
   "TENANT",
   "SECTOR",
   "GOVERNANCE",

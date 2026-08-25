@@ -4,7 +4,10 @@ import {
   capitalRequests,
   complianceAssessments,
   complianceObligations,
+  policies,
+  resolutions,
   risks,
+  strategicObjectives,
   treasuryPositions,
 } from "@/db/schema";
 import {
@@ -30,7 +33,7 @@ import {
 } from "@/lib/specialist/treasury/engines";
 import type { TreasuryPositionView } from "@/lib/specialist/treasury/model";
 import { classifyTrend, canonicalStatus, detectAnomalies, metric } from "./epistemics";
-import type { NoeliaAnalysisType, NoeliaToolOutput, ToolInvocationContext } from "./types";
+import type { NoeliaAnalysisType, NoeliaFinding, NoeliaToolOutput, ToolInvocationContext } from "./types";
 
 /**
  * Governed Noelia analytics service.
@@ -213,6 +216,7 @@ export class BeyuNoeliaAnalyticsService {
       case "COMPLIANCE_ANALYSIS": return this.complianceAnalysis(context);
       case "RISK_ANALYSIS": return this.riskAnalysis(context);
       case "CAPITAL_ANALYSIS": return this.capitalAnalysis(context);
+      case "GOVERNANCE_ANALYSIS": return this.governanceAnalysis(context);
       case "CROSS_DOMAIN_CORRELATION": return this.crossDomainCorrelation(context);
       default: {
         const exhaustive: never = analysisType;
@@ -889,6 +893,92 @@ export class BeyuNoeliaAnalyticsService {
         source: "CAPITAL_REQUESTS",
       })],
       confidence: 0.88,
+    };
+  }
+
+  /**
+   * GOVERNANCE_ANALYSIS — control-plane posture over the canonical governance
+   * substrate (policies, resolutions, strategic objectives, compliance
+   * obligations). Everything is an observed count/status from scoped rows;
+   * no posture is asserted when data is absent (UNAVAILABLE).
+   */
+  async governanceAnalysis(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    const classifications = this.visibleClassifications(context);
+    const tenantPredicate = inArray(policies.tenantId, [...context.scope.tenantIds, ""]);
+    const activePolicies = classifications.length === 0 ? [] : await db
+      .select({ id: policies.id, code: policies.code, level: policies.level, status: policies.status, version: policies.version })
+      .from(policies)
+      .where(and(
+        or(isNull(policies.tenantId), tenantPredicate),
+        eq(policies.status, "ACTIVE"),
+        inArray(policies.classification, classifications),
+      ));
+    const objectives = await db
+      .select({ code: strategicObjectives.code, title: strategicObjectives.title, status: strategicObjectives.status, horizon: strategicObjectives.horizon })
+      .from(strategicObjectives)
+      .where(inArray(strategicObjectives.tenantId, context.scope.tenantIds));
+    const openResolutions = await db
+      .select({ reference: resolutions.reference, title: resolutions.title, status: resolutions.status, category: resolutions.category })
+      .from(resolutions)
+      .where(and(
+        inArray(resolutions.tenantId, context.scope.tenantIds),
+        inArray(resolutions.status, ["DRAFT", "TABLED", "VOTED"]),
+      ));
+    const today = new Date().toISOString().slice(0, 10);
+    const obligations = await db
+      .select({ code: complianceObligations.code, framework: complianceObligations.framework, status: complianceObligations.status, nextDueAt: complianceObligations.nextDueAt })
+      .from(complianceObligations)
+      .where(inArray(complianceObligations.tenantId, context.scope.tenantIds));
+    const overdueObligations = obligations.filter((o) => o.nextDueAt && o.nextDueAt < today);
+    const byObjectiveStatus = new Map<string, number>();
+    for (const o of objectives) byObjectiveStatus.set(o.status, (byObjectiveStatus.get(o.status) ?? 0) + 1);
+    const findings: NoeliaFinding[] = [
+      {
+        label: "Active policies in scope",
+        value: String(activePolicies.length),
+        kind: "FACT",
+        status: activePolicies.length ? "OBSERVED" : "UNAVAILABLE",
+      },
+      {
+        label: "Open governance resolutions",
+        value: String(openResolutions.length),
+        kind: "FACT",
+        status: openResolutions.length ? "OBSERVED" : "UNAVAILABLE",
+      },
+      {
+        label: "Strategic objectives",
+        value: String(objectives.length),
+        kind: "FACT",
+        status: objectives.length ? "OBSERVED" : "UNAVAILABLE",
+      },
+      {
+        label: "Compliance obligations",
+        value: String(obligations.length),
+        kind: "FACT",
+        status: obligations.length ? "OBSERVED" : "UNAVAILABLE",
+      },
+      {
+        label: "Overdue compliance obligations",
+        value: String(overdueObligations.length),
+        kind: "FACT",
+        status: overdueObligations.length ? "OBSERVED" : "UNAVAILABLE",
+      },
+    ];
+    for (const [status, count] of byObjectiveStatus) {
+      findings.push({
+        label: `Objectives · ${status}`,
+        value: `${count}`,
+        kind: "FACT",
+        status: "OBSERVED",
+      });
+    }
+    return {
+      headline: "Governance posture assembled from the canonical control plane.",
+      findings,
+      risks: overdueObligations.slice(0, 10).map((o) => `Obligation ${o.code} (${o.framework}) overdue since ${o.nextDueAt}`),
+      narrative: "Governance analysis reports observed control-plane state; it never creates or modifies governance authority.",
+      confidence: 0.85,
+      humanReviewRequired: overdueObligations.length > 0 || openResolutions.length > 0,
     };
   }
 

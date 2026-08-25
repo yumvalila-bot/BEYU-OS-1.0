@@ -75,6 +75,10 @@ export class BeyuNoeliaModelGateway {
           jurisdictionRestrictions: row.jurisdictionRestrictions,
           timeoutMs: row.timeoutMs,
           costPerToken: row.costPerToken,
+          latencyMs: row.latencyMs,
+          fallbackModelId: row.fallbackModelId,
+          effectiveFrom: row.effectiveFrom,
+          retiredAt: row.retiredAt,
         })),
       },
       narrative:

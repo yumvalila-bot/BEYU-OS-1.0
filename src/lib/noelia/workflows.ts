@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { approvals, noeliaWorkflowSteps, noeliaWorkflows } from "@/db/schema";
@@ -227,6 +227,19 @@ export class BeyuNoeliaWorkflowService {
     workflowId: string;
     traceId: string;
     comment?: string;
+    /**
+     * Decision validity window: execution is denied after this instant.
+     * NULL (default) means the decision never expires.
+     */
+    validUntil?: Date | null;
+    /**
+     * Quorum: how many distinct approvers must APPROVE before execution.
+     * NULL (default) means a single approval suffices. Values are request
+     * metadata, never a derived authority threshold.
+     */
+    quorum?: number | null;
+    /** Delegation evidence: this approval is cast on behalf of this human. */
+    delegatedFrom?: string | null;
   }): Promise<NoeliaWorkflowResult> {
     return withTenantDatabaseContext(input.principal, async () => {
       const { scope } = await this.scopeFor(input.principal);
@@ -237,12 +250,43 @@ export class BeyuNoeliaWorkflowService {
       if (!workflow) return { workflowId: input.workflowId, status: "PLANNED", code: "NOT_FOUND", reason: "Workflow not found in scope.", approvalId: null };
       const access = can(input.principal, "ai:workflow.approve");
       const makerChecker = workflow.requestedBy !== input.principal.userId;
-      if (!access.allowed || !makerChecker || workflow.status !== "VALIDATED") {
+      // Quorum: while a quorum target is configured and unmet, additional
+      // distinct approvers may add approvals to an AUTHORIZED workflow.
+      const [approvalCount] = await db.select({
+        n: sql<number>`count(distinct ${approvals.approverUserId})::int`,
+      }).from(approvals).where(and(
+        eq(approvals.objectType, "NOELIA_WORKFLOW"),
+        eq(approvals.objectId, workflow.id),
+        eq(approvals.decision, "APPROVED"),
+      ));
+      const [selfApproval] = await db.select({ n: sql<number>`count(*)::int` })
+        .from(approvals).where(and(
+          eq(approvals.objectType, "NOELIA_WORKFLOW"),
+          eq(approvals.objectId, workflow.id),
+          eq(approvals.decision, "APPROVED"),
+          eq(approvals.approverUserId, input.principal.userId),
+        ));
+      // The quorum target travels with the approval rows: later approvers
+      // inherit it from the first approval instead of re-declaring it.
+      let quorumTarget: number | null = input.quorum ?? null;
+      if (quorumTarget === null && (approvalCount?.n ?? 0) > 0) {
+        const [existing] = await db.select({ q: approvals.quorum }).from(approvals).where(and(
+          eq(approvals.objectType, "NOELIA_WORKFLOW"),
+          eq(approvals.objectId, workflow.id),
+        )).limit(1);
+        quorumTarget = existing?.q ?? null;
+      }
+      const quorumUnmet = quorumTarget !== null && (approvalCount?.n ?? 0) < quorumTarget;
+      const alreadyApproved = (selfApproval?.n ?? 0) > 0;
+      const canAuthorize = !alreadyApproved && (workflow.status === "VALIDATED" || (workflow.status === "AUTHORIZED" && quorumUnmet));
+      if (!access.allowed || !makerChecker || !canAuthorize) {
         const reason = !access.allowed
           ? access.reason
           : !makerChecker
             ? "The requesting human cannot authorize their own Noelia workflow."
-            : `Workflow is ${workflow.status}; only VALIDATED workflows can be authorized.`;
+            : alreadyApproved
+              ? "This approver has already approved the workflow; quorum requires distinct approvers."
+              : `Workflow is ${workflow.status}; only VALIDATED workflows can be authorized${quorumTarget !== null && !quorumUnmet ? " and the configured quorum is already met" : ""}.`;
         await db.transaction(async (rawTx) => {
           const tx = rawTx as unknown as typeof db;
           await workflowAudit(tx, {
@@ -258,6 +302,8 @@ export class BeyuNoeliaWorkflowService {
         return { workflowId: workflow.id, status: workflow.status as WorkflowStatus, code: "AUTHORIZATION_DENIED", reason, approvalId: workflow.approvalId };
       }
       const approvalId = newId(ID_PREFIX.approval);
+      const nextApprovalCount = (approvalCount?.n ?? 0) + 1;
+      const quorumMetAfter = quorumTarget !== null ? nextApprovalCount >= quorumTarget : true;
       await db.transaction(async (rawTx) => {
         const tx = rawTx as unknown as typeof db;
         await tx.insert(approvals).values({
@@ -265,13 +311,16 @@ export class BeyuNoeliaWorkflowService {
           tenantId: workflow.tenantId,
           objectType: "NOELIA_WORKFLOW",
           objectId: workflow.id,
-          step: 1,
+          step: nextApprovalCount,
           approverRole: "CHIEF_GOVERNANCE_OFFICER",
           decision: "APPROVED",
           approverUserId: input.principal.userId,
           decidedAt: new Date(),
           requestedBy: workflow.requestedBy,
           comment: input.comment ?? "Workflow authorized by accountable human.",
+          validUntil: input.validUntil ?? null,
+          quorum: input.quorum ?? null,
+          delegatedFrom: input.delegatedFrom ?? null,
         });
         await tx.update(noeliaWorkflows).set({
           status: "AUTHORIZED",
@@ -284,12 +333,22 @@ export class BeyuNoeliaWorkflowService {
           action: "ai.noelia.workflow.authorize",
           workflowId: workflow.id,
           traceId: input.traceId,
-          reason: "Workflow authorized by an accountable human; execution remains a separate governed step.",
+          reason: quorumTarget !== null && !quorumMetAfter
+            ? `Workflow quorum approval ${nextApprovalCount}/${quorumTarget}; execution requires the full quorum.`
+            : "Workflow authorized by an accountable human; execution remains a separate governed step.",
           approvalRef: approvalId,
-          newValue: { requestingHuman: workflow.requestedBy, approvingHuman: input.principal.userId },
+          newValue: { requestingHuman: workflow.requestedBy, approvingHuman: input.principal.userId, quorum: quorumTarget, validUntil: input.validUntil?.toISOString() ?? null },
         });
       });
-      return { workflowId: workflow.id, status: "AUTHORIZED", code: "AUTHORIZED", reason: "Workflow authorized; no step has executed yet.", approvalId };
+      return {
+        workflowId: workflow.id,
+        status: "AUTHORIZED",
+        code: quorumTarget !== null && !quorumMetAfter ? "QUORUM_PARTIAL" : "AUTHORIZED",
+        reason: quorumTarget !== null && !quorumMetAfter
+          ? `Quorum ${nextApprovalCount}/${quorumTarget} reached; execution requires all ${quorumTarget} approvals.`
+          : "Workflow authorized; no step has executed yet.",
+        approvalId,
+      };
     });
   }
 
@@ -313,6 +372,21 @@ export class BeyuNoeliaWorkflowService {
       const [approval] = workflow.approvalId
         ? await db.select().from(approvals).where(eq(approvals.id, workflow.approvalId)).limit(1)
         : [];
+      // Quorum + expiry: when the approval chain declares a quorum, require
+      // the full count of APPROVED rows; every APPROVED row must also be
+      // inside its validity window (an expired approval is no authority).
+      const [quorumInfo] = await db.select({
+        target: sql<number | null>`max(${approvals.quorum})::int`,
+        approved: sql<number>`count(distinct ${approvals.approverUserId})::int`,
+        valid: sql<number>`count(distinct ${approvals.approverUserId}) filter (where ${approvals.validUntil} is null or ${approvals.validUntil} > now())::int`,
+      }).from(approvals).where(and(
+        eq(approvals.objectType, "NOELIA_WORKFLOW"),
+        eq(approvals.objectId, workflow.id),
+        eq(approvals.decision, "APPROVED"),
+      ));
+      const quorumMet = quorumInfo?.target === null || quorumInfo?.target === undefined
+        || (quorumInfo?.approved ?? 0) >= (quorumInfo?.target ?? 1);
+      const expiryInvalid = (quorumInfo?.approved ?? 0) > (quorumInfo?.valid ?? 0);
       // RUNNING permits crash-recovery resumption (steps commit individually and
       // resume idempotently); COMPLETED/STOPPED/ESCALATED/... require a fresh
       // authorization before anything can run again.
@@ -321,11 +395,17 @@ export class BeyuNoeliaWorkflowService {
         workflow.approvingHumanId &&
         workflow.approvingHumanId !== workflow.requestedBy &&
         approval?.decision === "APPROVED" &&
-        approval.approverUserId === workflow.approvingHumanId;
+        approval.approverUserId === workflow.approvingHumanId &&
+        !expiryInvalid &&
+        quorumMet;
       if (!authorized) {
         const reason = !resumable
           ? `Workflow is ${workflow.status}; only AUTHORIZED (or crashed RUNNING) workflows can execute.`
-          : "The recorded human approval is invalid or missing; execution is denied.";
+          : expiryInvalid
+            ? "The recorded human approval has expired; a fresh authorization is required."
+            : !quorumMet
+              ? `Approval quorum not met (${quorumInfo?.approved ?? 0}/${quorumInfo?.target ?? 1}); execution is denied until the quorum is complete.`
+              : "The recorded human approval is invalid or missing; execution is denied.";
         await db.transaction(async (rawTx) => {
           const tx = rawTx as unknown as typeof db;
           await workflowAudit(tx, {
@@ -338,7 +418,13 @@ export class BeyuNoeliaWorkflowService {
             reason,
           });
         });
-        return { workflowId: workflow.id, status: workflow.status as WorkflowStatus, code: "EXECUTION_DENIED", reason, approvalId: workflow.approvalId };
+        return {
+          workflowId: workflow.id,
+          status: workflow.status as WorkflowStatus,
+          code: expiryInvalid ? "EXPIRED_APPROVAL" : !quorumMet ? "QUORUM_NOT_MET" : "EXECUTION_DENIED",
+          reason,
+          approvalId: workflow.approvalId,
+        };
       }
 
       const steps = await db.select().from(noeliaWorkflowSteps)

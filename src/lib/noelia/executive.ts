@@ -9,8 +9,10 @@ import type { Principal } from "@/lib/authz";
 import { explainableConfidence } from "./epistemics";
 import type {
   NoeliaAuthorizedScope,
+  NoeliaBriefingStructure,
   NoeliaExecutiveBriefing,
   NoeliaFinding,
+  NoeliaMetricView,
   NoeliaRecommendation,
   NoeliaSource,
   NoeliaTargetContext,
@@ -32,6 +34,8 @@ export type BriefingInputs = {
   target: NoeliaTargetContext;
   scope: NoeliaAuthorizedScope;
   horizon: NoeliaHorizon;
+  /** Presentation structure — metadata only, never an authority level. */
+  structure?: NoeliaBriefingStructure;
   policy: PolicyEvaluation;
   toolOutputs: NoeliaToolOutput[];
   toolsUsed: string[];
@@ -40,6 +44,55 @@ export type BriefingInputs = {
   correlationId: string;
   latencyMs: number;
 };
+
+/** §III sections — deterministic derivations, never fabricated. */
+function deriveEnterprisePosition(metrics: NoeliaMetricView[]): string[] {
+  const observed = metrics.filter((m) => m.status === "OBSERVED");
+  if (observed.length === 0) {
+    return ["No observed position metrics available; enterprise position cannot be stated (UNAVAILABLE)."];
+  }
+  return observed.map((m) => `${m.label}: ${m.value} (${m.status}${m.source ? ` · ${m.source}` : ""})`);
+}
+
+function deriveStrategicVariance(metrics: NoeliaMetricView[]): string[] {
+  const signals = metrics.filter((m) => m.trend !== "UNKNOWN");
+  if (signals.length === 0) {
+    return ["No variance signal from registered metrics (UNAVAILABLE); variance is not asserted in its absence."];
+  }
+  return signals.map((m) => `Variance signal — ${m.label}: ${m.value} (trend ${m.trend}, ${m.status})`);
+}
+
+function deriveKpiInterpretation(metrics: NoeliaMetricView[]): string[] {
+  const kpis = metrics.filter((m) => m.status === "OBSERVED");
+  if (kpis.length === 0) {
+    return ["No observed KPI from a registered source; interpretation is not fabricated (UNAVAILABLE)."];
+  }
+  return kpis.map((m) =>
+    `KPI ${m.label} = ${m.value} (${m.status}${m.confidence != null ? `; confidence ${m.confidence.toFixed(2)}` : ""}${m.period ? `; ${m.period}` : ""})`,
+  );
+}
+
+function deriveMaterialItems(deteriorating: string[], risks: string[]): string[] {
+  const candidates = [...deteriorating, ...risks].slice(0, 10);
+  if (candidates.length === 0) {
+    return ["No deterioration/risk signal from registered capabilities; no candidate material item identified."];
+  }
+  return candidates.map((c) => `Candidate material item — ${c} (derived signal; materiality determination remains a governance decision)`);
+}
+
+function deriveRecommendationComparison(recommendations: NoeliaRecommendation[]): NoeliaExecutiveBriefing["recommendationComparison"] {
+  return recommendations.flatMap((r) =>
+    r.alternatives.length > 0 || r.whatWouldChange.length > 0
+      ? [{
+          decision: r.headline,
+          optionA: r.headline,
+          optionB: r.alternatives[0] ?? "(no alternative proposed by the source)",
+          tradeOff: r.uncertainty[0] ?? "Trade-off not quantified by the source.",
+          condition: r.whatWouldChange[0] ?? "No source-defined condition.",
+        }]
+      : [],
+  );
+}
 
 function factText(output: NoeliaToolOutput): string[] {
   return (output.findings ?? [])
@@ -155,6 +208,15 @@ function buildRecommendations(inputs: BriefingInputs): NoeliaRecommendation[] {
         );
       }
     }
+    // Structured recommendations emitted by registered capabilities carry the
+    // full §20 contract (rationale/evidence/assumptions/uncertainty/...).
+    // They are adopted verbatim — Noelia never rewrites a tool's evidence.
+    for (const rec of output.recommendations ?? []) {
+      const key = rec.headline.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      recommendations.push({ ...rec });
+    }
   }
   return recommendations;
 }
@@ -186,6 +248,13 @@ export function synthesizeExecutiveBriefing(inputs: BriefingInputs): Omit<Noelia
     ...risks,
     ...requiresHumanDecision,
   ].slice(0, 10);
+  const structure: NoeliaBriefingStructure = inputs.structure ?? "EXECUTIVE";
+  const enterprisePosition = deriveEnterprisePosition(metrics);
+  const strategicVariance = deriveStrategicVariance(metrics);
+  const kpiInterpretation = deriveKpiInterpretation(metrics);
+  const materialItems = deriveMaterialItems(deteriorating, risks);
+  const opportunities = [...new Set(firstList(inputs.toolOutputs, "opportunities"))];
+  const recommendationComparison = deriveRecommendationComparison(structuredRecommendations);
 
   const policyDenied = inputs.policy.effect === "DENY";
   const headline = policyDenied
@@ -212,6 +281,7 @@ export function synthesizeExecutiveBriefing(inputs: BriefingInputs): Omit<Noelia
       : "RECOMMENDATION",
     analysisType: "EXECUTIVE_BRIEFING",
     horizon: inputs.horizon,
+    structure,
     headline,
     summary,
     findings,
@@ -235,6 +305,12 @@ export function synthesizeExecutiveBriefing(inputs: BriefingInputs): Omit<Noelia
     derivedConclusions: [...new Set([...recommendations, ...metrics.map((m) => `${m.label}: ${m.value} (${m.status})`)])],
     forecasts,
     scenarios,
+    enterprisePosition,
+    strategicVariance,
+    kpiInterpretation,
+    materialItems,
+    opportunities,
+    recommendationComparison,
     whatIsMissing,
     requiresHumanDecision,
     deteriorating,

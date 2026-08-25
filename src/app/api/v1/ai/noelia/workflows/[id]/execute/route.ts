@@ -32,7 +32,9 @@ export async function POST(request: Request, ctxParam: { params: Promise<{ id: s
           traceId: ctx.traceId,
         });
         if (result.code === "NOT_FOUND") return apiError("NOT_FOUND", result.reason, 404, ctx.traceId);
-        if (result.code === "EXECUTION_DENIED") return apiError("EXECUTION_DENIED", result.reason, 403, ctx.traceId);
+        if (result.code === "EXECUTION_DENIED" || result.code === "QUORUM_NOT_MET" || result.code === "EXPIRED_APPROVAL") {
+          return apiError(result.code, result.reason, 403, ctx.traceId);
+        }
         return { status: 200, body: result };
       }).catch((err) => {
         if (err instanceof Error && err.name === "NoeliaToolTimeoutError") {

@@ -5,6 +5,7 @@ import type {
   NoeliaAnalysisType,
   NoeliaAnswer,
   NoeliaAuthorizedScope,
+  NoeliaBriefingStructure,
   NoeliaEngine,
   NoeliaEvidencePort,
   NoeliaExecutiveBriefing,
@@ -14,7 +15,7 @@ import type {
   ToolInvocationContext,
 } from "./types";
 
-const ENGINE_TOOLS: Record<NoeliaEngine, readonly string[]> = {
+export const ENGINE_TOOLS: Record<NoeliaEngine, readonly string[]> = {
   FINANCIAL: [
     "finance.treasury.aggregate",
     "finance.capital.pipeline",
@@ -254,6 +255,7 @@ export class NoeliaRuntime {
     scope: NoeliaAuthorizedScope;
     horizon?: string | null;
     focus?: string | null;
+    structure?: NoeliaBriefingStructure;
   }): Promise<NoeliaExecutiveBriefing> {
     const started = Date.now();
     const horizon = parseHorizon(input.horizon);
@@ -264,6 +266,7 @@ export class NoeliaRuntime {
       target: input.target,
       scope: input.scope,
       horizon,
+      structure: input.structure,
       policy,
       toolOutputs: outputs,
       toolsUsed,

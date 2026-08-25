@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 const BriefSchema = z.object({
   question: z.string().trim().min(3).max(1000).default("Executive briefing across the authorized enterprise."),
   horizon: z.string().min(1).max(40).nullable().optional(),
+  /** Board/executive/operational presentation structure (metadata only). */
+  structure: z.enum(["BOARD", "EXECUTIVE", "OPERATIONAL"]).optional(),
   focus: z.string().trim().max(300).nullable().optional(),
   context: z.object({
     tenantId: z.string().min(1).max(128).optional(),
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
           target: body.context,
           horizon: body.horizon,
           focus: body.focus,
+          structure: body.structure,
         });
         return { status: 200, body: briefing };
       }).catch((err) => {
