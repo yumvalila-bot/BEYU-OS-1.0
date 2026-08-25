@@ -83,6 +83,12 @@ authority by existence.
   dead-letter and exactly-once business semantics.
 - Cross-OS: 12 domains, independent per-domain authorization, unregistered
   domains UNAVAILABLE, cross-tenant DENY.
+- Tool registry: every one of the 30 registered capabilities carries the full
+  governed contract (stableId, version, owner, domain, permission,
+  classification, risk, approver-role, Zod input/output schemas, side-effects,
+  idempotency, timeout, retry, jurisdiction, entity, audit requirements);
+  handler output is validated against the declared Zod output contract after
+  execution (OUTPUT_INVALID fails closed); unknown tools always DENY.
 - Model gateway: full metadata contract incl. latency/fallback/effective/
   retired; external providers DENY until ratified.
 

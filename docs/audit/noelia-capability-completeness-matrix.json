@@ -2,7 +2,7 @@
   "generatedAt": "2026-08-25",
   "gate": "GREEN_LOCAL_IMPLEMENTATION / BLOCKED_PRODUCTION_DEPLOYMENT",
   "regression": {
-    "passed": 1617,
+    "passed": 1620,
     "skipped": 0,
     "failed": 0
   },
@@ -334,6 +334,14 @@
       "permission": "governance:resolution.read",
       "api": "/brief + governance.strategic.objectives tool",
       "evidence": "brief toolsUsed + STRATEGIC_OBJECTIVE provenance (HTTP)"
+    },
+    {
+      "id": "TOOL_CONTRACT_FULL",
+      "capability": "Tool registry full contract on every capability (stableId/version/owner/domain/permission/classification/risk/approver-role/Zod IO/side-effects/idempotency/timeout/retry/jurisdiction/entity/audit)",
+      "status": "IMPLEMENTED",
+      "permission": "registry-enforced",
+      "api": "registry authorize/invoke (30 tools)",
+      "evidence": "30/30 tools: classification, Zod inputSchema+outputSchema; output validated post-execution (OUTPUT_INVALID fail closed); contract regression test"
     }
   ]
 }

@@ -12,6 +12,70 @@ import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { can } from "@/lib/authz";
 
 /**
+ * Runtime envelope passed to every plan step: the question being asked.
+ * Tools that take no structured input still declare this envelope so the
+ * contract is explicit and unknown extra shapes never pass silently.
+ */
+const NOELIA_TOOL_ENVELOPE = z.object({ question: z.string().optional() }).passthrough().optional();
+
+/**
+ * Shared output contract for every registered capability. The registry
+ * validates handler output against this shape after execution and DENIES
+ * (OUTPUT_INVALID) on structural corruption — malformed output is never
+ * propagated to a caller.
+ */
+export const noeliaToolOutputSchema = z.object({
+  findings: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+    kind: z.enum(["FACT", "INFERENCE", "RECOMMENDATION"]),
+    status: z.string().optional(),
+    metricCode: z.string().nullable().optional(),
+    horizon: z.string().nullable().optional(),
+    confidence: z.number().nullable().optional(),
+    provenance: z.string().nullable().optional(),
+  }).passthrough()).optional(),
+  sources: z.array(z.object({
+    kind: z.string(),
+    ref: z.string(),
+    label: z.string(),
+    authority: z.string(),
+  }).passthrough()).optional(),
+  headline: z.string().optional(),
+  narrative: z.string().optional(),
+  confidence: z.number().optional(),
+  humanReviewRequired: z.boolean().optional(),
+  metrics: z.array(z.object({
+    code: z.string(),
+    label: z.string(),
+    value: z.string(),
+    status: z.string(),
+    confidence: z.number().nullable(),
+    source: z.string().nullable(),
+    period: z.string().nullable(),
+    trend: z.enum(["UP", "DOWN", "FLAT", "UNKNOWN"]),
+  }).passthrough()).optional(),
+  recommendations: z.array(z.object({ id: z.string() }).passthrough()).optional(),
+  alternatives: z.array(z.string()).optional(),
+  risks: z.array(z.string()).optional(),
+  assumptions: z.array(z.string()).optional(),
+  uncertainty: z.array(z.string()).optional(),
+  limitations: z.array(z.string()).optional(),
+  whatWouldChangeRecommendation: z.array(z.string()).optional(),
+  observedFacts: z.array(z.string()).optional(),
+  derivedConclusions: z.array(z.string()).optional(),
+  forecasts: z.array(z.string()).optional(),
+  scenarios: z.array(z.string()).optional(),
+  whatIsMissing: z.array(z.string()).optional(),
+  requiresHumanDecision: z.array(z.string()).optional(),
+  deteriorating: z.array(z.string()).optional(),
+  improving: z.array(z.string()).optional(),
+  managementAttentionRequired: z.array(z.string()).optional(),
+  opportunities: z.array(z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}).passthrough();
+
+/**
  * Build the production registry. Handlers are BEYU service adapters only.
  *
  * Every capability carries the full governed contract (stable id, version,
@@ -51,12 +115,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.treasury(context),
   });
   registry.register({
     name: "finance.capital.pipeline",
     permission: "finance:capital.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Read the authorized capital request pipeline through Finance OS.",
     metadata: {
@@ -72,6 +139,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.capitalPipeline(context),
   });
@@ -94,12 +163,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.latestWaterfall(context),
   });
   registry.register({
     name: "finance.cash.position",
     permission: "finance:treasury.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Canonical cash position through the Finance OS treasury engine.",
     metadata: {
@@ -115,12 +187,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => analytics.kpiAnalysis(context),
   });
   registry.register({
     name: "finance.maturity.profile",
     permission: "finance:treasury.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Maturity profile through the Finance OS treasury engine (honest DATA_NOT_AVAILABLE).",
     metadata: {
@@ -136,6 +211,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: async (context) => {
       const treasury = await analytics.loadTreasuryForTool(context);
@@ -157,6 +234,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "finance.fx.view",
     permission: "finance:treasury.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "FX resolution through the Finance OS FX engine (honest REQUIRES_AUTHORITY).",
     metadata: {
@@ -172,6 +250,11 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({
+        fromCurrency: z.string().length(3).toUpperCase(),
+        toCurrency: z.string().length(3).toUpperCase(),
+      }),
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: async (context, input) => {
       const { fromCurrency, toCurrency } = z.object({
@@ -205,6 +288,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "finance.reconciliation.status",
     permission: "finance:ledger.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Treasury-to-ledger reconciliation status through Finance OS.",
     metadata: {
@@ -220,6 +304,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: async (context) => {
       const { reconcileTreasuryToLedger } = await import("@/lib/finance/reconciliation");
@@ -247,6 +333,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "risk.register.query",
     permission: "risk:register.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Read authorized risk register evidence.",
     metadata: {
@@ -262,12 +349,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.riskRegister(context),
   });
   registry.register({
     name: "risk.analysis",
     permission: "risk:register.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Deterministic risk analysis over the canonical risk register.",
     metadata: {
@@ -283,12 +373,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => analytics.riskAnalysis(context),
   });
   registry.register({
     name: "compliance.obligation.query",
     permission: "compliance:obligation.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Read authorized obligations and confirmed assessments.",
     metadata: {
@@ -304,12 +397,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.compliance(context),
   });
   registry.register({
     name: "compliance.analysis",
     permission: "compliance:obligation.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Deterministic compliance analysis over confirmed obligations.",
     metadata: {
@@ -325,6 +421,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => analytics.complianceAnalysis(context),
   });
@@ -334,6 +432,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "analytics.run",
     permission: "ai:analytics.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Governed analytics dispatcher over the 17 canonical analysis types; every measure comes from a specialist engine with scope pushdown.",
     metadata: {
@@ -349,6 +448,7 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
         options: z.record(z.unknown()).optional(),
@@ -366,6 +466,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "governance.resolution.query",
     permission: "governance:resolution.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Read authorized resolution evidence.",
     metadata: {
@@ -381,6 +482,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.governance(context),
   });
@@ -388,6 +491,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "governance.strategic.objectives",
     permission: "governance:resolution.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Read strategic objectives with DERIVED progress (current vs governed target); evidence, never authority.",
     metadata: {
@@ -403,6 +507,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.strategicObjectives(context),
   });
@@ -428,12 +534,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.tax(context),
   });
   registry.register({
     name: "legal.knowledge.query",
     permission: "legal:matter.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Jurisdiction-aware legal knowledge retrieval; unknown authority fails closed.",
     metadata: {
@@ -449,12 +558,19 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({
+        question: z.string().min(1).max(500),
+        jurisdictionCode: z.string().length(2).optional(),
+        domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
+      }).strict(),
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context, input) => legal.knowledge(context, input),
   });
   registry.register({
     name: "legal.authority.status",
     permission: "legal:matter.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Authority status for a cited legal/tax source; unknown authorities fail closed.",
     metadata: {
@@ -470,6 +586,11 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({
+        citation: z.string().min(2).max(200),
+        jurisdictionCode: z.string().length(2).optional(),
+      }).strict(),
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context, input) => legal.authorityStatus(context, input),
   });
@@ -479,6 +600,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "hcm.employee.aggregate",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Aggregate workforce through the canonical HCM service.",
     metadata: {
@@ -494,12 +616,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => services.workforce(context),
   });
   registry.register({
     name: "hcm.workforce.observe",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Canonical workforce observation (headcount, status, occupancy).",
     metadata: {
@@ -515,12 +640,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => workforce.observe(context),
   });
   registry.register({
     name: "hcm.organization.structure",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Canonical organizational structure through HCM.",
     metadata: {
@@ -536,12 +664,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => workforce.organization(context),
   });
   registry.register({
     name: "hcm.workforce.quality",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Workforce data-quality assessment through HCM observe.",
     metadata: {
@@ -557,12 +688,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => workforce.quality(context),
   });
   registry.register({
     name: "hcm.turnover.analyze",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Turnover analysis from employment-event history; UNAVAILABLE where no history exists.",
     metadata: {
@@ -578,12 +712,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => workforce.turnover(context),
   });
   registry.register({
     name: "hcm.succession.signals",
     permission: "hcm:employee.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Succession-relevant signals from organizational structure; no invented readiness scores.",
     metadata: {
@@ -599,6 +736,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => workforce.successionSignals(context),
   });
@@ -608,6 +747,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "health.runtime.status",
     permission: "ai:noelia.query",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Health OS integration boundary: reports registered runtime status; never fabricates clinical data.",
     metadata: {
@@ -623,6 +763,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "NONE",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => health.status(context),
   });
@@ -632,6 +774,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "knowledge.rag.search",
     permission: "ai:noelia.query",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Retrieve governed, scoped and classification-filtered knowledge.",
     metadata: {
@@ -647,12 +790,15 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context, input) => services.knowledge(context, input),
   });
   registry.register({
     name: "knowledge.ingest",
     permission: "ai:knowledge.ingest",
+    classification: "CONFIDENTIAL",
     risk: "HIGH",
     approverRole: "CHIEF_GOVERNANCE_OFFICER",
     description: "Register a governed knowledge source with provenance, authority and effective windows.",
@@ -669,6 +815,7 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "Knowledge registration becomes governed retrieval content." },
       auditRequirements: { event: "NOELIA_KNOWLEDGE_INGESTED", objectType: "KNOWLEDGE_SOURCE" },
+      outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         code: z.string().min(3).max(64),
         title: z.string().min(3).max(200),
@@ -692,6 +839,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "memory.read",
     permission: "ai:memory.read",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Read governed enterprise memory within the resolved scope and clearance.",
     metadata: {
@@ -707,6 +855,7 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         query: z.string().min(1).max(500),
         memoryClass: z.string().max(60).optional(),
@@ -718,6 +867,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "memory.write",
     permission: "ai:memory.write",
+    classification: "RESTRICTED",
     risk: "LOW",
     description: "Write governed enterprise memory owned by the requesting principal.",
     metadata: {
@@ -733,6 +883,7 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_MEMORY_WRITTEN", objectType: "ENTERPRISE_MEMORY" },
+      outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         memoryClass: z.string().min(3).max(60),
         content: z.string().min(5).max(10000),
@@ -753,6 +904,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "model.registry.read",
     permission: "ai:model.registry.read",
+    classification: "INTERNAL",
     risk: "LOW",
     description: "Read the governed model registry (approved models and providers).",
     metadata: {
@@ -768,6 +920,8 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "NONE",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => models.registry(context),
   });
@@ -777,6 +931,7 @@ export function createDefaultNoeliaToolRegistry(
   registry.register({
     name: "cross.os.intelligence",
     permission: "ai:analytics.read",
+    classification: "CONFIDENTIAL",
     risk: "LOW",
     description: "Cross-OS aggregation; every domain independently authorized; cross-tenant DENY.",
     metadata: {
@@ -792,6 +947,7 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         domains: z.array(z.enum([
           "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",

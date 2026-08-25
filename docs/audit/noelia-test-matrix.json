@@ -1,8 +1,8 @@
 {
   "generatedAt": "2026-08-25",
   "regression": {
-    "total": 1617,
-    "passed": 1617,
+    "total": 1620,
+    "passed": 1620,
     "skipped": 0,
     "failed": 0,
     "command": "npx vitest run (live HTTP server on :3100)"
@@ -131,6 +131,26 @@
     {
       "area": "Iteration 2: governance.strategic.objectives tool + brief evidence",
       "suite": "completeness-expansion + HTTP smoke v2 (12 checks)",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 3: tool-registry full contract (30 tools: classification, Zod IO, declared nulls)",
+      "suite": "tool-registry-contract",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 3: engine-declared tools all registered (no dead ends)",
+      "suite": "tool-registry-contract",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 3: output contract accepts conforming output, fails closed on corruption",
+      "suite": "tool-registry-contract",
+      "result": "PASS"
+    },
+    {
+      "area": "Iteration 3: live HTTP \u2014 classification ceiling preserved for SECTOR_OPERATOR risk access",
+      "suite": "HTTP smoke v3 (7 checks)",
       "result": "PASS"
     }
   ]
