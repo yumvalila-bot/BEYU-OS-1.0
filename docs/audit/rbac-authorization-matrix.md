@@ -53,3 +53,23 @@ CEO/CGO/admin.
 - `engines.test.ts`: classification ceiling, MFA step-up, entity scope.
 - `authorization-http.test.ts`: permission denials over HTTP.
 - Tool registry suite: ABAC classification ceiling per tool (Iteration 3).
+
+## Iteration 7 — ABAC decision lattice & scope derivation
+
+New suite `tests/authorization/abac-decision.test.ts` (12) + `abac-scope-country.test.ts` (5).
+
+- Classification ranks strictly ordered; unknown classification ranks above
+  HIGHLY_RESTRICTED (fail closed); unknown role clearance defaults INTERNAL.
+- `filterByClearance` drops rows above clearance AND drops everything for an
+  unknown principal clearance (privilege-escalation vector closed).
+- Decision priority in `can()`: RBAC grant → classification → tenant →
+  entity → MFA step-up. ABAC checks fire even when RBAC passes.
+- Empty `entityScope` = whole tenant subtree (documented semantics).
+- Emergency permissions elevate RBAC ONLY: classification ceiling, entity
+  scope, and MFA step-up still apply (verified).
+- Country scope is DERIVED from tenant + legal-entity visibility via canonical
+  BEYU primitives (never client-supplied): governance principal → enterprise
+  subtree + countries; sector operator → own tenant only; entity-scoped
+  principal → only granted entities' countries; no visible country → empty.
+- Client-supplied targets are requests, never grants — engines filter targets
+  against the derived scope (zero-finding denial).
