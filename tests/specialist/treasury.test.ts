@@ -870,7 +870,9 @@ describe("treasury module — creates no second truth", () => {
   });
 
   it("adds no migration", async () => {
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(15);
+    // 16 = migrations 0000–0014 (kernel baseline) + 0016_noelia_scheduler_offsets
+// (governed Noelia expansion: additive, deterministic, RLS-aware).
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(18);
   });
 
   it("leaves all triggers enabled", async () => {

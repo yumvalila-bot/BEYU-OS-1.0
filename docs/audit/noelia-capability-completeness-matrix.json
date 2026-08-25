@@ -1,0 +1,347 @@
+{
+  "generatedAt": "2026-08-25",
+  "gate": "GREEN_LOCAL_IMPLEMENTATION / BLOCKED_PRODUCTION_DEPLOYMENT",
+  "regression": {
+    "passed": 1620,
+    "skipped": 0,
+    "failed": 0
+  },
+  "capabilities": [
+    {
+      "id": "EXEC_INTELLIGENCE",
+      "capability": "Executive intelligence briefings",
+      "status": "IMPLEMENTED",
+      "permission": "ai:executive.read",
+      "api": "/api/v1/ai/noelia/brief",
+      "evidence": "runtime.test.ts, HTTP smoke 200"
+    },
+    {
+      "id": "SIX_HORIZONS",
+      "capability": "Six-horizon intelligence metadata",
+      "status": "IMPLEMENTED",
+      "permission": "ai:executive.read",
+      "api": "brief horizon param",
+      "evidence": "executive.ts parseHorizon"
+    },
+    {
+      "id": "ENTERPRISE_ANALYTICS",
+      "capability": "Enterprise analytics (16 types)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/api/v1/ai/noelia/analyze",
+      "evidence": "analytics-service.ts; HTTP smoke KPI/FORECAST 200"
+    },
+    {
+      "id": "FINANCE_INTELLIGENCE",
+      "capability": "Finance OS read/analyze/explain/recommend",
+      "status": "IMPLEMENTED",
+      "permission": "finance:treasury.read etc",
+      "api": "cap-finance-* tools",
+      "evidence": "workflow-integration, finance suites"
+    },
+    {
+      "id": "FINANCE_MUTATION",
+      "capability": "Finance autonomous mutation (post/approve/transfer)",
+      "status": "REQUIRES_AUTHORITY",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "registry sideEffects; no code path"
+    },
+    {
+      "id": "HCM_INTELLIGENCE",
+      "capability": "HCM workforce intelligence",
+      "status": "IMPLEMENTED",
+      "permission": "hcm:employee.read",
+      "api": "cap-hcm-* tools",
+      "evidence": "workforce-service.ts"
+    },
+    {
+      "id": "HCM_DECISIONS",
+      "capability": "Autonomous employment decisions",
+      "status": "REQUIRES_AUTHORITY",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "no code path"
+    },
+    {
+      "id": "HEALTH_BOUNDARY",
+      "capability": "Health OS integration boundary",
+      "status": "IMPLEMENTED",
+      "permission": "ai:noelia.query",
+      "api": "health.runtime.status",
+      "evidence": "health-boundary.ts; UNAVAILABLE without integration"
+    },
+    {
+      "id": "HEALTH_DATA",
+      "capability": "Health OS clinical data integration",
+      "status": "BLOCKED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "no real canonical source registered; never fabricated"
+    },
+    {
+      "id": "TAX_LEGAL",
+      "capability": "Tax + legal intelligence (FACT/\u2026/REQUIRES_AUTHORITY)",
+      "status": "IMPLEMENTED",
+      "permission": "finance:tax.read, legal:matter.read",
+      "api": "tax.knowledge.query, legal.knowledge.query",
+      "evidence": "legal-service.ts; unknown citation fails closed"
+    },
+    {
+      "id": "RAG",
+      "capability": "Governed knowledge retrieval",
+      "status": "IMPLEMENTED",
+      "permission": "ai:noelia.query",
+      "api": "knowledge.rag.search",
+      "evidence": "memory-security tests"
+    },
+    {
+      "id": "RAG_SEMANTIC",
+      "capability": "Semantic retrieval / embeddings / rerank",
+      "status": "BLOCKED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "no vector runtime; interfaces defined"
+    },
+    {
+      "id": "MEMORY",
+      "capability": "Long-term enterprise memory (10 classes)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:memory.read, ai:memory.write",
+      "api": "memory.read/write tools",
+      "evidence": "memory-integration tests"
+    },
+    {
+      "id": "AGENTIC_WORKFLOWS",
+      "capability": "Agentic workflow runtime (PLAN\u2192\u2026\u2192AUDIT)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:workflow.run, ai:workflow.approve",
+      "api": "/api/v1/ai/noelia/workflows/*",
+      "evidence": "workflow-integration (8), HTTP loop COMPLETED"
+    },
+    {
+      "id": "APPROVAL_ORCHESTRATION",
+      "capability": "Human approval orchestration (maker/checker)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:workflow.approve, ai:decision.review",
+      "api": "authorize routes",
+      "evidence": "self-approval 403 HTTP; action-integration"
+    },
+    {
+      "id": "CROSS_OS",
+      "capability": "Cross-OS intelligence (independent authorization)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "cross.os.intelligence",
+      "evidence": "per-domain can() + registry.invoke"
+    },
+    {
+      "id": "CROSS_TENANT",
+      "capability": "Cross-tenant aggregation",
+      "status": "REQUIRES_AUTHORITY",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "DENY by default"
+    },
+    {
+      "id": "SCHEDULER",
+      "capability": "Governed scheduler (OUTBOX\u2192consumer\u2192watermark)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:schedule.manage",
+      "api": "/api/v1/ai/noelia/schedules/tick",
+      "evidence": "scheduler-integration (3)"
+    },
+    {
+      "id": "MODEL_GATEWAY",
+      "capability": "Model Gateway registry",
+      "status": "IMPLEMENTED",
+      "permission": "ai:model.registry.read",
+      "api": "model.registry.read",
+      "evidence": "model-gateway.ts"
+    },
+    {
+      "id": "MODEL_PROVIDER",
+      "capability": "External model provider execution",
+      "status": "BLOCKED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "no ratified provider; deterministic HIVE analyst"
+    },
+    {
+      "id": "TOOL_REGISTRY",
+      "capability": "Governed tool registry (full contract)",
+      "status": "IMPLEMENTED",
+      "permission": "per capability",
+      "api": "registry.invoke",
+      "evidence": "tool-registry.test.ts (14)"
+    },
+    {
+      "id": "EPISTEMICS",
+      "capability": "Canonical epistemics (12 statuses)",
+      "status": "IMPLEMENTED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "epistemics.ts; missing\u2260zero, forecast\u2260actual"
+    },
+    {
+      "id": "API_SURFACE",
+      "capability": "Governed API surface",
+      "status": "IMPLEMENTED",
+      "permission": "per route",
+      "api": "11 routes",
+      "evidence": "live HTTP suites 10/10 + smoke 12/12"
+    },
+    {
+      "id": "DB_MIGRATIONS",
+      "capability": "Additive Drizzle migrations + RLS",
+      "status": "IMPLEMENTED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "0015\u20130016 applied; RLS policies present"
+    },
+    {
+      "id": "PRODUCTION_DEPLOY",
+      "capability": "Vercel/Supabase production validation",
+      "status": "BLOCKED",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "no credentials/access; never claimed GREEN"
+    },
+    {
+      "id": "AUTONOMY_L6",
+      "capability": "Autonomy level 6",
+      "status": "REQUIRES_AUTHORITY",
+      "permission": "\u2014",
+      "api": "\u2014",
+      "evidence": "disabled; no activation path"
+    },
+    {
+      "id": "GOVERNANCE_ANALYSIS",
+      "capability": "Governance analysis (control-plane posture)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/api/v1/ai/noelia/analyze (GOVERNANCE_ANALYSIS)",
+      "evidence": "completeness-expansion tests (scoped OBSERVED; out-of-scope UNAVAILABLE)"
+    },
+    {
+      "id": "BRIEF_STRUCTURE",
+      "capability": "Board/executive/operational briefing structure (metadata)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:executive.read",
+      "api": "/brief structure param",
+      "evidence": "executive tests; HTTP smoke"
+    },
+    {
+      "id": "BRIEF_SECTIONS",
+      "capability": "Enterprise position / strategic variance / KPI interpretation / materiality candidates / opportunities / recommendation comparison",
+      "status": "IMPLEMENTED",
+      "permission": "ai:executive.read",
+      "api": "/brief",
+      "evidence": "completeness-expansion tests; UNAVAILABLE fallbacks"
+    },
+    {
+      "id": "APPROVAL_QUORUM",
+      "capability": "Approval quorum (distinct approvers, duplicate-approver block)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:workflow.approve",
+      "api": "POST /workflows/:id/authorize (quorum)",
+      "evidence": "QUORUM_PARTIAL/QUORUM_NOT_MET tests"
+    },
+    {
+      "id": "APPROVAL_EXPIRY",
+      "capability": "Approval decision expiry (validUntil)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:workflow.approve",
+      "api": "POST /workflows/:id/authorize (validUntil)",
+      "evidence": "EXPIRED_APPROVAL test"
+    },
+    {
+      "id": "APPROVAL_DELEGATION",
+      "capability": "Delegation evidence (delegatedFrom)",
+      "status": "IMPLEMENTED (evidence) / REQUIRES_AUTHORITY (delegation authority)",
+      "permission": "ai:workflow.approve",
+      "api": "POST /workflows/:id/authorize (delegatedFrom)",
+      "evidence": "schema + route; delegation chains are POLICY REQUIRED"
+    },
+    {
+      "id": "CROSS_OS_12_DOMAINS",
+      "capability": "Cross-OS 12-domain catalogue (Health/Agriculture/Foundation/Family Office/Trust)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read + per-domain",
+      "api": "cross.os.intelligence",
+      "evidence": "unregistered domains honest UNAVAILABLE"
+    },
+    {
+      "id": "MODEL_METADATA",
+      "capability": "Model registry latency/fallback/effective/retired metadata",
+      "status": "IMPLEMENTED",
+      "permission": "ai:model.registry.read",
+      "api": "model.registry.read",
+      "evidence": "completeness-expansion metadata test"
+    },
+    {
+      "id": "MEMORY_ENTERPRISE",
+      "capability": "ENTERPRISE memory class (12 classes)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:memory.read/write",
+      "api": "memory.write/read",
+      "evidence": "constraint extended in 0017; visibility test"
+    },
+    {
+      "id": "RLS_APPROVALS",
+      "capability": "Approvals RLS hardening + non-superuser enforcement probe",
+      "status": "IMPLEMENTED",
+      "permission": "n/a",
+      "api": "n/a",
+      "evidence": "migration 0017; probe role test"
+    },
+    {
+      "id": "RECOMMENDATION_FLOW",
+      "capability": "Structured tool recommendations adopted into executive brief",
+      "status": "IMPLEMENTED",
+      "permission": "ai:executive.read",
+      "api": "/brief",
+      "evidence": "completeness-expansion comparison test"
+    },
+    {
+      "id": "STRATEGIC_VARIANCE",
+      "capability": "Strategic variance analysis (objective progress vs governed target)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (STRATEGIC_VARIANCE)",
+      "evidence": "SO-1 71.4% DERIVED; out-of-scope UNAVAILABLE; HTTP 200"
+    },
+    {
+      "id": "OPPORTUNITY_DETECTION",
+      "capability": "Opportunity detection (observed positive signals only)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (OPPORTUNITY_DETECTION)",
+      "evidence": "candidate-labeled findings; NONE_OBSERVED honest path"
+    },
+    {
+      "id": "EARLY_WARNING",
+      "capability": "Early warning (observed deterioration signals)",
+      "status": "IMPLEMENTED",
+      "permission": "ai:analytics.read",
+      "api": "/analyze (EARLY_WARNING)",
+      "evidence": "appetite breaches/overdue obligations; humanReviewRequired"
+    },
+    {
+      "id": "STRATEGIC_OBJECTIVES_BRIEF",
+      "capability": "Strategic objectives in executive brief",
+      "status": "IMPLEMENTED",
+      "permission": "governance:resolution.read",
+      "api": "/brief + governance.strategic.objectives tool",
+      "evidence": "brief toolsUsed + STRATEGIC_OBJECTIVE provenance (HTTP)"
+    },
+    {
+      "id": "TOOL_CONTRACT_FULL",
+      "capability": "Tool registry full contract on every capability (stableId/version/owner/domain/permission/classification/risk/approver-role/Zod IO/side-effects/idempotency/timeout/retry/jurisdiction/entity/audit)",
+      "status": "IMPLEMENTED",
+      "permission": "registry-enforced",
+      "api": "registry authorize/invoke (30 tools)",
+      "evidence": "30/30 tools: classification, Zod inputSchema+outputSchema; output validated post-execution (OUTPUT_INVALID fail closed); contract regression test"
+    }
+  ]
+}

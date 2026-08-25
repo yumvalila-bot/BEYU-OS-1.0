@@ -29,6 +29,21 @@ function input() {
   };
 }
 
+const testMetadata = {
+  stableId: "cap-risk-register-query",
+  version: "1.0.0",
+  ownerRole: "CHIEF_RISK_COMPLIANCE",
+  domain: "RISK",
+  sideEffects: "NONE" as const,
+  idempotent: true,
+  timeoutMs: 8000,
+  retryPolicy: null,
+  jurisdictionRestrictions: null,
+  entityRestrictions: "SCOPED" as const,
+  approvalRequirements: null,
+  auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+};
+
 function registry(spy = vi.fn(async () => ({
   headline: "One risk exceeds appetite.",
   findings: [{ label: "RISK-1", value: "16", kind: "FACT" as const }],
@@ -41,6 +56,7 @@ function registry(spy = vi.fn(async () => ({
     permission: "risk:register.read",
     risk: "LOW",
     description: "risk",
+    metadata: testMetadata,
     execute: spy,
   });
   value.register({
@@ -48,6 +64,7 @@ function registry(spy = vi.fn(async () => ({
     permission: "ai:noelia.query",
     risk: "LOW",
     description: "knowledge",
+    metadata: { ...testMetadata, stableId: "cap-knowledge-rag-search", ownerRole: "CHIEF_GOVERNANCE_OFFICER", domain: "KNOWLEDGE" },
     execute: async () => ({ sources: [] }),
   });
   return { value, spy };
@@ -119,6 +136,7 @@ describe("Noelia deterministic runtime", () => {
       permission: "ai:noelia.query",
       risk: "LOW",
       description: "knowledge",
+      metadata: { ...testMetadata, stableId: "cap-knowledge-rag-search", ownerRole: "CHIEF_GOVERNANCE_OFFICER", domain: "KNOWLEDGE" },
       execute: async () => ({ sources: [], confidence: 0.8 }),
     });
     const ledger = evidence();

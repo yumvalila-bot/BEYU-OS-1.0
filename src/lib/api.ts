@@ -287,7 +287,11 @@ export async function guarded(
 
     const authorize = async (): Promise<NextResponse | null> => {
       const rl = options.rateLimit ?? { limit: 120, windowMs: 60_000 };
-      const limited = rateLimit(`${principal.userId}:${options.permission}`, rl.limit, rl.windowMs);
+      // Bucket per (principal, action): a route's declared rate limit is its
+      // enforced limit. Keying by permission would let sibling actions under
+      // the same permission (e.g. workflow create/validate/execute/cancel)
+      // share one bucket and starve each other (Finding A-04-2).
+      const limited = rateLimit(`${principal.userId}:${options.action}`, rl.limit, rl.windowMs);
       if (!limited.ok) {
         return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
       }

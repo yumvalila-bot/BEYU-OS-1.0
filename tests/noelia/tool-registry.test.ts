@@ -21,6 +21,21 @@ function context(overrides: Partial<ToolInvocationContext> = {}): ToolInvocation
   };
 }
 
+const testMetadata = {
+  stableId: "cap-risk-register-query",
+  version: "1.0.0",
+  ownerRole: "CHIEF_RISK_COMPLIANCE",
+  domain: "RISK",
+  sideEffects: "NONE" as const,
+  idempotent: true,
+  timeoutMs: 8000,
+  retryPolicy: null,
+  jurisdictionRestrictions: null,
+  entityRestrictions: "SCOPED" as const,
+  approvalRequirements: null,
+  auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+};
+
 function registry(risk: "LOW" | "HIGH" = "LOW", execute = vi.fn(async () => ({ metadata: { ok: true } }))) {
   return {
     execute,
@@ -30,6 +45,7 @@ function registry(risk: "LOW" | "HIGH" = "LOW", execute = vi.fn(async () => ({ m
       risk,
       approverRole: risk === "HIGH" ? "CHIEF_RISK_COMPLIANCE" : undefined,
       description: "test tool",
+      metadata: testMetadata,
       execute,
     }),
   };
@@ -48,6 +64,7 @@ describe("Noelia tool registry fail-closed gate", () => {
       permission: "risk:register.read",
       risk: "LOW",
       description: "declaration only",
+      metadata: testMetadata,
     });
     const result = await value.invoke("risk.unregistered", context(), {});
     expect(result.allowed).toBe(false);
@@ -78,6 +95,7 @@ describe("Noelia tool registry fail-closed gate", () => {
       classification: "HIGHLY_RESTRICTED",
       risk: "LOW",
       description: "classified test tool",
+      metadata: { ...testMetadata, stableId: "cap-risk-restricted" },
       execute,
     });
     const result = await value.invoke("risk.restricted", context(), {});
