@@ -4,9 +4,76 @@ export const SYSTEM_VERSION = "BEYU-OS/1.0.0";
 export const ENGINE_VERSION_WATERFALL = "waterfall-engine/1.2.0";
 export const NOELIA_IDENTITY = "NOELIA";
 export const HIVE_RUNTIME = "HIVE";
-export const NOELIA_PROMPT_VERSION = "noelia-prompt/1.3.0";
+/** Governed scheduler/worker service identity — distinct from the interactive Noelia identity. */
+export const NOELIA_SCHEDULER_IDENTITY = "NOELIA_SCHEDULER";
+export const NOELIA_PROMPT_VERSION = "noelia-prompt/2.0.0";
 export const SESSION_COOKIE = "beyu_os_session";
 export const SESSION_TTL_HOURS = 12;
+
+/**
+ * Canonical strategic horizons (Noelia executive intelligence metadata).
+ *
+ * Horizons are INTELLIGENCE METADATA, never automatic authority levels. A
+ * longer horizon implies no additional authority; every recommendation remains
+ * subject to the full BEYU governance boundary regardless of horizon.
+ */
+export const NOELIA_HORIZONS = [
+  "HORIZON_1_IMMEDIATE",
+  "HORIZON_2_NEAR_TERM",
+  "HORIZON_3_MEDIUM_TERM",
+  "HORIZON_4_LONG_TERM",
+  "HORIZON_5_GENERATIONAL",
+  "HORIZON_6_INSTITUTIONAL_CONTINUITY_100Y",
+] as const;
+export type NoeliaHorizon = (typeof NOELIA_HORIZONS)[number];
+
+export const HORIZON_LABELS: Record<NoeliaHorizon, string> = {
+  HORIZON_1_IMMEDIATE: "Immediate (0–90 days)",
+  HORIZON_2_NEAR_TERM: "Near term (90 days–1 year)",
+  HORIZON_3_MEDIUM_TERM: "Medium term (1–3 years)",
+  HORIZON_4_LONG_TERM: "Long term (3–10 years)",
+  HORIZON_5_GENERATIONAL: "Generational (10–30 years)",
+  HORIZON_6_INSTITUTIONAL_CONTINUITY_100Y: "Institutional continuity (30–100 years)",
+};
+
+/**
+ * Canonical analytic epistemics for every Noelia analytical result.
+ *
+ * Every finding, metric and recommendation must carry one of these statuses.
+ * The mapping to the legacy ai_output_class enum is lossless: these statuses
+ * are the fine-grained classes, and the outputClass remains the coarse
+ * envelope for the ai_decisions table.
+ */
+export const NOELIA_EPISTEMIC_STATUS = [
+  "OBSERVED",
+  "DERIVED",
+  "FORECAST",
+  "SCENARIO",
+  "INFERENCE",
+  "RECOMMENDATION",
+  "PREDICTION",
+  "UNCERTAINTY",
+  "UNAVAILABLE",
+  "UNVERIFIED",
+  "STALE",
+  "REQUIRES_HUMAN_REVIEW",
+] as const;
+export type NoeliaEpistemicStatus = (typeof NOELIA_EPISTEMIC_STATUS)[number];
+
+export const EPISTEMIC_STATUS_LABELS: Record<NoeliaEpistemicStatus, string> = {
+  OBSERVED: "Directly measured from an authoritative source.",
+  DERIVED: "Computed deterministically from OBSERVED inputs.",
+  FORECAST: "A projection from observed history. Never a fact.",
+  SCENARIO: "A hypothetical world. Never financial truth.",
+  INFERENCE: "A reasoned conclusion from evidence; not directly measured.",
+  RECOMMENDATION: "A proposed course of action; requires accountable decision.",
+  PREDICTION: "A statement about an unobserved future state.",
+  UNCERTAINTY: "Evidence is insufficient or conflicting.",
+  UNAVAILABLE: "The data does not exist or is not in scope. Never zero.",
+  UNVERIFIED: "Retrieved but not verified as authoritative.",
+  STALE: "Outside its governed validity window.",
+  REQUIRES_HUMAN_REVIEW: "A human with authority must decide.",
+};
 
 export const CLASSIFICATION_ORDER = [
   "PUBLIC",
@@ -90,6 +157,15 @@ export const PERMISSIONS = {
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
   "ai:decision.review": "Review and dispose AI decisions",
+  "ai:executive.read": "Request executive intelligence briefings",
+  "ai:analytics.read": "Request governed enterprise analytics",
+  "ai:workflow.run": "Run governed Noelia agentic workflows",
+  "ai:workflow.approve": "Approve a Noelia workflow or prepared action",
+  "ai:memory.read": "Read governed enterprise memory",
+  "ai:memory.write": "Write governed enterprise memory",
+  "ai:knowledge.ingest": "Register a governed knowledge source",
+  "ai:schedule.manage": "Manage governed Noelia schedules",
+  "ai:model.registry.read": "Read the governed model registry",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -126,6 +202,11 @@ export const ROLES: Record<
       "audit:event.read",
       "documents:registry.read",
       "organization:entity.read",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:memory.read",
+      "ai:schedule.manage",
+      "ai:model.registry.read",
     ],
   },
   GROUP_CEO: {
@@ -165,6 +246,12 @@ export const ROLES: Record<
       "documents:registry.read",
       "audit:log.read",
       "ai:noelia.query",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:memory.read",
+      "ai:memory.write",
+      "ai:workflow.run",
+      "ai:model.registry.read",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -194,6 +281,14 @@ export const ROLES: Record<
       "audit:event.read",
       "ai:noelia.query",
       "ai:decision.review",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:workflow.approve",
+      "ai:memory.read",
+      "ai:memory.write",
+      "ai:knowledge.ingest",
+      "ai:schedule.manage",
+      "ai:model.registry.read",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -215,6 +310,11 @@ export const ROLES: Record<
       "documents:registry.read",
       "audit:log.read",
       "ai:noelia.query",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:memory.read",
+      "ai:knowledge.ingest",
+      "ai:model.registry.read",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {
@@ -237,6 +337,8 @@ export const ROLES: Record<
       "family:vault.read",
       "documents:registry.read",
       "ai:noelia.query",
+      "ai:executive.read",
+      "ai:memory.read",
     ],
   },
   HCM_DIRECTOR: {
@@ -252,6 +354,9 @@ export const ROLES: Record<
       "governance:policy.read",
       "documents:registry.read",
       "ai:noelia.query",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:memory.read",
     ],
   },
   SECTOR_OPERATOR: {
@@ -268,6 +373,8 @@ export const ROLES: Record<
       "compliance:obligation.read",
       "documents:registry.read",
       "ai:noelia.query",
+      "ai:executive.read",
+      "ai:analytics.read",
     ],
   },
   AUDITOR: {
@@ -295,6 +402,11 @@ export const ROLES: Record<
       "documents:registry.read",
       "audit:log.read",
       "audit:event.read",
+      "ai:executive.read",
+      "ai:analytics.read",
+      "ai:memory.read",
+      "ai:workflow.approve",
+      "ai:model.registry.read",
     ],
   },
 };
