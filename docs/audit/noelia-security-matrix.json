@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-08-25",
+  "matrix": [
+    { "threat": "Tenant breakout", "control": "tenantIds predicates + RLS beyu_tenant_ids()", "test": "database-security.test.ts; workflow cross-tenant null", "result": "PASS" },
+    { "threat": "Entity breakout", "control": "entityPredicate + composite entity/tenant check", "test": "tool-registry ENTITY_DENIED", "result": "PASS" },
+    { "threat": "Country breakout", "control": "composite country/tenant check + jurisdiction restrictions", "test": "tool-registry COUNTRY_DENIED", "result": "PASS" },
+    { "threat": "Classification escalation", "control": "ABAC clearance ceiling at read/write", "test": "CLASSIFICATION_DENIED", "result": "PASS" },
+    { "threat": "Permission escalation", "control": "RBAC per capability; per-domain can()", "test": "workflow validation STOPPED; HTTP 403", "result": "PASS" },
+    { "threat": "Role/actor spoofing", "control": "server-derived principal; actorType HUMAN; approvingHumanId != requester", "test": "HUMAN_APPROVAL_INVALID", "result": "PASS" },
+    { "threat": "Prompt injection", "control": "deterministic routing; retrieved content is DATA never SYSTEM AUTHORITY", "test": "architecture-boundary.test.ts", "result": "PASS" },
+    { "threat": "Tool injection/substitution", "control": "declaration==registration contract; unknown/unregistered DENY", "test": "TOOL_UNKNOWN/TOOL_UNREGISTERED", "result": "PASS" },
+    { "threat": "Self-approval", "control": "maker/checker server-side", "test": "workflow self-authorize 403 (HTTP)", "result": "PASS" },
+    { "threat": "Maker/checker bypass", "control": "approval != execution; execute re-checks", "test": "EXECUTION_DENIED; action-integration", "result": "PASS" },
+    { "threat": "Stale knowledge exploitation", "control": "authoritative-in-window filtering; supersession", "test": "legal-service; tax window query", "result": "PASS" },
+    { "threat": "Memory/knowledge poisoning", "control": "memory is DATA; provenance; classification gates", "test": "memory-security.test.ts (16)", "result": "PASS" },
+    { "threat": "Cross-OS privilege escalation", "control": "independent per-domain authorization", "test": "cross.os.intelligence", "result": "PASS" },
+    { "threat": "Arbitrary SQL / dataset access", "control": "no SQL builder to Noelia; registered adapters only", "test": "database-security.test.ts", "result": "PASS" },
+    { "threat": "Audit/event tampering", "control": "atomic decision+audit+event; hash chain v2", "test": "audit suites; phase15-integrity", "result": "PASS" },
+    { "threat": "Replay / duplicate execution", "control": "withIdempotency IN_FLIGHT; run-once unique; step resume", "test": "scheduler run-once; workflow resume", "result": "PASS" },
+    { "threat": "Crash recovery abuse", "control": "committed steps resume; watermark advances only past observed", "test": "workflow crash-resume", "result": "PASS" },
+    { "threat": "Unauthorized model/provider", "control": "model_registry gate; no external provider wired", "test": "model-gateway", "result": "PASS" },
+    { "threat": "Malformed payloads", "control": "strict Zod .strict(); sanitized errors", "test": "HTTP 422 no stack/DB leak", "result": "PASS" },
+    { "threat": "Secrets exposure", "control": "env-only; .env gitignored; errors sanitized", "test": "HTTP error body assertions", "result": "PASS" },
+    { "threat": "Unavailable-source fabrication", "control": "UNAVAILABLE/REQUIRES_AUTHORITY semantics", "test": "health-boundary; maturity profile; FX", "result": "PASS" }
+  ]
+}

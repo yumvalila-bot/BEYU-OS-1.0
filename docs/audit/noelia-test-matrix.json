@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-08-25",
+  "regression": { "total": 1600, "passed": 1600, "skipped": 0, "failed": 0, "command": "npx vitest run (live HTTP server on :3100)" },
+  "matrix": [
+    { "area": "Unit (runtime routing, epistemics, executive synthesis)", "suite": "tests/noelia/runtime.test.ts + engine suites", "result": "PASS" },
+    { "area": "Tool registry fail-closed gate", "suite": "tests/noelia/tool-registry.test.ts (14)", "result": "PASS" },
+    { "area": "Database security / arbitrary SQL rejection", "suite": "tests/noelia/database-security.test.ts", "result": "PASS" },
+    { "area": "Architecture boundary (no DB handle, no policy bypass)", "suite": "tests/noelia/architecture-boundary.test.ts", "result": "PASS" },
+    { "area": "Memory security (poisoning, classification, scope)", "suite": "tests/noelia/memory-security.test.ts (16)", "result": "PASS" },
+    { "area": "Memory integration (persistence, visibility)", "suite": "tests/noelia/memory-integration.test.ts (4)", "result": "PASS" },
+    { "area": "Action approval maker/checker transaction boundaries", "suite": "tests/noelia/action-integration.test.ts (4)", "result": "PASS" },
+    { "area": "Agentic workflow lifecycle + recovery + escalation", "suite": "tests/noelia/workflow-integration.test.ts (8)", "result": "PASS" },
+    { "area": "Scheduler OUTBOX/consumer/idempotency/dead-letter", "suite": "tests/noelia/scheduler-integration.test.ts (3)", "result": "PASS" },
+    { "area": "HTTP auth + governed query + audit persistence", "suite": "tests/noelia/http.test.ts (5, live)", "result": "PASS" },
+    { "area": "HTTP HCM surface", "suite": "tests/hcm/hcm-http.test.ts (5, live)", "result": "PASS" },
+    { "area": "Full regression", "suite": "npx vitest run", "result": "PASS 1600/1600" },
+    { "area": "Typecheck", "suite": "tsc --noEmit", "result": "PASS" },
+    { "area": "Lint", "suite": "eslint .", "result": "PASS" },
+    { "area": "Production build", "suite": "next build", "result": "PASS" },
+    { "area": "Migration fresh install", "suite": "npm run migrate (0000→0016)", "result": "PASS" },
+    { "area": "Seed idempotency", "suite": "npm run seed re-run; role_permissions parity", "result": "PASS" },
+    { "area": "HTTP smoke of new endpoints (brief/analyze/workflows/schedules)", "suite": "live smoke (12 checks)", "result": "PASS" },
+    { "area": "Production deployment validation", "suite": "Vercel/Supabase", "result": "BLOCKED" }
+  ]
+}
