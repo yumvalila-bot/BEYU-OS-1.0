@@ -21,6 +21,7 @@ import {
 } from "../../../src/lib/family/phase3/contracts";
 import { FamilyError } from "../../../src/lib/family/phase3/errors";
 import { FamilyInstitutionError } from "../../../src/lib/family/model";
+import type { FinanceHandoffSubmission } from "../../../src/lib/family/phase3/contracts";
 
 const validCapital = (): FamilyCapitalInstruction => ({
   id: "FCI_T_0001",
@@ -90,6 +91,23 @@ describe("capital instruction contract", () => {
     }
   });
 
+  it("accepts RESOLUTION and DELEGATION authority refs; refuses kinds outside the §26.4 model", () => {
+    const delegation = validateCapitalInstruction({
+      ...validCapital(),
+      resolutionRefs: [{ kind: "DELEGATION", referenceId: "DELEG_T_041" }],
+    });
+    expect(delegation.ok).toBe(true);
+    // A trust instrument is a superior instrument the family is subordinate
+    // to, not a source of family-act authority: even supplied raw, the
+    // runtime validator must refuse it (spec §26.4 authority-proof model).
+    const instrument = validateCapitalInstruction({
+      ...validCapital(),
+      resolutionRefs: [{ kind: "INSTRUMENT_DOCUMENT", referenceId: "TRUST-DOC-1" }],
+    } as unknown as FamilyCapitalInstruction);
+    expect(instrument.ok).toBe(false);
+    if (!instrument.ok) expect(instrument.violations.some((v) => v.code === "AUTHORITY_UNPROVEN")).toBe(true);
+  });
+
   it("rejects unknown lifecycle statuses (no invented states)", () => {
     const result = validateCapitalInstruction({ ...validCapital(), familyStatus: "EFFECTIVE_BY_DEFAULT" });
     expect(result.ok).toBe(false);
@@ -142,22 +160,34 @@ describe("Finance hand-off submission contract", () => {
     const result = validateSubmission({
       instructionId: "FCI_T_0001",
       idempotencyKey: "idk-0001",
-      destination: "FINANCE",
       submittedBy: { actorType: "HUMAN", actorUserId: "USR_T_001" },
       submittedAt: "2026-08-26T00:00:00.000Z",
     });
     expect(result.ok).toBe(true);
   });
 
-  it("rejects AI submission and unknown destinations", () => {
+  it("rejects AI submission and missing required references", () => {
     const base = {
       instructionId: "FCI_T_0001",
       idempotencyKey: "idk-0001",
-      destination: "FINANCE",
       submittedAt: "2026-08-26T00:00:00.000Z",
     };
     expect(validateSubmission({ ...base, submittedBy: { actorType: "AI", actorUserId: "NOELIA" } }).ok).toBe(false);
-    expect(validateSubmission({ ...base, submittedBy: { actorType: "HUMAN", actorUserId: "U" }, destination: "TREASURY" }).ok).toBe(false);
+    expect(validateSubmission({ ...base, submittedBy: { actorType: "HUMAN", actorUserId: "U" }, idempotencyKey: "" }).ok).toBe(false);
+    expect(validateSubmission({ ...base, submittedBy: { actorType: "HUMAN", actorUserId: "U" }, instructionId: "" }).ok).toBe(false);
+  });
+
+  it("contract shape is exactly the §30.1 submission fields (no destination/request-type selection)", () => {
+    // Compile-time guard: this literal must typecheck against the interface —
+    // reintroducing a destination/request-type field as REQUIRED breaks
+    // compilation here; as optional, the runtime key check below fails.
+    const s: FinanceHandoffSubmission = {
+      instructionId: "FCI_T_0001",
+      idempotencyKey: "idk-0001",
+      submittedBy: { actorType: "HUMAN", actorUserId: "USR_T_001" },
+      submittedAt: "2026-08-26T00:00:00.000Z",
+    };
+    expect(Object.keys(s)).toEqual(["instructionId", "idempotencyKey", "submittedBy", "submittedAt"]);
   });
 });
 

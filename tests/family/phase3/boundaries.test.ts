@@ -8,6 +8,9 @@
  * STOP and review; do not weaken the test.
  * Pure; no database.
  */
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { beneficiaries, familyMembers, familyVaultItems } from "@/db/schema/people";
 import { HIGH_RISK_PERMISSIONS, PERMISSIONS } from "@/lib/constants";
@@ -329,5 +332,38 @@ describe("Phase 1-2 fail-closed behavior (regression)", () => {
     expect(conflicting.permitted).toBe(false);
     expect(conflicting.overrides).toContain("TRUST_INSTRUMENT");
     expect(conflicting.trusteeMattersClaimed).toContain("TRUST_DISTRIBUTION");
+  });
+});
+
+describe("production-surface exposure (STEP 15 / no production API)", () => {
+  const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+
+  function listSourceFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) out.push(...listSourceFiles(p));
+      else if (p.endsWith(".ts") || p.endsWith(".tsx")) out.push(p);
+    }
+    return out;
+  }
+
+  it("no production route (src/app) imports Phase 3A infrastructure", () => {
+    const appDir = join(repoRoot, "src", "app");
+    const routeFiles = listSourceFiles(appDir);
+    expect(routeFiles.length).toBeGreaterThan(0);
+    for (const file of routeFiles) {
+      const source = readFileSync(file, "utf8");
+      expect(source, `${file} must not expose Phase 3A infrastructure`).not.toMatch(/family[\\/]phase3/);
+    }
+  });
+
+  it("no non-test src file imports Phase 3A infrastructure (dormant layer)", () => {
+    const phase3Dir = join(repoRoot, "src", "lib", "family", "phase3");
+    for (const file of listSourceFiles(join(repoRoot, "src"))) {
+      if (file.startsWith(phase3Dir)) continue;
+      const source = readFileSync(file, "utf8");
+      expect(source, `${file} must not import Phase 3A infrastructure`).not.toMatch(/family[\\/]phase3/);
+    }
   });
 });

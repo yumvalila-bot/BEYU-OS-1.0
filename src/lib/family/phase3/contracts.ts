@@ -43,9 +43,16 @@ export interface FamilyEvidenceRef {
  * Reference to a canonical authority record. The reference CARRIES no
  * authority — authority is proven by the referenced record itself at the
  * decision gate (spec §26.4).
+ *
+ * Kind vocabulary is exactly the §26.4 authority-proof model: a family act is
+ * authorized by a canonical RESOLUTION or by a canonical DELEGATION. Policy
+ * record references are carried separately (`policyRefs`); engine
+ * version + input checksum separately (`assessment`). Trust instruments are
+ * superior instruments the family is subordinate to, not sources of family
+ * act authority — no instrument kind is accepted.
  */
 export interface FamilyAuthorityRef {
-  kind: "RESOLUTION" | "DELEGATION" | "INSTRUMENT_DOCUMENT";
+  kind: "RESOLUTION" | "DELEGATION";
   referenceId: string;
 }
 
@@ -254,7 +261,7 @@ export function validateCapitalInstruction(input: unknown): ContractCheck<Family
   if (!Array.isArray(d.resolutionRefs) || d.resolutionRefs.length === 0) {
     violations.push({ code: "AUTHORITY_UNPROVEN", field: "resolutionRefs", reason: "At least one canonical resolution reference is required." });
   } else {
-    const kinds = ["RESOLUTION", "DELEGATION", "INSTRUMENT_DOCUMENT"];
+    const kinds = ["RESOLUTION", "DELEGATION"];
     d.resolutionRefs.forEach((r, i) => {
       if (!isPlainObject(r) || !kinds.includes(String(r.kind)) || !nonEmptyString(r.referenceId)) {
         violations.push({ code: "AUTHORITY_UNPROVEN", field: `resolutionRefs[${i}]`, reason: "kind + referenceId required." });
@@ -392,10 +399,21 @@ export function validateLoanInstruction(input: unknown): ContractCheck<FamilyLoa
 /* Finance hand-off submission (contract only — no execution)          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Typed hand-off contract only — NO execution, NO adapter (spec §30.4: no
+ * adapter exists until the FIRs ratify).
+ *
+ * The submission targets the single canonical Finance request surface
+ * defined by spec §30.1/KDD-6. No destination/request-type field is
+ * encoded: hand-off contract details (request types, reference scheme,
+ * settlement of result states) are `POLICY DECISION REQUIRED`
+ * (FIR-012/013/016/025/026, spec §30.3) and must not be pre-selected.
+ * The loan's legal aspect is carried by the loan instruction's own
+ * `legalRef` reference (spec §21.1), not by a hand-off destination.
+ */
 export interface FinanceHandoffSubmission {
   instructionId: string;
   idempotencyKey: string;
-  destination: "FINANCE" | "FINANCE_LEGAL";
   submittedBy: HumanActorRef;
   submittedAt: string;
 }
@@ -410,9 +428,6 @@ export function validateSubmission(input: unknown): ContractCheck<FinanceHandoff
     if (!nonEmptyString(d[field])) {
       violations.push({ code: "AUTHORITY_UNPROVEN", field, reason: "Required." });
     }
-  }
-  if (d.destination !== "FINANCE" && d.destination !== "FINANCE_LEGAL") {
-    violations.push({ code: "AUTHORITY_UNPROVEN", field: "destination", reason: "Must be FINANCE or FINANCE_LEGAL." });
   }
   const actor = d.submittedBy;
   if (!isPlainObject(actor) || actor.actorType !== "HUMAN" || !nonEmptyString(actor.actorUserId)) {
