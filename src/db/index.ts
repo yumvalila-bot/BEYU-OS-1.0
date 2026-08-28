@@ -2,27 +2,103 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
-}
-
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
 };
 
-export const pool =
-  globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool({
-    connectionString: databaseUrl,
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__arenaNextJsPostgresqlPool = pool;
+function databaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL is required");
+  }
+  return url;
 }
 
-const baseDb = drizzle(pool);
+function createPool(): Pool {
+  const existing = globalForDb.__arenaNextJsPostgresqlPool;
+  if (existing) return existing;
+  const created = new Pool({ connectionString: databaseUrl() });
+  globalForDb.__arenaNextJsPostgresqlPool = created;
+  return created;
+}
+
+/**
+ * The pool connects lazily on first use.
+ *
+ * Deployment platforms (Vercel included) build the application in an
+ * environment where runtime secrets such as DATABASE_URL are not present.
+ * Because Next.js imports route modules while collecting page data, a
+ * module-load requirement on DATABASE_URL makes every production build fail
+ * before the application can ever start. The connection is therefore created
+ * on first real use: the same canonical "DATABASE_URL is required" error is
+ * thrown at the first query instead of at import, and the health endpoint
+ * reports `database: DOWN` (503) until the environment is configured.
+ */
+function lazyPool(): Pool {
+  let instance: Pool | undefined;
+  const get = () => (instance ??= createPool());
+  return new Proxy({} as Pool, {
+    get(_target, property) {
+      const value = Reflect.get(get(), property, get());
+      return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(get()) : value;
+    },
+    set(_target, property, value) {
+      Reflect.set(get(), property, value);
+      return true;
+    },
+    has(_target, property) {
+      return property in get();
+    },
+    getPrototypeOf() {
+      // Preserve prototype identity: drizzle-orm classifies its client with
+      // `client instanceof Pool || getPrototypeOf(client).constructor.name
+      // .includes("Pool")` to decide whether transaction() must acquire a
+      // dedicated connection. A prototype-opaque proxy would make every
+      // "transaction" run as disconnected autocommit statements.
+      return Reflect.getPrototypeOf(get());
+    },
+    ownKeys() {
+      return Reflect.ownKeys(get());
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(get(), property);
+      return descriptor ? { ...descriptor, configurable: true } : undefined;
+    },
+  });
+}
+
+/** The one application connection pool; connects on first use. */
+export const pool: Pool = lazyPool();
+
+function lazyObject<T extends object>(factory: () => T): T {
+  let instance: T | undefined;
+  const get = () => (instance ??= factory());
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const value = Reflect.get(get(), property, get());
+      return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(get()) : value;
+    },
+    set(_target, property, value) {
+      Reflect.set(get(), property, value);
+      return true;
+    },
+    has(_target, property) {
+      return property in get();
+    },
+    getPrototypeOf() {
+      return Reflect.getPrototypeOf(get());
+    },
+    ownKeys() {
+      return Reflect.ownKeys(get());
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(get(), property);
+      return descriptor ? { ...descriptor, configurable: true } : undefined;
+    },
+  });
+}
+
+const baseDb = lazyObject(() => drizzle(pool));
 
 /**
  * A request's RLS transaction is carried through the asynchronous call graph.
