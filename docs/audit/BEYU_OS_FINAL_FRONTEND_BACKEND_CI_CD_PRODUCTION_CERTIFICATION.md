@@ -128,9 +128,16 @@ escalation, cannot SET ROLE); 19 migrations present; pooling/max_connections.
   with `workflows` scope (or a human maintainer) must copy
   `docs/ci/ci.yml` → `.github/workflows/ci.yml` on `main`.
 - **GitHub push/PR:** code is pushed to branch `arena/01a0485f-beyu-os-1-0`.
-- **Vercel deploy:** **BLOCKED** — the Vercel platform/API is not reachable from
-  the sandbox and the Vercel project env (six secrets) must be set in Vercel's
-  store. Deployed SHA and deployment status therefore cannot be recorded here.
+- **Vercel deploy:** the GitHub→Vercel integration is **connected and building**
+  — PR #13 reports `Vercel: pass` (project `beyu-os-1-0`) and a `Supabase
+  Preview` integration is present but **skipping**. So the deploy pipeline and
+  build-without-secrets path work. **However** the production runtime
+  environment variables (the six secrets) cannot be set from here
+  (`api.vercel.com` is egress-blocked; the Supabase DB password is an external
+  secret), and the live URL cannot be reached from the sandbox. Therefore the
+  deployed **production SHA** and live **`database: UP`** status remain
+  **BLOCKED/unverified** — `Vercel: pass` proves a successful build, not a
+  connected database.
 - **Branch protection status:** cannot be confirmed from the sandbox (no
   production `main` merge performed here). Merging `main` is left to the
   sanctioned, protected workflow.
