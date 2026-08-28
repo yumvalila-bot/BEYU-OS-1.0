@@ -9,6 +9,7 @@ export function NavLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={`block rounded-lg px-3 py-2 text-[12.5px] transition ${
         active
           ? "bg-[#d4af37]/15 font-semibold text-[#efd98f] shadow-[inset_2px_0_0_0_#d4af37]"
