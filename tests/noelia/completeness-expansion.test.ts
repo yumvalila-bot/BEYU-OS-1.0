@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { randomBytes } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { db, pool } from "../../src/db";
@@ -439,17 +440,44 @@ describe("Noelia completeness expansion", () => {
     // Role lifecycle is administrative; the runtime role is NOT CREATEROLE.
     await adminDb.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
     await adminDb.execute(sql`drop role if exists beyu_rls_probe`);
-    await adminDb.execute(sql`create role beyu_rls_probe login`);
+    // A per-run random password is mandatory, not decorative: on any cluster
+    // whose pg_hba.conf enforces `password`/`scram-sha-256`/`md5` (the default
+    // for managed services such as Supabase, and for the official postgres
+    // image) a passwordless role CANNOT authenticate, and the client fails with
+    // "empty password returned by client" before a single RLS assertion runs.
+    // Depending on `trust` made this proof environment-coupled: it silently
+    // verified nothing on a hardened cluster. The password is random per run,
+    // never logged, and grants nothing — the probe role still holds ONLY the
+    // narrow grants below, so the isolation assertion is unchanged.
+    const probePassword = randomBytes(24).toString("base64url");
+    // CREATE ROLE is a utility statement: PostgreSQL rejects bind parameters in
+    // it. The password is therefore rendered through format(%I/%L) inside an
+    // ordinary SELECT (which does accept bind parameters) and executed as
+    // generated, fully-escaped SQL — the same protocol-correct technique used by
+    // scripts/setup-db-role.ts. Nothing is interpolated into SQL text.
+    const createStmt = await adminPool.query<{ stmt: string }>(
+      `select format('create role %I login password %L', $1::text, $2::text) as stmt`,
+      ["beyu_rls_probe", probePassword],
+    );
+    await adminPool.query(createStmt.rows[0].stmt);
     await adminDb.execute(sql`grant usage on schema public to beyu_rls_probe`);
     await adminDb.execute(sql`grant select on tenants to beyu_rls_probe`);
     await adminDb.execute(sql`grant select, insert on approvals to beyu_rls_probe`);
     await adminDb.execute(sql`grant execute on function public.beyu_tenant_ids() to beyu_rls_probe`);
     const url = new URL(process.env.DATABASE_URL!);
     url.username = "beyu_rls_probe";
-    url.password = "";
+    url.password = probePassword;
     const probe = new Client({ connectionString: url.toString() });
     await probe.connect();
     try {
+      // Guard the premise of the proof: if the probe role were a superuser or
+      // held BYPASSRLS the assertion below would pass for the wrong reason and
+      // RLS would be verified by nothing. Fail loudly instead.
+      const attrs = await probe.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+        `select rolsuper, rolbypassrls from pg_roles where rolname = 'beyu_rls_probe'`,
+      );
+      expect(attrs.rows[0].rolsuper).toBe(false);
+      expect(attrs.rows[0].rolbypassrls).toBe(false);
       await probe.query("select set_config('beyu.current_tenant_ids', $1, false)", [cfo.tenantId]);
       await probe.query(
         `insert into approvals (id, tenant_id, object_type, object_id, approver_role, decision, requested_by)
