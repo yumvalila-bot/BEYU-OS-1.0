@@ -1,5 +1,104 @@
 # Changelog
 
+## [Unreleased] — FINAL PRODUCTION ACTIVATION & CERTIFICATION — six real defects found and fixed — 2026-08-28
+
+Re-verified every prior claim against fresh evidence rather than inheriting it. The result was
+**CONDITIONALLY CERTIFIED**: the application is certified; the deployment is not. Full report in
+`docs/audit/BEYU_OS_FINAL_FRONTEND_BACKEND_CI_CD_PRODUCTION_CERTIFICATION.md`.
+
+### Security fixes
+
+- **The Executive Control Centre bypassed module-level RBAC.** `/os` was tenant-scoped but not
+  capability-scoped: it read treasury, capital, waterfall, risk, compliance, workforce, governance
+  and AI data for *any* authenticated principal, and only the treasury metric honoured a permission.
+  A principal explicitly denied `/os/governance` (no `governance:resolution.read`) and
+  `/os/assurance` (no `risk:register.read`) could still read recent resolutions and above-appetite
+  risks there — the same data the modules refused to show. The page header claimed every figure was
+  "filtered to your granted permissions", which was untrue. Every panel and figure is now gated on
+  the capability its module page enforces, through the same `can()` primitive, and ungranted data is
+  not queried at all. Ungranted figures read "Restricted" rather than zero, because a fabricated
+  zero would be a fabricated financial figure.
+- **The public sign-in page published privileged identities.** It listed six bootstrap accounts with
+  their roles and pre-filled the Group Chief Executive's address — a username-enumeration aid aimed
+  at the accounts holding the most authority. Gating the render alone was **not sufficient**: the
+  list lived in a client component and was therefore compiled into a shipped JavaScript chunk, so it
+  remained readable even when hidden. The list now lives in a server component and is passed in only
+  outside production; verified that **zero files in `.next/static` contain the addresses**.
+  Suppression keys on `NODE_ENV` because `VERCEL_ENV` was empirically not observable at request time
+  — shipping a control that silently never fires would be worse than none.
+- **Navigation advertised denied modules** to every principal. Visibility is now derived from the
+  same `can()` primitive the guards use, in both the desktop sidebar and the mobile bar. This is
+  presentation only: a hidden route still returns the real governed decision when requested
+  directly, asserted in both directions.
+
+### Accessibility (WCAG 1.3.1 / 4.1.2)
+
+- Sign-in labels were bare text with no `for`/`id` association and the MFA field had no accessible
+  name; a screen-reader user could not tell which field was which. Associated all labels, added
+  `name` attributes and `one-time-code` autocomplete.
+- A failed sign-in announced nothing — focus never leaves the submit button and nothing is read out.
+  The error now sits in an assertive live region with `aria-atomic`, plus `aria-busy` on submit.
+- Added a skip link to a labelled main landmark, distinct `aria-label` per landmark, and
+  `aria-current="page"` on the mobile navigation (previously desktop-only).
+
+### Operational
+
+- **Added `GET /api/health/live`.** `/api/health` returns 503 when the database is down — correct for
+  readiness, but an orchestrator using it for liveness restarts every healthy instance during a
+  database outage, destroying the warm connection pool exactly when the database recovers. The new
+  endpoint performs no I/O and always answers. Configure liveness → `/api/health/live`,
+  readiness → `/api/health`.
+
+### Test integrity — three ways the suite could pass while proving nothing
+
+- The RLS tenant-isolation proof created a **passwordless** probe role, which cannot authenticate on
+  any cluster whose `pg_hba.conf` enforces password auth (managed services, the official postgres
+  image). It silently verified nothing there. The role now takes a per-run random password, and the
+  test asserts the probe is neither superuser nor `BYPASSRLS` so the premise cannot rot.
+- `serverAvailable()` **skipped** every transport-level assertion when no server was reachable, so a
+  run with `BEYU_TEST_BASE_URL` configured and the server down exited **green having tested
+  nothing**. With a base URL explicitly configured that is now a hard failure.
+- Denial was detected by the bare phrase `"Authorisation denied"`, which also appears in
+  `propose.tsx` as an error-status label — so a **successfully rendered** Governance page matched as
+  "denied", inverting any assertion built on it. Replaced with a shared `isDeniedPage()` anchored on
+  the panel's `<h1>`.
+
+### CI
+
+- **Corrected `docs/ci/ci.yml`.** The previous draft could not have passed, and where it did pass it
+  proved nothing: it never provisioned the runtime role, so `DATABASE_URL` stayed the `postgres`
+  superuser. Reproduced with a CI-parity environment — `2 failed | 4 passed | 13 skipped`, with
+  `expected 'postgres' to be 'beyu_runtime'`. The pipeline now provisions the role before the tests,
+  asserts its attributes independently, runs the server **on the runtime role** to match production,
+  asserts `database: UP` before testing, blanks every secret for the no-secrets build, and adds a
+  committed-secret filename scan plus a production-only critical-severity audit.
+- **Installation remains BLOCKED** and was not bypassed:
+  `refusing to allow a GitHub App to create or update workflow .github/workflows/ci.yml without
+  workflows permission`. Branch protection likewise returns
+  `403 Resource not accessible by integration`.
+
+### Verification
+
+- PostgreSQL 17.10 provisioned locally; 19/19 migrations applied with **no drift**; schema
+  fingerprint `1e5cca74ebd39999c3b1a5df7ec8dc06`.
+- Runtime role verified by catalogue query: `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`, no
+  dangerous memberships, owns no tables.
+- typecheck · lint · build · **build with every runtime secret blanked** — all clean.
+- **Final regression: 2,215/2,215 tests, 104/104 files, 0 failures, 0 skips**, against a real
+  database on the RLS-bound runtime role.
+- `npm audit --omit=dev`: **0 vulnerabilities**. 4 moderate advisories are dev-only (esbuild via
+  `drizzle-kit`), unreachable at runtime; the only offered fix is a breaking downgrade, so declined.
+
+### Still blocked — operator action required
+
+Production reports `database: DOWN` and **still serves `28fc40d`**, i.e. the pre-fix build; the
+production sign-in page still lists the six bootstrap identities, which is direct evidence these
+fixes are not deployed. No Supabase credentials and no Vercel token exist in this environment, and
+the network path does not either (`*.supabase.co` TCP refused; `api.vercel.com` TLS handshake killed
+by an SNI egress filter). Supabase role topology, RLS, backups and PITR are **UNVERIFIED** and must
+not be inferred from the local proof. No local DR drill was re-run this session, so the previously
+claimed drill is **not** counted here.
+
 ## [Unreleased] — Complete frontend·CI·CD·production certification + FIRST SUCCESSFUL PRODUCTION DEPLOYMENT — 2026-08-28
 
 - Executed the complete frontend + UI + backend + CI + CI/CD + production certification program
