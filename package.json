@@ -15,7 +15,6 @@
     "migrate:generate": "drizzle-kit generate",
     "seed": "tsx src/db/seed.ts",
     "certify": "tsx scripts/certify-production.mts",
-    "certify": "tsx scripts/certify-production.mts",
     "evidence:gate1": "tsx scripts/evidence/kernel-gate1.ts"
   },
   "dependencies": {
