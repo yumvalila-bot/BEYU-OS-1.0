@@ -85,6 +85,20 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # Deployment-platform build parity: production platforms (Vercel) build
+      # WITHOUT runtime secrets. This step fails if any module regresses to
+      # requiring DATABASE_URL at build time (the root cause that previously
+      # failed every production deployment).
+      - name: Production build without runtime secrets (deployment parity)
+        env:
+          DATABASE_URL: ""
+        run: |
+          set -euo pipefail
+          mv .env /tmp/beyu-ci-env-backup 2>/dev/null || true
+          trap 'mv /tmp/beyu-ci-env-backup .env 2>/dev/null || true' EXIT
+          npm run build
+          echo "Build succeeds without runtime secrets."
+
       # The end-to-end suite drives the real HTTP surface (401, the 422 forgery
       # guards, idempotency replay/mismatch/cross-actor). Without a running server
       # those tests skip, so CI starts one and fails if it never becomes ready.
