@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased] — Complete frontend·CI·CD·production certification + FIRST SUCCESSFUL PRODUCTION DEPLOYMENT — 2026-08-28
+
+- Executed the complete frontend + UI + backend + CI + CI/CD + production certification program
+  (Phases 0–40) and **merged the certified branch to `main` through PR #10**.
+- **FIRST SUCCESSFUL PRODUCTION DEPLOYMENT:** merge commit `45e928b` auto-deployed to Vercel —
+  commit status `success` ("Deployment has completed"); `https://beyu-os-1-0.vercel.app/` serves the
+  real control plane and `/api/health` answers with the BEYU-OS/1.0.0 envelope. The deployment
+  reports `database: DOWN` because production environment variables (DATABASE_URL runtime role,
+  secrets) are not yet configured on the Vercel project — exactly the designed fail-safe behavior.
+- **Frontend:** full engineering audit (15 permission-gated pages, 10 mutation components,
+  zero optimistic authority, `router.refresh()` re-reads); a11y fix `aria-current="page"` on
+  sidebar navigation; responsive classes audited (65 breakpoint uses, mobile nav); client bundle
+  685K total static.
+- **UI state matrix verified live:** 200/307/401/403/405/409/422/423/428/429/500/503 each produce
+  the designed UI outcome; no crashes, no false success, no secret exposure.
+- **Fresh final adversarial attack: 12/12 DENIED** on the final certified tree (MFA step-up/replay/
+  brute-lock, 5-strike password lock, XFF-spoof no-bypass, forged session, tenant forge, Noelia
+  non-authority 403, finance bypass 403, parallel-duplicate exactly-once, RLS runtime binding, SQLi).
+- **Final regression (fresh): evidence gate 7/7 GREEN** — typecheck, lint, build, migrate
+  fingerprint, full suite ×2 (incl. determinism re-run, 2202/2202 ×3 this session), finance
+  regression. Build WITHOUT `DATABASE_URL` re-verified.
+- **CI: BLOCKED** — GitHub rejects workflow creation for the Arena App
+  ("…without `workflows` permission"); the validated pipeline remains in `docs/ci/ci.yml`
+  with a one-command install path for an actor holding the permission.
+- **Branch protection: BLOCKED (403)** — recommendation recorded (enable force-push/deletion
+  protection + required status checks once CI exists).
+- DR drill and rollback drill evidence stand (9/9 tables, chains valid on restore, RPO 0 /
+  RTO minutes; `04e35f6` rollback serves against the same schema).
+
 ## [Unreleased] — Frontend↔Backend full-stack integration certification — 2026-08-28
 
 - Executed the frontend↔backend integration & system-continuity certification (Stages 0–22):
