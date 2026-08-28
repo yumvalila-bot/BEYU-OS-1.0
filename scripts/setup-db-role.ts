@@ -54,19 +54,35 @@ async function main(): Promise<void> {
   const client = new Client({ connectionString: adminUrl });
   await client.connect();
   try {
+    // PostgreSQL does not allow bind parameters in utility statements
+    // (CREATE ROLE / ALTER ROLE), and role identifiers must never be
+    // interpolated unquoted. Statements are therefore rendered with
+    // format() %I / %L inside an ordinary SELECT (which does accept bind
+    // parameters) and executed as generated, fully-escaped SQL. This is
+    // protocol-correct on every PostgreSQL (local, Supabase direct or
+    // pooler) and injection-safe.
+    const execFormat = async (template: string, params: unknown[]): Promise<void> => {
+      const slots = params.map((_, i) => `$${i + 1}::text`).join(", ");
+      const rendered = await client.query<{ stmt: string }>(
+        `select format(${template}${slots ? `, ${slots}` : ""}) as stmt`,
+        params,
+      );
+      await client.query(rendered.rows[0].stmt);
+    };
     // 1. Create the runtime role if it does not exist. Never elevate: it must
     //    remain non-superuser, non-bypassrls, non-createrole, non-createdb.
     const exists = await client.query(`select 1 from pg_roles where rolname = $1`, [runtimeRole]);
     if (exists.rowCount === 0) {
-      await client.query(
-        `create role ${runtimeRole} login password $1 nosuperuser nobypassrls nocreaterole nocreatedb noreplication`,
-        [runtimePassword],
+      await execFormat(
+        `'create role %I login password %L nosuperuser nobypassrls nocreaterole nocreatedb noreplication'`,
+        [runtimeRole, runtimePassword],
       );
       console.log(`created role ${runtimeRole}`);
     } else {
       // Re-assert the restrictive attributes in case a prior run elevated it.
-      await client.query(
-        `alter role ${runtimeRole} nosuperuser nobypassrls nocreaterole nocreatedb noreplication`,
+      await execFormat(
+        `'alter role %I nosuperuser nobypassrls nocreaterole nocreatedb noreplication'`,
+        [runtimeRole],
       );
       console.log(`role ${runtimeRole} exists; attributes re-asserted`);
     }
@@ -81,7 +97,7 @@ async function main(): Promise<void> {
       [runtimeRole],
     );
     for (const { tablename } of tablesOwnedByRuntime.rows) {
-      await client.query(`alter table public."${tablename}" owner to ${owner}`);
+      await execFormat(`'alter table public.%I owner to %I'`, [tablename, owner]);
     }
     const revertedCount = tablesOwnedByRuntime.rowCount ?? 0;
     if (revertedCount > 0) {
@@ -89,21 +105,24 @@ async function main(): Promise<void> {
     }
 
     // 3. Grant ordinary DML to the runtime role on the application schema.
-    await client.query(`grant usage on schema public to ${runtimeRole}`);
+    await execFormat(`'grant usage on schema public to %I'`, [runtimeRole]);
     await client.query(`grant select, insert, update, delete on all tables in schema public to ${runtimeRole}`);
     await client.query(`grant usage, select on all sequences in schema public to ${runtimeRole}`);
     await client.query(`grant execute on all functions in schema public to ${runtimeRole}`);
 
     // 4. Future objects created by the admin role are granted DML to the runtime
     //    role automatically (default privileges apply to the current role).
-    await client.query(
-      `alter default privileges for role ${owner} in schema public grant select, insert, update, delete on tables to ${runtimeRole}`,
+    await execFormat(
+      `'alter default privileges for role %I in schema public grant select, insert, update, delete on tables to %I'`,
+      [owner, runtimeRole],
     );
-    await client.query(
-      `alter default privileges for role ${owner} in schema public grant usage, select on sequences to ${runtimeRole}`,
+    await execFormat(
+      `'alter default privileges for role %I in schema public grant usage, select on sequences to %I'`,
+      [owner, runtimeRole],
     );
-    await client.query(
-      `alter default privileges for role ${owner} in schema public grant execute on functions to ${runtimeRole}`,
+    await execFormat(
+      `'alter default privileges for role %I in schema public grant execute on functions to %I'`,
+      [owner, runtimeRole],
     );
 
     // 5. Verification of the runtime role's effective privileges.
