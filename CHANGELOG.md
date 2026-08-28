@@ -91,9 +91,12 @@ Re-verified every prior claim against fresh evidence rather than inheriting it. 
 
 ### Still blocked — operator action required
 
-Production reports `database: DOWN` and **still serves `28fc40d`**, i.e. the pre-fix build; the
-production sign-in page still lists the six bootstrap identities, which is direct evidence these
-fixes are not deployed. No Supabase credentials and no Vercel token exist in this environment, and
+**Merged and deployed.** PR #12 → `main` `986a03431f17b39e0623a228ae7d95277fb75cb1` → Vercel
+`success`. Verified live: `GET /api/health/live` answers in production (a route that did not exist
+before this run), and the six bootstrap identities are gone from the production sign-in HTML.
+
+Production `GET /api/health` still reports `database: DOWN` — the correct fail-closed response, and
+the one remaining blocker. No Supabase credentials and no Vercel token exist in this environment, and
 the network path does not either (`*.supabase.co` TCP refused; `api.vercel.com` TLS handshake killed
 by an SNI egress filter). Supabase role topology, RLS, backups and PITR are **UNVERIFIED** and must
 not be inferred from the local proof. No local DR drill was re-run this session, so the previously

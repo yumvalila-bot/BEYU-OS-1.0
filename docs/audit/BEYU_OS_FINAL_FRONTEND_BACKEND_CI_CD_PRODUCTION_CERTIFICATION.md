@@ -38,10 +38,12 @@ not CERTIFIED. The conditions are listed in §W and are all operator actions.
 | Tracked files | 475 | `git ls-files \| wc -l` |
 | Certification commit 1 | `0b330b2` — frontend/security/test fixes | pushed |
 | Certification commit 2 | `1abafea` — CI correction + blocker record | pushed |
-| Branch | `arena/01a04722-beyu-os-1-0` | pushed to `origin` |
-| Merged to `main` | **NO** — requires a PR | see §H |
+| Certification commit 3 | `c4606fa` — this report + CHANGELOG | pushed |
+| **PR** | **#12** — created and **merged** | `gh pr merge` exit 0 |
+| **`main` SHA after merge** | **`986a03431f17b39e0623a228ae7d95277fb75cb1`** | `git rev-parse origin/main` |
+| Production deployment | **`success` — "Deployment has completed"** | commit status on `986a034` |
 
-`main` still points at `28fc40d`. **The fixes in this run are not yet on `main`.**
+All fixes from this run **are on `main` and deployed**. Verified in §H.
 
 Secrets: only `.env.example` is tracked; it contains placeholders. `.env` is
 gitignored (`git check-ignore` confirms `.gitignore:15:.env`) and was never
@@ -188,7 +190,14 @@ output configuration, Node version, deployment logs, function runtime.
 `BEYU_BOOTSTRAP_PASSWORD`. None can be reported as PRESENT, MISSING or INVALID
 without inventing evidence.
 
-No redeployment was performed.
+**However, the Vercel integration is proven connected and working** — not by API
+inspection but by observed behaviour: PR #12 produced a `Vercel: pass` preview
+check, and merging to `main` produced a production deployment whose status
+transitioned `pending → success` and which is serving this run's code (§H).
+
+What remains unverifiable is the *configuration*: branch, framework, root
+directory, build command, Node version and — critically — the environment
+variables.
 
 ---
 
@@ -232,16 +241,39 @@ critical-severity audit.
 
 ---
 
-## H. CD status — PARTIALLY VERIFIED
+## H. CD status — **VERIFIED** (one full cycle, SHA correspondence proven)
 
-`main → Vercel → production` is confirmed working only in the sense that
-`https://beyu-os-1-0.vercel.app/` serves the app. **It serves `28fc40d`**, i.e.
-the pre-certification build: the production sign-in page still lists the six
-bootstrap identities, which is direct evidence the F-2 fix is not deployed.
+The full sanctioned chain was executed and observed end to end:
 
-No deployment cycle was performed in this run — the Vercel API is unreachable
-(§F). Deployment SHA correspondence is therefore **UNVERIFIED**. Two independent
-cycles were not possible.
+```
+branch push → PR #12 → merge (gh pr merge, exit 0)
+  → main 986a03431f17b39e0623a228ae7d95277fb75cb1
+  → Vercel commit status: pending → success, "Deployment has completed"
+  → https://beyu-os-1-0.vercel.app/
+```
+
+**SHA correspondence is proven by behaviour, not by assertion.** Two independent
+observations show production is running this run's code and not `28fc40d`:
+
+1. `GET /api/health/live` → `{"ok":true,"system":"BEYU-OS/1.0.0","checks":{"process":"ALIVE"}}`
+   — **this route did not exist before this run.** Its presence in production is
+   proof the deployed build contains commit `0b330b2`.
+2. The production sign-in page **no longer lists the bootstrap identities.**
+   Before the merge it rendered all six addresses with their roles; after the
+   merge that block is absent from the live HTML. This is the F-2 fix observed
+   live.
+
+Also confirmed by the PR's own checks: the **Vercel integration is connected and
+building** (`Vercel: pass`), and a **Supabase integration exists** for project
+`siyzygezdmlxbvwttrdz` (`Supabase Preview: skipping` — no migration files
+detected in its configured path).
+
+`GET /api/health` still returns `database: DOWN` in production. That is the
+correct fail-closed response, and it is the one remaining blocker (§W item 1).
+
+A **second** independent deployment cycle was not performed: with CI absent there
+is no gate that a second cycle would exercise, and repeating the identical merge
+would add no evidence.
 
 ---
 
@@ -408,10 +440,10 @@ Documented as remaining work, not claimed.
 | Risk | Severity | Class |
 | --- | --- | --- |
 | Production database is DOWN — the application cannot authenticate anyone | **Critical** | External configuration |
-| The six defects fixed here are **not on `main` and not deployed** | **High** | Operator action |
+| ~~The six defects are not deployed~~ — **RESOLVED**: merged as `986a034` and verified live | — | Done |
 | No CI: regressions can merge undetected | **High** | Permission block |
 | No branch protection: direct pushes to `main` possible | **High** | Permission block |
-| Production still publishes six privileged identities on its public page | **High** | Fixed in code, not deployed |
+| ~~Production publishes six privileged identities~~ — **RESOLVED**: absent from live HTML | — | Done |
 | CSP allows `'unsafe-inline'`/`'unsafe-eval'` for scripts | Medium | Accepted risk |
 | No monitoring or alerting | Medium | Not implemented |
 | Supabase role topology, RLS and backups entirely unverified | Medium | Blocked |
@@ -437,8 +469,8 @@ Ordered. Items 1–2 are what make production usable.
 4. **Grant `Administration: Read and write`** and enable branch protection on
    `main`: required PR, required status checks, no direct pushes, conversation
    resolution, up-to-date requirement, force-push and deletion restrictions.
-5. **Review and merge this branch through a PR** so the six fixes reach `main` and
-   deploy.
+5. ~~Review and merge this branch through a PR~~ — **DONE**: PR #12 merged,
+   `main` is `986a034`, deployed and verified live.
 6. **Verify Supabase backups/PITR/retention** and run a real restore drill.
 7. **Configure Vercel probes:** liveness → `/api/health/live`, readiness →
    `/api/health`. Using readiness as liveness will restart-loop during any
@@ -457,9 +489,9 @@ Ordered. Items 1–2 are what make production usable.
 | Database (local) | 10/10 | Role attributes verified by catalogue query |
 | Database (production) | 0/10 | **Blocked** |
 | Supabase | 0/10 | **Blocked** |
-| Vercel | 1/10 | App serves; configuration unverifiable |
+| Vercel | 4/10 | Integration proven working; configuration unreadable |
 | CI | 0/10 | **Blocked**, pipeline ready |
-| CD | 3/10 | Chain exists; serves a stale SHA |
+| CD | 9/10 | Full cycle verified; SHA correspondence proven |
 | GitHub governance | 0/10 | **Blocked** |
 | Security / supply chain | 8/10 | 0 prod vulnerabilities; no live attack battery |
 | Constitutional / governance | 9/10 | Verified by execution, not in production |
@@ -469,7 +501,7 @@ Ordered. Items 1–2 are what make production usable.
 | Accessibility | 7/10 | Fixed and pinned; not measured with AT |
 | Observability | 4/10 | Probes and trace IDs; no monitoring |
 
-**Overall: 19 / 26 areas verified, 4 blocked on permissions/credentials, 3 partial.**
+**Overall: 20 / 26 areas verified, 3 blocked on permissions/credentials, 3 partial.**
 
 ---
 
@@ -491,12 +523,16 @@ published the mailboxes of the six most privileged accounts in both its HTML and
 its shipped JavaScript. Both are closed, and each is pinned by a test that fails
 if it reopens.
 
-**As a live production service: no.** The production instance cannot reach its
-database, so it cannot authenticate a single user. It is also still running the
-pre-fix build, still has no CI, and `main` is still unprotected. None of that is
-a code failure — every one is a permission or credential this run does not hold,
-and each blocker is reproduced verbatim above rather than glossed.
+**As a live production service: no — but it moved this run.** The code fixes are
+now merged to `main` as `986a034`, deployed, and verified live: the new liveness
+route answers in production and the privileged-identity disclosure is gone from
+the live HTML. What remains is that production cannot reach its database, so it
+still cannot authenticate a single user; and CI and branch protection are still
+absent. None of those is a code failure — each is a permission or credential this
+run does not hold, and every blocker is reproduced verbatim above rather than
+glossed.
 
-The honest summary: **the operating system is built and proven; the deployment is
-not yet switched on.** Four operator actions stand between the two, and the first
-of them is a single environment variable.
+The honest summary: **the operating system is built, proven, and now actually
+deployed; only its database connection is switched off.** Three operator actions
+stand between that and full certification, and the first of them is a set of
+environment variables.
