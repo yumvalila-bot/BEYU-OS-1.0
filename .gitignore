@@ -36,3 +36,10 @@ coverage/
 # misc
 *.log
 tmp/
+
+# local PostgreSQL data (audit environment)
+pgdata/
+pg.log
+# audit DB maintenance helpers (local env only)
+scripts/_db_maint.mjs
+scripts/_db_reset.mjs

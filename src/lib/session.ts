@@ -12,6 +12,7 @@ import {
   permissionsForRoles,
   type Principal,
 } from "./authz";
+import { LOGIN_RATE_LIMIT, loginRateLimitKeys, trustedClientIp } from "./auth-limits";
 
 export type SessionOptions = {
   userId: string;
@@ -133,17 +134,9 @@ export async function resolvePrincipal(): Promise<Principal | null> {
   };
 }
 
-/**
- * Resolve a client address only when the deployment explicitly declares a
- * trusted reverse proxy. Direct clients can forge forwarding headers; treating
- * them as an authentication rate-limit identity would let an attacker rotate
- * `X-Forwarded-For` values to evade the control.
- */
-export function trustedClientIp(h: Headers): string | null {
-  if (process.env.BEYU_TRUST_PROXY !== "true") return null;
-  const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded && forwarded.length <= 128 ? forwarded : null;
-}
+// Re-exported for callers that imported from session.ts; the canonical
+// definitions now live in auth-limits.ts.
+export { LOGIN_RATE_LIMIT, loginRateLimitKeys, trustedClientIp } from "./auth-limits";
 
 export async function requestMeta() {
   const h = await headers();

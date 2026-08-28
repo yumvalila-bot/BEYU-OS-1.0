@@ -13,6 +13,9 @@ const tenantScope = readFileSync("src/lib/tenant-scope.ts", "utf8");
 const audit = readFileSync("src/lib/audit.ts", "utf8");
 const api = readFileSync("src/lib/api.ts", "utf8");
 const session = readFileSync("src/lib/session.ts", "utf8");
+// trustedClientIp + the login rate-limit bucket policy moved to auth-limits.ts
+// (C-07 remediation) so they are dependency-free and unit-testable.
+const authLimits = readFileSync("src/lib/auth-limits.ts", "utf8");
 const migration = readFileSync("scripts/migrate.ts", "utf8");
 
 function idempotencyRoutes() {
@@ -52,8 +55,9 @@ describe("Phase 15 source-level integrity contracts", () => {
   });
 
   it("fails closed when proxy trust is not explicitly configured", () => {
-    expect(session).toContain('process.env.BEYU_TRUST_PROXY !== "true"');
-    expect(session).toContain("return null");
+    expect(authLimits).toContain('process.env.BEYU_TRUST_PROXY !== "true"');
+    expect(authLimits).toContain("return null");
+    expect(session).toContain("auth-limits");
   });
 
   it("routes authenticated page database work through the common context", () => {

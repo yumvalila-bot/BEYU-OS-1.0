@@ -19,7 +19,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-    setupFiles: ["dotenv/config"],
+    setupFiles: ["dotenv/config", "tests/setup-env.ts"],
     // Governed-mutation suites share the audit hash chain and chain-head lock.
     // Running files serially keeps ledger assertions deterministic.
     fileParallelism: false,

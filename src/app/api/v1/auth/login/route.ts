@@ -10,7 +10,7 @@ import { recordAudit, recordAuditTx, publishEventTx } from "@/lib/audit";
 import { apiError, apiOk, rateLimit } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/constants";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { newSessionValues, trustedClientIp } from "@/lib/session";
+import { LOGIN_RATE_LIMIT, loginRateLimitKeys, newSessionValues, trustedClientIp } from "@/lib/session";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +32,29 @@ export async function POST(request: Request): Promise<NextResponse> {
   const userAgent = h.get("user-agent");
   const traceId = newId(ID_PREFIX.event);
 
-  const limited = rateLimit(`login:${ip ?? "unknown"}`, 10, 60_000);
-  if (!limited.ok) return apiError("RATE_LIMITED", "Too many attempts. Try again shortly.", 429, traceId);
-
   let body: z.infer<typeof LoginSchema>;
   try {
     body = LoginSchema.parse(await request.json());
   } catch {
+    // Malformed payloads return before any authentication work. When a trusted
+    // IP is available, throttle by source so a flood cannot cost CPU/db; with
+    // no trusted IP there is no safe per-identity key, so the 422 path is left
+    // at the per-source limit only and never touches real account buckets.
+    if (ip) {
+      const limited = rateLimit(`login:ip:${ip}`, LOGIN_RATE_LIMIT.perIpAccount, LOGIN_RATE_LIMIT.windowMs);
+      if (!limited.ok) return apiError("RATE_LIMITED", "Too many attempts. Try again shortly.", 429, traceId);
+    }
     return apiError("VALIDATION_FAILED", "A valid email, password and MFA code are required.", 422, traceId);
+  }
+
+  // Per-principal + per-(IP,principal) buckets (C-07). One account's exhaustion
+  // never depletes another account's budget, and there is no single global
+  // bucket. The account key always applies; the (IP,account) key is added only
+  // when the proxy is trusted (so spoofed headers cannot mint fresh buckets).
+  for (const key of loginRateLimitKeys(ip, body.email)) {
+    const limit = key.startsWith("login:ipacct:") ? LOGIN_RATE_LIMIT.perIpAccount : LOGIN_RATE_LIMIT.perAccount;
+    const limited = rateLimit(key, limit, LOGIN_RATE_LIMIT.windowMs);
+    if (!limited.ok) return apiError("RATE_LIMITED", "Too many attempts. Try again shortly.", 429, traceId);
   }
 
   const [user] = await db.select().from(users).where(eq(users.email, body.email.toLowerCase())).limit(1);
