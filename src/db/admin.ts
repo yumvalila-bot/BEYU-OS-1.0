@@ -36,6 +36,7 @@ export const adminPool =
   new Pool({
     connectionString: adminUrl,
     max: 5,
+    connectionTimeoutMillis: 10_000,
   });
 
 if (process.env.NODE_ENV !== "production") {

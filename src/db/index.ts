@@ -17,7 +17,15 @@ function databaseUrl(): string {
 function createPool(): Pool {
   const existing = globalForDb.__arenaNextJsPostgresqlPool;
   if (existing) return existing;
-  const created = new Pool({ connectionString: databaseUrl() });
+  const created = new Pool({
+    connectionString: databaseUrl(),
+    // Bounded acquisition: when the database is unreachable, requests must
+    // fail fast (health reports DOWN, APIs return 5xx) instead of hanging
+    // forever on an unbounded connection wait. Generous enough that normal
+    // operation — including load-test burst connection establishment — is
+    // never affected.
+    connectionTimeoutMillis: 10_000,
+  });
   globalForDb.__arenaNextJsPostgresqlPool = created;
   return created;
 }
