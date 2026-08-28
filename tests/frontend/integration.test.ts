@@ -12,7 +12,7 @@
  */
 import "dotenv/config";
 import { beforeAll, describe, expect, it } from "vitest";
-import { apiGet, apiPost, apiGetJson, login, serverAvailable } from "../helpers/http";
+import { apiGet, apiPost, apiGetJson, isDeniedPage, login, serverAvailable } from "../helpers/http";
 
 const available = await serverAvailable();
 
@@ -56,9 +56,9 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     const ok = await apiGet("/os/audit", ceo);
     expect(ok.status).toBe(200);
     expect(ok.html).toMatch(/Audit/i);
-    expect(ok.html).not.toMatch(/Authorisation denied/i);
+    expect(isDeniedPage(ok.html)).toBe(false);
     const denied = await apiGet("/os/audit", hcm);
-    expect(denied.html).toMatch(/Authorisation denied/);
+    expect(isDeniedPage(denied.html)).toBe(true);
     expect(denied.html).toMatch(/audit:log\.read/);
   });
 
@@ -67,7 +67,7 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(ok.status).toBe(200);
     expect(ok.html).toMatch(/HCM|workforce|employee/i);
     const denied = await apiGet("/os/hcm", cfo);
-    expect(denied.html).toMatch(/Authorisation denied/);
+    expect(isDeniedPage(denied.html)).toBe(true);
     expect(denied.html).toMatch(/hcm:employee\.read/);
   });
 
@@ -76,7 +76,7 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(ok.status).toBe(200);
     expect(ok.html).toMatch(/Capital|Treasury|pipeline/i);
     const denied = await apiGet("/os/capital", hcm);
-    expect(denied.html).toMatch(/Authorisation denied/);
+    expect(isDeniedPage(denied.html)).toBe(true);
     expect(denied.html).toMatch(/finance:capital\.read/);
   });
 
@@ -85,7 +85,7 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(ok.status).toBe(200);
     expect(ok.html).toMatch(/Noelia|HIVE/i);
     const denied = await apiGet("/os/noelia", auditor);
-    expect(denied.html).toMatch(/Authorisation denied/);
+    expect(isDeniedPage(denied.html)).toBe(true);
   });
 });
 

@@ -19,13 +19,39 @@ export function baseUrl(): string {
   return process.env.BEYU_TEST_BASE_URL ?? "http://127.0.0.1:3100";
 }
 
+/**
+ * Probe the running server.
+ *
+ * SKIP vs FAIL. The HTTP suites are guarded with `it.skipIf(!serverAvailable())`
+ * so `npm test` still works for a contributor who has no server running. That
+ * convenience has a dangerous failure mode: if a caller EXPLICITLY configures
+ * `BEYU_TEST_BASE_URL` (as CI does) and the server is down or unhealthy, every
+ * transport-level assertion silently SKIPS and the run still exits green — the
+ * 401 boundary, the 422 forgery guards, the 429 limiter and the whole
+ * idempotency layer would all be reported as verified while executing nothing.
+ *
+ * So: when a base URL was explicitly configured, an unavailable or unhealthy
+ * server is a hard failure, not a skip. Without it, the historical skip
+ * behaviour is preserved.
+ */
 export async function serverAvailable(): Promise<boolean> {
+  const explicitlyConfigured = Boolean(process.env.BEYU_TEST_BASE_URL);
+  let detail = "unknown";
   try {
     const res = await fetch(`${baseUrl()}/api/health`, { signal: AbortSignal.timeout(2500) });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return true;
+    detail = `HTTP ${res.status}`;
+  } catch (e) {
+    detail = e instanceof Error ? e.message : String(e);
   }
+  if (explicitlyConfigured) {
+    throw new Error(
+      `BEYU_TEST_BASE_URL is set to ${baseUrl()} but the server is not ready (${detail}). ` +
+        `Refusing to skip the HTTP/E2E suites: an explicitly configured server that is unreachable is a ` +
+        `failure, not a skip. Start the application (npx next start -p 3100) or unset BEYU_TEST_BASE_URL.`,
+    );
+  }
+  return false;
 }
 
 /**
@@ -114,6 +140,25 @@ export async function apiGetJson<T = Record<string, unknown>>(
     body: (await res.json().catch(() => null)) as T,
     headers: res.headers,
   };
+}
+
+/**
+ * The governed denial panel rendered by `Denied` in src/components/brand.tsx.
+ *
+ * MATCH THE <h1>, NOT THE BARE PHRASE.
+ *   The literal string "Authorisation denied" also appears in
+ *   src/app/os/governance/propose.tsx as a client-side error-status label. A
+ *   bare-phrase match therefore reports the Governance page as "denied" even
+ *   when it rendered successfully — a false positive that silently INVERTS any
+ *   authorization assertion built on it (and would make the negative form,
+ *   `not.toMatch(/Authorisation denied/)`, fail on a legitimately authorized
+ *   page). Anchoring on the panel's heading makes the detector unambiguous.
+ */
+export const DENIED_PANEL = /<h1[^>]*>Authorisation denied<\/h1>/;
+
+/** True when the rendered page is the governed denial panel. */
+export function isDeniedPage(html: string): boolean {
+  return DENIED_PANEL.test(html);
 }
 
 /** A valid proposal payload; override fields per test. */

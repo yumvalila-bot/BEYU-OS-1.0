@@ -5,54 +5,77 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
+import { can, type Principal } from "@/lib/authz";
+import type { PermissionCode } from "@/lib/constants";
 import { BeyuWordmark, Badge } from "@/components/brand";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
 
 export const dynamic = "force-dynamic";
 
-const NAV: { group: string; items: { href: string; label: string; permission?: string }[] }[] = [
+/**
+ * Navigation catalogue.
+ *
+ * `permission` is the SAME capability the target page passes to
+ * `requireAccess()`, and visibility is computed with the SAME `can()` primitive
+ * the guard uses. Navigation is therefore derived from server authority, never
+ * from a client-side copy of the policy — and it grants nothing: hiding a link
+ * is a presentation decision, while the page guard and the API remain the only
+ * authority. A principal who types a hidden URL still gets the real governed
+ * decision (200 or the recorded "Authorisation denied" page), exactly as before.
+ */
+const NAV: { group: string; items: { href: string; label: string; permission?: PermissionCode }[] }[] = [
   {
     group: "Control plane",
     items: [
       { href: "/os", label: "Executive Control Centre" },
-      { href: "/os/constitution", label: "Constitution & Policy" },
-      { href: "/os/registry", label: "OS & Source-of-Truth Registry" },
+      { href: "/os/constitution", label: "Constitution & Policy", permission: "governance:policy.read" },
+      { href: "/os/registry", label: "OS & Source-of-Truth Registry", permission: "platform:registry.read" },
     ],
   },
   {
     group: "Enterprise",
     items: [
-      { href: "/os/organization", label: "Organisation & Ownership" },
-      { href: "/os/governance", label: "Governance Engine" },
-      { href: "/os/assurance", label: "Risk · Compliance · Legal" },
-      { href: "/os/hcm", label: "HCM (workforce truth)" },
+      { href: "/os/organization", label: "Organisation & Ownership", permission: "organization:entity.read" },
+      { href: "/os/governance", label: "Governance Engine", permission: "governance:resolution.read" },
+      { href: "/os/assurance", label: "Risk · Compliance · Legal", permission: "risk:register.read" },
+      { href: "/os/hcm", label: "HCM (workforce truth)", permission: "hcm:employee.read" },
     ],
   },
   {
     group: "Finance OS",
     items: [
-      { href: "/os/capital", label: "Capital & Treasury" },
-      { href: "/os/waterfall", label: "Waterfall Engine" },
-      { href: "/os/tax", label: "Tax Strategy Intelligence" },
+      { href: "/os/capital", label: "Capital & Treasury", permission: "finance:capital.read" },
+      { href: "/os/waterfall", label: "Waterfall Engine", permission: "finance:waterfall.read" },
+      { href: "/os/tax", label: "Tax Strategy Intelligence", permission: "finance:tax.read" },
     ],
   },
   {
     group: "Family & Foundation",
     items: [
-      { href: "/os/family", label: "Family Office" },
-      { href: "/os/foundation", label: "Foundation OS" },
+      { href: "/os/family", label: "Family Office", permission: "family:member.read" },
+      { href: "/os/foundation", label: "Foundation OS", permission: "platform:dashboard.read" },
     ],
   },
   {
     group: "Platform",
     items: [
-      { href: "/os/noelia", label: "Noelia AI · HIVE" },
-      { href: "/os/documents", label: "Documents & Knowledge" },
-      { href: "/os/audit", label: "Audit, Events & Assurance" },
+      { href: "/os/noelia", label: "Noelia AI · HIVE", permission: "ai:noelia.query" },
+      { href: "/os/documents", label: "Documents & Knowledge", permission: "documents:registry.read" },
+      { href: "/os/audit", label: "Audit, Events & Assurance", permission: "audit:log.read" },
     ],
   },
 ];
+
+/** Presentation-only filter: derived from `can()`, grants no authority. */
+function visibleNav(principal: Principal) {
+  return NAV.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => !item.permission || can(principal, item.permission).allowed,
+    ),
+  })).filter((section) => section.items.length > 0);
+}
 
 export default async function OsLayout({ children }: { children: ReactNode }) {
   const principal = await requirePrincipal();
@@ -63,18 +86,28 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
     .where(eq(notifications.tenantId, principal.tenantId))
     .orderBy(desc(notifications.createdAt))
     .limit(5);
+  const nav = visibleNav(principal);
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="beyu-shell hidden w-[268px] shrink-0 flex-col border-r border-white/10 lg:flex">
+      <a
+        href="#beyu-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[#d4af37] focus:px-3 focus:py-2 focus:text-[12px] focus:font-semibold focus:text-[#0b1d3a]"
+      >
+        Skip to main content
+      </a>
+      <aside
+        aria-label="BEYU OS module navigation"
+        className="beyu-shell hidden w-[268px] shrink-0 flex-col border-r border-white/10 lg:flex"
+      >
         <div className="px-5 pt-5 pb-4">
           <Link href="/os">
             <BeyuWordmark />
           </Link>
         </div>
         <div className="beyu-gold-rule mx-5" />
-        <nav className="beyu-scroll flex-1 overflow-y-auto px-3 py-4">
-          {NAV.map((section) => (
+        <nav aria-label="Primary" className="beyu-scroll flex-1 overflow-y-auto px-3 py-4">
+          {nav.map((section) => (
             <div key={section.group} className="mb-5">
               <div className="beyu-kicker px-3 pb-2 text-white/35">{section.group}</div>
               <div className="space-y-0.5">
@@ -131,16 +164,17 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
         </header>
 
         <div className="lg:hidden">
-          <nav className="beyu-scroll flex gap-2 overflow-x-auto border-b border-[color:var(--beyu-line)] bg-[color:var(--beyu-card)] px-4 py-2">
-            {NAV.flatMap((s) => s.items).map((item) => (
-              <Link key={item.href} href={item.href} className="whitespace-nowrap rounded-md border border-[color:var(--beyu-line)] px-2.5 py-1 text-[11.5px]">
-                {item.label}
-              </Link>
+          <nav
+            aria-label="Modules"
+            className="beyu-scroll flex gap-2 overflow-x-auto border-b border-[color:var(--beyu-line)] bg-[color:var(--beyu-card)] px-4 py-2"
+          >
+            {nav.flatMap((s) => s.items).map((item) => (
+              <NavLink key={item.href} href={item.href} label={item.label} variant="chip" />
             ))}
           </nav>
         </div>
 
-        <main className="beyu-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 lg:px-8">
+        <main id="beyu-main" className="beyu-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 lg:px-8">
           {alerts.length > 0 && (
             <div className="mb-5 flex flex-wrap gap-2">
               {alerts.slice(0, 3).map((a) => (

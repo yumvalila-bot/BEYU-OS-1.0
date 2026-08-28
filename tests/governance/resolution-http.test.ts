@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db, pool } from "../../src/db";
 import { resolutions } from "../../src/db/schema";
-import { apiGet, apiPost, login, proposalPayload, serverAvailable } from "../helpers/http";
+import { apiGet, apiPost, isDeniedPage, login, proposalPayload, serverAvailable } from "../helpers/http";
 
 /**
  * END-TO-END transport tests for the governed mutation.
@@ -254,7 +254,7 @@ describe.skipIf(!available)("governed mutation over HTTP", () => {
     it("denies the foundation page to an out-of-scope principal (H-NEW-2)", async () => {
       const page = await apiGet("/os/foundation", sectorOperator);
       expect(page.status).toBe(200);
-      expect(page.html).toContain("Authorisation denied");
+      expect(isDeniedPage(page.html)).toBe(true);
       expect(page.html).not.toContain("BEYU Holdings Ltd");
     });
 });
