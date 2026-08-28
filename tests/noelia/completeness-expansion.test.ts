@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { db, pool } from "../../src/db";
+import { adminDb, adminPool } from "../../src/db/admin";
 import {
   approvals,
   enterpriseMemory,
@@ -60,9 +61,13 @@ afterAll(async () => {
     await db.delete(enterpriseMemory).where(inArray(enterpriseMemory.id, memoryIds));
   }
   await db.execute(sql`delete from approvals where id = 'APR_RLS_PROBE'`).catch(() => undefined);
-  await db.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
-  await db.execute(sql`drop role if exists beyu_rls_probe`).catch(() => undefined);
+  // Role lifecycle is an administrative operation: the runtime role is
+  // intentionally NOT CREATEROLE, so the probe role is created/dropped through
+  // the admin (migration) handle.
+  await adminDb.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
+  await adminDb.execute(sql`drop role if exists beyu_rls_probe`).catch(() => undefined);
   await pool.end();
+  await adminPool.end();
 });
 
 describe("Noelia completeness expansion", () => {
@@ -431,13 +436,14 @@ describe("Noelia completeness expansion", () => {
 
   it("approvals RLS enforces tenant isolation for a non-superuser role", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
-    await db.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
-    await db.execute(sql`drop role if exists beyu_rls_probe`);
-    await db.execute(sql`create role beyu_rls_probe login`);
-    await db.execute(sql`grant usage on schema public to beyu_rls_probe`);
-    await db.execute(sql`grant select on tenants to beyu_rls_probe`);
-    await db.execute(sql`grant select, insert on approvals to beyu_rls_probe`);
-    await db.execute(sql`grant execute on function public.beyu_tenant_ids() to beyu_rls_probe`);
+    // Role lifecycle is administrative; the runtime role is NOT CREATEROLE.
+    await adminDb.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
+    await adminDb.execute(sql`drop role if exists beyu_rls_probe`);
+    await adminDb.execute(sql`create role beyu_rls_probe login`);
+    await adminDb.execute(sql`grant usage on schema public to beyu_rls_probe`);
+    await adminDb.execute(sql`grant select on tenants to beyu_rls_probe`);
+    await adminDb.execute(sql`grant select, insert on approvals to beyu_rls_probe`);
+    await adminDb.execute(sql`grant execute on function public.beyu_tenant_ids() to beyu_rls_probe`);
     const url = new URL(process.env.DATABASE_URL!);
     url.username = "beyu_rls_probe";
     url.password = "";

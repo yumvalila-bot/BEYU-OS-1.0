@@ -1019,7 +1019,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // 16 = migrations 0000-0014 (kernel baseline) + 0016_noelia_scheduler_offsets
     // (governed Noelia expansion: additive, deterministic, RLS-aware).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(18);
+    expect(n).toBe(19);
   });
 
   it("leaves all triggers enabled", async () => {

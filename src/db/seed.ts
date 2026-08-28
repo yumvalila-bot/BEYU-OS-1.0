@@ -7,7 +7,7 @@
  */
 import "dotenv/config";
 import { and, eq, isNull } from "drizzle-orm";
-import { db, pool } from "./index";
+import { adminDb, adminPool } from "./admin";
 import * as s from "./schema";
 import { fixedId, ID_PREFIX } from "@/lib/ids";
 import { hashPassword, sha256 } from "@/lib/crypto";
@@ -32,7 +32,7 @@ const BOOTSTRAP_PASSWORD_VALUE = BOOTSTRAP_PASSWORD;
 
 async function main() {
   /* ---------------- reference data ---------------- */
-  await db
+  await adminDb
     .insert(s.countries)
     .values([
       { code: "TZ", name: "United Republic of Tanzania", region: "East Africa", currencyCode: "TZS", timezone: "Africa/Dar_es_Salaam", locale: "sw-TZ" },
@@ -53,7 +53,7 @@ async function main() {
     legalSystem: c === "GB" ? "COMMON_LAW" : "MIXED",
     effectiveFrom: "2000-01-01",
   });
-  await db
+  await adminDb
     .insert(s.jurisdictions)
     .values([
       jur("TZ", "TZ-NAT", "Tanzania (Mainland)", "Tanzania Revenue Authority"),
@@ -73,7 +73,7 @@ async function main() {
     agri: fixedId(ID_PREFIX.tenant, "BEYU_AGRI"),
     foundation: fixedId(ID_PREFIX.tenant, "BEYU_FOUNDATION"),
   };
-  await db
+  await adminDb
     .insert(s.tenants)
     .values([
       { id: T.group, code: "BEYU-GROUP", name: "BEYU Group (Enterprise)", type: "ENTERPRISE", parentTenantId: null, isolationTier: "DEDICATED", classification: "RESTRICTED" },
@@ -96,7 +96,7 @@ async function main() {
     mining: fixedId(ID_PREFIX.legalEntity, "BEYU_MINING_LTD"),
     foundation: fixedId(ID_PREFIX.legalEntity, "BEYU_FOUNDATION_ORG"),
   };
-  await db
+  await adminDb
     .insert(s.legalEntities)
     .values([
       { id: E.trust, tenantId: T.group, code: "BEYU-FT", legalName: "BEYU Family Trust", entityType: "TRUST", countryCode: "MU", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "MU-NAT"), registrationNumber: "MU-TR-100241", incorporationDate: "2014-03-11", functionalCurrency: "USD", effectiveFrom: "2014-03-11", classification: "HIGHLY_RESTRICTED" },
@@ -110,7 +110,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.ownershipRecords)
     .values([
       { id: fixedId(ID_PREFIX.ownership, "TRUST_HOLDINGS"), tenantId: T.group, ownedEntityId: E.holdings, ownerEntityId: E.trust, ownershipType: "DIRECT", economicPct: "100", votingPct: "100", effectiveFrom: "2015-06-02", provenance: "Share register + trust deed schedule 2", recordedBy: "SEED/CONSTITUTIONAL_BOOTSTRAP" },
@@ -124,7 +124,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- identity: permissions, roles ---------------- */
-  await db
+  await adminDb
     .insert(s.permissions)
     .values(
       Object.entries(PERMISSIONS).map(([code, description]) => ({
@@ -138,7 +138,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.roles)
     .values(
       Object.entries(ROLES).map(([code, r]) => ({
@@ -153,7 +153,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.rolePermissions)
     .values(
       Object.entries(ROLES).flatMap(([code, r]) =>
@@ -181,7 +181,7 @@ async function main() {
   ];
 
   const pwHash = hashPassword(BOOTSTRAP_PASSWORD_VALUE);
-  await db
+  await adminDb
     .insert(s.parties)
     .values(
       people.map((p) => ({
@@ -200,7 +200,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.parties)
     .values([
       { id: fixedId(ID_PREFIX.party, "NOELIA_AI"), type: "AI_AGENT", displayName: "Noelia AI", classification: "INTERNAL", kycStatus: "DOCUMENTED" },
@@ -208,7 +208,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.users)
     .values(
       people.map((p) => {
@@ -230,7 +230,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.roleAssignments)
     .values(
       people.map((p) => ({
@@ -249,7 +249,7 @@ async function main() {
   for (const p of people) {
     const totpSecret = generateTotpSecret();
     const recoveryCodes = generateRecoveryCodes();
-    await db
+    await adminDb
       .update(s.users)
       .set({
         passwordMustChange: true,
@@ -279,7 +279,7 @@ async function main() {
     { no: 11, title: "Change Control", domain: "ARCHITECTURE", body: "Canonical architecture changes require a proposal, impact, security and compliance analysis, migration and rollback plan, test plan, approval and an Architecture Decision Record.", authority: "Architecture Review Board." },
     { no: 12, title: "Lawful and Ethical Operation", domain: "ETHICS", body: "BEYU OS must not be used to conceal fraud, unlawfully hide beneficial ownership, manipulate records, circumvent sanctions, launder money, evade taxes illegally, fabricate compliance or abuse personal data.", authority: "Group Board; mandatory escalation to Chief Governance Officer." },
   ];
-  await db
+  await adminDb
     .insert(s.constitutionArticles)
     .values(
       articles.map((a) => ({
@@ -296,7 +296,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- policies ---------------- */
-  await db
+  await adminDb
     .insert(s.policies)
     .values([
       {
@@ -384,7 +384,7 @@ async function main() {
     trustees: fixedId(ID_PREFIX.body, "TRUSTEE_BOARD"),
     tax: fixedId(ID_PREFIX.body, "TAX_GOVERNANCE_COMMITTEE"),
   };
-  await db
+  await adminDb
     .insert(s.governanceBodies)
     .values([
       { id: B.board, tenantId: T.group, code: "GROUP_BOARD", name: "BEYU Group Board", bodyType: "BOARD", legalEntityId: E.holdings, quorumMinimum: 4, majorityRule: "SIMPLE", reservedMatters: ["CAPITAL>1M", "OWNERSHIP_CHANGE", "NEW_SECTOR_OS", "POLICY_CONSTITUTION", "DISTRIBUTIONS"] },
@@ -420,7 +420,7 @@ async function main() {
     { key: "TRS_PRIN", body: B.trustees, party: "NEEMA_BEYU", seat: "CHAIR" },
     { key: "TRS_CGO", body: B.trustees, party: "GRACE_KILELE", seat: "MEMBER" },
   ];
-  await db
+  await adminDb
     .insert(s.governanceMembers)
     .values(
       members.map((m) => ({
@@ -434,7 +434,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.resolutions)
     .values([
       { id: fixedId(ID_PREFIX.resolution, "R2025_014"), tenantId: T.group, bodyId: B.board, reference: "BEYU-BRD-2025-014", title: "Approve BEYU Group Waterfall Configuration v2.1", category: "POLICY", summary: "Adopt the revised enterprise cash waterfall for the FY2025 operating surplus, including a 10% Foundation allocation tier.", rationale: "Aligns distribution with the strategic reinvestment plan and the Foundation funding covenant.", dataBasis: "Finance OS consolidated cash forecast FY2025-Q3; Treasury positions as at period end.", authorityPolicyId: fixedId(ID_PREFIX.policy, "POL_ENT_WATERFALL"), consequences: "Binding on all TZ operating companies from the next distribution cycle.", proposedBy: "GROUP_CFO", status: "APPROVED", requiredMajority: "SIMPLE", quorumMet: true, votesFor: 4, votesAgainst: 0, votesAbstain: 1, decisionDate: new Date("2025-08-14T10:00:00Z") },
@@ -445,7 +445,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- risk, control, compliance, legal ---------------- */
-  await db
+  await adminDb
     .insert(s.risks)
     .values([
       { id: fixedId(ID_PREFIX.risk, "R001"), tenantId: T.group, code: "ERM-001", title: "Concentration of revenue in a single jurisdiction", category: "CONCENTRATION", description: "Over 70% of group revenue originates in Tanzania, exposing the group to single-country economic and regulatory shocks.", legalEntityId: E.tzHold, inherentLikelihood: 4, inherentImpact: 5, residualLikelihood: 3, residualImpact: 5, appetiteThreshold: 12, treatment: "MITIGATE", mitigationPlan: "Accelerate Kenya and DIFC diversification per strategic objective SO-4.", status: "MONITORED", nextReviewAt: "2026-03-31" },
@@ -457,7 +457,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.controls)
     .values([
       { id: fixedId(ID_PREFIX.control, "C001"), tenantId: T.group, code: "CTL-SEC-001", title: "Multi-factor authentication on all privileged access", controlType: "PREVENTIVE", automation: "AUTOMATED", frameworks: ["ISO27001", "SOC2"], riskId: fixedId(ID_PREFIX.risk, "R002"), ownerRole: "PLATFORM_ADMIN", testFrequency: "QUARTERLY", lastTestedAt: "2025-10-01", effectiveness: "EFFECTIVE" },
@@ -478,7 +478,7 @@ async function main() {
     { key: "O7", code: "OBL-IFRS-CONSOL", framework: "IFRS", reference: "IFRS 10", title: "Consolidated financial statements", jur: "TZ", type: "REPORTING", freq: "ANNUAL", due: "2026-06-30", entity: E.holdings, state: "NOT_ASSESSED" as const },
     { key: "O8", code: "OBL-GDPR-XFER", framework: "GDPR", reference: "Art. 44–49", title: "International transfer safeguards for EU data subjects", jur: "GB", type: "PROCESS", freq: "CONTINUOUS", due: "2026-05-31", entity: E.holdings, state: "REQUIRES_HUMAN_REVIEW" as const },
   ];
-  await db
+  await adminDb
     .insert(s.complianceObligations)
     .values(
       obligations.map((o) => ({
@@ -498,7 +498,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.complianceAssessments)
     .values(
       obligations.map((o) => ({
@@ -521,7 +521,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.legalMatters)
     .values([
       { id: fixedId(ID_PREFIX.legal, "L1"), tenantId: T.group, code: "LGL-2025-001", matterType: "CONTRACT", title: "Master services agreement — regional laboratory network", legalEntityId: E.health, counterparty: "East Africa Diagnostics Ltd", jurisdictionCode: "TZ", exposureAmount: "420000", currency: "USD", obligationSummary: "Five-year exclusivity with annual volume commitments and a 90-day termination notice.", keyDeadline: "2026-03-01", counselName: "Mkono & Partners", status: "ACTIVE" },
@@ -530,7 +530,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.continuityPlans)
     .values([
       { id: fixedId(ID_PREFIX.continuity, "BCP1"), code: "BCP-CORE-01", scope: "BEYU OS control plane", scenario: "Primary region outage", rpoMinutes: 5, rtoMinutes: 60, strategy: "Multi-AZ Postgres with PITR, warm standby in secondary region, ArgoCD re-deploy from Git.", ownerRole: "PLATFORM_ADMIN", lastTestedAt: "2025-10-20", lastTestOutcome: "PASSED — restored in 41 minutes", nextTestDue: "2026-01-20", runbookUri: "/docs/runbooks/dr-region-failover.md" },
@@ -540,7 +540,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- finance ---------------- */
-  await db
+  await adminDb
     .insert(s.treasuryPositions)
     .values([
       { id: fixedId(ID_PREFIX.treasury, "T1"), tenantId: T.group, legalEntityId: E.holdings, institution: "Emirates NBD", accountLabel: "Group operating USD", currency: "USD", balance: "4820000", baseCurrencyBalance: "4820000", asOf: "2025-12-31" },
@@ -551,7 +551,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.capitalRequests)
     .values([
       { id: fixedId(ID_PREFIX.capital, "CAP1"), tenantId: T.group, legalEntityId: E.health, code: "CAP-2025-004", title: "Health OS Mwanza regional expansion", requestType: "INVESTMENT", sectorCode: "HEALTH", amount: "1800000", currency: "USD", horizonMonths: 84, expectedIrr: "0.184", expectedNpv: "742000", paybackMonths: 46, riskScore: 11, riskAdjustedReturn: "0.142", status: "UNDER_REVIEW", requestedBy: "GROUP_CFO", resolutionId: fixedId(ID_PREFIX.resolution, "R2025_021") },
@@ -562,7 +562,7 @@ async function main() {
     .onConflictDoNothing();
 
   const wfConfigId = fixedId(ID_PREFIX.waterfallConfig, "WF_GROUP_V21");
-  await db
+  await adminDb
     .insert(s.waterfallConfigs)
     .values({
       id: wfConfigId,
@@ -591,7 +591,7 @@ async function main() {
     { seq: 6, code: "FOUNDATION", name: "Foundation allocation", type: "PERCENTAGE_OF_REMAINING", rate: "0.1", beneficiary: "FOUNDATION", basis: "Foundation funding covenant 2023" },
     { seq: 7, code: "OWNER", name: "Owner / beneficiary distributions", type: "RESIDUAL", beneficiary: "OWNER", basis: "Trust deed schedule 4 — discretionary distribution" },
   ];
-  await db
+  await adminDb
     .insert(s.waterfallTiers)
     .values(
       tiers.map((t) => ({
@@ -627,7 +627,7 @@ async function main() {
     scenario: "BASE",
   });
   const runId = fixedId(ID_PREFIX.waterfallRun, "RUN_2025Q4");
-  await db
+  await adminDb
     .insert(s.waterfallRuns)
     .values({
       id: runId,
@@ -648,7 +648,7 @@ async function main() {
       status: "COMMITTED",
     })
     .onConflictDoNothing();
-  await db
+  await adminDb
     .insert(s.waterfallRunLines)
     .values(
       demoRun.lines.map((l) => ({
@@ -668,7 +668,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- tax strategy intelligence ---------------- */
-  await db
+  await adminDb
     .insert(s.taxStrategies)
     .values([
       {
@@ -835,7 +835,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- HCM ---------------- */
-  await db
+  await adminDb
     .insert(s.positions)
     .values([
       { id: fixedId(ID_PREFIX.position, "P1"), tenantId: T.group, code: "POS-EXEC-CEO", title: "Group Chief Executive", grade: "E1", jobFamily: "EXECUTIVE" },
@@ -855,7 +855,7 @@ async function main() {
     { key: "SARA_LEMA", no: "BEYU-EMP-00006", entity: E.health, pos: "P4", hire: "2020-11-02", salary: "9800", ccy: "USD" },
     { key: "PETER_OKELLO", no: "BEYU-EMP-00007", entity: E.holdings, pos: "P3", hire: "2021-05-10", salary: "14000", ccy: "USD" },
   ];
-  await db
+  await adminDb
     .insert(s.employees)
     .values(
       staff.map((e) => ({
@@ -875,7 +875,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.employmentEvents)
     .values(
       staff.map((e) => ({
@@ -895,7 +895,7 @@ async function main() {
     { key: "FM_G1_FOUNDER", party: "AMANI_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: true, ver: "VERIFIED" as const },
     { key: "FM_G1_SPOUSE", party: "NEEMA_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: false, ver: "VERIFIED" as const },
   ];
-  await db
+  await adminDb
     .insert(s.familyMembers)
     .values(
       fam.map((f) => ({
@@ -915,7 +915,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.beneficiaries)
     .values([
       { id: fixedId(ID_PREFIX.beneficiary, "B1"), tenantId: T.group, familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_FOUNDER"), trustEntityId: E.trust, beneficiaryClass: "PRIMARY", eligibility: "ELIGIBLE", eligibilityRationale: "Named primary beneficiary in the trust deed schedule 3; lineage verified.", entitlementPct: "40", conditions: [], effectiveFrom: "2014-03-11", verifiedBy: "TRUSTEE_BOARD", approvedByResolutionId: fixedId(ID_PREFIX.resolution, "R2025_007") },
@@ -923,7 +923,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.familyVaultItems)
     .values([
       { id: fixedId(ID_PREFIX.vaultItem, "V1"), tenantId: T.group, vaultType: "TRUST", title: "BEYU Family Trust Deed (executed)", description: "Constitutional trust instrument with schedules 1–5.", custodianRole: "TRUSTEE_BOARD", successionInstruction: "Released to successor trustees upon appointment resolution." },
@@ -935,7 +935,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- foundation ---------------- */
-  await db
+  await adminDb
     .insert(s.foundationPrograms)
     .values([
       { id: fixedId(ID_PREFIX.program, "PRG1"), tenantId: T.foundation, code: "FDN-HEALTH-01", name: "Community maternal health outreach", theme: "HEALTH", countryCode: "TZ", budget: "180000", currency: "USD", spendToDate: "121400", beneficiariesReached: 14820, impactMetric: "Antenatal visits completed", impactValue: "9640", fundingResolutionId: fixedId(ID_PREFIX.resolution, "R2025_014") },
@@ -944,7 +944,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.sectorMetrics)
     .values([
       { id: fixedId(ID_PREFIX.sectorMetric, "M1"), tenantId: T.group, sectorCode: "HEALTH", metricCode: "REVENUE_YTD_USD", period: "2025", value: "9640000", unit: "USD", sourceSystem: "BEYU_HEALTH_OS" },
@@ -957,7 +957,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- documents & knowledge ---------------- */
-  await db
+  await adminDb
     .insert(s.retentionPolicies)
     .values([
       { code: "RET-CORP-10Y", recordType: "CORPORATE_RECORD", jurisdictionCode: "TZ", retentionYears: 10, legalBasis: "Companies Act Cap 212" },
@@ -968,7 +968,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.documents)
     .values([
       { id: fixedId(ID_PREFIX.document, "D1"), tenantId: T.group, fileName: "beyu-family-trust-deed-v1.pdf", fileType: "application/pdf", category: "CONSTITUTIONAL", description: "Executed BEYU Family Trust deed with schedules.", version: "1.0.0", source: "EXTERNAL_COUNSEL", uploadedBy: "FAMILY_OFFICE_PRINCIPAL", effectiveDate: "2014-03-11", entityScope: "BEYU-FT", jurisdictionCode: "MU", classification: "HIGHLY_RESTRICTED", authorityStatus: "AUTHORITATIVE", checksum: sha256("trust-deed-v1"), storageUri: "vault://beyu/trust/deed-v1.pdf", retentionCode: "RET-TRUST-PERM", legalHold: true, approvedBy: "TRUSTEE_BOARD", approvedAt: new Date("2014-03-11T00:00:00Z") },
@@ -979,7 +979,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.knowledgeSources)
     .values([
       { id: fixedId(ID_PREFIX.knowledge, "K1"), code: "KN-TZ-ITA", title: "Tanzania Income Tax Act Cap 332 — key provisions", domain: "TAX", ownerRole: "GROUP_CFO", jurisdictionCode: "TZ", provenance: "Statute, reviewed by group tax counsel 2025-07", effectiveFrom: "2024-07-01", reviewDate: "2026-06-30", content: "Corporate income tax rate 30%. Capital deductions per the Third Schedule. Donations to approved institutions deductible subject to statutory caps. Transfer pricing governed by the 2018 Regulations requiring contemporaneous documentation.", keywords: ["tax", "tanzania", "deduction", "capital", "transfer pricing"] },
@@ -991,7 +991,7 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- registries ---------------- */
-  await db
+  await adminDb
     .insert(s.osRegistry)
     .values([
       { id: fixedId(ID_PREFIX.osRegistry, "BEYU_OS"), code: "BEYU_OS", name: "BEYU OS", kind: "CONTROL_PLANE", purpose: "Global enterprise control plane governing the entire BEYU ecosystem.", ownerRole: "GROUP_CEO", authorityScope: "ENTERPRISE_WIDE", dataAuthority: ["IDENTITY", "ORGANIZATION", "OWNERSHIP", "GOVERNANCE", "POLICY", "AUDIT", "RISK", "COMPLIANCE", "CAPITAL", "DOCUMENTS", "AI_IDENTITY"], dependencies: [], apis: ["/api/v1/*"], events: ["*"], complianceFrameworks: ["ISO27001", "SOC2", "GDPR"], classification: "RESTRICTED" },
@@ -1006,7 +1006,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.sourceOfTruth)
     .values(
       [
@@ -1041,7 +1041,7 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.integrations)
     .values([
       { id: fixedId(ID_PREFIX.integration, "I1"), tenantId: T.group, code: "INT-TRA-EFD", name: "Tanzania Revenue Authority e-filing", provider: "TRA", category: "TAX_AUTHORITY", protocol: "REST", standard: "OPENAPI", authType: "MTLS", secretRef: "vault://beyu/integrations/tra", ownerRole: "GROUP_CFO", slaUptimePct: "99.10" },
@@ -1053,7 +1053,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.metricDefinitions)
     .values([
       { code: "KPI-LIQUIDITY-USD", name: "Consolidated liquidity", definition: "Sum of treasury balances translated to USD at period-end rates.", domain: "FINANCE", sourceOfTruth: "FINANCE_OS/treasury_positions", ownerRole: "GROUP_CFO", calculation: "Σ base_currency_balance where as_of = period end", period: "MONTHLY", unit: "USD" },
@@ -1065,7 +1065,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.dataAssets)
     .values([
       { id: fixedId(ID_PREFIX.dataAsset, "DA1"), code: "DA-IDENTITY", name: "Identity master", domain: "IDENTITY", systemOfRecord: "BEYU_OS", ownerRole: "PLATFORM_ADMIN", stewardRole: "CHIEF_GOVERNANCE_OFFICER", classification: "CONFIDENTIAL", containsPersonalData: true, lawfulBasis: "CONTRACT", retentionCode: "RET-CORP-10Y", lineageDownstream: ["DA-EMPLOYEE", "DA-FAMILY"], qualityRules: ["email unique", "party linked", "no orphan session"] },
@@ -1076,7 +1076,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.architectureDecisions)
     .values([
       { id: fixedId(ID_PREFIX.adr, "ADR1"), adrNumber: 1, title: "BEYU OS is the single enterprise control plane", status: "ACCEPTED", context: "Multiple sector initiatives risked creating competing control planes for identity, governance and audit.", decision: "All enterprise-wide capabilities are implemented once in BEYU OS and consumed by Sector OSs through governed APIs, events and policies.", consequences: "Sector OSs are lighter and must integrate; enterprise capabilities gain a single hardening path.", alternatives: "Federated per-sector platforms (rejected: duplication, divergent truth, audit gaps).", securityAnalysis: "One identity, one authorization model, one audit ledger reduces attack surface and blind spots.", complianceAnalysis: "Single evidence trail for ISO/SOC/GDPR-aligned controls.", rollbackPlan: "None required; boundary reasserted through the OS registry.", decidedBy: "Architecture Review Board", decidedOn: "2024-01-15" },
@@ -1086,7 +1086,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.regulatoryChanges)
     .values([
       { id: fixedId(ID_PREFIX.regulatoryChange, "RC1"), jurisdictionCode: "TZ", reference: "Finance Act 2025", title: "Adjustment to withholding tax on service fees", changeType: "AMENDMENT", summary: "Detected amendment affecting withholding on cross-border service fees. Requires governance assessment before any policy change.", publishedOn: "2025-07-01", effectiveFrom: "2025-07-01", impactedDomains: ["TAX", "FINANCE"], assessmentStatus: "UNDER_ASSESSMENT", ownerRole: "GROUP_CFO" },
@@ -1094,7 +1094,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.featureFlags)
     .values([
       { key: "noelia.tax_assessment", description: "Enable Noelia-assisted tax eligibility pre-screening (human review always required).", scope: "ENTERPRISE", enabled: true, ownerRole: "CHIEF_GOVERNANCE_OFFICER", updatedBy: "SEED" },
@@ -1104,7 +1104,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.strategicObjectives)
     .values([
       { id: fixedId(ID_PREFIX.objective, "SO1"), tenantId: T.group, code: "SO-1", horizon: "2026", title: "Grow consolidated revenue to USD 40m", description: "Scale the three operating sectors while protecting margin discipline.", ownerRole: "GROUP_CEO", targetValue: "40000000", currentValue: "28560000", unit: "USD", status: "ON_TRACK" },
@@ -1114,7 +1114,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.workflows)
     .values([
       {
@@ -1157,7 +1157,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.tasks)
     .values([
       { id: fixedId(ID_PREFIX.task, "TSK1"), tenantId: T.group, title: "Close NHIF claim ageing exception", description: "Remediate the 60-day claim submission breach identified in the 2025-Q4 assessment.", assigneeUserId: fixedId(ID_PREFIX.user, "JOHN_MREMA"), assigneeRole: "CHIEF_RISK_COMPLIANCE", priority: "HIGH", dueAt: new Date("2026-02-28T00:00:00Z"), status: "IN_PROGRESS" },
@@ -1167,7 +1167,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.notifications)
     .values([
       { id: fixedId(ID_PREFIX.notification, "N1"), tenantId: T.group, role: "GROUP_BOARD", channel: "IN_APP", urgency: "HIGH", subject: "Reserved matter awaiting ratification", body: "Capital request CAP-2025-004 (USD 1.8m) requires Group Board ratification.", linkHref: "/os/capital", classification: "RESTRICTED" },
@@ -1176,7 +1176,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.anomalySignals)
     .values([
       { id: fixedId(ID_PREFIX.anomaly, "AN1"), tenantId: T.group, detector: "payments.duplicate_v2", signalType: "DUPLICATE_PAYMENT", subjectType: "PAYMENT_BATCH", subjectId: "PB-2025-11-004", severity: "HIGH", confidence: "0.9120", evidence: { matchedFields: ["supplier", "amount", "invoiceRef"], amount: 48200, currency: "USD", occurrences: 2 }, assignedRole: "GROUP_CFO" },
@@ -1196,7 +1196,7 @@ async function main() {
    *
    * onConflictDoNothing so a real ratification recorded later is never overwritten by a re-seed.
    */
-  await db
+  await adminDb
     .insert(s.governanceDecisionRegistry)
     .values([
       { decisionId: "P1", title: "Recognition basis", description: "What event triggers accounting recognition of a capital transaction?", requiredAuthority: "Group CFO", dependencies: [], acceptanceCriteria: "A posting derived from the ratified basis produces the ratified recognition event, evidenced by the named artefact." },
@@ -1226,7 +1226,7 @@ async function main() {
    * while blocking legitimate management analysis. Anything that would turn a plan into an
    * authorised baseline declares its blocking decisions and stays LOCKED.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_FPNA_READ", name: "FP&A — read actuals", description: "Reads the canonical ledger and treasury. Creates no second source of truth.", requiredDecisions: [], executionPermission: null },
@@ -1250,7 +1250,7 @@ async function main() {
    * its strength are all governance or execution acts. This is the exact seam where a forecast
    * would otherwise become a financial instruction without anyone deciding that it should.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_FORECAST_ASSESS", name: "Forecast — input quality assessment", description: "Assesses whether supplied history can support a projection. Read-only.", requiredDecisions: [], executionPermission: null },
@@ -1278,7 +1278,7 @@ async function main() {
    * balance on the strength of an observation. An analytical layer that detects a pattern must
    * never be the thing that acts on it.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_AUDIT_SEARCH", name: "Audit — record search", description: "Searches the append-only audit ledger within a stated window. Read-only.", requiredDecisions: [], executionPermission: null },
@@ -1302,7 +1302,7 @@ async function main() {
    * is a governance instrument (it decides what exposure is acceptable); settlement, transfer and
    * approval are execution and belong strictly below the authority boundary.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_TREASURY_ASSESS", name: "Treasury — position and cash assessment", description: "Reads positions and reports cash by currency. Read-only.", requiredDecisions: [], executionPermission: null },
@@ -1330,7 +1330,7 @@ async function main() {
    * breach are all governance acts: they determine legal exposure, and no analytical module may
    * perform them on its own authority.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_COMPLIANCE_ASSESS", name: "Compliance — obligation assessment", description: "Reads obligations, assessments, evidence and controls to report compliance posture. Read-only.", requiredDecisions: [], executionPermission: null },
@@ -1353,7 +1353,7 @@ async function main() {
    * acting on a breach — stay LOCKED. A limit is a governance instrument: whoever sets the
    * threshold decides what counts as an acceptable loss, and BEYU has ratified no such authority.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_RISK_ASSESS", name: "Risk — exposure assessment", description: "Measures concentration, liquidity, counterparty, currency and capital exposure from observed data. Read-only.", requiredDecisions: [], executionPermission: null },
@@ -1371,7 +1371,7 @@ async function main() {
    * truth, so gating them would be security theatre. Anything that could convert an opinion into
    * execution declares its blocking decisions and stays LOCKED.
    */
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_SPEC_FORECAST", name: "Forecasting Intelligence — projection", description: "Projects observed history forward. Read-only; writes no financial truth.", requiredDecisions: [], executionPermission: null },
@@ -1382,7 +1382,7 @@ async function main() {
     ])
     .onConflictDoNothing();
 
-  await db
+  await adminDb
     .insert(s.governanceCapabilityRegistry)
     .values([
       { capabilityCode: "CAP_RECOGNITION", name: "Recognition engine", description: "Applies the ratified recognition basis to a transaction.", requiredDecisions: ["P1"], executionPermission: null },
@@ -1403,11 +1403,11 @@ async function main() {
     .onConflictDoNothing();
 
   console.log(`BEYU OS bootstrap complete (${TODAY}). Bootstrap credentials were not printed.`);
-  await pool.end();
+  await adminPool.end();
 }
 
 main().catch(async (err) => {
   console.error("Seed failed:", err);
-  await pool.end();
+  await adminPool.end();
   process.exit(1);
 });

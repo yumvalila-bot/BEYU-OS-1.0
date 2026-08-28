@@ -4,8 +4,10 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
 
-const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is required");
+// Migrations are schema-DDL operations and therefore run with the
+// migration/admin (superuser) role, never the RLS-subject runtime role.
+const url = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
+if (!url) throw new Error("BEYU_ADMIN_DATABASE_URL (or DATABASE_URL) is required");
 
 const pool = new Pool({ connectionString: url });
 const dir = join(process.cwd(), "drizzle");
