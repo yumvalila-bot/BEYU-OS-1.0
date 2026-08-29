@@ -1,5 +1,57 @@
 # Changelog
 
+## [Unreleased] — Unified brand identity: BEYU logo system + Noelia AI personalization — 2026-08-28
+
+UI/identity work only — zero changes to governance, authorization, policy or audit code paths.
+Verification: full suite **2137 passed / 0 failed** (125 skipped: E2E HTTP suites, which additionally
+pass 70/70 when run against a live server), lint clean, typecheck clean, production build clean.
+
+### BEYU logo — one centralized official logo system
+
+- The repo's existing official mark (inline in `src/components/brand.tsx`) is the canonical logo.
+  It is now externalized as the single source of truth in **`/public/brand/`**:
+  `beyu-logo.svg` (default lockup), `beyu-logo-dark.svg` (light surfaces), `beyu-logo-light.svg`
+  (reversed, dark surfaces), `beyu-logo-mark.svg` (mark), `favicon.svg`, plus PWA app icons
+  (`beyu-app-icon.svg/-192/-512`) and `manifest.webmanifest`.
+- **Assets are replaceable without code changes**: every component resolves paths through
+  `src/components/brand-assets.ts`; no component embeds the mark. A test enforces that the mark
+  geometry exists ONLY in `/public/brand/*` (no inline duplicates anywhere in `src/`).
+- New **`<BeyuLogo />`** (`variant=full|mark|light|dark`, `size`, `className`, `href`,
+  `aria-label`, `decorative`). The old `BeyuMark`/`BeyuWordmark` inline SVGs were removed.
+- Integrated across surfaces: sign-in (hero + card), OS shell sidebar + mobile header + footer,
+  dashboard, Noelia page/panel, and the branded `LoadingState` / `EmptyState` / `Denied`
+  primitives in `brand.tsx`. Favicon + PWA manifest wired in the root layout.
+
+### Noelia AI — one recognizable identity, every screen
+
+- Canonical identity portrait **`/public/noelia/noelia-avatar.svg`** (+ identical 1024px `.png`/
+  `.webp` rasters, `noelia-icon.svg` mark for ≤32px, `noelia-placeholder.svg` fallback).
+  Fixed design system: calm attentive gaze, composed smile, espresso hair with low bun, BEYU-navy
+  blazer, ivory field with gold ring — warm, professional, human-centered; no cartoon/robot/
+  uncanny elements. Rasters are rendered from the SVG, so the face is identical in every format.
+- New **`<NoeliaAvatar />`**: sizes `xs sm md lg xl hero` (xs/sm use the icon mark, never a
+  distorted portrait) × states `idle thinking processing speaking success warning error offline`.
+  The face never changes between states — only a status indicator does (canonical palette,
+  motion-safe animations, `role="status"` live region, default `alt="Noelia AI"`, `decorative`
+  → `alt=""`, reduced-motion safe, works on light and dark themes via CSS variables).
+- New **`<NoeliaPanel />`** and **`<NoeliaStatus />`**: Noelia presented inside BEYU OS context —
+  BEYU mark + "BEYU OS" anchor, "HIVE · governed AI runtime", **Governed assistant** indicator,
+  plain-language accountability boundary ("advisory only; material decisions require human
+  accountability"), and an "Ask Noelia" link whose authority is still decided by
+  `requireAccess("ai:noelia.query")` — the UI grants nothing.
+- Integrated: `/os/noelia` (identity hero panel + console avatar with live state), console header
+  (state tracks error/thinking/idle), Executive Control Centre (governance-gated Noelia card +
+  avatar in the HIVE metric). Hierarchy is encoded and documented:
+  BEYU → BEYU OS → HIVE → NOELIA (see `docs/branding/README.md`).
+
+### Tests
+
+- New `tests/frontend/brand-identity.test.ts` (47 tests, pure node — no DB/server required):
+  asset registry integrity (no broken paths, valid manifest), BeyuLogo variants/a11y/href,
+  single-source-of-truth enforcement, NoeliaAvatar sizes/states/reduced-motion, NoeliaPanel
+  hierarchy and governed CTA, and a regression pin that the Noelia HTTP route and page guard are
+  still bound to the shared authorization boundary.
+
 ## [Unreleased] — FINAL PRODUCTION ACTIVATION & CERTIFICATION — six real defects found and fixed — 2026-08-28
 
 Re-verified every prior claim against fresh evidence rather than inheriting it. The result was

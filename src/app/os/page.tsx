@@ -20,6 +20,7 @@ import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { NoeliaAvatar } from "@/components/noelia-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export default async function ControlCentre() {
     entities: can(principal, "organization:entity.read").allowed,
     governance: can(principal, "governance:resolution.read").allowed,
     aiReview: can(principal, "ai:decision.review").allowed,
+    aiQuery: can(principal, "ai:noelia.query").allowed,
     dashboard: can(principal, "platform:dashboard.read").allowed,
   };
 
@@ -220,12 +222,40 @@ export default async function ControlCentre() {
             : restricted("organization:entity.read"))}
         />
         <Metric
-          label="AI awaiting human review · HIVE"
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              <NoeliaAvatar size="xs" state="idle" decorative />
+              AI awaiting human review · HIVE
+            </span>
+          }
           {...(caps.aiReview
             ? { value: String(aiPending?.n ?? 0), sub: "Noelia never self-approves" }
             : restricted("ai:decision.review"))}
         />
       </div>
+
+      {caps.aiQuery && (
+      <div className="beyu-panel flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div className="flex items-center gap-3.5">
+          <NoeliaAvatar size="md" state="idle" />
+          <div>
+            <div className="text-[14px] font-semibold">
+              Noelia AI
+              <span className="beyu-kicker ml-2 beyu-muted">HIVE runtime · governed assistant</span>
+            </div>
+            <div className="mt-0.5 text-[11.5px] beyu-muted">
+              Answers inherit your identity, tenant and clearance — advisory, source-citing, fully audited.
+            </div>
+          </div>
+        </div>
+        <Link
+          href="/os/noelia"
+          className="rounded-lg bg-[#d4af37] px-4 py-2 text-[12px] font-semibold text-[#0b1d3a] transition hover:bg-[#e2c25f]"
+        >
+          Ask Noelia
+        </Link>
+      </div>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         {caps.waterfall && (

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 100" role="img" aria-label="BEYU OS — Control Plane">
+  <title>BEYU OS — Control Plane</title>
+  <!--
+    BEYU primary lockup, DARK variant. Use on LIGHT / neutral surfaces.
+    (Identical to beyu-logo.svg; the separate file exists so the brand
+    registry can be re-cut per surface without touching application code.)
+  -->
+  <g>
+    <circle cx="50" cy="50" r="44" fill="none" stroke="#d4af37" stroke-width="2.4"/>
+    <path d="M38 22h20c9.4 0 15.5 5.2 15.5 13.1 0 5.4-2.9 9.6-7.6 11.6 6 1.7 9.8 6.4 9.8 12.8 0 9.1-6.9 14.9-17.6 14.9H38z" fill="#0b1d3a"/>
+    <path d="M33 78V30" stroke="#0b1d3a" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+    <g fill="#4c6f4e">
+      <ellipse cx="24" cy="41" rx="6.2" ry="4" transform="rotate(-28 24 41)"/>
+      <ellipse cx="27" cy="52" rx="6" ry="3.8" transform="rotate(18 27 52)"/>
+      <ellipse cx="42" cy="38" rx="6" ry="3.8" transform="rotate(28 42 38)"/>
+      <ellipse cx="44" cy="50" rx="5.6" ry="3.6" transform="rotate(-14 44 50)"/>
+      <ellipse cx="34" cy="33" rx="5.4" ry="3.4" transform="rotate(-6 34 33)"/>
+    </g>
+    <path d="M33 60c-4-6-7-9-11-11M33 48c3.5-5 6.5-8 10-10" stroke="#0b1d3a" stroke-width="1.6" fill="none"/>
+  </g>
+  <text x="118" y="56" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="40" font-weight="600" letter-spacing="11" fill="#0b1d3a">BEYU OS</text>
+  <text x="120" y="80" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="600" letter-spacing="7.2" fill="#a8830f">CONTROL PLANE</text>
+</svg>

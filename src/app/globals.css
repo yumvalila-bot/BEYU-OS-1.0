@@ -16,6 +16,32 @@
   --color-gold-300: #efd98f;
   --color-sage-600: #4c6f4e;
   --color-slateink-500: #6b7280;
+
+  /* ------------------------------------------------------------------ */
+  /* Motion tokens — guarded at use sites with Tailwind's motion-safe:   */
+  /* variant, so prefers-reduced-motion users see static indicators.     */
+  /* ------------------------------------------------------------------ */
+  --animate-beyu-pulse: beyu-pulse 1.8s ease-in-out infinite;
+  --animate-noelia-think: noelia-think 1.8s ease-in-out infinite;
+  --animate-noelia-process: noelia-process 0.9s ease-in-out infinite;
+  --animate-noelia-speak: noelia-speak 1.5s ease-out infinite;
+
+  @keyframes beyu-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  @keyframes noelia-think {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.8); }
+  }
+  @keyframes noelia-process {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.72); }
+  }
+  @keyframes noelia-speak {
+    0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.5); }
+    100% { box-shadow: 0 0 0 7px rgba(14, 165, 233, 0); }
+  }
 }
 
 :root {
@@ -30,6 +56,16 @@
   --beyu-text: #0b1d3a;
   --beyu-muted: #5b6b85;
   --beyu-card: #ffffff;
+
+  /* Noelia AI status-indicator palette (canonical; components reference
+     these so Noelia's indicators stay consistent across every surface). */
+  --noelia-idle: #4c6f4e;
+  --noelia-active: #d4af37;
+  --noelia-speaking: #0ea5e9;
+  --noelia-success: #059669;
+  --noelia-warning: #f59e0b;
+  --noelia-error: #e11d48;
+  --noelia-offline: #94a3b8;
 }
 
 .dark {

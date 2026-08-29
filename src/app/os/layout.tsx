@@ -7,7 +7,8 @@ import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { can, type Principal } from "@/lib/authz";
 import type { PermissionCode } from "@/lib/constants";
-import { BeyuWordmark, Badge } from "@/components/brand";
+import { Badge } from "@/components/brand";
+import { BeyuLogo } from "@/components/beyu-logo";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
 
@@ -101,9 +102,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
         className="beyu-shell hidden w-[268px] shrink-0 flex-col border-r border-white/10 lg:flex"
       >
         <div className="px-5 pt-5 pb-4">
-          <Link href="/os">
-            <BeyuWordmark />
-          </Link>
+          <BeyuLogo variant="light" size={40} href="/os" />
         </div>
         <div className="beyu-gold-rule mx-5" />
         <nav aria-label="Primary" className="beyu-scroll flex-1 overflow-y-auto px-3 py-4">
@@ -140,7 +139,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="beyu-shell flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3 text-white lg:px-8">
           <div className="flex items-center gap-3 lg:hidden">
-            <BeyuWordmark />
+            <BeyuLogo variant="light" size={32} href="/os" />
           </div>
           <div className="hidden items-center gap-3 lg:flex">
             <span className="beyu-kicker text-white/45">Tenant context</span>
@@ -191,9 +190,12 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
             </div>
           )}
           {children}
-          <footer className="mt-10 border-t border-[color:var(--beyu-line)] pt-4 text-[10.5px] beyu-muted">
-            BEYU OS · every view is permission-scoped, tenant-isolated and audited. Metrics resolve to a
-            declared source of truth. AI output is advisory; material decisions require human accountability.
+          <footer className="mt-10 flex items-start gap-2.5 border-t border-[color:var(--beyu-line)] pt-4 text-[10.5px] beyu-muted">
+            <BeyuLogo variant="mark" size={18} decorative className="mt-[1px] shrink-0" />
+            <span>
+              BEYU OS · every view is permission-scoped, tenant-isolated and audited. Metrics resolve to a
+              declared source of truth. AI output is advisory; material decisions require human accountability.
+            </span>
           </footer>
         </main>
       </div>

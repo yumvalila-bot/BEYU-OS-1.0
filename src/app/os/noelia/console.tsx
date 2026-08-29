@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NoeliaAvatar, NoeliaStatus, type NoeliaAvatarState } from "@/components/noelia-avatar";
 
 type Answer = {
   decisionId: string;
@@ -70,14 +71,26 @@ export function NoeliaConsole({
     }
   }
 
+  /** One Noelia, one face: the canonical avatar (same asset on every screen),
+      with only the state indicator changing as she works. */
+  const state: NoeliaAvatarState = error ? "error" : busy ? "thinking" : "idle";
+
   return (
-    <section className="beyu-panel overflow-hidden">
+    <section id="noelia-console" className="beyu-panel overflow-hidden" aria-label="Noelia AI console">
       <div className="beyu-shell px-5 py-4 text-white">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-[16px] font-semibold">Hello, I&apos;m <span className="text-[#d4af37]">Noelia</span></div>
-            <div className="mt-0.5 text-[11.5px] text-white/60">
-              Operating for {principal.name} · {principal.roles.join(", ") || "no roles"} · tenant {principal.tenant} · clearance {principal.clearance}
+          <div className="flex items-center gap-3.5">
+            <NoeliaAvatar size="md" state={state} />
+            <div>
+              <div className="text-[16px] font-semibold">
+                Hello, I&apos;m <span className="text-[#d4af37]">Noelia</span>
+                <span className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2 py-[2px] align-middle">
+                  <NoeliaStatus state={state} className="text-white/70" />
+                </span>
+              </div>
+              <div className="mt-0.5 text-[11.5px] text-white/60">
+                Operating for {principal.name} · {principal.roles.join(", ") || "no roles"} · tenant {principal.tenant} · clearance {principal.clearance}
+              </div>
             </div>
           </div>
           <div className="text-[10px] tracking-[0.16em] text-white/45">HIVE RUNTIME · POLICY ENFORCED · FULLY AUDITED</div>

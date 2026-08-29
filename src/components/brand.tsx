@@ -1,38 +1,13 @@
 import type { ReactNode } from "react";
+import { BeyuLogo } from "./beyu-logo";
 
-/** Canonical BEYU mark: gold ring, navy serif "B", sage family tree. */
-export function BeyuMark({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="BEYU" role="img">
-      <circle cx="50" cy="50" r="44" fill="none" stroke="#d4af37" strokeWidth="2.4" />
-      <path
-        d="M38 22h20c9.4 0 15.5 5.2 15.5 13.1 0 5.4-2.9 9.6-7.6 11.6 6 1.7 9.8 6.4 9.8 12.8 0 9.1-6.9 14.9-17.6 14.9H38z"
-        fill="#0b1d3a"
-      />
-      <path d="M33 78V30" stroke="#0b1d3a" strokeWidth="5.5" strokeLinecap="round" />
-      <g fill="#4c6f4e">
-        <ellipse cx="24" cy="41" rx="6.2" ry="4" transform="rotate(-28 24 41)" />
-        <ellipse cx="27" cy="52" rx="6" ry="3.8" transform="rotate(18 27 52)" />
-        <ellipse cx="42" cy="38" rx="6" ry="3.8" transform="rotate(28 42 38)" />
-        <ellipse cx="44" cy="50" rx="5.6" ry="3.6" transform="rotate(-14 44 50)" />
-        <ellipse cx="34" cy="33" rx="5.4" ry="3.4" transform="rotate(-6 34 33)" />
-      </g>
-      <path d="M33 60c-4-6-7-9-11-11M33 48c3.5-5 6.5-8 10-10" stroke="#0b1d3a" strokeWidth="1.6" fill="none" />
-    </svg>
-  );
-}
-
-export function BeyuWordmark({ tagline = "CONTROL PLANE" }: { tagline?: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <BeyuMark size={38} />
-      <div className="leading-none">
-        <div className="text-[19px] font-semibold tracking-[0.32em] text-white">BEYU OS</div>
-        <div className="mt-1 text-[9px] font-medium tracking-[0.34em] text-[#d4af37]">{tagline}</div>
-      </div>
-    </div>
-  );
-}
+/**
+ * BEYU shared primitives.
+ *
+ * Brand mark presentation lives in <BeyuLogo /> (central registry
+ * /public/brand/*) — this module never embeds the logo SVG, so there is
+ * exactly one implementation of the mark in the product.
+ */
 
 const TONES: Record<string, string> = {
   gold: "bg-[#d4af37]/15 text-[#8a6d10] border-[#d4af37]/40 dark:text-[#efd98f]",
@@ -100,7 +75,7 @@ export function Metric({
   sub,
   tone = "navy",
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   sub?: string;
   tone?: string;
@@ -116,11 +91,28 @@ export function Metric({
   );
 }
 
+/**
+ * Branded loading state — the BEYU mark on a calm pulse.
+ * Reduced-motion users get a static mark (motion-safe guard).
+ */
+export function LoadingState({ label = "Loading" }: { label?: string }) {
+  return (
+    <div role="status" className="beyu-panel flex flex-col items-center px-6 py-10 text-center">
+      <BeyuLogo variant="mark" size={40} ariaLabel="BEYU" className="motion-safe:animate-beyu-pulse" />
+      <div className="mt-4 beyu-kicker beyu-muted">{label}</div>
+      <span className="sr-only">{label}…</span>
+    </div>
+  );
+}
+
 export function Denied({ reason, capability }: { reason: string; capability: string }) {
   return (
     <div className="beyu-panel mx-auto max-w-2xl px-6 py-8">
-      <div className="beyu-kicker text-[#b08d1c]">Access decision recorded</div>
-      <h1 className="mt-2 text-[20px] font-semibold tracking-tight">Authorisation denied</h1>
+      <div className="flex items-center gap-3">
+        <BeyuLogo variant="mark" size={30} ariaLabel="BEYU" />
+        <div className="beyu-kicker text-[#b08d1c]">Access decision recorded</div>
+      </div>
+      <h1 className="mt-3 text-[20px] font-semibold tracking-tight">Authorisation denied</h1>
       <p className="mt-3 text-[13px] beyu-muted">{reason}</p>
       <div className="mt-4 rounded-lg border border-[color:var(--beyu-line)] px-4 py-3 text-[12px]">
         <div className="beyu-kicker beyu-muted">Required capability</div>
@@ -134,8 +126,13 @@ export function Denied({ reason, capability }: { reason: string; capability: str
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
-  return <div className="rounded-lg border border-dashed border-[color:var(--beyu-line)] px-4 py-6 text-center text-[12.5px] beyu-muted">{message}</div>;
+export function EmptyState({ message, mark = true }: { message: string; mark?: boolean }) {
+  return (
+    <div className="flex items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--beyu-line)] px-4 py-6 text-center text-[12.5px] beyu-muted">
+      {mark && <BeyuLogo variant="mark" size={22} ariaLabel="BEYU" decorative className="opacity-60" />}
+      <span>{message}</span>
+    </div>
+  );
 }
 
 export function money(value: number | string | null | undefined, currency = "USD", digits = 0) {
