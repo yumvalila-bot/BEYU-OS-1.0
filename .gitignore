@@ -43,3 +43,7 @@ pg.log
 # audit DB maintenance helpers (local env only)
 scripts/_db_maint.mjs
 scripts/_db_reset.mjs
+
+# local disposable PG launcher (sandbox validation only; never commit)
+scripts/start-test-pg.cjs
+

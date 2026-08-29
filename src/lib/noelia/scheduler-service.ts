@@ -146,6 +146,13 @@ export class BeyuNoeliaSchedulerService {
    */
   async emitDueRuns(input: { principal: Principal; traceId: string; limit?: number }): Promise<{ emitted: number }> {
     return withTenantDatabaseContext(input.principal, async () => {
+      // Defense-in-depth tenant scoping. PostgreSQL RLS enforces the tenant
+      // boundary at the row level for the runtime role, but the scheduler is
+      // also reachable via the guarded HTTP route on any principal that holds
+      // ai:schedule.manage; we must not rely on RLS alone — an admin/test role
+      // bypassing RLS must not silently emit another tenant's schedules.
+      const { tenantScopeIds } = await import("@/lib/tenant-scope");
+      const tenantIds = await tenantScopeIds(input.principal);
       const now = new Date();
       const due = await db
         .select()
@@ -154,6 +161,7 @@ export class BeyuNoeliaSchedulerService {
           eq(noeliaSchedules.enabled, true),
           eq(noeliaSchedules.status, "ACTIVE"),
           lte(noeliaSchedules.nextRunAt, now),
+          inArray(noeliaSchedules.tenantId, tenantIds),
         ))
         .orderBy(asc(noeliaSchedules.nextRunAt))
         .limit(Math.min(input.limit ?? 10, 50));
@@ -210,6 +218,8 @@ export class BeyuNoeliaSchedulerService {
   }): Promise<{ processed: number; skipped: number; failed: number }> {
     return withTenantDatabaseContext(input.principal, async () => {
       const { enterpriseEvents } = await import("@/db/schema");
+      const { tenantScopeIds } = await import("@/lib/tenant-scope");
+      const tenantIds = await tenantScopeIds(input.principal);
       const consumer = "noelia-schedule-runner";
       const [offsetRow] = await db
         .select()
@@ -221,12 +231,18 @@ export class BeyuNoeliaSchedulerService {
         .limit(1);
       const watermark = offsetRow?.lastSequence ?? 0;
 
+      // Defense-in-depth tenant scoping: enterprise_events carries tenant_id and
+      // is subject to RLS for the runtime role, but we filter here too so a
+      // principal who can reach the scheduler cannot consume another tenant's
+      // outbox events. Schedules are then re-verified to belong to the same
+      // tenant set before being run.
       const events = await db
         .select()
         .from(enterpriseEvents)
         .where(and(
           eq(enterpriseEvents.type, "NOELIA_SCHEDULE_DUE"),
           eq(enterpriseEvents.source, "beyu-os/ai"),
+          inArray(enterpriseEvents.tenantId, tenantIds),
           sql`${enterpriseEvents.sequence} > ${watermark}`,
         ))
         .orderBy(asc(enterpriseEvents.sequence))
@@ -243,7 +259,10 @@ export class BeyuNoeliaSchedulerService {
           skipped += 1;
           continue;
         }
-        const schedule = await db.select().from(noeliaSchedules).where(eq(noeliaSchedules.id, payload.scheduleId)).limit(1).then((r) => r[0]);
+        const schedule = await db.select().from(noeliaSchedules).where(and(
+          eq(noeliaSchedules.id, payload.scheduleId),
+          inArray(noeliaSchedules.tenantId, tenantIds),
+        )).limit(1).then((r) => r[0]);
         if (!schedule || schedule.status !== "ACTIVE" || !schedule.enabled) {
           skipped += 1;
           continue;

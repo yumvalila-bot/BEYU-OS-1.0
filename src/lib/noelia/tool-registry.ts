@@ -201,13 +201,36 @@ export class NoeliaToolRegistry {
       }
     }
 
-    if (definition.risk === "HIGH") {
+    /**
+     * Human approval gate.
+     *
+     * Two independent signals require approval:
+     *   1. A tool classified HIGH risk (regardless of metadata).
+     *   2. Any tool whose governed metadata declares `approvalRequirements`
+     *      non-null (so a LOW/MEDIUM risk tool with side effects can still
+     *      require a maker/checker decision — a declared approval requirement
+     *      is never silently ignored because a future refactor lowered the
+     *      risk label).
+     *
+     * Both gates share the same validity check: HUMAN actor, APPROVED
+     * decision, distinct maker/checker identity, and a declared approver
+     * role enforced when the metadata specifies one.
+     */
+    const approvalRequired =
+      definition.risk === "HIGH" || definition.metadata.approvalRequirements !== null;
+    if (approvalRequired) {
       const approval = context.approval;
+      const reason =
+        definition.risk === "HIGH"
+          ? `High-risk tool '${name}' requires explicit accountable-human approval.`
+          : `Tool '${name}' declares a required human approval (${
+              definition.metadata.approvalRequirements?.reason ?? "maker/checker required"
+            }).`;
       if (!approval) {
         return {
           allowed: false,
           code: "HUMAN_APPROVAL_REQUIRED",
-          reason: `High-risk tool '${name}' requires explicit accountable-human approval.`,
+          reason,
         };
       }
       if (

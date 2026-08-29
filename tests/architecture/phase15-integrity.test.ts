@@ -83,4 +83,36 @@ describe("Phase 15 source-level integrity contracts", () => {
     ];
     for (const path of pages) expect(readFileSync(path, "utf8")).toContain("withTenantDatabaseContext");
   });
+
+  it("scheduler emitDueRuns and consumeDueRuns scope queries by tenant", () => {
+    const scheduler = readFileSync("src/lib/noelia/scheduler-service.ts", "utf8");
+    // Defense-in-depth predicate must be present; RLS is not the only gate.
+    expect(scheduler).toContain("tenantScopeIds");
+    expect(scheduler).toContain("inArray(noeliaSchedules.tenantId, tenantIds)");
+    expect(scheduler).toContain("inArray(enterpriseEvents.tenantId, tenantIds)");
+  });
+
+  it("workflow cancel does not rewrite terminal status to CANCELLED", () => {
+    const wf = readFileSync("src/lib/noelia/workflows.ts", "utf8");
+    // The cancel endpoint must record a DENIED audit and return the existing
+    // terminal status instead of overwriting history. A status rewrite would
+    // make audit/event/state diverge.
+    expect(wf).toContain("outcome: \"DENIED\"");
+    expect(wf).toContain("INVALID_TRANSITION");
+    expect(wf).not.toMatch(/if \(terminal\) \{[\s\S]*?set\(\{ status: "CANCELLED"/);
+  });
+
+  it("workflow authorize derives approverRole from principal grants instead of hard-coding", () => {
+    const wf = readFileSync("src/lib/noelia/workflows.ts", "utf8");
+    expect(wf).toContain("input.principal.roles.find");
+    expect(wf).not.toContain("approverRole: \"CHIEF_GOVERNANCE_OFFICER\"");
+  });
+
+  it("tool registry enforces metadata.approvalRequirements independently of risk label", () => {
+    const reg = readFileSync("src/lib/noelia/tool-registry.ts", "utf8");
+    expect(reg).toContain("approvalRequirements");
+    expect(reg).toContain("approvalRequired");
+    // Must not only gate on risk === HIGH.
+    expect(reg).toMatch(/approvalRequired =[\s\S]*definition\.metadata\.approvalRequirements/);
+  });
 });

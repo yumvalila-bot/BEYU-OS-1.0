@@ -189,4 +189,71 @@ describe("C-02 database-level RLS isolation (runtime role)", () => {
     expect(r.rows.map((x) => x.id)).toEqual(["APP_RLS_A"]);
     expect(r.rows.every((x) => x.tenant_id === TENANT_A)).toBe(true);
   });
+
+  // --- Migration 0019: RLS gap closure on governance / HCM / Finance tables ---
+
+  const TENANT_SCOPED_TABLES = [
+    "resolutions", "role_assignments", "tasks", "strategic_objectives",
+    "governance_bodies", "positions", "controls", "sector_metrics",
+    "foundation_programs", "family_vault_items", "family_members",
+    "beneficiaries", "ai_decisions", "compliance_assessments",
+    "waterfall_runs", "anomaly_signals", "integrations",
+    "journal_entries", "ledger_accounts",
+    "consents", "delegations", "emergency_access_grants",
+    "entity_appointments", "legal_matters", "notifications", "org_units",
+    "sessions", "tax_strategy_assessments", "workflow_instances",
+    "workforce_requests", "idempotency_records",
+  ] as const;
+
+  it(`RLS gap closure: every tenant-scoped table denies access with no GUC set (fail-secure)`, async () => {
+    await setContext(rt, "");
+    // reset global_scope too
+    await rt.query(`select set_config('beyu.global_scope', 'off', false)`);
+    for (const table of TENANT_SCOPED_TABLES) {
+      const r = await rt.query(`select count(*)::int as n from "${table}"`);
+      expect(r.rows[0].n).toBe(0);
+    }
+  });
+
+  it(`RLS gap closure: every tenant-scoped table has FORCE ROW LEVEL SECURITY (owner bypass disabled)`, async () => {
+    const r = await admin.query(
+      `select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+        where n.nspname='public' and c.relkind='r' and c.relname = any($1)
+          and (not c.relrowsecurity or not c.relforcerowsecurity)`,
+      [TENANT_SCOPED_TABLES as unknown as string[]],
+    );
+    expect(r.rows).toEqual([]);
+  });
+
+  it(`policies table: global SELECT visible without scope; writes require global_scope=on`, async () => {
+    await setContext(rt, "");
+    await rt.query(`select set_config('beyu.global_scope', 'off', false)`);
+    const r = await rt.query(`select count(*)::int as n from policies`);
+    expect(r.rows[0].n).toBeGreaterThan(0); // policies are OS canon, globally readable
+    await expect(
+      rt.query(`insert into policies (id, code, version, status) values ('POL_RLS_TEST','rls_test',1,'DRAFT')`),
+    ).rejects.toThrow(/row-level security|WITH CHECK|violates/);
+  });
+
+  it("runtime role cannot escalate: SET ROLE postgres / BYPASSRLS blocked", async () => {
+    await expect(rt.query(`set role postgres`)).rejects.toThrow(/permission denied/);
+    await expect(rt.query(`set role beyu_runtime`)).resolves.toBeTruthy(); // self set is harmless
+    await expect(rt.query(`set role pg_signal_backend`)).rejects.toThrow(/permission denied/);
+  });
+
+  it("runtime role cannot mutate audit_log (immutable triggers fire)", async () => {
+    await expect(
+      rt.query(`update audit_log set actor_id = 'tampered' where id = (select id from audit_log limit 1)`),
+    ).rejects.toThrow();
+    await expect(rt.query(`truncate audit_log`)).rejects.toThrow();
+  });
+
+  it("runtime role cannot DDL on tenant tables", async () => {
+    await expect(
+      rt.query(`drop table approvals`),
+    ).rejects.toThrow(/must be owner|permission denied/);
+    await expect(
+      rt.query(`create policy exploit on approvals using (true)`),
+    ).rejects.toThrow(/must be owner|permission denied/);
+  });
 });

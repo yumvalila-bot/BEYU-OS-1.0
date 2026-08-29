@@ -222,4 +222,101 @@ describe("Noelia tool registry fail-closed gate", () => {
     expect(result.allowed).toBe(true);
     expect(execute).toHaveBeenCalledOnce();
   });
+
+  it("denies a LOW-risk tool whose metadata declares approvalRequirements without approval", async () => {
+    // Knowledge-ingest is LOW classified risk but declares DOMAIN_WRITE +
+    // approvalRequirements; the registry must enforce that gate regardless of
+    // the risk label — lowering risk must never silently waive maker/checker.
+    const execute = vi.fn(async () => ({ metadata: { ok: true } }));
+    const value = new NoeliaToolRegistry().register({
+      name: "knowledge.ingest",
+      permission: "ai:knowledge.ingest",
+      classification: "CONFIDENTIAL",
+      risk: "LOW",
+      approverRole: "CHIEF_GOVERNANCE_OFFICER",
+      description: "regression: declared approval must be enforced",
+      metadata: {
+        ...testMetadata,
+        stableId: "cap-knowledge-ingest-regression",
+        sideEffects: "DOMAIN_WRITE",
+        approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "test" },
+      },
+      execute,
+    });
+    const result = await value.invoke("knowledge.ingest", context({
+      principal: principal({
+        roles: ["CHIEF_GOVERNANCE_OFFICER"],
+        permissions: new Set(["ai:noelia.query", "ai:knowledge.ingest"]),
+      }),
+    }), {});
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.decision.code).toBe("HUMAN_APPROVAL_REQUIRED");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("allows the same declared-approval LOW-risk tool when a separate HUMAN approval is supplied", async () => {
+    const execute = vi.fn(async () => ({ metadata: { ok: true } }));
+    const value = new NoeliaToolRegistry().register({
+      name: "knowledge.ingest",
+      permission: "ai:knowledge.ingest",
+      classification: "CONFIDENTIAL",
+      risk: "LOW",
+      approverRole: "CHIEF_GOVERNANCE_OFFICER",
+      description: "regression: approval must satisfy the gate",
+      metadata: {
+        ...testMetadata,
+        stableId: "cap-knowledge-ingest-regression-allow",
+        sideEffects: "DOMAIN_WRITE",
+        approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "test" },
+      },
+      execute,
+    });
+    const result = await value.invoke("knowledge.ingest", context({
+      principal: principal({
+        roles: ["CHIEF_GOVERNANCE_OFFICER"],
+        permissions: new Set(["ai:noelia.query", "ai:knowledge.ingest"]),
+      }),
+      approval: {
+        approvalId: "APR_2",
+        approvingHumanId: "USR_APPROVING_HUMAN",
+        actorType: "HUMAN",
+        decision: "APPROVED",
+      },
+    }), {});
+    expect(result.allowed).toBe(true);
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("rejects self-approval for a tool with declared approvalRequirements", async () => {
+    const execute = vi.fn(async () => ({ metadata: { ok: true } }));
+    const value = new NoeliaToolRegistry().register({
+      name: "knowledge.ingest",
+      permission: "ai:knowledge.ingest",
+      classification: "CONFIDENTIAL",
+      risk: "LOW",
+      description: "regression: maker/checker even for LOW-risk declared-approval tools",
+      metadata: {
+        ...testMetadata,
+        stableId: "cap-knowledge-ingest-regression-self",
+        sideEffects: "DOMAIN_WRITE",
+        approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "test" },
+      },
+      execute,
+    });
+    const result = await value.invoke("knowledge.ingest", context({
+      principal: principal({
+        roles: ["CHIEF_GOVERNANCE_OFFICER"],
+        permissions: new Set(["ai:noelia.query", "ai:knowledge.ingest"]),
+      }),
+      approval: {
+        approvalId: "APR_3",
+        approvingHumanId: "USR_REQUESTING_HUMAN",
+        actorType: "HUMAN",
+        decision: "APPROVED",
+      },
+    }), {});
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) expect(result.decision.code).toBe("HUMAN_APPROVAL_INVALID");
+    expect(execute).not.toHaveBeenCalled();
+  });
 });

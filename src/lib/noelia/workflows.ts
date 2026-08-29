@@ -304,6 +304,15 @@ export class BeyuNoeliaWorkflowService {
       const approvalId = newId(ID_PREFIX.approval);
       const nextApprovalCount = (approvalCount?.n ?? 0) + 1;
       const quorumMetAfter = quorumTarget !== null ? nextApprovalCount >= quorumTarget : true;
+      // Resolve the approver role from the authenticating principal's grants
+      // rather than hard-coding a single title. Audit records must reflect the
+      // role actually exercised, otherwise a GROUP_CEO approving a workflow is
+      // mis-attributed to CHIEF_GOVERNANCE_OFFICER and provenance queries
+      // silently miscount.
+      const approverRole =
+        input.principal.roles.find((r) =>
+          ["CHIEF_GOVERNANCE_OFFICER", "GROUP_CEO", "GROUP_CFO", "FAMILY_OFFICE_PRINCIPAL"].includes(r),
+        ) ?? input.principal.roles[0] ?? "UNKNOWN";
       await db.transaction(async (rawTx) => {
         const tx = rawTx as unknown as typeof db;
         await tx.insert(approvals).values({
@@ -312,7 +321,7 @@ export class BeyuNoeliaWorkflowService {
           objectType: "NOELIA_WORKFLOW",
           objectId: workflow.id,
           step: nextApprovalCount,
-          approverRole: "CHIEF_GOVERNANCE_OFFICER",
+          approverRole,
           decision: "APPROVED",
           approverUserId: input.principal.userId,
           decidedAt: new Date(),
@@ -604,24 +613,47 @@ export class BeyuNoeliaWorkflowService {
       if (!access.allowed) {
         return { workflowId: workflow.id, status: workflow.status as WorkflowStatus, code: "PERMISSION_DENIED", reason: access.reason, approvalId: workflow.approvalId };
       }
+      const terminal = ["COMPLETED", "STOPPED", "ESCALATED", "TIMED_OUT", "CANCELLED", "FAILED"].includes(workflow.status);
       await db.transaction(async (rawTx) => {
         const tx = rawTx as unknown as typeof db;
-        const terminal = ["COMPLETED", "STOPPED", "ESCALATED", "TIMED_OUT", "CANCELLED", "FAILED"].includes(workflow.status);
         if (terminal) {
-          await tx.update(noeliaWorkflows).set({ status: "CANCELLED", completedAt: new Date() }).where(eq(noeliaWorkflows.id, workflow.id));
+          // A workflow in a terminal state cannot be cancelled — its outcome
+          // is already recorded. Silently rewriting status to CANCELLED would
+          // rewrite history (audit + state contradict each other) and break
+          // replay/duplicate detection. Instead we record the cancellation
+          // attempt as a no-op audit event and return the existing terminal
+          // status unchanged.
+          await workflowAudit(tx, {
+            tenantId: workflow.tenantId,
+            actorUserId: input.principal.userId,
+            action: "ai.noelia.workflow.cancel",
+            workflowId: workflow.id,
+            traceId: input.traceId,
+            outcome: "DENIED",
+            reason: `Workflow is already in terminal state '${workflow.status}'; cancellation is a no-op.`,
+          });
         } else {
           await tx.update(noeliaWorkflows).set({ cancellationRequested: true }).where(eq(noeliaWorkflows.id, workflow.id));
+          await workflowAudit(tx, {
+            tenantId: workflow.tenantId,
+            actorUserId: input.principal.userId,
+            action: "ai.noelia.workflow.cancel",
+            workflowId: workflow.id,
+            traceId: input.traceId,
+            reason: "Cancellation requested; execution stops at the next step boundary.",
+          });
         }
-        await workflowAudit(tx, {
-          tenantId: workflow.tenantId,
-          actorUserId: input.principal.userId,
-          action: "ai.noelia.workflow.cancel",
-          workflowId: workflow.id,
-          traceId: input.traceId,
-          reason: terminal ? "Workflow cancelled by accountable human." : "Cancellation requested; execution stops at the next step boundary.",
-        });
       });
-      return { workflowId: workflow.id, status: "CANCELLED", code: "CANCELLED", reason: "Cancellation recorded; no further step will execute.", approvalId: workflow.approvalId };
+      if (terminal) {
+        return {
+          workflowId: workflow.id,
+          status: workflow.status as WorkflowStatus,
+          code: "INVALID_TRANSITION",
+          reason: `Workflow is already in terminal state '${workflow.status}'; no further transition is permitted.`,
+          approvalId: workflow.approvalId,
+        };
+      }
+      return { workflowId: workflow.id, status: workflow.status as WorkflowStatus, code: "CANCEL_REQUESTED", reason: "Cancellation recorded; in-flight execution will stop at the next step boundary.", approvalId: workflow.approvalId };
     });
   }
 

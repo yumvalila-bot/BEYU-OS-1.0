@@ -259,7 +259,12 @@ describe("Noelia governed agentic workflow loop", () => {
     await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
     await remember(await service.authorize({ principal: governance, workflowId: planned.workflowId!, traceId: trace() }));
     const cancelled = await service.cancel({ principal: cfo, workflowId: planned.workflowId!, traceId: trace() });
-    expect(cancelled.status).toBe("CANCELLED");
+    // Cancel on a non-terminal AUTHORIZED workflow does NOT rewrite status
+    // to CANCELLED (that would contradict audit/event history). It sets
+    // cancellationRequested=true and returns code=CANCEL_REQUESTED; the
+    // next execute observes the flag and stops at the step boundary with
+    // STOPPED.
+    expect(cancelled.code).toBe("CANCEL_REQUESTED");
     const executed = await service.execute({
       principal: cfo,
       registry,
