@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Noelia AI">
+  <title>Noelia AI</title>
+  <!--
+    NOELIA AI — canonical identity portrait. Single source of truth.
+
+    Design system (fixed across every screen and state):
+      · flat vector portrait, circular ivory field, restrained palette
+      · warm medium skin (#b97e55), soft features, calm attentive gaze
+      · dark espresso hair (#241b16), centre part, low bun — executive calm
+      · deep BEYU-navy blazer (#14284a) over an ivory blouse, gold stud
+        earrings and a small gold lapel pin — quiet brand lineage,
+        deliberately understated
+      · only the STATE INDICATOR (see the NoeliaAvatar component) ever
+        changes; the face itself is never re-drawn per state
+
+    Raster exports (noelia-avatar.png / .webp) are rendered from this
+    file so the identity stays identical across all formats.
+  -->
+
+  <!-- field -->
+  <circle cx="256" cy="256" r="256" fill="#f6f0e4"/>
+  <circle cx="256" cy="256" r="244" fill="none" stroke="#d4af37" stroke-width="2" opacity="0.35"/>
+
+  <!-- hair behind (bun + subtle sheen) -->
+  <circle cx="256" cy="84" r="34" fill="#241b16"/>
+  <path d="M238 74c5-8 12-12 18-12" stroke="#46362a" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+  <!-- neck -->
+  <path d="M222 292h68v62c0 22-14 34-34 34s-34-12-34-34v-62z" fill="#a56a44"/>
+  <path d="M222 292h68v26c-10 10-24 15-34 15s-24-5-34-15v-26z" fill="#96603d"/>
+
+  <!-- blouse -->
+  <path d="M196 366h120c-4 44-30 66-60 66s-56-22-60-66z" fill="#f8f4ec"/>
+
+  <!-- blazer -->
+  <path d="M62 512c10-96 66-146 138-150l30 34 26-34c72 4 128 54 138 150z" fill="#14284a"/>
+  <path d="M230 362l26 40-18 52-34-70c6-12 14-18 26-22z" fill="#0d1e3a"/>
+  <path d="M282 362l-26 40 18 52 34-70c-6-12-14-18-26-22z" fill="#0d1e3a"/>
+  <path d="M256 402l-12 110h24z" fill="#1d3459"/>
+
+  <!-- gold lapel pin (brand lineage, understated) -->
+  <circle cx="204" cy="436" r="5.5" fill="#d4af37"/>
+
+  <!-- ears -->
+  <ellipse cx="166" cy="226" rx="15" ry="21" fill="#b97e55"/>
+  <ellipse cx="346" cy="226" rx="15" ry="21" fill="#b97e55"/>
+  <path d="M162 218c-4 6-4 14 0 20" stroke="#96603d" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M350 218c4 6 4 14 0 20" stroke="#96603d" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- gold studs -->
+  <circle cx="166" cy="244" r="5" fill="#d4af37"/>
+  <circle cx="346" cy="244" r="5" fill="#d4af37"/>
+
+  <!-- head -->
+  <path d="M256 98c64 0 90 48 90 106 0 56-22 96-52 112-14 8-24 12-38 12s-24-4-38-12c-30-16-52-56-52-112 0-58 26-106 90-106z" fill="#b97e55"/>
+
+  <!-- face shading -->
+  <path d="M344 210c0 46-16 84-42 102 22-30 30-72 30-110 0-10 0-18-2-26 8 8 14 22 14 34z" fill="#a56a44" opacity="0.35"/>
+
+  <!-- front hair: centre part, sleek sides framing the face -->
+  <path d="M256 84c-58 0-96 36-100 100 0 8 6 12 10 6 12-44 34-70 90-74 56 4 78 30 90 74 4 6 10 2 10-6-4-64-42-100-100-100z" fill="#241b16"/>
+  <path d="M256 84c-4 0-8 1-11 2 30 4 52 18 68 44 10 17 16 38 20 58 2 6 8 4 9-2 3-64-38-102-86-102z" fill="#31251d"/>
+  <path d="M156 184c-6 34-6 64 1 90 2 7 8 7 10 0 5-26 5-56 1-84-2-11-15-11-12 4z" fill="#241b16"/>
+  <path d="M356 184c6 34 6 64-1 90-2 7-8 7-10 0-5-26-5-56-1-84 2-11 15-11 12 4z" fill="#241b16"/>
+
+  <!-- brows -->
+  <path d="M204 196c10-9 28-11 42-6" stroke="#2a1f19" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M308 196c-10-9-28-11-42-6" stroke="#2a1f19" stroke-width="7" fill="none" stroke-linecap="round"/>
+
+  <!-- eyes: calm, attentive -->
+  <path d="M206 220c6-10 28-10 34 0-6 10-28 10-34 0z" fill="#fdf9f3"/>
+  <path d="M272 220c6-10 28-10 34 0-6 10-28 10-34 0z" fill="#fdf9f3"/>
+  <circle cx="224" cy="219" r="9.5" fill="#33241c"/>
+  <circle cx="288" cy="219" r="9.5" fill="#33241c"/>
+  <circle cx="224" cy="219" r="4.2" fill="#170f0a"/>
+  <circle cx="288" cy="219" r="4.2" fill="#170f0a"/>
+  <circle cx="227.5" cy="215.5" r="2.6" fill="#ffffff" opacity="0.9"/>
+  <circle cx="291.5" cy="215.5" r="2.6" fill="#ffffff" opacity="0.9"/>
+  <path d="M204 218c8-12 34-12 40 0" stroke="#241b16" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M270 218c8-12 34-12 40 0" stroke="#241b16" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+
+  <!-- nose: restrained -->
+  <path d="M252 236c-1 12-3 22-6 28 4 5 12 6 18 2" stroke="#96603d" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- mouth: warm, composed smile -->
+  <path d="M228 288c14 14 42 14 56 0-6 12-18 18-28 18s-22-6-28-18z" fill="#8d4f39"/>
+  <path d="M240 302c8 4 24 4 32 0" stroke="#c98a68" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- blush -->
+  <ellipse cx="204" cy="260" rx="14" ry="8" fill="#d99a76" opacity="0.3"/>
+  <ellipse cx="308" cy="260" rx="14" ry="8" fill="#d99a76" opacity="0.3"/>
+
+  <!-- chin shadow on neck -->
+  <path d="M230 320c8 8 44 8 52 0l-4 16c-10 6-34 6-44 0z" fill="#8f5a39" opacity="0.4"/>
+</svg>

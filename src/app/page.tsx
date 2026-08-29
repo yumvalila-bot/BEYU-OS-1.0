@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
-import { BeyuMark } from "@/components/brand";
+import { BeyuLogo } from "@/components/beyu-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 
 export const dynamic = "force-dynamic";
@@ -62,15 +62,7 @@ export default async function SignInPage() {
     <main className="beyu-shell min-h-screen text-white">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
         <section className="flex flex-col justify-center">
-          <div className="flex items-center gap-4">
-            <BeyuMark size={64} />
-            <div>
-              <div className="text-[30px] font-semibold tracking-[0.3em]">BEYU OS</div>
-              <div className="mt-1 text-[10px] font-medium tracking-[0.42em] text-[#d4af37]">
-                GLOBAL ENTERPRISE CONTROL PLANE
-              </div>
-            </div>
-          </div>
+          <BeyuLogo variant="light" size={64} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
 
           <div className="beyu-gold-rule my-8 max-w-xl" />
 
@@ -107,7 +99,7 @@ export default async function SignInPage() {
         <section className="flex items-center justify-center">
           <div className="w-full max-w-md rounded-2xl border border-white/12 bg-white/[0.06] p-7 backdrop-blur">
             <div className="flex items-center gap-3">
-              <BeyuMark size={34} />
+              <BeyuLogo variant="mark" size={34} ariaLabel="BEYU" />
               <div>
                 <div className="text-[15px] font-semibold">Welcome</div>
                 <div className="text-[11.5px] text-white/60">Sign in to the control plane</div>

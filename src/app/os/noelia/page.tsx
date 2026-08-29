@@ -6,6 +6,7 @@ import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { listGovernedMemoryCatalog } from "@/lib/noelia/memory";
 import { resolveNoeliaAuthorizedScope } from "@/lib/noelia/scope-service";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
+import { NoeliaPanel } from "@/components/noelia-panel";
 import { NoeliaConsole } from "./console";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export default async function NoeliaPage() {
           uncertainty, cites its sources, and is written to the AI decision register.
         </p>
       </header>
+
+      <NoeliaPanel state="idle" href="#noelia-console" ctaLabel="Ask Noelia" />
 
       <div className="flex flex-wrap gap-1.5">
         {PIPELINE.map((p, i) => (

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Noelia AI (placeholder)">
+  <title>Noelia AI (placeholder)</title>
+  <!--
+    NOELIA AI — neutral fallback.
+    A featureless professional silhouette: used only when the canonical
+    portrait/icon cannot be loaded. It carries the same field and ring
+    so a missing asset is visually obvious but not broken-looking.
+  -->
+  <circle cx="32" cy="32" r="32" fill="#ece7db"/>
+  <circle cx="32" cy="32" r="29.5" fill="none" stroke="#b9b2a2" stroke-width="1.5" stroke-dasharray="3 4"/>
+  <path d="M12 64c3-15 13-21 20-21s17 6 20 21z" fill="#a8b0bd"/>
+  <circle cx="32" cy="27" r="12.5" fill="#a8b0bd"/>
+</svg>
