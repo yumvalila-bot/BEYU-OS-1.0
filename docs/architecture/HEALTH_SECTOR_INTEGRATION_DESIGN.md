@@ -244,3 +244,28 @@ baseline suite (file-order/state dependence); the post-integration
 regression was therefore re-proven on a fresh canonical DB (2262/2262,
 §4.5). Not caused by, and not "fixed" by, this integration (no BEYU test or
 source was modified).
+
+### 4.7 Final merge-readiness audit (2026-08-30) — one defect found, fixed, re-verified
+
+Final read-only audit of the complete PR found exactly one genuine defect,
+fixed in a dedicated commit (the only code change of that commit):
+
+- **Defect:** `003_health_isolation_boundaries.down.sql` dropped
+  `beyu_identity.tenant_matches_boundary(uuid)` *before* replacing the
+  upgraded RLS policies that reference it. On real PostgreSQL 18.4 (scratch
+  DB with BEYU 0000–0018 + sector 001/002/003 applied) this failed with
+  `cannot drop function beyu_identity.tenant_matches_boundary(uuid) because
+  other objects depend on it` — the down migration could not reverse its own
+  up-state. (Execution is an atomic multi-statement simple query, so the
+  failure mode was refuse-to-reverse, never partial state or corruption.)
+- **Fix (minimal, end-state unchanged):** reordered 003 down — the four
+  policies are replaced with their original (imported) tenant-only
+  definitions first; `DROP FUNCTION … tenant_matches_boundary(uuid)` runs
+  last, when nothing references it.
+- **Re-verification (real PG 18.4.0-beta, scratch DB, admin role):**
+  full cycle 001→002→003 up, then 003→002 down restored `beyu_identity`
+  exactly to the 001 state (8 tables; original 4 tenant-only policies with
+  identical qual text; no leftover function/columns) while the BEYU
+  `public` catalog (all columns, indexes, RLS policies, functions) was
+  **byte-identical** before and after the entire cycle. Sector backend
+  suite re-run post-fix: 92/92 tests, 12/12 suites (real PostgreSQL).
