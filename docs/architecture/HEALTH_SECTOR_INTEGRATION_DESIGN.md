@@ -150,3 +150,97 @@ BEYU-OS-1.0/
 - No Supabase/Redis/Vercel deployment wiring — BLOCKED (no real credentials).
 - No modifications to imported sector source files except `identity.module.ts` registration of
   the new bridge provider (deliberate, documented, test-covered).
+
+## 4. IMPLEMENTATION & VERIFICATION RECORD (this run)
+
+### 4.1 Import (Phase 5) — PASS
+
+- `git subtree add --prefix=sectors/health <HEALTH-OS-1.0 URL> 06053179fa48098d3c6e7e36350325ae309a1c8b`
+- All 13 source commits verified present in branch history (`git merge-base --is-ancestor`).
+- All 158 imported blobs byte-identical to source (`git ls-tree` blob comparison).
+- BEYU root files untouched by the import itself (verified by diff).
+
+### 4.2 Deliberate root tooling adjustments (Phase 6) — evidence-driven, not blind merges
+
+1. `tsconfig.json`: `exclude: ["sectors/**"]` — without it, the root
+   `tsc --noEmit` compiles sector code under the BEYU project (171 errors, all
+   in `sectors/health/...`: missing jest/Nest types). The sector is a
+   self-contained package with its own tsconfig (verified standalone).
+2. `eslint.config.mjs`: `globalIgnores("sectors/**")` — the sector ships its
+   own ESLint 8 configuration; the root flat config must not lint it.
+3. No `package.json` / lockfile / CI merges at the root (no workspaces
+   introduced). Sector keeps its own manifests.
+
+### 4.3 Findings in the imported source (recorded, not silently "fixed")
+
+- **Stale backend lockfile (pre-existing defect):** `backend/package-lock.json`
+  was out of sync with `backend/package.json` (`npm ci` failed: missing
+  axios@1.20.0, passport@0.7.0, ajv mismatches…). Repaired with `npm install`
+  (lockfile resync only). Verified: **all direct dependencies still satisfy
+  their original `package.json` ranges — no version upgrades introduced.**
+- Sector backend `TypeOrmModule.synchronize: NODE_ENV === 'development'` —
+  inert (zero TypeORM entities exist) but recorded as a risk: sector must use
+  migrations only if entities are ever added.
+- Frontend browser code imports `@supabase/supabase-js` directly while
+  `.env.example` mandates backend proxying — recorded for the sector team
+  (no keys committed; no secret exposure).
+- Legacy `beyu health os/*.sqlproj` (SQL Server) — inert artifact, preserved.
+
+### 4.4 Identity + isolation integration (Phases 7–8) — implemented & verified
+
+- `backend/database/migrations/002_beyu_identity_bridge.{up,down}.sql` —
+  `beyu_identity_links` (1:1 both directions) + tenant `beyu_tenant_id`
+  (UNIQUE) / `country_code` / `entity_code`.
+- `backend/database/migrations/003_health_isolation_boundaries.{up,down}.sql`
+  — `tenant_matches_boundary()` SECURITY DEFINER helper + upgraded RLS
+  policies: linked tenants require tenant+country+entity context match
+  (fail-closed); unlinked legacy tenants keep the imported tenant-only
+  boundary (nothing weakened). Down-migrations restore the original policies.
+- `backend/src/modules/identity/boundary-schema.ts` — single source of truth
+  for the 002/003 SQL (sector's own pattern), applied by tests.
+- `backend/src/modules/identity/beyu-bridge.ts` — bridge service:
+  `linkUser` / `requireCanonicalLink` (fail-closed) / `linkTenant` (set-once)
+  / `assertContextBoundary` / `assertSectorGrantAllowed` (constitutional
+  roles & permissions refused via the sector path).
+- `identity.module.ts` — the ONLY imported file modified (provider
+  registration, test-covered).
+- New adversarial suites (real PostgreSQL):
+  - `beyu-bridge.spec.ts` — 15 tests (bridge integrity, fail-closed,
+    governance refusals).
+  - `isolation-boundaries.spec.ts` — 12 tests (non-owner `SET ROLE`:
+    cross-country/entity denial, cross-tenant INSERT/UPDATE/DELETE denial,
+    forged-context denial, fail-closed no-context, legacy preserved).
+
+### 4.5 Test & verification results (executable evidence, this run)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| BEYU typecheck | `npm run typecheck` (root) | **PASS** (exit 0; after §4.2 adjustment) |
+| BEYU lint | `npm run lint` (root) | **PASS** (exit 0) |
+| BEYU full suite | fresh canonical DB (migrate 19/19 + seed) + production server on :3100, `BEYU_TEST_BASE_URL=... npm test` | **PASS — 2262/2262 tests, 105/105 files, 0 failed, 0 skipped** (baseline-preserved) |
+| BEYU migrations | `npm run migrate` | **PASS — 19/19 APPLIED** (checksummed ledger) |
+| BEYU production build | `npm run build` | **PASS** |
+| Health frontend typecheck | `sectors/health: npm run typecheck` | **PASS** |
+| Health frontend tests | `sectors/health: npm test` | **PASS — 14/14 (3 files)** |
+| Health frontend build | `sectors/health: npm run build` | **PASS** (single-file dist) |
+| Health backend typecheck | `sectors/health/backend: npx tsc --noEmit` | **PASS** |
+| Health backend lint | `npx eslint "{src,apps,libs,test}/**/*.ts"` | **PASS — 0 errors** (1 pre-existing warning in untouched file) |
+| Health backend tests | real PostgreSQL 18.4, `TEST_DATABASE_URL` set | **PASS — 92/92 tests, 12/12 suites** (incl. 27 new adversarial tests) |
+| Canonical DB migration chain | BEYU 0000–0018 + sector 001/002/003 applied by admin role | **PASS** — 9 `beyu_identity` tables, 4 RLS policies, boundary function present |
+| Sector runtime role | `beyu_health_runtime` provisioned | **PASS** — NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB; DML `beyu_identity.*`; SELECT `public.tenants|countries|legal_entities` |
+| Live adversarial RLS (canonical DB, `beyu_health_runtime`) | direct non-owner role queries, 8 checks | **PASS 8/8** — no-context fail-closed, matching-context visibility, cross-country denial, cross-entity denial, forged-context denial, cross-tenant INSERT denial, legacy unlinked behavior preserved. (A 9th probe of `public.tenants` visibility was reclassified: `public.tenants`/`countries` are control-plane catalogs with **no RLS by BEYU design** — the 20 RLS-gated tables are tenant-scoped data tables, matching the baseline inventory.) |
+
+### 4.6 Baseline suite state-dependency finding (pre-existing, documented)
+
+`tests/architecture/constitutional-invariants.test.ts` invariant 7 asserts
+`count(*) from audit_log > 0`. Audit rows are created only by other suites
+during a run (the seed inserts none), and several suites truncate the ledger
+via the sanctioned `tests/helpers/ledger-reset.ts` helper. The suite
+therefore passes on a fresh environment (baseline run: 2262/2262) and can
+fail invariant 7 on a **second consecutive run against the same DB** —
+proven by controlled experiment (invariant 7 alone: FAIL on empty audit →
+run audit-producing suite → PASS). This is a property of the untouched
+baseline suite (file-order/state dependence); the post-integration
+regression was therefore re-proven on a fresh canonical DB (2262/2262,
+§4.5). Not caused by, and not "fixed" by, this integration (no BEYU test or
+source was modified).
