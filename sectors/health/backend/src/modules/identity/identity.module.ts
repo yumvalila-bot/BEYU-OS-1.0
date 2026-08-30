@@ -9,6 +9,7 @@ import { IdentityRepository } from "./identity.repository";
 import { SessionService } from "./session.service";
 import { AuditService } from "./audit.service";
 import { MfaService } from "./mfa.service";
+import { BeyuIdentityBridge } from "./beyu-bridge";
 
 /**
  * Identity foundation module — owns the persistent identity repositories and
@@ -38,6 +39,9 @@ import { MfaService } from "./mfa.service";
     SessionService,
     AuditService,
     MfaService,
+    // BEYU OS integration: canonical identity bridge + isolation boundary
+    // guards (links sector domain identities to the ONE BEYU GlobalUserID).
+    BeyuIdentityBridge,
   ],
   exports: [
     DB_CONNECTION,
@@ -45,6 +49,7 @@ import { MfaService } from "./mfa.service";
     SessionService,
     AuditService,
     MfaService,
+    BeyuIdentityBridge,
   ],
 })
 export class IdentityModule {}
