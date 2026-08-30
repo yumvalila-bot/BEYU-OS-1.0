@@ -37,6 +37,11 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    /* Sector OSs are self-contained packages with their own toolchain
+       (e.g. sectors/health is NestJS + Vite with its own tsconfig/eslint).
+       They are typechecked/linted by their own runners — see
+       docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md. */
+    "sectors/**"
   ]
 }
