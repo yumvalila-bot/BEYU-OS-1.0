@@ -1,0 +1,35 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+*.p12
+!*.sqlproj
+
+# Stray credential dumps
+NEXT_PUBLIC_SUPABASE_URL=*.txt
+VITE_SUPABASE_URL=*.txt
+
+# ── Node / build ─────────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-spec/
+build/
+out/
+coverage/
+*.tsbuildinfo
+.npm/
+
+# ── Vite / tooling ───────────────────────────────────────────────────────────
+*.local
+
+# ── Logs / OS ────────────────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
