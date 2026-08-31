@@ -9,6 +9,8 @@ import { ConfigService } from "@nestjs/config";
 import { JsonLogger } from "./common/observability/json-logger";
 import { DomainExceptionFilter } from "./common/errors/domain-exception.filter";
 import { DomainError } from "./common/errors/domain.error";
+import { validateBootEnvironment } from "./common/security/boot-validation";
+import { RateLimitExceptionFilter } from "./common/security/rate-limit-exception.filter";
 
 /**
  * Fail-closed production configuration guard. In production the process must not
@@ -101,6 +103,12 @@ function assertProductionConfig(): void {
 
 async function bootstrap() {
   assertProductionConfig();
+  const boot = validateBootEnvironment(process.env);
+  if (!boot.ok) {
+    // eslint-disable-next-line no-console
+    console.error("BOOT VALIDATION FAILED — refusing to start:", boot.errors);
+    process.exit(1);
+  }
   const logger = new JsonLogger();
   const app = await NestFactory.create(AppModule, { logger });
   const configService = app.get(ConfigService);
@@ -168,8 +176,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter: typed DomainError → HTTP, correlation-id stamped.
-  app.useGlobalFilters(new DomainExceptionFilter());
+  // Global exception filters: rate-limit (Retry-After) first, then DomainError.
+  app.useGlobalFilters(new RateLimitExceptionFilter(), new DomainExceptionFilter());
 
   // Enable shutdown hooks so Bull/cache pools drain cleanly.
   app.enableShutdownHooks();
