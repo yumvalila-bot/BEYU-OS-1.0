@@ -13,6 +13,7 @@ import { RateLimiter } from "./common/security/rate-limiter";
 import { QueueService } from "./common/queue/queue.service";
 import { HcmAuthorizationGuard } from "./integrations/beyu/guards/hcm-authorization.guard";
 import { GovernanceAuthorizationGuard } from "./integrations/beyu/guards/governance-authorization.guard";
+import { CommonSecurityModule } from "./common/security/common-security.module";
 import { CorrelationIdMiddleware } from "./common/observability/correlation-id.middleware";
 
 // Configuration
@@ -54,6 +55,7 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig], expandVariables: true }),
+    CommonSecurityModule,
     DbModule.forRoot(),
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
@@ -112,7 +114,6 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
   ],
   providers: [
     SupabaseConfig,
-    TenantContext,
     RateLimiter,
     QueueService,
     { provide: APP_GUARD, useClass: CsrfDoubleSubmitGuard },
