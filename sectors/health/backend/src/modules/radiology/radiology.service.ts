@@ -49,7 +49,7 @@ export class RadiologyService {
       return r;
     });
   }
-  async verifyReport(reportId: string) {
+  async verifyReport(reportId: string, _meta?: Record<string, unknown>) {
     const actor = this.tenantCtx.current();
     if (!actor?.permissions?.includes("note:sign")) throw DomainError.forbidden("note:sign required to verify");
     return this.repo.withIsolation(async (tx) => {

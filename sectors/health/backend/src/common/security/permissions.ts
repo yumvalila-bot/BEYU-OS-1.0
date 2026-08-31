@@ -28,6 +28,8 @@ export type Permission =
   | "note:write"
   | "note:sign"
   | "discharge:approve"
+  | "dialysis:treat"
+  | "optical:dispense"
   // Finance
   | "billing:read"
   | "billing:write"

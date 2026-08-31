@@ -4,6 +4,7 @@ import { LaboratoryService } from "./laboratory.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
 
 @ApiTags("laboratory")
 @ApiBearerAuth("access-token")
@@ -19,6 +20,13 @@ export class LaboratoryController {
   transition(@Param("id") id: string, @Body("to") to: string) { return this.svc.transition(id, to); }
   @Post("results/:itemId") @RequirePermission("phi:write")
   enterResult(@Param("itemId") id: string, @Body() d: any) { return this.svc.enterResult(id, d); }
-  @Post("results/:itemId/verify") @RequirePermission("order:lab")
-  verify(@Param("itemId") id: string) { return this.svc.verifyResult(id); }
+  @Post("results/:itemId/verify") @RequirePermission("order:lab") @RequiresClinicalSafety("lab")
+  verify(
+    @Param("itemId") id: string,
+    @Body() d: {
+      verifiedByGlobalUserId?: string; qcPassed?: boolean; specimenIntegrity?: boolean;
+      analyzerAuthorized?: boolean; criticalResult?: boolean; criticalCallbackLogged?: boolean;
+      facilityId?: string; metadata?: Record<string, unknown>;
+    } = {},
+  ) { return this.svc.verifyResult(id, d); }
 }

@@ -66,7 +66,7 @@ export class LaboratoryService {
       return r;
     });
   }
-  async verifyResult(itemId: string) {
+  async verifyResult(itemId: string, _meta?: Record<string, unknown>) {
     return this.repo.withIsolation(async (tx) => {
       const r = await this.repo.verifyResult(itemId, tx);
       if (!r) throw DomainError.invalidState("Result cannot be verified (no entered result or already verified)");

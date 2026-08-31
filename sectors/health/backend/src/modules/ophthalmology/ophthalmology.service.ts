@@ -17,7 +17,7 @@ export class OphthalmologyService {
     return atomicWrite(this.db, this.tenantCtx, this.audit, "eye_exam.create", "eye_exam",
       (tx) => this.repo.addExam(input, tx), (r) => r.exam_id);
   }
-  async sign(id: string) {
+  async sign(id: string, _meta?: Record<string, unknown>) {
     const actor = this.tenantCtx.current();
     if (!actor?.permissions?.includes("note:sign")) throw DomainError.forbidden("note:sign required");
     return atomicWrite(this.db, this.tenantCtx, this.audit, "eye_exam.sign", "eye_exam",

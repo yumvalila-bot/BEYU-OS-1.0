@@ -4,6 +4,7 @@ import { PharmacyService } from "./pharmacy.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
 
 @ApiTags("pharmacy")
 @ApiBearerAuth("access-token")
@@ -23,8 +24,13 @@ export class PharmacyController {
     return this.svc.receiveStock(dto);
   }
 
-  @Post("dispense") @RequirePermission("rx:dispense")
-  dispense(@Body() dto: { medication_id: string; patient_id: string; item_id: string; qty: number; dose_given?: string; encounter_id?: string; idempotency_key?: string }) {
+  @Post("dispense") @RequirePermission("rx:dispense") @RequiresClinicalSafety("pharmacy")
+  dispense(@Body() dto: {
+    medication_id: string; patient_id: string; item_id: string; qty: number;
+    dose_given?: string; encounter_id?: string; idempotency_key?: string;
+    prescriptionId: string; quantity: number; controlledSubstance?: boolean;
+    secondReviewerGlobalUserId?: string; facilityId?: string; metadata?: Record<string, unknown>;
+  }) {
     return this.svc.dispense(dto);
   }
 

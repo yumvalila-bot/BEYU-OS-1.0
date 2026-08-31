@@ -10,6 +10,7 @@ import { TenantContext } from "./common/security/tenant-context";
 import { PermissionsGuard } from "./common/security/permissions.guard";
 import { CsrfDoubleSubmitGuard } from "./common/security/csrf-double-submit.guard";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt.guard";
+import { ClinicalSafetyGuard } from "./common/security/clinical-safety.guard";
 import { RateLimiter } from "./common/security/rate-limiter";
 import { QueueService } from "./common/queue/queue.service";
 import { HcmAuthorizationGuard } from "./integrations/beyu/guards/hcm-authorization.guard";
@@ -119,6 +120,7 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     QueueService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CsrfDoubleSubmitGuard },
+    { provide: APP_GUARD, useClass: ClinicalSafetyGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
