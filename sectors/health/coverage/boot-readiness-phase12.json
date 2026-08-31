@@ -1,0 +1,31 @@
+{
+  "generated": "2026-08-31T20:03:59.739Z",
+  "schema": "boot-readiness-phase12-v1",
+  "status": "ENGINEERING_READY",
+  "summary": {
+    "bootGuardPresent": true,
+    "bootValidationPresent": true
+  },
+  "checks": [
+    {
+      "label": "rejects default JWT secret / weak secrets",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "rejects wildcard CORS / insecure cookies",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "rejects BYPASSRLS / memory queue in prod",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "readiness (db/migration/config) independent of liveness",
+      "ok": false,
+      "state": "ENGINEERING_READY"
+    }
+  ]
+}

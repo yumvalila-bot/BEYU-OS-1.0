@@ -1,0 +1,35 @@
+{
+  "generated": "2026-08-31T20:03:59.738Z",
+  "schema": "clinical-safety-phase12-v1",
+  "status": "ENGINEERING_READY",
+  "summary": {
+    "gatesPresent": true
+  },
+  "checks": [
+    {
+      "label": "pharmacy controlled-substance dual control",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "lab QC / analyzer / critical callback",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "radiology dose / verification",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "optical prescription / device traceability",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "dialysis machine / water / consent",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    }
+  ]
+}

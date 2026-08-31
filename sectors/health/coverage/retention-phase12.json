@@ -1,0 +1,31 @@
+{
+  "generated": "2026-08-31T20:03:59.739Z",
+  "schema": "retention-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "retentionPolicies": false,
+    "signatures": true
+  },
+  "checks": [
+    {
+      "label": "retention policy registry",
+      "ok": false,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "legal-hold interaction",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "e-signature intent + document hash + verification",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "legal validity",
+      "ok": false,
+      "state": "REQUIRES_HUMAN_APPROVAL"
+    }
+  ]
+}

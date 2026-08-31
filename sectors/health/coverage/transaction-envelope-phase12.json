@@ -1,0 +1,36 @@
+{
+  "generated": "2026-08-31T20:03:59.738Z",
+  "schema": "transaction-envelope-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "envelopePresent": true,
+    "interceptorPresent": true
+  },
+  "checks": [
+    {
+      "label": "canonical envelope type",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "global TransactionInterceptor",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "server-derived fields (no client fabrication)",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "AsyncLocalStorage propagation",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "per-service field assertion matrix",
+      "ok": true,
+      "state": "PARTIALLY_IMPLEMENTED"
+    }
+  ]
+}
