@@ -8,6 +8,7 @@ import { TaxAdapter } from "./tax/tax.adapter";
 import { NoeliaAdapter } from "./noelia/noelia.adapter";
 import { IdentityAdapter } from "./shared/identity.adapter";
 import { CrossDomainOrchestrator } from "./events/cross-domain-orchestrator";
+import { ClinicalSafetyGates } from "./shared/clinical-safety.gates";
 import { TransactionEnvelopeBuilder } from "./shared/transaction-envelope";
 import { HcmAuthorizationGuard } from "./guards/hcm-authorization.guard";
 import { GovernanceAuthorizationGuard } from "./guards/governance-authorization.guard";
@@ -25,6 +26,7 @@ import { GovernanceAuthorizationGuard } from "./guards/governance-authorization.
     IdentityAdapter,
     TransactionEnvelopeBuilder,
     CrossDomainOrchestrator,
+    ClinicalSafetyGates,
     HcmAuthorizationGuard,
     GovernanceAuthorizationGuard,
   ],
@@ -38,6 +40,7 @@ import { GovernanceAuthorizationGuard } from "./guards/governance-authorization.
     CircuitBreaker,
     TransactionEnvelopeBuilder,
     CrossDomainOrchestrator,
+    ClinicalSafetyGates,
     HcmAuthorizationGuard,
     GovernanceAuthorizationGuard,
   ],

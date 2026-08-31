@@ -10,6 +10,7 @@ import { TenantContext } from "./common/security/tenant-context";
 import { PermissionsGuard } from "./common/security/permissions.guard";
 import { CsrfDoubleSubmitGuard } from "./common/security/csrf-double-submit.guard";
 import { RateLimiter } from "./common/security/rate-limiter";
+import { QueueService } from "./common/queue/queue.service";
 import { HcmAuthorizationGuard } from "./integrations/beyu/guards/hcm-authorization.guard";
 import { GovernanceAuthorizationGuard } from "./integrations/beyu/guards/governance-authorization.guard";
 import { CorrelationIdMiddleware } from "./common/observability/correlation-id.middleware";
@@ -113,6 +114,7 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     SupabaseConfig,
     TenantContext,
     RateLimiter,
+    QueueService,
     { provide: APP_GUARD, useClass: CsrfDoubleSubmitGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
