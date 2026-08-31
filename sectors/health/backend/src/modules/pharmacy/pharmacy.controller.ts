@@ -16,10 +16,10 @@ export class PharmacyController {
   @Get("items") @RequirePermission("inventory:read")
   listItems() { return this.svc.listItems(); }
 
-  @Post("items") @RequirePermission("inventory:write")
+  @Post("items") @RequirePermission("inventory:write") @RequiresClinicalSafety("pharmacy")
   createItem(@Body() dto: Record<string, unknown>) { return this.svc.createCatalogItem(dto); }
 
-  @Post("stock/receive") @RequirePermission("inventory:write")
+  @Post("stock/receive") @RequirePermission("inventory:write") @RequiresClinicalSafety("pharmacy")
   receive(@Body() dto: { item_id: string; lot_number: string; expiry_date: string; qty: number }) {
     return this.svc.receiveStock(dto);
   }

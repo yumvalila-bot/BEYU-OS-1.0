@@ -13,12 +13,12 @@ import { RequiresClinicalSafety } from "../../common/security/clinical-safety.gu
 export class LaboratoryController {
   constructor(private readonly svc: LaboratoryService) {}
   @Get("tests") @RequirePermission("order:lab") listTests() { return this.svc.listTests(); }
-  @Post("tests") @RequirePermission("order:lab") createTest(@Body() d: Record<string, unknown>) { return this.svc.createTest(d); }
+  @Post("tests") @RequirePermission("order:lab") @RequiresClinicalSafety("lab") createTest(@Body() d: Record<string, unknown>) { return this.svc.createTest(d); }
   @Get("orders") @RequirePermission("phi:read") listOrders(@Query("patient_id") p?: string) { return this.svc.listOrders(p); }
-  @Post("orders") @RequirePermission("order:lab") createOrder(@Body() d: any) { return this.svc.createOrder(d); }
-  @Post("orders/:id/transition") @RequirePermission("order:lab")
+  @Post("orders") @RequirePermission("order:lab") @RequiresClinicalSafety("lab") createOrder(@Body() d: any) { return this.svc.createOrder(d); }
+  @Post("orders/:id/transition") @RequirePermission("order:lab") @RequiresClinicalSafety("lab")
   transition(@Param("id") id: string, @Body("to") to: string) { return this.svc.transition(id, to); }
-  @Post("results/:itemId") @RequirePermission("phi:write")
+  @Post("results/:itemId") @RequirePermission("phi:write") @RequiresClinicalSafety("lab")
   enterResult(@Param("itemId") id: string, @Body() d: any) { return this.svc.enterResult(id, d); }
   @Post("results/:itemId/verify") @RequirePermission("order:lab") @RequiresClinicalSafety("lab")
   verify(

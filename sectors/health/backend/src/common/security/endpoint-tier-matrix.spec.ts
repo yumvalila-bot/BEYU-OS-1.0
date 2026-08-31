@@ -1,18 +1,29 @@
 /**
- * Endpoint security tier matrix — classifies every endpoint per Phase 9 §3
- * and verifies that required controls are present.
+ * Endpoint security tier matrix — classifies every endpoint per Phase 9 §3 /
+ * Phase 12 Wave 1 and verifies that required controls are present.
  *
  * For each controller we scan source and reconcile with classifyEndpoint()
- * (the canonical tier model). A mismatch (e.g. CLINICAL endpoint missing
- * @RequirePermission, or FINANCIAL endpoint missing governance guard) fails CI.
+ * (the canonical tier model). A mismatch produces a control gap, which is then
+ * categorized:
  *
- * Writes coverage/endpoint-security-matrix.json with tier/opClass + control
- * compliance per endpoint.
+ *   - implementable gap   → CI FAILS (e.g. missing @RequirePermission,
+ *                           @RequiresClinicalSafety, @RequiresMfaStepUp,
+ *                           @Public mismatch). These are fixable in-repo.
+ *   - external-blocked    → recorded as EXTERNAL_BLOCKED, NOT a CI failure
+ *                           (e.g. missing @RequiresGovernance /
+ *                           @RequireHcmPractitioner whose adapters are
+ *                           fail-closed until Governance OS / HCM OS are
+ *                           connected). These are required controls that
+ *                           cannot be honestly wired without live externals.
+ *
+ * Writes:
+ *   coverage/endpoint-security-matrix.json   (legacy Phase 9 artifact)
+ *   coverage/endpoint-security-registry.json (canonical Phase 12 registry)
  */
 import * as fs from "fs";
 import * as path from "path";
 import * as glob from "glob";
-import { classifyEndpoint, EndpointClassification, RequiredControls, SecurityTier, OperationClass } from "./endpoint-tier.classification";
+import { classifyEndpoint, EndpointClassification, RequiredControls } from "./endpoint-tier.classification";
 
 interface ParsedEndpoint {
   controller: string;
@@ -31,6 +42,7 @@ interface ParsedEndpoint {
 const CTRL_DIR = path.resolve(__dirname, "..", "..", "modules");
 const CTRL_FILES = glob.sync(path.join(CTRL_DIR, "**", "*.controller.ts"))
   .filter((f) => !f.endsWith(".spec.ts"));
+const OUT_DIR = path.resolve(__dirname, "..", "..", "..", "..", "coverage");
 
 function parse(file: string): ParsedEndpoint[] {
   const src = fs.readFileSync(file, "utf8");
@@ -91,10 +103,18 @@ function extractPerms(block: string): string[] {
   return out;
 }
 
+/** Which controls cannot be honestly wired without a live external OS. */
+function isExternalBlocker(gap: string): boolean {
+  if (gap.startsWith("missing @RequiresGovernance")) return true;
+  if (gap.startsWith("missing @RequireHcmPractitioner")) return true;
+  return false;
+}
+
 interface Row extends ParsedEndpoint {
   classification: EndpointClassification;
-  controlGaps: string[];
-  status: "PASS" | "GAP" | "WAIVED";
+  implementableGaps: string[];
+  externalBlockers: string[];
+  status: "PASS" | "GAP" | "EXTERNAL_BLOCKED";
 }
 
 function assess(p: ParsedEndpoint): Row {
@@ -105,30 +125,17 @@ function assess(p: ParsedEndpoint): Row {
   const gaps: string[] = [];
   const r = cls.required;
 
-  // PUBLIC must explicitly declare @Public(). Non-public must not be missing JWT.
   if (r.public && !p.hasPublic) gaps.push("missing @Public() on PUBLIC-tier endpoint");
   if (!r.public && p.hasPublic) gaps.push("unexpected @Public() on non-PUBLIC endpoint");
-  if (r.jwt && !p.hasJwt) {
-    // Global JWT guard binds to ALL routes, so "missing method-level JwtAuthGuard"
-    // is not a gap if JwtAuthGuard is global. Since we bind globally in AppModule,
-    // this check only fires if the route is neither @Public nor covered by JWT.
-    // Global guard covers it, so we don't require @UseGuards(JwtAuthGuard) on
-    // every controller; but we DO require at least one permission unless the
-    // tier allows no-permission access (PUBLIC or AUTHENTICATED reads).
-  }
 
-  // Permission checks.
   if (r.permission.length > 0) {
     for (const perm of r.permission) {
       if (!p.perms.includes(perm)) gaps.push(`missing @RequirePermission("${perm}")`);
     }
-  } else if (!r.public && ["CLINICAL","FINANCIAL","ADMINISTRATIVE","AI_HIGH_RISK","EXTERNAL_INTEGRATION"].includes(cls.tier)) {
-    if (p.perms.length === 0) {
-      gaps.push(`no @RequirePermission on ${cls.tier} endpoint`);
-    }
+  } else if (!r.public && ["CLINICAL", "FINANCIAL", "ADMINISTRATIVE", "AI_HIGH_RISK", "EXTERNAL_INTEGRATION"].includes(cls.tier)) {
+    if (p.perms.length === 0) gaps.push(`no @RequirePermission on ${cls.tier} endpoint`);
   }
 
-  // Domain gate presence.
   if (r.governanceAuthorization && !p.hasGovernance && cls.tier !== "EXTERNAL_INTEGRATION") {
     gaps.push("missing @RequiresGovernance");
   }
@@ -136,17 +143,24 @@ function assess(p: ParsedEndpoint): Row {
   if (r.mfaStepUp && !p.hasMfa) gaps.push("missing @RequiresMfaStepUp");
   if (r.clinicalSafetyGate && !p.hasClinical) gaps.push("missing @RequiresClinicalSafety");
 
-  return { ...p, classification: cls, controlGaps: gaps, status: gaps.length ? "GAP" : "PASS" };
+  const implementableGaps = gaps.filter((g) => !isExternalBlocker(g));
+  const externalBlockers = gaps.filter(isExternalBlocker);
+  const status: Row["status"] =
+    gaps.length === 0 ? "PASS"
+    : implementableGaps.length === 0 ? "EXTERNAL_BLOCKED"
+    : "GAP";
+
+  return { ...p, classification: cls, implementableGaps, externalBlockers, status };
 }
 
-describe("Endpoint security tier matrix (Phase 9 §3)", () => {
+describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
   let rows: Row[] = [];
   beforeAll(() => {
     const parsed: ParsedEndpoint[] = [];
     for (const f of CTRL_FILES) parsed.push(...parse(f));
     rows = parsed.map(assess);
-    const outDir = path.resolve(__dirname, "..", "..", "..", "..", "coverage");
-    fs.mkdirSync(outDir, { recursive: true });
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+
     const byTier: Record<string, number> = {};
     const byOpClass: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
@@ -155,13 +169,12 @@ describe("Endpoint security tier matrix (Phase 9 §3)", () => {
       byOpClass[r.classification.opClass] = (byOpClass[r.classification.opClass] ?? 0) + 1;
       byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
     }
-    fs.writeFileSync(path.join(outDir, "endpoint-security-matrix.json"), JSON.stringify({
+
+    const registry = {
       generated: new Date().toISOString(),
-      schema: "phase9-security-tier-v1",
-      summary: {
-        total: rows.length,
-        byTier, byOpClass, byStatus,
-      },
+      schema: "endpoint-security-registry-v1",
+      scope: "all HTTP endpoints across src/modules/*/*.controller.ts",
+      summary: { total: rows.length, byTier, byOpClass, byStatus },
       endpoints: rows.map((r) => ({
         controller: r.controller,
         file: r.file,
@@ -171,7 +184,7 @@ describe("Endpoint security tier matrix (Phase 9 §3)", () => {
         opClass: r.classification.opClass,
         requiredControls: summarize(r.classification.required),
         presentControls: {
-          jwt: r.hasJwt || !r.hasPublic,  // global guard covers it
+          jwt: r.hasJwt || !r.hasPublic,
           public: r.hasPublic,
           permissions: r.perms,
           governanceAuthorization: r.hasGovernance,
@@ -180,9 +193,25 @@ describe("Endpoint security tier matrix (Phase 9 §3)", () => {
           clinicalSafetyGate: r.hasClinical,
         },
         status: r.status,
-        gaps: r.controlGaps,
+        implementableGaps: r.implementableGaps,
+        externalBlockers: r.externalBlockers,
+      })),
+    };
+
+    // Legacy Phase 9 artifact.
+    fs.writeFileSync(path.join(OUT_DIR, "endpoint-security-matrix.json"), JSON.stringify({
+      generated: registry.generated,
+      schema: "phase9-security-tier-v1",
+      summary: registry.summary,
+      endpoints: registry.endpoints.map((e) => ({
+        ...e,
+        gaps: [...e.implementableGaps, ...e.externalBlockers],
+        status: e.status === "EXTERNAL_BLOCKED" ? "GAP" : e.status,
       })),
     }, null, 2));
+
+    // Canonical Phase 12 registry.
+    fs.writeFileSync(path.join(OUT_DIR, "endpoint-security-registry.json"), JSON.stringify(registry, null, 2));
   });
 
   it("discovers endpoints across all controllers (>= 60)", () => {
@@ -190,36 +219,36 @@ describe("Endpoint security tier matrix (Phase 9 §3)", () => {
   });
 
   it("no PUBLIC endpoint is classified without explicit @Public() decorator", () => {
-    const bad = rows.filter(
-      (r) => r.classification.tier === "PUBLIC" && !r.hasPublic,
-    );
+    const bad = rows.filter((r) => r.classification.tier === "PUBLIC" && !r.hasPublic);
     expect(bad.map((r) => `${r.method} ${r.path}`)).toEqual([]);
   });
 
   it("every endpoint has a tier and opClass assigned", () => {
     for (const r of rows) {
       expect(r.classification.tier).toBeDefined();
-      expect(["READ","WRITE","DESTRUCTIVE"]).toContain(r.classification.opClass);
+      expect(["READ", "WRITE", "DESTRUCTIVE"]).toContain(r.classification.opClass);
     }
   });
 
-  it("high-risk FINANCIAL/ADMINISTRATIVE/AI_HIGH_RISK/EXTERNAL_INTEGRATION writes surface GAPs honestly (CI records them; no silent PASS)", () => {
-    const risky = rows.filter((r) =>
-      ["FINANCIAL","ADMINISTRATIVE","AI_HIGH_RISK","EXTERNAL_INTEGRATION"].includes(r.classification.tier)
-      && r.classification.opClass === "WRITE",
-    );
-    expect(risky.length).toBeGreaterThan(0);
-    // We assert that each risky endpoint is either PASS or honestly GAP — never
-    // silently waives. Gaps are enumerated in coverage JSON and reflect real
-    // work items, not ignored failures.
-    for (const r of risky) {
-      expect(["PASS","GAP"]).toContain(r.status);
+  it("NO sensitive endpoint has an implementable control gap (CI FAILS on GAP)", () => {
+    const gapped = rows.filter((r) => r.status === "GAP");
+    const report = gapped.map((r) => `${r.method} ${r.path} [${r.classification.tier}/${r.classification.opClass}]: ${r.implementableGaps.join("; ")}`);
+    expect(report).toEqual([]);
+  });
+
+  it("external-blocked controls are recorded honestly (never silently passed)", () => {
+    const blocked = rows.filter((r) => r.status === "EXTERNAL_BLOCKED");
+    // Every external-blocked endpoint must enumerate exactly WHICH control is
+    // externally blocked — never a bare pass, never a silent waiver.
+    for (const r of blocked) {
+      expect(r.externalBlockers.length).toBeGreaterThan(0);
+      expect(r.implementableGaps.length).toBe(0);
     }
   });
 
-  it("matrix is written to coverage/endpoint-security-matrix.json", () => {
-    const p = path.resolve(__dirname, "..", "..", "..", "..", "coverage", "endpoint-security-matrix.json");
-    expect(fs.existsSync(p)).toBe(true);
+  it("writes both endpoint-security-matrix.json and endpoint-security-registry.json", () => {
+    expect(fs.existsSync(path.join(OUT_DIR, "endpoint-security-matrix.json"))).toBe(true);
+    expect(fs.existsSync(path.join(OUT_DIR, "endpoint-security-registry.json"))).toBe(true);
   });
 });
 
@@ -228,6 +257,3 @@ function summarize(r: RequiredControls) {
     Object.entries(r).filter(([, v]) => v === true || (typeof v === "string" && v !== "default") || (Array.isArray(v) && v.length > 0)),
   );
 }
-
-// Also re-export tier types for use by other specs.
-export type { SecurityTier, OperationClass };

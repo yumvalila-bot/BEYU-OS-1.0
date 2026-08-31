@@ -20,7 +20,7 @@ export class DialysisController {
     return this.svc.schedule(d);
   }
 
-  @Post("sessions/:id/interrupt") @RequirePermission("dialysis:treat")
+  @Post("sessions/:id/interrupt") @RequirePermission("dialysis:treat") @RequiresClinicalSafety("dialysis")
   interrupt(@Param("id") id: string, @Body() d: any = {}) {
     return this.svc.transition(id, "interrupted", d);
   }

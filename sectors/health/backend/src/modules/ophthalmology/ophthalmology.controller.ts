@@ -13,7 +13,7 @@ import { RequiresClinicalSafety } from "../../common/security/clinical-safety.gu
 export class OphthalmologyController {
   constructor(private readonly svc: OphthalmologyService) {}
   @Get() @RequirePermission("phi:read") list(@Query("patient_id") p: string) { return this.svc.listForPatient(p); }
-  @Post() @RequirePermission("phi:write") create(@Body() d: any) { return this.svc.addExam(d); }
+  @Post() @RequirePermission("phi:write") @RequiresClinicalSafety("ophthalmology") create(@Body() d: any) { return this.svc.addExam(d); }
   @Post(":id/sign") @RequirePermission("note:sign") @RequiresClinicalSafety("ophthalmology")
   sign(@Param("id") id: string, @Body() d: any = {}) { return this.svc.sign(id, d); }
 }

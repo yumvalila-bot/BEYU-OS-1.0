@@ -166,14 +166,26 @@ export function classifyEndpoint(
   // CLINICAL: patients/encounters/clinical/pharmacy/lab/radiology/optical/dialysis/
   // appointments/ambulance/telehealth/consent/incidents/records/observations/
   // problems/allergies/medications/prescriptions
+  //
+  // NOTE (Phase 12 refinement): clinical-safety gates are DOMAIN-SPECIFIC — the
+  // ClinicalSafetyGuard only implements handlers for pharmacy/lab/radiology/
+  // ophthalmology/dialysis. HCM practitioner authorization applies only to
+  // practitioner-performed actions (clinical documentation, encounters, and the
+  // safety-gated sub-domains), NOT to clerical/self-service actions (patient
+  // registration, appointment booking, ambulance dispatch, telehealth session
+  // creation). These two controls are therefore scoped by helper functions
+  // rather than applied to every clinical route, which would be over-broad and
+  // would reference safety gates that do not exist.
   if (/patient|encounter|clinical|pharmacy|rx|medication|prescription|dispens|lab|radiolog|imaging|ophthal|optical|optometr|dialys|appointment|ambulance|telehealth|consent|incident|records|observ|problem|allergy|vital|diagnos|procedure|note|sign/i.test(p)) {
+    const safetyDomain = clinicalSafetyDomain(p);
+    const isPractitionerAction = practitionerPerformed(p);
     return tier("CLINICAL", verb, path, controller, opClass, requiredPermissions, {
-      practitioner: true,
-      professionalLicence: opClass !== "READ",
-      facility: true,
-      scopeOfPractice: true,
-      hcmAuthorization: opClass !== "READ",
-      clinicalSafetyGate: opClass !== "READ",
+      practitioner: isPractitionerAction,
+      professionalLicence: isPractitionerAction && opClass !== "READ",
+      facility: isPractitionerAction,
+      scopeOfPractice: isPractitionerAction,
+      hcmAuthorization: isPractitionerAction && opClass !== "READ",
+      clinicalSafetyGate: !!safetyDomain && opClass !== "READ",
       consent: containsPhi(p),
       legalHold: true,
       idempotency: opClass !== "READ",
@@ -283,4 +295,32 @@ function containsPhi(_p: string): boolean {
   // practitioner relationship don't require consent lookup by default; this
   // is conservative and errs toward consent-awareness.
   return false;
+}
+
+/**
+ * Map a clinical path to the ClinicalSafetyGuard domain that governs it.
+ * Only the five domains implemented in ClinicalSafetyGuard return non-null;
+ * every other clinical path returns null (no safety gate exists for it).
+ */
+function clinicalSafetyDomain(p: string): string | null {
+  if (/pharmacy|dispens|stock/.test(p)) return "pharmacy";
+  if (/\/lab\//.test(p) || /lab\/(tests|orders|results)/.test(p)) return "lab";
+  if (/imaging/.test(p)) return "radiology";
+  if (/eye[-_]?exam|ophthal|optical|optometr/.test(p)) return "ophthalmology";
+  if (/dialys/.test(p)) return "dialysis";
+  return null;
+}
+
+/**
+ * Whether a clinical path is a practitioner-performed action (requiring HCM
+ * practitioner authorization) as opposed to a clerical/self-service action
+ * such as patient registration, appointment booking, ambulance dispatch, or
+ * telehealth session creation.
+ */
+function practitionerPerformed(p: string): boolean {
+  if (/\/patients($|\?)/.test(p) && !/patient[s]?\/(problem|observ|medication|allergy)/.test(p)) return false;
+  if (/appointment/.test(p)) return false;
+  if (/ambulance/.test(p)) return false;
+  if (/telehealth/.test(p)) return false;
+  return true;
 }
