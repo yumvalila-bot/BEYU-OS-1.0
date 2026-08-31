@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-08-31T00:00:00Z",
+  "branch": "arena/01a0532c-beyu-os-1-0",
+  "name": "IDOR (Insecure Direct Object Reference) Isolation Matrix",
+  "axes": [
+    { "id": 1,  "axis": "cross-tenant isolation",            "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 2,  "axis": "cross-facility isolation",          "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 3,  "axis": "patient-id collision/leak",         "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 4,  "axis": "encounter-id collision/leak",       "status": "ENGINEERING_READY",     "testFile": "src/modules/identity/rls-adversarial-matrix.spec.ts", "rls": true },
+    { "id": 5,  "axis": "missing auth (no JWT) → 401",       "status": "ENGINEERING_READY",     "testFile": "src/common/security/security-adversarial.spec.ts", "rls": false },
+    { "id": 6,  "axis": "read without permission → 403",     "status": "ENGINEERING_READY",     "testFile": "src/common/security/permissions.spec.ts", "rls": false },
+    { "id": 7,  "axis": "write without permission → 403",    "status": "ENGINEERING_READY",     "testFile": "src/common/security/permissions.spec.ts", "rls": false },
+    { "id": 8,  "axis": "UUID enumeration → 404",            "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 9,  "axis": "malformed UUID → 400",              "status": "PARTIALLY_IMPLEMENTED", "note": "ValidationPipe wired; strict ParseUUIDPipe not yet on every controller", "rls": false },
+    { "id": 10, "axis": "integer-sequence ID guessing",      "status": "ENGINEERING_READY",     "note": "All primary keys are UUIDs; no serial exposure", "rls": false },
+    { "id": 11, "axis": "audit trail append-only",           "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 12, "axis": "legal_holds authority-only writes", "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 13, "axis": "mfa_challenges user-isolation",     "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 14, "axis": "pharmacy rx:dispense gating",       "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": false },
+    { "id": 15, "axis": "lab result write gating",           "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": false },
+    { "id": 16, "axis": "billing own-account gating",        "status": "PARTIALLY_IMPLEMENTED", "note": "Patient-self-access endpoint not yet exposed; service-layer guard exists", "rls": true },
+    { "id": 17, "axis": "no unbounded patient-less listing", "status": "ENGINEERING_READY",     "testFile": "src/common/security/idor-matrix.spec.ts", "rls": true },
+    { "id": 18, "axis": "soft-deleted record retrieval",     "status": "PARTIALLY_IMPLEMENTED", "note": "Most entities soft-delete via status; not all services filter deleted", "rls": false },
+    { "id": 19, "axis": "idempotency-key cross-tenant mute", "status": "PARTIALLY_IMPLEMENTED", "note": "Idempotency constants exist; full interceptor + per-tenant DLQ scheduled Wave 6", "rls": false },
+    { "id": 20, "axis": "consent-grant forgery prevention",  "status": "ENGINEERING_READY",     "testFile": "src/common/security/consent-guard.adversarial.spec.ts", "rls": true }
+  ],
+  "rollup": {
+    "ENGINEERING_READY": 15,
+    "PARTIALLY_IMPLEMENTED": 5,
+    "MISSING": 0,
+    "EXTERNAL_BLOCKED": 0,
+    "SECURITY_BLOCKED": 0,
+    "ARCHITECTURE_BLOCKED": 0,
+    "REQUIRES_HUMAN_APPROVAL": 0,
+    "OUT_OF_SCOPE": 0
+  }
+}

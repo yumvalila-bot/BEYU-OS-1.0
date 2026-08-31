@@ -12,6 +12,8 @@ import { CsrfDoubleSubmitGuard } from "./common/security/csrf-double-submit.guar
 import { JwtAuthGuard } from "./modules/auth/guards/jwt.guard";
 import { ClinicalSafetyGuard } from "./common/security/clinical-safety.guard";
 import { LegalHoldGuard } from "./common/security/legal-hold.guard";
+import { MfaStepUpGuard } from "./common/security/mfa-stepup.guard";
+import { ConsentGuard } from "./common/security/consent.guard";
 import { RateLimiter } from "./common/security/rate-limiter";
 import { QueueService } from "./common/queue/queue.service";
 import { HcmAuthorizationGuard } from "./integrations/beyu/guards/hcm-authorization.guard";
@@ -121,8 +123,10 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     QueueService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CsrfDoubleSubmitGuard },
+    { provide: APP_GUARD, useClass: MfaStepUpGuard },
     { provide: APP_GUARD, useClass: ClinicalSafetyGuard },
     { provide: APP_GUARD, useClass: LegalHoldGuard },
+    { provide: APP_GUARD, useClass: ConsentGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })

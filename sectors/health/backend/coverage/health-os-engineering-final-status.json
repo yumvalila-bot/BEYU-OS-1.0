@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "phase": "PHASE_11_CHECKPOINT",
+  "generatedAt": "2026-08-31T00:00:00Z",
+  "branch": "arena/01a0532c-beyu-os-1-0",
+  "baseCommit": "b06a5dcb819d87c2859feb3fe0236e9da0c65d88",
+  "gates": {
+    "tsc": "PASS",
+    "nestBuild": "PASS",
+    "jestSuites": 70,
+    "jestTests": 328,
+    "jestPassed": 328,
+    "jestFailed": 0,
+    "migrationsDoubleApplyIdempotent": true,
+    "migrationCount": 17,
+    "healthTablesWithoutRls": 0,
+    "placeholderSecretScan": "CLEAN",
+    "runInBandSeconds": 122
+  },
+  "wavesCompleted": [
+    "phase10-baseline-through-legal-holds",
+    "mfa-stepup-wiring",
+    "consent-guard",
+    "idor-matrix"
+  ],
+  "wavesScheduled": [
+    "endpoint-registry-ci-fail",
+    "rls-adversarial-per-table",
+    "audit-adversarial-hardening",
+    "transaction-envelope-propagation",
+    "concurrency-race-suite",
+    "queue-typed-envelope-dlq",
+    "rate-limit-endpoint-binding",
+    "e2e-supertest-workflow",
+    "records-retention-policy",
+    "adapter-state-machine",
+    "governance-hcm-finance-tax-noelia-boundaries",
+    "fhir-hl7-dicom-terminology-mtuha-contracts",
+    "npm-audit-triage",
+    "perf-measurements",
+    "compliance-evidence-matrix"
+  ],
+  "appGuardChain": [
+    "JwtAuthGuard",
+    "CsrfDoubleSubmitGuard",
+    "MfaStepUpGuard",
+    "ClinicalSafetyGuard",
+    "LegalHoldGuard",
+    "ConsentGuard",
+    "PermissionsGuard"
+  ],
+  "constitutionalInvariants": {
+    "globalUserIdCanonical": "PASS",
+    "tenantEntityCountryIsolation": "PASS",
+    "governanceAuthorization": "ENGINEERING_READY",
+    "hcmPractitionerAuthority": "EXTERNAL_BLOCKED",
+    "financeCanonicalTruth": "EXTERNAL_BLOCKED",
+    "taxCanonical": "EXTERNAL_BLOCKED",
+    "hiveNoeliaExplainOnly": "EXTERNAL_BLOCKED",
+    "healthNeverUsurpsCanonicalDomains": "PASS",
+    "humanOverAI": "PASS",
+    "externalsFailClosed": "PASS"
+  },
+  "externalAdapters": {
+    "redis": "EXTERNAL_BLOCKED", "bullmq": "EXTERNAL_BLOCKED", "nhif": "EXTERNAL_BLOCKED",
+    "tra": "EXTERNAL_BLOCKED", "tmda": "EXTERNAL_BLOCKED", "mtuha": "EXTERNAL_BLOCKED",
+    "pacs": "EXTERNAL_BLOCKED", "fhirServer": "EXTERNAL_BLOCKED", "hl7v2": "EXTERNAL_BLOCKED",
+    "payments": "EXTERNAL_BLOCKED", "mno": "EXTERNAL_BLOCKED", "sms": "EXTERNAL_BLOCKED",
+    "email": "EXTERNAL_BLOCKED", "video": "EXTERNAL_BLOCKED", "hive": "EXTERNAL_BLOCKED",
+    "noelia": "EXTERNAL_BLOCKED", "hcm": "EXTERNAL_BLOCKED", "finance": "EXTERNAL_BLOCKED",
+    "tax": "EXTERNAL_BLOCKED", "productionPostgres": "EXTERNAL_BLOCKED", "vercel": "EXTERNAL_BLOCKED",
+    "dns": "EXTERNAL_BLOCKED", "tls": "EXTERNAL_BLOCKED"
+  },
+  "deployment": { "attempted": false, "prohibited": true, "targets": "NONE" },
+  "fabrication": { "credentials": 0, "codes": 0, "mappings": 0, "responses": 0 }
+}
