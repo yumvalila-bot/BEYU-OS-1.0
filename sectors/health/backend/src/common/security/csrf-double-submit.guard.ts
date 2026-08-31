@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  SetMetadata,
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -13,6 +12,7 @@ import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { DbConnection, DB_CONNECTION } from "../../modules/identity/db-connection";
 import { timingSafeEqual, randomToken } from "../crypto/crypto";
+import { IS_PUBLIC_KEY } from "./public.decorator";
 
 /**
  * Global CSRF double-submit-token guard.
@@ -34,8 +34,9 @@ export const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export const CSRF_TOKEN_HEADER = "x-csrf-token";
 export const CSRF_COOKIE_NAME = "__Host-csrf";
 export const CSRF_TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2h
-export const IS_PUBLIC_KEY = "csrf:is-public";
-export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+// Unified @Public() decorator and key — shared with the global JwtAuthGuard so
+// one decorator exempts a route from BOTH authentication and CSRF.
+export { IS_PUBLIC_KEY, Public } from "./public.decorator";
 
 @Injectable()
 export class CsrfDoubleSubmitGuard implements CanActivate {

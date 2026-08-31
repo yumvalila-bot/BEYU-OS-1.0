@@ -1,9 +1,7 @@
-import { Controller, Get, SetMetadata } from "@nestjs/common";
+import { Controller, Get } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { HealthService } from "./health.service";
-
-const IS_PUBLIC_KEY = "csrf:is-public";
-const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+import { Public } from "../../common/security/public.decorator";
 
 @ApiTags("health")
 @Controller("health")
