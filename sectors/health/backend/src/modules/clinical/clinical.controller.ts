@@ -4,6 +4,7 @@ import { ClinicalService } from "./clinical.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresConsent } from "../../common/security/consent.guard";
 
 @ApiTags("clinical")
 @ApiBearerAuth("access-token")
@@ -13,13 +14,13 @@ export class ClinicalController {
   constructor(private readonly svc: ClinicalService) {}
 
   // Problems
-  @Get("patients/:patientId/problems") @RequirePermission("phi:read")
+  @Get("patients/:patientId/problems") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "problem_list")
   listProblems(@Param("patientId") patientId: string) { return this.svc.listProblems(patientId); }
   @Post("problems") @RequirePermission("phi:write")
   addProblem(@Body() dto: Record<string, unknown>) { return this.svc.addProblem(dto); }
 
   // Observations/Vitals
-  @Get("patients/:patientId/observations") @RequirePermission("phi:read")
+  @Get("patients/:patientId/observations") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "observations")
   listObservations(@Param("patientId") patientId: string, @Query("category") category?: string) {
     return this.svc.listObservations(patientId, category);
   }
@@ -27,7 +28,7 @@ export class ClinicalController {
   addObservation(@Body() dto: Record<string, unknown>) { return this.svc.addObservation(dto); }
 
   // Medications
-  @Get("patients/:patientId/medications") @RequirePermission("phi:read")
+  @Get("patients/:patientId/medications") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "medications")
   listMedications(@Param("patientId") patientId: string, @Query("active") active?: string) {
     return this.svc.listMedications(patientId, active !== "false");
   }
@@ -35,7 +36,7 @@ export class ClinicalController {
   addMedication(@Body() dto: Record<string, unknown>) { return this.svc.addMedication(dto); }
 
   // Allergies
-  @Get("patients/:patientId/allergies") @RequirePermission("phi:read")
+  @Get("patients/:patientId/allergies") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "allergies")
   listAllergies(@Param("patientId") patientId: string) { return this.svc.listAllergies(patientId); }
   @Post("allergies") @RequirePermission("phi:write")
   addAllergy(@Body() dto: Record<string, unknown>) { return this.svc.addAllergy(dto); }

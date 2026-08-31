@@ -4,6 +4,7 @@ import { IntegrationsService } from "./integrations.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresMfaStepUp } from "../../common/security/mfa-stepup.guard";
 import { AdapterRegistry } from "./adapter-registry";
 
 @ApiTags("integrations")
@@ -15,5 +16,5 @@ export class IntegrationsController {
   @Get() @RequirePermission("tenant:admin") list() { return this.svc.list(); }
   @Get("adapters/probe") @RequirePermission("tenant:admin") probe() { return this.adapters.probeAll(); }
   @Get(":provider") @RequirePermission("tenant:admin") get(@Param("provider") p: string) { return this.svc.get(p); }
-  @Post(":provider/configured") @RequirePermission("tenant:admin") cfg(@Param("provider") p: string) { return this.svc.markConfigured(p); }
+  @Post(":provider/configured") @RequirePermission("tenant:admin") @RequiresMfaStepUp("integrations:configure") cfg(@Param("provider") p: string) { return this.svc.markConfigured(p); }
 }
