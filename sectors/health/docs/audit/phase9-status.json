@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "1.0.0",
+  "program": "Phase 9 — Production-Readiness Closure",
+  "branch": "arena/01a0532c-beyu-os-1-0",
+  "generatedAt": "2026-08-31",
+  "overallStatus": "IN_PROGRESS",
+  "summary": {
+    "totalSections": 35,
+    "complete": 5,
+    "inProgress": 4,
+    "blockedExternal": 10,
+    "notStarted": 16,
+    "testsPassing": 273,
+    "testSuites": 62,
+    "tscClean": true,
+    "nestBuildClean": true
+  },
+  "sections": [
+    {
+      "id": "I", "name": "Constitutional invariants", "status": "COMPLETE",
+      "evidence": "sectors/health/coverage/endpoint-security-matrix.json, sectors/health/coverage/rls-matrix.json",
+      "tests": ["endpoint-security-matrix.spec.ts", "permissions.spec.ts"]
+    },
+    {
+      "id": "II", "name": "Reality audit", "status": "COMPLETE",
+      "evidence": "HEALTH_OS_ENGINEERING_COMPLETION_FINAL_REPORT.md (Phase 8)"
+    },
+    {
+      "id": "III", "name": "Machine-readable Phase 9 backlog (this file)", "status": "COMPLETE",
+      "evidence": "sectors/health/docs/audit/phase9-status.json"
+    },
+    {
+      "id": "IV", "name": "Endpoint security: global JwtAuthGuard + @Public()", "status": "IN_PROGRESS",
+      "notes": "CsrfDoubleSubmit + PermissionsGuard applied globally; JwtAuthGuard is still per-controller. Needs global binding + @Public() allow-list + source-scan inventory fail-CI."
+    },
+    {
+      "id": "V", "name": "18-axis IDOR adversarial matrix", "status": "NOT_STARTED",
+      "notes": "Existing IDOR/RLS matrix covers 10 axes; expand to 18 (cross-tenant/wrong-entity/wrong-practitioner/wrong-facility/expired-licence/MFA/stale-security-version/CSRF/consent/governance/clinical-safety/legal-hold)."
+    },
+    {
+      "id": "VI", "name": "Per-table 15-case RLS adversarial + NOBYPASSRLS check", "status": "IN_PROGRESS",
+      "evidence": "sectors/health/coverage/rls-matrix.json (10 cases)",
+      "notes": "Expand to 15 cases; add boot-time check that prod DB role has NOBYPASSRLS."
+    },
+    {
+      "id": "VII", "name": "MFA (TOTP complete, WebAuthn EXTERNAL-BLOCKED)", "status": "COMPLETE",
+      "evidence": "modules/auth/mfa/* — enroll/activate/challenge/verify/replay/recovery/lockout/backoff/admin-reset/security_version; tests: mfa*.spec.ts"
+    },
+    {
+      "id": "VIII", "name": "Rate limiting (memory + Redis contract)", "status": "IN_PROGRESS",
+      "evidence": "common/security/rate-limiter.ts (memory backend)",
+      "notes": "Redis transport EXTERNAL-BLOCKED (fail-closed). Missing: endpoint-specific policies for admin/MFA/sensitive; Retry-After header audit."
+    },
+    {
+      "id": "IX", "name": "Queue/outbox typed envelope (BullMQ EXTERNAL-BLOCKED)", "status": "NOT_STARTED",
+      "notes": "Memory queue testable; need typed 26-field envelope, retry/backoff/jitter/DLQ/visibility/drain/timeout/cancel/audit/circuit-breaker."
+    },
+    {
+      "id": "X", "name": "ClinicalSafetyGates (pharmacy/lab/radiology/optical/dialysis)", "status": "COMPLETE",
+      "evidence": "sectors/health/coverage/clinical-safety-matrix.json, clinical-safety-matrix.spec.ts"
+    },
+    {
+      "id": "XI", "name": "Transaction envelope auto-generation (23 fields, fail closed)", "status": "IN_PROGRESS",
+      "notes": "TransactionEnvelope exists; 23-field auto-generation partially implemented. Need fail-closed on missing identity/facility/licence."
+    },
+    {
+      "id": "XII", "name": "FHIR R4/R5 (terminology BLOCKED)", "status": "BLOCKED_EXTERNAL",
+      "evidence": "modules/interop/fhir/*",
+      "notes": "22 resources mapped; terminology validation BLOCKED without SNOMED/LOINC/RxNorm/ICD-11."
+    },
+    {
+      "id": "XIII", "name": "Terminology architecture (source BLOCKED)", "status": "BLOCKED_EXTERNAL",
+      "evidence": "modules/terminology/*",
+      "notes": "CodeSystem/Concept/ValueSet/ConceptMap/validation/expansion/lookup/mapping/versioning/provenance implemented; BLOCKED without licensed datasets."
+    },
+    {
+      "id": "XIV", "name": "HL7 v2 ADT/ORM/ORU", "status": "COMPLETE",
+      "evidence": "modules/interop/hl7v2/*; tests: hl7v2.parser.spec.ts (MSH off-by-one fixed; ACK/NACK/idempotency/correlation/audit)."
+    },
+    {
+      "id": "XV", "name": "DICOM (PACS BLOCKED)", "status": "BLOCKED_EXTERNAL",
+      "evidence": "modules/interop/dicom/*; tests: dicom.validator.spec.ts",
+      "notes": "UID PS3.5 / accession / modality / patient / equipment / dose linkage implemented; PACS BLOCKED."
+    },
+    {
+      "id": "XVI", "name": "MTUHA (submission BLOCKED)", "status": "BLOCKED_EXTERNAL",
+      "notes": "Canonical aggregates per period/tenant/entity/country/facility; official mappings only; submission BLOCKED when mapping incomplete."
+    },
+    {
+      "id": "XVII", "name": "Public health reporting", "status": "BLOCKED_EXTERNAL",
+      "notes": "Notifiable/HIV/TB/malaria/immunization/maternal/perinatal — EXTERNAL-BLOCKED (no MoH API)."
+    },
+    {
+      "id": "XVIII", "name": "Records/retention/legal-hold/e-sig", "status": "NOT_STARTED"
+    },
+    {
+      "id": "XIX", "name": "AI/Noelia/HIVE", "status": "BLOCKED_EXTERNAL",
+      "notes": "14-field audit + no-self-approve implemented; service unavailable."
+    },
+    {
+      "id": "XX", "name": "Governance/HCM/Finance/Tax", "status": "BLOCKED_EXTERNAL",
+      "notes": "Fail-closed; durable outbox BLOCKED (no Redis)."
+    },
+    {
+      "id": "XXI", "name": "Concurrency adversarial (15 domains)", "status": "NOT_STARTED",
+      "notes": "Advisory/row locks exist; distributed locks ARCHITECTURE_BLOCKED."
+    },
+    {
+      "id": "XXII", "name": "HTTP E2E supertest full flow (BLOCKED adapters)", "status": "IN_PROGRESS",
+      "evidence": "test/e2e/app-boot.spec.ts (3/3), test/e2e/clinical-workflow.spec.ts (7/7)",
+      "notes": "Boot/liveness/ready/401/register/login/CSRF/patient-create/list/anony-reject green; MFA/encounter/rx/lab/radiology/billing/outbox/audit pending."
+    },
+    {
+      "id": "XXIII", "name": "Frontend (Vite/React — sectors/health/src)", "status": "BLOCKED_EXTERNAL",
+      "notes": "Source present; typed client to real backend pending; BLOCKED pending API stabilisation and state wiring."
+    },
+    {
+      "id": "XXIV", "name": "Supply chain (npm audit triage)", "status": "NOT_STARTED",
+      "notes": "24 vulns captured in Phase 8; per-vuln dependency-risk-matrix.json required."
+    },
+    {
+      "id": "XXV", "name": "Production boot security validation", "status": "NOT_STARTED",
+      "notes": "JWT/refresh/issuer/audience/secure-cookies/CORS/NOBYPASSRLS/migrations/encryption/adapters/env-separation; no secret logging."
+    },
+    {
+      "id": "XXVI", "name": "Observability (correlation/causation/propagation; redact)", "status": "IN_PROGRESS",
+      "evidence": "common/observability/*; correlation-id.middleware propagates cid/rid; json-logger redaction partial."
+    },
+    {
+      "id": "XXVII", "name": "Performance/failure measurements", "status": "NOT_STARTED",
+      "notes": "Honest measurements only."
+    },
+    {
+      "id": "XXVIII", "name": "Compliance matrix expansion (TZ/NABH/ISO/PCI-DSS/e-records)", "status": "IN_PROGRESS",
+      "evidence": "sectors/health/coverage/compliance-control-matrix.json; tests: compliance-matrix.spec.ts",
+      "notes": "NABH/ISO mapping only — NO accreditation claim."
+    },
+    {
+      "id": "XXIX", "name": "Endpoint security: 28 adversarial vectors", "status": "NOT_STARTED",
+      "notes": "IDOR/escalation/crossover/CSRF/MFA-replay/stale-security_version/brute-force/rate-bypass/session-fixation/refresh-replay/audit-tamper/legal-hold-bypass/mass-assignment/deserialization/injection/path-traversal/SSRF/webhooks/oversized-payload/malformed-FHIR/HL7/DICOM."
+    },
+    {
+      "id": "XXX", "name": "Migration safety (fresh/sequential/idempotent/down/RLS/trigger/index/constraint)", "status": "COMPLETE",
+      "evidence": "E2E harness runs all 16 migrations on fresh PGlite; 016 adds doctor:patient:register permission."
+    },
+    {
+      "id": "XXXI", "name": "Documentation runbooks", "status": "IN_PROGRESS",
+      "evidence": "sectors/health/docs/{architecture,security,compliance,operations,integrations,clinical,interoperability,audit,deployment}/"
+    },
+    {
+      "id": "XXXII", "name": "Coverage JSON artifacts (10+)", "status": "IN_PROGRESS",
+      "evidence": "sectors/health/coverage/*.json (10 files); need endpoint-security, idor, migration, transaction-envelope additions."
+    },
+    {
+      "id": "XXXIII", "name": "32-step final verification", "status": "NOT_STARTED"
+    },
+    {
+      "id": "XXXIV", "name": "Placeholder/TODO/FIXME/FAKE/MOCK/NOT_IMPLEMENTED/DEMO/STUB/SIMULATED scan", "status": "NOT_STARTED"
+    },
+    {
+      "id": "XXXV", "name": "Final report (HEALTH_OS_PHASE9_FINAL_REPORT.md)", "status": "NOT_STARTED"
+    }
+  ]
+}

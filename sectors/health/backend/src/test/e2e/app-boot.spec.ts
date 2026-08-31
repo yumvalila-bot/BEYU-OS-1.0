@@ -4,11 +4,12 @@
  * complete.
  */
 import "reflect-metadata";
-import request = require("supertest");
-import { buildE2EHarness } from "../../common/testing/e2e-harness";
+// eslint-disable-next-line @typescript-eslint/no-var-requires,@typescript-eslint/no-explicit-any
+const request: any = require("supertest");
+import { buildE2EHarness, E2EHarness } from "../../common/testing/e2e-harness";
 
 describe("AppModule boot (E2E smoke)", () => {
-  let h: Awaited<ReturnType<typeof buildE2EHarness>>;
+  let h: E2EHarness;
   beforeAll(async () => { h = await buildE2EHarness(); });
   afterAll(async () => { await h.close(); });
 

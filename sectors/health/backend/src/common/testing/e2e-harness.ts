@@ -15,6 +15,8 @@ import { AppModule } from "../../app.module";
 import { DB_CONNECTION, PGliteConnection } from "../../modules/identity/db-connection";
 import { TenantContext } from "../security/tenant-context";
 import { requestStorage } from "../observability/correlation-id.middleware";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const cookieParser = require("cookie-parser");
 
 export const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
 
@@ -50,6 +52,14 @@ export interface E2EHarness {
 }
 
 export async function buildE2EHarness(overrides: Record<string, any> = {}): Promise<E2EHarness> {
+  // Seed minimal env vars required for JWT signing/verification in-process.
+  process.env.JWT_SECRET = process.env.JWT_SECRET ?? "e2e-jwt-secret-do-not-use";
+  process.env.JWT_ISSUER = process.env.JWT_ISSUER ?? "https://beyu.health/e2e";
+  process.env.JWT_AUDIENCE = process.env.JWT_AUDIENCE ?? "beyu-health-os";
+  process.env.REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET ?? "e2e-refresh-secret-do-not-use";
+  process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
+  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "pglite://e2e";
+  process.env.CSRF_SECRET = process.env.CSRF_SECRET ?? "e2e-csrf-secret-do-not-use";
   const db = new PGlite();
   const conn = new PGliteConnection(db);
   const migs = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".up.sql")).sort();
@@ -76,6 +86,7 @@ export async function buildE2EHarness(overrides: Record<string, any> = {}): Prom
     .compile();
 
   const app = moduleFixture.createNestApplication();
+  app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   await app.init();
   const tenantCtx = app.get<TenantContext>(TenantContext);
