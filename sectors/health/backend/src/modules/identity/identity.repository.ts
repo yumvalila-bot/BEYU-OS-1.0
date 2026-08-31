@@ -48,6 +48,7 @@ export interface StoredSession {
   status: SessionStatus;
   expires_at: Date;
   rotated_from: string | null;
+  security_version: number;
   created_at: Date;
 }
 
@@ -87,6 +88,7 @@ function mapSession(row: Record<string, unknown>): StoredSession {
     status: row.status as SessionStatus,
     expires_at: new Date(row.expires_at as string),
     rotated_from: row.rotated_from ? String(row.rotated_from) : null,
+    security_version: Number(row.security_version ?? 0),
     created_at: new Date(row.created_at as string),
   };
 }
@@ -351,10 +353,16 @@ export class IdentityRepository {
     refreshTokenHash: string;
     jti: string | null;
     expiresAt: Date;
+    securityVersion?: number;
   }): Promise<StoredSession> {
+    const sv = input.securityVersion ??
+      (await this.conn.query<{ security_version: number }>(
+        `SELECT security_version FROM beyu_identity.users WHERE global_user_id = $1`,
+        [input.globalUserId],
+      ))[0]?.security_version ?? 0;
     const rows = await this.conn.query(
-      `INSERT INTO beyu_identity.sessions (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at)
-       VALUES ($1, $2, $3, $4, 'active', $5)
+      `INSERT INTO beyu_identity.sessions (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at, security_version)
+       VALUES ($1, $2, $3, $4, 'active', $5, $6)
        RETURNING *`,
       [
         input.globalUserId,
@@ -362,6 +370,7 @@ export class IdentityRepository {
         input.refreshTokenHash,
         input.jti,
         input.expiresAt,
+        Number(sv),
       ],
     );
     return mapSession(rows[0]);
@@ -408,8 +417,7 @@ export class IdentityRepository {
 
   async revokeAllUserSessions(globalUserId: string): Promise<void> {
     await this.conn.query(
-      `UPDATE beyu_identity.sessions SET status = 'revoked', updated_at = now()
-        WHERE global_user_id = $1 AND status = 'active'`,
+      `SELECT beyu_identity.revoke_all_sessions_bump_sv($1)`,
       [globalUserId],
     );
   }

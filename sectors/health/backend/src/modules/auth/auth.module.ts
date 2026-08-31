@@ -4,11 +4,15 @@ import { ConfigService } from "@nestjs/config";
 import { PassportModule } from "@nestjs/passport";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { MfaController } from "./mfa.controller";
+import { MfaService } from "./mfa.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtAuthGuard } from "./guards/jwt.guard";
 import { TenantContext } from "../../common/security/tenant-context";
 import { IdentityModule } from "../identity/identity.module";
 import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
+import { AuditService } from "../audit/audit.service";
+import { RateLimiter } from "../../common/security/rate-limiter";
 
 @Module({
   imports: [
@@ -21,27 +25,31 @@ import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
           expiresIn: configService.get("JWT_EXPIRATION", "15m"),
           issuer: configService.get("JWT_ISSUER"),
           audience: configService.get("JWT_AUDIENCE"),
-          // Constrain to HS256 to prevent algorithm-confusion / alg:none attacks.
           algorithm: "HS256",
         },
       }),
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController],
   providers: [
     AuthService,
+    MfaService,
     JwtStrategy,
     JwtAuthGuard,
     TenantContext,
     CsrfOriginGuard,
+    AuditService,
+    RateLimiter,
   ],
   exports: [
     AuthService,
+    MfaService,
     JwtModule,
     JwtAuthGuard,
     TenantContext,
     IdentityModule,
+    RateLimiter,
   ],
 })
 export class AuthModule {}
