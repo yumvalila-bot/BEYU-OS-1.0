@@ -55,15 +55,15 @@ export class MfaStepUpGuard implements CanActivate {
     const rows = await this.db.query<any>(
       `SELECT u.security_version, c.challenge_id, c.purpose, c.verified_at,
               c.expires_at, c.consumed_at, c.session_id, c.security_version AS c_sv
-         FROM health.users u
+         FROM beyu_identity.users u
     LEFT JOIN health.mfa_challenges c
-           ON c.user_id = u.id
+           ON c.user_id = u.global_user_id
           AND c.consumed_at IS NULL
           AND c.verified_at IS NOT NULL
           AND c.purpose = $2
           AND c.expires_at > now()
-          AND ($3::text = '' OR c.session_id = $3)
-        WHERE u.id = $1::uuid
+          AND ($3::text = '' OR c.session_id::text = $3)
+        WHERE u.global_user_id = $1::uuid
      ORDER BY c.verified_at DESC NULLS LAST
         LIMIT 1`,
       [userId, action, sessionId],
