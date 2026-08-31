@@ -1,0 +1,36 @@
+{
+  "generated": "2026-08-31T20:05:08.727Z",
+  "schema": "consent-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "consentGuardPresent": true,
+    "adversarialTests": true
+  },
+  "checks": [
+    {
+      "label": "ConsentGuard HTTP gate",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "@RequiresConsent decorator",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "consent adversarial tests",
+      "ok": false,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "full PHI-disclosure endpoint mapping",
+      "ok": false,
+      "state": "PARTIALLY_IMPLEMENTED"
+    },
+    {
+      "label": "emergency/break-glass behaviour",
+      "ok": false,
+      "state": "PARTIALLY_IMPLEMENTED"
+    }
+  ]
+}

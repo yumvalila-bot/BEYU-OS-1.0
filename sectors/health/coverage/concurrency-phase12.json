@@ -1,0 +1,30 @@
+{
+  "generated": "2026-08-31T20:05:08.728Z",
+  "schema": "concurrency-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "concurrencySpecPresent": true
+  },
+  "checks": [
+    {
+      "label": "atomic update / lost-update",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "queue idempotency dedup",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "double-booking / duplicate dispense / duplicate billing",
+      "ok": false,
+      "state": "PARTIALLY_IMPLEMENTED"
+    },
+    {
+      "label": "distributed locks (Redis/PG advisory)",
+      "ok": false,
+      "state": "EXTERNAL_BLOCKED"
+    }
+  ]
+}

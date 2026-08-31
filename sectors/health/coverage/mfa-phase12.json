@@ -1,0 +1,81 @@
+{
+  "generated": "2026-08-31T20:05:08.807Z",
+  "schema": "mfa-phase12-v1",
+  "methodology": "MFA + session security controls verified against source + existing adversarial test coverage; evidence-derived states",
+  "summary": {
+    "ENGINEERING_READY": 13,
+    "PARTIALLY_IMPLEMENTED": 1
+  },
+  "points": [
+    {
+      "point": "security_version",
+      "status": "ENGINEERING_READY",
+      "evidence": "security-version.adversarial.spec.ts (bump + invalidate)"
+    },
+    {
+      "point": "stale_jwt_session_invalidation",
+      "status": "ENGINEERING_READY",
+      "evidence": "security-version.adversarial.spec.ts (rotateSession/assertSessionActive reject stale sv)"
+    },
+    {
+      "point": "stepup_user_binding",
+      "status": "ENGINEERING_READY",
+      "evidence": "MfaStepUpGuard joins mfa_challenges.user_id = users.global_user_id"
+    },
+    {
+      "point": "stepup_session_binding",
+      "status": "ENGINEERING_READY",
+      "evidence": "MfaStepUpGuard compares session_id (MFA_SESSION_CROSSOVER on mismatch)"
+    },
+    {
+      "point": "stepup_tenant_binding",
+      "status": "ENGINEERING_READY",
+      "evidence": "MfaStepUpGuard binds mfa_challenges.tenant_id to req.user.tenantId (Wave 4)"
+    },
+    {
+      "point": "stepup_purpose_binding",
+      "status": "ENGINEERING_READY",
+      "evidence": "MfaStepUpGuard filters mfa_challenges.purpose = action"
+    },
+    {
+      "point": "replay_protection",
+      "status": "ENGINEERING_READY",
+      "evidence": "consumed challenge rejected (mfa.adversarial.spec.ts replay test)"
+    },
+    {
+      "point": "expiry",
+      "status": "ENGINEERING_READY",
+      "evidence": "expires_at enforced (expired challenge test)"
+    },
+    {
+      "point": "bounded_attempts",
+      "status": "ENGINEERING_READY",
+      "evidence": "mfa.service.ts enforces max_attempts on challenges"
+    },
+    {
+      "point": "lockout",
+      "status": "ENGINEERING_READY",
+      "evidence": "exponential backoff lockout (BASE_LOCKOUT_MS scaling)"
+    },
+    {
+      "point": "recovery_code_single_use",
+      "status": "ENGINEERING_READY",
+      "evidence": "recovery code redeem once; reuse rejected (mfa.adversarial.spec.ts)"
+    },
+    {
+      "point": "admin_reset_authorization",
+      "status": "ENGINEERING_READY",
+      "evidence": "mfa.controller admin/reset: tenant:admin + MFA step-up (Wave 1)"
+    },
+    {
+      "point": "admin_reset_audit",
+      "status": "ENGINEERING_READY",
+      "evidence": "adminReset writes audit event with reason + resetBy actor"
+    },
+    {
+      "point": "high_risk_endpoint_coverage",
+      "status": "PARTIALLY_IMPLEMENTED",
+      "evidence": "FINANCIAL (billing) + mfa admin reset carry @RequiresMfaStepUp; full ADMINISTRATIVE/AI_HIGH_RISK sweep pending"
+    }
+  ]
+}

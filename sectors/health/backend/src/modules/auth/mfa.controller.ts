@@ -11,6 +11,8 @@ import {
 import { JwtAuthGuard } from "./guards/jwt.guard";
 import { MfaService } from "./mfa.service";
 import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
+import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresMfaStepUp } from "../../common/security/mfa-stepup.guard";
 
 /**
  * MFA HTTP controller. Implements enrollment, activation, challenge,
@@ -93,6 +95,8 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("admin/reset")
+  @RequirePermission("tenant:admin")
+  @RequiresMfaStepUp("mfa:admin:reset")
   @HttpCode(HttpStatus.NO_CONTENT)
   async adminReset(
     @Req() req: any,
@@ -100,7 +104,10 @@ export class MfaController {
   ) {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
-    if (!actor.permissions?.includes("mfa.admin_reset")) {
+    // Defense-in-depth: the canonical permission is tenant:admin, enforced by
+    // the global PermissionsGuard via @RequirePermission above. This inline
+    // check is retained as a fail-closed secondary assertion.
+    if (!actor.permissions?.includes("tenant:admin")) {
       throw new UnauthorizedException("MFA_ADMIN_RESET_FORBIDDEN");
     }
     await this.mfa.adminReset({

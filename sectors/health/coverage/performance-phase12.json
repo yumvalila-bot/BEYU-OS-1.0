@@ -1,0 +1,21 @@
+{
+  "generated": "2026-08-31T20:05:08.728Z",
+  "schema": "performance-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "performanceSpecPresent": true,
+    "environment": "local PGlite (non-production)"
+  },
+  "checks": [
+    {
+      "label": "p50/p95/p99 capture (local PGlite)",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "production SLA claims",
+      "ok": false,
+      "state": "REQUIRES_HUMAN_APPROVAL"
+    }
+  ]
+}

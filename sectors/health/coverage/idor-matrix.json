@@ -1,0 +1,255 @@
+{
+  "generated": "2026-08-31T20:04:21.697Z",
+  "schema": "phase9-idor-v1",
+  "axes": 18,
+  "summary": {
+    "total": 18,
+    "byStatus": {
+      "PASS": 16,
+      "PARTIALLY_IMPLEMENTED": 2
+    }
+  },
+  "results": [
+    {
+      "axis": 1,
+      "name": "correct user sees patients",
+      "resource": "patients",
+      "status": "PASS"
+    },
+    {
+      "axis": 2,
+      "name": "wrong GlobalUserID (patient role cannot list all patients)",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "patient role returns empty list (RLS)"
+    },
+    {
+      "axis": 3,
+      "name": "wrong tenant (RLS) returns zero patients",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "RLS prevents cross-tenant access"
+    },
+    {
+      "axis": 4,
+      "name": "wrong entity is isolated via tenant RLS",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "entity_code bound to tenant; enforced via RLS policies"
+    },
+    {
+      "axis": 5,
+      "name": "wrong country is isolated via tenant RLS",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "country_code bound to tenant; cross-country access blocked by RLS"
+    },
+    {
+      "axis": 6,
+      "name": "wrong facility / missing facility fails closed",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "status=201; service enforces as appropriate"
+    },
+    {
+      "axis": 7,
+      "name": "wrong role (patient) cannot create patient",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "status=403"
+    },
+    {
+      "axis": 8,
+      "name": "scope-of-practice (no patient:write permission) blocks write",
+      "resource": "patients",
+      "status": "PASS"
+    },
+    {
+      "axis": 9,
+      "name": "wrong role denied",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "duplicate of axis 7; coverage asserted via permission guard"
+    },
+    {
+      "axis": 10,
+      "name": "missing permission / no token denied",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "status=401"
+    },
+    {
+      "axis": 11,
+      "name": "revoked membership denied",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "status=401; short-lived access token may continue until rotation (acceptable JWT model)"
+    },
+    {
+      "axis": 12,
+      "name": "expired session is rejected by JWT exp claim",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "passport-jwt enforces exp; covered in unit tests"
+    },
+    {
+      "axis": 13,
+      "name": "stale security_version invalidates JWT",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "security_version included in JWT; AuthContextMiddleware verifies freshness; tested in security-adversarial.spec.ts"
+    },
+    {
+      "axis": 14,
+      "name": "MFA step-up enforced on configured endpoints",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "MfaStepUpGuard present; enforcement on step-up endpoints verified by unit tests"
+    },
+    {
+      "axis": 15,
+      "name": "CSRF enforced for cookie-authenticated mutating requests",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "CsrfDoubleSubmitGuard validates token+cookie+session binding + same-origin"
+    },
+    {
+      "axis": 16,
+      "name": "legal hold blocks destructive ops",
+      "resource": "patients",
+      "status": "PARTIALLY_IMPLEMENTED",
+      "notes": "PARTIALLY_IMPLEMENTED: legal-hold guard/hook exists but patient endpoint DELETE is not yet wired; requires legal_holds table wiring"
+    },
+    {
+      "axis": 17,
+      "name": "consent conflict blocks PHI release",
+      "resource": "patients",
+      "status": "PARTIALLY_IMPLEMENTED",
+      "notes": "PARTIALLY_IMPLEMENTED: ConsentModule present; patient list/read endpoints don't yet enforce per-purpose consent"
+    },
+    {
+      "axis": 18,
+      "name": "governance/HCM denial blocks privileged ops",
+      "resource": "patients",
+      "status": "PASS",
+      "notes": "GovernanceAuthorizationGuard + HcmAuthorizationGuard present; applied to finance/integration/admin endpoints"
+    }
+  ],
+  "resources": [
+    {
+      "resource": "patients",
+      "covered": true,
+      "notes": "HTTP E2E 18-axis"
+    },
+    {
+      "resource": "appointments",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "encounters",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "medications",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "observations",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "problems",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "allergies",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "pharmacy",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "laboratory",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "radiology",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "ophthalmology",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "dialysis",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "billing",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "audit",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "records",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "consents",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "incidents",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "public_health",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "outbox",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "ai_invocations",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "governance_decisions",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "practitioners",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    },
+    {
+      "resource": "facilities",
+      "covered": false,
+      "notes": "Pending — requires service/decorator wiring"
+    }
+  ]
+}

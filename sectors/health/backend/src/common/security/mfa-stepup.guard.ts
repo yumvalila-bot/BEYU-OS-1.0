@@ -51,6 +51,7 @@ export class MfaStepUpGuard implements CanActivate {
 
     const userId = String(req.user.userId);
     const sessionId = String(req.user.sessionId ?? req.user.jti ?? "");
+    const tenantId = String(req.user.tenantId ?? "");
 
     const rows = await this.db.query<any>(
       `SELECT u.security_version, c.challenge_id, c.purpose, c.verified_at,
@@ -63,10 +64,11 @@ export class MfaStepUpGuard implements CanActivate {
           AND c.purpose = $2
           AND c.expires_at > now()
           AND ($3::text = '' OR c.session_id::text = $3)
+          AND ($4::text = '' OR c.tenant_id::text = $4)
         WHERE u.global_user_id = $1::uuid
      ORDER BY c.verified_at DESC NULLS LAST
         LIMIT 1`,
-      [userId, action, sessionId],
+      [userId, action, sessionId, tenantId],
     );
     const row = rows[0];
     if (!row) throw new ForbiddenException("MFA_REQUIRED");

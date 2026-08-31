@@ -1,0 +1,37 @@
+{
+  "generated": "2026-08-31T20:05:08.728Z",
+  "schema": "queue-phase12-v1",
+  "status": "PARTIALLY_IMPLEMENTED",
+  "summary": {
+    "memoryBackend": true,
+    "retryBackoff": true,
+    "dlq": true
+  },
+  "checks": [
+    {
+      "label": "idempotency/dedup",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "retry + exponential backoff + jitter",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "poison messages + DLQ",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "graceful shutdown + timeout",
+      "ok": true,
+      "state": "ENGINEERING_READY"
+    },
+    {
+      "label": "Redis production transport",
+      "ok": false,
+      "state": "EXTERNAL_BLOCKED"
+    }
+  ]
+}

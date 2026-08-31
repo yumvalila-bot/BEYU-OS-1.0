@@ -1,0 +1,777 @@
+{
+  "generated": "2026-08-31T20:02:14.939Z",
+  "schema": "npm-audit-phase12-v1",
+  "metadata": {
+    "full": {
+      "info": 0,
+      "low": 3,
+      "moderate": 25,
+      "high": 15,
+      "critical": 0,
+      "total": 43
+    },
+    "production": {
+      "info": 0,
+      "low": 0,
+      "moderate": 19,
+      "high": 5,
+      "critical": 0,
+      "total": 24
+    },
+    "dependencies": {
+      "prod": 441,
+      "dev": 484,
+      "optional": 14,
+      "peer": 7,
+      "peerOptional": 0,
+      "total": 943
+    }
+  },
+  "summary": {
+    "total": 43,
+    "bySeverity": {
+      "moderate": 25,
+      "high": 15,
+      "low": 3
+    },
+    "byExploitability": {
+      "non-exploitable": 19,
+      "exploitable": 21,
+      "externally-mitigated": 3
+    },
+    "byReachability": {
+      "development-only": 19,
+      "runtime": 24
+    },
+    "unresolvedHighCriticalRuntime": 2
+  },
+  "vulnerabilities": [
+    {
+      "package": "@angular-devkit/core",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@angular-devkit/schematics",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@angular-devkit/schematics-cli",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@apollo/server",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@apollo/server",
+        "version": "5.5.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-9q82-xgwf-vj6h",
+          "title": "Apollo Server: Browser bug allows for bypass of XS-Search (read-only Cross-Site Request Forgery) prevention",
+          "severity": "moderate",
+          "cvss": 0
+        }
+      ]
+    },
+    {
+      "package": "@apollo/server-plugin-landing-page-graphql-playground",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/apollo",
+        "version": "14.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/apollo",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/apollo",
+        "version": "14.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/bull",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/bull",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/bull-shared",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/bull",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/cache-manager",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cache-manager",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/cli",
+      "severity": "high",
+      "direct": true,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/common",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/config",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/config",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/core",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/core",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-36xv-jgw5-4q75",
+          "title": "@nestjs/core Improperly Neutralizes Special Elements in Output Used by a Downstream Component ('Injection')",
+          "severity": "moderate",
+          "cvss": 6.1
+        }
+      ]
+    },
+    {
+      "package": "@nestjs/graphql",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/graphql",
+        "version": "14.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/platform-express",
+      "severity": "high",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/platform-express",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/schematics",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/schematics",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/swagger",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/swagger",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/testing",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/testing",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@nestjs/typeorm",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/typeorm",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "@typescript-eslint/eslint-plugin",
+      "severity": "high",
+      "direct": true,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@typescript-eslint/parser",
+      "severity": "high",
+      "direct": true,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@typescript-eslint/type-utils",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@typescript-eslint/typescript-estree",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "@typescript-eslint/utils",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": []
+    },
+    {
+      "package": "ajv",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-2g4f-4pwh-qvx6",
+          "title": "ajv has ReDoS when using `$data` option",
+          "severity": "moderate",
+          "cvss": 0
+        }
+      ]
+    },
+    {
+      "package": "body-parser",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/platform-express",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-v422-hmwv-36x6",
+          "title": "body-parser vulnerable to denial of service when invalid limit value silently disables size enforcement",
+          "severity": "low",
+          "cvss": 3.7
+        }
+      ]
+    },
+    {
+      "package": "bull",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "bull",
+        "version": "1.1.3",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "express",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/platform-express",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "external-editor",
+      "severity": "low",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "file-type",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": true,
+      "advisories": [
+        {
+          "id": "GHSA-5v7r-6r5c-r473",
+          "title": "file-type affected by infinite loop in ASF parser on malformed input with zero-size sub-header",
+          "severity": "moderate",
+          "cvss": 5.3
+        },
+        {
+          "id": "GHSA-j47w-4g3g-c36v",
+          "title": "file-type: ZIP Decompression Bomb DoS via [Content_Types].xml entry",
+          "severity": "moderate",
+          "cvss": 5.3
+        }
+      ]
+    },
+    {
+      "package": "glob",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-5j98-mcp5-4vw2",
+          "title": "glob CLI: Command injection via -c/--cmd executes matches with shell:true",
+          "severity": "high",
+          "cvss": 7.5
+        }
+      ]
+    },
+    {
+      "package": "inquirer",
+      "severity": "low",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "externally-mitigated",
+      "fixAvailable": {
+        "name": "@nestjs/swagger",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-mh29-5h37-fv8m",
+          "title": "js-yaml has prototype pollution in merge (<<)",
+          "severity": "moderate",
+          "cvss": 5.3
+        },
+        {
+          "id": "GHSA-h67p-54hq-rp68",
+          "title": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases",
+          "severity": "moderate",
+          "cvss": 5.3
+        },
+        {
+          "id": "GHSA-52cp-r559-cp3m",
+          "title": "js-yaml: YAML merge-key chains can force quadratic CPU consumption",
+          "severity": "high",
+          "cvss": 7.5
+        },
+        {
+          "id": "GHSA-5p4m-2wfm-xmqj",
+          "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported",
+          "severity": "high",
+          "cvss": 7.5
+        }
+      ]
+    },
+    {
+      "package": "lodash",
+      "severity": "high",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "externally-mitigated",
+      "fixAvailable": {
+        "name": "@nestjs/graphql",
+        "version": "14.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-r5fr-rjxr-66jc",
+          "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+          "severity": "high",
+          "cvss": 8.1
+        },
+        {
+          "id": "GHSA-f23m-r3pf-42rh",
+          "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+          "severity": "moderate",
+          "cvss": 6.5
+        },
+        {
+          "id": "GHSA-xxjr-mmjv-4gpg",
+          "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+          "severity": "moderate",
+          "cvss": 6.5
+        }
+      ]
+    },
+    {
+      "package": "minimatch",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": true,
+      "advisories": [
+        {
+          "id": "GHSA-3ppc-4f35-3m26",
+          "title": "minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern",
+          "severity": "high",
+          "cvss": 0
+        },
+        {
+          "id": "GHSA-7r86-cg39-jmmj",
+          "title": "minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments",
+          "severity": "high",
+          "cvss": 7.5
+        },
+        {
+          "id": "GHSA-23c5-xmqv-rm74",
+          "title": "minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions",
+          "severity": "high",
+          "cvss": 7.5
+        }
+      ]
+    },
+    {
+      "package": "multer",
+      "severity": "high",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "externally-mitigated",
+      "fixAvailable": {
+        "name": "@nestjs/platform-express",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-xf7r-hgr6-v32p",
+          "title": "Multer vulnerable to Denial of Service via incomplete cleanup",
+          "severity": "high",
+          "cvss": 0
+        },
+        {
+          "id": "GHSA-v52c-386h-88mc",
+          "title": "Multer vulnerable to Denial of Service via resource exhaustion",
+          "severity": "high",
+          "cvss": 0
+        },
+        {
+          "id": "GHSA-5528-5vmv-3xc2",
+          "title": "Multer Vulnerable to Denial of Service via Uncontrolled Recursion",
+          "severity": "high",
+          "cvss": 0
+        },
+        {
+          "id": "GHSA-72gw-mp4g-v24j",
+          "title": "Multer vulnerable to Denial of Service via deeply nested field names",
+          "severity": "high",
+          "cvss": 7.5
+        },
+        {
+          "id": "GHSA-3p4h-7m6x-2hcm",
+          "title": "Multer vulnerable to Denial of Service via incomplete cleanup of aborted uploads",
+          "severity": "moderate",
+          "cvss": 5.3
+        }
+      ]
+    },
+    {
+      "package": "picomatch",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-3v7f-55p6-f55p",
+          "title": "Picomatch: Method Injection in POSIX Character Classes causes incorrect Glob Matching",
+          "severity": "moderate",
+          "cvss": 5.3
+        },
+        {
+          "id": "GHSA-c2c7-rcm5-vvqj",
+          "title": "Picomatch has a ReDoS vulnerability via extglob quantifiers",
+          "severity": "high",
+          "cvss": 7.5
+        }
+      ]
+    },
+    {
+      "package": "qs",
+      "severity": "moderate",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/platform-express",
+        "version": "12.0.1",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-q8mj-m7cp-5q26",
+          "title": "qs has a remotely triggerable DoS: qs.stringify crashes with TypeError on null/undefined entries in comma-format arrays when encodeValuesOnly is set",
+          "severity": "moderate",
+          "cvss": 5.3
+        }
+      ]
+    },
+    {
+      "package": "short-uuid",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "short-uuid",
+        "version": "6.0.3",
+        "isSemVerMajor": true
+      },
+      "advisories": []
+    },
+    {
+      "package": "tmp",
+      "severity": "high",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-52f5-9888-hmc6",
+          "title": "tmp allows arbitrary temporary file / directory write via symbolic link `dir` parameter",
+          "severity": "low",
+          "cvss": 2.5
+        },
+        {
+          "id": "GHSA-ph9p-34f9-6g65",
+          "title": "tmp has Path Traversal via unsanitized prefix/postfix that enables directory escape",
+          "severity": "high",
+          "cvss": 0
+        }
+      ]
+    },
+    {
+      "package": "uuid",
+      "severity": "moderate",
+      "direct": true,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "uuid",
+        "version": "14.0.2",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-w5hq-g745-h8pq",
+          "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+          "severity": "moderate",
+          "cvss": 7.5
+        }
+      ]
+    },
+    {
+      "package": "webpack",
+      "severity": "low",
+      "direct": false,
+      "reachability": "development-only",
+      "exploitability": "non-exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "12.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-8fgc-7cc6-rx7x",
+          "title": "webpack buildHttp: allowedUris allow-list bypass via URL userinfo (@) leading to build-time SSRF behavior",
+          "severity": "low",
+          "cvss": 3.7
+        },
+        {
+          "id": "GHSA-38r7-794h-5758",
+          "title": "webpack buildHttp HttpUriPlugin allowedUris bypass via HTTP redirects → SSRF + cache persistence",
+          "severity": "low",
+          "cvss": 3.7
+        }
+      ]
+    },
+    {
+      "package": "ws",
+      "severity": "high",
+      "direct": false,
+      "reachability": "runtime",
+      "exploitability": "exploitable",
+      "fixAvailable": {
+        "name": "@nestjs/graphql",
+        "version": "14.0.0",
+        "isSemVerMajor": true
+      },
+      "advisories": [
+        {
+          "id": "GHSA-58qx-3vcg-4xpx",
+          "title": "ws: Uninitialized memory disclosure",
+          "severity": "moderate",
+          "cvss": 4.4
+        },
+        {
+          "id": "GHSA-96hv-2xvq-fx4p",
+          "title": "ws: Memory exhaustion DoS from tiny fragments and data chunks",
+          "severity": "high",
+          "cvss": 7.5
+        }
+      ]
+    }
+  ]
+}
