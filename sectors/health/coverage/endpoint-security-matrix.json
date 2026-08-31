@@ -1,7 +1,6 @@
 {
   "generated": "2026-08-31T20:06:43.178Z",
-  "schema": "endpoint-security-registry-v1",
-  "scope": "all HTTP endpoints across src/modules/*/*.controller.ts",
+  "schema": "phase9-security-tier-v1",
   "summary": {
     "total": 95,
     "byTier": {
@@ -59,7 +58,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "telehealth",
@@ -96,7 +96,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -125,7 +126,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -159,7 +161,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -193,7 +196,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -227,7 +231,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -261,7 +266,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "supabase",
@@ -295,7 +301,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "search",
@@ -329,7 +336,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "reporting",
@@ -363,7 +371,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "reporting",
@@ -397,7 +406,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "reporting",
@@ -433,7 +443,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "radiology",
@@ -471,7 +482,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "radiology",
@@ -512,9 +524,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -557,9 +572,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -602,9 +620,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -647,9 +668,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -689,7 +713,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "pharmacy",
@@ -730,9 +755,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -775,9 +803,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -820,9 +851,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -862,7 +896,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "patients",
@@ -897,7 +932,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "patients",
@@ -935,7 +971,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "patients",
@@ -972,7 +1009,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ophthalmology",
@@ -1006,7 +1044,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ophthalmology",
@@ -1040,7 +1079,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ophthalmology",
@@ -1081,9 +1121,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1123,7 +1166,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "laboratory",
@@ -1164,9 +1208,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1206,7 +1253,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "laboratory",
@@ -1247,9 +1295,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1292,9 +1343,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1337,9 +1391,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1382,9 +1439,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -1422,7 +1482,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "integrations",
@@ -1458,7 +1519,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "integrations",
@@ -1494,7 +1556,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "integrations",
@@ -1531,7 +1594,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "health",
@@ -1554,7 +1618,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "health",
@@ -1577,7 +1642,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "health",
@@ -1600,7 +1666,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1636,7 +1703,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1672,7 +1740,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1708,7 +1777,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1744,7 +1814,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1780,7 +1851,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1816,7 +1888,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "fhir",
@@ -1852,7 +1925,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "encounters",
@@ -1890,7 +1964,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "encounters",
@@ -1928,7 +2003,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "encounters",
@@ -1968,9 +2044,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2012,9 +2091,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2057,9 +2139,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2102,9 +2187,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2140,7 +2228,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "compliance",
@@ -2174,7 +2263,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "compliance",
@@ -2210,7 +2300,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "compliance",
@@ -2246,7 +2337,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2284,7 +2376,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2324,9 +2417,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2366,7 +2462,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2406,9 +2503,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2448,7 +2548,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2488,9 +2589,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2530,7 +2634,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2570,9 +2675,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequireHcmPractitioner"
+      ],
+      "gaps": [
         "missing @RequireHcmPractitioner"
       ]
     },
@@ -2607,9 +2715,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2646,9 +2757,12 @@
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2683,9 +2797,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2720,9 +2837,12 @@
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2759,9 +2879,12 @@
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2798,9 +2921,12 @@
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "EXTERNAL_BLOCKED",
+      "status": "GAP",
       "implementableGaps": [],
       "externalBlockers": [
+        "missing @RequiresGovernance"
+      ],
+      "gaps": [
         "missing @RequiresGovernance"
       ]
     },
@@ -2831,7 +2957,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2860,7 +2987,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2889,7 +3017,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2918,7 +3047,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2947,7 +3077,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2983,7 +3114,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3008,7 +3140,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3033,7 +3166,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3062,7 +3196,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3091,7 +3226,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3120,7 +3256,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3149,7 +3286,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3178,7 +3316,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "auth",
@@ -3207,7 +3346,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "appointments",
@@ -3242,7 +3382,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "appointments",
@@ -3277,7 +3418,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "appointments",
@@ -3314,7 +3456,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "appointments",
@@ -3351,7 +3494,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ambulance",
@@ -3386,7 +3530,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ambulance",
@@ -3423,7 +3568,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ambulance",
@@ -3460,7 +3606,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     },
     {
       "controller": "ambulance",
@@ -3497,7 +3644,8 @@
       },
       "status": "PASS",
       "implementableGaps": [],
-      "externalBlockers": []
+      "externalBlockers": [],
+      "gaps": []
     }
   ]
 }
