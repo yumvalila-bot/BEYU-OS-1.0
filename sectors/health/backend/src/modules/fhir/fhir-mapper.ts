@@ -10,7 +10,11 @@ import type { FhirResourceBase, FhirResourceType, FhirBundle, FhirCoding, FhirRe
 
 export class FhirMappingError extends DomainError {
   constructor(public readonly reason: "UNMAPPED" | "INVALID_RESOURCE" | "TERMINOLOGY_BLOCKED" | "TENANT_MISMATCH", detail?: string) {
-    super(`FHIR_MAPPING_${reason}`, detail ?? `FHIR mapping failed: ${reason}`, 422);
+    const code = reason === "INVALID_RESOURCE" ? "VALIDATION"
+               : reason === "TERMINOLOGY_BLOCKED" ? "EXTERNAL_UNAVAILABLE"
+               : reason === "TENANT_MISMATCH" ? "TENANT_VIOLATION"
+               : "INVALID_STATE";
+    super(code, detail ?? `FHIR mapping failed: ${reason}`);
   }
 }
 
