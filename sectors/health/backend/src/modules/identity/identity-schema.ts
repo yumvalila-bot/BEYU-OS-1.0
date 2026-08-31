@@ -78,12 +78,39 @@ CREATE TABLE IF NOT EXISTS beyu_identity.sessions (
   status             text NOT NULL DEFAULT 'active', -- active | rotated | revoked | expired
   expires_at         timestamptz NOT NULL,
   rotated_from       uuid,
+  security_version   integer NOT NULL DEFAULT 0,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now(),
   last_used_at       timestamptz
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON beyu_identity.sessions(global_user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_refresh_hash ON beyu_identity.sessions(refresh_token_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_sv ON beyu_identity.sessions(global_user_id, security_version);
+ALTER TABLE beyu_identity.sessions ADD COLUMN IF NOT EXISTS security_version integer NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION beyu_identity.revoke_all_sessions_bump_sv(p_user_id uuid)
+RETURNS integer AS $$
+DECLARE v_new_sv integer;
+BEGIN
+  UPDATE beyu_identity.users
+     SET security_version = security_version + 1,
+         updated_at = now()
+   WHERE global_user_id = p_user_id
+   RETURNING security_version INTO v_new_sv;
+
+  UPDATE beyu_identity.sessions
+     SET status = 'revoked',
+         updated_at = now()
+   WHERE global_user_id = p_user_id
+     AND status = 'active';
+  -- Revoke outstanding CSRF tokens when health schema is present.
+  BEGIN
+    EXECUTE 'UPDATE health.csrf_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL'
+      USING p_user_id;
+  EXCEPTION WHEN undefined_table THEN NULL; END;
+  RETURN v_new_sv;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ── AUTH / SECURITY EVENTS (WHO/WHAT/WHEN/TENANT/RESULT/REASON) ──────────────
 CREATE TABLE IF NOT EXISTS beyu_identity.auth_events (

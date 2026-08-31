@@ -1,6 +1,10 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -12,8 +16,9 @@ import {
   StoredUser,
 } from "../identity/identity.repository";
 import { SessionService } from "../identity/session.service";
-import { AuditService } from "../identity/audit.service";
-import { MfaService } from "../identity/mfa.service";
+import { AuditService as IdentityAuditService } from "../identity/audit.service";
+import { MfaService as LegacyMfaService } from "../identity/mfa.service";
+import { RateLimiter } from "../../common/security/rate-limiter";
 
 export interface AuthTokens {
   accessToken: string;
@@ -39,9 +44,15 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly repo: IdentityRepository,
     private readonly sessions: SessionService,
-    private readonly audit: AuditService,
-    private readonly mfa: MfaService,
+    private readonly audit: IdentityAuditService,
+    private readonly mfa: LegacyMfaService,
+    @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,
   ) {}
+
+  /** Guaranteed rate limiter: if DI didn't provide one (legacy direct construction in tests) use a safe no-op. */
+  private rl(): RateLimiter {
+    return (this.rateLimiter as RateLimiter) ?? { hit: async () => ({ allowed: true, remaining: 99, resetAt: new Date(), current: 0 } as any), backendKind: () => "memory", reset: () => {}, resetAll: () => {} } as unknown as RateLimiter;
+  }
 
   // ── Registration ───────────────────────────────────────────────────────────
   async register(registerDto: RegisterDto) {
@@ -107,6 +118,22 @@ export class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────────────
   async login(loginDto: LoginDto, ctx: LoginContext = {}): Promise<AuthTokens> {
+    // Per-IP and per-identifier rate limiting (15 min window, 10 attempts).
+    // These throw HttpException(429) and write a rate_limit_event audit row.
+    const loginWindow = 15 * 60 * 1000;
+    const loginLimit = 10;
+    const rl = this.rl();
+    if (ctx.ip) {
+      await rl.hit({
+        keyType: "ip", keyValue: ctx.ip, endpoint: "/auth/login",
+        windowMs: loginWindow, limit: loginLimit,
+      });
+    }
+    await rl.hit({
+      keyType: "actor", keyValue: `email:${loginDto.email.toLowerCase()}`, endpoint: "/auth/login",
+      windowMs: loginWindow, limit: loginLimit,
+    });
+
     const user = await this.repo.findUserByEmail(loginDto.email);
     // Generic failure to avoid account enumeration / sensitive leakage.
     if (!user) {

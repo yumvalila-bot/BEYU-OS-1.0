@@ -7,8 +7,10 @@ import { AsyncLocalStorage } from "async_hooks";
  * this context to enforce tenant isolation and authorization.
  */
 export interface ActorContext {
-  /** Global BEYU user id (from JWT `sub`). */
+  /** Global BEYU user id (from JWT `sub`). Canonical identity. */
   userId: string;
+  /** Alias for canonical GlobalUserID — equals userId. Optional for backward compatibility with test fixtures. */
+  globalUserId?: string;
   /** Email / login identifier. */
   email: string;
   /** Canonical role id (see permissions.ts). */
@@ -19,8 +21,32 @@ export interface ActorContext {
   tenantId: string;
   /** Owning organization of the tenant. */
   organizationId?: string;
-  /** Professional licence number, when applicable. */
+  /** Canonical country code (ISO-3166 alpha-2 / repository convention). */
+  countryCode?: string | null;
+  /** Canonical owning legal-entity code, when applicable. */
+  entityCode?: string | null;
+  /** Professional licence number (do NOT fabricate; null if not yet verified). */
   licenceNumber?: string | null;
+  /** Licensing authority that issued the licence (e.g. MCT, TNMC, Pharmacy Council). */
+  licensingAuthority?: string | null;
+  /** Practitioner registry id in health.practitioners, if registered. */
+  practitionerId?: string | null;
+  /** Authorized scope of practice codes. */
+  scopeOfPractice?: string[];
+  /** Canonical facility the actor is operating at for this request. */
+  facilityId?: string | null;
+  /** Ward within facility. */
+  ward?: string | null;
+  /** Department within facility. */
+  department?: string | null;
+  /** Room / bay. */
+  room?: string | null;
+  /** Service point (e.g. triage, registration, pharmacy-dispense). */
+  servicePoint?: string | null;
+  /** IANA timezone in effect for this request (e.g. Africa/Dar_es_Salaam). */
+  timezone?: string | null;
+  /** Current session id (for audit traceability). */
+  sessionId?: string | null;
 }
 
 /**

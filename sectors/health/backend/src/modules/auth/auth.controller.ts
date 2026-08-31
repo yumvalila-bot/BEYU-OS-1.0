@@ -15,7 +15,15 @@ import { UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto, LogoutDto } from "./dto";
 import { JwtAuthGuard } from "./guards/jwt.guard";
-import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
+import {
+  CSRF_COOKIE_NAME,
+  CSRF_TOKEN_TTL_MS,
+  issueCsrfToken,
+  Public,
+  revokeCsrfTokensForSession,
+} from "../../common/security/csrf-double-submit.guard";
+import { Inject } from "@nestjs/common";
+import { DbConnection, DB_CONNECTION } from "../identity/db-connection";
 
 const REFRESH_COOKIE = "beyu_refresh";
 const REFRESH_TTL_MS = Number(process.env.JWT_REFRESH_TTL_MS ?? 604800000);
@@ -28,9 +36,13 @@ const REFRESH_TTL_MS = Number(process.env.JWT_REFRESH_TTL_MS ?? 604800000);
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    @Inject(DB_CONNECTION) private readonly db: DbConnection,
+  ) {}
 
   @Post("register")
+  @Public()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Register a new user" })
   async register(@Body() registerDto: RegisterDto) {
@@ -38,6 +50,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Login with email and password" })
   async login(
@@ -54,7 +67,7 @@ export class AuthController {
   }
 
   @Post("refresh")
-  @UseGuards(CsrfOriginGuard)
+  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Rotate refresh token (with reuse detection)" })
   async refresh(
@@ -71,7 +84,7 @@ export class AuthController {
   }
 
   @Post("restore")
-  @UseGuards(CsrfOriginGuard)
+  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Restore a session from the refresh cookie" })
   async restore(@Req() req: Request) {
@@ -90,7 +103,7 @@ export class AuthController {
   }
 
   @Post("logout")
-  @UseGuards(CsrfOriginGuard)
+  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Logout (revoke the session and clear cookie)" })
   async logout(
@@ -143,5 +156,32 @@ export class AuthController {
       path: "/",
       maxAge: Math.floor(REFRESH_TTL_MS / 1000),
     };
+  }
+
+  /**
+   * Issue (or rotate) a CSRF double-submit token bound to the authenticated
+   * user/session/tenant and set it as __Host-csrf cookie. SameSite=Strict
+   * because the cookie must only ever travel on same-site navigations.
+   */
+  @Get("csrf-token")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Issue a fresh CSRF double-submit token" })
+  async csrfToken(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    if (!req.user) throw new UnauthorizedException("NO_ACTOR");
+    const { token } = await issueCsrfToken(this.db, {
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      sessionId: req.user.sessionId ?? req.user.jti ?? req.user.userId,
+      boundIp: req.ip,
+    });
+    const secure = process.env.NODE_ENV === "production";
+    res.cookie(CSRF_COOKIE_NAME, token, {
+      httpOnly: false, // client JS MUST read the cookie to echo back in X-CSRF-Token
+      secure,
+      sameSite: "strict" as const,
+      path: "/",
+      maxAge: Math.floor(CSRF_TOKEN_TTL_MS / 1000),
+    });
+    return { csrfToken: token, ttlMs: CSRF_TOKEN_TTL_MS };
   }
 }

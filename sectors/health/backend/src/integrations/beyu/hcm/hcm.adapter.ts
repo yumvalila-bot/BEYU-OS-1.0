@@ -1,0 +1,165 @@
+/**
+ * HCM (Workforce) adapter — canonical source of practitioner/licence truth.
+ *
+ * Health OS must NEVER fabricate professional licences or promote an
+ * unverified/expired/suspended/revoked licence through clinical
+ * authorization gates. When HCM is unavailable (EXTERNAL-BLOCKED), the
+ * adapter returns a conservative record with licenceState="blocked" or
+ * "external_verification_required" so downstream guards fail closed.
+ */
+import { Injectable, Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import { TenantContext } from "../../../common/security/tenant-context";
+import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
+import type {
+  HcmPractitionerQuery,
+  HcmPractitionerRecord,
+  PractitionerLicenceState,
+} from "../contracts/shared.types";
+
+@Injectable()
+export class HcmAdapter extends BeyuBaseAdapter {
+  protected readonly config = {
+    provider: "beyu.hcm",
+    endpointEnv: "BEYU_HCM_ENDPOINT",
+    credentialEnvs: ["BEYU_HCM_TOKEN"],
+    requiredForBoot: false,
+    defaultTimeoutMs: 3000,
+    maxRetries: 1,
+    baseBackoffMs: 200,
+  };
+
+  constructor(
+    @Inject(DB_CONNECTION) db: DbConnection,
+    tenantCtx: TenantContext,
+    circuit: CircuitBreaker,
+    cfg: ConfigService,
+  ) { super(db, tenantCtx, circuit, cfg); }
+
+  async lookupPractitioner(q: HcmPractitionerQuery): Promise<HcmPractitionerRecord> {
+    await this.auditQuery("hcm.practitioner.lookup", q);
+    if (this.getState() === "NOT_CONFIGURED") {
+      return this.localFallback(q);
+    }
+    return this.localFallback(q, { externalVerificationRequired: true });
+  }
+
+  async authorizeClinicalActor(opts: {
+    action: string;
+    facilityId: string | null;
+    requiredScope?: string[];
+  }): Promise<{ authorized: boolean; reason: string | null; record: HcmPractitionerRecord }> {
+    const actor = this.currentActor();
+    const rec = await this.lookupPractitioner({
+      actor,
+      propagation: this.propagation(),
+      globalUserId: actor.globalUserId,
+      practitionerId: actor.practitionerId,
+      licenceNumber: actor.licenceNumber,
+    });
+
+    if (rec.externalVerificationRequired && this.highRiskAction(opts.action)) {
+      return { authorized: false, reason: "HCM_EXTERNAL_VERIFICATION_REQUIRED", record: rec };
+    }
+    if (rec.licenceState !== "verified") {
+      return { authorized: false, reason: `HCM_LICENCE_${rec.licenceState.toUpperCase()}`, record: rec };
+    }
+    if (rec.employmentStatus !== "active") {
+      return { authorized: false, reason: `HCM_EMPLOYMENT_${rec.employmentStatus.toUpperCase()}`, record: rec };
+    }
+    if (opts.facilityId && rec.facilityIds.length && !rec.facilityIds.includes(opts.facilityId)) {
+      return { authorized: false, reason: "HCM_FACILITY_CROSSOVER", record: rec };
+    }
+    if (opts.requiredScope && opts.requiredScope.length) {
+      const ok = opts.requiredScope.every((s) => rec.scopeOfPractice.includes(s));
+      if (!ok) return { authorized: false, reason: "HCM_SCOPE_INSUFFICIENT", record: rec };
+    }
+    return { authorized: true, reason: null, record: rec };
+  }
+
+  /* -------- local fallback -------- */
+
+  private async localFallback(
+    q: HcmPractitionerQuery,
+    flags: { externalVerificationRequired?: boolean } = {},
+  ): Promise<HcmPractitionerRecord> {
+    const rows = await this.db.query<any>(
+      `SELECT practitioner_id, global_user_id, license_number, licensing_authority,
+              license_status, scope_of_practice, cadre, department,
+              facility_ids, employment_status, cpd_status,
+              supervisor_global_user_id, employment_start, employment_end
+         FROM health.practitioners
+        WHERE ($1::uuid IS NULL OR global_user_id = $1::uuid)
+          AND ($2::text IS NULL OR practitioner_id::text = $2)
+          AND ($3::text IS NULL OR license_number = $3)
+        LIMIT 1`,
+      [q.globalUserId ?? null, q.practitionerId ?? null, q.licenceNumber ?? null],
+    );
+    const r = rows[0];
+    // Map license_status to PractitionerLicenceState (existing values:
+    // unverified | verified_pending | verified | expired | suspended |
+    // revoked | external_verification_required).
+    let licenceState: PractitionerLicenceState = (r?.license_status as PractitionerLicenceState)
+      ?? "blocked";
+    if (r && r.license_status === "verified_pending") licenceState = "unverified";
+    // When no record found and the caller did not provide a licence number,
+    // we cannot assume licensure -> blocked.
+    if (!r && !q.licenceNumber) licenceState = "blocked";
+    else if (!r && q.licenceNumber) licenceState = "external_verification_required";
+
+    return {
+      globalUserId: r?.global_user_id ?? q.globalUserId ?? null,
+      practitionerId: r?.practitioner_id ?? q.practitionerId ?? null,
+      employmentStatus: (r?.employment_status as any) ?? "unknown",
+      facilityIds: Array.isArray(r?.facility_ids) ? r.facility_ids : [],
+      department: r?.department ?? null,
+      ward: null,
+      role: r?.cadre ?? q.actor.role ?? null,
+      professionalCategory: r?.cadre ?? null,
+      licenceNumber: r?.license_number ?? q.licenceNumber ?? null,
+      licensingAuthority: r?.licensing_authority ?? null,
+      licenceState,
+      scopeOfPractice: Array.isArray(r?.scope_of_practice) ? r.scope_of_practice : [],
+      credentialStatus: r?.license_status === "verified" ? "verified" : "unverified",
+      cpdStatus: (r?.cpd_status as any) ?? "unknown",
+      supervisorGlobalUserId: r?.supervisor_global_user_id ?? null,
+      employmentStart: r?.employment_start ? new Date(r.employment_start).toISOString() : null,
+      employmentEnd: r?.employment_end ? new Date(r.employment_end).toISOString() : null,
+      externalVerificationRequired: flags.externalVerificationRequired === true
+        || licenceState === "external_verification_required",
+    };
+  }
+
+  private highRiskAction(action: string): boolean {
+    return /^pharmacy\.dispense\.controlled|lab\.critical_result|radiology\.critical|prescription\.controlled|surgery|anesthesia|governance\.override|legal_hold|billing\.finalize/i
+      .test(action);
+  }
+
+  private async auditQuery(op: string, q: HcmPractitionerQuery): Promise<void> {
+    try {
+      await this.db.query(
+        `INSERT INTO health.audit_events
+            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
+             correlation_id, auth_decision, result_status, source_service)
+         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
+                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
+                 $3,'hcm',NULL,$4::jsonb,$5,'pending','ok','health-api')`,
+        [
+          q.actor.tenantId as any,
+          q.actor.globalUserId as any,
+          op,
+          JSON.stringify({
+            requestedGlobalUserId: q.globalUserId,
+            requestedPractitionerId: q.practitionerId,
+            requestedLicence: q.licenceNumber ? "__REDACTED__" : null,
+          }),
+          q.propagation.correlationId,
+        ],
+      );
+    } catch {
+      // ignore
+    }
+  }
+}

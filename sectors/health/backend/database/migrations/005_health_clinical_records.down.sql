@@ -1,0 +1,14 @@
+BEGIN;
+DROP POLICY IF EXISTS health_problems_isolation     ON health.problems;
+DROP POLICY IF EXISTS health_observations_isolation ON health.observations;
+DROP POLICY IF EXISTS health_medications_isolation  ON health.medications;
+DROP POLICY IF EXISTS health_allergies_isolation    ON health.allergies;
+DROP TRIGGER IF EXISTS trg_problems_updated_at      ON health.problems;
+DROP TRIGGER IF EXISTS trg_observations_updated_at  ON health.observations;
+DROP TRIGGER IF EXISTS trg_meds_updated_at          ON health.medications;
+DROP TRIGGER IF EXISTS trg_allergies_updated_at     ON health.allergies;
+DROP TABLE IF EXISTS health.allergies;
+DROP TABLE IF EXISTS health.medications;
+DROP TABLE IF EXISTS health.observations;
+DROP TABLE IF EXISTS health.problems;
+COMMIT;

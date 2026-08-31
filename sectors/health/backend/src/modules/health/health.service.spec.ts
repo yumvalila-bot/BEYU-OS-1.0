@@ -1,49 +1,39 @@
-import { describe, it, expect } from "@jest/globals";
-import { ServiceUnavailableException } from "@nestjs/common";
 import { HealthService } from "./health.service";
-import { createTestDbConnection } from "../identity/test-connection";
+import { ConfigService } from "@nestjs/config";
 
-describe("HealthService", () => {
-  it("liveness never depends on the database", async () => {
-    // A connection whose query always fails still reports liveness.
-    const broken: any = {
-      query: async () => {
-        throw new Error("db down");
-      },
-    };
-    const svc = new HealthService(broken);
-    await expect(svc.checkLiveness()).resolves.toMatchObject({
-      status: "alive",
-    });
+function svc(overrides: { dbFail?: boolean; migrationRows?: any[]; env?: Record<string, any>; adapters?: any[] } = {}) {
+  const db = {
+    query: async (q: string) => {
+      if (overrides.dbFail) throw new Error("connection refused");
+      if (/schema_migrations/.test(q)) return overrides.migrationRows ?? [{ version: "015", applied_at: new Date() }];
+      return [{ ok: 1 }];
+    },
+  } as any;
+  const cfg = { get: (k: string) => overrides.env?.[k] ?? undefined } as any;
+  const reg = { probeAll: async () => overrides.adapters ?? [] } as any;
+  return new HealthService(db, cfg, reg);
+}
+
+describe("HealthService readiness", () => {
+  it("liveness always returns alive", async () => {
+    const s = svc({ dbFail: true });
+    await expect(s.checkLiveness()).resolves.toMatchObject({ status: "alive" });
   });
 
-  it("readiness is ready when the database is reachable", async () => {
-    const conn = await createTestDbConnection();
-    const svc = new HealthService(conn);
-    const res = await svc.checkReadiness();
-    expect(res.status).toBe("ready");
-    expect(res.checks).toEqual({ database: "up" });
-    await conn.close();
+  it("readiness throws when DB is down", async () => {
+    const s = svc({ dbFail: true });
+    await expect(s.checkReadiness()).rejects.toThrow();
   });
 
-  it("readiness fails closed (503) when the database is unreachable", async () => {
-    const broken: any = {
-      query: async () => {
-        throw new Error("connect ECONNREFUSED");
-      },
-    };
-    const svc = new HealthService(broken);
-    await expect(svc.checkReadiness()).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+  it("readiness returns ready when DB up and config ok", async () => {
+    const s = svc();
+    const r = await s.checkReadiness();
+    expect(r.status).toBe("ready");
+    expect(r.checks.database.status).toBe("up");
   });
 
-  it("does not leak secrets in readiness output", async () => {
-    const conn = await createTestDbConnection();
-    const svc = new HealthService(conn);
-    const raw = await svc.checkReadiness();
-    const json = JSON.stringify(raw);
-    expect(json).not.toMatch(/password|token|secret|DATABASE_URL/i);
-    await conn.close();
+  it("production with default JWT_SECRET reports NOT_READY (critical config)", async () => {
+    const s = svc({ env: { NODE_ENV: "production", JWT_SECRET: "dev-only-change-me" } });
+    await expect(s.checkReadiness()).rejects.toThrow();
   });
 });

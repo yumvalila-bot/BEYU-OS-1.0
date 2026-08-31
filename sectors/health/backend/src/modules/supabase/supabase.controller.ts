@@ -16,6 +16,7 @@ import { SupabaseService, ProxyActor } from "./supabase.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { TenantScopeGuard } from "../../common/security/tenant-scope.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { CheckLegalHold } from "../../common/security/legal-hold.guard";
 
 /**
  * Authenticated, tenant-scoped data proxy. Every route requires a valid BEYU
@@ -91,6 +92,7 @@ export class SupabaseController {
 
   @Put(":table/:id")
   @RequirePermission("phi:write")
+  @CheckLegalHold({ paramKey: "table" })
   @ApiOperation({ summary: "Update a row (authenticated, tenant-scoped)" })
   async updateRow(
     @Req() req: Request,
@@ -103,6 +105,7 @@ export class SupabaseController {
 
   @Delete(":table/:id")
   @RequirePermission("phi:write")
+  @CheckLegalHold({ paramKey: "table" })
   @ApiOperation({ summary: "Delete a row (authenticated, tenant-scoped)" })
   async deleteRow(
     @Req() req: Request,

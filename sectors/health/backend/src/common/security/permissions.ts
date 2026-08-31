@@ -28,6 +28,8 @@ export type Permission =
   | "note:write"
   | "note:sign"
   | "discharge:approve"
+  | "dialysis:treat"
+  | "optical:dispense"
   // Finance
   | "billing:read"
   | "billing:write"
@@ -54,9 +56,20 @@ export type Permission =
   | "contract:anchor"
   | "board:vote"
   | "trustee:veto"
+  // Appointments / scheduling
+  | "appointment:read"
+  | "appointment:book"
+  | "appointment:transition"
+  | "appointment:cancel"
+  // Encounters
+  | "encounter:start"
+  | "encounter:complete"
   // Public Health
   | "ph:surveillance"
   | "ph:outbreak-declare"
+  // Reporting
+  | "report:read"
+  | "report:submit"
   // Break-glass
   | "breakglass:request"
   | "breakglass:approve";
@@ -77,6 +90,7 @@ export type RoleId =
   | "pharmacy-chief"
   | "lab"
   | "radiology"
+  | "front_desk"
   | "admin"
   | "hr-director"
   | "finance"
@@ -179,6 +193,10 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "order:imaging",
       "order:procedure",
       "discharge:approve",
+      "appointment:read",
+      "appointment:transition",
+      "encounter:start",
+      "encounter:complete",
       "ai:override",
       "ai:configure",
       "audit:read",
@@ -202,9 +220,14 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "note:write",
       "note:sign",
       "discharge:approve",
+      "appointment:read",
+      "appointment:transition",
+      "encounter:start",
+      "encounter:complete",
       "ai:override",
       "breakglass:request",
       "tenant:switch",
+      "report:read",
     ],
   },
   {
@@ -219,6 +242,10 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "phi:write",
       "note:write",
       "rx:dispense",
+      "appointment:read",
+      "appointment:transition",
+      "encounter:start",
+      "encounter:complete",
       "breakglass:request",
     ],
   },
@@ -282,12 +309,33 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     ],
   },
   {
+    id: "front_desk",
+    label: "Front Desk / Reception",
+    cadre: "Operations",
+    description:
+      "Patient registration, appointment booking, check-in, and billing initiation. No direct PHI write beyond demographics.",
+    permissions: [
+      "patient:read",
+      "patient:register",
+      "appointment:read",
+      "appointment:book",
+      "appointment:transition",
+      "appointment:cancel",
+      "billing:read",
+      "payment:receive",
+    ],
+  },
+  {
     id: "admin",
     label: "Hospital Administrator",
     cadre: "Operations",
     description: "Tenant operations. No direct PHI access.",
     permissions: [
       "patient:register",
+      "appointment:read",
+      "appointment:book",
+      "appointment:transition",
+      "appointment:cancel",
       "hr:read",
       "billing:read",
       "audit:read",
@@ -371,7 +419,7 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     label: "MoH Government Official",
     cadre: "External",
     description: "Aggregate population health + de-identified data.",
-    permissions: ["ph:surveillance", "ph:outbreak-declare", "audit:read"],
+    permissions: ["ph:surveillance", "ph:outbreak-declare", "audit:read", "report:read", "report:submit"],
   },
 ];
 

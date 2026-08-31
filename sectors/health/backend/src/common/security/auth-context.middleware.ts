@@ -126,10 +126,12 @@ export class AuthContextMiddleware implements NestMiddleware {
 
     const actor: ActorContext = {
       userId: user.global_user_id,
+      globalUserId: user.global_user_id,
       email: user.email,
       role,
       permissions: permissions as string[],
       tenantId: tenantId ?? "default",
+      timezone: req.headers["x-timezone"] as string | undefined ?? "Africa/Dar_es_Salaam",
     };
     // Scope the actor to this request's async chain; cleared when next() completes.
     this.tenantContext.run(actor, () => next());
