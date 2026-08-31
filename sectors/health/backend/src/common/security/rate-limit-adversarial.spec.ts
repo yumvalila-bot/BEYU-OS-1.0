@@ -18,7 +18,7 @@ describe("Rate limiter — deterministic + fail-closed", () => {
   it("policy registry returns conservative defaults", () => {
     expect(policyFor("POST", "/api/auth/login").limit).toBe(10);
     expect(policyFor("GET", "/api/patients/x").limit).toBe(600);
-    expect(policyFor("POST", "/api/pharmacy/dispense").limit).toBe(200);
+    expect(policyFor("POST", "/api/pharmacy/dispense").limit).toBe(60); // prescription_write
   });
 
   it("in-memory limiter enforces limit and 429s past it", async () => {
