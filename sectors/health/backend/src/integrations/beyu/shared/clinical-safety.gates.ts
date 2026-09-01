@@ -141,6 +141,31 @@ export class ClinicalSafetyGates {
     return allow();
   }
 
+  /**
+   * General clinical-documentation gate (patient registration, appointment
+   * booking, encounter open/close, problem/observation/allergy/medication
+   * documentation, ambulance request, ambulance status transitions).
+   *
+   * These are documentation/scheduling actions — not direct medication
+   * dispensing, lab release, radiology verification, optical dispensing,
+   * or dialysis treatment. They still require HCM practitioner identity for
+   * writes, but do not trigger dual-control, water-quality, or controlled-
+   * substance checks.
+   */
+  async generalClinicalWrite(input: SafetyGateInput & {
+    patientIdentityConfirmed?: boolean;
+    requiredScope?: string[];
+  }): Promise<SafetyGateResult> {
+    const hcmRes = await this.hcm.authorizeClinicalActor({
+      action: input.action,
+      facilityId: input.facilityId,
+      requiredScope: input.requiredScope ?? ["clinical:write"],
+    });
+    if (!hcmRes.authorized) return deny("HCM", hcmRes.reason ?? "HCM_DENIED");
+    if (input.patientIdentityConfirmed === false) return deny("PATIENT", "PATIENT_IDENTITY_UNCONFIRMED");
+    return allow();
+  }
+
   private current(): CanonicalActorContext {
     const a = this.tenantCtx.current();
     if (!a) throw new Error("NO_ACTOR");

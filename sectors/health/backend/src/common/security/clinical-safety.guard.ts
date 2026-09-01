@@ -26,7 +26,9 @@ export const CLINICAL_SAFETY_DOMAIN_KEY = "clinicalsafety:domain";
 export const RequiresClinicalSafety = (domain: ClinicalDomain) =>
   SetMetadata(CLINICAL_SAFETY_DOMAIN_KEY, domain);
 
-export type ClinicalDomain = "pharmacy" | "lab" | "radiology" | "ophthalmology" | "dialysis";
+export type ClinicalDomain =
+  | "pharmacy" | "lab" | "radiology" | "ophthalmology" | "dialysis"
+  | "general";
 
 @Injectable()
 export class ClinicalSafetyGuard implements CanActivate {
@@ -108,6 +110,16 @@ export class ClinicalSafetyGuard implements CanActivate {
           treatmentParamsValid: body.treatmentParamsValid !== false,
           adverseEventOpen: Boolean(body.adverseEvent && !body.adverseEventDocumented),
           consented: Boolean(body.consentObtained ?? body.consented),
+        });
+        break;
+      case "general":
+        result = await this.gates.generalClinicalWrite({
+          ...gateInput("clinical_doc"),
+          patientIdentityConfirmed:
+            body.patientIdentityConfirmed !== false
+            && body.patientMatched !== false
+            && body.identityConfirmed !== false,
+          requiredScope: body.requiredScope ?? ["clinical:write"],
         });
         break;
       default:

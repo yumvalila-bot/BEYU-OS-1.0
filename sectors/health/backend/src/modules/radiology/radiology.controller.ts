@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
 import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
+import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-authorization.guard";
 
 @ApiTags("radiology")
 @ApiBearerAuth("access-token")
@@ -18,9 +19,9 @@ export class RadiologyController {
   create(@Body() d: any) { return this.svc.createOrder(d); }
   @Post("orders/:id/transition") @RequirePermission("order:imaging")
   transition(@Param("id") id: string, @Body("to") to: string) { return this.svc.transition(id, to); }
-  @Post("reports") @RequirePermission("phi:write")
+  @Post("reports") @RequirePermission("phi:write") @RequireHcmPractitioner("radiology.report.add", { scope: ["radiology:report"] }) @RequiresClinicalSafety("general")
   report(@Body() d: any) { return this.svc.addReport(d); }
-  @Post("reports/:id/verify") @RequirePermission("note:sign") @RequiresClinicalSafety("radiology")
+  @Post("reports/:id/verify") @RequirePermission("note:sign") @RequiresClinicalSafety("radiology") @RequireHcmPractitioner("radiology.report.verify", { scope: ["radiology:verify", "note:sign"] })
   verify(
     @Param("id") id: string,
     @Body() d: {

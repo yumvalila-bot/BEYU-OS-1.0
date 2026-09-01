@@ -5,6 +5,8 @@ import { CreatePatientDto } from "./dto/create-patient.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
+import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-authorization.guard";
+import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
 
 @ApiTags("patients")
 @ApiBearerAuth("access-token")
@@ -37,6 +39,8 @@ export class PatientsController {
 
   @Post()
   @RequirePermission("patient:register")
+  @RequireHcmPractitioner("patient.register", { scope: ["patient:register"] })
+  @RequiresClinicalSafety("general")
   @ApiOperation({ summary: "Register a new patient" })
   create(@Body() dto: CreatePatientDto) {
     return this.service.create(dto);

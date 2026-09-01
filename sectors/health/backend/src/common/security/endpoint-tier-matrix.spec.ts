@@ -203,18 +203,9 @@ describe("Endpoint security tier matrix (Phase 9 §3)", () => {
     }
   });
 
-  it("high-risk FINANCIAL/ADMINISTRATIVE/AI_HIGH_RISK/EXTERNAL_INTEGRATION writes surface GAPs honestly (CI records them; no silent PASS)", () => {
-    const risky = rows.filter((r) =>
-      ["FINANCIAL","ADMINISTRATIVE","AI_HIGH_RISK","EXTERNAL_INTEGRATION"].includes(r.classification.tier)
-      && r.classification.opClass === "WRITE",
-    );
-    expect(risky.length).toBeGreaterThan(0);
-    // We assert that each risky endpoint is either PASS or honestly GAP — never
-    // silently waives. Gaps are enumerated in coverage JSON and reflect real
-    // work items, not ignored failures.
-    for (const r of risky) {
-      expect(["PASS","GAP"]).toContain(r.status);
-    }
+  it("CI-fail: every endpoint is PASS (zero GAPs across all 95 routes)", () => {
+    const gaps = rows.filter((r) => r.status === "GAP");
+    expect(gaps.map((r) => `${r.classification.tier} ${r.method} ${r.path} — ${r.controlGaps.join("; ")}`)).toEqual([]);
   });
 
   it("matrix is written to coverage/endpoint-security-matrix.json", () => {

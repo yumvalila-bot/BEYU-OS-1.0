@@ -11,6 +11,9 @@ import {
 import { JwtAuthGuard } from "./guards/jwt.guard";
 import { MfaService } from "./mfa.service";
 import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
+import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequiresMfaStepUp } from "../../common/security/mfa-stepup.guard";
+import { RequiresGovernance } from "../../integrations/beyu/guards/governance-authorization.guard";
 
 /**
  * MFA HTTP controller. Implements enrollment, activation, challenge,
@@ -93,6 +96,9 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("admin/reset")
+  @RequirePermission("mfa.admin_reset")
+  @RequiresMfaStepUp("mfa.admin_reset")
+  @RequiresGovernance("mfa.admin_reset", "high")
   @HttpCode(HttpStatus.NO_CONTENT)
   async adminReset(
     @Req() req: any,

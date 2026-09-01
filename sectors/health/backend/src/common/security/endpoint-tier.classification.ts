@@ -163,10 +163,24 @@ export function classifyEndpoint(
     });
   }
 
-  // CLINICAL: patients/encounters/clinical/pharmacy/lab/radiology/optical/dialysis/
-  // appointments/ambulance/telehealth/consent/incidents/records/observations/
-  // problems/allergies/medications/prescriptions
-  if (/patient|encounter|clinical|pharmacy|rx|medication|prescription|dispens|lab|radiolog|imaging|ophthal|optical|optometr|dialys|appointment|ambulance|telehealth|consent|incident|records|observ|problem|allergy|vital|diagnos|procedure|note|sign/i.test(p)) {
+  // CLINICAL: patients/encounters/clinical/pharmacy/radiology/optical/dialysis/
+  // ambulance dispatch/telehealth clinical/consent/incidents/records/observations/
+  // problems/allergies/medications/prescriptions/dispense/verify/release
+  //
+  // Excluded from CLINICAL tier (classified as PRIVILEGED or other instead):
+  //   - /billing|payment|invoice|claim|nhif           → FINANCIAL (handled above)
+  //   - /appointments                                → PRIVILEGED (scheduling — clerical workflow, no HCM gate required to *book*)
+  //   - /telehealth/sessions (create/transition)     → PRIVILEGED (session orchestration, not clinical documentation)
+  //   - /ambulance/vehicles                          → ADMINISTRATIVE (fleet admin)
+  //   - /pharmacy/items, /pharmacy/stock             → PRIVILEGED (inventory management)
+  //   - /lab/tests                                   → PRIVILEGED (catalog management)
+  //   - /imaging/orders (create/transition)          → PRIVILEGED (order entry can be clerical; report/verify is CLINICAL)
+  //   - /eye-exams (create = intake)                 → PRIVILEGED (sign is CLINICAL)
+  //   - /lab/orders create/transition                → PRIVILEGED (order entry)
+  //   - /lab/results/:itemId (enter without verify)  → CLINICAL (results are PHI-bearing)
+  if (/\/(encounter|clinical|pharmacy\/dispense|patients|records|consent|incident|observ|problem|allergy|vital|diagnos|procedure|note|sign|ambulance\/requests|dialysis\/sessions|lab\/results|imaging\/reports|eye-exams\/:id\/sign)/i.test(p)
+      // Pharmacy dispense already matches; include dispense/rx prescribe endpoints
+      || /\/rx|dispens|prescription|medication[^/]*$/.test(p) && verb !== "GET" && !/stock|items/.test(p)) {
     return tier("CLINICAL", verb, path, controller, opClass, requiredPermissions, {
       practitioner: true,
       professionalLicence: opClass !== "READ",
