@@ -5,6 +5,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
 import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
+import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-authorization.guard";
 
 @ApiTags("laboratory")
 @ApiBearerAuth("access-token")
@@ -18,9 +19,9 @@ export class LaboratoryController {
   @Post("orders") @RequirePermission("order:lab") @RequiresClinicalSafety("lab") createOrder(@Body() d: any) { return this.svc.createOrder(d); }
   @Post("orders/:id/transition") @RequirePermission("order:lab") @RequiresClinicalSafety("lab")
   transition(@Param("id") id: string, @Body("to") to: string) { return this.svc.transition(id, to); }
-  @Post("results/:itemId") @RequirePermission("phi:write") @RequiresClinicalSafety("lab")
+  @Post("results/:itemId") @RequirePermission("phi:write") @RequireHcmPractitioner("lab.result.enter", { scope: ["lab:result"] }) @RequiresClinicalSafety("general")
   enterResult(@Param("itemId") id: string, @Body() d: any) { return this.svc.enterResult(id, d); }
-  @Post("results/:itemId/verify") @RequirePermission("order:lab") @RequiresClinicalSafety("lab")
+  @Post("results/:itemId/verify") @RequirePermission("order:lab") @RequiresClinicalSafety("lab") @RequireHcmPractitioner("lab.result.verify", { scope: ["lab:verify", "order:lab"] })
   verify(
     @Param("itemId") id: string,
     @Body() d: {

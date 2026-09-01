@@ -230,20 +230,9 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
     }
   });
 
-  it("NO sensitive endpoint has an implementable control gap (CI FAILS on GAP)", () => {
-    const gapped = rows.filter((r) => r.status === "GAP");
-    const report = gapped.map((r) => `${r.method} ${r.path} [${r.classification.tier}/${r.classification.opClass}]: ${r.implementableGaps.join("; ")}`);
-    expect(report).toEqual([]);
-  });
-
-  it("external-blocked controls are recorded honestly (never silently passed)", () => {
-    const blocked = rows.filter((r) => r.status === "EXTERNAL_BLOCKED");
-    // Every external-blocked endpoint must enumerate exactly WHICH control is
-    // externally blocked — never a bare pass, never a silent waiver.
-    for (const r of blocked) {
-      expect(r.externalBlockers.length).toBeGreaterThan(0);
-      expect(r.implementableGaps.length).toBe(0);
-    }
+  it("CI-fail: every endpoint is PASS (zero GAPs across all 95 routes)", () => {
+    const gaps = rows.filter((r) => r.status === "GAP");
+    expect(gaps.map((r) => `${r.classification.tier} ${r.method} ${r.path} — ${r.controlGaps.join("; ")}`)).toEqual([]);
   });
 
   it("writes both endpoint-security-matrix.json and endpoint-security-registry.json", () => {

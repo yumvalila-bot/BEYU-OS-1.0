@@ -125,8 +125,10 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     { provide: APP_GUARD, useClass: CsrfDoubleSubmitGuard },
     { provide: APP_GUARD, useClass: MfaStepUpGuard },
     { provide: APP_GUARD, useClass: ClinicalSafetyGuard },
+    { provide: APP_GUARD, useClass: HcmAuthorizationGuard },
     { provide: APP_GUARD, useClass: LegalHoldGuard },
     { provide: APP_GUARD, useClass: ConsentGuard },
+    { provide: APP_GUARD, useClass: GovernanceAuthorizationGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })

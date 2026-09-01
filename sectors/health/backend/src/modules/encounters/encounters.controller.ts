@@ -6,6 +6,8 @@ import { CompleteEncounterDto } from "./dto/complete-encounter.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { PermissionsGuard } from "../../common/security/permissions.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
+import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-authorization.guard";
+import { RequiresClinicalSafety } from "../../common/security/clinical-safety.guard";
 
 @ApiTags("encounters")
 @ApiBearerAuth("access-token")
@@ -29,6 +31,8 @@ export class EncountersController {
 
   @Post()
   @RequirePermission("encounter:start")
+  @RequireHcmPractitioner("encounter.start", { scope: ["encounter:start", "clinical:write"] })
+  @RequiresClinicalSafety("general")
   @ApiOperation({ summary: "Start a clinical encounter" })
   start(@Body() dto: StartEncounterDto) {
     return this.service.start(dto);
@@ -36,6 +40,8 @@ export class EncountersController {
 
   @Post(":id/complete")
   @RequirePermission("encounter:complete")
+  @RequireHcmPractitioner("encounter.complete", { scope: ["encounter:complete", "clinical:write"] })
+  @RequiresClinicalSafety("general")
   @ApiOperation({ summary: "Complete an encounter with a disposition" })
   complete(@Param("id") id: string, @Body() dto: CompleteEncounterDto) {
     return this.service.complete(id, dto.disposition, dto.present_illness);

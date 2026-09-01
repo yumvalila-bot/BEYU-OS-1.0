@@ -6,6 +6,7 @@
  *   - routes with @RequiresConsent deny (403) when ConsentService.assert returns false
  *   - routes with @RequiresConsent proceed (200) when consent asserted
  *   - missing patient id returns CONSENT_PATIENT_REQUIRED (422)
+ *   - custom patientIdParam resolves from query string
  */
 import { Test, TestingModule } from "@nestjs/testing";
 import { ExecutionContext, ForbiddenException, UnprocessableEntityException } from "@nestjs/common";

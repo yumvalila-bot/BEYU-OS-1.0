@@ -1,11 +1,11 @@
 {
-  "generated": "2026-08-31T20:06:43.178Z",
+  "generated": "2026-09-01T02:41:01.894Z",
   "schema": "phase9-security-tier-v1",
   "summary": {
     "total": 95,
     "byTier": {
-      "CLINICAL": 45,
-      "PRIVILEGED": 17,
+      "PRIVILEGED": 36,
+      "CLINICAL": 26,
       "EXTERNAL_INTEGRATION": 11,
       "PUBLIC": 5,
       "FINANCIAL": 6,
@@ -18,8 +18,7 @@
       "DESTRUCTIVE": 1
     },
     "byStatus": {
-      "PASS": 68,
-      "EXTERNAL_BLOCKED": 27
+      "PASS": 95
     }
   },
   "endpoints": [
@@ -28,7 +27,7 @@
       "file": "src/modules/telehealth/telehealth.controller.ts",
       "method": "POST",
       "path": "/api/telehealth/sessions",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -40,10 +39,7 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -52,13 +48,11 @@
           "appointment:book"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -66,7 +60,7 @@
       "file": "src/modules/telehealth/telehealth.controller.ts",
       "method": "POST",
       "path": "/api/telehealth/sessions/:id/transition",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -78,10 +72,7 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -90,13 +81,11 @@
           "appointment:transition"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -125,8 +114,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -160,8 +147,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -195,8 +180,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -230,8 +213,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -265,8 +246,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -300,8 +279,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -335,8 +312,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -370,8 +345,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -405,8 +378,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -442,8 +413,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -451,7 +420,7 @@
       "file": "src/modules/radiology/radiology.controller.ts",
       "method": "GET",
       "path": "/api/imaging",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -462,11 +431,7 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "facility": true,
-        "scopeOfPractice": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -481,8 +446,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -490,7 +453,7 @@
       "file": "src/modules/radiology/radiology.controller.ts",
       "method": "POST",
       "path": "/api/imaging/orders",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -501,17 +464,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -522,23 +476,17 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "radiology",
       "file": "src/modules/radiology/radiology.controller.ts",
       "method": "POST",
       "path": "/api/imaging/orders/:id/transition",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -549,17 +497,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -570,16 +509,10 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "radiology",
@@ -616,18 +549,12 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "radiology",
@@ -664,25 +591,19 @@
           "note:sign"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "pharmacy",
       "file": "src/modules/pharmacy/pharmacy.controller.ts",
       "method": "GET",
       "path": "/api/pharmacy/items",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -693,11 +614,7 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "facility": true,
-        "scopeOfPractice": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -712,8 +629,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -721,7 +636,7 @@
       "file": "src/modules/pharmacy/pharmacy.controller.ts",
       "method": "POST",
       "path": "/api/pharmacy/items",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -732,17 +647,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -753,23 +659,17 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "pharmacy",
       "file": "src/modules/pharmacy/pharmacy.controller.ts",
       "method": "POST",
       "path": "/api/pharmacy/stock/receive",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -780,17 +680,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -801,16 +692,10 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "pharmacy",
@@ -847,18 +732,12 @@
           "rx:dispense"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "pharmacy",
@@ -895,8 +774,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -915,6 +792,9 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
         "csrf": true,
         "legalHold": true,
         "audit": true
@@ -931,8 +811,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -970,8 +848,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -990,7 +866,13 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -1003,13 +885,11 @@
           "patient:register"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1043,8 +923,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1075,11 +953,9 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1117,25 +993,19 @@
           "note:sign"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "laboratory",
       "file": "src/modules/laboratory/laboratory.controller.ts",
       "method": "GET",
       "path": "/api/lab/tests",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -1146,11 +1016,7 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "facility": true,
-        "scopeOfPractice": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -1165,8 +1031,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1174,7 +1038,7 @@
       "file": "src/modules/laboratory/laboratory.controller.ts",
       "method": "POST",
       "path": "/api/lab/tests",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -1185,17 +1049,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -1206,23 +1061,17 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "laboratory",
       "file": "src/modules/laboratory/laboratory.controller.ts",
       "method": "GET",
       "path": "/api/lab/orders",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -1233,11 +1082,7 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "facility": true,
-        "scopeOfPractice": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -1252,8 +1097,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1261,7 +1104,7 @@
       "file": "src/modules/laboratory/laboratory.controller.ts",
       "method": "POST",
       "path": "/api/lab/orders",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -1272,17 +1115,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -1293,23 +1127,17 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "laboratory",
       "file": "src/modules/laboratory/laboratory.controller.ts",
       "method": "POST",
       "path": "/api/lab/orders/:id/transition",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -1320,17 +1148,8 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
-        "practitioner": true,
-        "professionalLicence": true,
-        "facility": true,
-        "scopeOfPractice": true,
-        "hcmAuthorization": true,
         "csrf": true,
-        "clinicalSafetyGate": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -1341,16 +1160,10 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": true
+        "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "laboratory",
@@ -1387,18 +1200,12 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "laboratory",
@@ -1435,18 +1242,12 @@
           "order:lab"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "integrations",
@@ -1481,8 +1282,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1518,8 +1317,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1555,8 +1352,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1593,8 +1388,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1617,8 +1410,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1641,8 +1432,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1665,8 +1454,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1702,8 +1489,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1739,8 +1524,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1776,8 +1559,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1813,8 +1594,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1850,8 +1629,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1887,8 +1664,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1924,8 +1699,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1963,8 +1736,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2002,8 +1773,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2028,6 +1797,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2040,18 +1810,12 @@
           "encounter:start"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "encounters",
@@ -2075,6 +1839,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2087,18 +1852,12 @@
           "encounter:complete"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "dialysis",
@@ -2135,18 +1894,12 @@
           "dialysis:treat"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "dialysis",
@@ -2183,18 +1936,12 @@
           "dialysis:treat"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
         "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "compliance",
@@ -2227,8 +1974,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2262,8 +2007,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2299,8 +2042,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2336,8 +2077,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2375,8 +2114,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2401,6 +2138,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2413,18 +2151,12 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2461,8 +2193,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2487,6 +2217,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2499,18 +2230,12 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2547,8 +2272,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2573,6 +2296,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2585,18 +2309,12 @@
           "rx:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "clinical",
@@ -2633,8 +2351,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2659,6 +2375,7 @@
         "scopeOfPractice": true,
         "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -2671,18 +2388,12 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequireHcmPractitioner"
-      ],
-      "gaps": [
-        "missing @RequireHcmPractitioner"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2710,19 +2421,13 @@
         "permissions": [
           "billing:read"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2752,19 +2457,13 @@
         "permissions": [
           "billing:write"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2792,19 +2491,13 @@
         "permissions": [
           "billing:read"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2832,19 +2525,13 @@
         "permissions": [
           "billing:read"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2874,19 +2561,13 @@
         "permissions": [
           "billing:write"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "billing",
@@ -2916,19 +2597,13 @@
         "permissions": [
           "payment:receive"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
-      "status": "GAP",
-      "implementableGaps": [],
-      "externalBlockers": [
-        "missing @RequiresGovernance"
-      ],
-      "gaps": [
-        "missing @RequiresGovernance"
-      ]
+      "status": "PASS",
+      "gaps": []
     },
     {
       "controller": "mfa",
@@ -2956,8 +2631,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2986,8 +2659,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3016,8 +2687,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3046,8 +2715,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3076,8 +2743,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3090,7 +2755,7 @@
       "requiredControls": {
         "jwt": true,
         "permission": [
-          "tenant:admin"
+          "mfa.admin_reset"
         ],
         "tenantIsolation": true,
         "entityIsolation": true,
@@ -3105,16 +2770,14 @@
         "jwt": true,
         "public": false,
         "permissions": [
-          "tenant:admin"
+          "mfa.admin_reset"
         ],
-        "governanceAuthorization": false,
+        "governanceAuthorization": true,
         "hcmAuthorization": false,
         "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3139,8 +2802,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3165,8 +2826,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3195,8 +2854,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3225,8 +2882,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3255,8 +2910,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3285,8 +2938,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3315,8 +2966,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3345,8 +2994,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3354,7 +3001,7 @@
       "file": "src/modules/appointments/appointments.controller.ts",
       "method": "GET",
       "path": "/api/appointments",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -3366,7 +3013,6 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -3381,8 +3027,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3390,7 +3034,7 @@
       "file": "src/modules/appointments/appointments.controller.ts",
       "method": "GET",
       "path": "/api/appointments/:id",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -3402,7 +3046,6 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -3417,8 +3060,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3426,7 +3067,7 @@
       "file": "src/modules/appointments/appointments.controller.ts",
       "method": "POST",
       "path": "/api/appointments",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -3438,10 +3079,7 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -3455,8 +3093,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3464,7 +3100,7 @@
       "file": "src/modules/appointments/appointments.controller.ts",
       "method": "POST",
       "path": "/api/appointments/:id/transition",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -3476,10 +3112,7 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -3493,8 +3126,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3502,7 +3133,7 @@
       "file": "src/modules/ambulance/ambulance.controller.ts",
       "method": "GET",
       "path": "/api/ambulance/vehicles",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "READ",
       "requiredControls": {
         "jwt": true,
@@ -3514,7 +3145,6 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
         "audit": true
       },
       "presentControls": {
@@ -3529,8 +3159,6 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3538,7 +3166,7 @@
       "file": "src/modules/ambulance/ambulance.controller.ts",
       "method": "POST",
       "path": "/api/ambulance/vehicles",
-      "tier": "CLINICAL",
+      "tier": "PRIVILEGED",
       "opClass": "WRITE",
       "requiredControls": {
         "jwt": true,
@@ -3550,10 +3178,7 @@
         "countryIsolation": true,
         "globalUserId": true,
         "csrf": true,
-        "legalHold": true,
-        "audit": true,
-        "idempotency": true,
-        "rateLimit": "clinical_write"
+        "audit": true
       },
       "presentControls": {
         "jwt": true,
@@ -3563,12 +3188,10 @@
         ],
         "governanceAuthorization": false,
         "hcmAuthorization": false,
-        "mfaStepUp": false,
+        "mfaStepUp": true,
         "clinicalSafetyGate": false
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3587,7 +3210,13 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -3600,13 +3229,11 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3625,7 +3252,13 @@
         "entityIsolation": true,
         "countryIsolation": true,
         "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
         "csrf": true,
+        "clinicalSafetyGate": true,
         "legalHold": true,
         "audit": true,
         "idempotency": true,
@@ -3638,13 +3271,11 @@
           "phi:write"
         ],
         "governanceAuthorization": false,
-        "hcmAuthorization": false,
+        "hcmAuthorization": true,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": [],
       "gaps": []
     }
   ]

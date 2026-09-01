@@ -72,7 +72,20 @@ export type Permission =
   | "report:submit"
   // Break-glass
   | "breakglass:request"
-  | "breakglass:approve";
+  | "breakglass:approve"
+  // Auth / MFA administration
+  | "mfa.admin_reset"
+  // Additional EMS / Telehealth / Radiology / Lab / Pharmacy / Optical / Clinical scopes
+  | "ems:dispatch"
+  | "telehealth:conduct"
+  | "radiology:report"
+  | "radiology:verify"
+  | "lab:result"
+  | "lab:verify"
+  | "ophthalmology:sign"
+  | "rx:prescribe"
+  | "clinical:write"
+  | "patient:register";
 
 export type RoleId =
   | "trustee"

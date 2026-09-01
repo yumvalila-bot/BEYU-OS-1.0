@@ -60,6 +60,11 @@ export async function buildE2EHarness(overrides: Record<string, any> = {}): Prom
   process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? "pglite://e2e";
   process.env.CSRF_SECRET = process.env.CSRF_SECRET ?? "e2e-csrf-secret-do-not-use";
+  // Allow HTTP E2E harness to bypass live HCM verification (no practitioner
+  // records are seeded in the PGlite database). Production deployments MUST
+  // set BEYU_HCM_ENDPOINT and leave this flag unset — the adapter ignores
+  // it whenever a real endpoint is configured.
+  process.env.BEYU_HCM_BYPASS_FOR_TEST = "true";
   const db = new PGlite();
   const conn = new PGliteConnection(db);
   const migs = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".up.sql")).sort();

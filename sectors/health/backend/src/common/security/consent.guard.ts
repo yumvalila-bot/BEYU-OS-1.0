@@ -20,20 +20,16 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  SetMetadata,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { SetMetadata } from "@nestjs/common";
 import { ConsentService } from "../../modules/consent/consent.service";
 
 export const CONSENT_KEY = "consent:requirement";
 export interface ConsentRequirement {
   purpose: string;
   dataCategory: string;
-  /**
-   * Name of the request field (param, body, or query) that contains the patient id.
-   * Defaults to 'patientId' (path) or 'patient_id' (body/query).
-   */
   patientIdParam?: string;
 }
 export const RequiresConsent = (
@@ -51,29 +47,39 @@ export class ConsentGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = this.reflector.getAllAndOverride<ConsentRequirement | null>(
-      CONSENT_KEY, [ctx.getHandler(), ctx.getClass()],
+      CONSENT_KEY,
+      [ctx.getHandler(), ctx.getClass()],
     );
     if (!req) return true;
     const http = ctx.switchToHttp().getRequest();
     const pidKey = req.patientIdParam ?? "patientId";
     const patientId =
-      http.params?.[pidKey]
-      ?? http.query?.[pidKey]
-      ?? http.body?.[pidKey]
-      ?? http.params?.patient_id
-      ?? http.query?.patient_id
-      ?? http.body?.patient_id
-      ?? http.params?.patientId
-      ?? http.query?.patientId
-      ?? http.body?.patientId
-      ?? null;
+      http.params?.[pidKey] ??
+      http.query?.[pidKey] ??
+      http.body?.[pidKey] ??
+      http.params?.patient_id ??
+      http.query?.patient_id ??
+      http.body?.patient_id ??
+      http.params?.patientId ??
+      http.query?.patientId ??
+      http.body?.patientId ??
+      null;
     if (!patientId) {
       throw new UnprocessableEntityException({ code: "CONSENT_PATIENT_REQUIRED" });
     }
     const recipient = http.user?.tenantId ?? null;
-    const ok = await this.consent.assert(String(patientId), req.purpose, req.dataCategory, recipient ? String(recipient) : undefined);
+    const ok = await this.consent.assert(
+      String(patientId),
+      req.purpose,
+      req.dataCategory,
+      recipient ? String(recipient) : undefined,
+    );
     if (!ok) {
-      throw new ForbiddenException({ code: "CONSENT_DENIED", purpose: req.purpose, dataCategory: req.dataCategory });
+      throw new ForbiddenException({
+        code: "CONSENT_DENIED",
+        purpose: req.purpose,
+        dataCategory: req.dataCategory,
+      });
     }
     return true;
   }

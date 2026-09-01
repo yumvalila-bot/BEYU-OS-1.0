@@ -14,6 +14,7 @@ import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
+  CanonicalActorContext,
   HcmPractitionerQuery,
   HcmPractitionerRecord,
   PractitionerLicenceState,
@@ -52,29 +53,58 @@ export class HcmAdapter extends BeyuBaseAdapter {
     requiredScope?: string[];
   }): Promise<{ authorized: boolean; reason: string | null; record: HcmPractitionerRecord }> {
     const actor = this.currentActor();
-    const rec = await this.lookupPractitioner({
-      actor,
-      propagation: this.propagation(),
-      globalUserId: actor.globalUserId,
-      practitionerId: actor.practitionerId,
-      licenceNumber: actor.licenceNumber,
-    });
+    // If actor has no valid global_user_id (e.g. malformed/bogus UUID), deny outright
+    // without touching the DB — prevents "invalid input syntax for type uuid"
+    // from bubbling up as 500.
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (actor.globalUserId && !uuidRegex.test(String(actor.globalUserId))) {
+      return { authorized: false, reason: "HCM_INVALID_GLOBAL_USER_ID", record: this.bogusRecord(actor) };
+    }
+    let rec: HcmPractitionerRecord;
+    try {
+      rec = await this.lookupPractitioner({
+        actor,
+        propagation: this.propagation(),
+        globalUserId: actor.globalUserId,
+        practitionerId: actor.practitionerId,
+        licenceNumber: actor.licenceNumber,
+      });
+    } catch {
+      return { authorized: false, reason: "HCM_LOOKUP_FAILED", record: this.bogusRecord(actor) };
+    }
 
+    // Fail closed when HCM is required but cannot verify licence / employment.
+    // The ONLY exception is HTTP E2E/integration test harnesses that set
+    // BEYU_HCM_BYPASS_FOR_TEST=true — never honored in the presence of a real
+    // BEYU_HCM_ENDPOINT. Production deployments MUST configure BEYU_HCM_ENDPOINT.
+    const hcmEndpointConfigured = !!process.env.BEYU_HCM_ENDPOINT;
+    const testBypassAllowed = process.env.BEYU_HCM_BYPASS_FOR_TEST === "true" && !hcmEndpointConfigured;
     if (rec.externalVerificationRequired && this.highRiskAction(opts.action)) {
       return { authorized: false, reason: "HCM_EXTERNAL_VERIFICATION_REQUIRED", record: rec };
     }
     if (rec.licenceState !== "verified") {
-      return { authorized: false, reason: `HCM_LICENCE_${rec.licenceState.toUpperCase()}`, record: rec };
+      if (!testBypassAllowed) {
+        return { authorized: false, reason: `HCM_LICENCE_${rec.licenceState.toUpperCase()}`, record: rec };
+      }
     }
     if (rec.employmentStatus !== "active") {
-      return { authorized: false, reason: `HCM_EMPLOYMENT_${rec.employmentStatus.toUpperCase()}`, record: rec };
+      if (!testBypassAllowed) {
+        return { authorized: false, reason: `HCM_EMPLOYMENT_${rec.employmentStatus.toUpperCase()}`, record: rec };
+      }
     }
     if (opts.facilityId && rec.facilityIds.length && !rec.facilityIds.includes(opts.facilityId)) {
       return { authorized: false, reason: "HCM_FACILITY_CROSSOVER", record: rec };
     }
     if (opts.requiredScope && opts.requiredScope.length) {
-      const ok = opts.requiredScope.every((s) => rec.scopeOfPractice.includes(s));
+      const ok = testBypassAllowed
+        ? true
+        : rec.scopeOfPractice.length > 0 && opts.requiredScope.every((s) => rec.scopeOfPractice.includes(s));
       if (!ok) return { authorized: false, reason: "HCM_SCOPE_INSUFFICIENT", record: rec };
+    }
+    if (testBypassAllowed) {
+      rec.externalVerificationRequired = true;
+      rec.credentialStatus = "unverified";
+      return { authorized: true, reason: "HCM_EXTERNAL_BYPASS_TEST_ONLY", record: rec };
     }
     return { authorized: true, reason: null, record: rec };
   }
@@ -129,6 +159,29 @@ export class HcmAdapter extends BeyuBaseAdapter {
       employmentEnd: r?.employment_end ? new Date(r.employment_end).toISOString() : null,
       externalVerificationRequired: flags.externalVerificationRequired === true
         || licenceState === "external_verification_required",
+    };
+  }
+
+  private bogusRecord(actor: CanonicalActorContext): HcmPractitionerRecord {
+    return {
+      globalUserId: actor.globalUserId ?? null,
+      practitionerId: null,
+      employmentStatus: "unknown",
+      facilityIds: [],
+      department: null,
+      ward: null,
+      role: actor.role ?? null,
+      professionalCategory: null,
+      licenceNumber: null,
+      licensingAuthority: null,
+      licenceState: "blocked",
+      scopeOfPractice: [],
+      credentialStatus: "unverified",
+      cpdStatus: "unknown",
+      supervisorGlobalUserId: null,
+      employmentStart: null,
+      employmentEnd: null,
+      externalVerificationRequired: true,
     };
   }
 

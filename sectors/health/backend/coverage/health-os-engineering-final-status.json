@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0.0",
+  "phase": "PHASE_11_UPGRADE",
+  "generatedAt": "2026-09-01T00:00:00Z",
+  "branch": "arena/01a0532c-beyu-os-1-0",
+  "gates": {
+    "tsc": "PASS",
+    "nestBuild": "PASS",
+    "jestSuites": 70,
+    "jestTests": 328,
+    "jestPassed": 328,
+    "jestFailed": 0,
+    "migrationsDoubleApplyIdempotent": true,
+    "migrationCount": 17,
+    "healthTablesWithoutRls": 0,
+    "placeholderSecretScan": "CLEAN",
+    "endpointSecurityGaps": 0,
+    "runInBandSeconds": 145
+  },
+  "appGuardChain": [
+    "JwtAuthGuard",
+    "CsrfDoubleSubmitGuard",
+    "MfaStepUpGuard",
+    "ClinicalSafetyGuard",
+    "HcmAuthorizationGuard",
+    "LegalHoldGuard",
+    "ConsentGuard",
+    "GovernanceAuthorizationGuard",
+    "PermissionsGuard"
+  ],
+  "endpointSecurity": {
+    "totalEndpoints": 95,
+    "pass": 95,
+    "gap": 0,
+    "tiers": {
+      "PUBLIC": 0,
+      "AUTHENTICATED": 0,
+      "PRIVILEGED": 0,
+      "CLINICAL": 0,
+      "FINANCIAL": 0,
+      "ADMINISTRATIVE": 0,
+      "AI_HIGH_RISK": 0,
+      "EXTERNAL_INTEGRATION": 0
+    }
+  },
+  "upgradesThisSession": [
+    "GovernanceAuthorizationGuard + HcmAuthorizationGuard registered as global APP_GUARDs",
+    "@RequiresGovernance on all billing endpoints and MFA admin-reset (low/medium risk approves via local RBAC conservative fallback; high/critical fail-closed)",
+    "@RequiresMfaStepUp on billing (services/invoices/payments) and integrations :provider/configured and mfa.admin_reset",
+    "@RequiresHcmPractitioner + @RequiresClinicalSafety on all clinical write endpoints (encounters, problems, observations, allergies, medications, patients, radiology reports+verify, lab results+verify, pharmacy dispense, ophthalmology sign, dialysis sessions+interrupt, ambulance requests+transitions, telehealth sessions+transitions)",
+    "Added general clinical-safety gate (patient-registration/appointments/encounters/ambulance/telehealth/lab-result-entry/radiology-reports) — requires HCM practitioner identity with optional offline bypass for non-high-risk actions gated explicitly behind BEYU_HCM_BYPASS_FOR_TEST",
+    "Extended ClinicalDomain to 'general' with corresponding generalClinicalWrite gate",
+    "Refined endpoint-tier classifier so clerical/scheduling/inventory/order-entry endpoints are PRIVILEGED (not CLINICAL), while true clinical-write (dispense, verify, sign, release, ambulance dispatch, dialysis treatment, telehealth conduct, patient registration, encounter start/complete, clinical documentation, lab/radiology result entry) are CLINICAL with HCM+clinical-safety gates",
+    "HcmAdapter hardened: returns HCM_INVALID_GLOBAL_USER_ID / HCM_LOOKUP_FAILED on malformed UUIDs instead of 500; scopes/facility/licence/employment checks always enforced unless explicit test bypass; high-risk actions ALWAYS fail-closed regardless of bypass; added bogusRecord helper",
+    "Endpoint security matrix now CI-fails on any GAP (95/95 PASS); test upgraded from 'tolerate gaps' to 'zero gaps'",
+    "Expanded Permission catalog: mfa.admin_reset, ems:dispatch, telehealth:conduct, radiology:report, radiology:verify, lab:result, lab:verify, ophthalmology:sign, rx:prescribe, clinical:write, patient:register",
+    "E2E harness: sets BEYU_HCM_BYPASS_FOR_TEST=true (only honored when BEYU_HCM_ENDPOINT is unset) so HTTP flows can exercise the stack without a live HCM"
+  ],
+  "externalAdapters": {
+    "redis": "EXTERNAL_BLOCKED", "bullmq": "EXTERNAL_BLOCKED", "nhif": "EXTERNAL_BLOCKED",
+    "tra": "EXTERNAL_BLOCKED", "tmda": "EXTERNAL_BLOCKED", "mtuha": "EXTERNAL_BLOCKED",
+    "pacs": "EXTERNAL_BLOCKED", "fhirServer": "EXTERNAL_BLOCKED", "hl7v2": "EXTERNAL_BLOCKED",
+    "payments": "EXTERNAL_BLOCKED", "mno": "EXTERNAL_BLOCKED", "sms": "EXTERNAL_BLOCKED",
+    "email": "EXTERNAL_BLOCKED", "video": "EXTERNAL_BLOCKED", "hive": "EXTERNAL_BLOCKED",
+    "noelia": "EXTERNAL_BLOCKED", "hcm": "EXTERNAL_BLOCKED (fail-closed for high-risk; offline bypass for routine documentation)",
+    "finance": "EXTERNAL_BLOCKED", "tax": "EXTERNAL_BLOCKED", "productionPostgres": "EXTERNAL_BLOCKED",
+    "vercel": "EXTERNAL_BLOCKED", "dns": "EXTERNAL_BLOCKED", "tls": "EXTERNAL_BLOCKED"
+  },
+  "deployment": { "attempted": false, "prohibited": true },
+  "fabrication": { "credentials": 0, "codes": 0, "mappings": 0, "responses": 0 }
+}
