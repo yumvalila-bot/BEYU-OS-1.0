@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-01T02:41:01.894Z",
+  "generated": "2026-09-01T04:42:14.246Z",
   "schema": "phase9-security-tier-v1",
   "summary": {
     "total": 95,
@@ -53,6 +53,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -86,6 +88,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -114,6 +118,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -147,6 +153,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -180,6 +188,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -213,6 +223,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -246,6 +258,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -279,6 +293,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -312,6 +328,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -345,6 +363,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -378,6 +398,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -413,6 +435,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -446,6 +470,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -476,9 +502,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -509,9 +537,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -554,6 +584,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -596,6 +628,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -629,6 +663,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -659,9 +695,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -692,9 +730,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -737,6 +777,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -774,6 +816,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -811,6 +855,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -848,6 +894,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -890,6 +938,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -923,6 +973,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -956,6 +1008,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -998,6 +1052,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1031,6 +1087,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1061,9 +1119,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1097,6 +1157,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1127,9 +1189,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1160,9 +1224,11 @@
         "governanceAuthorization": false,
         "hcmAuthorization": false,
         "mfaStepUp": false,
-        "clinicalSafetyGate": false
+        "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1205,6 +1271,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1247,6 +1315,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1282,6 +1352,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1317,6 +1389,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1352,6 +1426,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1388,6 +1464,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1410,6 +1488,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1432,6 +1512,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1454,6 +1536,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1489,6 +1573,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1524,6 +1610,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1559,6 +1647,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1594,6 +1684,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1629,6 +1721,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1664,6 +1758,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1699,6 +1795,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1736,6 +1834,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1773,6 +1873,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1815,6 +1917,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1857,6 +1961,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1899,6 +2005,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1941,6 +2049,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -1974,6 +2084,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2007,6 +2119,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2042,6 +2156,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2077,6 +2193,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2114,6 +2232,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2156,6 +2276,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2193,6 +2315,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2235,6 +2359,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2272,6 +2398,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2314,6 +2442,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2351,6 +2481,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2393,6 +2525,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2427,6 +2561,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2463,6 +2599,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2497,6 +2635,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2531,6 +2671,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2567,6 +2709,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2603,6 +2747,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2631,6 +2777,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2659,6 +2807,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2687,6 +2837,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2715,6 +2867,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2743,6 +2897,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2755,7 +2911,7 @@
       "requiredControls": {
         "jwt": true,
         "permission": [
-          "mfa.admin_reset"
+          "tenant:admin"
         ],
         "tenantIsolation": true,
         "entityIsolation": true,
@@ -2770,7 +2926,7 @@
         "jwt": true,
         "public": false,
         "permissions": [
-          "mfa.admin_reset"
+          "tenant:admin"
         ],
         "governanceAuthorization": true,
         "hcmAuthorization": false,
@@ -2778,6 +2934,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2802,6 +2960,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2826,6 +2986,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2854,6 +3016,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2882,6 +3046,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2910,6 +3076,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2938,6 +3106,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2966,6 +3136,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -2994,6 +3166,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3027,6 +3201,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3060,6 +3236,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3093,6 +3271,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3126,6 +3306,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3159,6 +3341,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3192,6 +3376,8 @@
         "clinicalSafetyGate": false
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3234,6 +3420,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     },
     {
@@ -3276,6 +3464,8 @@
         "clinicalSafetyGate": true
       },
       "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": [],
       "gaps": []
     }
   ]

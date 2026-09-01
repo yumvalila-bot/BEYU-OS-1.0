@@ -182,12 +182,12 @@ export function classifyEndpoint(
       // Pharmacy dispense already matches; include dispense/rx prescribe endpoints
       || /\/rx|dispens|prescription|medication[^/]*$/.test(p) && verb !== "GET" && !/stock|items/.test(p)) {
     return tier("CLINICAL", verb, path, controller, opClass, requiredPermissions, {
-      practitioner: isPractitionerAction,
-      professionalLicence: isPractitionerAction && opClass !== "READ",
-      facility: isPractitionerAction,
-      scopeOfPractice: isPractitionerAction,
-      hcmAuthorization: isPractitionerAction && opClass !== "READ",
-      clinicalSafetyGate: !!safetyDomain && opClass !== "READ",
+      practitioner: true,
+      professionalLicence: opClass !== "READ",
+      facility: true,
+      scopeOfPractice: true,
+      hcmAuthorization: opClass !== "READ",
+      clinicalSafetyGate: opClass !== "READ",
       consent: containsPhi(p),
       legalHold: true,
       idempotency: opClass !== "READ",

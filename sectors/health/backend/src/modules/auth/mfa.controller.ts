@@ -96,8 +96,8 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("admin/reset")
-  @RequirePermission("mfa.admin_reset")
-  @RequiresMfaStepUp("mfa.admin_reset")
+  @RequirePermission("tenant:admin")
+  @RequiresMfaStepUp("mfa:admin:reset")
   @RequiresGovernance("mfa.admin_reset", "high")
   @HttpCode(HttpStatus.NO_CONTENT)
   async adminReset(

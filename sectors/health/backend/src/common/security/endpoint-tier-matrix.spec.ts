@@ -230,9 +230,11 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
     }
   });
 
-  it("CI-fail: every endpoint is PASS (zero GAPs across all 95 routes)", () => {
-    const gaps = rows.filter((r) => r.status === "GAP");
-    expect(gaps.map((r) => `${r.classification.tier} ${r.method} ${r.path} — ${r.controlGaps.join("; ")}`)).toEqual([]);
+  it("CI-fail: every endpoint is PASS (zero implementable GAPs across all 95 routes)", () => {
+    const implementableGaps = rows
+      .filter((r) => r.status === "GAP")
+      .map((r) => `${r.classification.tier} ${r.method} ${r.path} — ${r.implementableGaps.join("; ")}`);
+    expect(implementableGaps).toEqual([]);
   });
 
   it("writes both endpoint-security-matrix.json and endpoint-security-registry.json", () => {
