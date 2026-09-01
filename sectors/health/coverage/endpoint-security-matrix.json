@@ -1,0 +1,3282 @@
+{
+  "generated": "2026-09-01T02:41:01.894Z",
+  "schema": "phase9-security-tier-v1",
+  "summary": {
+    "total": 95,
+    "byTier": {
+      "PRIVILEGED": 36,
+      "CLINICAL": 26,
+      "EXTERNAL_INTEGRATION": 11,
+      "PUBLIC": 5,
+      "FINANCIAL": 6,
+      "AUTHENTICATED": 10,
+      "ADMINISTRATIVE": 1
+    },
+    "byOpClass": {
+      "WRITE": 51,
+      "READ": 43,
+      "DESTRUCTIVE": 1
+    },
+    "byStatus": {
+      "PASS": 95
+    }
+  },
+  "endpoints": [
+    {
+      "controller": "telehealth",
+      "file": "src/modules/telehealth/telehealth.controller.ts",
+      "method": "POST",
+      "path": "/api/telehealth/sessions",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:book"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:book"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "telehealth",
+      "file": "src/modules/telehealth/telehealth.controller.ts",
+      "method": "POST",
+      "path": "/api/telehealth/sessions/:id/transition",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:transition"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:transition"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "GET",
+      "path": "/api/supabase/health",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "GET",
+      "path": "/api/supabase/:table",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "GET",
+      "path": "/api/supabase/:table/:id",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "POST",
+      "path": "/api/supabase/:table",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "PUT",
+      "path": "/api/supabase/:table/:id",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "supabase",
+      "file": "src/modules/supabase/supabase.controller.ts",
+      "method": "DELETE",
+      "path": "/api/supabase/:table/:id",
+      "tier": "PRIVILEGED",
+      "opClass": "DESTRUCTIVE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "search",
+      "file": "src/modules/search/search.controller.ts",
+      "method": "GET",
+      "path": "/api/search",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "patient:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "patient:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "reporting",
+      "file": "src/modules/reporting/reporting.controller.ts",
+      "method": "GET",
+      "path": "/reporting/mtuha",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "report:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "report:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "reporting",
+      "file": "src/modules/reporting/reporting.controller.ts",
+      "method": "GET",
+      "path": "/reporting/mtuha/submissions",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "report:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "report:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "reporting",
+      "file": "src/modules/reporting/reporting.controller.ts",
+      "method": "POST",
+      "path": "/reporting/mtuha/mark-submitted",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "report:submit"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "public_health_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "report:submit"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "radiology",
+      "file": "src/modules/radiology/radiology.controller.ts",
+      "method": "GET",
+      "path": "/api/imaging",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:imaging"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:imaging"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "radiology",
+      "file": "src/modules/radiology/radiology.controller.ts",
+      "method": "POST",
+      "path": "/api/imaging/orders",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:imaging"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:imaging"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "radiology",
+      "file": "src/modules/radiology/radiology.controller.ts",
+      "method": "POST",
+      "path": "/api/imaging/orders/:id/transition",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:imaging"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:imaging"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "radiology",
+      "file": "src/modules/radiology/radiology.controller.ts",
+      "method": "POST",
+      "path": "/api/imaging/reports",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "radiology",
+      "file": "src/modules/radiology/radiology.controller.ts",
+      "method": "POST",
+      "path": "/api/imaging/reports/:id/verify",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "note:sign"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "note:sign"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "pharmacy",
+      "file": "src/modules/pharmacy/pharmacy.controller.ts",
+      "method": "GET",
+      "path": "/api/pharmacy/items",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "inventory:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "inventory:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "pharmacy",
+      "file": "src/modules/pharmacy/pharmacy.controller.ts",
+      "method": "POST",
+      "path": "/api/pharmacy/items",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "inventory:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "inventory:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "pharmacy",
+      "file": "src/modules/pharmacy/pharmacy.controller.ts",
+      "method": "POST",
+      "path": "/api/pharmacy/stock/receive",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "inventory:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "inventory:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "pharmacy",
+      "file": "src/modules/pharmacy/pharmacy.controller.ts",
+      "method": "POST",
+      "path": "/api/pharmacy/dispense",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "rx:dispense"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "rx:dispense"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "pharmacy",
+      "file": "src/modules/pharmacy/pharmacy.controller.ts",
+      "method": "GET",
+      "path": "/api/pharmacy/patients/:patientId/dispenses",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "patients",
+      "file": "src/modules/patients/patients.controller.ts",
+      "method": "GET",
+      "path": "/api/patients",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "patient:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "patient:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "patients",
+      "file": "src/modules/patients/patients.controller.ts",
+      "method": "GET",
+      "path": "/api/patients/:id",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "patient:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "patient:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "patients",
+      "file": "src/modules/patients/patients.controller.ts",
+      "method": "POST",
+      "path": "/api/patients",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "patient:register"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "patient:register"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ophthalmology",
+      "file": "src/modules/ophthalmology/ophthalmology.controller.ts",
+      "method": "GET",
+      "path": "/api/eye-exams",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ophthalmology",
+      "file": "src/modules/ophthalmology/ophthalmology.controller.ts",
+      "method": "POST",
+      "path": "/api/eye-exams",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ophthalmology",
+      "file": "src/modules/ophthalmology/ophthalmology.controller.ts",
+      "method": "POST",
+      "path": "/api/eye-exams/:id/sign",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "note:sign"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "note:sign"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "GET",
+      "path": "/api/lab/tests",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:lab"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:lab"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "POST",
+      "path": "/api/lab/tests",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:lab"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:lab"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "GET",
+      "path": "/api/lab/orders",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "POST",
+      "path": "/api/lab/orders",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:lab"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:lab"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "POST",
+      "path": "/api/lab/orders/:id/transition",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:lab"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:lab"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "POST",
+      "path": "/api/lab/results/:itemId",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "laboratory",
+      "file": "src/modules/laboratory/laboratory.controller.ts",
+      "method": "POST",
+      "path": "/api/lab/results/:itemId/verify",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "order:lab"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "order:lab"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "integrations",
+      "file": "src/modules/integrations/integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/integrations",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "integrations",
+      "file": "src/modules/integrations/integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/integrations/adapters/probe",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "integrations",
+      "file": "src/modules/integrations/integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/integrations/:provider",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "integrations",
+      "file": "src/modules/integrations/integrations.controller.ts",
+      "method": "POST",
+      "path": "/api/integrations/:provider/configured",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "external_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "health",
+      "file": "src/modules/health/health.controller.ts",
+      "method": "GET",
+      "path": "/health",
+      "tier": "PUBLIC",
+      "opClass": "READ",
+      "requiredControls": {
+        "public": true
+      },
+      "presentControls": {
+        "jwt": false,
+        "public": true,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "health",
+      "file": "src/modules/health/health.controller.ts",
+      "method": "GET",
+      "path": "/health/ready",
+      "tier": "PUBLIC",
+      "opClass": "READ",
+      "requiredControls": {
+        "public": true
+      },
+      "presentControls": {
+        "jwt": false,
+        "public": true,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "health",
+      "file": "src/modules/health/health.controller.ts",
+      "method": "GET",
+      "path": "/health/live",
+      "tier": "PUBLIC",
+      "opClass": "READ",
+      "requiredControls": {
+        "public": true
+      },
+      "presentControls": {
+        "jwt": false,
+        "public": true,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/Patient/:id",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/Encounter/:id",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/Condition",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/Observation",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/MedicationRequest",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/AllergyIntolerance",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "fhir",
+      "file": "src/modules/fhir/fhir.controller.ts",
+      "method": "GET",
+      "path": "/fhir/R4/Patient/:id/$everything",
+      "tier": "EXTERNAL_INTEGRATION",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "external_submission",
+        "externalAdapter": "fhir_peer"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "encounters",
+      "file": "src/modules/encounters/encounters.controller.ts",
+      "method": "GET",
+      "path": "/api/encounters",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "encounters",
+      "file": "src/modules/encounters/encounters.controller.ts",
+      "method": "GET",
+      "path": "/api/encounters/:id",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "encounters",
+      "file": "src/modules/encounters/encounters.controller.ts",
+      "method": "POST",
+      "path": "/api/encounters",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "encounter:start"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "encounter:start"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "encounters",
+      "file": "src/modules/encounters/encounters.controller.ts",
+      "method": "POST",
+      "path": "/api/encounters/:id/complete",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "encounter:complete"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "encounter:complete"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "dialysis",
+      "file": "src/modules/dialysis/dialysis.controller.ts",
+      "method": "POST",
+      "path": "/api/dialysis/sessions",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "dialysis:treat"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "dialysis:treat"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "dialysis",
+      "file": "src/modules/dialysis/dialysis.controller.ts",
+      "method": "POST",
+      "path": "/api/dialysis/sessions/:id/interrupt",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "dialysis:treat"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "dialysis:treat"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "compliance",
+      "file": "src/modules/compliance/compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance/controls",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "compliance",
+      "file": "src/modules/compliance/compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance/coverage",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "compliance",
+      "file": "src/modules/compliance/compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/controls",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "public_health_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "compliance",
+      "file": "src/modules/compliance/compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/controls/:id/evidence",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "public_health_submission"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "GET",
+      "path": "/api/clinical/patients/:patientId/problems",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "POST",
+      "path": "/api/clinical/problems",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "GET",
+      "path": "/api/clinical/patients/:patientId/observations",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "POST",
+      "path": "/api/clinical/observations",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "GET",
+      "path": "/api/clinical/patients/:patientId/medications",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "POST",
+      "path": "/api/clinical/medications",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "rx:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "rx:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "GET",
+      "path": "/api/clinical/patients/:patientId/allergies",
+      "tier": "CLINICAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "csrf": true,
+        "legalHold": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "clinical",
+      "file": "src/modules/clinical/clinical.controller.ts",
+      "method": "POST",
+      "path": "/api/clinical/allergies",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "GET",
+      "path": "/api/billing/services",
+      "tier": "FINANCIAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "billing:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "billing:read"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "POST",
+      "path": "/api/billing/services",
+      "tier": "FINANCIAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "billing:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "billing_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "billing:write"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "GET",
+      "path": "/api/billing/invoices",
+      "tier": "FINANCIAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "billing:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "billing:read"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "GET",
+      "path": "/api/billing/invoices/:id",
+      "tier": "FINANCIAL",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "billing:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "billing:read"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "POST",
+      "path": "/api/billing/invoices",
+      "tier": "FINANCIAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "billing:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "billing_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "billing:write"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "billing",
+      "file": "src/modules/billing/billing.controller.ts",
+      "method": "POST",
+      "path": "/api/billing/payments",
+      "tier": "FINANCIAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "payment:receive"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "governanceAuthorization": true,
+        "csrf": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "billing_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "payment:receive"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/enroll/totp",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/activate",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/challenge",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/verify",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/recovery/redeem",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "mfa",
+      "file": "src/modules/auth/mfa.controller.ts",
+      "method": "POST",
+      "path": "/auth/mfa/admin/reset",
+      "tier": "ADMINISTRATIVE",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "mfa.admin_reset"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "mfaStepUp": true,
+        "csrf": true,
+        "audit": true,
+        "rateLimit": "admin_sensitive"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "mfa.admin_reset"
+        ],
+        "governanceAuthorization": true,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/register",
+      "tier": "PUBLIC",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "public": true,
+        "audit": true,
+        "rateLimit": "auth_login"
+      },
+      "presentControls": {
+        "jwt": false,
+        "public": true,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/login",
+      "tier": "PUBLIC",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "public": true,
+        "audit": true,
+        "rateLimit": "auth_login"
+      },
+      "presentControls": {
+        "jwt": false,
+        "public": true,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/refresh",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/restore",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "GET",
+      "path": "/auth/me",
+      "tier": "AUTHENTICATED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/logout",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "POST",
+      "path": "/auth/logout-all",
+      "tier": "AUTHENTICATED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "auth",
+      "file": "src/modules/auth/auth.controller.ts",
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "tier": "AUTHENTICATED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "appointments",
+      "file": "src/modules/appointments/appointments.controller.ts",
+      "method": "GET",
+      "path": "/api/appointments",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "appointments",
+      "file": "src/modules/appointments/appointments.controller.ts",
+      "method": "GET",
+      "path": "/api/appointments/:id",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:read"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "appointments",
+      "file": "src/modules/appointments/appointments.controller.ts",
+      "method": "POST",
+      "path": "/api/appointments",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:book"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:book"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "appointments",
+      "file": "src/modules/appointments/appointments.controller.ts",
+      "method": "POST",
+      "path": "/api/appointments/:id/transition",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "appointment:transition"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "appointment:transition"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ambulance",
+      "file": "src/modules/ambulance/ambulance.controller.ts",
+      "method": "GET",
+      "path": "/api/ambulance/vehicles",
+      "tier": "PRIVILEGED",
+      "opClass": "READ",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ambulance",
+      "file": "src/modules/ambulance/ambulance.controller.ts",
+      "method": "POST",
+      "path": "/api/ambulance/vehicles",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "tenant:admin"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "tenant:admin"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": true,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ambulance",
+      "file": "src/modules/ambulance/ambulance.controller.ts",
+      "method": "POST",
+      "path": "/api/ambulance/requests",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    },
+    {
+      "controller": "ambulance",
+      "file": "src/modules/ambulance/ambulance.controller.ts",
+      "method": "POST",
+      "path": "/api/ambulance/requests/:id/transition",
+      "tier": "CLINICAL",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "phi:write"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "practitioner": true,
+        "professionalLicence": true,
+        "facility": true,
+        "scopeOfPractice": true,
+        "hcmAuthorization": true,
+        "csrf": true,
+        "clinicalSafetyGate": true,
+        "legalHold": true,
+        "audit": true,
+        "idempotency": true,
+        "rateLimit": "clinical_write"
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "phi:write"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": true,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": true
+      },
+      "status": "PASS",
+      "gaps": []
+    }
+  ]
+}
