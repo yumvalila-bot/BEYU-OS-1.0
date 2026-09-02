@@ -1,96 +1,106 @@
-# CI workflow — complete and ready, pending one permission
+# CI workflow — ACTIVE
 
-`docs/ci/ci.yml` is the CI pipeline for this repository. It is **not active yet**,
-and the only thing standing between it and running is a single GitHub App
-permission.
+The canonical CI pipeline lives at **`.github/workflows/ci.yml`** and runs on every
+push to `main`, every pull request targeting `main`, and on demand via
+`workflow_dispatch`.
 
-## The exact blocker
+## History
 
-The automation account that pushes to this repository authenticates as a GitHub
-App installation without the `workflows` permission. GitHub rejects any push that
-creates or updates a file under `.github/workflows/`. Attempted and refused on
+This file previously held the pipeline itself, parked here because it could not be
+published. The automation account that pushes to this repository authenticated as a
+GitHub App installation **without the `workflows` permission**, and GitHub rejects
+any push that creates or updates a file under `.github/workflows/`. Refused on
 branch `arena/01a04722-beyu-os-1-0` at commit `f0f3ff1`:
 
 ```
 remote: refusing to allow a GitHub App to create or update workflow
         `.github/workflows/ci.yml` without `workflows` permission
  ! [remote rejected] arena/01a04722-beyu-os-1-0 -> arena/01a04722-beyu-os-1-0
-error: failed to push some refs to 'https://github.com/yumvalila-bot/BEYU-OS-1.0.git'
 ```
 
-The same installation is also refused administrative access, which is why branch
-protection on `main` cannot be enabled by it either:
+That permission has since been granted, so the pipeline is now published and the
+duplicate copy that lived at `docs/ci/ci.yml` has been removed. Keeping it would
+have meant two definitions of one pipeline drifting apart. The root gate in the
+published workflow is that file's pipeline, preserved step-for-step, extended with
+the Health OS jobs and a real-PostgreSQL Health gate.
 
-```
-GET /repos/yumvalila-bot/BEYU-OS-1.0/branches/main/protection
--> 403 {"message":"Resource not accessible by integration"}
-```
+## One canonical PostgreSQL architecture
 
-This is a permission boundary, not a defect, and it is deliberately not worked
-around. Rather than drop the pipeline, it is committed here for review. Nothing
-else in the change depends on it.
+Schema, migrations, tests and the RLS model live in GitHub as the single source of
+truth. Arena, CI and Production are isolated environments that each run that one
+schema against their own PostgreSQL:
 
-## Who must grant it, and how
+| Environment  | PostgreSQL                        | Lifetime    |
+| ------------ | --------------------------------- | ----------- |
+| Arena        | temporary instance                | per session |
+| CI           | `postgres:16` service container    | per run     |
+| Production   | Supabase managed PostgreSQL        | persistent  |
 
-A **repository or organisation owner** — a human maintainer with admin rights on
-`yumvalila-bot/BEYU-OS-1.0`, not the automation account.
+Supabase is **not** a second database. When it hosts production it *is* the
+production PostgreSQL (see `docs/runbooks/supabase-production-database.md`). The CI
+container is ephemeral run infrastructure — it is destroyed when the job ends and
+is never pointed at production, Supabase, an Arena instance or a developer machine.
 
-1. GitHub → **Settings → Applications → GitHub Apps** → the app installed on this
-   repository (or org) → **Configure**.
-2. Under **Repository permissions**, set **Workflows** to **Read and write**.
-   To enable branch protection as well, set **Administration** to
-   **Read and write**.
-3. Save. If the app is org-level, accept the new permission grant on the
-   organisation.
-
-## Exact action required to activate
-
-Once the permission is granted, a maintainer with write access runs:
-
-```bash
-mkdir -p .github/workflows
-git mv docs/ci/ci.yml .github/workflows/ci.yml
-git rm docs/ci/README.md
-git commit -m "Activate CI workflow"
-git push
-```
-
-No edits to the file are required — it is complete as written, and it was
-executed step-for-step locally against a real PostgreSQL 17 instance before being
-committed.
+Canonical version: **PostgreSQL 16**, matching the pin already used by this file's
+predecessor and by `sectors/health/backend/docker-compose.yml`.
 
 ## What it enforces
 
-Every gate fails the build. A PostgreSQL 16 service container is included because
-the tenant-isolation, audit-chain concurrency, transaction-atomicity and
-governed-mutation suites assert against real database state; mocking them would
-invalidate the guarantees they exist to prove.
+Every gate fails the build. There is no `continue-on-error`, no `|| true` masking a
+gate, and no `exit 0` short-circuit.
 
-1. `npm ci` — reproducible install from the committed lockfile
-2. `npm run typecheck`
-3. `npm run lint`
-4. `npm run migrate` — versioned migrations via `scripts/migrate.ts`
-5. **Migration drift check** — fails if `drizzle-kit generate` produces a new
-   migration, i.e. if the committed migrations no longer describe `src/db/schema`
-6. **Provision the non-superuser runtime role** — `scripts/setup-db-role.ts`
-7. **Assert the runtime role's attributes** — must be `NOSUPERUSER`,
-   `NOBYPASSRLS`, `NOCREATEROLE`, `NOCREATEDB`
-8. `npm run seed`
-9. `npm run build`
-10. **Build without any runtime secret** — fails if a module regresses to
-    requiring `DATABASE_URL` at build time
-11. Start the application and **assert `/api/health` reports `database: UP`**
-12. `npm test` — the full suite, with the end-to-end suites driving the running
-    server over real HTTP
-13. **Credential literal scan** — fails on committed secrets
-14. **Committed-secret filename scan** — fails if a `.env`, `.pem`, `.key` or
-    `id_rsa` file is tracked
-15. **Production dependency audit** — critical severity, production deps only
+**Committed secret scan** — high-confidence credential patterns across the working
+tree and the last 200 commits of history, plus credential-literal and
+credential-filename scans. Matched paths are reported; matched secret *values* are
+never printed.
 
-## Why step 6 is not optional
+**Root BEYU OS**
 
-This is the single most important line in the file, and its absence was a real
-defect in the earlier draft.
+1. `npm ci`
+2. `pg_isready` readiness wait and PostgreSQL 16 version assertion
+3. `npm run typecheck`
+4. `npm run lint`
+5. `npm run migrate` — migrations 0000–0018 via `scripts/migrate.ts`
+6. Assert every migration is recorded in `beyu_migrations`
+7. Assert a re-run applies nothing (idempotent, no ledger drift)
+8. **Schema drift check** — fails if `drizzle-kit generate` produces a new migration
+9. **Provision the non-superuser runtime role** — `scripts/setup-db-role.ts`
+10. **Assert the runtime role's attributes** — `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`
+11. `npm run seed`
+12. `npm run build`, then **build again with every runtime secret cleared** — fails
+    if a module regresses to requiring `DATABASE_URL` at build time
+13. Start the application and **assert `/api/health` reports `database: UP`**
+14. Full regression with `BEYU_TEST_BASE_URL` set
+15. **Assert the skip count is near zero** — an unreachable server must fail, never
+    silently skip the transport-level suites
+
+**Health OS frontend** — `npm ci`, typecheck, test, build. This package defines no
+lint script; none is fabricated and `package.json` is not modified to invent one.
+
+**Health OS backend** — real PostgreSQL 16. `npm ci`, `tsc --noEmit`, non-mutating
+ESLint (the package `lint` script carries `--fix` and is deliberately not invoked),
+then migrations `001_identity_foundation` → `018_global_reference_fail_closed`
+applied against real PostgreSQL with ledger verification and an idempotence re-run.
+The Jest suite runs **twice**: once with all database URLs cleared, to prove the
+in-process PGlite layer is intact, and once against real PostgreSQL.
+
+No new test code was written to achieve the real-PostgreSQL run. The repository's
+own `src/modules/identity/test-connection.ts` already switches on the environment:
+`createTestDbConnection()` returns a real `PgConnection` against a fresh scratch
+database when `TEST_DATABASE_URL`/`DATABASE_URL` is set, and falls back to PGlite
+when neither is. Setting those variables is the supported mechanism. PGlite is
+retained as a fast layer; it does not replace the real gate.
+
+**Production dependency audit** — `npm audit --omit=dev --audit-level=critical`
+across all three packages. The threshold is the documented policy from
+`SECURITY.md`: dev-only advisories in build tooling are triaged deliberately and
+must not redden the pipeline on every upstream publication, while a critical
+vulnerability in shipped runtime code must.
+
+## Why the runtime role step is not optional
+
+This is the most important line in the file, and its absence was a real defect in
+an earlier draft.
 
 The security suites must connect as the **runtime** role to prove anything. If
 `scripts/setup-db-role.ts` has not run, that role does not exist, `DATABASE_URL`
@@ -102,19 +112,27 @@ falls back to the `postgres` superuser, and:
 - `tests/security/rls-isolation.test.ts` **skips** — it asserts
   `current_user = 'beyu_runtime'`.
 
-Reproduced locally with a CI-parity environment (admin DSN only, no runtime
-role): **2 failed, 4 passed, 13 skipped**. A pipeline in that state reports red
-for the wrong reason or, once someone "fixes" it by relaxing the assertion, green
-having proved nothing about the role production actually runs as.
+Reproduced locally with a CI-parity environment (admin DSN only, no runtime role):
+**2 failed, 4 passed, 13 skipped**. A pipeline in that state reports red for the
+wrong reason or, once someone "fixes" it by relaxing the assertion, green having
+proved nothing about the role production actually runs as.
 
-The job environment therefore separates three credentials deliberately:
+The job environment therefore separates four credentials deliberately:
 
-| Variable | Role | Used by |
-| --- | --- | --- |
-| `DATABASE_URL` | `beyu_runtime` — non-superuser, RLS-bound | the application server under test |
-| `BEYU_ADMIN_DATABASE_URL` | `postgres` — superuser | migrations, seeding, drizzle-kit |
-| `BEYU_TEST_DATABASE_URL` | `postgres` — privileged | suites that call domain services directly, without the `guarded()` RLS wrapper |
-| `BEYU_RUNTIME_DATABASE_URL` | `beyu_runtime` | the RLS and privilege-audit suites |
+| Variable                    | Role                                  | Used by                                        |
+| --------------------------- | ------------------------------------- | ---------------------------------------------- |
+| `DATABASE_URL`              | `beyu_runtime` — non-superuser, RLS-bound | the application server under test          |
+| `BEYU_ADMIN_DATABASE_URL`   | `postgres` — superuser                | migrations, seeding, drizzle-kit               |
+| `BEYU_TEST_DATABASE_URL`    | `postgres` — privileged               | suites calling domain services directly, without the `guarded()` RLS wrapper |
+| `BEYU_RUNTIME_DATABASE_URL` | `beyu_runtime`                        | the RLS and privilege-audit suites             |
 
-Running the server on the runtime role is what makes the end-to-end suite a test
-of Row Level Security rather than a test of the superuser.
+Running the server on the runtime role is what makes the end-to-end suite a test of
+Row Level Security rather than a test of the superuser.
+
+## Credentials
+
+Every credential in the workflow is a **CI-only literal** with no value outside the
+throwaway service container. None is a GitHub secret and none is a production
+credential. Steps that talk to PostgreSQL use discrete connection parameters
+(`PGHOST`/`PGPORT`/`PGUSER`/`PGDATABASE` plus `PGPASSWORD` from the environment)
+rather than a DSN in argv, so a failing `psql` cannot echo a password into the log.
