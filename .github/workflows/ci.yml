@@ -599,7 +599,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-019 against real PostgreSQL
+      - name: Apply Health migrations 001-020 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -649,7 +649,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-019 are all recorded
+      - name: Verify Health migrations 001-020 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -713,12 +713,21 @@ jobs:
         # migration-consistency, beyu-bridge, auth-wiring and
         # auth-context.middleware execute against a genuine PostgreSQL engine
         # rather than an in-process emulation.
+        #
+        # audit-chain-integrity and outbound-audit-integrity are listed here
+        # because their central claims only hold against a real server. The
+        # chain spec fires ten concurrent same-tenant writers through separate
+        # pooled sessions to prove they cannot both derive the same prev_hash;
+        # PGlite has one in-process session, so it exercises the chain
+        # invariants but not the race. Both specs still run in the PGlite step
+        # above, where every non-concurrency assertion is enforced.
         shell: bash
         run: |
           set -euo pipefail
           node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand \
             rls-isolation isolation-boundaries identity.integration migration-consistency \
-            beyu-bridge auth-wiring auth-context.middleware 2>&1 \
+            beyu-bridge auth-wiring auth-context.middleware \
+            audit-chain-integrity outbound-audit-integrity 2>&1 \
             | tee /tmp/health-tests-realpg.log
           grep -qE 'Tests:.*[1-9][0-9]* passed' /tmp/health-tests-realpg.log \
             || { echo "::error::no Health real-PostgreSQL tests actually executed"; exit 1; }
