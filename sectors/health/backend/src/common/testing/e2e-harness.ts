@@ -12,13 +12,23 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { PGlite } from "@electric-sql/pglite";
 import { AppModule } from "../../app.module";
-import { DB_CONNECTION, PGliteConnection } from "../../modules/identity/db-connection";
+import {
+  DB_CONNECTION,
+  PGliteConnection,
+} from "../../modules/identity/db-connection";
 import { TenantContext } from "../security/tenant-context";
 import { requestStorage } from "../observability/correlation-id.middleware";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const cookieParser = require("cookie-parser");
 
-export const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+export const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
 export const E2E_ACTOR = {
   userId: "00000000-0000-0000-0000-000000000001",
@@ -26,14 +36,30 @@ export const E2E_ACTOR = {
   email: "doc@beyu.health",
   role: "doctor",
   permissions: [
-    "patient:read", "patient:register", "phi:read", "phi:write",
-    "rx:write", "rx:dispense", "rx:controlled",
-    "order:lab", "order:imaging", "note:write", "note:sign",
-    "appointment:read", "appointment:book", "appointment:transition",
-    "encounter:start", "encounter:complete",
-    "billing:read", "billing:write", "payment:receive",
-    "inventory:read", "inventory:write",
-    "audit:read", "report:read", "report:submit",
+    "patient:read",
+    "patient:register",
+    "phi:read",
+    "phi:write",
+    "rx:write",
+    "rx:dispense",
+    "rx:controlled",
+    "order:lab",
+    "order:imaging",
+    "note:write",
+    "note:sign",
+    "appointment:read",
+    "appointment:book",
+    "appointment:transition",
+    "encounter:start",
+    "encounter:complete",
+    "billing:read",
+    "billing:write",
+    "payment:receive",
+    "inventory:read",
+    "inventory:write",
+    "audit:read",
+    "report:read",
+    "report:submit",
     "tenant:admin",
   ],
   tenantId: "11111111-1111-1111-1111-111111111111",
@@ -51,15 +77,20 @@ export interface E2EHarness {
   runInActorContext<T>(fn: () => Promise<T>): Promise<T>;
 }
 
-export async function buildE2EHarness(overrides: Record<string, any> = {}): Promise<E2EHarness> {
+export async function buildE2EHarness(
+  _overrides: Record<string, any> = {},
+): Promise<E2EHarness> {
   // Seed minimal env vars required for JWT signing/verification in-process.
-  process.env.JWT_SECRET = process.env.JWT_SECRET ?? "e2e-jwt-secret-do-not-use";
+  process.env.JWT_SECRET =
+    process.env.JWT_SECRET ?? "e2e-jwt-secret-do-not-use";
   process.env.JWT_ISSUER = process.env.JWT_ISSUER ?? "https://beyu.health/e2e";
   process.env.JWT_AUDIENCE = process.env.JWT_AUDIENCE ?? "beyu-health-os";
-  process.env.REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET ?? "e2e-refresh-secret-do-not-use";
+  process.env.REFRESH_TOKEN_SECRET =
+    process.env.REFRESH_TOKEN_SECRET ?? "e2e-refresh-secret-do-not-use";
   process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? "pglite://e2e";
-  process.env.CSRF_SECRET = process.env.CSRF_SECRET ?? "e2e-csrf-secret-do-not-use";
+  process.env.CSRF_SECRET =
+    process.env.CSRF_SECRET ?? "e2e-csrf-secret-do-not-use";
   // Allow HTTP E2E harness to bypass live HCM verification (no practitioner
   // records are seeded in the PGlite database). Production deployments MUST
   // set BEYU_HCM_ENDPOINT and leave this flag unset — the adapter ignores
@@ -67,7 +98,10 @@ export async function buildE2EHarness(overrides: Record<string, any> = {}): Prom
   process.env.BEYU_HCM_BYPASS_FOR_TEST = "true";
   const db = new PGlite();
   const conn = new PGliteConnection(db);
-  const migs = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".up.sql")).sort();
+  const migs = fs
+    .readdirSync(MIG_DIR)
+    .filter((f) => f.endsWith(".up.sql"))
+    .sort();
   for (const f of migs) {
     await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
   }
@@ -92,22 +126,41 @@ export async function buildE2EHarness(overrides: Record<string, any> = {}): Prom
 
   const app = moduleFixture.createNestApplication();
   app.use(cookieParser());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
   await app.init();
   const tenantCtx = app.get<TenantContext>(TenantContext);
 
   function runInActorContext<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise<T>((res, rej) => {
       requestStorage.run(
-        { correlationId: "e2e-cid", requestId: "e2e-rid", startedAt: Date.now(), method: "E2E", path: "/", ip: "127.0.0.1" },
+        {
+          correlationId: "e2e-cid",
+          requestId: "e2e-rid",
+          startedAt: Date.now(),
+          method: "E2E",
+          path: "/",
+          ip: "127.0.0.1",
+        },
         () => tenantCtx.run(E2E_ACTOR as never, () => fn().then(res, rej)),
       );
     });
   }
 
   return {
-    app, db, conn, tenantCtx,
-    async close() { await app.close(); await db.close(); },
+    app,
+    db,
+    conn,
+    tenantCtx,
+    async close() {
+      await app.close();
+      await db.close();
+    },
     runInActorContext,
   };
 }

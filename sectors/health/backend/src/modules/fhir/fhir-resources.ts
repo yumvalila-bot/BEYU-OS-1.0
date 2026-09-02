@@ -6,11 +6,26 @@
  */
 
 export type FhirResourceType =
-  | "Patient" | "Practitioner" | "Organization" | "Location"
-  | "Encounter" | "Appointment" | "Condition" | "Observation"
-  | "MedicationRequest" | "AllergyIntolerance" | "DiagnosticReport"
-  | "ServiceRequest" | "Procedure" | "Medication" | "ImagingStudy"
-  | "Device" | "Provenance" | "AuditEvent" | "Consent" | "Bundle";
+  | "Patient"
+  | "Practitioner"
+  | "Organization"
+  | "Location"
+  | "Encounter"
+  | "Appointment"
+  | "Condition"
+  | "Observation"
+  | "MedicationRequest"
+  | "AllergyIntolerance"
+  | "DiagnosticReport"
+  | "ServiceRequest"
+  | "Procedure"
+  | "Medication"
+  | "ImagingStudy"
+  | "Device"
+  | "Provenance"
+  | "AuditEvent"
+  | "Consent"
+  | "Bundle";
 
 export interface FhirCoding {
   system: string;
@@ -56,9 +71,18 @@ export interface FhirCodeableConcept {
   text?: string;
 }
 
-export interface FhirBundle<T extends FhirResourceBase = FhirResourceBase> extends FhirResourceBase {
+export interface FhirBundle<
+  T extends FhirResourceBase = FhirResourceBase,
+> extends FhirResourceBase {
   resourceType: "Bundle";
-  type: "searchset" | "transaction" | "batch" | "collection" | "document" | "message" | "history";
+  type:
+    | "searchset"
+    | "transaction"
+    | "batch"
+    | "collection"
+    | "document"
+    | "message"
+    | "history";
   total?: number;
   entry?: Array<{ resource: T; fullUrl?: string }>;
 }

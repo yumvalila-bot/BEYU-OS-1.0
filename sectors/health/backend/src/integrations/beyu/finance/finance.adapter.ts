@@ -14,11 +14,18 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
-import type { FinanceEventRequest, FinanceEventResponse } from "../contracts/shared.types";
+import type {
+  FinanceEventRequest,
+  FinanceEventResponse,
+} from "../contracts/shared.types";
 
 @Injectable()
 export class FinanceAdapter extends BeyuBaseAdapter {
@@ -37,7 +44,10 @@ export class FinanceAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+    auditService: AuditService,
+  ) {
+    super(db, tenantCtx, circuit, cfg, auditService);
+  }
 
   /** Emit a financial event. Always safe to call; returns a blocked/pending
    *  status when Finance OS is not configured. */
@@ -59,15 +69,31 @@ export class FinanceAdapter extends BeyuBaseAdapter {
           req.actor.tenantId,
           req.actor.entityCode,
           req.actor.countryCode,
-          JSON.stringify({ eventType: req.eventType, healthResourceType: req.healthResourceType, amount: req.amount, facilityId: req.facilityId }),
+          JSON.stringify({
+            eventType: req.eventType,
+            healthResourceType: req.healthResourceType,
+            amount: req.amount,
+            facilityId: req.facilityId,
+          }),
           req.propagation.correlationId,
         ],
       );
-      return { accepted: false, financeEventId: null, status: "blocked", reasonCode: "FINANCE_OS_EXTERNAL_BLOCKED" };
+      return {
+        accepted: false,
+        financeEventId: null,
+        status: "blocked",
+        reasonCode: "FINANCE_OS_EXTERNAL_BLOCKED",
+      };
     }
     // Live transport not fabricated in this build; execute() will record failure and throw.
-    return this.execute("emit", req, async (): Promise<FinanceEventResponse> => {
-      throw new Error("Finance HTTP transport not implemented in this build.");
-    });
+    return this.execute(
+      "emit",
+      req,
+      async (): Promise<FinanceEventResponse> => {
+        throw new Error(
+          "Finance HTTP transport not implemented in this build.",
+        );
+      },
+    );
   }
 }

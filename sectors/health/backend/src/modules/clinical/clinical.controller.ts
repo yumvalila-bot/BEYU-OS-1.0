@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { ClinicalService } from "./clinical.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
@@ -16,30 +24,72 @@ export class ClinicalController {
   constructor(private readonly svc: ClinicalService) {}
 
   // Problems
-  @Get("patients/:patientId/problems") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "problem_list")
-  listProblems(@Param("patientId") patientId: string) { return this.svc.listProblems(patientId); }
-  @Post("problems") @RequirePermission("phi:write") @RequireHcmPractitioner("clinical.problem.add", { scope: ["clinical:write"] }) @RequiresClinicalSafety("general")
-  addProblem(@Body() dto: Record<string, unknown>) { return this.svc.addProblem(dto); }
+  @Get("patients/:patientId/problems")
+  @RequirePermission("phi:read")
+  @RequiresConsent("clinical:read", "problem_list")
+  listProblems(@Param("patientId") patientId: string) {
+    return this.svc.listProblems(patientId);
+  }
+  @Post("problems")
+  @RequirePermission("phi:write")
+  @RequireHcmPractitioner("clinical.problem.add", { scope: ["clinical:write"] })
+  @RequiresClinicalSafety("general")
+  addProblem(@Body() dto: Record<string, unknown>) {
+    return this.svc.addProblem(dto);
+  }
 
   // Observations/Vitals
-  @Get("patients/:patientId/observations") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "observations")
-  listObservations(@Param("patientId") patientId: string, @Query("category") category?: string) {
+  @Get("patients/:patientId/observations")
+  @RequirePermission("phi:read")
+  @RequiresConsent("clinical:read", "observations")
+  listObservations(
+    @Param("patientId") patientId: string,
+    @Query("category") category?: string,
+  ) {
     return this.svc.listObservations(patientId, category);
   }
-  @Post("observations") @RequirePermission("phi:write") @RequireHcmPractitioner("clinical.observation.add", { scope: ["clinical:write"] }) @RequiresClinicalSafety("general")
-  addObservation(@Body() dto: Record<string, unknown>) { return this.svc.addObservation(dto); }
+  @Post("observations")
+  @RequirePermission("phi:write")
+  @RequireHcmPractitioner("clinical.observation.add", {
+    scope: ["clinical:write"],
+  })
+  @RequiresClinicalSafety("general")
+  addObservation(@Body() dto: Record<string, unknown>) {
+    return this.svc.addObservation(dto);
+  }
 
   // Medications
-  @Get("patients/:patientId/medications") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "medications")
-  listMedications(@Param("patientId") patientId: string, @Query("active") active?: string) {
+  @Get("patients/:patientId/medications")
+  @RequirePermission("phi:read")
+  @RequiresConsent("clinical:read", "medications")
+  listMedications(
+    @Param("patientId") patientId: string,
+    @Query("active") active?: string,
+  ) {
     return this.svc.listMedications(patientId, active !== "false");
   }
-  @Post("medications") @RequirePermission("rx:write") @RequireHcmPractitioner("clinical.medication.prescribe", { scope: ["rx:prescribe", "clinical:write"] }) @RequiresClinicalSafety("general")
-  addMedication(@Body() dto: Record<string, unknown>) { return this.svc.addMedication(dto); }
+  @Post("medications")
+  @RequirePermission("rx:write")
+  @RequireHcmPractitioner("clinical.medication.prescribe", {
+    scope: ["rx:prescribe", "clinical:write"],
+  })
+  @RequiresClinicalSafety("general")
+  addMedication(@Body() dto: Record<string, unknown>) {
+    return this.svc.addMedication(dto);
+  }
 
   // Allergies
-  @Get("patients/:patientId/allergies") @RequirePermission("phi:read") @RequiresConsent("clinical:read", "allergies")
-  listAllergies(@Param("patientId") patientId: string) { return this.svc.listAllergies(patientId); }
-  @Post("allergies") @RequirePermission("phi:write") @RequireHcmPractitioner("clinical.allergy.add", { scope: ["clinical:write"] }) @RequiresClinicalSafety("general")
-  addAllergy(@Body() dto: Record<string, unknown>) { return this.svc.addAllergy(dto); }
+  @Get("patients/:patientId/allergies")
+  @RequirePermission("phi:read")
+  @RequiresConsent("clinical:read", "allergies")
+  listAllergies(@Param("patientId") patientId: string) {
+    return this.svc.listAllergies(patientId);
+  }
+  @Post("allergies")
+  @RequirePermission("phi:write")
+  @RequireHcmPractitioner("clinical.allergy.add", { scope: ["clinical:write"] })
+  @RequiresClinicalSafety("general")
+  addAllergy(@Body() dto: Record<string, unknown>) {
+    return this.svc.addAllergy(dto);
+  }
 }

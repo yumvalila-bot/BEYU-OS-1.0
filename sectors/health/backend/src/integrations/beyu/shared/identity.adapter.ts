@@ -9,11 +9,18 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
-import type { GlobalUserLookupRequest, GlobalUserRecord } from "../contracts/shared.types";
+import type {
+  GlobalUserLookupRequest,
+  GlobalUserRecord,
+} from "../contracts/shared.types";
 
 @Injectable()
 export class IdentityAdapter extends BeyuBaseAdapter {
@@ -32,7 +39,10 @@ export class IdentityAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+    auditService: AuditService,
+  ) {
+    super(db, tenantCtx, circuit, cfg, auditService);
+  }
 
   async lookup(req: GlobalUserLookupRequest): Promise<GlobalUserRecord> {
     // Local fallback: trust JWT-derived globalUserId as canonical; refuse to

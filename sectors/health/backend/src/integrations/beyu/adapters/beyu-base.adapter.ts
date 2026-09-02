@@ -15,11 +15,18 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
-import type { ActorContext } from "../../../common/security/tenant-context";
-import { currentCorrelationId, requestStorage } from "../../../common/observability/correlation-id.middleware";
+import {
+  currentCorrelationId,
+  requestStorage,
+} from "../../../common/observability/correlation-id.middleware";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import type {
   IntegrationState,
   PropagationEnvelope,
@@ -55,13 +62,23 @@ export abstract class BeyuBaseAdapter {
     protected readonly tenantCtx: TenantContext,
     protected readonly circuit: CircuitBreaker,
     protected readonly cfg: ConfigService,
+    /**
+     * The canonical Health audit ledger writer (health.audit_log). Injected
+     * rather than raw-SQL'd so outbound records participate in the same
+     * per-tenant SHA-256 hash chain, tenant/entity/country columns and
+     * append-only triggers as every other audited mutation. AuditModule is
+     * @Global(), so this resolves without a module import.
+     */
+    protected readonly auditService: AuditService,
   ) {}
 
   /* ---------------- state / probe ---------------- */
 
   getState(): IntegrationState {
     const endpoint = this.cfg.get<string>(this.config.endpointEnv);
-    const missing = this.config.credentialEnvs.filter((k) => !this.cfg.get<string>(k));
+    const missing = this.config.credentialEnvs.filter(
+      (k) => !this.cfg.get<string>(k),
+    );
     if (!endpoint) return "NOT_CONFIGURED";
     if (missing.length > 0) return "CONFIGURED"; // endpoint present but credentials missing
     return "CONFIGURED"; // real connection probe is only done via an authenticated handshake; until then we stay CONFIGURED (not VERIFIED). Production will be EXTERNAL-BLOCKED because live credentials are not fabricated.
@@ -69,8 +86,10 @@ export abstract class BeyuBaseAdapter {
 
   status() {
     const endpoint = this.cfg.get<string>(this.config.endpointEnv);
-    const missing = [this.config.endpointEnv, ...this.config.credentialEnvs]
-      .filter((k) => !this.cfg.get<string>(k));
+    const missing = [
+      this.config.endpointEnv,
+      ...this.config.credentialEnvs,
+    ].filter((k) => !this.cfg.get<string>(k));
     const state = this.getState();
     return {
       provider: this.config.provider,
@@ -163,7 +182,13 @@ export abstract class BeyuBaseAdapter {
         const retryable = isRetryable(e);
         if (!retryable || attempt === maxRetries) {
           await this.markOutbox(outboxId, "failed", e?.message ?? "error");
-          await this.auditOutbound(action, req, null, idempotencyKey, e?.message ?? "error");
+          await this.auditOutbound(
+            action,
+            req,
+            null,
+            idempotencyKey,
+            e?.message ?? "error",
+          );
           throw DomainError.unavailable(
             `BEYU adapter '${this.config.provider}' action '${action}' failed: ${e?.message ?? "unknown"}`,
           );
@@ -176,7 +201,11 @@ export abstract class BeyuBaseAdapter {
 
   /* ---------------- outbox / audit ---------------- */
 
-  private async writeOutbox(action: string, req: unknown, idemKey: string): Promise<string> {
+  private async writeOutbox(
+    action: string,
+    req: unknown,
+    idemKey: string,
+  ): Promise<string> {
     const actor = this.currentActor();
     const rows = await this.db.query<{ id: string }>(
       `INSERT INTO health.beyu_outbox
@@ -200,40 +229,56 @@ export abstract class BeyuBaseAdapter {
     return rows[0].id;
   }
 
-  private async markOutbox(id: string, status: "pending" | "delivered" | "failed", error: string | null): Promise<void> {
+  private async markOutbox(
+    id: string,
+    status: "pending" | "delivered" | "failed",
+    error: string | null,
+  ): Promise<void> {
     await this.db.query(
       `UPDATE health.beyu_outbox SET status=$2, last_error=$3, updated_at=now() WHERE id=$1::uuid`,
       [id, status, error],
     );
   }
 
-  private async auditOutbound(action: string, req: unknown, res: unknown, idemKey: string, err: string | null): Promise<void> {
+  private async auditOutbound(
+    action: string,
+    req: unknown,
+    res: unknown,
+    idemKey: string,
+    err: string | null,
+  ): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, before, after, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'beyu.outbound.'||$3, 'beyu_adapter', NULL, NULL, NULL,
-                 $4::jsonb, $5, 'allowed', CASE WHEN $6 IS NULL THEN 'ok'::text ELSE 'error'::text END, 'health-api')`,
-        [
-          this.tenantCtx.current()?.tenantId ?? null,
-          this.tenantCtx.current()?.userId ?? null,
-          action,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: `beyu.outbound.${action}`,
+          resourceType: "beyu_adapter",
+          resourceId: null,
+          metadata: {
             provider: this.config.provider,
             idempotencyKey: idemKey,
             error: err,
             request_summary: summarize(req),
             response_summary: summarize(res),
-          }),
-          currentCorrelationId(),
-          err,
-        ],
+          },
+          authDecision: "allowed",
+          resultStatus: err === null ? "ok" : "error",
+          sourceService: "health-api",
+        }),
       );
     } catch (e) {
-      this.logger.warn(`audit outbound failed: ${(e as Error).message}`);
+      // Post-call audit is best-effort BY DESIGN, and that is safe here: the
+      // external side effect has already happened by this point, so throwing
+      // could not undo it. The mandatory, unguarded auditability gate is the
+      // health.beyu_outbox row that execute() writes BEFORE the call (it
+      // requires an actor context and aborts the call if it cannot be
+      // written), and it sits in the same database/failure domain as the audit
+      // ledger. What must never happen is the failure being invisible, so this
+      // is logged at error level with the outbox idempotency key for
+      // reconciliation.
+      this.logger.error(
+        `outbound audit write failed for ${this.config.provider}:${action} ` +
+          `(idempotencyKey=${idemKey}): ${(e as Error).message}`,
+      );
     }
   }
 }
@@ -242,8 +287,25 @@ export abstract class BeyuBaseAdapter {
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => reject(Object.assign(new Error(`TIMEOUT after ${ms}ms`), { code: "ETIMEDOUT" })), ms);
-    p.then((r) => { clearTimeout(t); resolve(r); }, (e) => { clearTimeout(t); reject(e); });
+    const t = setTimeout(
+      () =>
+        reject(
+          Object.assign(new Error(`TIMEOUT after ${ms}ms`), {
+            code: "ETIMEDOUT",
+          }),
+        ),
+      ms,
+    );
+    p.then(
+      (r) => {
+        clearTimeout(t);
+        resolve(r);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }
 
@@ -252,14 +314,23 @@ function sleep(ms: number): Promise<void> {
 }
 
 function backoffMs(attempt: number, base: number): number {
-  return Math.min(base * Math.pow(2, attempt), 5000) + Math.floor(Math.random() * 100);
+  return (
+    Math.min(base * Math.pow(2, attempt), 5000) +
+    Math.floor(Math.random() * 100)
+  );
 }
 
 function isRetryable(e: any): boolean {
   const code = e?.code;
   const status = e?.status;
-  return code === "ETIMEDOUT" || code === "ECONNRESET" || code === "ECONNREFUSED"
-    || code === "CIRCUIT_OPEN" || status === 429 || (status >= 500 && status < 600);
+  return (
+    code === "ETIMEDOUT" ||
+    code === "ECONNRESET" ||
+    code === "ECONNREFUSED" ||
+    code === "CIRCUIT_OPEN" ||
+    status === 429 ||
+    (status >= 500 && status < 600)
+  );
 }
 
 /** Never log credentials/tokens/JWTs/PHI payloads — redact known sensitive keys. */
@@ -268,9 +339,14 @@ function redact(o: any): any {
   if (Array.isArray(o)) return o.map(redact);
   if (typeof o !== "object") return o;
   const out: any = {};
-  const SENS = /(password|secret|token|key|authorization|credential|jwt|otp|mfa|pin)/i;
+  const SENS =
+    /(password|secret|token|key|authorization|credential|jwt|otp|mfa|pin)/i;
   for (const [k, v] of Object.entries(o)) {
-    out[k] = SENS.test(k) ? "__REDACTED__" : typeof v === "object" ? redact(v) : v;
+    out[k] = SENS.test(k)
+      ? "__REDACTED__"
+      : typeof v === "object"
+        ? redact(v)
+        : v;
   }
   return out;
 }

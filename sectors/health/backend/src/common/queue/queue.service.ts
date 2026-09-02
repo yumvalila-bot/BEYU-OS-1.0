@@ -18,7 +18,6 @@
  */
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventEmitter } from "events";
 
 export interface JobEnvelope {
   idempotencyKey: string;
@@ -70,13 +69,16 @@ export class QueueService implements OnModuleDestroy {
   constructor(private readonly cfg: ConfigService) {
     const env = cfg.get<string>("NODE_ENV");
     const forced = cfg.get<string>("QUEUE_BACKEND");
-    const redisUrl = cfg.get<string>("REDIS_URL") ?? cfg.get<string>("REDIS_HOST");
+    const redisUrl =
+      cfg.get<string>("REDIS_URL") ?? cfg.get<string>("REDIS_HOST");
     let desired: "memory" | "redis" | "blocked" = "memory";
     if (forced === "redis") desired = "redis";
     else if (forced === "memory") desired = "memory";
     else if (env === "production") desired = "redis"; // production defaults to redis
     if (desired === "redis" && !redisUrl) {
-      this.logger.error("QUEUE BOOT BLOCKED: QUEUE_BACKEND=redis but REDIS_URL is not set");
+      this.logger.error(
+        "QUEUE BOOT BLOCKED: QUEUE_BACKEND=redis but REDIS_URL is not set",
+      );
       desired = "blocked";
     }
     this.backend = desired;
@@ -99,7 +101,9 @@ export class QueueService implements OnModuleDestroy {
   /** Enqueue a job. Returns descriptor id. */
   async enqueue(env: JobEnvelope): Promise<string> {
     if (this.backend === "blocked") {
-      throw new Error("QUEUE_BACKEND_BLOCKED: Redis required but not configured; failing closed.");
+      throw new Error(
+        "QUEUE_BACKEND_BLOCKED: Redis required but not configured; failing closed.",
+      );
     }
     if (this.backend === "redis") {
       // Redis transport not fabricated in this build. Fail closed so callers
@@ -109,12 +113,19 @@ export class QueueService implements OnModuleDestroy {
     // in-memory backend:
     const id = `mem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const desc: JobDescriptor = {
-      id, enqueuedAt: Date.now(), envelope: { ...env, attempts: 0 }, status: "pending", attempts: 0,
+      id,
+      enqueuedAt: Date.now(),
+      envelope: { ...env, attempts: 0 },
+      status: "pending",
+      attempts: 0,
     };
     // Idempotency: if a job with same idempotencyKey already exists, return existing id.
     for (const existing of this.jobs.values()) {
-      if (existing.envelope.idempotencyKey === env.idempotencyKey
-          && existing.status !== "dead" && existing.status !== "completed") {
+      if (
+        existing.envelope.idempotencyKey === env.idempotencyKey &&
+        existing.status !== "dead" &&
+        existing.status !== "completed"
+      ) {
         return existing.id;
       }
     }
@@ -124,13 +135,21 @@ export class QueueService implements OnModuleDestroy {
   }
 
   health(): QueueHealth {
-    let pending = 0, processing = 0, dead = 0;
+    let pending = 0,
+      processing = 0,
+      dead = 0;
     for (const j of this.jobs.values()) {
       if (j.status === "pending") pending++;
       else if (j.status === "processing") processing++;
       else if (j.status === "dead") dead++;
     }
-    return { backend: this.backend, pending, processing, dead, workers: this.workerCount };
+    return {
+      backend: this.backend,
+      pending,
+      processing,
+      dead,
+      workers: this.workerCount,
+    };
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -151,11 +170,20 @@ export class QueueService implements OnModuleDestroy {
   private async workerLoop(): Promise<void> {
     while (!this.stopped) {
       const next = this.nextPending();
-      if (!next) { await sleep(20); continue; }
+      if (!next) {
+        await sleep(20);
+        continue;
+      }
       next.status = "processing";
-      const p = this.process(next).finally(() => this.processing.delete(next.id));
+      const p = this.process(next).finally(() =>
+        this.processing.delete(next.id),
+      );
       this.processing.set(next.id, p);
-      try { await p; } catch { /* handled in process */ }
+      try {
+        await p;
+      } catch {
+        /* handled in process */
+      }
     }
   }
 
@@ -181,10 +209,14 @@ export class QueueService implements OnModuleDestroy {
       j.lastError = e?.message ?? "unknown";
       if (j.attempts >= maxAttempts) {
         j.status = "dead"; // dead-letter
-        this.logger.warn(`job ${j.id} dead: ${j.envelope.action} (${j.lastError})`);
+        this.logger.warn(
+          `job ${j.id} dead: ${j.envelope.action} (${j.lastError})`,
+        );
       } else {
         j.status = "pending";
-        const delay = Math.min(backoff * Math.pow(2, j.attempts - 1), 30_000) + Math.random() * 100;
+        const delay =
+          Math.min(backoff * Math.pow(2, j.attempts - 1), 30_000) +
+          Math.random() * 100;
         const t = setTimeout(() => this.kick(), delay);
         this.timers.push(t);
       }

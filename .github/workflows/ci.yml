@@ -1,0 +1,842 @@
+# BEYU OS — canonical CI gate.
+#
+# PROVENANCE. This file activates and extends `docs/ci/ci.yml`, which the
+# repository already carried as its CI pipeline but could not publish because the
+# automation GitHub App lacked the `workflows` permission (see docs/ci/README.md,
+# refusal recorded on branch arena/01a04722-beyu-os-1-0 at f0f3ff1). The root
+# pipeline below is that file's gate, preserved step-for-step. Added to it are the
+# Health OS jobs from the recovered commit ce02ae1 (.github/workflows/
+# beyu-security.yml) and a real-PostgreSQL Health gate.
+#
+# ONE CANONICAL POSTGRESQL ARCHITECTURE.
+#   Schema, migrations, tests and the RLS model all live in GitHub as the single
+#   source of truth. Arena, CI and Production are isolated environments that each
+#   run that one schema against their own PostgreSQL. Supabase is not a second
+#   database — when it hosts production it *is* the production PostgreSQL.
+#     Arena      -> temporary PostgreSQL (per-session, disposable)
+#     CI         -> temporary PostgreSQL (service container, dies with the run)
+#     Production -> persistent PostgreSQL (Supabase managed, eu-west-3)
+#   The CI database below is EPHEMERAL RUN INFRASTRUCTURE. It is not a persistent
+#   "CI database server" and must never be pointed at production, Supabase, an
+#   Arena instance or a developer machine.
+#
+# CANONICAL POSTGRESQL VERSION: 16.
+#   Pinned to match the repository's existing declarations — docs/ci/ci.yml
+#   (`postgres:16`) and sectors/health/backend/docker-compose.yml
+#   (`postgres:16-alpine`). Root migration 0000 requires the `btree_gist`
+#   extension, which ships in the official postgres:16 image.
+#
+# CREDENTIAL MODEL. Every credential below is a CI-ONLY LITERAL with no value
+# outside this throwaway container. None is a GitHub secret, none is a production
+# credential, and none is ever printed. Steps that talk to PostgreSQL use discrete
+# connection parameters rather than a DSN in argv, so a failing psql cannot echo a
+# password into the log.
+
+name: BEYU OS CI — PostgreSQL-backed security gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege. Checkout is the only thing any job needs; no job writes issues,
+# pull requests, packages or deployments, and nothing requests an id-token.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Committed-secret detection. Runs first and independently: a leaked credential
+  # must fail the build even if every functional gate is green.
+  # ---------------------------------------------------------------------------
+  committed-secret-scan:
+    name: Committed secret scan
+    runs-on: ubuntu-24.04 # pinned from ubuntu-latest for reproducibility
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        # actions/checkout v4.3.0 — pinned to an immutable commit SHA.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # Full history: the history scan below cannot see what was not fetched.
+          fetch-depth: 0
+
+      - name: Scan committed tree for high-confidence credential patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='(-----BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|ghp_[A-Za-z0-9_]{36,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{48,}|xox[baprs]-[A-Za-z0-9-]{10,})'
+          # Lockfiles are excluded: they legitimately contain integrity hashes that
+          # can resemble opaque tokens, and they are never a place a human would
+          # paste a credential.
+          exclude=':!package-lock.json :!sectors/health/package-lock.json :!sectors/health/backend/package-lock.json'
+          if git grep -IEl "$pattern" -- . $exclude > /tmp/beyu-secret-files; then
+            echo "::error::High-confidence secret pattern detected in committed files."
+            sed 's#^#  - #' /tmp/beyu-secret-files
+            echo "Secret values are intentionally not printed. Remove the credential and rotate it before retrying."
+            exit 1
+          fi
+          echo "No high-confidence committed secret patterns detected in the working tree."
+
+      - name: Scan recent history for the same patterns (bounded)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Bounded to the most recent 200 commits so the gate stays fast and
+          # deterministic. A full-history rewrite is an operator task, not a CI one.
+          pattern='(-----BEGIN (RSA |DSA |EC |OPENSSH |PGP )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|ghp_[A-Za-z0-9_]{36,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{48,}|xox[baprs]-[A-Za-z0-9-]{10,})'
+          commits=$(git rev-list --all --max-count=200)
+          count=$(printf '%s\n' "$commits" | grep -c . || true)
+          echo "Scanning $count commits."
+          # -l prints paths only; matched secret content is never written to the log.
+          if git grep -IlE "$pattern" $commits -- . \
+               ':!package-lock.json' ':!sectors/health/package-lock.json' \
+               ':!sectors/health/backend/package-lock.json' > /tmp/beyu-history-hits; then
+            echo "::error::High-confidence secret pattern detected in git history."
+            awk -F: '{print "  - commit "$1" path "$2}' /tmp/beyu-history-hits | sort -u
+            echo "Secret values are intentionally not printed. Rotate the credential and rewrite history."
+            exit 1
+          fi
+          echo "No high-confidence secret patterns detected in the last $count commits."
+
+      - name: Credential literal scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -rIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               -E "BeyuOS#|password\s*=\s*[\"'][^\"']{8,}" src/ scripts/ tests/; then
+            echo "::error::Possible credential literal committed."
+            exit 1
+          fi
+          echo "No credential literals found."
+
+      - name: Committed-secret filename scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -qE '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'; then
+            echo "::error::A credential-bearing file is tracked by git."
+            git ls-files | grep -E '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'
+            exit 1
+          fi
+          echo "No credential files tracked."
+
+  # ---------------------------------------------------------------------------
+  # ROOT BEYU OS. This is the repository's canonical aggregate gate, carried over
+  # from docs/ci/ci.yml. The suites here are not purely unit-level: tenant
+  # isolation, audit-chain concurrency, atomic-transaction and governed-mutation
+  # suites assert against real PostgreSQL state, so the service container is
+  # required, not optional. Mocking them would invalidate exactly the guarantees
+  # they exist to prove.
+  # ---------------------------------------------------------------------------
+  root-beyu-os:
+    name: Root BEYU OS — PostgreSQL security gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Ephemeral, run-scoped. This container is destroyed when the job ends.
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyu_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # CREDENTIAL SEPARATION — load-bearing, not cosmetic.
+      #   DATABASE_URL              runtime role (beyu_runtime), NON-SUPERUSER,
+      #                               RLS-bound. The server under test runs on it,
+      #                               which is what makes the HTTP/E2E suite a test
+      #                               of Row Level Security rather than of the
+      #                               superuser.
+      #   BEYU_RUNTIME_DATABASE_URL runtime DSN pinned for the RLS and privilege
+      #                               audit suites, which must connect as the
+      #                               runtime role even where setup-env.ts repoints
+      #                               DATABASE_URL at the privileged test role.
+      #   BEYU_ADMIN_DATABASE_URL   superuser. Schema DDL, seeding, drizzle-kit.
+      #   BEYU_TEST_DATABASE_URL    privileged, for governed-mutation suites that
+      #                               call domain services directly without the
+      #                               guarded() RLS wrapper.
+      DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+      BEYU_RUNTIME_DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+      BEYU_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
+      BEYU_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
+      BEYU_RUNTIME_DB_PASSWORD: ci_runtime_db_password_not_a_secret
+      BEYU_BOOTSTRAP_PASSWORD: ci_bootstrap_password_not_a_secret
+      AUTH_SECRET: ci_auth_secret_value_used_only_in_continuous_integration
+      MFA_ENCRYPTION_KEY: ci_mfa_encryption_key_used_only_in_integration
+      # Discrete connection parameters for psql, so no DSN ever appears in argv.
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGDATABASE: beyu_os
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        # actions/setup-node v4 — pinned to an immutable commit SHA.
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          # 22 is the version this repository already pins in docs/ci/ci.yml;
+          # it is not changed here for cosmetic reasons.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Wait for PostgreSQL readiness and record version
+        # The service healthcheck already gates container start; this is an
+        # explicit, independent assertion so "the container started" is never
+        # mistaken for "PostgreSQL accepts connections". If it is not ready, FAIL.
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; then
+              echo "PostgreSQL is accepting connections."
+              break
+            fi
+            [ "$i" = 60 ] && { echo "::error::PostgreSQL never became ready"; exit 1; }
+            sleep 1
+          done
+          version=$(psql -Atqc 'show server_version')
+          echo "server_version=$version" | tee /tmp/pg-version.txt
+          case "$version" in
+            16*) echo "Canonical PostgreSQL major version 16 confirmed." ;;
+            *) echo "::error::Expected PostgreSQL 16, got $version"; exit 1 ;;
+          esac
+
+      - name: Typecheck root BEYU OS
+        run: npm run typecheck
+
+      - name: Lint root BEYU OS
+        # package script is `eslint .` — no --fix, so CI never mutates source.
+        run: npm run lint
+
+      - name: Apply canonical root migrations 0000-0018
+        # scripts/migrate.ts is the only migration runner. It records every
+        # applied version plus a sha256 checksum in beyu_migrations and prints a
+        # schema drift fingerprint before and after. drizzle-kit push is never
+        # used against a managed database.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run migrate 2>&1 | tee /tmp/root-migrate.log
+
+      - name: Verify migrations 0000-0018 are all recorded
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(ls drizzle/*.sql | wc -l | tr -d ' ')
+          applied=$(psql -Atqc "select count(*) from beyu_migrations where mode='APPLIED'")
+          echo "migration files on disk : $expected"
+          echo "migrations APPLIED      : $applied"
+          psql -Atqc "select version from beyu_migrations order by version" | sed 's/^/  - /'
+          if [ "$applied" -ne "$expected" ]; then
+            echo "::error::Expected $expected applied migrations, found $applied"
+            exit 1
+          fi
+          echo "All $expected canonical root migrations applied."
+
+      - name: Verify migrations are deterministic (re-run applies nothing)
+        # EMPTY POSTGRESQL + CANONICAL MIGRATIONS = EXPECTED SCHEMA. A second run
+        # must be a no-op; if it applies anything, the ledger and the SQL disagree.
+        shell: bash
+        run: |
+          set -euo pipefail
+          before=$(psql -Atqc "select count(*) from beyu_migrations")
+          npm run migrate 2>&1 | tee /tmp/root-migrate-rerun.log
+          after=$(psql -Atqc "select count(*) from beyu_migrations")
+          if [ "$before" != "$after" ]; then
+            echo "::error::Migration re-run changed the ledger ($before -> $after); migrations are not idempotent"
+            exit 1
+          fi
+          echo "Migration re-run applied nothing. Ledger stable at $after."
+
+      - name: Verify no schema drift against src/db/schema
+        # If drizzle-kit wants to generate a new migration, the committed
+        # migrations no longer describe the schema.
+        shell: bash
+        run: |
+          set -euo pipefail
+          before=$(ls drizzle/*.sql | wc -l)
+          npx drizzle-kit generate --name=ci_drift_check
+          after=$(ls drizzle/*.sql | wc -l)
+          if [ "$before" != "$after" ]; then
+            echo "::error::Schema drift detected — drizzle-kit generated a new migration."
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "No schema drift."
+
+      # MANDATORY, and it must run BEFORE the tests.
+      #
+      # Without it the runtime role does not exist, DATABASE_URL falls back to the
+      # postgres superuser, and the security suites verify the WRONG ROLE:
+      # runtime-privilege-audit fails on "cannot SET ROLE to a superuser" (a
+      # superuser can), and the runtime-role RLS isolation suite skips. The
+      # pipeline would then report green having proved nothing about the role
+      # production actually runs as.
+      - name: Provision non-superuser runtime role
+        run: npx tsx scripts/setup-db-role.ts
+
+      - name: Assert the runtime role is genuinely constrained
+        # Independent re-check, so a regression inside setup-db-role.ts cannot
+        # pass unnoticed. Discrete psql parameters: no DSN in argv.
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Evaluated as a SQL predicate, not by comparing rendered booleans:
+          # `boolean || text` casts to 'true'/'false', which is NOT the 't'/'f'
+          # that psql displays for a boolean column. Comparing display strings is
+          # fragile, so the database decides and returns a count instead.
+          psql -Atqc "select rolname, rolsuper, rolbypassrls, rolcreaterole, rolcreatedb
+                        from pg_roles where rolname='beyu_runtime'" \
+            | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreaterole="$4" rolcreatedb="$5}'
+          ok=$(psql -Atqc "select count(*) from pg_roles
+                            where rolname='beyu_runtime'
+                              and not rolsuper and not rolbypassrls
+                              and not rolcreaterole and not rolcreatedb")
+          if [ "$ok" != "1" ]; then
+            echo "::error::runtime role is not NOSUPERUSER/NOBYPASSRLS/NOCREATEROLE/NOCREATEDB"
+            exit 1
+          fi
+          echo "Runtime role attributes verified: NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB."
+
+      - name: Seed bootstrap data
+        run: npm run seed
+
+      - name: Production build
+        run: npm run build
+
+      # Deployment-platform parity: production platforms build WITHOUT runtime
+      # secrets. This fails if any module regresses to requiring DATABASE_URL at
+      # build time — the root cause that previously failed every deployment.
+      - name: Production build without runtime secrets (deployment parity)
+        env:
+          DATABASE_URL: ""
+          BEYU_RUNTIME_DATABASE_URL: ""
+          BEYU_ADMIN_DATABASE_URL: ""
+          BEYU_TEST_DATABASE_URL: ""
+          AUTH_SECRET: ""
+          MFA_ENCRYPTION_KEY: ""
+          BEYU_BOOTSTRAP_PASSWORD: ""
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv .env /tmp/beyu-ci-env-backup 2>/dev/null || true
+          trap 'mv /tmp/beyu-ci-env-backup .env 2>/dev/null || true' EXIT
+          npm run build
+          echo "Build succeeds without runtime secrets."
+
+      # The end-to-end suite drives the real HTTP surface: the 401 boundary, the
+      # 422 forgery guards, 429 rate limiting, idempotency replay/mismatch/
+      # cross-actor, page rendering and navigation gating. Without a running
+      # server those tests would skip, so CI starts one and fails if it never
+      # becomes ready.
+      - name: Start application for end-to-end tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx next start -H 127.0.0.1 -p 3100 &
+          echo $! > /tmp/beyu-server.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::application did not become ready"
+          exit 1
+
+      - name: Assert the server reports its database UP
+        # A server that starts but cannot reach the database would let the E2E
+        # suite skip instead of fail. Refuse to continue in that state.
+        shell: bash
+        run: |
+          set -euo pipefail
+          body=$(curl -s http://127.0.0.1:3100/api/health)
+          echo "$body" | tee /tmp/health.json | grep -q '"database":"UP"' \
+            || { echo "::error::/api/health did not report database UP"; exit 1; }
+          echo "Health check passed."
+
+      - name: Full root regression (PostgreSQL-backed + HTTP/E2E)
+        # BEYU_TEST_BASE_URL is set explicitly, so tests/helpers/http.ts treats an
+        # unreachable server as a FAILURE rather than skipping every
+        # transport-level assertion. This is what stops the 401/422/429/
+        # idempotency suites from silently reporting green while executing nothing.
+        env:
+          BEYU_TEST_BASE_URL: http://127.0.0.1:3100
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test 2>&1 | tee /tmp/root-tests.log
+
+      - name: Assert no test suite was silently skipped for want of a server
+        # vitest prints a skip count. With a reachable server and BEYU_TEST_BASE_URL
+        # set, the HTTP suites must have run. A large skip count means the
+        # transport-level gate did not actually execute.
+        shell: bash
+        run: |
+          set -euo pipefail
+          skipped=$(grep -oE '[0-9]+ skipped' /tmp/root-tests.log | tail -1 | grep -oE '^[0-9]+' || echo 0)
+          echo "vitest reported $skipped skipped test(s)."
+          if [ "$skipped" -gt 5 ]; then
+            echo "::error::$skipped tests skipped with a reachable server — the HTTP/E2E gate did not execute."
+            exit 1
+          fi
+          echo "Skip count within tolerance; HTTP/E2E gate executed."
+
+      - name: Stop application
+        if: always()
+        run: kill "$(cat /tmp/beyu-server.pid)" 2>/dev/null || true
+
+      - name: Upload root evidence
+        # actions/upload-artifact v4.6.2 — pinned to an immutable commit SHA.
+        # Logs only: no DSN, no credential, no secret value.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-beyu-os-evidence
+          path: |
+            /tmp/pg-version.txt
+            /tmp/root-migrate.log
+            /tmp/root-migrate-rerun.log
+            /tmp/health.json
+            /tmp/root-tests.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # HEALTH OS FRONTEND. sectors/health has typecheck, test and build scripts but
+  # NO lint script. None is invented here and package.json is not modified to
+  # manufacture one; the omission is recorded rather than papered over.
+  # ---------------------------------------------------------------------------
+  health-os-frontend:
+    name: Health OS frontend verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: sectors/health
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sectors/health/package-lock.json
+
+      - name: Install Health OS frontend dependencies
+        run: npm ci
+
+      - name: Report absent frontend lint script
+        # Deliberate: no lint step is fabricated for a package that has none.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            echo "A lint script exists; add it to this job."
+            exit 1
+          fi
+          echo "sectors/health defines no lint script. No lint step is fabricated."
+
+      - name: Typecheck Health OS frontend
+        run: npm run typecheck
+
+      - name: Test Health OS frontend
+        run: npm test
+
+      - name: Build Health OS frontend
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # HEALTH OS BACKEND — real PostgreSQL gate.
+  #
+  # The existing Jest suites boot an in-process PGlite instance, which is a fast
+  # and legitimate layer and is NOT removed here. PGlite alone is not sufficient
+  # proof of the required real-PostgreSQL Health security gate, so the same
+  # canonical migrations are applied to a real PostgreSQL 16 service and the
+  # database-dependent specs are re-run against it.
+  #
+  # No new test code is introduced to do this. The repository's own
+  # src/modules/identity/test-connection.ts already switches on the environment:
+  # createTestDbConnection() returns a real PgConnection against a fresh scratch
+  # database when TEST_DATABASE_URL/DATABASE_URL is set, and falls back to PGlite
+  # when neither is. Setting those variables IS the supported mechanism.
+  # ---------------------------------------------------------------------------
+  health-os-backend:
+    name: Health OS backend — real PostgreSQL gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyu_health
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: sectors/health/backend
+
+    env:
+      # Migration runner and application role.
+      DATABASE_URL: postgresql://beyu_health_runtime:ci_health_runtime_password_not_secret@127.0.0.1:5432/beyu_health
+      # createTestDbConnection() / createTestSuperuserConnection() read these.
+      TEST_DATABASE_URL: postgresql://beyu_health_runtime:ci_health_runtime_password_not_secret@127.0.0.1:5432/beyu_health
+      TEST_DATABASE_URL_SUPERUSER: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGDATABASE: beyu_health
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sectors/health/backend/package-lock.json
+
+      - name: Install Health OS backend dependencies
+        run: npm ci
+
+      - name: Wait for PostgreSQL readiness and record version
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; then
+              echo "PostgreSQL is accepting connections."
+              break
+            fi
+            [ "$i" = 60 ] && { echo "::error::PostgreSQL never became ready"; exit 1; }
+            sleep 1
+          done
+          version=$(psql -Atqc 'show server_version')
+          echo "server_version=$version" | tee /tmp/health-pg-version.txt
+          case "$version" in
+            16*) echo "Canonical PostgreSQL major version 16 confirmed." ;;
+            *) echo "::error::Expected PostgreSQL 16, got $version"; exit 1 ;;
+          esac
+
+      - name: Typecheck Health OS backend
+        # Invoked directly: this package defines no `typecheck` script.
+        run: ./node_modules/.bin/tsc --noEmit -p tsconfig.json
+
+      - name: Provision a non-superuser Health runtime role
+        # Mirrors the root job's role separation: the application role is not a
+        # superuser. CREATEDB is granted only because the repository's own test
+        # harness creates a fresh scratch database per spec; it confers no RLS
+        # bypass, and the role remains NOSUPERUSER NOBYPASSRLS.
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_health_runtime') THEN
+              CREATE ROLE beyu_health_runtime LOGIN PASSWORD 'ci_health_runtime_password_not_secret'
+                NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOREPLICATION CREATEDB;
+            ELSE
+              ALTER ROLE beyu_health_runtime
+                NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOREPLICATION CREATEDB;
+            END IF;
+          END
+          $$;
+          GRANT ALL ON SCHEMA public TO beyu_health_runtime;
+          SQL
+          attrs=$(psql -Atqc "select count(*) from pg_roles where rolname='beyu_health_runtime' and not rolsuper and not rolbypassrls")
+          if [ "$attrs" != "1" ]; then
+            echo "::error::Health runtime role must be NOSUPERUSER and NOBYPASSRLS"
+            exit 1
+          fi
+          psql -Atqc "select rolname, rolsuper, rolbypassrls, rolcreatedb from pg_roles where rolname='beyu_health_runtime'" \
+            | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
+          echo "Health runtime role verified non-superuser."
+
+      - name: Apply Health migrations 001-020 against real PostgreSQL
+        # Canonical runner: src/database/migration-runner.ts, which records each
+        # migration in a beyu_migrations ledger and applies every pair
+        # transactionally. No schema object is hand-created here.
+        #
+        # Run as the admin (superuser) role, mirroring the root job's separation of
+        # DDL from the runtime path and matching this package's own
+        # docker-compose.yml, which runs against postgres.
+        #
+        # This override is load-bearing, and the reason is measured rather than
+        # assumed. `beyu_health` is created by the postgres:16 entrypoint, so its
+        # owner is `postgres`. Since PostgreSQL 15 the `public` schema no longer
+        # grants CREATE to PUBLIC, so when the runner opens by creating its
+        # `beyu_migrations` ledger in `public`, a non-superuser, non-owner role is
+        # rejected before it ever reaches a migration file:
+        #
+        #   ERROR 42501  permission denied for schema public   (aclchk.c:2814)
+        #
+        # Verified both ways on a real PostgreSQL 16.14 server: as
+        # beyu_health_runtime against this postgres-owned database the ledger table
+        # is never created and zero schemas appear; the same role against a
+        # database it owns applies all 18 migrations cleanly. The role separation
+        # that the RLS specs depend on is established by the specs themselves: they
+        # set up as the privileged role, then CREATE ROLE rls_app/rls_bnd NOLOGIN
+        # and SET ROLE to that non-owner role for the isolation assertions, so
+        # ENABLE-only RLS genuinely binds it.
+        #
+        # `|| rc=$?` is deliberate. GitHub's `shell: bash` runs `bash -e -o
+        # pipefail`, and a `set -uo pipefail` line does NOT cancel the inherited
+        # `-e`. Written as a bare command followed by `rc=$?`, the shell exits at
+        # the failing command and the assignment never happens — which is why an
+        # earlier revision of this step emitted no ::error:: annotation and never
+        # printed the captured log, hiding the real failure. The `||` form keeps
+        # the step in control of its own exit status.
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
+        shell: bash
+        run: |
+          set -uo pipefail
+          rc=0
+          npm run migration:identity:up > /tmp/health-migrate.log 2>&1 || rc=$?
+          cat /tmp/health-migrate.log
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Health migrations failed with exit code $rc. Tail of output:"
+            tail -25 /tmp/health-migrate.log | sed 's/^/  /'
+            exit "$rc"
+          fi
+          applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
+          echo "migrations recorded in beyu_migrations: $applied"
+
+      - name: Verify Health migrations 001-020 are all recorded
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$(ls database/migrations/*.up.sql | wc -l | tr -d ' ')
+          applied=$(psql -Atqc "select count(*) from beyu_migrations")
+          echo "migration files on disk : $expected"
+          echo "migrations recorded     : $applied"
+          psql -Atqc "select id from beyu_migrations order by id" | sed 's/^/  - /'
+          if [ "$applied" -ne "$expected" ]; then
+            echo "::error::Expected $expected Health migrations, found $applied"
+            exit 1
+          fi
+          for m in 001_identity_foundation 018_global_reference_fail_closed; do
+            psql -Atqc "select 1 from beyu_migrations where id='$m'" | grep -q 1 \
+              || { echo "::error::required Health migration $m is not recorded"; exit 1; }
+          done
+          echo "All $expected Health migrations applied against real PostgreSQL."
+
+      - name: Verify Health migration runner is idempotent
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
+        shell: bash
+        run: |
+          set -uo pipefail
+          before=$(psql -Atqc "select count(*) from beyu_migrations")
+          rc=0
+          # Same `|| rc=$?` form as the apply step: under the inherited `bash -e`,
+          # a bare failing command exits the shell before `rc=$?` can run.
+          npm run migration:identity:up > /tmp/health-migrate-rerun.log 2>&1 || rc=$?
+          cat /tmp/health-migrate-rerun.log
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Health migration re-run failed with exit code $rc. Tail of output:"
+            tail -25 /tmp/health-migrate-rerun.log | sed 's/^/  /'
+            exit "$rc"
+          fi
+          after=$(psql -Atqc "select count(*) from beyu_migrations")
+          if [ "$before" != "$after" ]; then
+            echo "::error::Health migration re-run changed the ledger ($before -> $after)"
+            exit 1
+          fi
+          echo "Health migration re-run applied nothing. Ledger stable at $after."
+
+      - name: Health backend suite — PGlite layer preserved
+        # Explicitly clears every database URL so createTestDbConnection() takes
+        # its PGlite branch. This proves the in-process layer is not broken by the
+        # real-PostgreSQL gate and that no PGlite test was removed.
+        env:
+          DATABASE_URL: ""
+          TEST_DATABASE_URL: ""
+          TEST_DATABASE_URL_SUPERUSER: ""
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand 2>&1 \
+            | tee /tmp/health-tests-pglite.log
+
+      - name: Health backend security suite — real PostgreSQL
+        # Same suite, database URLs set, so createTestDbConnection() returns a real
+        # PgConnection against a fresh scratch database. This is where
+        # rls-isolation, isolation-boundaries, identity.integration,
+        # migration-consistency, beyu-bridge, auth-wiring and
+        # auth-context.middleware execute against a genuine PostgreSQL engine
+        # rather than an in-process emulation.
+        #
+        # audit-chain-integrity and outbound-audit-integrity are listed here
+        # because their central claims only hold against a real server. The
+        # chain spec fires ten concurrent same-tenant writers through separate
+        # pooled sessions to prove they cannot both derive the same prev_hash;
+        # PGlite has one in-process session, so it exercises the chain
+        # invariants but not the race. Both specs still run in the PGlite step
+        # above, where every non-concurrency assertion is enforced.
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand \
+            rls-isolation isolation-boundaries identity.integration migration-consistency \
+            beyu-bridge auth-wiring auth-context.middleware \
+            audit-chain-integrity outbound-audit-integrity 2>&1 \
+            | tee /tmp/health-tests-realpg.log
+          grep -qE 'Tests:.*[1-9][0-9]* passed' /tmp/health-tests-realpg.log \
+            || { echo "::error::no Health real-PostgreSQL tests actually executed"; exit 1; }
+          echo "Health real-PostgreSQL security suite executed."
+
+      - name: Build Health OS backend
+        run: npm run build
+
+      # SEQUENCED LAST, DELIBERATELY — and it is a hard gate, not a soft one.
+      #
+      # The Health backend currently carries pre-existing lint debt: 2522 errors,
+      # of which 2476 are prettier/prettier formatting and 46 are non-formatting
+      # (40 @typescript-eslint/no-unused-vars, 4 no-var-requires, 2 prefer-const)
+      # across 34 files. None is a security-rule violation. Clearing it means
+      # reformatting 34 application files, which is a separate, explicitly
+      # authorised change — not something to smuggle into a CI commit, and not
+      # something to silence with --fix, a warning downgrade or `|| true`.
+      #
+      # It runs after the database gates so that one run still produces complete
+      # evidence about the real-PostgreSQL migration and security layers. The job
+      # FAILS on this step; it is not made to pass.
+      - name: Lint Health OS backend without mutating files
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The package `lint` script carries --fix and is deliberately NOT invoked.
+          #
+          # Two corrections to the invocation, both verified locally:
+          #  1. ESLint 8.57 searches ancestor directories for a flat config and
+          #     picks up the repository-root eslint.config.mjs, which then fails to
+          #     resolve `eslint` because this job never installs root node_modules.
+          #     ESLINT_USE_FLAT_CONFIG=false forces eslintrc mode so this package's
+          #     own .eslintrc.js is the config actually applied.
+          #  2. The package script globs {src,apps,libs,test}, but only `src`
+          #     exists here, and ESLint 8 exits 2 — a hard error, not a finding —
+          #     on a path that does not exist. Lint the roots that are present;
+          #     widen automatically if apps/, libs/ or test/ appear later. An empty
+          #     root set is a failure, never a silent pass.
+          patterns=()
+          for d in src apps libs test; do
+            if [ -d "$d" ]; then patterns+=("$d/**/*.ts"); fi
+          done
+          if [ ${#patterns[@]} -eq 0 ]; then
+            echo "::error::no lintable source root found in sectors/health/backend"
+            exit 1
+          fi
+          echo "Linting roots present : ${patterns[*]}"
+          echo "Roots absent          : $(for d in src apps libs test; do [ -d "$d" ] || printf '%s ' "$d"; done)"
+          ESLINT_USE_FLAT_CONFIG=false ./node_modules/.bin/eslint "${patterns[@]}" 2>&1 \
+            | tee /tmp/health-lint.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload Health backend evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: health-os-backend-evidence
+          path: |
+            /tmp/health-pg-version.txt
+            /tmp/health-migrate.log
+            /tmp/health-migrate-rerun.log
+            /tmp/health-tests-pglite.log
+            /tmp/health-tests-realpg.log
+            /tmp/health-lint.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Supply-chain gate. Scoped to PRODUCTION dependencies and to CRITICAL severity,
+  # which is the policy this repository already documents in docs/ci/ci.yml and
+  # SECURITY.md: dev-only advisories in build tooling are triaged deliberately and
+  # must not turn the pipeline red on every upstream publication, while a critical
+  # vulnerability in shipped runtime code must. This is a documented threshold,
+  # not a weakening applied to obtain a green build.
+  # ---------------------------------------------------------------------------
+  production-dependency-audit:
+    name: Production dependency audit (critical only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: root-beyu-os
+            path: .
+            lockfile: package-lock.json
+          - name: health-os-frontend
+            path: sectors/health
+            lockfile: sectors/health/package-lock.json
+          - name: health-os-backend
+            path: sectors/health/backend
+            lockfile: sectors/health/backend/package-lock.json
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.package.lockfile }}
+
+      - name: Install ${{ matrix.package.name }} dependencies
+        working-directory: ${{ matrix.package.path }}
+        run: npm ci
+
+      - name: Audit ${{ matrix.package.name }} production dependencies
+        working-directory: ${{ matrix.package.path }}
+        run: npm audit --omit=dev --audit-level=critical

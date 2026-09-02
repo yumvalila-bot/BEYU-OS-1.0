@@ -10,8 +10,14 @@
  * the corresponding status field records `blocked` / `not_evaluated`.
  */
 import { Injectable } from "@nestjs/common";
-import { TenantContext, ActorContext } from "../../../common/security/tenant-context";
-import { currentCorrelationId, requestStorage } from "../../../common/observability/correlation-id.middleware";
+import {
+  TenantContext,
+  ActorContext,
+} from "../../../common/security/tenant-context";
+import {
+  currentCorrelationId,
+  requestStorage,
+} from "../../../common/observability/correlation-id.middleware";
 import { randomUUID } from "crypto";
 
 export interface TransactionEnvelope {
@@ -50,11 +56,19 @@ export interface TransactionEnvelope {
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   // Governance outcome
-  authorizationDecision: "allowed" | "denied" | "approval_required" | "not_evaluated";
+  authorizationDecision:
+    "allowed" | "denied" | "approval_required" | "not_evaluated";
   resultStatus: "ok" | "error" | "blocked" | "pending";
   // Audit / data classification
   auditRecordId: string | null;
-  dataClassification: "PHI" | "PII" | "FINANCIAL" | "AUDIT" | "PUBLIC" | "INTERNAL" | "RESTRICTED";
+  dataClassification:
+    | "PHI"
+    | "PII"
+    | "FINANCIAL"
+    | "AUDIT"
+    | "PUBLIC"
+    | "INTERNAL"
+    | "RESTRICTED";
   legalHoldState: "not_held" | "held" | "not_evaluated";
   retentionPolicy: string | null;
   // Governance / external references (null unless legitimately produced)
@@ -80,18 +94,22 @@ export class TransactionEnvelopeBuilder {
   }): TransactionEnvelope {
     const actor: ActorContext | null = this.tenantCtx.current();
     if (!actor) {
-      throw new Error("NO_ACTOR: cannot build transaction envelope outside actor context");
+      throw new Error(
+        "NO_ACTOR: cannot build transaction envelope outside actor context",
+      );
     }
     const globalUserId = actor.globalUserId ?? actor.userId;
     if (!globalUserId) throw new Error("NO_GLOBAL_USER_ID: fail-closed");
     const reqCtx = (requestStorage as any).getStore?.() as any;
     const correlationId = currentCorrelationId();
     const txnId = randomUUID();
-    const idem = input.idempotencyKey
-      ?? reqCtx?.headers?.["idempotency-key"]
-      ?? reqCtx?.headers?.["x-idempotency-key"]
-      ?? null;
-    const dataClassification = input.dataClassification ?? inferClassification(input.resourceType);
+    const idem =
+      input.idempotencyKey ??
+      reqCtx?.headers?.["idempotency-key"] ??
+      reqCtx?.headers?.["x-idempotency-key"] ??
+      null;
+    const dataClassification =
+      input.dataClassification ?? inferClassification(input.resourceType);
     return {
       globalUserId,
       tenantId: actor.tenantId,
@@ -106,7 +124,10 @@ export class TransactionEnvelopeBuilder {
       room: actor.room ?? null,
       servicePoint: actor.servicePoint ?? null,
       timestamp: new Date().toISOString(),
-      timezone: actor.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
+      timezone:
+        actor.timezone ??
+        Intl.DateTimeFormat().resolvedOptions().timeZone ??
+        null,
       location: null,
       action: input.action,
       actionPerformed: input.action,
@@ -137,11 +158,19 @@ export class TransactionEnvelopeBuilder {
   }
 }
 
-function inferClassification(resourceType: string): TransactionEnvelope["dataClassification"] {
+function inferClassification(
+  resourceType: string,
+): TransactionEnvelope["dataClassification"] {
   const rt = (resourceType || "").toLowerCase();
-  if (/(invoice|payment|bill|finance|ledger|claim)/.test(rt)) return "FINANCIAL";
+  if (/(invoice|payment|bill|finance|ledger|claim)/.test(rt))
+    return "FINANCIAL";
   if (/(audit)/.test(rt)) return "AUDIT";
-  if (/(patient|encounter|prescription|lab|imaging|clinical|note|eye|dialysis|dispense|medication|appointment|observation|problem|allergy|sign)/.test(rt)) return "PHI";
+  if (
+    /(patient|encounter|prescription|lab|imaging|clinical|note|eye|dialysis|dispense|medication|appointment|observation|problem|allergy|sign)/.test(
+      rt,
+    )
+  )
+    return "PHI";
   if (/(user|identity|mfa|session|membership)/.test(rt)) return "PII";
   return "RESTRICTED";
 }

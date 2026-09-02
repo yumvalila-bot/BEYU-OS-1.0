@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "crypto";
 
 /**
  * Lightweight cryptographic helpers used internally by Health OS.
@@ -66,7 +71,9 @@ export function aes256gcmEncrypt(
 ): AesEnvelope {
   const key = Buffer.from(keyHex, "hex");
   if (key.length !== 32) {
-    throw new Error("CRYPTO_KEY_INVALID: AES-256-GCM key must be 64 hex chars (32 bytes)");
+    throw new Error(
+      "CRYPTO_KEY_INVALID: AES-256-GCM key must be 64 hex chars (32 bytes)",
+    );
   }
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -74,7 +81,11 @@ export function aes256gcmEncrypt(
   const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return {
-    enc: [iv.toString("base64"), ct.toString("base64"), tag.toString("base64")].join("."),
+    enc: [
+      iv.toString("base64"),
+      ct.toString("base64"),
+      tag.toString("base64"),
+    ].join("."),
   };
 }
 
@@ -85,7 +96,9 @@ export function aes256gcmDecrypt(
 ): string {
   const key = Buffer.from(keyHex, "hex");
   if (key.length !== 32) {
-    throw new Error("CRYPTO_KEY_INVALID: AES-256-GCM key must be 64 hex chars (32 bytes)");
+    throw new Error(
+      "CRYPTO_KEY_INVALID: AES-256-GCM key must be 64 hex chars (32 bytes)",
+    );
   }
   const parts = envelope.enc.split(".");
   if (parts.length !== 3) throw new Error("CRYPTO_ENVELOPE_INVALID");

@@ -27,8 +27,7 @@ export const RequiresClinicalSafety = (domain: ClinicalDomain) =>
   SetMetadata(CLINICAL_SAFETY_DOMAIN_KEY, domain);
 
 export type ClinicalDomain =
-  | "pharmacy" | "lab" | "radiology" | "ophthalmology" | "dialysis"
-  | "general";
+  "pharmacy" | "lab" | "radiology" | "ophthalmology" | "dialysis" | "general";
 
 @Injectable()
 export class ClinicalSafetyGuard implements CanActivate {
@@ -40,7 +39,8 @@ export class ClinicalSafetyGuard implements CanActivate {
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const domain = this.reflector.getAllAndOverride<ClinicalDomain | null>(
-      CLINICAL_SAFETY_DOMAIN_KEY, [ctx.getHandler(), ctx.getClass()],
+      CLINICAL_SAFETY_DOMAIN_KEY,
+      [ctx.getHandler(), ctx.getClass()],
     );
     if (!domain) return true;
     const req = ctx.switchToHttp().getRequest();
@@ -52,7 +52,10 @@ export class ClinicalSafetyGuard implements CanActivate {
     const action = `${controller.name}.${handler.name}`;
 
     const gateInput = (resourceType: string) => ({
-      action, facilityId, resourceType, metadata: body.metadata ?? {},
+      action,
+      facilityId,
+      resourceType,
+      metadata: body.metadata ?? {},
     });
     let result: { allowed: boolean; reason: string | null };
 
@@ -75,7 +78,10 @@ export class ClinicalSafetyGuard implements CanActivate {
           specimenIntegrity: Boolean(body.specimenIntegrity),
           analyzerAuthorized: Boolean(body.analyzerAuthorized),
           criticalResult: Boolean(body.criticalResult),
-          metadata: { ...(body.metadata ?? {}), criticalCallbackLogged: Boolean(body.criticalCallbackLogged) },
+          metadata: {
+            ...(body.metadata ?? {}),
+            criticalCallbackLogged: Boolean(body.criticalCallbackLogged),
+          },
         });
         break;
       case "radiology":
@@ -87,7 +93,10 @@ export class ClinicalSafetyGuard implements CanActivate {
           dicomIdentityLinked: Boolean(body.dicomIdentityLinked),
           doseCaptured: Boolean(body.doseCaptured),
           criticalFinding: Boolean(body.criticalFinding),
-          metadata: { ...(body.metadata ?? {}), criticalEscalationLogged: Boolean(body.criticalEscalationLogged) },
+          metadata: {
+            ...(body.metadata ?? {}),
+            criticalEscalationLogged: Boolean(body.criticalEscalationLogged),
+          },
         });
         break;
       case "ophthalmology":
@@ -104,11 +113,19 @@ export class ClinicalSafetyGuard implements CanActivate {
         result = await this.gates.dialysisTreatment({
           ...gateInput("dialysis_session"),
           machineAuthorized: Boolean(body.machineAuthorized),
-          maintenanceCurrent: Boolean(body.maintenanceCurrent ?? body.machineMaintenanceCurrent),
-          waterQualityPassed: Boolean(body.waterQualityPassed ?? body.waterQualityCleared),
-          patientMatched: Boolean(body.patientIdentityConfirmed ?? body.patientMatched),
+          maintenanceCurrent: Boolean(
+            body.maintenanceCurrent ?? body.machineMaintenanceCurrent,
+          ),
+          waterQualityPassed: Boolean(
+            body.waterQualityPassed ?? body.waterQualityCleared,
+          ),
+          patientMatched: Boolean(
+            body.patientIdentityConfirmed ?? body.patientMatched,
+          ),
           treatmentParamsValid: body.treatmentParamsValid !== false,
-          adverseEventOpen: Boolean(body.adverseEvent && !body.adverseEventDocumented),
+          adverseEventOpen: Boolean(
+            body.adverseEvent && !body.adverseEventDocumented,
+          ),
           consented: Boolean(body.consentObtained ?? body.consented),
         });
         break;
@@ -116,9 +133,9 @@ export class ClinicalSafetyGuard implements CanActivate {
         result = await this.gates.generalClinicalWrite({
           ...gateInput("clinical_doc"),
           patientIdentityConfirmed:
-            body.patientIdentityConfirmed !== false
-            && body.patientMatched !== false
-            && body.identityConfirmed !== false,
+            body.patientIdentityConfirmed !== false &&
+            body.patientMatched !== false &&
+            body.identityConfirmed !== false,
           requiredScope: body.requiredScope ?? ["clinical:write"],
         });
         break;
@@ -129,9 +146,16 @@ export class ClinicalSafetyGuard implements CanActivate {
     if (!result.allowed) {
       const reason = result.reason ?? "CLINICAL_SAFETY_UNKNOWN";
       if (typeof reason === "string" && reason.startsWith("HCM")) {
-        throw new ForbiddenException({ code: "CLINICAL_SAFETY_HCM_DENIED", reason });
+        throw new ForbiddenException({
+          code: "CLINICAL_SAFETY_HCM_DENIED",
+          reason,
+        });
       }
-      throw new UnprocessableEntityException({ code: "CLINICAL_SAFETY_BLOCKED", reason, domain });
+      throw new UnprocessableEntityException({
+        code: "CLINICAL_SAFETY_BLOCKED",
+        reason,
+        domain,
+      });
     }
     return true;
   }

@@ -1,6 +1,9 @@
 import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../modules/identity/db-connection";
 import { Inject } from "@nestjs/common";
 
 /**
@@ -64,7 +67,7 @@ export class RateLimiter {
       // TODO and we EXTERNAL-BLOCK rather than fake.
       throw new Error(
         "MISCONFIGURATION: Redis-backed rate limiting is not implemented yet. " +
-        "Tracked as PARTIALLY_IMPLEMENTED. Set RATE_LIMIT_BACKEND=memory for non-distributed dev/test.",
+          "Tracked as PARTIALLY_IMPLEMENTED. Set RATE_LIMIT_BACKEND=memory for non-distributed dev/test.",
       );
     }
     this.backend = "memory";
@@ -116,7 +119,9 @@ export class RateLimiter {
             current,
           ],
         )
-        .catch((e) => this.logger.warn({ msg: "rate_limit_log_failed", err: String(e) }));
+        .catch((e) =>
+          this.logger.warn({ msg: "rate_limit_log_failed", err: String(e) }),
+        );
       throw new HttpException(
         {
           code: "RATE_LIMITED",
@@ -131,7 +136,12 @@ export class RateLimiter {
   }
 
   /** Reset a key (testing / lockout-clearing). */
-  reset(keyType: RateLimitConfig["keyType"], keyValue: string, endpoint?: string, windowMs = 60_000): void {
+  reset(
+    keyType: RateLimitConfig["keyType"],
+    keyValue: string,
+    endpoint?: string,
+    windowMs = 60_000,
+  ): void {
     const key = `${keyType}:${keyValue}:${endpoint ?? "*"}:${windowMs}`;
     this.memory.delete(key);
   }

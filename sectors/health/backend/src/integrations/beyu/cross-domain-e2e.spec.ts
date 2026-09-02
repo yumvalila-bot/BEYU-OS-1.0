@@ -4,7 +4,7 @@
  * verifies fail-closed path when HCM licence blocks high-risk dispense.
  */
 import "reflect-metadata";
-import { buildTestBed, TEST_ACTOR } from "../../common/testing/test-bed";
+import { buildTestBed } from "../../common/testing/test-bed";
 import { GovernanceAdapter } from "./governance/governance.adapter";
 import { HcmAdapter } from "./hcm/hcm.adapter";
 import { FinanceAdapter } from "./finance/finance.adapter";
@@ -23,13 +23,33 @@ describe("Cross-domain E2E workflow (deterministic, fail-closed)", () => {
     bed = await buildTestBed();
     const cfg = { get: () => undefined } as any;
     const cb = new CircuitBreaker(bed.conn, bed.tenantCtx);
-    const gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg);
+    const gov = new GovernanceAdapter(
+      bed.conn,
+      bed.tenantCtx,
+      cb,
+      cfg,
+      bed.audit,
+    );
+    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const noelia = new NoeliaAdapter(
+      bed.conn,
+      bed.tenantCtx,
+      cb,
+      cfg,
+      bed.audit,
+    );
     const env = new TransactionEnvelopeBuilder(bed.tenantCtx);
-    orch = new CrossDomainOrchestrator(gov, hcm, fin, tax, noelia, env, bed.tenantCtx);
+    orch = new CrossDomainOrchestrator(
+      gov,
+      hcm,
+      fin,
+      tax,
+      noelia,
+      env,
+      bed.tenantCtx,
+    );
   });
 
   it("low-risk patient.register flow without verified practitioner is DENIED by HCM (fail-closed)", async () => {
@@ -39,7 +59,10 @@ describe("Cross-domain E2E workflow (deterministic, fail-closed)", () => {
         action: "patient.register",
         resourceType: "patient",
         riskLevel: "low",
-        execute: async () => ({ resourceId: patientId, amount: { value: "1000", currency: "TZS" } }),
+        execute: async () => ({
+          resourceId: patientId,
+          amount: { value: "1000", currency: "TZS" },
+        }),
         financeEvent: { type: "charge" },
         taxCategory: null,
       });
@@ -56,7 +79,10 @@ describe("Cross-domain E2E workflow (deterministic, fail-closed)", () => {
         action: "pharmacy.dispense.controlled",
         resourceType: "pharmacy.dispense",
         riskLevel: "high",
-        execute: async () => ({ resourceId: "rx-1", amount: { value: "5000", currency: "TZS" } }),
+        execute: async () => ({
+          resourceId: "rx-1",
+          amount: { value: "5000", currency: "TZS" },
+        }),
       });
       expect(out.status).toBe("denied");
       expect(out.denialReason).toMatch(/HCM_/);
@@ -71,8 +97,16 @@ describe("Cross-domain E2E workflow (deterministic, fail-closed)", () => {
       // sessionId / entityCode / countryCode / professionalLicenseNumber may be
       // legitimately null for unregistered actors; only assert that identity,
       // request-tracking, and action fields are always present.
-      for (const k of ["globalUserId", "tenantId", "timestamp", "correlationId",
-        "causationId", "requestId", "action", "resourceType"] as const) {
+      for (const k of [
+        "globalUserId",
+        "tenantId",
+        "timestamp",
+        "correlationId",
+        "causationId",
+        "requestId",
+        "action",
+        "resourceType",
+      ] as const) {
         expect((e as any)[k]).not.toBeNull();
       }
       expect(e.resultStatus).toBe("pending");

@@ -124,7 +124,8 @@ describe("BEYU isolation boundaries (country/entity) for linked tenants", () => 
     fn: () => Promise<unknown>,
   ): Promise<unknown> => {
     if (tenant !== null) await conn.exec(`SET app.tenant_id = '${tenant}'`);
-    if (country !== null) await conn.exec(`SET app.country_code = '${country}'`);
+    if (country !== null)
+      await conn.exec(`SET app.country_code = '${country}'`);
     if (entity !== null) await conn.exec(`SET app.entity_code = '${entity}'`);
     await conn.exec(`SET ROLE rls_bnd`);
     try {
@@ -204,12 +205,14 @@ describe("BEYU isolation boundaries (country/entity) for linked tenants", () => 
 
   it("cross-tenant INSERT is denied and persists nothing", async () => {
     await asRls(tenantAId, "TZ", "LE-A", async () => {
-      await conn.query(
-        `insert into beyu_identity.tenant_memberships
+      await conn
+        .query(
+          `insert into beyu_identity.tenant_memberships
            (membership_id, global_user_id, tenant_id, role, status)
          values (gen_random_uuid(), $1, $2, 'nurse', 'active')`,
-        [userId, tenantBId],
-      ).catch(() => undefined); // RLS violation OR silent 0-row: both must not persist
+          [userId, tenantBId],
+        )
+        .catch(() => undefined); // RLS violation OR silent 0-row: both must not persist
     });
     expect(
       await count("tenant_memberships", `WHERE tenant_id = '${tenantBId}'`),
@@ -218,12 +221,14 @@ describe("BEYU isolation boundaries (country/entity) for linked tenants", () => 
 
   it("INSERT under a mismatched (foreign country) context is denied and persists nothing", async () => {
     await asRls(tenantAId, "KE", "LE-A", async () => {
-      await conn.query(
-        `insert into beyu_identity.tenant_memberships
+      await conn
+        .query(
+          `insert into beyu_identity.tenant_memberships
            (membership_id, global_user_id, tenant_id, role, status)
          values (gen_random_uuid(), $1, $2, 'nurse', 'active')`,
-        [userId, tenantAId],
-      ).catch(() => undefined);
+          [userId, tenantAId],
+        )
+        .catch(() => undefined);
     });
     expect(
       await count("tenant_memberships", `WHERE tenant_id = '${tenantAId}'`),

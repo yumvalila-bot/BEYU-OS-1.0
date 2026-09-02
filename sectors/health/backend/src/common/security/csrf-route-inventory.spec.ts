@@ -37,13 +37,21 @@ describe("CSRF route inventory — @Public() mutating endpoints are allow-listed
     const publicMutating: Array<{ method: string; fullPath: string }> = [];
 
     for (const file of files) {
+      // Genuinely dynamic: `file` is discovered by walking the source tree at
+      // runtime, so no static import can express it. Matches the existing
+      // project convention for this rule (base.repository, e2e-harness,
+      // ai-governance.service, src/test/e2e/*).
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const mod = require(file.replace(/\.ts$/, ""));
       for (const exported of Object.values(mod as Record<string, any>)) {
         if (typeof exported !== "function") continue;
         const ctrlPath: string = Reflect.getMetadata("path", exported) ?? "";
-        const isController = !!Reflect.getMetadata("controller", exported) || ctrlPath !== undefined;
+        const isController =
+          !!Reflect.getMetadata("controller", exported) ||
+          ctrlPath !== undefined;
         if (!isController) continue;
-        const ctrlPublic = Reflect.getMetadata(IS_PUBLIC_KEY, exported) === true;
+        const ctrlPublic =
+          Reflect.getMetadata(IS_PUBLIC_KEY, exported) === true;
         const proto = exported.prototype;
         if (!proto) continue;
         for (const name of Object.getOwnPropertyNames(proto)) {
@@ -53,9 +61,13 @@ describe("CSRF route inventory — @Public() mutating endpoints are allow-listed
           for (const m of ["POST", "PUT", "PATCH", "DELETE"]) {
             if (!Reflect.getMetadata(m.toLowerCase(), fn)) continue;
             const handlerPath = Reflect.getMetadata("path", fn) ?? "";
-            const isPublic = ctrlPublic || Reflect.getMetadata(IS_PUBLIC_KEY, fn) === true;
+            const isPublic =
+              ctrlPublic || Reflect.getMetadata(IS_PUBLIC_KEY, fn) === true;
             if (isPublic) {
-              publicMutating.push({ method: m, fullPath: normalizePath(ctrlPath, handlerPath) });
+              publicMutating.push({
+                method: m,
+                fullPath: normalizePath(ctrlPath, handlerPath),
+              });
             }
           }
         }
@@ -67,8 +79,8 @@ describe("CSRF route inventory — @Public() mutating endpoints are allow-listed
       if (!ALLOWED_PUBLIC_MUTATING.has(key)) {
         throw new Error(
           `@Public() mutating endpoint '${key}' is NOT on the CSRF allow list. ` +
-          `Either remove @Public(), apply CSRF protection, or explicitly add ` +
-          `to ALLOWED_PUBLIC_MUTATING after security review.`,
+            `Either remove @Public(), apply CSRF protection, or explicitly add ` +
+            `to ALLOWED_PUBLIC_MUTATING after security review.`,
         );
       }
     }

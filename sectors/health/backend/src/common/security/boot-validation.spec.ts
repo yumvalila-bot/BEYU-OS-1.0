@@ -33,26 +33,36 @@ describe("Boot validation (production fail-closed)", () => {
   });
 
   it("rejects short/default JWT_SECRET", () => {
-    const r = validateBootEnvironment({ ...PROD_ENV, JWT_SECRET: "dev-only-change-me" }, silent);
+    const r = validateBootEnvironment(
+      { ...PROD_ENV, JWT_SECRET: "dev-only-change-me" },
+      silent,
+    );
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/JWT_SECRET/);
   });
 
   it("rejects COOKIE_SECURE=false in production", () => {
-    const r = validateBootEnvironment({ ...PROD_ENV, COOKIE_SECURE: "false" }, silent);
+    const r = validateBootEnvironment(
+      { ...PROD_ENV, COOKIE_SECURE: "false" },
+      silent,
+    );
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/COOKIE_SECURE/);
   });
 
   it("rejects QUEUE_BACKEND=memory in production", () => {
-    const r = validateBootEnvironment({ ...PROD_ENV, QUEUE_BACKEND: "memory" }, silent);
+    const r = validateBootEnvironment(
+      { ...PROD_ENV, QUEUE_BACKEND: "memory" },
+      silent,
+    );
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/QUEUE_BACKEND/);
   });
 
   it("rejects QUEUE_BACKEND=redis without REDIS_URL", () => {
     const e = { ...PROD_ENV };
-    delete e.REDIS_URL; delete e.REDIS_HOST;
+    delete e.REDIS_URL;
+    delete e.REDIS_HOST;
     const r = validateBootEnvironment(e, silent);
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/REDIS/);

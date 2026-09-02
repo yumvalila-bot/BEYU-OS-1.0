@@ -13,8 +13,6 @@ import { buildTestBed, TEST_ACTOR } from "../../common/testing/test-bed";
 import { SessionService } from "./session.service";
 import { IdentityRepository } from "./identity.repository";
 import * as bcrypt from "bcryptjs";
-import { JwtService } from "@nestjs/jwt";
-import { AuditService } from "../audit/audit.service";
 
 describe("security_version adversarial", () => {
   let bed: any;
@@ -24,7 +22,6 @@ describe("security_version adversarial", () => {
   beforeAll(async () => {
     bed = await buildTestBed();
     repo = bed.repo ?? new IdentityRepository(bed.conn);
-    const audit = new AuditService(bed.conn, bed.tenantCtx);
     sessions = new SessionService(repo);
     // Seed a password for the test user so login-like flows work.
     const hash = await bcrypt.hash("testpass12", 10);
@@ -88,7 +85,9 @@ describe("security_version adversarial", () => {
       });
       // bump sv — the stored session.sv is now stale
       await repo.bumpSecurityVersion(TEST_ACTOR.userId);
-      await expect(sessions.assertSessionActive(rawRefresh)).rejects.toThrow(/AUTHORIZATION_CHANGED/);
+      await expect(sessions.assertSessionActive(rawRefresh)).rejects.toThrow(
+        /AUTHORIZATION_CHANGED/,
+      );
     });
   });
 
@@ -110,7 +109,14 @@ describe("security_version adversarial", () => {
       );
       // now bump
       await repo.bumpSecurityVersion(TEST_ACTOR.userId);
-      await expect(sessions.rotateSession(raw, "new-" + Date.now(), "jti-new", new Date(Date.now() + 60_000))).rejects.toThrow(/AUTHORIZATION_CHANGED/);
+      await expect(
+        sessions.rotateSession(
+          raw,
+          "new-" + Date.now(),
+          "jti-new",
+          new Date(Date.now() + 60_000),
+        ),
+      ).rejects.toThrow(/AUTHORIZATION_CHANGED/);
     });
   });
 });

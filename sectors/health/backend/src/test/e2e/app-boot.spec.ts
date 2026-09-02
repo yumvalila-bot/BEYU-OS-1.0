@@ -10,8 +10,12 @@ import { buildE2EHarness, E2EHarness } from "../../common/testing/e2e-harness";
 
 describe("AppModule boot (E2E smoke)", () => {
   let h: E2EHarness;
-  beforeAll(async () => { h = await buildE2EHarness(); });
-  afterAll(async () => { await h.close(); });
+  beforeAll(async () => {
+    h = await buildE2EHarness();
+  });
+  afterAll(async () => {
+    await h.close();
+  });
 
   it("GET /health/live returns 200 without secrets", async () => {
     const r = await request(h.app.getHttpServer()).get("/health/live");

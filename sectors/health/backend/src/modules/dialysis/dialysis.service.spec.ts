@@ -10,7 +10,14 @@ import { PatientsService } from "../patients/patients.service";
 import { PatientRepository } from "../patients/patient.repository";
 import { DialysisService } from "./dialysis.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const ACTOR = {
   userId: "00000000-0000-0000-0000-00000000000d",
   email: "nephro@beyu.health",
@@ -24,7 +31,14 @@ const ACTOR = {
 function run<T>(tc: TenantContext, fn: () => Promise<T>): Promise<T> {
   return new Promise<T>((res, rej) =>
     requestStorage.run(
-      { correlationId: "t", requestId: "r", startedAt: Date.now(), method: "T", path: "/", ip: "127.0.0.1" },
+      {
+        correlationId: "t",
+        requestId: "r",
+        startedAt: Date.now(),
+        method: "T",
+        path: "/",
+        ip: "127.0.0.1",
+      },
       () => tc.run(ACTOR as never, () => fn().then(res, rej)),
     ),
   );
@@ -41,7 +55,10 @@ describe("DialysisService", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG_DIR)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     }
     await conn.exec(`
@@ -60,21 +77,33 @@ describe("DialysisService", () => {
 
   it("registers a machine, schedules a session, enforces state machine, and captures adverse events", () =>
     run(tc, async () => {
-      const p = await patients.create({ medical_record: "MRN-DX1", given_name: "Juma", family_name: "Hassan" });
+      const p = await patients.create({
+        medical_record: "MRN-DX1",
+        given_name: "Juma",
+        family_name: "Hassan",
+      });
       patientId = p.patient_id;
       const m = await svc.registerMachine({
         asset_tag: "DX-01",
         model: "Fresenius 5008",
         serial_number: "SN-1",
         water_quality_last_test: new Date().toISOString(),
-        next_maintenance: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        next_maintenance: new Date(Date.now() + 30 * 86400000)
+          .toISOString()
+          .slice(0, 10),
       });
       machineId = m.machine_id;
-      const s = await svc.schedule({ patient_id: patientId, machine_id: machineId, session_type: "hemodialysis" });
+      const s = await svc.schedule({
+        patient_id: patientId,
+        machine_id: machineId,
+        session_type: "hemodialysis",
+      });
       expect(s.session_id).toBeTruthy();
 
       // Cannot skip steps.
-      await expect(svc.transition(s.session_id, "completed")).rejects.toThrow(/cannot transition/);
+      await expect(svc.transition(s.session_id, "completed")).rejects.toThrow(
+        /cannot transition/,
+      );
 
       await svc.transition(s.session_id, "in_progress");
       const got = await svc.get(s.session_id);
@@ -94,14 +123,21 @@ describe("DialysisService", () => {
 
   it("fails closed when machine is unavailable or maintenance is overdue", () =>
     run(tc, async () => {
-      const p2 = await patients.create({ medical_record: "MRN-DX2", given_name: "Asha", family_name: "Omar" });
+      const p2 = await patients.create({
+        medical_record: "MRN-DX2",
+        given_name: "Asha",
+        family_name: "Omar",
+      });
       // Machine not available (in use after previous completed -> released to available: skip)
       // Register a machine with overdue maintenance.
       const bad = await svc.registerMachine({
         asset_tag: "DX-BAD",
-        water_quality_last_test: new Date(Date.now() - 60 * 86400000).toISOString(),
+        water_quality_last_test: new Date(
+          Date.now() - 60 * 86400000,
+        ).toISOString(),
       });
-      await expect(svc.schedule({ patient_id: p2.patient_id, machine_id: bad.machine_id }))
-        .rejects.toThrow(/water quality test older/);
+      await expect(
+        svc.schedule({ patient_id: p2.patient_id, machine_id: bad.machine_id }),
+      ).rejects.toThrow(/water quality test older/);
     }));
 });

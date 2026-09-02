@@ -23,7 +23,11 @@ export class CircuitBreaker {
     private readonly tenantCtx: TenantContext,
   ) {}
 
-  async execute<T>(adapter: string, fn: () => Promise<T>, opts: CircuitOptions = {}): Promise<T> {
+  async execute<T>(
+    adapter: string,
+    fn: () => Promise<T>,
+    opts: CircuitOptions = {},
+  ): Promise<T> {
     const actor = this.tenantCtx.current();
     const tenantId = actor?.tenantId;
     if (!tenantId) throw new Error("AUTH_REQUIRED");
@@ -38,15 +42,24 @@ export class CircuitBreaker {
       [tenantId, adapter, threshold, resetSec],
     );
     const rows = await this.db.query<{
-      state: CircuitState; failure_count: number; success_count: number; next_retry_at: Date | null;
+      state: CircuitState;
+      failure_count: number;
+      success_count: number;
+      next_retry_at: Date | null;
     }>(
       `SELECT state, failure_count, success_count, next_retry_at FROM health.adapter_circuits
         WHERE tenant_id=$1 AND adapter_name=$2 FOR UPDATE`,
       [tenantId, adapter],
     );
     const cur = rows[0];
-    if (cur?.state === "open" && cur.next_retry_at && new Date(cur.next_retry_at) > new Date()) {
-      const err: any = new Error(`CIRCUIT_OPEN: adapter ${adapter} is unavailable (circuit open)`);
+    if (
+      cur?.state === "open" &&
+      cur.next_retry_at &&
+      new Date(cur.next_retry_at) > new Date()
+    ) {
+      const err: any = new Error(
+        `CIRCUIT_OPEN: adapter ${adapter} is unavailable (circuit open)`,
+      );
       err.code = "CIRCUIT_OPEN";
       throw err;
     }
@@ -72,8 +85,6 @@ export class CircuitBreaker {
       return result;
     } catch (e: any) {
       const code = e?.code ?? "UNKNOWN";
-      const isRetryable = e?.status === 429 || e?.status >= 500 || code === "ECONNREFUSED"
-        || code === "ETIMEDOUT" || code === "ECONNRESET" || code === "CIRCUIT_OPEN" === false;
       await this.db.query(
         `UPDATE health.adapter_circuits
             SET failure_count = failure_count + 1,
@@ -89,10 +100,15 @@ export class CircuitBreaker {
     }
   }
 
-  async state(adapter: string): Promise<{ state: CircuitState; failure_count: number } | null> {
+  async state(
+    adapter: string,
+  ): Promise<{ state: CircuitState; failure_count: number } | null> {
     const actor = this.tenantCtx.current();
     if (!actor) return null;
-    const rows = await this.db.query<{ state: CircuitState; failure_count: number }>(
+    const rows = await this.db.query<{
+      state: CircuitState;
+      failure_count: number;
+    }>(
       `SELECT state, failure_count FROM health.adapter_circuits WHERE tenant_id=$1 AND adapter_name=$2`,
       [actor.tenantId, adapter],
     );

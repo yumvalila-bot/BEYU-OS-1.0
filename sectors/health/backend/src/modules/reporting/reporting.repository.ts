@@ -36,7 +36,10 @@ export class ReportingRepository extends BaseRepository {
         AND e.started_at BETWEEN $2 AND $3
         AND ${this.notVoided("e")}
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]).then((r: any[]) => r[0] ?? null);
+    const q = (c: Tx) =>
+      c
+        .query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd])
+        .then((r: any[]) => r[0] ?? null);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -55,7 +58,8 @@ export class ReportingRepository extends BaseRepository {
       GROUP BY lt.code, lt.name
       ORDER BY total DESC
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
+    const q = (c: Tx) =>
+      c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -70,7 +74,8 @@ export class ReportingRepository extends BaseRepository {
         AND ${this.notVoided("health.imaging_orders")}
       GROUP BY modality ORDER BY total DESC
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
+    const q = (c: Tx) =>
+      c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -87,7 +92,8 @@ export class ReportingRepository extends BaseRepository {
       GROUP BY i.sku, i.name
       ORDER BY total_qty DESC
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
+    const q = (c: Tx) =>
+      c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -104,7 +110,8 @@ export class ReportingRepository extends BaseRepository {
         AND ${this.notVoided("health.ambulance_requests")}
       GROUP BY priority
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
+    const q = (c: Tx) =>
+      c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -117,7 +124,8 @@ export class ReportingRepository extends BaseRepository {
         AND period_start >= $2 AND period_end <= $3
       ORDER BY period_start DESC
     `;
-    const q = (c: Tx) => c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
+    const q = (c: Tx) =>
+      c.query(sql, [this.tenantContext.tenantId(), periodStart, periodEnd]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -127,8 +135,17 @@ export class ReportingRepository extends BaseRepository {
     const sql = `INSERT INTO health.mtuha_reports
         (tenant_id, period_start, period_end, book_code, status, file_ref, submitted_by, created_by, updated_by, correlation_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9) RETURNING *`;
-    const params = [this.tenantContext.tenantId(), input.period_start, input.period_end,
-      input.book_code ?? null, input.status ?? "generated", input.file_ref ?? null, actor, actor, cid];
+    const params = [
+      this.tenantContext.tenantId(),
+      input.period_start,
+      input.period_end,
+      input.book_code ?? null,
+      input.status ?? "generated",
+      input.file_ref ?? null,
+      actor,
+      actor,
+      cid,
+    ];
     const q = (c: Tx) => c.query(sql, params).then((r: any[]) => r[0]);
     return tx ? q(tx) : this.withIsolation(q);
   }

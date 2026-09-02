@@ -1,7 +1,5 @@
 import {
   ConflictException,
-  HttpException,
-  HttpStatus,
   Inject,
   Injectable,
   Optional,
@@ -51,7 +49,21 @@ export class AuthService {
 
   /** Guaranteed rate limiter: if DI didn't provide one (legacy direct construction in tests) use a safe no-op. */
   private rl(): RateLimiter {
-    return (this.rateLimiter as RateLimiter) ?? { hit: async () => ({ allowed: true, remaining: 99, resetAt: new Date(), current: 0 } as any), backendKind: () => "memory", reset: () => {}, resetAll: () => {} } as unknown as RateLimiter;
+    return (
+      (this.rateLimiter as RateLimiter) ??
+      ({
+        hit: async () =>
+          ({
+            allowed: true,
+            remaining: 99,
+            resetAt: new Date(),
+            current: 0,
+          }) as any,
+        backendKind: () => "memory",
+        reset: () => {},
+        resetAll: () => {},
+      } as unknown as RateLimiter)
+    );
   }
 
   // ── Registration ───────────────────────────────────────────────────────────
@@ -125,13 +137,19 @@ export class AuthService {
     const rl = this.rl();
     if (ctx.ip) {
       await rl.hit({
-        keyType: "ip", keyValue: ctx.ip, endpoint: "/auth/login",
-        windowMs: loginWindow, limit: loginLimit,
+        keyType: "ip",
+        keyValue: ctx.ip,
+        endpoint: "/auth/login",
+        windowMs: loginWindow,
+        limit: loginLimit,
       });
     }
     await rl.hit({
-      keyType: "actor", keyValue: `email:${loginDto.email.toLowerCase()}`, endpoint: "/auth/login",
-      windowMs: loginWindow, limit: loginLimit,
+      keyType: "actor",
+      keyValue: `email:${loginDto.email.toLowerCase()}`,
+      endpoint: "/auth/login",
+      windowMs: loginWindow,
+      limit: loginLimit,
     });
 
     const user = await this.repo.findUserByEmail(loginDto.email);

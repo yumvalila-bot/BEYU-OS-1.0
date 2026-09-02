@@ -19,7 +19,8 @@ describe("MFA adversarial (Part B)", () => {
     audit = bed.audit;
     const cfg = {
       get(key: string) {
-        if (key === "MFA_ENCRYPTION_KEY") return "6d6661746573745f746573745f6b65795f33325f62797465735f6e6565646564";
+        if (key === "MFA_ENCRYPTION_KEY")
+          return "6d6661746573745f746573745f6b65795f33325f62797465735f6e6565646564";
         return undefined;
       },
     } as any;
@@ -28,48 +29,101 @@ describe("MFA adversarial (Part B)", () => {
   });
 
   async function resetMfa() {
-    for (const t of ["mfa_challenges", "mfa_recovery_codes", "mfa_factors", "mfa_lockouts"]) {
-      await conn.query(`DELETE FROM health.${t} WHERE tenant_id=$1::uuid AND user_id=$2::uuid`, [tid, uid]);
+    for (const t of [
+      "mfa_challenges",
+      "mfa_recovery_codes",
+      "mfa_factors",
+      "mfa_lockouts",
+    ]) {
+      await conn.query(
+        `DELETE FROM health.${t} WHERE tenant_id=$1::uuid AND user_id=$2::uuid`,
+        [tid, uid],
+      );
     }
   }
 
-  async function enrollAndActivate(): Promise<{ secret: Buffer; recoveryCodes: string[] }> {
-    const en = await bed.run(async () => mfa.enrollTotp({ globalUserId: uid, tenantId: tid }));
+  async function enrollAndActivate(): Promise<{
+    secret: Buffer;
+    recoveryCodes: string[];
+  }> {
+    const en = await bed.run(async () =>
+      mfa.enrollTotp({ globalUserId: uid, tenantId: tid }),
+    );
     const secret = base32Decode(en.secretBase32);
     await bed.run(() =>
-      mfa.activateTotp({ globalUserId: uid, tenantId: tid, challengeId: en.challengeId, otp: totpToken(secret) }));
+      mfa.activateTotp({
+        globalUserId: uid,
+        tenantId: tid,
+        challengeId: en.challengeId,
+        otp: totpToken(secret),
+      }),
+    );
     return { secret, recoveryCodes: en.recoveryCodes };
   }
 
   it("TOTP enrollment returns secret + codes; cannot verify before activation", async () => {
     await resetMfa();
-    const en = await bed.run(async () => mfa.enrollTotp({ globalUserId: uid, tenantId: tid }));
+    const en = await bed.run(async () =>
+      mfa.enrollTotp({ globalUserId: uid, tenantId: tid }),
+    );
     expect(en.factorId).toBeTruthy();
     expect(en.secretBase32).toMatch(/^[A-Z2-7]{16,}$/);
     expect(en.recoveryCodes).toHaveLength(8);
     await expect(
-      bed.run(() => mfa.verify({ globalUserId: uid, tenantId: tid, challengeId: en.challengeId, otp: "123456" })),
+      bed.run(() =>
+        mfa.verify({
+          globalUserId: uid,
+          tenantId: tid,
+          challengeId: en.challengeId,
+          otp: "123456",
+        }),
+      ),
     ).rejects.toThrow(/MFA_CHALLENGE/);
   });
 
   it("invalid OTP is rejected (brute force recorded)", async () => {
     await resetMfa();
-    const en = await bed.run(async () => mfa.enrollTotp({ globalUserId: uid, tenantId: tid }));
+    const en = await bed.run(async () =>
+      mfa.enrollTotp({ globalUserId: uid, tenantId: tid }),
+    );
     await expect(
-      bed.run(() => mfa.activateTotp({ globalUserId: uid, tenantId: tid, challengeId: en.challengeId, otp: "000000" })),
+      bed.run(() =>
+        mfa.activateTotp({
+          globalUserId: uid,
+          tenantId: tid,
+          challengeId: en.challengeId,
+          otp: "000000",
+        }),
+      ),
     ).rejects.toThrow(/MFA_OTP_INVALID/);
   });
 
   it("valid OTP activates factor; replay of same challenge rejected", async () => {
     await resetMfa();
     const { secret } = await enrollAndActivate();
-    const ch = await bed.run(() => mfa.createChallenge({ globalUserId: uid, tenantId: tid, type: "verify" }));
+    const ch = await bed.run(() =>
+      mfa.createChallenge({ globalUserId: uid, tenantId: tid, type: "verify" }),
+    );
     const code = totpToken(secret);
-    const v = await bed.run(() => mfa.verify({ globalUserId: uid, tenantId: tid, challengeId: ch.challengeId, otp: code }));
+    const v = await bed.run(() =>
+      mfa.verify({
+        globalUserId: uid,
+        tenantId: tid,
+        challengeId: ch.challengeId,
+        otp: code,
+      }),
+    );
     expect(v.verified).toBe(true);
     // Reuse of same challenge id must fail (already consumed).
     await expect(
-      bed.run(() => mfa.verify({ globalUserId: uid, tenantId: tid, challengeId: ch.challengeId, otp: code })),
+      bed.run(() =>
+        mfa.verify({
+          globalUserId: uid,
+          tenantId: tid,
+          challengeId: ch.challengeId,
+          otp: code,
+        }),
+      ),
     ).rejects.toThrow(/MFA_CHALLENGE/);
   });
 
@@ -83,10 +137,18 @@ describe("MFA adversarial (Part B)", () => {
            (challenge_id, tenant_id, user_id, factor_id, challenge_type, nonce, expires_at, max_attempts)
          SELECT $1::uuid, $2::uuid, $3::uuid, factor_id, 'verify', 'n', now() - interval '1 minute', 5
            FROM health.mfa_factors WHERE user_id=$3::uuid AND status='active' LIMIT 1`,
-        [expiredChallengeId, tid, uid]);
+        [expiredChallengeId, tid, uid],
+      );
     });
     await expect(
-      bed.run(() => mfa.verify({ globalUserId: uid, tenantId: tid, challengeId: expiredChallengeId, otp: totpToken(secret) })),
+      bed.run(() =>
+        mfa.verify({
+          globalUserId: uid,
+          tenantId: tid,
+          challengeId: expiredChallengeId,
+          otp: totpToken(secret),
+        }),
+      ),
     ).rejects.toThrow(/MFA_CHALLENGE_EXPIRED/);
   });
 
@@ -94,10 +156,14 @@ describe("MFA adversarial (Part B)", () => {
     await resetMfa();
     const { recoveryCodes } = await enrollAndActivate();
     const code = recoveryCodes[0];
-    const r1 = await bed.run(() => mfa.redeemRecoveryCode({ globalUserId: uid, tenantId: tid, code }));
+    const r1 = await bed.run(() =>
+      mfa.redeemRecoveryCode({ globalUserId: uid, tenantId: tid, code }),
+    );
     expect(r1.verified).toBe(true);
     await expect(
-      bed.run(() => mfa.redeemRecoveryCode({ globalUserId: uid, tenantId: tid, code })),
+      bed.run(() =>
+        mfa.redeemRecoveryCode({ globalUserId: uid, tenantId: tid, code }),
+      ),
     ).rejects.toThrow(/MFA_RECOVERY_INVALID/);
   });
 
@@ -106,7 +172,14 @@ describe("MFA adversarial (Part B)", () => {
     await enrollAndActivate();
     const fakeChallenge = "00000000-0000-4000-8000-000000000999";
     await expect(
-      bed.run(() => mfa.verify({ globalUserId: uid, tenantId: tid, challengeId: fakeChallenge, otp: "123456" })),
+      bed.run(() =>
+        mfa.verify({
+          globalUserId: uid,
+          tenantId: tid,
+          challengeId: fakeChallenge,
+          otp: "123456",
+        }),
+      ),
     ).rejects.toThrow(/MFA_CHALLENGE_NOT_FOUND/);
   });
 });

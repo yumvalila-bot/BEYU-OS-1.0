@@ -70,7 +70,9 @@ export class SessionService {
       await this.repo.updateSessionStatus(session.session_id, "expired");
       throw new UnauthorizedException("SESSION_EXPIRED");
     }
-    const currentSv = await this.repo.getSecurityVersion(session.global_user_id);
+    const currentSv = await this.repo.getSecurityVersion(
+      session.global_user_id,
+    );
     if (Number(session.security_version) !== currentSv) {
       await this.repo.updateSessionStatus(session.session_id, "revoked");
       await this.repo.recordAuthEvent({
@@ -78,7 +80,12 @@ export class SessionService {
         tenantId: session.tenant_id,
         eventType: "token_rejected",
         result: "DENIED",
-        context: { reason: "security_version_stale", tokenSv: session.security_version, currentSv, stage: "rotate" },
+        context: {
+          reason: "security_version_stale",
+          tokenSv: session.security_version,
+          currentSv,
+          stage: "rotate",
+        },
       });
       throw new UnauthorizedException("AUTHORIZATION_CHANGED");
     }
@@ -137,7 +144,10 @@ export class SessionService {
   /** Ensure the session referenced by a refresh token is active AND its
    *  security_version matches the user's current sv (otherwise the token
    *  has been invalidated by a credential/MFA/privilege change). */
-  async assertSessionActive(refreshToken: string, userIdHint?: string): Promise<StoredSession> {
+  async assertSessionActive(
+    refreshToken: string,
+    userIdHint?: string,
+  ): Promise<StoredSession> {
     const hash = this.hashToken(refreshToken);
     const session = await this.repo.findSessionByRefreshHash(hash);
     if (!session || session.status !== "active") {
@@ -147,7 +157,9 @@ export class SessionService {
       await this.repo.updateSessionStatus(session.session_id, "expired");
       throw new UnauthorizedException("SESSION_EXPIRED");
     }
-    const currentSv = await this.repo.getSecurityVersion(userIdHint ?? session.global_user_id);
+    const currentSv = await this.repo.getSecurityVersion(
+      userIdHint ?? session.global_user_id,
+    );
     if (Number(session.security_version) !== currentSv) {
       await this.repo.updateSessionStatus(session.session_id, "revoked");
       await this.repo.recordAuthEvent({
@@ -155,7 +167,11 @@ export class SessionService {
         tenantId: session.tenant_id,
         eventType: "token_rejected",
         result: "DENIED",
-        context: { reason: "security_version_stale", tokenSv: session.security_version, currentSv },
+        context: {
+          reason: "security_version_stale",
+          tokenSv: session.security_version,
+          currentSv,
+        },
       });
       throw new UnauthorizedException("AUTHORIZATION_CHANGED");
     }

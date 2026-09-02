@@ -83,7 +83,11 @@ export class HealthService {
         `SELECT version, applied_at FROM health.schema_migrations
           ORDER BY applied_at DESC NULLS LAST LIMIT 1`,
       );
-      if (!rows.length) return { status: "unknown" as const, reason: "no migration history recorded" };
+      if (!rows.length)
+        return {
+          status: "unknown" as const,
+          reason: "no migration history recorded",
+        };
       return { status: "up" as const, latest: rows[0].version };
     } catch (e: any) {
       return { status: "unknown" as const, error: sanitizeErr(e) };
@@ -95,10 +99,15 @@ export class HealthService {
     const missing: string[] = [];
     const jwtSecret = this.config.get("JWT_SECRET");
     if (isProd) {
-      if (!jwtSecret || jwtSecret === "dev-only-change-me") missing.push("JWT_SECRET");
-      if (this.config.get("CORS_ORIGIN") === "*") missing.push("CORS_ORIGIN_WILDCARD");
+      if (!jwtSecret || jwtSecret === "dev-only-change-me")
+        missing.push("JWT_SECRET");
+      if (this.config.get("CORS_ORIGIN") === "*")
+        missing.push("CORS_ORIGIN_WILDCARD");
     }
-    return { status: missing.length === 0 ? ("up" as const) : ("down" as const), missing };
+    return {
+      status: missing.length === 0 ? ("up" as const) : ("down" as const),
+      missing,
+    };
   }
 
   private async checkAdapters() {
@@ -122,5 +131,8 @@ export class HealthService {
 function sanitizeErr(e: any): string {
   const msg = e?.message ?? "unknown";
   // Redact connection strings / tokens / passwords from error messages.
-  return String(msg).replace(/(?:password|token|secret|key|sslcert|sslkey)=[^&"'\s]+/gi, "$1=__REDACTED__");
+  return String(msg).replace(
+    /(?:password|token|secret|key|sslcert|sslkey)=[^&"'\s]+/gi,
+    "$1=__REDACTED__",
+  );
 }

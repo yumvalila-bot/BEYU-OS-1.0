@@ -8,7 +8,6 @@ import { AppModule } from "./app.module";
 import { ConfigService } from "@nestjs/config";
 import { JsonLogger } from "./common/observability/json-logger";
 import { DomainExceptionFilter } from "./common/errors/domain-exception.filter";
-import { DomainError } from "./common/errors/domain.error";
 import { validateBootEnvironment } from "./common/security/boot-validation";
 import { RateLimitExceptionFilter } from "./common/security/rate-limit-exception.filter";
 
@@ -29,23 +28,31 @@ const INSECURE_JWT_SECRETS = new Set([
  * operators know at boot which integrations are disabled. We never log the
  * values themselves — only present/missing boolean status.
  */
-const EXTERNAL_ADAPTER_ENV_VARS: Array<{ key: string; required: boolean; adapter: string }> = [
-  { key: "DATABASE_URL",             required: true,  adapter: "postgres" },
-  { key: "JWT_SECRET",               required: true,  adapter: "auth" },
-  { key: "JWT_REFRESH_SECRET",       required: true,  adapter: "auth" },
-  { key: "JWT_ISSUER",               required: true,  adapter: "auth" },
-  { key: "JWT_AUDIENCE",             required: true,  adapter: "auth" },
-  { key: "SUPABASE_URL",             required: false, adapter: "supabase" },
-  { key: "SUPABASE_SERVICE_ROLE_KEY",required: false, adapter: "supabase" },
-  { key: "NHIF_API_BASE_URL",        required: false, adapter: "nhif" },
-  { key: "NHIF_API_KEY",             required: false, adapter: "nhif" },
-  { key: "TRA_API_BASE_URL",         required: false, adapter: "tra" },
-  { key: "TMDA_API_BASE_URL",        required: false, adapter: "tmda" },
-  { key: "PACS_BASE_URL",            required: false, adapter: "pacs" },
-  { key: "FHIR_ENDPOINT_BASE_URL",   required: false, adapter: "fhir_endpoint" },
-  { key: "MTUHA_API_BASE_URL",       required: false, adapter: "mtuha_submission" },
-  { key: "HIVE_API_BASE_URL",        required: false, adapter: "hive" },
-  { key: "PAYMENT_GATEWAY_BASE_URL", required: false, adapter: "payment_gateway" },
+const EXTERNAL_ADAPTER_ENV_VARS: Array<{
+  key: string;
+  required: boolean;
+  adapter: string;
+}> = [
+  { key: "DATABASE_URL", required: true, adapter: "postgres" },
+  { key: "JWT_SECRET", required: true, adapter: "auth" },
+  { key: "JWT_REFRESH_SECRET", required: true, adapter: "auth" },
+  { key: "JWT_ISSUER", required: true, adapter: "auth" },
+  { key: "JWT_AUDIENCE", required: true, adapter: "auth" },
+  { key: "SUPABASE_URL", required: false, adapter: "supabase" },
+  { key: "SUPABASE_SERVICE_ROLE_KEY", required: false, adapter: "supabase" },
+  { key: "NHIF_API_BASE_URL", required: false, adapter: "nhif" },
+  { key: "NHIF_API_KEY", required: false, adapter: "nhif" },
+  { key: "TRA_API_BASE_URL", required: false, adapter: "tra" },
+  { key: "TMDA_API_BASE_URL", required: false, adapter: "tmda" },
+  { key: "PACS_BASE_URL", required: false, adapter: "pacs" },
+  { key: "FHIR_ENDPOINT_BASE_URL", required: false, adapter: "fhir_endpoint" },
+  { key: "MTUHA_API_BASE_URL", required: false, adapter: "mtuha_submission" },
+  { key: "HIVE_API_BASE_URL", required: false, adapter: "hive" },
+  {
+    key: "PAYMENT_GATEWAY_BASE_URL",
+    required: false,
+    adapter: "payment_gateway",
+  },
 ];
 
 function redact(v?: string): string {
@@ -63,8 +70,10 @@ function assertProductionConfig(): void {
   }
   const jwtSecret = process.env.JWT_SECRET;
   const refreshSecret = process.env.JWT_REFRESH_SECRET;
-  if (jwtSecret && INSECURE_JWT_SECRETS.has(jwtSecret)) missingRequired.push("auth(JWT_SECRET=default/insecure)");
-  if (refreshSecret && INSECURE_JWT_SECRETS.has(refreshSecret)) missingRequired.push("auth(JWT_REFRESH_SECRET=default/insecure)");
+  if (jwtSecret && INSECURE_JWT_SECRETS.has(jwtSecret))
+    missingRequired.push("auth(JWT_SECRET=default/insecure)");
+  if (refreshSecret && INSECURE_JWT_SECRETS.has(refreshSecret))
+    missingRequired.push("auth(JWT_REFRESH_SECRET=default/insecure)");
 
   if ((process.env.NODE_ENV ?? "development") === "production") {
     if (missingRequired.length) {
@@ -72,19 +81,30 @@ function assertProductionConfig(): void {
         `FATAL: production boot refused — mandatory config missing/insecure: ${missingRequired.join(", ")}`,
       );
     }
-    const cors = (process.env.CORS_ORIGIN ?? "").split(",").map((o) => o.trim());
-    const invalidCors = cors.length === 0
-      || cors.some((o) => !o || o === "*" || /^https?:\/\/localhost(:|$)/.test(o));
+    const cors = (process.env.CORS_ORIGIN ?? "")
+      .split(",")
+      .map((o) => o.trim());
+    const invalidCors =
+      cors.length === 0 ||
+      cors.some((o) => !o || o === "*" || /^https?:\/\/localhost(:|$)/.test(o));
     if (invalidCors) {
-      throw new Error("FATAL: CORS_ORIGIN must be explicit, non-wildcard, non-localhost in production.");
+      throw new Error(
+        "FATAL: CORS_ORIGIN must be explicit, non-wildcard, non-localhost in production.",
+      );
     }
   } else {
     // In non-production, fail closed only on absolute must-haves (e.g. JWT) and
     // warn about the rest. We do NOT start silent-success with insecure JWT.
-    if (jwtSecret && INSECURE_JWT_SECRETS.has(jwtSecret) && process.env.JWT_SECRET) {
+    if (
+      jwtSecret &&
+      INSECURE_JWT_SECRETS.has(jwtSecret) &&
+      process.env.JWT_SECRET
+    ) {
       // allow dev default but log
       // eslint-disable-next-line no-console
-      console.warn("WARN: JWT_SECRET is a dev default; set a strong secret for production.");
+      console.warn(
+        "WARN: JWT_SECRET is a dev default; set a strong secret for production.",
+      );
     }
   }
 
@@ -93,11 +113,15 @@ function assertProductionConfig(): void {
   console.info("BOOT adapter configuration (no secrets):");
   for (const { key, adapter } of EXTERNAL_ADAPTER_ENV_VARS) {
     // eslint-disable-next-line no-console
-    console.info(`  ${adapter.padEnd(18)} ${key.padEnd(32)} ${redact(process.env[key])}`);
+    console.info(
+      `  ${adapter.padEnd(18)} ${key.padEnd(32)} ${redact(process.env[key])}`,
+    );
   }
   if (missingOptional.length) {
     // eslint-disable-next-line no-console
-    console.info(`Adapters not configured (will fail-closed as BLOCKED): ${missingOptional.join(", ")}`);
+    console.info(
+      `Adapters not configured (will fail-closed as BLOCKED): ${missingOptional.join(", ")}`,
+    );
   }
 }
 
@@ -115,27 +139,29 @@ async function bootstrap() {
 
   // Security middleware. CSP is strict: connect-src 'self' supports the
   // same-origin Vercel edge proxy architecture. No inline scripts in prod.
-  app.use(helmet({
-    contentSecurityPolicy: {
-      useDefaults: true,
-      directives: {
-        "default-src": ["'self'"],
-        "script-src":  ["'self'"],
-        "style-src":   ["'self'", "'unsafe-inline'"], // Swagger UI requires inline styles
-        "img-src":     ["'self'", "data:", "blob:"],
-        "connect-src": ["'self'"],
-        "font-src":    ["'self'", "data:"],
-        "frame-ancestors": ["'none'"],
-        "base-uri": ["'self'"],
-        "form-action": ["'self'"],
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          "default-src": ["'self'"],
+          "script-src": ["'self'"],
+          "style-src": ["'self'", "'unsafe-inline'"], // Swagger UI requires inline styles
+          "img-src": ["'self'", "data:", "blob:"],
+          "connect-src": ["'self'"],
+          "font-src": ["'self'", "data:"],
+          "frame-ancestors": ["'none'"],
+          "base-uri": ["'self'"],
+          "form-action": ["'self'"],
+        },
       },
-    },
-    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginResourcePolicy: { policy: "same-site" },
-    crossOriginEmbedderPolicy: false, // Swagger UI loads external fonts via data:
-  }));
+      hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      crossOriginResourcePolicy: { policy: "same-site" },
+      crossOriginEmbedderPolicy: false, // Swagger UI loads external fonts via data:
+    }),
+  );
   app.use(compression());
   app.use(cookieParser());
 
@@ -177,7 +203,10 @@ async function bootstrap() {
   );
 
   // Global exception filters: rate-limit (Retry-After) first, then DomainError.
-  app.useGlobalFilters(new RateLimitExceptionFilter(), new DomainExceptionFilter());
+  app.useGlobalFilters(
+    new RateLimitExceptionFilter(),
+    new DomainExceptionFilter(),
+  );
 
   // Enable shutdown hooks so Bull/cache pools drain cleanly.
   app.enableShutdownHooks();

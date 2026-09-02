@@ -9,8 +9,8 @@ import { createHmac, randomBytes } from "crypto";
  */
 
 export interface TotpConfig {
-  period?: number;     // seconds; default 30
-  digits?: number;     // 6 or 8; default 6
+  period?: number; // seconds; default 30
+  digits?: number; // 6 or 8; default 6
   algorithm?: "sha1" | "sha256" | "sha512";
   driftWindow?: number; // number of periods to check on each side; default 1
 }
@@ -66,10 +66,17 @@ export function base32Decode(s: string): Buffer {
   return Buffer.from(out);
 }
 
-function hotp(key: Buffer, counter: bigint, digits: number, algorithm: string): string {
+function hotp(
+  key: Buffer,
+  counter: bigint,
+  digits: number,
+  algorithm: string,
+): string {
   const buf = Buffer.alloc(8);
   buf.writeBigInt64BE(counter, 0);
-  const hmac = createHmac(algorithm.toUpperCase().replace("SHA", "sha"), key).update(buf).digest();
+  const hmac = createHmac(algorithm.toUpperCase().replace("SHA", "sha"), key)
+    .update(buf)
+    .digest();
   const offset = hmac[hmac.length - 1] & 0x0f;
   const code =
     ((hmac[offset] & 0x7f) << 24) |
@@ -80,7 +87,11 @@ function hotp(key: Buffer, counter: bigint, digits: number, algorithm: string): 
   return String(code % mod).padStart(digits, "0");
 }
 
-export function totpToken(secret: Buffer, cfg: TotpConfig = {}, at: Date = new Date()): string {
+export function totpToken(
+  secret: Buffer,
+  cfg: TotpConfig = {},
+  at: Date = new Date(),
+): string {
   const c = { ...DEFAULT_CFG, ...cfg };
   const counter = BigInt(Math.floor(at.getTime() / 1000 / c.period));
   return hotp(secret, counter, c.digits, c.algorithm);
@@ -123,8 +134,8 @@ export function totpVerify(
  */
 export function totpUri(args: {
   secretBase32: string;
-  label: string;          // e.g. "user@tenant" or "alice@hospital.tz"
-  issuer?: string;        // e.g. "BEYU Health OS"
+  label: string; // e.g. "user@tenant" or "alice@hospital.tz"
+  issuer?: string; // e.g. "BEYU Health OS"
   period?: number;
   digits?: number;
   algorithm?: "sha1" | "sha256" | "sha512";

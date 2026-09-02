@@ -57,33 +57,88 @@ type State =
   | "EXTERNAL_BLOCKED"
   | "NOT_APPLICABLE";
 
-const RLS_AXES = new Set(["wrong_tenant", "wrong_entity", "wrong_country", "wrong_facility", "cross_tenant_search"]);
+const RLS_AXES = new Set([
+  "wrong_tenant",
+  "wrong_entity",
+  "wrong_country",
+  "wrong_facility",
+  "cross_tenant_search",
+]);
 
 // Resources whose behavioural IDOR axes are exercised by the HTTP 18-axis matrix.
 const HTTP_IDOR_COVERED = new Set(["patients"]);
 
 // Tables owned by the canonical BEYU Identity domain (not Health OS scope).
 const BEYU_IDENTITY = new Set([
-  "users", "tenants", "tenant_memberships", "roles", "permissions",
-  "role_permissions", "sessions", "auth_events", "beyu_identity_links",
+  "users",
+  "tenants",
+  "tenant_memberships",
+  "roles",
+  "permissions",
+  "role_permissions",
+  "sessions",
+  "auth_events",
+  "beyu_identity_links",
 ]);
 
 // Resources for which a given axis is not meaningful.
 function axisApplicable(table: string, axis: string): boolean {
-  if (axis === "patient_scope") return !["facilities", "departments", "vehicles", "imaging_equipment", "lab_analyzers", "dialysis_machines", "optical_devices"].includes(table);
-  if (axis === "financial_scope") return ["invoices", "invoice_items", "payments", "payment_allocations", "billable_services", "finance_events", "stock_ledger", "pharmacy_items", "pharmacy_batches"].includes(table);
-  if (axis === "administrative_scope") return ["audit_log", "compliance_evidence", "compliance_controls", "retention_policies", "legal_holds", "integration_status", "queue_jobs"].includes(table);
+  if (axis === "patient_scope")
+    return ![
+      "facilities",
+      "departments",
+      "vehicles",
+      "imaging_equipment",
+      "lab_analyzers",
+      "dialysis_machines",
+      "optical_devices",
+    ].includes(table);
+  if (axis === "financial_scope")
+    return [
+      "invoices",
+      "invoice_items",
+      "payments",
+      "payment_allocations",
+      "billable_services",
+      "finance_events",
+      "stock_ledger",
+      "pharmacy_items",
+      "pharmacy_batches",
+    ].includes(table);
+  if (axis === "administrative_scope")
+    return [
+      "audit_log",
+      "compliance_evidence",
+      "compliance_controls",
+      "retention_policies",
+      "legal_holds",
+      "integration_status",
+      "queue_jobs",
+    ].includes(table);
   if (axis === "ai_high_risk_scope") return table === "ai_invocations";
-  if (axis === "destructive_operation") return table === "audit_log" || table === "legal_holds" || table === "idempotency_ledger";
+  if (axis === "destructive_operation")
+    return (
+      table === "audit_log" ||
+      table === "legal_holds" ||
+      table === "idempotency_ledger"
+    );
   return true;
 }
 
-function classifyCell(table: string, schema: string, axis: string, rls: boolean, policies: number): State {
+function classifyCell(
+  table: string,
+  schema: string,
+  axis: string,
+  rls: boolean,
+  policies: number,
+): State {
   if (BEYU_IDENTITY.has(table)) {
     // Canonical BEYU Identity owns these; Health OS must not create competing
     // authorization. RLS is still enforced (Identity OS migrations) but the
     // behavioural authority is external.
-    return RLS_AXES.has(axis) && rls && policies > 0 ? "ENGINEERING_READY" : "EXTERNAL_BLOCKED";
+    return RLS_AXES.has(axis) && rls && policies > 0
+      ? "ENGINEERING_READY"
+      : "EXTERNAL_BLOCKED";
   }
   if (RLS_AXES.has(axis)) {
     if (rls && policies > 0) return "ENGINEERING_READY";
@@ -92,35 +147,49 @@ function classifyCell(table: string, schema: string, axis: string, rls: boolean,
   if (!axisApplicable(table, axis)) return "NOT_APPLICABLE";
   if (axis === "governance") return "EXTERNAL_BLOCKED"; // Governance OS not connected (fail-closed adapter)
   if (axis === "hcm_scope") return "EXTERNAL_BLOCKED"; // HCM OS not connected (fail-closed adapter)
-  if (axis === "mfa" || axis === "consent" || axis === "legal_hold") return "PARTIALLY_IMPLEMENTED"; // guards present; per-resource tests partial
+  if (axis === "mfa" || axis === "consent" || axis === "legal_hold")
+    return "PARTIALLY_IMPLEMENTED"; // guards present; per-resource tests partial
   if (HTTP_IDOR_COVERED.has(table)) return "ENGINEERING_READY";
   return "PARTIALLY_IMPLEMENTED";
 }
 
 describe("IDOR / authorization matrix (Phase 12 Wave 2)", () => {
   let bed: Awaited<ReturnType<typeof buildTestBed>>;
-  let resources: Array<{ name: string; schema: string; rls: boolean; policies: number; axes: Record<string, State> }> = [];
+  let resources: Array<{
+    name: string;
+    schema: string;
+    rls: boolean;
+    policies: number;
+    axes: Record<string, State>;
+  }> = [];
   let summary: Record<string, number> = {};
 
   beforeAll(async () => {
     bed = await buildTestBed();
-    const rows: Array<{ t: string; s: string; rls: boolean }> = (await bed.conn.query(
-      `SELECT c.relname AS t, n.nspname AS s, c.relrowsecurity AS rls
+    const rows: Array<{ t: string; s: string; rls: boolean }> =
+      (await bed.conn.query(
+        `SELECT c.relname AS t, n.nspname AS s, c.relrowsecurity AS rls
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname IN ('health','beyu_identity') AND c.relkind='r'
         ORDER BY n.nspname, c.relname`,
-    )) as any;
-    const policyRows: Array<{ tablename: string; schemaname: string; n: number }> = (await bed.conn.query(
+      )) as any;
+    const policyRows: Array<{
+      tablename: string;
+      schemaname: string;
+      n: number;
+    }> = (await bed.conn.query(
       `SELECT tablename, schemaname, count(*)::int AS n FROM pg_policies
         WHERE schemaname IN ('health','beyu_identity') GROUP BY tablename, schemaname`,
     )) as any;
     const policyCount = new Map<string, number>();
-    for (const pr of policyRows) policyCount.set(`${pr.schemaname}.${pr.tablename}`, pr.n);
+    for (const pr of policyRows)
+      policyCount.set(`${pr.schemaname}.${pr.tablename}`, pr.n);
 
     resources = rows.map((r) => {
       const policies = policyCount.get(`${r.s}.${r.t}`) ?? 0;
       const axes: Record<string, State> = {} as any;
-      for (const a of AXES) axes[a] = classifyCell(r.t, r.s, a, r.rls, policies);
+      for (const a of AXES)
+        axes[a] = classifyCell(r.t, r.s, a, r.rls, policies);
       return { name: r.t, schema: r.s, rls: r.rls, policies, axes };
     });
 
@@ -136,42 +205,64 @@ describe("IDOR / authorization matrix (Phase 12 Wave 2)", () => {
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(
       path.join(OUT, "idor-phase12-matrix.json"),
-      JSON.stringify({
-        generated: new Date().toISOString(),
-        schema: "idor-phase12-matrix-v1",
-        methodology: "resource x 20-axis isolation matrix derived from the bootstrapped PGlite catalog (pg_class.relrowsecurity + pg_policies) + existing test coverage; eight-state classification; no fabricated results",
-        axes: AXES,
-        summary,
-        resources,
-      }, null, 2),
+      JSON.stringify(
+        {
+          generated: new Date().toISOString(),
+          schema: "idor-phase12-matrix-v1",
+          methodology:
+            "resource x 20-axis isolation matrix derived from the bootstrapped PGlite catalog (pg_class.relrowsecurity + pg_policies) + existing test coverage; eight-state classification; no fabricated results",
+          axes: AXES,
+          summary,
+          resources,
+        },
+        null,
+        2,
+      ),
     );
   }, 120000);
 
-  afterAll(async () => { await bed?.conn?.close?.(); });
+  afterAll(async () => {
+    await bed?.conn?.close?.();
+  });
 
   it("discovers all sensitive resources from the live schema (>= 60 tables)", () => {
     expect(resources.length).toBeGreaterThanOrEqual(60);
   });
 
   it("every health.* resource has RLS enabled (relrowsecurity=true)", () => {
-    const missing = resources.filter((r) => r.schema === "health" && !r.rls).map((r) => r.name);
+    const missing = resources
+      .filter((r) => r.schema === "health" && !r.rls)
+      .map((r) => r.name);
     expect(missing).toEqual([]);
   });
 
   it("every health.* resource has at least one RLS policy", () => {
-    const missing = resources.filter((r) => r.schema === "health" && r.policies === 0).map((r) => r.name);
+    const missing = resources
+      .filter((r) => r.schema === "health" && r.policies === 0)
+      .map((r) => r.name);
     expect(missing).toEqual([]);
   });
 
   it("RLS isolation axes are ENGINEERING_READY for every health.* table", () => {
     const gaps = resources
       .filter((r) => r.schema === "health")
-      .filter((r) => (["wrong_tenant", "wrong_entity", "wrong_country", "wrong_facility"] as const).some((a) => r.axes[a] !== "ENGINEERING_READY"))
+      .filter((r) =>
+        (
+          [
+            "wrong_tenant",
+            "wrong_entity",
+            "wrong_country",
+            "wrong_facility",
+          ] as const
+        ).some((a) => r.axes[a] !== "ENGINEERING_READY"),
+      )
       .map((r) => r.name);
     expect(gaps).toEqual([]);
   });
 
   it("writes coverage/idor-phase12-matrix.json", () => {
-    expect(fs.existsSync(path.join(OUT, "idor-phase12-matrix.json"))).toBe(true);
+    expect(fs.existsSync(path.join(OUT, "idor-phase12-matrix.json"))).toBe(
+      true,
+    );
   });
 });

@@ -32,7 +32,14 @@ import * as path from "path";
 import { randomUUID } from "crypto";
 import { buildTestBed } from "../../common/testing/test-bed";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const OUT = path.resolve(__dirname, "..", "..", "..", "..", "coverage");
 
 const OTHER_TENANT = "00000000-0000-0000-0000-999999999999";
@@ -69,12 +76,24 @@ describe("RLS Phase 12 matrix — 15-point per-table verification", () => {
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(
       path.join(OUT, "rls-phase12-matrix.json"),
-      JSON.stringify({ generated: new Date().toISOString(), schema: "rls-phase12-matrix-v1", tables: results }, null, 2),
+      JSON.stringify(
+        {
+          generated: new Date().toISOString(),
+          schema: "rls-phase12-matrix-v1",
+          tables: results,
+        },
+        null,
+        2,
+      ),
     );
   }, 120000);
 
   afterAll(async () => {
-    try { await bed?.conn?.exec?.("RESET ROLE"); } catch { /* ignore */ }
+    try {
+      await bed?.conn?.exec?.("RESET ROLE");
+    } catch {
+      /* ignore */
+    }
     await bed?.conn?.close?.();
   });
 
@@ -83,24 +102,34 @@ describe("RLS Phase 12 matrix — 15-point per-table verification", () => {
   });
 
   it("points 1-2 (RLS enabled + policy) PASS for every table", () => {
-    const bad = results.filter((r) => !r.rls_enabled || r.policy_count === 0).map((r) => r.table);
+    const bad = results
+      .filter((r) => !r.rls_enabled || r.policy_count === 0)
+      .map((r) => r.table);
     expect(bad).toEqual([]);
   });
 
   it("point 3 (no-GUC SELECT = 0) holds for every table (fail-closed)", () => {
-    const bad = results.filter((r) => r.point3_no_guc_zero === false).map((r) => r.table);
+    const bad = results
+      .filter((r) => r.point3_no_guc_zero === false)
+      .map((r) => r.table);
     expect(bad).toEqual([]);
   });
 
   it("point 4 (wrong tenant = 0) holds for every tenant-scoped table", () => {
-    const bad = results.filter((r) => r.has_tenant_column && r.point4_wrong_tenant_zero === false).map((r) => r.table);
+    const bad = results
+      .filter(
+        (r) => r.has_tenant_column && r.point4_wrong_tenant_zero === false,
+      )
+      .map((r) => r.table);
     expect(bad).toEqual([]);
   });
 
   it("point 11 (no BYPASSRLS in migrations; prod NOBYPASSRLS role is EXTERNAL_BLOCKED)", () => {
     expect(BYPASSRLS_IN_MIGRATIONS).toBe(false);
     for (const r of results) {
-      expect(r.point11_bypass_rls).toBe(BYPASSRLS_IN_MIGRATIONS ? "BYPASSRLS_PRESENT" : "NO_BYPASSRLS");
+      expect(r.point11_bypass_rls).toBe(
+        BYPASSRLS_IN_MIGRATIONS ? "BYPASSRLS_PRESENT" : "NO_BYPASSRLS",
+      );
     }
   });
 
@@ -127,20 +156,26 @@ async function probeTable(bed: any, table: string): Promise<any> {
     `SELECT c.relrowsecurity AS rls,
             (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid=c.oid) AS policies
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname='health' AND c.relname=$1`, [table]);
+      WHERE n.nspname='health' AND c.relname=$1`,
+    [table],
+  );
   rec.rls_enabled = !!info[0]?.rls;
   rec.policy_count = Number(info[0]?.policies ?? 0);
 
   const cols: any[] = await bed.conn.query(
     `SELECT a.attname AS name FROM pg_attribute a
        JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname='health' AND c.relname=$1 AND a.attnum>0 AND NOT a.attisdropped`, [table]);
+      WHERE n.nspname='health' AND c.relname=$1 AND a.attnum>0 AND NOT a.attisdropped`,
+    [table],
+  );
   const colNames = cols.map((r: any) => r.name);
   rec.has_tenant_column = colNames.includes("tenant_id");
   rec.has_entity_column = colNames.includes("entity_code");
   rec.has_country_column = colNames.includes("country_code");
   rec.has_facility_column = colNames.includes("facility_id");
-  rec.has_actor_column = colNames.some((c) => /created_by|global_user_id|practitioner_id|user_id|author|actor/.test(c));
+  rec.has_actor_column = colNames.some((c) =>
+    /created_by|global_user_id|practitioner_id|user_id|author|actor/.test(c),
+  );
 
   // All isolation probes run as the non-owner role.
   await bed.conn.exec("SET ROLE rls_app");
@@ -150,7 +185,8 @@ async function probeTable(bed: any, table: string): Promise<any> {
   rec.point7_select_isolation = rec.point3_no_guc_zero;
 
   // Point 4/9/10: wrong tenant → 0 rows.
-  rec.point4_wrong_tenant_zero = (await countWithGuc(bed, table, OTHER_TENANT, "HOSP-1", "TZ")) === 0;
+  rec.point4_wrong_tenant_zero =
+    (await countWithGuc(bed, table, OTHER_TENANT, "HOSP-1", "TZ")) === 0;
   rec.point9_update_isolation = rec.point4_wrong_tenant_zero;
   rec.point10_delete_isolation = rec.point4_wrong_tenant_zero;
 
@@ -170,17 +206,31 @@ async function probeTable(bed: any, table: string): Promise<any> {
   await bed.conn.exec("RESET ROLE");
 
   // Points 11-15 (evidence-derived, owner-safe).
-  rec.point11_bypass_rls = BYPASSRLS_IN_MIGRATIONS ? "BYPASSRLS_PRESENT" : "NO_BYPASSRLS";
-  rec.point12_audit_immutability = table === "audit_log" ? await auditImmutability(bed) : "NOT_APPLICABLE";
-  rec.point13_legal_hold_protection = table === "legal_holds" ? "AUTHORITY_PREDICATE" : "NOT_APPLICABLE";
-  rec.point14_facility_boundary = rec.has_facility_column ? "FACILITY_COLUMN_RLS" : "NOT_APPLICABLE";
-  rec.point15_cross_role_isolation = rec.has_actor_column ? "ACTOR_COLUMN_RLS" : "NOT_APPLICABLE";
+  rec.point11_bypass_rls = BYPASSRLS_IN_MIGRATIONS
+    ? "BYPASSRLS_PRESENT"
+    : "NO_BYPASSRLS";
+  rec.point12_audit_immutability =
+    table === "audit_log" ? await auditImmutability(bed) : "NOT_APPLICABLE";
+  rec.point13_legal_hold_protection =
+    table === "legal_holds" ? "AUTHORITY_PREDICATE" : "NOT_APPLICABLE";
+  rec.point14_facility_boundary = rec.has_facility_column
+    ? "FACILITY_COLUMN_RLS"
+    : "NOT_APPLICABLE";
+  rec.point15_cross_role_isolation = rec.has_actor_column
+    ? "ACTOR_COLUMN_RLS"
+    : "NOT_APPLICABLE";
 
   return rec;
 }
 
 /** Set the three boundary GUCs (as the current role) and count rows. */
-async function countWithGuc(bed: any, table: string, tenant: string, entity: string, country: string): Promise<number | "ERROR"> {
+async function countWithGuc(
+  bed: any,
+  table: string,
+  tenant: string,
+  entity: string,
+  country: string,
+): Promise<number | "ERROR"> {
   try {
     const rows = await bed.conn.query(
       `SELECT set_config('app.tenant_id', $1, true),
@@ -190,15 +240,22 @@ async function countWithGuc(bed: any, table: string, tenant: string, entity: str
       [tenant, entity, country],
     );
     return Number(rows[0]?.n ?? 0);
-  } catch { return "ERROR"; }
+  } catch {
+    return "ERROR";
+  }
 }
 
 function identifier(name: string): string {
-  if (!/^[a-z_][a-z0-9_]*$/.test(name)) throw new Error("unsafe identifier: " + name);
+  if (!/^[a-z_][a-z0-9_]*$/.test(name))
+    throw new Error("unsafe identifier: " + name);
   return name;
 }
 
-async function tryInsertWrongTenant(bed: any, table: string, cols: string[]): Promise<boolean | string> {
+async function tryInsertWrongTenant(
+  bed: any,
+  table: string,
+  cols: string[],
+): Promise<boolean | string> {
   if (!cols.includes("tenant_id")) return "NOT_APPLICABLE_NO_TENANT_COL";
   if (!cols.includes("id")) return "SKIP_NO_ID_PK";
   const newId = randomUUID();
@@ -209,12 +266,27 @@ async function tryInsertWrongTenant(bed: any, table: string, cols: string[]): Pr
               set_config('app.country_code', 'TZ', true)`,
       [ACTOR_TENANT],
     );
-    await bed.conn.query(`INSERT INTO health.${identifier(table)} (id, tenant_id) VALUES ($1, $2)`, [newId, OTHER_TENANT]);
-    try { await bed.conn.query(`DELETE FROM health.${identifier(table)} WHERE id=$1`, [newId]); } catch { /* ignore */ }
+    await bed.conn.query(
+      `INSERT INTO health.${identifier(table)} (id, tenant_id) VALUES ($1, $2)`,
+      [newId, OTHER_TENANT],
+    );
+    try {
+      await bed.conn.query(
+        `DELETE FROM health.${identifier(table)} WHERE id=$1`,
+        [newId],
+      );
+    } catch {
+      /* ignore */
+    }
     return false;
   } catch (e: any) {
     const msg = String(e?.message ?? "");
-    if (/permission denied|row security|violates row-level security|check option/i.test(msg)) return true;
+    if (
+      /permission denied|row security|violates row-level security|check option/i.test(
+        msg,
+      )
+    )
+      return true;
     return "SKIP_REQUIRED_COLUMNS";
   }
 }
@@ -224,11 +296,19 @@ async function auditImmutability(bed: any): Promise<string> {
     `SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='health' AND c.relname='audit_log'
         AND (tgname ILIKE '%no_delete%' OR tgname ILIKE '%block_delete%' OR tgname ILIKE '%immutable%' OR tgname ILIKE '%audit%')
-      LIMIT 1`);
+      LIMIT 1`,
+  );
   if (trig.length > 0) return "IMMUTABLE_TRIGGER";
-  for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+  for (const f of fs
+    .readdirSync(MIG_DIR)
+    .filter((x) => x.endsWith(".up.sql"))
+    .sort()) {
     const src = fs.readFileSync(path.join(MIG_DIR, f), "utf8");
-    if (/CREATE.*TRIGGER[^;]*audit/i.test(src) && /BEFORE.*(UPDATE|DELETE)/i.test(src)) return "IMMUTABLE_TRIGGER";
+    if (
+      /CREATE.*TRIGGER[^;]*audit/i.test(src) &&
+      /BEFORE.*(UPDATE|DELETE)/i.test(src)
+    )
+      return "IMMUTABLE_TRIGGER";
   }
   return "MISSING_IMMUTABILITY";
 }
@@ -236,8 +316,11 @@ async function auditImmutability(bed: any): Promise<string> {
 // Static check: migrations must not contain BYPASSRLS (privileged bypass).
 export const BYPASSRLS_IN_MIGRATIONS = (() => {
   let found = false;
-  for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql"))) {
-    if (/BYPASSRLS/i.test(fs.readFileSync(path.join(MIG_DIR, f), "utf8"))) found = true;
+  for (const f of fs
+    .readdirSync(MIG_DIR)
+    .filter((x) => x.endsWith(".up.sql"))) {
+    if (/BYPASSRLS/i.test(fs.readFileSync(path.join(MIG_DIR, f), "utf8")))
+      found = true;
   }
   return found;
 })();

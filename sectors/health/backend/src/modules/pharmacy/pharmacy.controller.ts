@@ -14,28 +14,61 @@ import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-autho
 export class PharmacyController {
   constructor(private readonly svc: PharmacyService) {}
 
-  @Get("items") @RequirePermission("inventory:read")
-  listItems() { return this.svc.listItems(); }
+  @Get("items")
+  @RequirePermission("inventory:read")
+  listItems() {
+    return this.svc.listItems();
+  }
 
-  @Post("items") @RequirePermission("inventory:write") @RequiresClinicalSafety("pharmacy")
-  createItem(@Body() dto: Record<string, unknown>) { return this.svc.createCatalogItem(dto); }
+  @Post("items")
+  @RequirePermission("inventory:write")
+  @RequiresClinicalSafety("pharmacy")
+  createItem(@Body() dto: Record<string, unknown>) {
+    return this.svc.createCatalogItem(dto);
+  }
 
-  @Post("stock/receive") @RequirePermission("inventory:write") @RequiresClinicalSafety("pharmacy")
-  receive(@Body() dto: { item_id: string; lot_number: string; expiry_date: string; qty: number }) {
+  @Post("stock/receive")
+  @RequirePermission("inventory:write")
+  @RequiresClinicalSafety("pharmacy")
+  receive(
+    @Body()
+    dto: {
+      item_id: string;
+      lot_number: string;
+      expiry_date: string;
+      qty: number;
+    },
+  ) {
     return this.svc.receiveStock(dto);
   }
 
-  @Post("dispense") @RequirePermission("rx:dispense") @RequiresClinicalSafety("pharmacy") @RequireHcmPractitioner("pharmacy.dispense", { scope: ["rx:dispense"] })
-  dispense(@Body() dto: {
-    medication_id: string; patient_id: string; item_id: string; qty: number;
-    dose_given?: string; encounter_id?: string; idempotency_key?: string;
-    prescriptionId: string; quantity: number; controlledSubstance?: boolean;
-    secondReviewerGlobalUserId?: string; facilityId?: string; metadata?: Record<string, unknown>;
-  }) {
+  @Post("dispense")
+  @RequirePermission("rx:dispense")
+  @RequiresClinicalSafety("pharmacy")
+  @RequireHcmPractitioner("pharmacy.dispense", { scope: ["rx:dispense"] })
+  dispense(
+    @Body()
+    dto: {
+      medication_id: string;
+      patient_id: string;
+      item_id: string;
+      qty: number;
+      dose_given?: string;
+      encounter_id?: string;
+      idempotency_key?: string;
+      prescriptionId: string;
+      quantity: number;
+      controlledSubstance?: boolean;
+      secondReviewerGlobalUserId?: string;
+      facilityId?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
     return this.svc.dispense(dto);
   }
 
-  @Get("patients/:patientId/dispenses") @RequirePermission("phi:read")
+  @Get("patients/:patientId/dispenses")
+  @RequirePermission("phi:read")
   patientDispenses(@Param("patientId") patientId: string) {
     return this.svc.listPatientDispenses(patientId);
   }

@@ -12,7 +12,14 @@ import { requestStorage } from "../../common/observability/correlation-id.middle
 import { DomainError } from "../../common/errors/domain.error";
 import { AuditService } from "../audit/audit.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const applyUp = (conn: PGliteConnection, name: string) =>
   conn.exec(fs.readFileSync(path.join(MIG_DIR, `${name}.up.sql`), "utf8"));
 
@@ -34,7 +41,10 @@ const ACTOR = {
   entityCode: "HOSP-1",
 };
 
-function runWith<T>(tenantCtx: TenantContext, fn: () => Promise<T>): Promise<T> {
+function runWith<T>(
+  tenantCtx: TenantContext,
+  fn: () => Promise<T>,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     requestStorage.run(
       {
@@ -61,7 +71,10 @@ describe("AppointmentsService", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG_DIR)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await applyUp(conn, f.replace(/\.up\.sql$/, ""));
     }
     await conn.exec(`
@@ -165,9 +178,9 @@ describe("AppointmentsService", () => {
         duration_min: 30,
       });
       // Illegal: scheduled → completed directly.
-      await expect(svc.transition(a.appointment_id, "completed")).rejects.toBeInstanceOf(
-        DomainError,
-      );
+      await expect(
+        svc.transition(a.appointment_id, "completed"),
+      ).rejects.toBeInstanceOf(DomainError);
       // Legal path.
       const ci = await svc.transition(a.appointment_id, "checked_in");
       expect(ci.status).toBe("checked_in");
@@ -179,9 +192,9 @@ describe("AppointmentsService", () => {
       expect(done.status).toBe("completed");
       expect(done.ended_at).toBeTruthy();
       // Cannot transition out of completed.
-      await expect(svc.transition(a.appointment_id, "cancelled")).rejects.toBeInstanceOf(
-        DomainError,
-      );
+      await expect(
+        svc.transition(a.appointment_id, "cancelled"),
+      ).rejects.toBeInstanceOf(DomainError);
     }));
 
   it("rejects invalid durations", () =>
@@ -200,7 +213,8 @@ describe("AppointmentsService", () => {
       const docId = "00000000-0000-0000-0000-000000000099";
       await conn.exec(
         `INSERT INTO beyu_identity.users (global_user_id,email,display_name,password_hash)
-           VALUES ('${docId}','prov@b.c','Dr Double','x') ON CONFLICT DO NOTHING;`);
+           VALUES ('${docId}','prov@b.c','Dr Double','x') ON CONFLICT DO NOTHING;`,
+      );
       const prov = await conn.query<{ provider_id: string }>(
         `INSERT INTO health.providers (tenant_id, global_user_id, cadre, created_by, correlation_id)
          VALUES ($1,$2,'doctor',$3,'c') RETURNING provider_id`,

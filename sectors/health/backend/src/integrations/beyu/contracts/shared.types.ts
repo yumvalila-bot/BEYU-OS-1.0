@@ -84,8 +84,8 @@ export interface PropagationEnvelope {
 export interface GovernanceDecisionRequest {
   actor: CanonicalActorContext;
   propagation: PropagationEnvelope;
-  action: string;           // e.g. "prescription.dispense.controlled"
-  resourceType: string;     // e.g. "pharmacy.dispense"
+  action: string; // e.g. "prescription.dispense.controlled"
+  resourceType: string; // e.g. "pharmacy.dispense"
   resourceId?: string | null;
   requestedScope?: string[];
   riskLevel: RiskLevel;
@@ -94,7 +94,7 @@ export interface GovernanceDecisionRequest {
 
 export interface GovernanceDecisionResponse {
   decision: GovernanceDecision;
-  decisionId: string | null;  // null when engine unavailable (but then decision is DENY)
+  decisionId: string | null; // null when engine unavailable (but then decision is DENY)
   policyVersion: string | null;
   reasonCode: string | null;
   approvalRequired: boolean;
@@ -115,7 +115,8 @@ export interface HcmPractitionerQuery {
 export interface HcmPractitionerRecord {
   globalUserId: string | null;
   practitionerId: string | null;
-  employmentStatus: "active" | "inactive" | "suspended" | "terminated" | "unknown";
+  employmentStatus:
+    "active" | "inactive" | "suspended" | "terminated" | "unknown";
   facilityIds: string[];
   department: string | null;
   ward: string | null;
@@ -125,7 +126,8 @@ export interface HcmPractitionerRecord {
   licensingAuthority: string | null;
   licenceState: PractitionerLicenceState;
   scopeOfPractice: string[];
-  credentialStatus: "verified" | "unverified" | "expired" | "suspended" | "revoked" | "unknown";
+  credentialStatus:
+    "verified" | "unverified" | "expired" | "suspended" | "revoked" | "unknown";
   cpdStatus: "compliant" | "non_compliant" | "unknown";
   supervisorGlobalUserId: string | null;
   employmentStart: string | null;
@@ -216,7 +218,7 @@ export interface AiInvocationRequest {
     | "workflow_assist"
     | "anomaly_detection"
     | "reporting_assist";
-  inputRef: string;         // opaque reference (DO NOT log content)
+  inputRef: string; // opaque reference (DO NOT log content)
   riskLevel: RiskLevel;
   modelProviderId?: string | null; // only if genuinely known, else null
   modelVersion?: string | null;

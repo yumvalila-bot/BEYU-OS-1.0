@@ -9,11 +9,19 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
-import type { AiInvocationRequest, AiInvocationResponse } from "../contracts/shared.types";
+import type {
+  AiInvocationRequest,
+  AiInvocationResponse,
+} from "../contracts/shared.types";
 import { randomUUID } from "crypto";
 
 @Injectable()
@@ -33,7 +41,10 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+    auditService: AuditService,
+  ) {
+    super(db, tenantCtx, circuit, cfg, auditService);
+  }
 
   /**
    * Invoke a governed AI capability. Fail-closed when HIVE is not configured;
@@ -50,60 +61,74 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
         outputRef: null,
         riskClassification: req.riskLevel,
         humanReviewer: null,
-        approvalStatus: req.requiresHumanApproval || req.riskLevel === "critical" ? "pending" : "not_required",
+        approvalStatus:
+          req.requiresHumanApproval || req.riskLevel === "critical"
+            ? "pending"
+            : "not_required",
         blocked: true,
-        failureReason: "Noelia/HIVE EXTERNAL-BLOCKED: HIVE endpoint and token not configured; AI invocation blocked. No fabricated response.",
+        failureReason:
+          "Noelia/HIVE EXTERNAL-BLOCKED: HIVE endpoint and token not configured; AI invocation blocked. No fabricated response.",
       };
     }
-    return this.execute("invoke", req, async (): Promise<AiInvocationResponse> => {
-      throw new Error("Noelia/HIVE HTTP transport not implemented in this build.");
-    });
+    return this.execute(
+      "invoke",
+      req,
+      async (): Promise<AiInvocationResponse> => {
+        throw new Error(
+          "Noelia/HIVE HTTP transport not implemented in this build.",
+        );
+      },
+    );
   }
 
   /** Mark an AI output as human-approved (binds the reviewer globalUserId). */
-  async markHumanApproved(invocationId: string, reviewerGlobalUserId: string): Promise<void> {
-    await this.db.query(
-      `INSERT INTO health.audit_events
-          (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-           correlation_id, auth_decision, result_status, source_service)
-       VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-               CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-               'ai.human_approve','ai_invocation',$3,$4::jsonb,
-               current_setting('app.correlation_id',true),'allowed','ok','health-api')`,
-      [
-        this.tenantCtx.current()?.tenantId ?? null,
-        this.tenantCtx.current()?.userId ?? null,
-        invocationId,
-        JSON.stringify({ reviewerGlobalUserId }),
-      ],
+  async markHumanApproved(
+    invocationId: string,
+    reviewerGlobalUserId: string,
+  ): Promise<void> {
+    await inTx(this.db, this.tenantCtx, (tx) =>
+      this.auditService.record(tx, {
+        operation: "ai.human_approve",
+        resourceType: "ai_invocation",
+        resourceId: invocationId,
+        metadata: { reviewerGlobalUserId },
+        authDecision: "allowed",
+        resultStatus: "ok",
+        sourceService: "health-api",
+      }),
     );
   }
 
   private async auditInvocation(req: AiInvocationRequest): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'ai.invoke','ai_invocation',NULL,$3::jsonb,$4,'allowed','ok','health-api')`,
-        [
-          req.actor.tenantId as any,
-          req.actor.globalUserId as any,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: "ai.invoke",
+          resourceType: "ai_invocation",
+          resourceId: null,
+          metadata: {
             capability: req.capability,
             riskLevel: req.riskLevel,
             modelProviderId: req.modelProviderId ?? null,
             modelVersion: req.modelVersion ?? null,
             inputRef: req.inputRef,
             requiresHumanApproval: req.requiresHumanApproval,
-          }),
-          req.propagation.correlationId,
-        ],
+            propagationCorrelationId: req.propagation?.correlationId ?? null,
+          },
+          authDecision: "allowed",
+          resultStatus: "ok",
+          sourceService: "health-api",
+        }),
       );
-    } catch {
-      // ignore
+    } catch (e) {
+      // Best-effort, deliberately: invoke() must still return its blocked,
+      // fail-closed response when HIVE is EXTERNAL-BLOCKED. The mandatory
+      // pre-call gate for any outbound dispatch is the health.beyu_outbox row
+      // execute() writes before the call. The failure is never silent.
+      this.logger.error(
+        `ai.invoke audit write failed for capability ` +
+          `'${req.capability}': ${(e as Error).message}`,
+      );
     }
   }
 }

@@ -17,9 +17,14 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   GovernanceDecisionRequest,
@@ -45,7 +50,10 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+    auditService: AuditService,
+  ) {
+    super(db, tenantCtx, circuit, cfg, auditService);
+  }
 
   /**
    * Request a governance decision. When no live endpoint is configured, this
@@ -58,7 +66,9 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
    *
    * This is a SAFE LOCAL DEFAULT, not a fabricated governance PASS.
    */
-  async decide(req: GovernanceDecisionRequest): Promise<GovernanceDecisionResponse> {
+  async decide(
+    req: GovernanceDecisionRequest,
+  ): Promise<GovernanceDecisionResponse> {
     // Record the decision request in audit regardless of connectivity.
     await this.auditDecisionRequest(req);
 
@@ -89,7 +99,9 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
    * legal-hold override, financial finalization) use this and treat any
    * error as DENY.
    */
-  async decideOrFailClosed(req: GovernanceDecisionRequest): Promise<GovernanceDecisionResponse> {
+  async decideOrFailClosed(
+    req: GovernanceDecisionRequest,
+  ): Promise<GovernanceDecisionResponse> {
     try {
       return await this.decide(req);
     } catch {
@@ -108,11 +120,15 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
 
   /* --------- local fallback (conservative) --------- */
 
-  private localFallbackDecision(req: GovernanceDecisionRequest): GovernanceDecisionResponse {
+  private localFallbackDecision(
+    req: GovernanceDecisionRequest,
+  ): GovernanceDecisionResponse {
     const risk: RiskLevel = req.riskLevel;
     // A conservative local RBAC gate: require actor to carry a permission
     // matching the action. This does NOT replace governance.
-    const hasPerm = (req.actor.permissions ?? []).some((p) => matchPerm(p, req.action));
+    const hasPerm = (req.actor.permissions ?? []).some((p) =>
+      matchPerm(p, req.action),
+    );
     if (risk === "critical" || risk === "high") {
       return {
         decision: "DENY",
@@ -122,7 +138,8 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
         approvalRequired: true,
         approverRole: this.approverForAction(req.action),
         expiresAt: null,
-        failureReason: "Governance not configured; high/critical risk denied until human approval and/or live governance.",
+        failureReason:
+          "Governance not configured; high/critical risk denied until human approval and/or live governance.",
       };
     }
     if (!hasPerm) {
@@ -144,7 +161,8 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
       approvalRequired: false,
       approverRole: null,
       expiresAt: null,
-      failureReason: "Governance endpoint not configured; decision based on local RBAC only. Not an authoritative governance decision.",
+      failureReason:
+        "Governance endpoint not configured; decision based on local RBAC only. Not an authoritative governance decision.",
     };
   }
 
@@ -152,25 +170,38 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
     return "governance.approver";
   }
 
-  private async auditDecisionRequest(req: GovernanceDecisionRequest): Promise<void> {
+  private async auditDecisionRequest(
+    req: GovernanceDecisionRequest,
+  ): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'governance.decision.request','governance',NULL,
-                 $3::jsonb,$4,'pending','ok','health-api')`,
-        [
-          req.actor.tenantId as any,
-          req.actor.globalUserId as any,
-          JSON.stringify({ action: req.action, risk: req.riskLevel, resourceType: req.resourceType }),
-          req.propagation.correlationId,
-        ],
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: "governance.decision.request",
+          resourceType: "governance",
+          resourceId: null,
+          metadata: {
+            action: req.action,
+            risk: req.riskLevel,
+            resourceType: req.resourceType,
+            propagationCorrelationId: req.propagation?.correlationId ?? null,
+          },
+          authDecision: "allowed",
+          resultStatus: "ok",
+          sourceService: "health-api",
+        }),
       );
-    } catch {
-      // audit failure must not crash caller
+    } catch (e) {
+      // Best-effort, deliberately: decide() must still be able to return its
+      // safe local fail-closed decision when governance is EXTERNAL-BLOCKED,
+      // and turning this into a throw would make decideOrFailClosed() report
+      // GOVERNANCE_UNAVAILABLE_FAIL_CLOSED — conflating "external blocked"
+      // with "governance errored". The mandatory pre-call gate for any
+      // outbound dispatch is the health.beyu_outbox row execute() writes
+      // before the call. The failure is never silent.
+      this.logger.error(
+        `governance decision-request audit write failed for action ` +
+          `'${req.action}': ${(e as Error).message}`,
+      );
     }
   }
 }

@@ -1,16 +1,20 @@
 import { Injectable } from "@nestjs/common";
-import { AppointmentRepository, Appointment, CreateAppointmentInput } from "./appointment.repository";
+import {
+  AppointmentRepository,
+  Appointment,
+  CreateAppointmentInput,
+} from "./appointment.repository";
 import { DomainError } from "../../common/errors/domain.error";
 import { AuditService } from "../audit/audit.service";
 
 const TRANSITIONS: Record<string, Set<string>> = {
-  scheduled:   new Set(["checked_in", "cancelled", "no_show", "rescheduled"]),
+  scheduled: new Set(["checked_in", "cancelled", "no_show", "rescheduled"]),
   rescheduled: new Set(["checked_in", "cancelled", "no_show"]),
-  checked_in:  new Set(["in_progress", "cancelled", "no_show"]),
+  checked_in: new Set(["in_progress", "cancelled", "no_show"]),
   in_progress: new Set(["completed"]),
-  completed:   new Set<string>(),
-  cancelled:   new Set<string>(),
-  no_show:     new Set<string>(),
+  completed: new Set<string>(),
+  cancelled: new Set<string>(),
+  no_show: new Set<string>(),
 };
 const STAMP: Record<string, string> = {
   checked_in: "checked_in_at",
@@ -22,7 +26,10 @@ const STAMP: Record<string, string> = {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly repo: AppointmentRepository, private readonly audit: AuditService) {}
+  constructor(
+    private readonly repo: AppointmentRepository,
+    private readonly audit: AuditService,
+  ) {}
 
   async get(id: string): Promise<Appointment> {
     const a = await this.repo.findById(id);
@@ -36,19 +43,38 @@ export class AppointmentsService {
 
   async create(input: CreateAppointmentInput): Promise<Appointment> {
     if (input.idempotency_key) {
-      const existing = await this.repo.findByIdempotencyKey(input.idempotency_key);
+      const existing = await this.repo.findByIdempotencyKey(
+        input.idempotency_key,
+      );
       if (existing) return existing;
     }
     const dur = input.duration_min ?? 15;
-    if (dur <= 0 || dur > 24 * 60) throw DomainError.validation("duration_min must be between 1 and 1440 minutes");
-    if (!input.scheduled_for) throw DomainError.validation("scheduled_for is required");
+    if (dur <= 0 || dur > 24 * 60)
+      throw DomainError.validation(
+        "duration_min must be between 1 and 1440 minutes",
+      );
+    if (!input.scheduled_for)
+      throw DomainError.validation("scheduled_for is required");
     return this.repo.withIsolation(async (tx) => {
       if (input.provider_id) {
-        const overlap = await this.repo.overlappingCount(input.provider_id, input.scheduled_for, dur, tx);
-        if (overlap > 0) throw DomainError.conflict("Provider is already booked for the requested time window");
+        const overlap = await this.repo.overlappingCount(
+          input.provider_id,
+          input.scheduled_for,
+          dur,
+          tx,
+        );
+        if (overlap > 0)
+          throw DomainError.conflict(
+            "Provider is already booked for the requested time window",
+          );
       }
       const a = await this.repo.create(input, tx);
-      await this.audit.record(tx, { operation: "appointment.book", resourceType: "appointment", resourceId: a.appointment_id, after: a });
+      await this.audit.record(tx, {
+        operation: "appointment.book",
+        resourceType: "appointment",
+        resourceId: a.appointment_id,
+        after: a,
+      });
       return a;
     });
   }
@@ -62,7 +88,10 @@ export class AppointmentsService {
       );
       const current = rows[0];
       if (!current) throw DomainError.notFound("Appointment", id);
-      if (!TRANSITIONS[current.status]?.has(to)) throw DomainError.invalidState(`Cannot transition appointment from ${current.status} to ${to}`);
+      if (!TRANSITIONS[current.status]?.has(to))
+        throw DomainError.invalidState(
+          `Cannot transition appointment from ${current.status} to ${to}`,
+        );
       const stamp = STAMP[to];
       const actor = this.repo.getActorId();
       const cid = this.repo.getCorrelationId();
@@ -74,7 +103,12 @@ export class AppointmentsService {
         stamp ? [id, to, actor, cid] : [id, to, actor, cid],
       );
       const a = upd[0];
-      await this.audit.record(tx, { operation: `appointment.${to}`, resourceType: "appointment", resourceId: id, metadata: { to, from: current.status } });
+      await this.audit.record(tx, {
+        operation: `appointment.${to}`,
+        resourceType: "appointment",
+        resourceId: id,
+        metadata: { to, from: current.status },
+      });
       return a;
     });
   }

@@ -13,7 +13,13 @@ import * as path from "path";
 import { PGlite } from "@electric-sql/pglite";
 import { PGliteConnection } from "../modules/identity/db-connection";
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "..", "..", "database", "migrations");
+const MIGRATIONS_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
 function listMigrations(): { id: string; up: string }[] {
   return fs
@@ -45,7 +51,10 @@ describe("Health OS migrations", () => {
     );
     for (const m of listMigrations()) {
       await conn.exec(m.up);
-      await conn.query(`INSERT INTO beyu_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING`, [m.id]);
+      await conn.query(
+        `INSERT INTO beyu_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING`,
+        [m.id],
+      );
     }
   });
 

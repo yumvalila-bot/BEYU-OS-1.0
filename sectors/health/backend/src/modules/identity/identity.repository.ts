@@ -355,11 +355,15 @@ export class IdentityRepository {
     expiresAt: Date;
     securityVersion?: number;
   }): Promise<StoredSession> {
-    const sv = input.securityVersion ??
-      (await this.conn.query<{ security_version: number }>(
-        `SELECT security_version FROM beyu_identity.users WHERE global_user_id = $1`,
-        [input.globalUserId],
-      ))[0]?.security_version ?? 0;
+    const sv =
+      input.securityVersion ??
+      (
+        await this.conn.query<{ security_version: number }>(
+          `SELECT security_version FROM beyu_identity.users WHERE global_user_id = $1`,
+          [input.globalUserId],
+        )
+      )[0]?.security_version ??
+      0;
     const rows = await this.conn.query(
       `INSERT INTO beyu_identity.sessions (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at, security_version)
        VALUES ($1, $2, $3, $4, 'active', $5, $6)

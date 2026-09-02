@@ -13,10 +13,19 @@ import { AuditService } from "../audit/audit.service";
 import { DomainError } from "../../common/errors/domain.error";
 
 export type IncidentCategory =
-  | "patient_safety" | "medication" | "infection_control" | "fall"
-  | "needle_stick" | "data_breach" | "near_miss" | "security" | "equipment" | "other";
+  | "patient_safety"
+  | "medication"
+  | "infection_control"
+  | "fall"
+  | "needle_stick"
+  | "data_breach"
+  | "near_miss"
+  | "security"
+  | "equipment"
+  | "other";
 export type IncidentSeverity = "low" | "moderate" | "severe" | "sentinel";
-export type IncidentStatus = "reported" | "triaged" | "investigating" | "resolved" | "closed";
+export type IncidentStatus =
+  "reported" | "triaged" | "investigating" | "resolved" | "closed";
 
 const TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
   reported: ["triaged"],
@@ -44,13 +53,18 @@ export class IncidentsService {
     private readonly audit: AuditService,
   ) {}
 
-  async report(input: ReportIncidentInput): Promise<{ incident_id: string; incident_no: string }> {
+  async report(
+    input: ReportIncidentInput,
+  ): Promise<{ incident_id: string; incident_no: string }> {
     return atomicWrite(this.db, this.tenantCtx, this.audit, {
       resourceType: "incident",
       operation: "incident.report",
       work: async (tx) => {
         const actor = this.tenantCtx.require();
-        const rows = await tx.query<{ incident_id: string; incident_no: string }>(
+        const rows = await tx.query<{
+          incident_id: string;
+          incident_no: string;
+        }>(
           `INSERT INTO health.incidents
              (tenant_id, entity_code, country_code, incident_no, category, severity,
               description, patient_id, encounter_id, facility_id, location,
@@ -61,16 +75,27 @@ export class IncidentsService {
                    concat('INC-',to_char(now(),'YYYYMMDD'),'-',lpad(nextval('health.incidents_no_seq')::text,4,'0')),
                    $1,$2,$3,$4,$5,$6,$7,$8,$8)
            RETURNING incident_id, incident_no`,
-          [input.category, input.severity, input.description,
-           input.patient_id ?? null, input.encounter_id ?? null,
-           input.facility_id ?? null, input.location ?? null, actor.userId],
+          [
+            input.category,
+            input.severity,
+            input.description,
+            input.patient_id ?? null,
+            input.encounter_id ?? null,
+            input.facility_id ?? null,
+            input.location ?? null,
+            actor.userId,
+          ],
         );
         return rows[0];
       },
     });
   }
 
-  async transition(id: string, to: IncidentStatus, patch: { rca_summary?: string; capa?: Record<string, unknown> } = {}): Promise<void> {
+  async transition(
+    id: string,
+    to: IncidentStatus,
+    patch: { rca_summary?: string; capa?: Record<string, unknown> } = {},
+  ): Promise<void> {
     return atomicWrite(this.db, this.tenantCtx, this.audit, {
       resourceType: "incident",
       resourceId: id,
@@ -83,12 +108,23 @@ export class IncidentsService {
         );
         if (!rows.length) throw DomainError.notFound("incident");
         const ok = TRANSITIONS[rows[0].status]?.includes(to);
-        if (!ok) throw DomainError.invalidState(`incident cannot transition ${rows[0].status} -> ${to}`);
+        if (!ok)
+          throw DomainError.invalidState(
+            `incident cannot transition ${rows[0].status} -> ${to}`,
+          );
         const sets = ["status=$1"];
         const params: unknown[] = [to];
         let p = 2;
-        if (patch.rca_summary) { sets.push(`rca_summary=$${p}`); params.push(patch.rca_summary); p++; }
-        if (patch.capa) { sets.push(`capa=$${p}::jsonb`); params.push(JSON.stringify(patch.capa)); p++; }
+        if (patch.rca_summary) {
+          sets.push(`rca_summary=$${p}`);
+          params.push(patch.rca_summary);
+          p++;
+        }
+        if (patch.capa) {
+          sets.push(`capa=$${p}::jsonb`);
+          params.push(JSON.stringify(patch.capa));
+          p++;
+        }
         params.push(id);
         await tx.query(
           `UPDATE health.incidents SET ${sets.join(",")}, updated_at=now()

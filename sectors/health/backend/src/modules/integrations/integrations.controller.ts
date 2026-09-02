@@ -12,9 +12,25 @@ import { AdapterRegistry } from "./adapter-registry";
 @Controller("api/integrations")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IntegrationsController {
-  constructor(private readonly svc: IntegrationsService, private readonly adapters: AdapterRegistry) {}
-  @Get() @RequirePermission("tenant:admin") list() { return this.svc.list(); }
-  @Get("adapters/probe") @RequirePermission("tenant:admin") probe() { return this.adapters.probeAll(); }
-  @Get(":provider") @RequirePermission("tenant:admin") get(@Param("provider") p: string) { return this.svc.get(p); }
-  @Post(":provider/configured") @RequirePermission("tenant:admin") @RequiresMfaStepUp("integrations:configure") cfg(@Param("provider") p: string) { return this.svc.markConfigured(p); }
+  constructor(
+    private readonly svc: IntegrationsService,
+    private readonly adapters: AdapterRegistry,
+  ) {}
+  @Get() @RequirePermission("tenant:admin") list() {
+    return this.svc.list();
+  }
+  @Get("adapters/probe") @RequirePermission("tenant:admin") probe() {
+    return this.adapters.probeAll();
+  }
+  @Get(":provider") @RequirePermission("tenant:admin") get(
+    @Param("provider") p: string,
+  ) {
+    return this.svc.get(p);
+  }
+  @Post(":provider/configured")
+  @RequirePermission("tenant:admin")
+  @RequiresMfaStepUp("integrations:configure")
+  cfg(@Param("provider") p: string) {
+    return this.svc.markConfigured(p);
+  }
 }

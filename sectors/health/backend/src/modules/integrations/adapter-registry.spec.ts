@@ -1,5 +1,9 @@
 import { describe, it, expect } from "@jest/globals";
-import { AdapterRegistry, STUB_ADAPTERS, registerStubAdapters } from "./adapter-registry";
+import {
+  AdapterRegistry,
+  STUB_ADAPTERS,
+  registerStubAdapters,
+} from "./adapter-registry";
 import { DomainError } from "../../common/errors/domain.error";
 
 describe("AdapterRegistry (Phase 2Z)", () => {

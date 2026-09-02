@@ -33,14 +33,18 @@ export interface CreateEncounterInput {
   appointment_id?: string;
   provider_id?: string;
   department_id?: string;
-  kind?: "ambulatory" | "inpatient" | "emergency" | "teleconsult" | "domiciliary";
+  kind?:
+    "ambulatory" | "inpatient" | "emergency" | "teleconsult" | "domiciliary";
   chief_complaint?: string;
   triage_level?: "red" | "orange" | "yellow" | "green" | "blue";
 }
 
 function nextEncounterNo(): string {
   const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.floor(Math.random() * 36 ** 3).toString(36).toUpperCase().padStart(3, "0");
+  const rand = Math.floor(Math.random() * 36 ** 3)
+    .toString(36)
+    .toUpperCase()
+    .padStart(3, "0");
   return `ENC-${ts}-${rand}`;
 }
 
@@ -67,7 +71,9 @@ export class EncounterRepository extends BaseRepository {
     );
   }
 
-  async findActiveByAppointment(appointmentId: string): Promise<Encounter | null> {
+  async findActiveByAppointment(
+    appointmentId: string,
+  ): Promise<Encounter | null> {
     const rows = await this.withIsolation((tx) =>
       tx.query<Encounter>(
         `SELECT * FROM health.encounters
@@ -111,7 +117,11 @@ export class EncounterRepository extends BaseRepository {
     return rows[0];
   }
 
-  async complete(id: string, disposition: string, presentIllness?: string): Promise<Encounter> {
+  async complete(
+    id: string,
+    disposition: string,
+    presentIllness?: string,
+  ): Promise<Encounter> {
     const actor = this.actorId();
     const cid = this.correlationId();
     const rows = await this.withIsolation((tx) =>

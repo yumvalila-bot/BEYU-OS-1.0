@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { OphthalmologyService } from "./ophthalmology.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
@@ -13,8 +21,19 @@ import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-autho
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class OphthalmologyController {
   constructor(private readonly svc: OphthalmologyService) {}
-  @Get() @RequirePermission("phi:read") list(@Query("patient_id") p: string) { return this.svc.listForPatient(p); }
-  @Post() @RequirePermission("phi:write") create(@Body() d: any) { return this.svc.addExam(d); }
-  @Post(":id/sign") @RequirePermission("note:sign") @RequiresClinicalSafety("ophthalmology") @RequireHcmPractitioner("ophthalmology.sign", { scope: ["ophthalmology:sign", "note:sign"] })
-  sign(@Param("id") id: string, @Body() d: any = {}) { return this.svc.sign(id, d); }
+  @Get() @RequirePermission("phi:read") list(@Query("patient_id") p: string) {
+    return this.svc.listForPatient(p);
+  }
+  @Post() @RequirePermission("phi:write") create(@Body() d: any) {
+    return this.svc.addExam(d);
+  }
+  @Post(":id/sign")
+  @RequirePermission("note:sign")
+  @RequiresClinicalSafety("ophthalmology")
+  @RequireHcmPractitioner("ophthalmology.sign", {
+    scope: ["ophthalmology:sign", "note:sign"],
+  })
+  sign(@Param("id") id: string, @Body() d: any = {}) {
+    return this.svc.sign(id, d);
+  }
 }

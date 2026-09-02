@@ -13,7 +13,13 @@ import { AuditService } from "../audit/audit.service";
 import { DomainError } from "../../common/errors/domain.error";
 
 export type ConsentStatus = "active" | "withdrawn" | "expired" | "refused";
-export type LegalBasis = "consent" | "contract" | "legal_obligation" | "vital_interest" | "public_task" | "legitimate_interest";
+export type LegalBasis =
+  | "consent"
+  | "contract"
+  | "legal_obligation"
+  | "vital_interest"
+  | "public_task"
+  | "legitimate_interest";
 
 export interface ConsentInput {
   patient_id: string;
@@ -74,9 +80,19 @@ export class ConsentService {
    * frameworks) but still require an entry in the consent table so the
    * decision is audited.
    */
-  async assert(patientId: string, purpose: string, dataCategory: string, recipient?: string): Promise<boolean> {
+  async assert(
+    patientId: string,
+    purpose: string,
+    dataCategory: string,
+    recipient?: string,
+  ): Promise<boolean> {
     return withIsolation(this.db, this.tenantCtx, "consent", async (tx) => {
-      const rows = await tx.query<{ status: ConsentStatus; legal_basis: LegalBasis; effective_until: Date | null; data_categories: string[] }>(
+      const rows = await tx.query<{
+        status: ConsentStatus;
+        legal_basis: LegalBasis;
+        effective_until: Date | null;
+        data_categories: string[];
+      }>(
         `SELECT status, legal_basis, effective_until, data_categories
            FROM health.consents
           WHERE patient_id=$1 AND purpose=$2 AND tenant_id=current_setting('app.tenant_id', true)::uuid
@@ -86,22 +102,37 @@ export class ConsentService {
       );
       if (!rows.length) return false;
       const r = rows[0];
-      if (r.effective_until && new Date(r.effective_until) < new Date()) return false;
+      if (r.effective_until && new Date(r.effective_until) < new Date())
+        return false;
       if (r.status !== "active") return false;
-      if (r.data_categories?.length && !r.data_categories.includes(dataCategory)) return false;
+      if (
+        r.data_categories?.length &&
+        !r.data_categories.includes(dataCategory)
+      )
+        return false;
       // Legal bases that bypass consent still must be explicitly recorded as 'active' with the matching legal_basis.
       return true;
     });
   }
 
-  async requireConsent(patientId: string, purpose: string, dataCategory: string, recipient?: string): Promise<void> {
+  async requireConsent(
+    patientId: string,
+    purpose: string,
+    dataCategory: string,
+    recipient?: string,
+  ): Promise<void> {
     const ok = await this.assert(patientId, purpose, dataCategory, recipient);
     if (!ok) {
-      throw DomainError.forbidden(`No active consent for purpose=${purpose} data=${dataCategory} recipient=${recipient ?? "*"}`);
+      throw DomainError.forbidden(
+        `No active consent for purpose=${purpose} data=${dataCategory} recipient=${recipient ?? "*"}`,
+      );
     }
   }
 
-  private async insert(tx: DbConnection, input: ConsentInput & { status: ConsentStatus }): Promise<{ consent_id: string }> {
+  private async insert(
+    tx: DbConnection,
+    input: ConsentInput & { status: ConsentStatus },
+  ): Promise<{ consent_id: string }> {
     const actor = this.tenantCtx.require();
     const rows = await tx.query<{ consent_id: string }>(
       `INSERT INTO health.consents
@@ -113,10 +144,19 @@ export class ConsentService {
                current_setting('app.country_code', true),
                $1,$2,$3::text[],$4::text[],$5,$6,$7,COALESCE($8,now()),$9,$10,$11::jsonb)
        RETURNING consent_id`,
-      [input.patient_id, input.purpose, input.scope ?? [], input.data_categories ?? [],
-       input.recipient ?? null, input.legal_basis ?? "consent", input.status,
-       input.effective_from ?? null, input.effective_until ?? null, actor.userId,
-       JSON.stringify(input.evidence ?? {})],
+      [
+        input.patient_id,
+        input.purpose,
+        input.scope ?? [],
+        input.data_categories ?? [],
+        input.recipient ?? null,
+        input.legal_basis ?? "consent",
+        input.status,
+        input.effective_from ?? null,
+        input.effective_until ?? null,
+        actor.userId,
+        JSON.stringify(input.evidence ?? {}),
+      ],
     );
     return rows[0];
   }

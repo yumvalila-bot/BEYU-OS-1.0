@@ -48,7 +48,10 @@ export interface CreateAppointmentInput {
 /** Generate a short human-readable appointment number (tenant-local). */
 function nextAppointmentNo(): string {
   const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.floor(Math.random() * 36 ** 3).toString(36).toUpperCase().padStart(3, "0");
+  const rand = Math.floor(Math.random() * 36 ** 3)
+    .toString(36)
+    .toUpperCase()
+    .padStart(3, "0");
   return `APT-${ts}-${rand}`;
 }
 
@@ -102,14 +105,22 @@ export class AppointmentRepository extends BaseRepository {
     });
   }
 
-  async overlappingCount(providerId: string, when: string, durationMin: number, tx?: Tx): Promise<number> {
+  async overlappingCount(
+    providerId: string,
+    when: string,
+    durationMin: number,
+    tx?: Tx,
+  ): Promise<number> {
     const sql = `SELECT count(*)::int AS n FROM health.appointments
           WHERE ${this.notVoided("health.appointments")}
             AND provider_id = $1
             AND status IN ('scheduled','checked_in','in_progress')
             AND tstzrange(scheduled_for, scheduled_for + make_interval(mins => duration_min), '[)')
                 && tstzrange($2::timestamptz, $2::timestamptz + make_interval(mins => $3::int), '[)')`;
-    const q = (c: Tx) => c.query<{ n: number }>(sql, [providerId, when, durationMin]).then((r: any[]) => Number(r[0]?.n ?? 0));
+    const q = (c: Tx) =>
+      c
+        .query<{ n: number }>(sql, [providerId, when, durationMin])
+        .then((r: any[]) => Number(r[0]?.n ?? 0));
     return tx ? q(tx) : this.withIsolation(q);
   }
 
@@ -123,15 +134,30 @@ export class AppointmentRepository extends BaseRepository {
             created_by, updated_by, correlation_id
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13) RETURNING *`;
     const params = [
-      tenantId, input.patient_id, input.provider_id ?? null, input.department_id ?? null,
-      nextAppointmentNo(), input.kind ?? "followup", input.scheduled_for, input.duration_min ?? 15,
-      input.reason ?? null, input.notes ?? null, input.idempotency_key ?? null, actor, cid,
+      tenantId,
+      input.patient_id,
+      input.provider_id ?? null,
+      input.department_id ?? null,
+      nextAppointmentNo(),
+      input.kind ?? "followup",
+      input.scheduled_for,
+      input.duration_min ?? 15,
+      input.reason ?? null,
+      input.notes ?? null,
+      input.idempotency_key ?? null,
+      actor,
+      cid,
     ];
-    const q = (c: Tx) => c.query<Appointment>(sql, params).then((r: any[]) => r[0]);
+    const q = (c: Tx) =>
+      c.query<Appointment>(sql, params).then((r: any[]) => r[0]);
     return tx ? q(tx) : this.withIsolation(q);
   }
 
-  async transition(id: string, to: string, stampColumn?: string): Promise<Appointment> {
+  async transition(
+    id: string,
+    to: string,
+    stampColumn?: string,
+  ): Promise<Appointment> {
     const actor = this.actorId();
     const cid = this.correlationId();
     const setClause = stampColumn

@@ -32,7 +32,12 @@ export async function withIsolation<T>(
               set_config('app.country_code', $2, true),
               set_config('app.entity_code', $3, true),
               set_config('app.actor_id', $4, true)`,
-      [actor?.tenantId ?? "", actor?.countryCode ?? "", actor?.entityCode ?? "", actor?.userId ?? ""],
+      [
+        actor?.tenantId ?? "",
+        actor?.countryCode ?? "",
+        actor?.entityCode ?? "",
+        actor?.userId ?? "",
+      ],
     );
     return fn(tx);
   });
@@ -46,10 +51,17 @@ export async function atomicWrite<T>(
 ): Promise<T> {
   return withIsolation(db, tenantCtx, opts.resourceType, async (tx) => {
     const result = await opts.work(tx);
-    const resourceId = opts.resourceId
-      ?? (result && typeof result === "object" && "session_id" in (result as any) ? (result as any).session_id : undefined)
-      ?? (result && typeof result === "object" && "evidence_id" in (result as any) ? (result as any).evidence_id : undefined)
-      ?? (result && typeof result === "object" && "machine_id" in (result as any) ? (result as any).machine_id : undefined);
+    const resourceId =
+      opts.resourceId ??
+      (result && typeof result === "object" && "session_id" in (result as any)
+        ? (result as any).session_id
+        : undefined) ??
+      (result && typeof result === "object" && "evidence_id" in (result as any)
+        ? (result as any).evidence_id
+        : undefined) ??
+      (result && typeof result === "object" && "machine_id" in (result as any)
+        ? (result as any).machine_id
+        : undefined);
     await audit.record(tx, {
       operation: opts.operation,
       resourceType: opts.resourceType,

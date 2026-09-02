@@ -57,12 +57,12 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
     bed = await buildTestBed();
     const cfg = { get: () => undefined } as any; // no env configured -> NOT_CONFIGURED
     const cb = new CircuitBreaker(bed.conn, bed.tenantCtx);
-    gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    ident = new IdentityAdapter(bed.conn, bed.tenantCtx, cb, cfg);
+    gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    ident = new IdentityAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
   });
 
   it("governance DENYs high-risk actions when governance is EXTERNAL-BLOCKED (fail-closed)", async () => {
@@ -77,7 +77,9 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
     expect(d.decision).toBe("DENY");
     expect(d.approvalRequired).toBe(true);
     // Conservative deny when governance unavailable — explicit fail-closed language
-    expect(d.failureReason).toMatch(/[Ff]ail.?closed|unavailable|denied until|EXTERNAL/);
+    expect(d.failureReason).toMatch(
+      /[Ff]ail.?closed|unavailable|denied until|EXTERNAL/,
+    );
   });
 
   it("governance falls back to local RBAC APPROVE for low-risk with permission", async () => {
@@ -105,18 +107,29 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
   });
 
   it("HCM blocks clinical actors without verified licence (EXTERNAL-BLOCKED conservative)", async () => {
-    bed.tenantCtx.enterWith({ ...TEST_ACTOR, userId: TEST_ACTOR.userId } as any);
+    bed.tenantCtx.enterWith({
+      ...TEST_ACTOR,
+      userId: TEST_ACTOR.userId,
+    } as any);
     const res = await hcm.authorizeClinicalActor({
       action: "pharmacy.dispense.controlled",
       facilityId: null,
       requiredScope: [],
     });
     expect(res.authorized).toBe(false);
-    expect(["HCM_LICENCE_BLOCKED", "HCM_LICENCE_UNVERIFIED", "HCM_EXTERNAL_VERIFICATION_REQUIRED", "HCM_LICENCE_EXPIRED"]).toContain(res.reason);
+    expect([
+      "HCM_LICENCE_BLOCKED",
+      "HCM_LICENCE_UNVERIFIED",
+      "HCM_EXTERNAL_VERIFICATION_REQUIRED",
+      "HCM_LICENCE_EXPIRED",
+    ]).toContain(res.reason);
   });
 
   it("Finance emits a blocked outbox row and does NOT fabricate financeEventId", async () => {
-    bed.tenantCtx.enterWith({ ...TEST_ACTOR, userId: TEST_ACTOR.userId } as any);
+    bed.tenantCtx.enterWith({
+      ...TEST_ACTOR,
+      userId: TEST_ACTOR.userId,
+    } as any);
     const r = await fin.emitEvent({
       actor: actor(),
       propagation: propagation(),
@@ -133,7 +146,10 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
   });
 
   it("Tax returns blocked with no fabricated tax lines / total", async () => {
-    bed.tenantCtx.enterWith({ ...TEST_ACTOR, userId: TEST_ACTOR.userId } as any);
+    bed.tenantCtx.enterWith({
+      ...TEST_ACTOR,
+      userId: TEST_ACTOR.userId,
+    } as any);
     const r = await tax.determine({
       actor: actor(),
       propagation: propagation(),
@@ -152,7 +168,10 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
   });
 
   it("Noelia/HIVE returns outputClass=blocked with no fabricated response", async () => {
-    bed.tenantCtx.enterWith({ ...TEST_ACTOR, userId: TEST_ACTOR.userId } as any);
+    bed.tenantCtx.enterWith({
+      ...TEST_ACTOR,
+      userId: TEST_ACTOR.userId,
+    } as any);
     const r = await noelia.invoke({
       actor: actor(),
       propagation: propagation(),
@@ -167,7 +186,10 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
   });
 
   it("Identity local fallback trusts JWT globalUserId; does not resolve arbitrary IDs", async () => {
-    bed.tenantCtx.enterWith({ ...TEST_ACTOR, userId: TEST_ACTOR.userId } as any);
+    bed.tenantCtx.enterWith({
+      ...TEST_ACTOR,
+      userId: TEST_ACTOR.userId,
+    } as any);
     const r = await ident.lookup({
       actor: actor(),
       propagation: propagation(),

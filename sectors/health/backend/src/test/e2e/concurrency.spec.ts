@@ -16,8 +16,12 @@ function sleep(ms: number): Promise<void> {
 describe("Concurrency (PGlite, deterministic)", () => {
   jest.setTimeout(60000);
   let h: E2EHarness;
-  beforeAll(async () => { h = await buildE2EHarness(); });
-  afterAll(async () => { if (h) await h.close(); });
+  beforeAll(async () => {
+    h = await buildE2EHarness();
+  });
+  afterAll(async () => {
+    if (h) await h.close();
+  });
 
   it("parallel UPSERTs into a keyed table converge without lost updates", async () => {
     await h.conn.exec(

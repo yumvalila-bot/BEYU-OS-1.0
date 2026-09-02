@@ -65,7 +65,9 @@ export class ConsentGuard implements CanActivate {
       http.body?.patientId ??
       null;
     if (!patientId) {
-      throw new UnprocessableEntityException({ code: "CONSENT_PATIENT_REQUIRED" });
+      throw new UnprocessableEntityException({
+        code: "CONSENT_PATIENT_REQUIRED",
+      });
     }
     const recipient = http.user?.tenantId ?? null;
     const ok = await this.consent.assert(

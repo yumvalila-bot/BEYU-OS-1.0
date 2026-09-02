@@ -432,7 +432,13 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     label: "MoH Government Official",
     cadre: "External",
     description: "Aggregate population health + de-identified data.",
-    permissions: ["ph:surveillance", "ph:outbreak-declare", "audit:read", "report:read", "report:submit"],
+    permissions: [
+      "ph:surveillance",
+      "ph:outbreak-declare",
+      "audit:read",
+      "report:read",
+      "report:submit",
+    ],
   },
 ];
 

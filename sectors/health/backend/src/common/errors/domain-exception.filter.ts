@@ -70,10 +70,13 @@ export class DomainExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const payload = exception.getResponse();
       const payloadObj =
-        typeof payload === "string" ? { message: payload } : (payload as Record<string, unknown>);
+        typeof payload === "string"
+          ? { message: payload }
+          : (payload as Record<string, unknown>);
       // If a DomainError code was attached (e.g. VALIDATION from the ValidationPipe
       // factory), preserve it; otherwise label as HTTP_ERROR.
-      const code = typeof payloadObj.code === "string" ? payloadObj.code : "HTTP_ERROR";
+      const code =
+        typeof payloadObj.code === "string" ? payloadObj.code : "HTTP_ERROR";
       const { code: _omit, message, details, ...rest } = payloadObj;
       res.status(status).json({
         ok: false,
@@ -89,7 +92,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
 
     // Unexpected error — never leak stack; log with correlation id.
-    const err = exception instanceof Error ? exception : new Error(String(exception));
+    const err =
+      exception instanceof Error ? exception : new Error(String(exception));
     const correlationId = currentCorrelationId();
     this.logger.error(
       { err, method: req.method, path: req.url, correlationId },
