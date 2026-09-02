@@ -14,7 +14,16 @@ import { TenantContext } from "../security/tenant-context";
 import { DomainError } from "../errors/domain.error";
 import { runInTx, currentTx } from "./base.repository";
 
-async function inTx<T>(
+/**
+ * Run `fn` inside a transaction with the caller's tenant boundary GUCs
+ * (app.tenant_id / app.country_code / app.entity_code) set, so RLS applies.
+ * Reuses an ambient (ALS) transaction when one is already open.
+ *
+ * Exported for callers outside the CRUD helpers that still need an audited,
+ * tenant-scoped transaction — notably the BEYU adapters, which write to the
+ * audit ledger but do not go through atomicWrite/atomicTransition.
+ */
+export async function inTx<T>(
   db: DbConnection,
   tenantCtx: TenantContext,
   fn: (tx: DbConnection) => Promise<T>,

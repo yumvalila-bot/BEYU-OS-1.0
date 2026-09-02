@@ -15,6 +15,8 @@ import {
 } from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   AiInvocationRequest,
@@ -39,8 +41,9 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
+    auditService: AuditService,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
   }
 
   /**
@@ -83,48 +86,49 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
     invocationId: string,
     reviewerGlobalUserId: string,
   ): Promise<void> {
-    await this.db.query(
-      `INSERT INTO health.audit_events
-          (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-           correlation_id, auth_decision, result_status, source_service)
-       VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-               CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-               'ai.human_approve','ai_invocation',$3,$4::jsonb,
-               current_setting('app.correlation_id',true),'allowed','ok','health-api')`,
-      [
-        this.tenantCtx.current()?.tenantId ?? null,
-        this.tenantCtx.current()?.userId ?? null,
-        invocationId,
-        JSON.stringify({ reviewerGlobalUserId }),
-      ],
+    await inTx(this.db, this.tenantCtx, (tx) =>
+      this.auditService.record(tx, {
+        operation: "ai.human_approve",
+        resourceType: "ai_invocation",
+        resourceId: invocationId,
+        metadata: { reviewerGlobalUserId },
+        authDecision: "allowed",
+        resultStatus: "ok",
+        sourceService: "health-api",
+      }),
     );
   }
 
   private async auditInvocation(req: AiInvocationRequest): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'ai.invoke','ai_invocation',NULL,$3::jsonb,$4,'allowed','ok','health-api')`,
-        [
-          req.actor.tenantId as any,
-          req.actor.globalUserId as any,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: "ai.invoke",
+          resourceType: "ai_invocation",
+          resourceId: null,
+          metadata: {
             capability: req.capability,
             riskLevel: req.riskLevel,
             modelProviderId: req.modelProviderId ?? null,
             modelVersion: req.modelVersion ?? null,
             inputRef: req.inputRef,
             requiresHumanApproval: req.requiresHumanApproval,
-          }),
-          req.propagation.correlationId,
-        ],
+            propagationCorrelationId: req.propagation?.correlationId ?? null,
+          },
+          authDecision: "allowed",
+          resultStatus: "ok",
+          sourceService: "health-api",
+        }),
       );
-    } catch {
-      // ignore
+    } catch (e) {
+      // Best-effort, deliberately: invoke() must still return its blocked,
+      // fail-closed response when HIVE is EXTERNAL-BLOCKED. The mandatory
+      // pre-call gate for any outbound dispatch is the health.beyu_outbox row
+      // execute() writes before the call. The failure is never silent.
+      this.logger.error(
+        `ai.invoke audit write failed for capability ` +
+          `'${req.capability}': ${(e as Error).message}`,
+      );
     }
   }
 }

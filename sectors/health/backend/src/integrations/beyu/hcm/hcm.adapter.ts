@@ -15,6 +15,8 @@ import {
 } from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   CanonicalActorContext,
@@ -40,8 +42,9 @@ export class HcmAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
+    auditService: AuditService,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
   }
 
   async lookupPractitioner(
@@ -258,27 +261,32 @@ export class HcmAdapter extends BeyuBaseAdapter {
 
   private async auditQuery(op: string, q: HcmPractitionerQuery): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 $3,'hcm',NULL,$4::jsonb,$5,'pending','ok','health-api')`,
-        [
-          q.actor.tenantId as any,
-          q.actor.globalUserId as any,
-          op,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: op,
+          resourceType: "hcm",
+          resourceId: null,
+          metadata: {
             requestedGlobalUserId: q.globalUserId,
             requestedPractitionerId: q.practitionerId,
+            // Never store the licence value itself — only whether one was
+            // supplied. This redaction is the privacy control for this record.
             requestedLicence: q.licenceNumber ? "__REDACTED__" : null,
-          }),
-          q.propagation.correlationId,
-        ],
+            propagationCorrelationId: q.propagation?.correlationId ?? null,
+          },
+          authDecision: "allowed",
+          resultStatus: "ok",
+          sourceService: "health-api",
+        }),
       );
-    } catch {
-      // ignore
+    } catch (e) {
+      // Best-effort, deliberately: a practitioner lookup must still return its
+      // fail-closed result. The mandatory pre-call gate for any outbound
+      // dispatch is the health.beyu_outbox row execute() writes before the
+      // call. The failure is never silent.
+      this.logger.error(
+        `hcm audit write failed for operation '${op}': ` + (e as Error).message,
+      );
     }
   }
 }

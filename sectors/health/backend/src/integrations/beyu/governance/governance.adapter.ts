@@ -23,6 +23,8 @@ import {
 } from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   GovernanceDecisionRequest,
@@ -48,8 +50,9 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
+    auditService: AuditService,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
   }
 
   /**
@@ -171,27 +174,34 @@ export class GovernanceAdapter extends BeyuBaseAdapter {
     req: GovernanceDecisionRequest,
   ): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'governance.decision.request','governance',NULL,
-                 $3::jsonb,$4,'pending','ok','health-api')`,
-        [
-          req.actor.tenantId as any,
-          req.actor.globalUserId as any,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: "governance.decision.request",
+          resourceType: "governance",
+          resourceId: null,
+          metadata: {
             action: req.action,
             risk: req.riskLevel,
             resourceType: req.resourceType,
-          }),
-          req.propagation.correlationId,
-        ],
+            propagationCorrelationId: req.propagation?.correlationId ?? null,
+          },
+          authDecision: "allowed",
+          resultStatus: "ok",
+          sourceService: "health-api",
+        }),
       );
-    } catch {
-      // audit failure must not crash caller
+    } catch (e) {
+      // Best-effort, deliberately: decide() must still be able to return its
+      // safe local fail-closed decision when governance is EXTERNAL-BLOCKED,
+      // and turning this into a throw would make decideOrFailClosed() report
+      // GOVERNANCE_UNAVAILABLE_FAIL_CLOSED — conflating "external blocked"
+      // with "governance errored". The mandatory pre-call gate for any
+      // outbound dispatch is the health.beyu_outbox row execute() writes
+      // before the call. The failure is never silent.
+      this.logger.error(
+        `governance decision-request audit write failed for action ` +
+          `'${req.action}': ${(e as Error).message}`,
+      );
     }
   }
 }

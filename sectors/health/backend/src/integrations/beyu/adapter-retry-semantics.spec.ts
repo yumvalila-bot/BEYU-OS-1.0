@@ -20,6 +20,7 @@
 import "reflect-metadata";
 import { BeyuBaseAdapter } from "./adapters/beyu-base.adapter";
 import { CircuitBreaker } from "../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../modules/audit/audit.service";
 import { buildTestBed } from "../../common/testing/test-bed";
 
 const ENDPOINT_ENV = "TEST_ADAPTER_ENDPOINT";
@@ -49,10 +50,11 @@ class ProbeAdapter extends BeyuBaseAdapter {
     tenantCtx: any,
     circuit: CircuitBreaker,
     cfg: any,
+    auditService: AuditService,
     private readonly tag: string,
     private readonly behaviour: () => Promise<unknown>,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
     this.config = {
       provider: `probe-${tag}`,
       endpointEnv: ENDPOINT_ENV,
@@ -98,6 +100,7 @@ describe("BEYU adapter retry classification (no retry amplification)", () => {
       bed.tenantCtx,
       circuit,
       cfg,
+      bed.audit,
       `t${seq}`,
       behaviour,
     );

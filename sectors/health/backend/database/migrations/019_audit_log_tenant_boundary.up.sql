@@ -1,0 +1,53 @@
+-- 019_audit_log_tenant_boundary.up.sql
+--
+-- Bind health.audit_log to the caller's tenant boundary.
+--
+-- Migration 006 created this policy as
+--
+--     USING (beyu_identity.tenant_matches_boundary(tenant_id))
+--
+-- Every other tenant-owned table in this schema carries a two-part predicate —
+-- health.patients and health.encounters use
+--
+--     USING (current_setting('app.tenant_id', true) = tenant_id::text
+--            AND beyu_identity.tenant_matches_boundary(tenant_id))
+--
+-- and health.beyu_outbox uses an equivalent tenant_id equality test. The audit
+-- ledger was missing the first conjunct.
+--
+-- That is load-bearing, because tenant_matches_boundary(p_tenant) resolves the
+-- ROW's tenant and returns TRUE when that tenant's beyu_tenant_id is still
+-- NULL, irrespective of any GUC:
+--
+--     SELECT EXISTS (SELECT 1 FROM beyu_identity.tenants t
+--                     WHERE t.tenant_id = p_tenant
+--                       AND (t.beyu_tenant_id IS NULL
+--                            OR (t.country_code = current_setting('app.country_code', true)
+--                                AND t.entity_code = current_setting('app.entity_code', true))));
+--
+-- So for any tenant not yet bound to a BEYU global tenant — which is the state
+-- of every tenant in a fresh deployment — the predicate was unconditionally
+-- TRUE and the caller's app.tenant_id was never consulted. Verified against a
+-- real PostgreSQL 16.14 server as an unprivileged role that does not bypass row
+-- level security and holds only SELECT: another tenant's audit rows were
+-- returned when app.tenant_id was set to an unrelated UUID, when it was left
+-- unset entirely, and when the country/entity GUCs were wrong. The audit
+-- ledger was therefore not tenant isolated at all, while the tables it
+-- describes were.
+--
+-- No cross-tenant audit reader exists that this would break. The only reader in
+-- the application is AuditService's per-tenant hash-chain tip lookup, which
+-- already filters WHERE tenant_id = <actor tenant>, and it runs inside the
+-- caller's transaction where the boundary GUCs are set. Writers reach the table
+-- through AuditService.record(), likewise from within a tenant-scoped
+-- transaction (crud-factory inTx / BaseRepository.withIsolation), so the
+-- WITH CHECK side of the policy — Postgres reuses USING for INSERT when no
+-- explicit WITH CHECK is given — is satisfied by the row's own tenant.
+--
+-- This is a strengthening migration. It rewrites no history, drops no table,
+-- and weakens no policy. The shape is copied verbatim from health.patients.
+
+DROP POLICY IF EXISTS health_audit_isolation ON health.audit_log;
+CREATE POLICY health_audit_isolation ON health.audit_log
+  USING (current_setting('app.tenant_id', true) = tenant_id::text
+         AND beyu_identity.tenant_matches_boundary(tenant_id));

@@ -57,12 +57,12 @@ describe("BEYU governed integration layer (EXTERNAL-BLOCKED fail-closed)", () =>
     bed = await buildTestBed();
     const cfg = { get: () => undefined } as any; // no env configured -> NOT_CONFIGURED
     const cb = new CircuitBreaker(bed.conn, bed.tenantCtx);
-    gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    ident = new IdentityAdapter(bed.conn, bed.tenantCtx, cb, cfg);
+    gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    ident = new IdentityAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
   });
 
   it("governance DENYs high-risk actions when governance is EXTERNAL-BLOCKED (fail-closed)", async () => {

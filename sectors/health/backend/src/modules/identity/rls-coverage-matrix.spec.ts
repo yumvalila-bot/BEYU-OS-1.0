@@ -73,7 +73,11 @@ describe("RLS coverage matrix — every health.* table has RLS + fail-closed iso
     await bed.conn.exec(
       "RESET app.tenant_id; RESET app.entity_code; RESET app.country_code;",
     );
-    const probes = ["patients", "encounters", "audit_events"];
+    // 'audit_log' is the canonical Health audit ledger. This list used to say
+    // 'audit_events', which no migration has ever created, so the `does not
+    // exist` branch below silently skipped the check — which is how the audit
+    // table's isolation gap stayed invisible.
+    const probes = ["patients", "encounters", "audit_log"];
     for (const t of probes) {
       try {
         const rows = await bed.conn.query(

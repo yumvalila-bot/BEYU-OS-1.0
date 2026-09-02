@@ -25,6 +25,8 @@ import {
   requestStorage,
 } from "../../../common/observability/correlation-id.middleware";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
+import { inTx } from "../../../common/db/crud-factory";
 import type {
   IntegrationState,
   PropagationEnvelope,
@@ -60,6 +62,14 @@ export abstract class BeyuBaseAdapter {
     protected readonly tenantCtx: TenantContext,
     protected readonly circuit: CircuitBreaker,
     protected readonly cfg: ConfigService,
+    /**
+     * The canonical Health audit ledger writer (health.audit_log). Injected
+     * rather than raw-SQL'd so outbound records participate in the same
+     * per-tenant SHA-256 hash chain, tenant/entity/country columns and
+     * append-only triggers as every other audited mutation. AuditModule is
+     * @Global(), so this resolves without a module import.
+     */
+    protected readonly auditService: AuditService,
   ) {}
 
   /* ---------------- state / probe ---------------- */
@@ -238,31 +248,37 @@ export abstract class BeyuBaseAdapter {
     err: string | null,
   ): Promise<void> {
     try {
-      await this.db.query(
-        `INSERT INTO health.audit_events
-            (tenant_id, actor_id, operation, resource_type, resource_id, before, after, metadata,
-             correlation_id, auth_decision, result_status, source_service)
-         VALUES (CASE WHEN $1::uuid IS NULL THEN NULL ELSE $1::uuid END,
-                 CASE WHEN $2::uuid IS NULL THEN NULL ELSE $2::uuid END,
-                 'beyu.outbound.'||$3, 'beyu_adapter', NULL, NULL, NULL,
-                 $4::jsonb, $5, 'allowed', CASE WHEN $6 IS NULL THEN 'ok'::text ELSE 'error'::text END, 'health-api')`,
-        [
-          this.tenantCtx.current()?.tenantId ?? null,
-          this.tenantCtx.current()?.userId ?? null,
-          action,
-          JSON.stringify({
+      await inTx(this.db, this.tenantCtx, (tx) =>
+        this.auditService.record(tx, {
+          operation: `beyu.outbound.${action}`,
+          resourceType: "beyu_adapter",
+          resourceId: null,
+          metadata: {
             provider: this.config.provider,
             idempotencyKey: idemKey,
             error: err,
             request_summary: summarize(req),
             response_summary: summarize(res),
-          }),
-          currentCorrelationId(),
-          err,
-        ],
+          },
+          authDecision: "allowed",
+          resultStatus: err === null ? "ok" : "error",
+          sourceService: "health-api",
+        }),
       );
     } catch (e) {
-      this.logger.warn(`audit outbound failed: ${(e as Error).message}`);
+      // Post-call audit is best-effort BY DESIGN, and that is safe here: the
+      // external side effect has already happened by this point, so throwing
+      // could not undo it. The mandatory, unguarded auditability gate is the
+      // health.beyu_outbox row that execute() writes BEFORE the call (it
+      // requires an actor context and aborts the call if it cannot be
+      // written), and it sits in the same database/failure domain as the audit
+      // ledger. What must never happen is the failure being invisible, so this
+      // is logged at error level with the outbox idempotency key for
+      // reconciliation.
+      this.logger.error(
+        `outbound audit write failed for ${this.config.provider}:${action} ` +
+          `(idempotencyKey=${idemKey}): ${(e as Error).message}`,
+      );
     }
   }
 }

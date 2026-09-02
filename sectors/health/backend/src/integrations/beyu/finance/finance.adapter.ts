@@ -20,6 +20,7 @@ import {
 } from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   FinanceEventRequest,
@@ -43,8 +44,9 @@ export class FinanceAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
+    auditService: AuditService,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
   }
 
   /** Emit a financial event. Always safe to call; returns a blocked/pending

@@ -26,11 +26,23 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
     bed = await buildTestBed();
     const cfg = { get: () => undefined } as any;
     const cb = new CircuitBreaker(bed.conn, bed.tenantCtx);
-    const gov = new GovernanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg);
-    const noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg);
+    const gov = new GovernanceAdapter(
+      bed.conn,
+      bed.tenantCtx,
+      cb,
+      cfg,
+      bed.audit,
+    );
+    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const fin = new FinanceAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
+    const noelia = new NoeliaAdapter(
+      bed.conn,
+      bed.tenantCtx,
+      cb,
+      cfg,
+      bed.audit,
+    );
     const env = new TransactionEnvelopeBuilder(bed.tenantCtx);
     orch = new CrossDomainOrchestrator(
       gov,

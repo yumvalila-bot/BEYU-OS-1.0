@@ -599,7 +599,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-018 against real PostgreSQL
+      - name: Apply Health migrations 001-019 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -649,7 +649,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-018 are all recorded
+      - name: Verify Health migrations 001-019 are all recorded
         shell: bash
         run: |
           set -euo pipefail

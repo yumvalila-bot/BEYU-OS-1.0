@@ -15,6 +15,7 @@ import {
 } from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
+import { AuditService } from "../../../modules/audit/audit.service";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
 import type {
   GlobalUserLookupRequest,
@@ -38,8 +39,9 @@ export class IdentityAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
+    auditService: AuditService,
   ) {
-    super(db, tenantCtx, circuit, cfg);
+    super(db, tenantCtx, circuit, cfg, auditService);
   }
 
   async lookup(req: GlobalUserLookupRequest): Promise<GlobalUserRecord> {

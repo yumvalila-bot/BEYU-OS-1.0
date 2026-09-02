@@ -16,7 +16,7 @@ describe("Clinical safety gates (fail-closed)", () => {
     bed = await buildTestBed();
     const cfg = { get: () => undefined } as any;
     const cb = new CircuitBreaker(bed.conn, bed.tenantCtx);
-    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg);
+    const hcm = new HcmAdapter(bed.conn, bed.tenantCtx, cb, cfg, bed.audit);
     gates = new ClinicalSafetyGates(bed.tenantCtx, hcm);
   });
 
