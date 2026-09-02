@@ -310,9 +310,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          attrs=$(psql -Atqc "select rolsuper||'|'||rolbypassrls||'|'||rolcreaterole||'|'||rolcreatedb from pg_roles where rolname='beyu_runtime'")
-          echo "beyu_runtime rolsuper|rolbypassrls|rolcreaterole|rolcreatedb = $attrs"
-          if [ "$attrs" != "f|f|f|f" ]; then
+          # Evaluated as a SQL predicate, not by comparing rendered booleans:
+          # `boolean || text` casts to 'true'/'false', which is NOT the 't'/'f'
+          # that psql displays for a boolean column. Comparing display strings is
+          # fragile, so the database decides and returns a count instead.
+          psql -Atqc "select rolname, rolsuper, rolbypassrls, rolcreaterole, rolcreatedb
+                        from pg_roles where rolname='beyu_runtime'" \
+            | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreaterole="$4" rolcreatedb="$5}'
+          ok=$(psql -Atqc "select count(*) from pg_roles
+                            where rolname='beyu_runtime'
+                              and not rolsuper and not rolbypassrls
+                              and not rolcreaterole and not rolcreatedb")
+          if [ "$ok" != "1" ]; then
             echo "::error::runtime role is not NOSUPERUSER/NOBYPASSRLS/NOCREATEROLE/NOCREATEDB"
             exit 1
           fi
@@ -559,11 +568,6 @@ jobs:
         # Invoked directly: this package defines no `typecheck` script.
         run: ./node_modules/.bin/tsc --noEmit -p tsconfig.json
 
-      - name: Lint Health OS backend without mutating files
-        # The package `lint` script carries --fix and is deliberately NOT invoked.
-        # This is the same rule set, non-mutating.
-        run: ./node_modules/.bin/eslint "{src,apps,libs,test}/**/*.ts"
-
       - name: Provision a non-superuser Health runtime role
         # Mirrors the root job's role separation: the application role is not a
         # superuser. CREATEDB is granted only because the repository's own test
@@ -586,12 +590,13 @@ jobs:
           $$;
           GRANT ALL ON SCHEMA public TO beyu_health_runtime;
           SQL
-          attrs=$(psql -Atqc "select rolsuper||'|'||rolbypassrls from pg_roles where rolname='beyu_health_runtime'")
-          echo "beyu_health_runtime rolsuper|rolbypassrls = $attrs"
-          if [ "$attrs" != "f|f" ]; then
+          attrs=$(psql -Atqc "select count(*) from pg_roles where rolname='beyu_health_runtime' and not rolsuper and not rolbypassrls")
+          if [ "$attrs" != "1" ]; then
             echo "::error::Health runtime role must be NOSUPERUSER and NOBYPASSRLS"
             exit 1
           fi
+          psql -Atqc "select rolname, rolsuper, rolbypassrls, rolcreatedb from pg_roles where rolname='beyu_health_runtime'" \
+            | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
       - name: Apply Health migrations 001-018 against real PostgreSQL
@@ -670,6 +675,50 @@ jobs:
       - name: Build Health OS backend
         run: npm run build
 
+      # SEQUENCED LAST, DELIBERATELY — and it is a hard gate, not a soft one.
+      #
+      # The Health backend currently carries pre-existing lint debt: 2522 errors,
+      # of which 2476 are prettier/prettier formatting and 46 are non-formatting
+      # (40 @typescript-eslint/no-unused-vars, 4 no-var-requires, 2 prefer-const)
+      # across 34 files. None is a security-rule violation. Clearing it means
+      # reformatting 34 application files, which is a separate, explicitly
+      # authorised change — not something to smuggle into a CI commit, and not
+      # something to silence with --fix, a warning downgrade or `|| true`.
+      #
+      # It runs after the database gates so that one run still produces complete
+      # evidence about the real-PostgreSQL migration and security layers. The job
+      # FAILS on this step; it is not made to pass.
+      - name: Lint Health OS backend without mutating files
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The package `lint` script carries --fix and is deliberately NOT invoked.
+          #
+          # Two corrections to the invocation, both verified locally:
+          #  1. ESLint 8.57 searches ancestor directories for a flat config and
+          #     picks up the repository-root eslint.config.mjs, which then fails to
+          #     resolve `eslint` because this job never installs root node_modules.
+          #     ESLINT_USE_FLAT_CONFIG=false forces eslintrc mode so this package's
+          #     own .eslintrc.js is the config actually applied.
+          #  2. The package script globs {src,apps,libs,test}, but only `src`
+          #     exists here, and ESLint 8 exits 2 — a hard error, not a finding —
+          #     on a path that does not exist. Lint the roots that are present;
+          #     widen automatically if apps/, libs/ or test/ appear later. An empty
+          #     root set is a failure, never a silent pass.
+          patterns=()
+          for d in src apps libs test; do
+            if [ -d "$d" ]; then patterns+=("$d/**/*.ts"); fi
+          done
+          if [ ${#patterns[@]} -eq 0 ]; then
+            echo "::error::no lintable source root found in sectors/health/backend"
+            exit 1
+          fi
+          echo "Linting roots present : ${patterns[*]}"
+          echo "Roots absent          : $(for d in src apps libs test; do [ -d "$d" ] || printf '%s ' "$d"; done)"
+          ESLINT_USE_FLAT_CONFIG=false ./node_modules/.bin/eslint "${patterns[@]}" 2>&1 \
+            | tee /tmp/health-lint.log
+          exit "${PIPESTATUS[0]}"
+
       - name: Upload Health backend evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -681,6 +730,7 @@ jobs:
             /tmp/health-migrate-rerun.log
             /tmp/health-tests-pglite.log
             /tmp/health-tests-realpg.log
+            /tmp/health-lint.log
           if-no-files-found: warn
           retention-days: 14
 
