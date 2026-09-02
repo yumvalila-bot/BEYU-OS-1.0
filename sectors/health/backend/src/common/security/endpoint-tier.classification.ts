@@ -81,6 +81,25 @@ export interface EndpointClassification {
  *
  * This is intentionally conservative: unknown paths default to PRIVILEGED +
  * audit so the CI matrix flags them rather than silently letting them pass.
+ *
+ * THE FOUR `_has*` PARAMETERS ARE DELIBERATELY NOT CONSULTED. Do not "fix" this.
+ *
+ * They carry what the caller observed in the source (which decorators the
+ * controller actually has). This function must return what the endpoint is
+ * REQUIRED to have, derived solely from method + path + controller. The tier
+ * matrix reconciles the two:
+ *
+ *     if (required.governanceAuthorization && !observed.hasGovernance) -> gap
+ *
+ * Feeding the observed flags into the required set would make `required` a copy
+ * of `observed`, collapsing every such test to `observed && !observed` — always
+ * false. The audit would keep running and keep passing while never again
+ * detecting a missing @RequiresGovernance, @RequireHcmPractitioner,
+ * @RequiresMfaStepUp or @RequiresClinicalSafety. The parameters are kept so the
+ * call signature still documents the full reconciliation input; the underscore
+ * prefix is this package's sanctioned marker for an intentionally unused
+ * argument. endpoint-tier-independence.spec.ts fails if the coupling is
+ * reintroduced.
  */
 export function classifyEndpoint(
   method: string,
