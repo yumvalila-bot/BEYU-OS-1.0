@@ -32,7 +32,12 @@ interface MigrationFile {
 }
 
 function readMigrations(): MigrationFile[] {
-  const dir = path.resolve(__dirname, "..", "database", "migrations");
+  // __dirname is <backend>/src/database, so the migrations live two levels up at
+  // <backend>/database/migrations. Resolving one level up produced
+  // <backend>/src/database/migrations, which does not exist, so readdirSync threw
+  // ENOENT before any migration could be read. This matches the resolution used by
+  // src/common/testing/test-bed.ts, which walks up to the backend root the same way.
+  const dir = path.resolve(__dirname, "..", "..", "database", "migrations");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".up.sql")).sort();
   const migs: MigrationFile[] = [];
   for (const up of files) {

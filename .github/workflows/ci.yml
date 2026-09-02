@@ -606,26 +606,48 @@ jobs:
         #
         # Run as the admin (superuser) role, mirroring the root job's separation of
         # DDL from the runtime path and matching this package's own
-        # docker-compose.yml, which runs against postgres. Migrations 001, 004 and
-        # 006 issue CREATE SCHEMA, which needs CREATE on the database — a
-        # privilege the non-superuser application role deliberately does not hold.
-        # The role separation that the RLS specs depend on is established by the
-        # specs themselves: they set up as the privileged role, then CREATE ROLE
-        # rls_app/rls_bnd NOLOGIN and SET ROLE to that non-owner role for the
-        # isolation assertions, so ENABLE-only RLS genuinely binds it.
+        # docker-compose.yml, which runs against postgres.
+        #
+        # This override is load-bearing, and the reason is measured rather than
+        # assumed. `beyu_health` is created by the postgres:16 entrypoint, so its
+        # owner is `postgres`. Since PostgreSQL 15 the `public` schema no longer
+        # grants CREATE to PUBLIC, so when the runner opens by creating its
+        # `beyu_migrations` ledger in `public`, a non-superuser, non-owner role is
+        # rejected before it ever reaches a migration file:
+        #
+        #   ERROR 42501  permission denied for schema public   (aclchk.c:2814)
+        #
+        # Verified both ways on a real PostgreSQL 16.14 server: as
+        # beyu_health_runtime against this postgres-owned database the ledger table
+        # is never created and zero schemas appear; the same role against a
+        # database it owns applies all 18 migrations cleanly. The role separation
+        # that the RLS specs depend on is established by the specs themselves: they
+        # set up as the privileged role, then CREATE ROLE rls_app/rls_bnd NOLOGIN
+        # and SET ROLE to that non-owner role for the isolation assertions, so
+        # ENABLE-only RLS genuinely binds it.
+        #
+        # `|| rc=$?` is deliberate. GitHub's `shell: bash` runs `bash -e -o
+        # pipefail`, and a `set -uo pipefail` line does NOT cancel the inherited
+        # `-e`. Written as a bare command followed by `rc=$?`, the shell exits at
+        # the failing command and the assignment never happens — which is why an
+        # earlier revision of this step emitted no ::error:: annotation and never
+        # printed the captured log, hiding the real failure. The `||` form keeps
+        # the step in control of its own exit status.
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
         shell: bash
         run: |
           set -uo pipefail
-          npm run migration:identity:up > /tmp/health-migrate.log 2>&1
-          rc=$?
+          rc=0
+          npm run migration:identity:up > /tmp/health-migrate.log 2>&1 || rc=$?
           cat /tmp/health-migrate.log
-          if [ $rc -ne 0 ]; then
+          if [ "$rc" -ne 0 ]; then
             echo "::error::Health migrations failed with exit code $rc. Tail of output:"
             tail -25 /tmp/health-migrate.log | sed 's/^/  /'
-            exit $rc
+            exit "$rc"
           fi
+          applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
+          echo "migrations recorded in beyu_migrations: $applied"
 
       - name: Verify Health migrations 001-018 are all recorded
         shell: bash
@@ -653,13 +675,15 @@ jobs:
         run: |
           set -uo pipefail
           before=$(psql -Atqc "select count(*) from beyu_migrations")
-          npm run migration:identity:up > /tmp/health-migrate-rerun.log 2>&1
-          rc=$?
+          rc=0
+          # Same `|| rc=$?` form as the apply step: under the inherited `bash -e`,
+          # a bare failing command exits the shell before `rc=$?` can run.
+          npm run migration:identity:up > /tmp/health-migrate-rerun.log 2>&1 || rc=$?
           cat /tmp/health-migrate-rerun.log
-          if [ $rc -ne 0 ]; then
+          if [ "$rc" -ne 0 ]; then
             echo "::error::Health migration re-run failed with exit code $rc. Tail of output:"
             tail -25 /tmp/health-migrate-rerun.log | sed 's/^/  /'
-            exit $rc
+            exit "$rc"
           fi
           after=$(psql -Atqc "select count(*) from beyu_migrations")
           if [ "$before" != "$after" ]; then
