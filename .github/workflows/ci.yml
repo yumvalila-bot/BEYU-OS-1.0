@@ -603,10 +603,29 @@ jobs:
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
+        #
+        # Run as the admin (superuser) role, mirroring the root job's separation of
+        # DDL from the runtime path and matching this package's own
+        # docker-compose.yml, which runs against postgres. Migrations 001, 004 and
+        # 006 issue CREATE SCHEMA, which needs CREATE on the database — a
+        # privilege the non-superuser application role deliberately does not hold.
+        # The role separation that the RLS specs depend on is established by the
+        # specs themselves: they set up as the privileged role, then CREATE ROLE
+        # rls_app/rls_bnd NOLOGIN and SET ROLE to that non-owner role for the
+        # isolation assertions, so ENABLE-only RLS genuinely binds it.
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
         shell: bash
         run: |
-          set -euo pipefail
-          npm run migration:identity:up 2>&1 | tee /tmp/health-migrate.log
+          set -uo pipefail
+          npm run migration:identity:up > /tmp/health-migrate.log 2>&1
+          rc=$?
+          cat /tmp/health-migrate.log
+          if [ $rc -ne 0 ]; then
+            echo "::error::Health migrations failed with exit code $rc. Tail of output:"
+            tail -25 /tmp/health-migrate.log | sed 's/^/  /'
+            exit $rc
+          fi
 
       - name: Verify Health migrations 001-018 are all recorded
         shell: bash
@@ -628,11 +647,20 @@ jobs:
           echo "All $expected Health migrations applied against real PostgreSQL."
 
       - name: Verify Health migration runner is idempotent
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_health
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           before=$(psql -Atqc "select count(*) from beyu_migrations")
-          npm run migration:identity:up 2>&1 | tee /tmp/health-migrate-rerun.log
+          npm run migration:identity:up > /tmp/health-migrate-rerun.log 2>&1
+          rc=$?
+          cat /tmp/health-migrate-rerun.log
+          if [ $rc -ne 0 ]; then
+            echo "::error::Health migration re-run failed with exit code $rc. Tail of output:"
+            tail -25 /tmp/health-migrate-rerun.log | sed 's/^/  /'
+            exit $rc
+          fi
           after=$(psql -Atqc "select count(*) from beyu_migrations")
           if [ "$before" != "$after" ]; then
             echo "::error::Health migration re-run changed the ledger ($before -> $after)"
