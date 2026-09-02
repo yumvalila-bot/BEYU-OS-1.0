@@ -43,19 +43,35 @@ describe("External adapter contracts — fail-closed when not configured", () =>
       expect(s.state).toBe("unavailable");
       expect(s.missing_fields.length).toBeGreaterThan(0);
     }
-    for (const a of ["nhif", "tra", "tmda", "pacs", "video_provider", "fhir_endpoint",
-                     "mtuha_submission", "finance_os", "payment_gateway", "sms_gateway",
-                     "email_gateway", "hive"] as const) {
+    for (const a of [
+      "nhif",
+      "tra",
+      "tmda",
+      "pacs",
+      "video_provider",
+      "fhir_endpoint",
+      "mtuha_submission",
+      "finance_os",
+      "payment_gateway",
+      "sms_gateway",
+      "email_gateway",
+      "hive",
+    ] as const) {
       const adapter = reg.get(a);
       expect(adapter).not.toBeNull();
-      await expect(adapter!.call({})).rejects.toThrow(/BLOCKED|not configured|unavailable/i);
+      await expect(adapter!.call({})).rejects.toThrow(
+        /BLOCKED|not configured|unavailable/i,
+      );
     }
   });
 
   it("Governance returns DENY for high-risk with no config", async () => {
     const d = await gov.decideOrFailClosed({
-      actor: mkActor(), propagation: mkProp(),
-      action: "pharmacy.dispense.controlled", resourceType: "pharmacy.dispense", riskLevel: "high",
+      actor: mkActor(),
+      propagation: mkProp(),
+      action: "pharmacy.dispense.controlled",
+      resourceType: "pharmacy.dispense",
+      riskLevel: "high",
     });
     expect(d.decision).toBe("DENY");
   });
@@ -63,9 +79,13 @@ describe("External adapter contracts — fail-closed when not configured", () =>
   it("Finance emits BLOCKED event with no financeEventId", async () => {
     await bed.run(async () => {
       const r = await fin.emitEvent({
-        actor: mkActor(), propagation: mkProp(),
-        eventType: "charge", healthResourceType: "enc", healthResourceId: null,
-        facilityId: null, amount: { value: "1000", currency: "TZS" },
+        actor: mkActor(),
+        propagation: mkProp(),
+        eventType: "charge",
+        healthResourceType: "enc",
+        healthResourceId: null,
+        facilityId: null,
+        amount: { value: "1000", currency: "TZS" },
       });
       expect(r.accepted).toBe(false);
       expect(r.status).toBe("blocked");
@@ -76,10 +96,15 @@ describe("External adapter contracts — fail-closed when not configured", () =>
   it("Tax returns blocked with no fabricated lines/total", async () => {
     await bed.run(async () => {
       const r = await tax.determine({
-        actor: mkActor(), propagation: mkProp(),
-        taxableEventType: "charge", jurisdiction: "TZ", entityCode: null,
-        taxpayerReference: null, amount: { value: "1000", currency: "TZS" },
-        taxCategory: "medical_service", effectiveDate: new Date().toISOString(),
+        actor: mkActor(),
+        propagation: mkProp(),
+        taxableEventType: "charge",
+        jurisdiction: "TZ",
+        entityCode: null,
+        taxpayerReference: null,
+        amount: { value: "1000", currency: "TZS" },
+        taxCategory: "medical_service",
+        effectiveDate: new Date().toISOString(),
       });
       expect(r.determined).toBe(false);
       expect(r.status).toBe("blocked");
@@ -90,8 +115,11 @@ describe("External adapter contracts — fail-closed when not configured", () =>
   it("Noelia returns blocked with no fabricated output", async () => {
     await bed.run(async () => {
       const r = await noelia.invoke({
-        actor: mkActor(), propagation: mkProp(),
-        capability: "clinical_decision_support", inputRef: "ref:1", riskLevel: "medium",
+        actor: mkActor(),
+        propagation: mkProp(),
+        capability: "clinical_decision_support",
+        inputRef: "ref:1",
+        riskLevel: "medium",
       });
       expect(r.blocked).toBe(true);
       expect(r.outputRef).toBeNull();
@@ -101,7 +129,9 @@ describe("External adapter contracts — fail-closed when not configured", () =>
   it("HCM high-risk action fails closed without verified licence", async () => {
     await bed.run(async () => {
       const res = await hcm.authorizeClinicalActor({
-        action: "pharmacy.dispense.controlled", facilityId: null, requiredScope: [],
+        action: "pharmacy.dispense.controlled",
+        facilityId: null,
+        requiredScope: [],
       });
       expect(res.authorized).toBe(false);
     });
@@ -113,14 +143,24 @@ function mkActor() {
     globalUserId: TEST_ACTOR.userId,
     email: "doc@beyu.health",
     tenantId: TEST_ACTOR.tenantId,
-    entityCode: null, countryCode: "TZ", licenceNumber: null, practitionerId: null,
-    facilityId: null, sessionId: "sess1", role: "doctor", permissions: ["rx:dispense"],
-    timezone: "Africa/Dar_es_Salaam", sourceService: "health-os" as const,
+    entityCode: null,
+    countryCode: "TZ",
+    licenceNumber: null,
+    practitionerId: null,
+    facilityId: null,
+    sessionId: "sess1",
+    role: "doctor",
+    permissions: ["rx:dispense"],
+    timezone: "Africa/Dar_es_Salaam",
+    sourceService: "health-os" as const,
   };
 }
 function mkProp() {
   return {
-    correlationId: "cid-1", causationId: null, requestId: "rid-1",
-    idempotencyKey: "idem-1", timestamp: new Date().toISOString(),
+    correlationId: "cid-1",
+    causationId: null,
+    requestId: "rid-1",
+    idempotencyKey: "idem-1",
+    timestamp: new Date().toISOString(),
   };
 }

@@ -5,12 +5,19 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGliteConnection } from "../../modules/identity/db-connection";
 import { PatientRepository, CreatePatientInput } from "./patient.repository";
 import { PatientsService } from "./patients.service";
-import { TenantContext, tenantStorage } from "../../common/security/tenant-context";
+import { TenantContext } from "../../common/security/tenant-context";
 import { DomainError } from "../../common/errors/domain.error";
 import { requestStorage } from "../../common/observability/correlation-id.middleware";
 import { AuditService } from "../audit/audit.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 function applyUp(conn: PGliteConnection, name: string) {
   const sql = fs.readFileSync(path.join(MIG_DIR, `${name}.up.sql`), "utf8");
   return conn.exec(sql);
@@ -26,11 +33,22 @@ const DEFAULT_ACTOR = {
   entityCode: "HOSP-1",
 };
 
-function runWithActor<T>(tenantCtx: TenantContext, fn: () => Promise<T>): Promise<T> {
+function runWithActor<T>(
+  tenantCtx: TenantContext,
+  fn: () => Promise<T>,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     requestStorage.run(
-      { correlationId: "test-cid", requestId: "test-rid", startedAt: Date.now(), method: "TEST", path: "/", ip: "127.0.0.1" },
-      () => tenantCtx.run(DEFAULT_ACTOR as never, () => fn().then(resolve, reject)),
+      {
+        correlationId: "test-cid",
+        requestId: "test-rid",
+        startedAt: Date.now(),
+        method: "TEST",
+        path: "/",
+        ip: "127.0.0.1",
+      },
+      () =>
+        tenantCtx.run(DEFAULT_ACTOR as never, () => fn().then(resolve, reject)),
     );
   });
 }
@@ -44,7 +62,10 @@ describe("PatientsService", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    const migs = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".up.sql")).sort();
+    const migs = fs
+      .readdirSync(MIG_DIR)
+      .filter((f) => f.endsWith(".up.sql"))
+      .sort();
     for (const f of migs) await applyUp(conn, f.replace(/\.up\.sql$/, ""));
     await conn.exec(`
       INSERT INTO beyu_identity.users (global_user_id, email, display_name, password_hash)
@@ -79,10 +100,15 @@ describe("PatientsService", () => {
       const got = await svc.get(created.patient_id);
       expect(got.given_name).toBe("Amani");
       const list = await svc.list();
-      expect(list.find((p) => p.patient_id === created.patient_id)).toBeTruthy();
+      expect(
+        list.find((p) => p.patient_id === created.patient_id),
+      ).toBeTruthy();
 
       // Audit row was written atomically with the patient insert.
-      const auditRows = await conn.query<{ operation: string; resource_id: string }>(
+      const auditRows = await conn.query<{
+        operation: string;
+        resource_id: string;
+      }>(
         `SELECT operation, resource_id FROM health.audit_log WHERE resource_type='patient' AND resource_id=$1`,
         [created.patient_id],
       );
@@ -92,15 +118,27 @@ describe("PatientsService", () => {
 
   it("rejects duplicate MRN in the same tenant", () =>
     runWithActor(tenantCtx, async () => {
-      await svc.create({ medical_record: "MRN-DUP2", given_name: "X", family_name: "Y" });
+      await svc.create({
+        medical_record: "MRN-DUP2",
+        given_name: "X",
+        family_name: "Y",
+      });
       await expect(
-        svc.create({ medical_record: "MRN-DUP2", given_name: "X2", family_name: "Y2" }),
+        svc.create({
+          medical_record: "MRN-DUP2",
+          given_name: "X2",
+          family_name: "Y2",
+        }),
       ).rejects.toBeInstanceOf(DomainError);
     }));
 
   it("stamps every patient row with tenant_id and created_by (provenance)", () =>
     runWithActor(tenantCtx, async () => {
-      const created = await svc.create({ medical_record: "MRN-PROV3", given_name: "Prov", family_name: "Enance" });
+      const created = await svc.create({
+        medical_record: "MRN-PROV3",
+        given_name: "Prov",
+        family_name: "Enance",
+      });
       expect(created.tenant_id).toBe("11111111-1111-1111-1111-111111111111");
       expect(created.created_by).toBe("00000000-0000-0000-0000-000000000001");
       expect(created.status).toBe("active");
@@ -111,6 +149,8 @@ describe("PatientsService", () => {
       const rows = await conn.query<{ policyname: string }>(
         `SELECT policyname FROM pg_policies WHERE schemaname='health' AND tablename='patients'`,
       );
-      expect(rows.map((r) => r.policyname)).toContain("health_patients_isolation");
+      expect(rows.map((r) => r.policyname)).toContain(
+        "health_patients_isolation",
+      );
     }));
 });

@@ -31,17 +31,21 @@ export class SignaturesService {
     private readonly audit: AuditService,
   ) {}
 
-  async sign(input: SignInput): Promise<{ signature_id: string; signature_hash: string }> {
+  async sign(
+    input: SignInput,
+  ): Promise<{ signature_id: string; signature_hash: string }> {
     const actor = this.tenantCtx.current();
     if (!actor) throw new Error("AUTH_REQUIRED");
     const signatureHash = createHash("sha256")
-      .update(JSON.stringify({
-        actor: actor.userId,
-        resource: `${input.resourceType}:${input.resourceId}`,
-        action: input.action ?? "sign",
-        ts: new Date().toISOString(),
-        payload: input.payloadToSign ?? {},
-      }))
+      .update(
+        JSON.stringify({
+          actor: actor.userId,
+          resource: `${input.resourceType}:${input.resourceId}`,
+          action: input.action ?? "sign",
+          ts: new Date().toISOString(),
+          payload: input.payloadToSign ?? {},
+        }),
+      )
       .digest("hex");
     const cid = currentCorrelationId();
     return withIsolation(this.db, this.tenantCtx, "signature", async (tx) => {
@@ -55,27 +59,52 @@ export class SignaturesService {
                  current_setting('app.country_code', true),
                  $1, $2, $3, $4, $5::uuid, $6, $7, $8, 'unverified', $9, $10::jsonb)
          RETURNING signature_id`,
-        [actor.userId, (actor as any).practitionerId ?? null, actor.licenceNumber ?? null,
-         input.resourceType, input.resourceId, input.action ?? "sign", signatureHash,
-         input.signatureMethod ?? "application_session", cid,
-         JSON.stringify(input.metadata ?? {})],
+        [
+          actor.userId,
+          (actor as any).practitionerId ?? null,
+          actor.licenceNumber ?? null,
+          input.resourceType,
+          input.resourceId,
+          input.action ?? "sign",
+          signatureHash,
+          input.signatureMethod ?? "application_session",
+          cid,
+          JSON.stringify(input.metadata ?? {}),
+        ],
       );
       await this.audit.record(tx, {
         operation: `signature.${input.action ?? "sign"}`,
         resourceType: input.resourceType,
         resourceId: input.resourceId,
-        after: { signature_id: rows[0].signature_id, signature_hash: signatureHash },
+        after: {
+          signature_id: rows[0].signature_id,
+          signature_hash: signatureHash,
+        },
       });
-      return { signature_id: rows[0].signature_id, signature_hash: signatureHash };
+      return {
+        signature_id: rows[0].signature_id,
+        signature_hash: signatureHash,
+      };
     });
   }
 
-  async assertSigned(resourceType: string, resourceId: string, action = "sign"): Promise<void> {
+  async assertSigned(
+    resourceType: string,
+    resourceId: string,
+    action = "sign",
+  ): Promise<void> {
     const ok = await this.hasSignature(resourceType, resourceId, action);
-    if (!ok) throw DomainError.forbidden(`Resource ${resourceType}:${resourceId} requires ${action} signature`);
+    if (!ok)
+      throw DomainError.forbidden(
+        `Resource ${resourceType}:${resourceId} requires ${action} signature`,
+      );
   }
 
-  async hasSignature(resourceType: string, resourceId: string, action = "sign"): Promise<boolean> {
+  async hasSignature(
+    resourceType: string,
+    resourceId: string,
+    action = "sign",
+  ): Promise<boolean> {
     return withIsolation(this.db, this.tenantCtx, "signature", async (tx) => {
       const rows = await tx.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM health.signatures

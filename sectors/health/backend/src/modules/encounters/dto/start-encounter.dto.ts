@@ -4,21 +4,28 @@ export class StartEncounterDto {
   @IsUUID(4)
   patient_id!: string;
 
-  @IsOptional() @IsUUID(4)
+  @IsOptional()
+  @IsUUID(4)
   appointment_id?: string;
 
-  @IsOptional() @IsUUID(4)
+  @IsOptional()
+  @IsUUID(4)
   provider_id?: string;
 
-  @IsOptional() @IsUUID(4)
+  @IsOptional()
+  @IsUUID(4)
   department_id?: string;
 
-  @IsOptional() @IsIn(["ambulatory", "inpatient", "emergency", "teleconsult", "domiciliary"])
-  kind?: "ambulatory" | "inpatient" | "emergency" | "teleconsult" | "domiciliary";
+  @IsOptional()
+  @IsIn(["ambulatory", "inpatient", "emergency", "teleconsult", "domiciliary"])
+  kind?:
+    "ambulatory" | "inpatient" | "emergency" | "teleconsult" | "domiciliary";
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   chief_complaint?: string;
 
-  @IsOptional() @IsIn(["red", "orange", "yellow", "green", "blue"])
+  @IsOptional()
+  @IsIn(["red", "orange", "yellow", "green", "blue"])
   triage_level?: "red" | "orange" | "yellow" | "green" | "blue";
 }

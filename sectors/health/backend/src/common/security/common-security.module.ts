@@ -4,7 +4,6 @@ import { TenantContext } from "./tenant-context";
 import { TransactionContext } from "./transaction-context.middleware";
 import { TransactionInterceptor } from "./transaction.interceptor";
 import { TransactionEnvelopeBuilder } from "../../integrations/beyu/shared/transaction-envelope";
-import { CorrelationIdMiddleware } from "../observability/correlation-id.middleware";
 
 /**
  * Common runtime primitives that are needed across every domain module

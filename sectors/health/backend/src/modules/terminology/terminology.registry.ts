@@ -10,8 +10,16 @@
  */
 
 export type CodeSystemId =
-  | "ICD-10" | "ICD-11" | "SNOMED-CT" | "LOINC" | "RxNorm"
-  | "MTUHA" | "TZ-NATIONAL" | "LOCAL" | "CPT" | "CVX";
+  | "ICD-10"
+  | "ICD-11"
+  | "SNOMED-CT"
+  | "LOINC"
+  | "RxNorm"
+  | "MTUHA"
+  | "TZ-NATIONAL"
+  | "LOCAL"
+  | "CPT"
+  | "CVX";
 
 export interface CodeSystem {
   id: CodeSystemId;
@@ -24,7 +32,16 @@ export interface CodeSystem {
 
 export type CodeValidationResult =
   | { ok: true; display?: string; inactive?: boolean; deprecated?: boolean }
-  | { ok: false; reason: "UNKNOWN_CODE" | "DEPRECATED" | "INACTIVE" | "BLOCKED" | "CODE_SYSTEM_NOT_LOADED"; detail?: string };
+  | {
+      ok: false;
+      reason:
+        | "UNKNOWN_CODE"
+        | "DEPRECATED"
+        | "INACTIVE"
+        | "BLOCKED"
+        | "CODE_SYSTEM_NOT_LOADED";
+      detail?: string;
+    };
 
 export interface CodeMap {
   fromSystem: CodeSystemId;
@@ -47,7 +64,16 @@ export class TerminologyRegistry {
     if (!s.loaded) this.codes.delete(s.id);
   }
 
-  loadCodes(system: CodeSystemId, version: string, entries: Array<{ code: string; display?: string; inactive?: boolean; deprecated?: boolean }>): void {
+  loadCodes(
+    system: CodeSystemId,
+    version: string,
+    entries: Array<{
+      code: string;
+      display?: string;
+      inactive?: boolean;
+      deprecated?: boolean;
+    }>,
+  ): void {
     const key = `${system}|${version}`;
     const set = new Set<string>();
     for (const e of entries) {
@@ -55,19 +81,36 @@ export class TerminologyRegistry {
       if (e.display) this.codeDisplay.set(`${key}|${e.code}`, e.display);
     }
     this.codes.set(key, set);
-    this.systems.set(system, { id: system, version, loaded: true, source: "external-import" });
+    this.systems.set(system, {
+      id: system,
+      version,
+      loaded: true,
+      source: "external-import",
+    });
   }
 
-  validate(system: CodeSystemId, code: string, version?: string | null): CodeValidationResult {
+  validate(
+    system: CodeSystemId,
+    code: string,
+    version?: string | null,
+  ): CodeValidationResult {
     const sys = this.systems.get(system);
     if (!sys || !sys.loaded) {
-      return { ok: false, reason: "CODE_SYSTEM_NOT_LOADED", detail: `code system ${system} not loaded` };
+      return {
+        ok: false,
+        reason: "CODE_SYSTEM_NOT_LOADED",
+        detail: `code system ${system} not loaded`,
+      };
     }
     const ver = version ?? sys.version ?? "";
     const key = `${system}|${ver}`;
     const set = this.codes.get(key);
     if (!set || !set.has(code)) {
-      return { ok: false, reason: "UNKNOWN_CODE", detail: `${system} ${code} not found` };
+      return {
+        ok: false,
+        reason: "UNKNOWN_CODE",
+        detail: `${system} ${code} not found`,
+      };
     }
     return { ok: true, display: this.codeDisplay.get(`${key}|${code}`) };
   }
@@ -76,13 +119,29 @@ export class TerminologyRegistry {
     this.maps.set(`${m.fromSystem}→${m.toSystem}`, m);
   }
 
-  mapCode(fromSystem: CodeSystemId, toSystem: CodeSystemId, code: string): { mapped: string[]; mappingStatus: "complete" | "incomplete" | "UNMAPPED" | "BLOCKED" } {
+  mapCode(
+    fromSystem: CodeSystemId,
+    toSystem: CodeSystemId,
+    code: string,
+  ): {
+    mapped: string[];
+    mappingStatus: "complete" | "incomplete" | "UNMAPPED" | "BLOCKED";
+  } {
     const m = this.maps.get(`${fromSystem}→${toSystem}`);
     if (!m) return { mapped: [], mappingStatus: "BLOCKED" };
     const out = m.map[code];
-    if (!out || out.length === 0) return { mapped: [], mappingStatus: m.complete ? "UNMAPPED" : "incomplete" };
-    return { mapped: out, mappingStatus: m.complete ? "complete" : "incomplete" };
+    if (!out || out.length === 0)
+      return {
+        mapped: [],
+        mappingStatus: m.complete ? "UNMAPPED" : "incomplete",
+      };
+    return {
+      mapped: out,
+      mappingStatus: m.complete ? "complete" : "incomplete",
+    };
   }
 
-  getSystem(id: CodeSystemId): CodeSystem | undefined { return this.systems.get(id); }
+  getSystem(id: CodeSystemId): CodeSystem | undefined {
+    return this.systems.get(id);
+  }
 }

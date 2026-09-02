@@ -47,7 +47,8 @@ export interface DicomValidationResult {
 export function validateDicomUid(uid: string): string | null {
   if (typeof uid !== "string") return "uid_not_string";
   if (uid.length === 0) return "uid_empty";
-  if (uid.length > MAX_UID_LEN) return `uid_too_long:${uid.length}>${MAX_UID_LEN}`;
+  if (uid.length > MAX_UID_LEN)
+    return `uid_too_long:${uid.length}>${MAX_UID_LEN}`;
   if (!DICOM_UID_RE.test(uid)) return "uid_invalid_chars";
   const parts = uid.split(".");
   for (const p of parts) {
@@ -56,7 +57,9 @@ export function validateDicomUid(uid: string): string | null {
   return null;
 }
 
-export function validateDicomMetadata(meta: DicomMetadata): DicomValidationResult {
+export function validateDicomMetadata(
+  meta: DicomMetadata,
+): DicomValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -70,12 +73,18 @@ export function validateDicomMetadata(meta: DicomMetadata): DicomValidationResul
     const e = validateDicomUid(meta.sopInstanceUid);
     if (e) errors.push(`SOPInstanceUID:${e}`);
   }
-  if (!meta.patientId || typeof meta.patientId !== "string") errors.push("patientId_required");
+  if (!meta.patientId || typeof meta.patientId !== "string")
+    errors.push("patientId_required");
   if (!meta.patientName) warnings.push("patientName_missing");
   if (!meta.accessionNumber) warnings.push("accessionNumber_missing");
   if (!meta.modality) warnings.push("modality_missing");
-  if (!meta.stationName && !meta.manufacturer) warnings.push("equipment_linkage_missing");
-  if (meta.radiationDose && meta.radiationDose.ctdivol != null && meta.radiationDose.ctdivol < 0) {
+  if (!meta.stationName && !meta.manufacturer)
+    warnings.push("equipment_linkage_missing");
+  if (
+    meta.radiationDose &&
+    meta.radiationDose.ctdivol != null &&
+    meta.radiationDose.ctdivol < 0
+  ) {
     errors.push("dose_negative_ctdivol");
   }
   if (meta.referencedReports) {

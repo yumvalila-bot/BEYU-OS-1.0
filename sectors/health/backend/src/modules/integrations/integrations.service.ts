@@ -9,10 +9,23 @@ import { AuditService } from "../audit/audit.service";
  */
 @Injectable()
 export class IntegrationsService {
-  constructor(private readonly repo: IntegrationsRepository, private readonly audit: AuditService) {}
-  list() { return this.repo.listStatuses(); }
-  get(provider: string) { return this.repo.getStatus(provider); }
-  markConfigured(provider: string) { return this.repo.markConfigured(provider); }
-  markSuccess(provider: string) { return this.repo.recordSuccess(provider); }
-  markFailure(provider: string, err: string) { return this.repo.recordFailure(provider, err); }
+  constructor(
+    private readonly repo: IntegrationsRepository,
+    private readonly audit: AuditService,
+  ) {}
+  list() {
+    return this.repo.listStatuses();
+  }
+  get(provider: string) {
+    return this.repo.getStatus(provider);
+  }
+  markConfigured(provider: string) {
+    return this.repo.markConfigured(provider);
+  }
+  markSuccess(provider: string) {
+    return this.repo.recordSuccess(provider);
+  }
+  markFailure(provider: string, err: string) {
+    return this.repo.recordFailure(provider, err);
+  }
 }

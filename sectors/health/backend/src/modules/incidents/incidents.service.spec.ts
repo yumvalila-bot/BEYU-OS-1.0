@@ -8,7 +8,14 @@ import { requestStorage } from "../../common/observability/correlation-id.middle
 import { AuditService } from "../audit/audit.service";
 import { IncidentsService } from "./incidents.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const ACTOR = {
   userId: "00000000-0000-0000-0000-0000000000c1",
   email: "safety@beyu.health",
@@ -22,7 +29,14 @@ const ACTOR = {
 function run<T>(tc: TenantContext, fn: () => Promise<T>): Promise<T> {
   return new Promise<T>((res, rej) =>
     requestStorage.run(
-      { correlationId: "t", requestId: "r", startedAt: Date.now(), method: "T", path: "/", ip: "127.0.0.1" },
+      {
+        correlationId: "t",
+        requestId: "r",
+        startedAt: Date.now(),
+        method: "T",
+        path: "/",
+        ip: "127.0.0.1",
+      },
       () => tc.run(ACTOR as never, () => fn().then(res, rej)),
     ),
   );
@@ -36,7 +50,10 @@ describe("IncidentsService", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG_DIR)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     }
     await conn.exec(`
@@ -59,14 +76,22 @@ describe("IncidentsService", () => {
       });
       expect(r.incident_id).toBeTruthy();
       expect(r.incident_no).toMatch(/^INC-/);
-      await expect(svc.transition(r.incident_id, "investigating")).rejects.toThrow(/cannot transition/);
+      await expect(
+        svc.transition(r.incident_id, "investigating"),
+      ).rejects.toThrow(/cannot transition/);
       await svc.transition(r.incident_id, "triaged");
       await svc.transition(r.incident_id, "investigating");
       await svc.transition(r.incident_id, "resolved", {
-        rca_summary: "Calculation error at double-check; second clinician overrode.",
-        capa: { actions: ["dual-signoff high-alert meds", "retraining"], owner: "pharmacy" },
+        rca_summary:
+          "Calculation error at double-check; second clinician overrode.",
+        capa: {
+          actions: ["dual-signoff high-alert meds", "retraining"],
+          owner: "pharmacy",
+        },
       });
       const open = await svc.listOpen();
-      expect(open.find((x) => x.incident_id === r.incident_id)?.status).toBe("resolved");
+      expect(open.find((x) => x.incident_id === r.incident_id)?.status).toBe(
+        "resolved",
+      );
     }));
 });

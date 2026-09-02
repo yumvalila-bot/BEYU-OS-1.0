@@ -4,13 +4,15 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
 import * as bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { DbConnection, DB_CONNECTION } from "../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../modules/identity/db-connection";
 import { timingSafeEqual, randomToken } from "../crypto/crypto";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 
@@ -98,19 +100,34 @@ export class CsrfDoubleSubmitGuard implements CanActivate {
       await this.logFailure(req, "token_expired");
       throw new ForbiddenException("CSRF_TOKEN_EXPIRED");
     }
-    if (req.user?.sessionId && t.session_id && String(t.session_id) !== String(req.user.sessionId)) {
+    if (
+      req.user?.sessionId &&
+      t.session_id &&
+      String(t.session_id) !== String(req.user.sessionId)
+    ) {
       await this.logFailure(req, "session_crossover");
       throw new ForbiddenException("CSRF_SESSION_CROSSOVER");
     }
-    if (req.user?.userId && t.user_id && String(t.user_id) !== String(req.user.userId)) {
+    if (
+      req.user?.userId &&
+      t.user_id &&
+      String(t.user_id) !== String(req.user.userId)
+    ) {
       await this.logFailure(req, "user_crossover");
       throw new ForbiddenException("CSRF_USER_CROSSOVER");
     }
-    if (req.user?.tenantId && t.tenant_id && String(t.tenant_id) !== String(req.user.tenantId)) {
+    if (
+      req.user?.tenantId &&
+      t.tenant_id &&
+      String(t.tenant_id) !== String(req.user.tenantId)
+    ) {
       await this.logFailure(req, "tenant_crossover");
       throw new ForbiddenException("CSRF_TENANT_CROSSOVER");
     }
-    const ok = await bcrypt.compare(String(cookieToken).slice(dot + 1), t.token_hash);
+    const ok = await bcrypt.compare(
+      String(cookieToken).slice(dot + 1),
+      t.token_hash,
+    );
     if (!ok) {
       await this.logFailure(req, "hash_mismatch");
       throw new ForbiddenException("CSRF_TOKEN_INVALID");
@@ -184,13 +201,23 @@ export async function issueCsrfToken(
     `INSERT INTO health.csrf_tokens
         (token_id, tenant_id, user_id, session_id, token_hash, issued_at, expires_at, bound_ip)
      VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,now(),now() + ($6::double precision / 1000 || ' seconds')::interval,$7::inet)`,
-    [tokenId, args.tenantId, args.userId, args.sessionId, hash,
-     args.ttlMs ?? CSRF_TOKEN_TTL_MS, args.boundIp ?? null],
+    [
+      tokenId,
+      args.tenantId,
+      args.userId,
+      args.sessionId,
+      hash,
+      args.ttlMs ?? CSRF_TOKEN_TTL_MS,
+      args.boundIp ?? null,
+    ],
   );
   return { tokenId, token };
 }
 
-export async function revokeCsrfTokensForSession(db: DbConnection, sessionId: string): Promise<void> {
+export async function revokeCsrfTokensForSession(
+  db: DbConnection,
+  sessionId: string,
+): Promise<void> {
   await db.query(
     `UPDATE health.csrf_tokens SET revoked_at=now() WHERE session_id=$1 AND revoked_at IS NULL`,
     [sessionId],

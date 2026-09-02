@@ -4,11 +4,7 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
-import {
-  DB_CONNECTION,
-  type DbConnection,
-  type DbQueryRow,
-} from "./db-connection";
+import { DB_CONNECTION, type DbConnection } from "./db-connection";
 import { ensureBridgeSchema } from "./boundary-schema";
 
 /**
@@ -64,9 +60,7 @@ export interface CanonicalTenantLink {
 
 @Injectable()
 export class BeyuIdentityBridge {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly conn: DbConnection,
-  ) {}
+  constructor(@Inject(DB_CONNECTION) private readonly conn: DbConnection) {}
 
   /** Idempotent: ensure the bridge objects exist (mirrors migration 002). */
   async ensureBridgeSchema(): Promise<void> {
@@ -109,10 +103,7 @@ export class BeyuIdentityBridge {
       `select beyu_user_id from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [args.globalUserId],
     );
-    if (
-      bySector.length > 0 &&
-      bySector[0].beyu_user_id !== args.beyuUserId
-    ) {
+    if (bySector.length > 0 && bySector[0].beyu_user_id !== args.beyuUserId) {
       throw new ConflictException("SECTOR_USER_ALREADY_LINKED");
     }
     await this.conn.query(
@@ -166,9 +157,7 @@ export class BeyuIdentityBridge {
    * Fail-closed session gate: a sector user may only act under a valid
    * canonical link. No link → denied.
    */
-  async requireCanonicalLink(
-    globalUserId: string,
-  ): Promise<CanonicalUserLink> {
+  async requireCanonicalLink(globalUserId: string): Promise<CanonicalUserLink> {
     const link = await this.getLink(globalUserId);
     if (!link) {
       throw new ForbiddenException("NO_CANONICAL_IDENTITY_LINK");
@@ -190,11 +179,7 @@ export class BeyuIdentityBridge {
     entityCode: string;
     linkedBy: string;
   }): Promise<CanonicalTenantLink> {
-    if (
-      !args.beyuTenantId ||
-      !args.countryCode ||
-      !args.entityCode
-    ) {
+    if (!args.beyuTenantId || !args.countryCode || !args.entityCode) {
       throw new ConflictException("CANONICAL_TENANT_BOUNDARY_REQUIRED");
     }
     const rows = await this.conn.query<{
@@ -222,12 +207,7 @@ export class BeyuIdentityBridge {
       `update beyu_identity.tenants
           set beyu_tenant_id = $2, country_code = $3, entity_code = $4
         where tenant_id = $1`,
-      [
-        args.tenantId,
-        args.beyuTenantId,
-        args.countryCode,
-        args.entityCode,
-      ],
+      [args.tenantId, args.beyuTenantId, args.countryCode, args.entityCode],
     );
     return {
       tenantId: args.tenantId,
@@ -272,14 +252,9 @@ export class BeyuIdentityBridge {
    * constitutional roles/permissions through the sector path are refused
    * outright; only a BEYU governance resolution can authorize them.
    */
-  assertSectorGrantAllowed(
-    role: string,
-    permissions: string[] = [],
-  ): void {
+  assertSectorGrantAllowed(role: string, permissions: string[] = []): void {
     if (CONSTITUTIONAL_ROLE_IDS.has(role)) {
-      throw new ForbiddenException(
-        "CONSTITUTIONAL_ROLE_REQUIRES_BEVU_GOV",
-      );
+      throw new ForbiddenException("CONSTITUTIONAL_ROLE_REQUIRES_BEVU_GOV");
     }
     for (const p of permissions) {
       if (CONSTITUTIONAL_PERMISSION_IDS.has(p)) {

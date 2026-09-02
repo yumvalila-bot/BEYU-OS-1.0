@@ -16,13 +16,20 @@ describe("AmbulanceService", () => {
 
   it("registers a vehicle and creates a request with full state machine timestamps", () =>
     bed.run(async () => {
-      const v = (await svc.registerVehicle({ plate: "T-1001", vehicle_type: "ambulance", capacity_crew: 2 })) as any;
+      const v = (await svc.registerVehicle({
+        plate: "T-1001",
+        vehicle_type: "ambulance",
+        capacity_crew: 2,
+      })) as any;
       expect(v.vehicle_id).toBeTruthy();
       const p = await bed.seedPatient();
       const r = (await svc.createRequest({
-        patient_id: p.patient_id, priority: "emergency",
-        pickup_location: "Mwananyamala", destination: "Muhimbili",
-        chief_complaint: "Chest pain", vehicle_id: v.vehicle_id,
+        patient_id: p.patient_id,
+        priority: "emergency",
+        pickup_location: "Mwananyamala",
+        destination: "Muhimbili",
+        chief_complaint: "Chest pain",
+        vehicle_id: v.vehicle_id,
       })) as any;
       expect(r.request_id).toBeTruthy();
       expect(r.status).toBe("received");
@@ -40,26 +47,48 @@ describe("AmbulanceService", () => {
 
   it("rejects invalid state transitions", () =>
     bed.run(async () => {
-      const v = (await svc.registerVehicle({ plate: "T-1002", vehicle_type: "ambulance" })) as any;
+      const v = (await svc.registerVehicle({
+        plate: "T-1002",
+        vehicle_type: "ambulance",
+      })) as any;
       const p = await bed.seedPatient();
       const r = (await svc.createRequest({
-        patient_id: p.patient_id, priority: "routine", pickup_location: "A", destination: "B",
-        chief_complaint: "fall", vehicle_id: v.vehicle_id,
+        patient_id: p.patient_id,
+        priority: "routine",
+        pickup_location: "A",
+        destination: "B",
+        chief_complaint: "fall",
+        vehicle_id: v.vehicle_id,
       })) as any;
-      await expect(svc.transition(r.request_id, "on_scene")).rejects.toBeInstanceOf(DomainError);
+      await expect(
+        svc.transition(r.request_id, "on_scene"),
+      ).rejects.toBeInstanceOf(DomainError);
     }));
 
   it("idempotency key prevents duplicate request", () =>
     bed.run(async () => {
-      const v = (await svc.registerVehicle({ plate: "T-1003", vehicle_type: "ambulance" })) as any;
+      const v = (await svc.registerVehicle({
+        plate: "T-1003",
+        vehicle_type: "ambulance",
+      })) as any;
       const p = await bed.seedPatient();
       const r1 = (await svc.createRequest({
-        patient_id: p.patient_id, priority: "urgent", pickup_location: "X", destination: "Y",
-        chief_complaint: "fever", vehicle_id: v.vehicle_id, idempotency_key: "idem-amb-1",
+        patient_id: p.patient_id,
+        priority: "urgent",
+        pickup_location: "X",
+        destination: "Y",
+        chief_complaint: "fever",
+        vehicle_id: v.vehicle_id,
+        idempotency_key: "idem-amb-1",
       })) as any;
       const r2 = (await svc.createRequest({
-        patient_id: p.patient_id, priority: "urgent", pickup_location: "X", destination: "Y",
-        chief_complaint: "fever", vehicle_id: v.vehicle_id, idempotency_key: "idem-amb-1",
+        patient_id: p.patient_id,
+        priority: "urgent",
+        pickup_location: "X",
+        destination: "Y",
+        chief_complaint: "fever",
+        vehicle_id: v.vehicle_id,
+        idempotency_key: "idem-amb-1",
       })) as any;
       expect(r2.request_id).toBe(r1.request_id);
     }));

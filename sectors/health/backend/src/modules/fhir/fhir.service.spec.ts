@@ -19,7 +19,9 @@ describe("FhirService", () => {
       const r = (await svc.patient(p.patient_id)) as any;
       expect(r.resourceType).toBe("Patient");
       expect(r.id).toBe(p.patient_id);
-      const tenantIdent = r.identifier?.find((x: any) => x.system?.includes("beyu.health/fhir/Id"));
+      const tenantIdent = r.identifier?.find((x: any) =>
+        x.system?.includes("beyu.health/fhir/Id"),
+      );
       expect(tenantIdent).toBeTruthy();
       expect(tenantIdent.value).toBeTruthy();
     }));
@@ -32,11 +34,21 @@ describe("FhirService", () => {
       expect(b.type).toBe("searchset");
       expect(Array.isArray(b.entry)).toBe(true);
       // At least the Patient entry should be present.
-      expect(b.entry.some((e: any) => e.resource?.resourceType === "Patient" && e.resource.id === p.patient_id)).toBe(true);
+      expect(
+        b.entry.some(
+          (e: any) =>
+            e.resource?.resourceType === "Patient" &&
+            e.resource.id === p.patient_id,
+        ),
+      ).toBe(true);
     }));
 
   it("read-only: service exposes no write operations", () => {
-    const proto = Object.getOwnPropertyNames(FhirService.prototype).filter((n) => n !== "constructor");
-    expect(proto.some((n) => /create|update|delete|put|post/i.test(n))).toBe(false);
+    const proto = Object.getOwnPropertyNames(FhirService.prototype).filter(
+      (n) => n !== "constructor",
+    );
+    expect(proto.some((n) => /create|update|delete|put|post/i.test(n))).toBe(
+      false,
+    );
   });
 });

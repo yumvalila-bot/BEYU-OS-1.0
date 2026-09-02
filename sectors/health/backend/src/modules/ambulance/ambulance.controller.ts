@@ -14,11 +14,31 @@ import { RequiresClinicalSafety } from "../../common/security/clinical-safety.gu
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AmbulanceController {
   constructor(private readonly svc: AmbulanceService) {}
-  @Get("vehicles") @RequirePermission("tenant:admin") vehicles() { return this.svc.listVehicles(); }
-  @Post("vehicles") @RequirePermission("tenant:admin") @RequiresMfaStepUp("ambulance.vehicle.register")
-  addVehicle(@Body() d: any) { return this.svc.registerVehicle(d); }
-  @Post("requests") @RequirePermission("phi:write") @RequireHcmPractitioner("ambulance.dispatch", { scope: ["ems:dispatch", "clinical:write"] }) @RequiresClinicalSafety("general")
-  createRequest(@Body() d: any) { return this.svc.createRequest(d); }
-  @Post("requests/:id/transition") @RequirePermission("phi:write") @RequireHcmPractitioner("ambulance.transition", { scope: ["ems:dispatch", "clinical:write"] }) @RequiresClinicalSafety("general")
-  transition(@Param("id") id: string, @Body() d: any) { return this.svc.transition(id, d.to, d.patch || {}); }
+  @Get("vehicles") @RequirePermission("tenant:admin") vehicles() {
+    return this.svc.listVehicles();
+  }
+  @Post("vehicles")
+  @RequirePermission("tenant:admin")
+  @RequiresMfaStepUp("ambulance.vehicle.register")
+  addVehicle(@Body() d: any) {
+    return this.svc.registerVehicle(d);
+  }
+  @Post("requests")
+  @RequirePermission("phi:write")
+  @RequireHcmPractitioner("ambulance.dispatch", {
+    scope: ["ems:dispatch", "clinical:write"],
+  })
+  @RequiresClinicalSafety("general")
+  createRequest(@Body() d: any) {
+    return this.svc.createRequest(d);
+  }
+  @Post("requests/:id/transition")
+  @RequirePermission("phi:write")
+  @RequireHcmPractitioner("ambulance.transition", {
+    scope: ["ems:dispatch", "clinical:write"],
+  })
+  @RequiresClinicalSafety("general")
+  transition(@Param("id") id: string, @Body() d: any) {
+    return this.svc.transition(id, d.to, d.patch || {});
+  }
 }

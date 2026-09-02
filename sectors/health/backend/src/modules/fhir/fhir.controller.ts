@@ -13,24 +13,51 @@ import { RequiresConsent } from "../../common/security/consent.guard";
 export class FhirController {
   constructor(private readonly svc: FhirService) {}
 
-  @Get("Patient/:id") @RequirePermission("phi:read") @RequiresConsent("fhir:read", "patient", "id")
-  patient(@Param("id") id: string) { return this.svc.patient(id); }
+  @Get("Patient/:id")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:read", "patient", "id")
+  patient(@Param("id") id: string) {
+    return this.svc.patient(id);
+  }
 
-  @Get("Encounter/:id") @RequirePermission("phi:read")
-  encounter(@Param("id") id: string) { return this.svc.encounter(id); }
+  @Get("Encounter/:id")
+  @RequirePermission("phi:read")
+  encounter(@Param("id") id: string) {
+    return this.svc.encounter(id);
+  }
 
-  @Get("Condition") @RequirePermission("phi:read") @RequiresConsent("fhir:read", "conditions", "patient")
-  conditions(@Query("patient") pid: string) { return this.svc.conditions(pid); }
+  @Get("Condition")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:read", "conditions", "patient")
+  conditions(@Query("patient") pid: string) {
+    return this.svc.conditions(pid);
+  }
 
-  @Get("Observation") @RequirePermission("phi:read") @RequiresConsent("fhir:read", "observations", "patient")
-  observations(@Query("patient") pid: string) { return this.svc.observations(pid); }
+  @Get("Observation")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:read", "observations", "patient")
+  observations(@Query("patient") pid: string) {
+    return this.svc.observations(pid);
+  }
 
-  @Get("MedicationRequest") @RequirePermission("phi:read") @RequiresConsent("fhir:read", "medications", "patient")
-  medications(@Query("patient") pid: string) { return this.svc.medicationRequests(pid); }
+  @Get("MedicationRequest")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:read", "medications", "patient")
+  medications(@Query("patient") pid: string) {
+    return this.svc.medicationRequests(pid);
+  }
 
-  @Get("AllergyIntolerance") @RequirePermission("phi:read") @RequiresConsent("fhir:read", "allergies", "patient")
-  allergies(@Query("patient") pid: string) { return this.svc.allergyIntolerances(pid); }
+  @Get("AllergyIntolerance")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:read", "allergies", "patient")
+  allergies(@Query("patient") pid: string) {
+    return this.svc.allergyIntolerances(pid);
+  }
 
-  @Get("Patient/:id/$everything") @RequirePermission("phi:read") @RequiresConsent("fhir:export", "all_phi", "id")
-  everything(@Param("id") id: string) { return this.svc.bundle(id); }
+  @Get("Patient/:id/$everything")
+  @RequirePermission("phi:read")
+  @RequiresConsent("fhir:export", "all_phi", "id")
+  everything(@Param("id") id: string) {
+    return this.svc.bundle(id);
+  }
 }

@@ -1,12 +1,15 @@
 import { Injectable } from "@nestjs/common";
-import { PatientRepository, Patient, CreatePatientInput } from "./patient.repository";
+import {
+  PatientRepository,
+  Patient,
+  CreatePatientInput,
+} from "./patient.repository";
 import { DomainError } from "../../common/errors/domain.error";
 import { AuditService } from "../audit/audit.service";
 import { DbConnection } from "../identity/db-connection";
 import { Inject } from "@nestjs/common";
 import { DB_CONNECTION } from "../identity/db-connection";
 import { TenantContext } from "../../common/security/tenant-context";
-import { currentCorrelationId } from "../../common/observability/correlation-id.middleware";
 
 @Injectable()
 export class PatientsService {
@@ -24,7 +27,11 @@ export class PatientsService {
         `SELECT set_config('app.tenant_id', $1, true),
                 set_config('app.country_code', $2, true),
                 set_config('app.entity_code',  $3, true)`,
-        [actor?.tenantId ?? "", actor?.countryCode ?? "", actor?.entityCode ?? ""],
+        [
+          actor?.tenantId ?? "",
+          actor?.countryCode ?? "",
+          actor?.entityCode ?? "",
+        ],
       );
       return fn(tx);
     });
@@ -48,7 +55,10 @@ export class PatientsService {
           `Patient with MRN '${input.medical_record}' already exists in this tenant`,
         );
       }
-      const created = await this.repo.create(input, { query: tx.query.bind(tx), exec: tx.exec.bind(tx) });
+      const created = await this.repo.create(input, {
+        query: tx.query.bind(tx),
+        exec: tx.exec.bind(tx),
+      });
       await this.audit.record(tx, {
         operation: "patient.register",
         resourceType: "patient",

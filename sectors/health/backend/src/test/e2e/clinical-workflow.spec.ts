@@ -17,9 +17,12 @@ describe("HTTP E2E — register/login/tenant isolation (GET-safe)", () => {
     h = await buildE2EHarness();
     h.app.useLogger(["error", "warn", "log"]);
     email = `e2e-${Date.now()}@example.com`;
-    await request(h.app.getHttpServer())
-      .post("/auth/register")
-      .send({ email, password: "CorrectHorseBattery1!", full_name: "E2E User", tenantCode: "test" });
+    await request(h.app.getHttpServer()).post("/auth/register").send({
+      email,
+      password: "CorrectHorseBattery1!",
+      full_name: "E2E User",
+      tenantCode: "test",
+    });
     // Grant doctor role on test tenant.
     await h.conn.exec(
       `INSERT INTO beyu_identity.tenants (tenant_id, tenant_code, name, country_code, entity_code)
@@ -28,21 +31,30 @@ describe("HTTP E2E — register/login/tenant isolation (GET-safe)", () => {
        INSERT INTO beyu_identity.tenant_memberships (global_user_id, tenant_id, role)
          SELECT global_user_id, '11111111-1111-1111-1111-111111111111', 'doctor'
          FROM beyu_identity.users WHERE email='${email}'
-         ON CONFLICT (global_user_id, tenant_id) DO UPDATE SET role='doctor';`
+         ON CONFLICT (global_user_id, tenant_id) DO UPDATE SET role='doctor';`,
     );
     // Debug: verify schemas/tables exist
-    const t = await h.conn.query("SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema IN ('beyu_identity','health') ORDER BY table_schema,table_name");
+    const t = await h.conn.query(
+      "SELECT table_schema,table_name FROM information_schema.tables WHERE table_schema IN ('beyu_identity','health') ORDER BY table_schema,table_name",
+    );
     // eslint-disable-next-line no-console
-    console.log("tables count:", (t as any[]).length, (t as any[]).slice(0,8));
+    console.log("tables count:", (t as any[]).length, (t as any[]).slice(0, 8));
     const login = await request(h.app.getHttpServer())
       .post("/auth/login")
       .send({ email, password: "CorrectHorseBattery1!", tenantCode: "test" });
     // eslint-disable-next-line no-console
-    console.log("login status:", login.status, "body:", JSON.stringify(login.body).slice(0,500));
+    console.log(
+      "login status:",
+      login.status,
+      "body:",
+      JSON.stringify(login.body).slice(0, 500),
+    );
     expect(login.status).toBe(200);
     token = login.body.accessToken;
   });
-  afterAll(async () => { if (h) await h.close(); });
+  afterAll(async () => {
+    if (h) await h.close();
+  });
 
   it("authenticated GET /api/patients returns 200 + JSON array", async () => {
     const r = await request(h.app.getHttpServer())
@@ -88,14 +100,20 @@ describe("HTTP E2E — register/login/tenant isolation (GET-safe)", () => {
     const ok = await request(h.app.getHttpServer())
       .post("/api/patients")
       .set("Authorization", `Bearer ${token}`)
-      .send({ medical_record: `MRN-E2E-${Date.now()}`, given_name: "Alice", family_name: "Test" });
+      .send({
+        medical_record: `MRN-E2E-${Date.now()}`,
+        given_name: "Alice",
+        family_name: "Test",
+      });
     expect(ok.status).toBe(201);
   });
 
   it("POST /api/patients without auth is rejected (401/403 or server failure — never 2xx)", async () => {
-    const r = await request(h.app.getHttpServer())
-      .post("/api/patients")
-      .send({ medical_record: "MRN-ANON", given_name: "Anon", family_name: "Ymous" });
+    const r = await request(h.app.getHttpServer()).post("/api/patients").send({
+      medical_record: "MRN-ANON",
+      given_name: "Anon",
+      family_name: "Ymous",
+    });
     expect(r.status).toBeGreaterThanOrEqual(400);
   });
 });

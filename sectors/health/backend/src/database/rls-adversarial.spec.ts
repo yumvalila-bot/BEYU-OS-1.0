@@ -17,7 +17,10 @@ describe("RLS adversarial: non-owner role", () => {
   beforeAll(async () => {
     const db = new PGlite();
     owner = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await applyUp(owner, f.replace(/\.up\.sql$/, ""));
     }
     await owner.exec(`
@@ -43,15 +46,12 @@ describe("RLS adversarial: non-owner role", () => {
 
   afterEach(async () => {
     // Always reset role back to superuser after each test.
-    try { await owner.exec("RESET ROLE"); } catch { /* ignore */ }
+    try {
+      await owner.exec("RESET ROLE");
+    } catch {
+      /* ignore */
+    }
   });
-
-  async function setRole(tenantId: string | null, country = "TZ", entity = "HOSP-1") {
-    await owner.exec("SET ROLE rls_app");
-    await owner.exec(`SELECT set_config('app.tenant_id', ${tenantId ? `'${tenantId}'` : "''"}, true),
-                          set_config('app.country_code', '${country}', true),
-                          set_config('app.entity_code', '${entity}', true)`);
-  }
 
   it("sees rows when app.tenant_id matches", async () => {
     await owner.exec("SET ROLE rls_app");

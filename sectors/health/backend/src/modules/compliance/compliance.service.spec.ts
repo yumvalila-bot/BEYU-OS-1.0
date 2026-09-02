@@ -8,7 +8,14 @@ import { requestStorage } from "../../common/observability/correlation-id.middle
 import { AuditService } from "../audit/audit.service";
 import { ComplianceService } from "./compliance.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const ACTOR = {
   userId: "00000000-0000-0000-0000-00000000000c",
   email: "admin@beyu.health",
@@ -23,7 +30,14 @@ const ACTOR = {
 function run<T>(tc: TenantContext, fn: () => Promise<T>): Promise<T> {
   return new Promise<T>((res, rej) =>
     requestStorage.run(
-      { correlationId: "t", requestId: "r", startedAt: Date.now(), method: "T", path: "/", ip: "127.0.0.1" },
+      {
+        correlationId: "t",
+        requestId: "r",
+        startedAt: Date.now(),
+        method: "T",
+        path: "/",
+        ip: "127.0.0.1",
+      },
       () => tc.run(ACTOR as never, () => fn().then(res, rej)),
     ),
   );
@@ -37,7 +51,10 @@ describe("ComplianceService", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG_DIR)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     }
     await conn.exec(`
@@ -54,7 +71,9 @@ describe("ComplianceService", () => {
   it("never reports a status of 'compliant' (engineering vs accreditation separation)", () =>
     run(tc, async () => {
       const controls = await svc.listControls();
-      const statuses = new Set<string>(controls.map((c) => c.implementation_status));
+      const statuses = new Set<string>(
+        controls.map((c) => c.implementation_status),
+      );
       expect(statuses.has("compliant" as string)).toBe(false);
     }));
 
@@ -78,13 +97,15 @@ describe("ComplianceService", () => {
         authority: "NHIF TZ",
         jurisdiction: "TZ",
         category: "billing",
-        requirement: "Claims must be submitted to NHIF with provider credentials.",
+        requirement:
+          "Claims must be submitted to NHIF with provider credentials.",
         implementation_status: "external_dependency",
         risk_level: "critical",
         applicability: "billing",
         external_dependency: true,
         approval_required: true,
-        notes: "Requires real NHIF credentials; adapter stub reports UNAVAILABLE.",
+        notes:
+          "Requires real NHIF credentials; adapter stub reports UNAVAILABLE.",
       });
       const rep = await svc.coverageReport();
       expect(rep.total).toBeGreaterThanOrEqual(2);
@@ -103,7 +124,11 @@ describe("ComplianceService", () => {
       });
       expect(r.evidence_id).toBeTruthy();
       await expect(
-        svc.addEvidence({ control_id: "NO-SUCH-00", evidence_type: "test", reference: "x" }),
+        svc.addEvidence({
+          control_id: "NO-SUCH-00",
+          evidence_type: "test",
+          reference: "x",
+        }),
       ).rejects.toThrow(/unknown control/);
     }));
 });

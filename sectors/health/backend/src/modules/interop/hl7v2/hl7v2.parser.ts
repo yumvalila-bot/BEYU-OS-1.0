@@ -44,11 +44,17 @@ export interface Hl7Message {
 }
 
 export class Hl7ParseError extends Error {
-  constructor(msg: string, public readonly detail?: unknown) { super(`HL7_PARSE: ${msg}`); }
+  constructor(
+    msg: string,
+    public readonly detail?: unknown,
+  ) {
+    super(`HL7_PARSE: ${msg}`);
+  }
 }
 
 export function parseHl7v2(raw: string): Hl7Message {
-  if (typeof raw !== "string" || raw.length === 0) throw new Hl7ParseError("empty");
+  if (typeof raw !== "string" || raw.length === 0)
+    throw new Hl7ParseError("empty");
   // Normalize line endings to CR.
   const normalized = raw.replace(/\r?\n/g, "\r");
   const segStrings = normalized.split("\r").filter((s) => s.length >= 3);
@@ -57,9 +63,11 @@ export function parseHl7v2(raw: string): Hl7Message {
   const enc = HL7_V2_DEFAULTS;
   for (const s of segStrings) {
     const name = s.slice(0, 3);
-    if (!/^[A-Z0-9]{2,3}$/.test(name)) throw new Hl7ParseError(`invalid_segment_name:${name}`);
+    if (!/^[A-Z0-9]{2,3}$/.test(name))
+      throw new Hl7ParseError(`invalid_segment_name:${name}`);
     const rest = s.slice(3);
-    if (rest[0] !== enc.field) throw new Hl7ParseError(`missing_field_separator_after_${name}`);
+    if (rest[0] !== enc.field)
+      throw new Hl7ParseError(`missing_field_separator_after_${name}`);
     const fieldStrs = rest.slice(1).split(enc.field);
     const fields: Hl7Field[] = fieldStrs.map((f) => {
       const repetitions = f.split(enc.repetition);
@@ -90,9 +98,16 @@ export function parseHl7v2(raw: string): Hl7Message {
   };
 }
 
-export function buildAck(messageControlId: string, ackCode: "AA" | "AE" | "AR", text?: string): string {
+export function buildAck(
+  messageControlId: string,
+  ackCode: "AA" | "AE" | "AR",
+  text?: string,
+): string {
   // Minimal MSH + MSA ack using standard delimiters.
-  const now = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+  const now = new Date()
+    .toISOString()
+    .replace(/[-:T.Z]/g, "")
+    .slice(0, 14);
   const msh = `MSH|^~\\&|BEYUHealthOS|BEYU|UNKNOWN|UNKNOWN|${now}||ACK^A01|ACK-${messageControlId}|P|2.5`;
   const msa = `MSA|${ackCode}|${messageControlId}|${text ?? ""}`;
   return `${msh}\r${msa}\r`;

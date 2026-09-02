@@ -1,7 +1,11 @@
 import { Global, Module, DynamicModule } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { Pool, PoolConfig } from "pg";
-import { DB_CONNECTION, DbConnection, PgConnection } from "../../modules/identity/db-connection";
+import { PoolConfig } from "pg";
+import {
+  DB_CONNECTION,
+  DbConnection,
+  PgConnection,
+} from "../../modules/identity/db-connection";
 
 /**
  * Shared database module. Provides the DB_CONNECTION (PgConnection for

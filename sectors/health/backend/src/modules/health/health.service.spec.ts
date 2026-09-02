@@ -1,11 +1,22 @@
 import { HealthService } from "./health.service";
-import { ConfigService } from "@nestjs/config";
 
-function svc(overrides: { dbFail?: boolean; migrationRows?: any[]; env?: Record<string, any>; adapters?: any[] } = {}) {
+function svc(
+  overrides: {
+    dbFail?: boolean;
+    migrationRows?: any[];
+    env?: Record<string, any>;
+    adapters?: any[];
+  } = {},
+) {
   const db = {
     query: async (q: string) => {
       if (overrides.dbFail) throw new Error("connection refused");
-      if (/schema_migrations/.test(q)) return overrides.migrationRows ?? [{ version: "015", applied_at: new Date() }];
+      if (/schema_migrations/.test(q))
+        return (
+          overrides.migrationRows ?? [
+            { version: "015", applied_at: new Date() },
+          ]
+        );
       return [{ ok: 1 }];
     },
   } as any;
@@ -33,7 +44,9 @@ describe("HealthService readiness", () => {
   });
 
   it("production with default JWT_SECRET reports NOT_READY (critical config)", async () => {
-    const s = svc({ env: { NODE_ENV: "production", JWT_SECRET: "dev-only-change-me" } });
+    const s = svc({
+      env: { NODE_ENV: "production", JWT_SECRET: "dev-only-change-me" },
+    });
     await expect(s.checkReadiness()).rejects.toThrow();
   });
 });

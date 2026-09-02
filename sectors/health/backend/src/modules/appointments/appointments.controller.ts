@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiHeader } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiHeader,
+} from "@nestjs/swagger";
 import { AppointmentsService } from "./appointments.service";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { TransitionAppointmentDto } from "./dto/transition-appointment.dto";
@@ -10,7 +23,11 @@ import { IDEMPOTENCY_KEY_HEADER } from "../../common/security/idempotency.consta
 
 @ApiTags("appointments")
 @ApiBearerAuth("access-token")
-@ApiHeader({ name: IDEMPOTENCY_KEY_HEADER, required: false, description: "Idempotency key for safe retries" })
+@ApiHeader({
+  name: IDEMPOTENCY_KEY_HEADER,
+  required: false,
+  description: "Idempotency key for safe retries",
+})
 @Controller("api/appointments")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AppointmentsController {
@@ -31,7 +48,9 @@ export class AppointmentsController {
 
   @Post()
   @RequirePermission("appointment:book")
-  @ApiOperation({ summary: "Book an appointment (double-booking protected, idempotent)" })
+  @ApiOperation({
+    summary: "Book an appointment (double-booking protected, idempotent)",
+  })
   create(@Body() dto: CreateAppointmentDto) {
     return this.service.create(dto);
   }

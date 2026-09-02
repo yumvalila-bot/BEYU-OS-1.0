@@ -17,8 +17,12 @@
  */
 import { Inject, Injectable } from "@nestjs/common";
 import { AsyncLocalStorage } from "async_hooks";
-import { DbConnection, DB_CONNECTION } from "../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../modules/identity/db-connection";
 import { TenantContext } from "../security/tenant-context";
+import { currentCorrelationId } from "../observability/correlation-id.middleware";
 
 const txStorage = new AsyncLocalStorage<DbConnection>();
 
@@ -58,7 +62,11 @@ export abstract class BaseRepository {
         `SELECT set_config('app.tenant_id', $1, true),
                 set_config('app.country_code', $2, true),
                 set_config('app.entity_code',  $3, true)`,
-        [actor?.tenantId ?? "", actor?.countryCode ?? "", actor?.entityCode ?? ""],
+        [
+          actor?.tenantId ?? "",
+          actor?.countryCode ?? "",
+          actor?.entityCode ?? "",
+        ],
       );
       return runInTx(tx, () => fn(tx));
     });
@@ -71,8 +79,6 @@ export abstract class BaseRepository {
 
   /** Correlation id for the current request (used to stamp every row). */
   protected correlationId(): string {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { currentCorrelationId } = require("../observability/correlation-id.middleware") as typeof import("../observability/correlation-id.middleware");
     return currentCorrelationId();
   }
 

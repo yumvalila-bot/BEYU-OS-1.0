@@ -18,14 +18,8 @@ import {
 } from "./test-connection";
 import { IdentityRepository } from "./identity.repository";
 import { BeyuIdentityBridge, CONSTITUTIONAL_ROLE_IDS } from "./beyu-bridge";
-import {
-  ensureBridgeSchema,
-  ensureBoundarySchema,
-} from "./boundary-schema";
-import {
-  ForbiddenException,
-  ConflictException,
-} from "@nestjs/common";
+import { ensureBridgeSchema, ensureBoundarySchema } from "./boundary-schema";
+import { ForbiddenException, ConflictException } from "@nestjs/common";
 
 jest.setTimeout(60_000);
 

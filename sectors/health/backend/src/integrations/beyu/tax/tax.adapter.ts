@@ -9,11 +9,17 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
-import type { TaxDeterminationRequest, TaxDeterminationResponse } from "../contracts/shared.types";
+import type {
+  TaxDeterminationRequest,
+  TaxDeterminationResponse,
+} from "../contracts/shared.types";
 
 @Injectable()
 export class TaxAdapter extends BeyuBaseAdapter {
@@ -32,9 +38,13 @@ export class TaxAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+  ) {
+    super(db, tenantCtx, circuit, cfg);
+  }
 
-  async determine(req: TaxDeterminationRequest): Promise<TaxDeterminationResponse> {
+  async determine(
+    req: TaxDeterminationRequest,
+  ): Promise<TaxDeterminationResponse> {
     if (this.getState() === "NOT_CONFIGURED") {
       await this.db.query(
         `INSERT INTO health.beyu_outbox
@@ -49,7 +59,12 @@ export class TaxAdapter extends BeyuBaseAdapter {
           req.actor.tenantId,
           req.actor.entityCode,
           req.actor.countryCode,
-          JSON.stringify({ eventType: req.taxableEventType, amount: req.amount, jurisdiction: req.jurisdiction, taxCategory: req.taxCategory }),
+          JSON.stringify({
+            eventType: req.taxableEventType,
+            amount: req.amount,
+            jurisdiction: req.jurisdiction,
+            taxCategory: req.taxCategory,
+          }),
           req.propagation.correlationId,
         ],
       );
@@ -60,11 +75,16 @@ export class TaxAdapter extends BeyuBaseAdapter {
         lines: [],
         policyVersion: null,
         reasonCode: "TAX_ENGINE_EXTERNAL_BLOCKED",
-        failureReason: "Tax Engine not configured; failing closed (no fabricated tax).",
+        failureReason:
+          "Tax Engine not configured; failing closed (no fabricated tax).",
       };
     }
-    return this.execute("determine", req, async (): Promise<TaxDeterminationResponse> => {
-      throw new Error("Tax HTTP transport not implemented in this build.");
-    });
+    return this.execute(
+      "determine",
+      req,
+      async (): Promise<TaxDeterminationResponse> => {
+        throw new Error("Tax HTTP transport not implemented in this build.");
+      },
+    );
   }
 }

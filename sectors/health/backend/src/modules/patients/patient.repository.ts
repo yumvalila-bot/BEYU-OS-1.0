@@ -67,7 +67,9 @@ export interface CreatePatientInput {
 
 @Injectable()
 export class PatientRepository extends BaseRepository {
-  async list(opts: { limit?: number; offset?: number; q?: string } = {}): Promise<Patient[]> {
+  async list(
+    opts: { limit?: number; offset?: number; q?: string } = {},
+  ): Promise<Patient[]> {
     const limit = Math.min(opts.limit ?? 50, 200);
     const offset = opts.offset ?? 0;
     const q = opts.q?.trim();
@@ -112,7 +114,10 @@ export class PatientRepository extends BaseRepository {
     return rows[0] ?? null;
   }
 
-  async create(input: CreatePatientInput, txOverride?: { exec: DbConnection["exec"]; query: DbConnection["query"] }): Promise<Patient> {
+  async create(
+    input: CreatePatientInput,
+    txOverride?: { exec: DbConnection["exec"]; query: DbConnection["query"] },
+  ): Promise<Patient> {
     const actor = this.actorId();
     const cid = this.correlationId();
     const tenantId = this.tenantContext.tenantId();

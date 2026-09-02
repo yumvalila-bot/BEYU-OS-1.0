@@ -10,7 +10,14 @@ import { PatientRepository } from "../patients/patient.repository";
 import { PatientsService } from "../patients/patients.service";
 import { ConsentService } from "./consent.service";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 const ACTOR = {
   userId: "00000000-0000-0000-0000-0000000000cc",
   email: "consent@beyu.health",
@@ -24,7 +31,14 @@ const ACTOR = {
 function run<T>(tc: TenantContext, fn: () => Promise<T>): Promise<T> {
   return new Promise<T>((res, rej) =>
     requestStorage.run(
-      { correlationId: "t", requestId: "r", startedAt: Date.now(), method: "T", path: "/", ip: "127.0.0.1" },
+      {
+        correlationId: "t",
+        requestId: "r",
+        startedAt: Date.now(),
+        method: "T",
+        path: "/",
+        ip: "127.0.0.1",
+      },
       () => tc.run(ACTOR as never, () => fn().then(res, rej)),
     ),
   );
@@ -40,7 +54,10 @@ describe("ConsentService (non-boolean)", () => {
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    for (const f of fs.readdirSync(MIG_DIR).filter((x) => x.endsWith(".up.sql")).sort()) {
+    for (const f of fs
+      .readdirSync(MIG_DIR)
+      .filter((x) => x.endsWith(".up.sql"))
+      .sort()) {
       await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     }
     await conn.exec(`
@@ -59,10 +76,18 @@ describe("ConsentService (non-boolean)", () => {
 
   it("fail-closes when no consent exists; passes after grant; withdrawn revokes", () =>
     run(tc, async () => {
-      const p = await patients.create({ medical_record: "MRN-C1", given_name: "Fatima", family_name: "Ali" });
+      const p = await patients.create({
+        medical_record: "MRN-C1",
+        given_name: "Fatima",
+        family_name: "Ali",
+      });
       pid = p.patient_id;
-      expect(await svc.assert(pid, "data_share_nhif", "diagnoses", "NHIF")).toBe(false);
-      await expect(svc.requireConsent(pid, "data_share_nhif", "diagnoses", "NHIF")).rejects.toThrow(/No active consent/);
+      expect(
+        await svc.assert(pid, "data_share_nhif", "diagnoses", "NHIF"),
+      ).toBe(false);
+      await expect(
+        svc.requireConsent(pid, "data_share_nhif", "diagnoses", "NHIF"),
+      ).rejects.toThrow(/No active consent/);
 
       await svc.grant({
         patient_id: pid,
@@ -72,9 +97,13 @@ describe("ConsentService (non-boolean)", () => {
         legal_basis: "consent",
         evidence: { channel: "paper_form", form_id: "NHIF-C-001" },
       });
-      expect(await svc.assert(pid, "data_share_nhif", "diagnoses", "NHIF")).toBe(true);
+      expect(
+        await svc.assert(pid, "data_share_nhif", "diagnoses", "NHIF"),
+      ).toBe(true);
 
       // Wrong category fails.
-      expect(await svc.assert(pid, "data_share_nhif", "medications", "NHIF")).toBe(false);
+      expect(
+        await svc.assert(pid, "data_share_nhif", "medications", "NHIF"),
+      ).toBe(false);
     }));
 });

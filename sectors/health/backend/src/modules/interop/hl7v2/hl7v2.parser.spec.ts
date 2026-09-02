@@ -8,7 +8,7 @@ describe("HL7 v2 parser", () => {
     const m = parseHl7v2(SAMPLE_ADT);
     expect(m.messageType).toBe("ADT");
     expect(m.messageControlId).toBe("MSG123");
-    expect(m.segments.map(s => s.name)).toEqual(["MSH", "PID"]);
+    expect(m.segments.map((s) => s.name)).toEqual(["MSH", "PID"]);
   });
 
   it("rejects empty/non-MSH-first messages", () => {

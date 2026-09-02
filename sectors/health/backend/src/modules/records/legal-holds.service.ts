@@ -21,7 +21,12 @@ export class LegalHoldsService {
     private readonly audit: AuditService,
   ) {}
 
-  async place(input: { resource_type: string; resource_id?: string; reason: string; ordered_by: string }): Promise<{ hold_id: string }> {
+  async place(input: {
+    resource_type: string;
+    resource_id?: string;
+    reason: string;
+    ordered_by: string;
+  }): Promise<{ hold_id: string }> {
     return atomicWrite(this.db, this.tenantCtx, this.audit, {
       resourceType: "legal_hold",
       operation: "legal_hold.place",
@@ -30,7 +35,13 @@ export class LegalHoldsService {
         const rows = await tx.query<{ hold_id: string }>(
           `INSERT INTO health.legal_holds (tenant_id, resource_type, resource_id, reason, ordered_by, created_by)
            VALUES (current_setting('app.tenant_id', true)::uuid, $1, $2, $3, $4, $5) RETURNING hold_id`,
-          [input.resource_type, input.resource_id ?? null, input.reason, input.ordered_by, actor.userId],
+          [
+            input.resource_type,
+            input.resource_id ?? null,
+            input.reason,
+            input.ordered_by,
+            actor.userId,
+          ],
         );
         return rows[0];
       },
@@ -53,18 +64,29 @@ export class LegalHoldsService {
   }
 
   /** Fail-closed assertion: throws if any active hold covers the resource. */
-  async assertNotHeld(resourceType: string, resourceId?: string): Promise<void> {
-    const blocked = await withIsolation(this.db, this.tenantCtx, "legal_hold", async (tx) => {
-      const rows = await tx.query<{ n: number }>(
-        `SELECT count(*)::int AS n FROM health.legal_holds
+  async assertNotHeld(
+    resourceType: string,
+    resourceId?: string,
+  ): Promise<void> {
+    const blocked = await withIsolation(
+      this.db,
+      this.tenantCtx,
+      "legal_hold",
+      async (tx) => {
+        const rows = await tx.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM health.legal_holds
           WHERE tenant_id=current_setting('app.tenant_id', true)::uuid
             AND resource_type=$1
             AND (resource_id IS NULL OR $2::uuid IS NULL OR resource_id=$2::uuid)
             AND released_at IS NULL`,
-        [resourceType, resourceId ?? null],
+          [resourceType, resourceId ?? null],
+        );
+        return Number(rows[0]?.n ?? 0) > 0;
+      },
+    );
+    if (blocked)
+      throw DomainError.forbidden(
+        `LEGAL_HOLD_ACTIVE: destructive operation on ${resourceType} blocked`,
       );
-      return Number(rows[0]?.n ?? 0) > 0;
-    });
-    if (blocked) throw DomainError.forbidden(`LEGAL_HOLD_ACTIVE: destructive operation on ${resourceType} blocked`);
   }
 }

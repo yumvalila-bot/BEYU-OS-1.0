@@ -13,7 +13,14 @@ import { AuditService } from "../../modules/audit/audit.service";
 import { PatientRepository } from "../../modules/patients/patient.repository";
 import { PatientsService } from "../../modules/patients/patients.service";
 
-export const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+export const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
 export const TEST_ACTOR = {
   userId: "00000000-0000-0000-0000-000000000001",
@@ -21,14 +28,30 @@ export const TEST_ACTOR = {
   email: "doc@beyu.health",
   role: "doctor",
   permissions: [
-    "patient:read", "patient:register", "phi:read", "phi:write",
-    "rx:write", "rx:dispense", "rx:controlled",
-    "order:lab", "order:imaging", "note:write", "note:sign",
-    "appointment:read", "appointment:book", "appointment:transition",
-    "encounter:start", "encounter:complete",
-    "billing:read", "billing:write", "payment:receive",
-    "inventory:read", "inventory:write",
-    "audit:read", "report:read", "report:submit",
+    "patient:read",
+    "patient:register",
+    "phi:read",
+    "phi:write",
+    "rx:write",
+    "rx:dispense",
+    "rx:controlled",
+    "order:lab",
+    "order:imaging",
+    "note:write",
+    "note:sign",
+    "appointment:read",
+    "appointment:book",
+    "appointment:transition",
+    "encounter:start",
+    "encounter:complete",
+    "billing:read",
+    "billing:write",
+    "payment:receive",
+    "inventory:read",
+    "inventory:write",
+    "audit:read",
+    "report:read",
+    "report:submit",
     "tenant:admin",
   ],
   tenantId: "11111111-1111-1111-1111-111111111111",
@@ -53,7 +76,10 @@ export interface TestBed {
 export async function buildTestBed(): Promise<TestBed> {
   const db = new PGlite();
   const conn = new PGliteConnection(db);
-  const migs = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".up.sql")).sort();
+  const migs = fs
+    .readdirSync(MIG_DIR)
+    .filter((f) => f.endsWith(".up.sql"))
+    .sort();
   for (const f of migs) {
     await conn.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
   }
@@ -71,12 +97,24 @@ export async function buildTestBed(): Promise<TestBed> {
   const tenantCtx = new TenantContext();
   const audit = new AuditService(conn, tenantCtx);
   const patientRepo = new PatientRepository(conn, tenantCtx);
-  const patientService = new PatientsService(patientRepo, audit, conn, tenantCtx);
+  const patientService = new PatientsService(
+    patientRepo,
+    audit,
+    conn,
+    tenantCtx,
+  );
 
   function run<T>(fn: () => Promise<T>): Promise<T> {
     return new Promise<T>((res, rej) => {
       requestStorage.run(
-        { correlationId: "test-cid", requestId: "test-rid", startedAt: Date.now(), method: "TEST", path: "/", ip: "127.0.0.1" },
+        {
+          correlationId: "test-cid",
+          requestId: "test-rid",
+          startedAt: Date.now(),
+          method: "TEST",
+          path: "/",
+          ip: "127.0.0.1",
+        },
         () => tenantCtx.run(TEST_ACTOR as never, () => fn().then(res, rej)),
       );
     });
@@ -94,5 +132,14 @@ export async function buildTestBed(): Promise<TestBed> {
     );
   }
 
-  return { db, conn, tenantCtx, audit, patientService, patientRepo, run, seedPatient };
+  return {
+    db,
+    conn,
+    tenantCtx,
+    audit,
+    patientService,
+    patientRepo,
+    run,
+    seedPatient,
+  };
 }

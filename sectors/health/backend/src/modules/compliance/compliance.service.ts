@@ -44,7 +44,14 @@ export interface ComplianceControlRecord {
 
 export interface EvidenceRecord {
   control_id: string;
-  evidence_type: "test" | "audit_log" | "migration" | "document" | "external_verification" | "approval" | "configuration";
+  evidence_type:
+    | "test"
+    | "audit_log"
+    | "migration"
+    | "document"
+    | "external_verification"
+    | "approval"
+    | "configuration";
   reference: string;
   valid_until?: string | null;
   metadata?: Record<string, unknown>;
@@ -61,7 +68,9 @@ export class ComplianceService {
   ) {}
 
   /** Register or update a control (idempotent, tenant:admin only at controller layer). */
-  async upsertControl(rec: ComplianceControlRecord): Promise<ComplianceControlRecord> {
+  async upsertControl(
+    rec: ComplianceControlRecord,
+  ): Promise<ComplianceControlRecord> {
     if (!rec.control_id) throw DomainError.validation("control_id required");
     return atomicWrite(this.db, this.tenantCtx, this.audit, {
       resourceType: "compliance_control",
@@ -88,12 +97,23 @@ export class ComplianceService {
              approval_required=EXCLUDED.approval_required, notes=EXCLUDED.notes,
              updated_at=now()`,
           [
-            rec.control_id, rec.authority, rec.jurisdiction ?? "TZ", rec.category,
-            rec.requirement, rec.version ?? "1.0", rec.effective_date ?? null,
-            rec.review_date ?? null, rec.implementation_status,
-            rec.evidence_reference ?? null, rec.owner_role ?? null, rec.risk_level ?? "medium",
-            rec.applicability ?? "all", rec.verification_method ?? null,
-            !!rec.external_dependency, !!rec.approval_required, rec.notes ?? null,
+            rec.control_id,
+            rec.authority,
+            rec.jurisdiction ?? "TZ",
+            rec.category,
+            rec.requirement,
+            rec.version ?? "1.0",
+            rec.effective_date ?? null,
+            rec.review_date ?? null,
+            rec.implementation_status,
+            rec.evidence_reference ?? null,
+            rec.owner_role ?? null,
+            rec.risk_level ?? "medium",
+            rec.applicability ?? "all",
+            rec.verification_method ?? null,
+            !!rec.external_dependency,
+            !!rec.approval_required,
+            rec.notes ?? null,
           ],
         );
         return rec;
@@ -101,23 +121,41 @@ export class ComplianceService {
     });
   }
 
-  async listControls(opts: { category?: string; authority?: string; riskLevel?: string } = {}): Promise<ComplianceControlRecord[]> {
-    return withIsolation(this.db, this.tenantCtx, "compliance_control", async (tx) => {
-      const where: string[] = [];
-      const params: unknown[] = [];
-      if (opts.category) { params.push(opts.category); where.push(`category=$${params.length}`); }
-      if (opts.authority) { params.push(opts.authority); where.push(`authority=$${params.length}`); }
-      if (opts.riskLevel) { params.push(opts.riskLevel); where.push(`risk_level=$${params.length}`); }
-      const sql = `SELECT control_id, authority, jurisdiction, category, requirement, version,
+  async listControls(
+    opts: { category?: string; authority?: string; riskLevel?: string } = {},
+  ): Promise<ComplianceControlRecord[]> {
+    return withIsolation(
+      this.db,
+      this.tenantCtx,
+      "compliance_control",
+      async (tx) => {
+        const where: string[] = [];
+        const params: unknown[] = [];
+        if (opts.category) {
+          params.push(opts.category);
+          where.push(`category=$${params.length}`);
+        }
+        if (opts.authority) {
+          params.push(opts.authority);
+          where.push(`authority=$${params.length}`);
+        }
+        if (opts.riskLevel) {
+          params.push(opts.riskLevel);
+          where.push(`risk_level=$${params.length}`);
+        }
+        const sql = `SELECT control_id, authority, jurisdiction, category, requirement, version,
                           effective_date, review_date, implementation_status, evidence_reference,
                           owner_role, risk_level, applicability, verification_method,
                           external_dependency, approval_required, notes
                      FROM health.compliance_controls
                     ${where.length ? "WHERE " + where.join(" AND ") : ""}
                     ORDER BY risk_level DESC, control_id`;
-      const rows = await tx.query<ComplianceControlRecord & Record<string, unknown>>(sql, params);
-      return rows;
-    });
+        const rows = await tx.query<
+          ComplianceControlRecord & Record<string, unknown>
+        >(sql, params);
+        return rows;
+      },
+    );
   }
 
   /** Attach evidence to a control. Fails closed if the control doesn't exist. */
@@ -132,15 +170,22 @@ export class ComplianceService {
           `SELECT control_id FROM health.compliance_controls WHERE control_id=$1`,
           [e.control_id],
         );
-        if (!ctrl.length) throw DomainError.validation(`unknown control: ${e.control_id}`);
+        if (!ctrl.length)
+          throw DomainError.validation(`unknown control: ${e.control_id}`);
         const ins = await tx.query<{ evidence_id: string }>(
           `INSERT INTO health.compliance_evidence
              (tenant_id, control_id, evidence_type, reference, valid_until,
               metadata, collected_by)
            VALUES (current_setting('app.tenant_id', true)::uuid, $1, $2, $3, $4, $5::jsonb, $6)
            RETURNING evidence_id`,
-          [e.control_id, e.evidence_type, e.reference, e.valid_until ?? null,
-           JSON.stringify(e.metadata ?? {}), actor.userId],
+          [
+            e.control_id,
+            e.evidence_type,
+            e.reference,
+            e.valid_until ?? null,
+            JSON.stringify(e.metadata ?? {}),
+            actor.userId,
+          ],
         );
         return ins[0];
       },
@@ -155,30 +200,47 @@ export class ComplianceService {
     external_blocked: number;
     requires_human_approval: number;
   }> {
-    return withIsolation(this.db, this.tenantCtx, "compliance_control", async (tx) => {
-      const rows = await tx.query<{
-        implementation_status: string;
-        risk_level: string;
-        external_dependency: boolean;
-        approval_required: boolean;
-        n: number;
-      }>(`SELECT implementation_status, risk_level, external_dependency, approval_required,
+    return withIsolation(
+      this.db,
+      this.tenantCtx,
+      "compliance_control",
+      async (tx) => {
+        const rows = await tx.query<{
+          implementation_status: string;
+          risk_level: string;
+          external_dependency: boolean;
+          approval_required: boolean;
+          n: number;
+        }>(`SELECT implementation_status, risk_level, external_dependency, approval_required,
                  count(*)::int AS n
             FROM health.compliance_controls
            GROUP BY 1,2,3,4`);
-      const by_status: Record<string, number> = {};
-      const by_risk: Record<string, number> = {};
-      let total = 0;
-      let blocked = 0;
-      let needsApproval = 0;
-      for (const r of rows) {
-        total += Number(r.n);
-        by_status[r.implementation_status] = (by_status[r.implementation_status] ?? 0) + Number(r.n);
-        by_risk[r.risk_level] = (by_risk[r.risk_level] ?? 0) + Number(r.n);
-        if (r.external_dependency && r.implementation_status !== "implemented") blocked += Number(r.n);
-        if (r.approval_required && r.implementation_status !== "implemented") needsApproval += Number(r.n);
-      }
-      return { total, by_status, by_risk, external_blocked: blocked, requires_human_approval: needsApproval };
-    });
+        const by_status: Record<string, number> = {};
+        const by_risk: Record<string, number> = {};
+        let total = 0;
+        let blocked = 0;
+        let needsApproval = 0;
+        for (const r of rows) {
+          total += Number(r.n);
+          by_status[r.implementation_status] =
+            (by_status[r.implementation_status] ?? 0) + Number(r.n);
+          by_risk[r.risk_level] = (by_risk[r.risk_level] ?? 0) + Number(r.n);
+          if (
+            r.external_dependency &&
+            r.implementation_status !== "implemented"
+          )
+            blocked += Number(r.n);
+          if (r.approval_required && r.implementation_status !== "implemented")
+            needsApproval += Number(r.n);
+        }
+        return {
+          total,
+          by_status,
+          by_risk,
+          external_blocked: blocked,
+          requires_human_approval: needsApproval,
+        };
+      },
+    );
   }
 }

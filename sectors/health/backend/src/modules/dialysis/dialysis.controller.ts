@@ -14,12 +14,22 @@ import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-autho
 export class DialysisController {
   constructor(private readonly svc: DialysisService) {}
 
-  @Post("sessions") @RequirePermission("dialysis:treat") @RequiresClinicalSafety("dialysis") @RequireHcmPractitioner("dialysis.session.start", { scope: ["dialysis:treat"] })
+  @Post("sessions")
+  @RequirePermission("dialysis:treat")
+  @RequiresClinicalSafety("dialysis")
+  @RequireHcmPractitioner("dialysis.session.start", {
+    scope: ["dialysis:treat"],
+  })
   startSession(@Body() d: any) {
     return this.svc.schedule(d);
   }
 
-  @Post("sessions/:id/interrupt") @RequirePermission("dialysis:treat") @RequireHcmPractitioner("dialysis.session.interrupt", { scope: ["dialysis:treat"] }) @RequiresClinicalSafety("general")
+  @Post("sessions/:id/interrupt")
+  @RequirePermission("dialysis:treat")
+  @RequireHcmPractitioner("dialysis.session.interrupt", {
+    scope: ["dialysis:treat"],
+  })
+  @RequiresClinicalSafety("general")
   interrupt(@Param("id") id: string, @Body() d: any = {}) {
     return this.svc.transition(id, "interrupted", d);
   }

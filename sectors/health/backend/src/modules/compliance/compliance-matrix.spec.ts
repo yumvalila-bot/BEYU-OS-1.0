@@ -13,8 +13,11 @@ import * as fs from "fs";
 import * as path from "path";
 
 type Status =
-  | "IMPLEMENTED" | "PARTIALLY_IMPLEMENTED" | "MISSING"
-  | "EXTERNAL_BLOCKED" | "REQUIRES_HUMAN_APPROVAL";
+  | "IMPLEMENTED"
+  | "PARTIALLY_IMPLEMENTED"
+  | "MISSING"
+  | "EXTERNAL_BLOCKED"
+  | "REQUIRES_HUMAN_APPROVAL";
 
 interface Control {
   id: string;
@@ -27,87 +30,416 @@ interface Control {
 
 const CONTROLS: Control[] = [
   // Security / access
-  { id: "SEC-01", category: "security", title: "JWT authentication (access+refresh)", status: "IMPLEMENTED", evidenceFiles: ["auth.service.ts", "auth.controller.ts", "auth-wiring.spec.ts"] },
-  { id: "SEC-02", category: "security", title: "MFA TOTP step-up for sensitive actions", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["mfa.service.ts", "mfa-stepup.guard.ts"], notes: "Guard exists; per-endpoint application partial" },
-  { id: "SEC-03", category: "security", title: "CSRF double-submit cookie + origin/Referer check", status: "IMPLEMENTED", evidenceFiles: ["csrf-double-submit.guard.ts", "csrf-origin.guard.ts", "csrf-adversarial.spec.ts"] },
-  { id: "SEC-04", category: "security", title: "RLS tenant/entity/country isolation", status: "IMPLEMENTED", evidenceFiles: ["rls-coverage-matrix.spec.ts", "rls-adversarial-matrix.spec.ts"] },
-  { id: "SEC-05", category: "security", title: "Rate limiting with lockout, Retry-After, audit", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["rate-limiter.ts", "rate-limit-policies.ts", "rate-limit-adversarial.spec.ts"], notes: "In-memory backend only; Redis backend EXTERNAL-BLOCKED" },
-  { id: "SEC-06", category: "security", title: "security_version invalidation across JWT/session/refresh/CSRF/MFA", status: "IMPLEMENTED", evidenceFiles: ["security-version-adversarial.spec.ts"] },
-  { id: "SEC-07", category: "security", title: "Distributed audit integrity", status: "PARTIALLY_IMPLEMENTED", notes: "Local audit with hashes; cross-plane anchoring ARCHITECTURE-BLOCKED" },
+  {
+    id: "SEC-01",
+    category: "security",
+    title: "JWT authentication (access+refresh)",
+    status: "IMPLEMENTED",
+    evidenceFiles: [
+      "auth.service.ts",
+      "auth.controller.ts",
+      "auth-wiring.spec.ts",
+    ],
+  },
+  {
+    id: "SEC-02",
+    category: "security",
+    title: "MFA TOTP step-up for sensitive actions",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["mfa.service.ts", "mfa-stepup.guard.ts"],
+    notes: "Guard exists; per-endpoint application partial",
+  },
+  {
+    id: "SEC-03",
+    category: "security",
+    title: "CSRF double-submit cookie + origin/Referer check",
+    status: "IMPLEMENTED",
+    evidenceFiles: [
+      "csrf-double-submit.guard.ts",
+      "csrf-origin.guard.ts",
+      "csrf-adversarial.spec.ts",
+    ],
+  },
+  {
+    id: "SEC-04",
+    category: "security",
+    title: "RLS tenant/entity/country isolation",
+    status: "IMPLEMENTED",
+    evidenceFiles: [
+      "rls-coverage-matrix.spec.ts",
+      "rls-adversarial-matrix.spec.ts",
+    ],
+  },
+  {
+    id: "SEC-05",
+    category: "security",
+    title: "Rate limiting with lockout, Retry-After, audit",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: [
+      "rate-limiter.ts",
+      "rate-limit-policies.ts",
+      "rate-limit-adversarial.spec.ts",
+    ],
+    notes: "In-memory backend only; Redis backend EXTERNAL-BLOCKED",
+  },
+  {
+    id: "SEC-06",
+    category: "security",
+    title: "security_version invalidation across JWT/session/refresh/CSRF/MFA",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["security-version-adversarial.spec.ts"],
+  },
+  {
+    id: "SEC-07",
+    category: "security",
+    title: "Distributed audit integrity",
+    status: "PARTIALLY_IMPLEMENTED",
+    notes:
+      "Local audit with hashes; cross-plane anchoring ARCHITECTURE-BLOCKED",
+  },
 
   // Clinical safety
-  { id: "CLIN-01", category: "clinical", title: "Pharmacy controlled-substance dual-control gate", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["clinical-safety.gates.ts"], notes: "Gate exists; endpoint-wiring partial" },
-  { id: "CLIN-02", category: "clinical", title: "Lab QC / verification / critical-result callback", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["clinical-safety.gates.ts"] },
-  { id: "CLIN-03", category: "clinical", title: "Radiology dose capture / DICOM linkage / critical escalation", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["clinical-safety.gates.ts", "dicom.validator.ts"] },
-  { id: "CLIN-04", category: "clinical", title: "Optical prescription validity / traceability", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["clinical-safety.gates.ts"] },
-  { id: "CLIN-05", category: "clinical", title: "Dialysis machine/water/patient/consent/adverse-event", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["clinical-safety.gates.ts"] },
-  { id: "CLIN-06", category: "clinical", title: "HCM practitioner scope / licence verification", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["hcm.adapter.ts"], notes: "Fail-closed adapter; endpoint application partial; authoritative data EXTERNAL-BLOCKED" },
-  { id: "CLIN-07", category: "clinical", title: "Governance authorization gate for high-risk actions", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["governance.adapter.ts"] },
+  {
+    id: "CLIN-01",
+    category: "clinical",
+    title: "Pharmacy controlled-substance dual-control gate",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["clinical-safety.gates.ts"],
+    notes: "Gate exists; endpoint-wiring partial",
+  },
+  {
+    id: "CLIN-02",
+    category: "clinical",
+    title: "Lab QC / verification / critical-result callback",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["clinical-safety.gates.ts"],
+  },
+  {
+    id: "CLIN-03",
+    category: "clinical",
+    title: "Radiology dose capture / DICOM linkage / critical escalation",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["clinical-safety.gates.ts", "dicom.validator.ts"],
+  },
+  {
+    id: "CLIN-04",
+    category: "clinical",
+    title: "Optical prescription validity / traceability",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["clinical-safety.gates.ts"],
+  },
+  {
+    id: "CLIN-05",
+    category: "clinical",
+    title: "Dialysis machine/water/patient/consent/adverse-event",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["clinical-safety.gates.ts"],
+  },
+  {
+    id: "CLIN-06",
+    category: "clinical",
+    title: "HCM practitioner scope / licence verification",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["hcm.adapter.ts"],
+    notes:
+      "Fail-closed adapter; endpoint application partial; authoritative data EXTERNAL-BLOCKED",
+  },
+  {
+    id: "CLIN-07",
+    category: "clinical",
+    title: "Governance authorization gate for high-risk actions",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["governance.adapter.ts"],
+  },
 
   // Records / retention / legal hold
-  { id: "REC-01", category: "records", title: "Audit log immutable (no user UPDATE/DELETE)", status: "PARTIALLY_IMPLEMENTED", notes: "DB-level policies prevent casual edits; legal-hold service in place" },
-  { id: "REC-02", category: "records", title: "Legal hold blocks destructive operations", status: "PARTIALLY_IMPLEMENTED", notes: "Legal hold module exists; cross-table enforcement partial" },
-  { id: "REC-03", category: "records", title: "Electronic signature reference + verification", status: "MISSING" },
-  { id: "REC-04", category: "records", title: "Retention policy + archival", status: "PARTIALLY_IMPLEMENTED" },
+  {
+    id: "REC-01",
+    category: "records",
+    title: "Audit log immutable (no user UPDATE/DELETE)",
+    status: "PARTIALLY_IMPLEMENTED",
+    notes:
+      "DB-level policies prevent casual edits; legal-hold service in place",
+  },
+  {
+    id: "REC-02",
+    category: "records",
+    title: "Legal hold blocks destructive operations",
+    status: "PARTIALLY_IMPLEMENTED",
+    notes: "Legal hold module exists; cross-table enforcement partial",
+  },
+  {
+    id: "REC-03",
+    category: "records",
+    title: "Electronic signature reference + verification",
+    status: "MISSING",
+  },
+  {
+    id: "REC-04",
+    category: "records",
+    title: "Retention policy + archival",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
 
   // Interoperability
-  { id: "INT-01", category: "interop", title: "FHIR R4/R5 model + mapper + validator", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["fhir-resources.ts", "fhir-mapper.ts"] },
-  { id: "INT-02", category: "interop", title: "HL7 v2 parser/serializer + ACK/NACK", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["hl7v2.parser.ts"] },
-  { id: "INT-03", category: "interop", title: "DICOM UID/metadata validation", status: "IMPLEMENTED", evidenceFiles: ["dicom.validator.ts"] },
-  { id: "INT-04", category: "interop", title: "Terminology registry (ICD/SNOMED/LOINC)", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["terminology.registry.ts"], notes: "Engine exists; authoritative datasets EXTERNAL-BLOCKED" },
-  { id: "INT-05", category: "interop", title: "MTUHA deterministic reporting engine", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["mtuha.engine.ts"], notes: "Aggregates + BLOCKED semantics; official mappings EXTERNAL-BLOCKED" },
+  {
+    id: "INT-01",
+    category: "interop",
+    title: "FHIR R4/R5 model + mapper + validator",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["fhir-resources.ts", "fhir-mapper.ts"],
+  },
+  {
+    id: "INT-02",
+    category: "interop",
+    title: "HL7 v2 parser/serializer + ACK/NACK",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["hl7v2.parser.ts"],
+  },
+  {
+    id: "INT-03",
+    category: "interop",
+    title: "DICOM UID/metadata validation",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["dicom.validator.ts"],
+  },
+  {
+    id: "INT-04",
+    category: "interop",
+    title: "Terminology registry (ICD/SNOMED/LOINC)",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["terminology.registry.ts"],
+    notes: "Engine exists; authoritative datasets EXTERNAL-BLOCKED",
+  },
+  {
+    id: "INT-05",
+    category: "interop",
+    title: "MTUHA deterministic reporting engine",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["mtuha.engine.ts"],
+    notes: "Aggregates + BLOCKED semantics; official mappings EXTERNAL-BLOCKED",
+  },
 
   // External adapters
-  { id: "EXT-01", category: "external", title: "Adapter contracts (typed, circuit-breaker, timeout, idempotency, audit)", status: "IMPLEMENTED", evidenceFiles: ["adapter-registry.ts", "circuit-breaker.ts", "adapter-contracts.spec.ts"] },
-  { id: "EXT-02", category: "external", title: "All external adapters fail-closed when unconfigured", status: "IMPLEMENTED", evidenceFiles: ["adapter-contracts.spec.ts"] },
-  { id: "EXT-03", category: "external", title: "Finance OS / Tax / HCM / Governance / Noelia cross-domain envelope", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["cross-domain-orchestrator.ts", "transaction-envelope.ts", "cross-domain-e2e.spec.ts"] },
+  {
+    id: "EXT-01",
+    category: "external",
+    title:
+      "Adapter contracts (typed, circuit-breaker, timeout, idempotency, audit)",
+    status: "IMPLEMENTED",
+    evidenceFiles: [
+      "adapter-registry.ts",
+      "circuit-breaker.ts",
+      "adapter-contracts.spec.ts",
+    ],
+  },
+  {
+    id: "EXT-02",
+    category: "external",
+    title: "All external adapters fail-closed when unconfigured",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["adapter-contracts.spec.ts"],
+  },
+  {
+    id: "EXT-03",
+    category: "external",
+    title: "Finance OS / Tax / HCM / Governance / Noelia cross-domain envelope",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: [
+      "cross-domain-orchestrator.ts",
+      "transaction-envelope.ts",
+      "cross-domain-e2e.spec.ts",
+    ],
+  },
 
   // TZ legal / regulatory (engineering controls ONLY)
-  { id: "TZ-01", category: "compliance", title: "PDPA 2022 data minimization + tenant/entity/country isolation", status: "IMPLEMENTED", notes: "RLS provides isolation; legal compliance requires human assessment" },
-  { id: "TZ-02", category: "compliance", title: "Cybercrimes Act — input validation / no SSRF in adapters", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "TZ-03", category: "compliance", title: "Electronic Transactions Act — audit/immutability/identity", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "TZ-04", category: "compliance", title: "Public Health Act / MTUHA reporting", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "TZ-05", category: "compliance", title: "Pharmacy Act / TMDA controlled-substance dual control", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "TZ-06", category: "compliance", title: "NHIF claims adapter", status: "EXTERNAL_BLOCKED" },
-  { id: "TZ-07", category: "compliance", title: "TRA/Tax Engine adapter", status: "EXTERNAL_BLOCKED" },
-  { id: "TZ-08", category: "compliance", title: "ISO 27001/27799/27017/27018 control mapping", status: "PARTIALLY_IMPLEMENTED", notes: "Engineering controls map partially; certification REQUIRES_HUMAN_APPROVAL" },
+  {
+    id: "TZ-01",
+    category: "compliance",
+    title: "PDPA 2022 data minimization + tenant/entity/country isolation",
+    status: "IMPLEMENTED",
+    notes: "RLS provides isolation; legal compliance requires human assessment",
+  },
+  {
+    id: "TZ-02",
+    category: "compliance",
+    title: "Cybercrimes Act — input validation / no SSRF in adapters",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "TZ-03",
+    category: "compliance",
+    title: "Electronic Transactions Act — audit/immutability/identity",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "TZ-04",
+    category: "compliance",
+    title: "Public Health Act / MTUHA reporting",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "TZ-05",
+    category: "compliance",
+    title: "Pharmacy Act / TMDA controlled-substance dual control",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "TZ-06",
+    category: "compliance",
+    title: "NHIF claims adapter",
+    status: "EXTERNAL_BLOCKED",
+  },
+  {
+    id: "TZ-07",
+    category: "compliance",
+    title: "TRA/Tax Engine adapter",
+    status: "EXTERNAL_BLOCKED",
+  },
+  {
+    id: "TZ-08",
+    category: "compliance",
+    title: "ISO 27001/27799/27017/27018 control mapping",
+    status: "PARTIALLY_IMPLEMENTED",
+    notes:
+      "Engineering controls map partially; certification REQUIRES_HUMAN_APPROVAL",
+  },
 
   // NABH-aligned (engineering controls ONLY)
-  { id: "NABH-01", category: "nabh", title: "Patient rights (consent capture/withdrawal)", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-02", category: "nabh", title: "Patient assessment (encounter/vitals/observations)", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-03", category: "nabh", title: "Medication management (pharmacy dispense + controlled-substance gates)", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-04", category: "nabh", title: "Infection control", status: "MISSING" },
-  { id: "NABH-05", category: "nabh", title: "Laboratory QC/verification", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-06", category: "nabh", title: "Radiology safety/dose", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-07", category: "nabh", title: "Quality improvement / incident reporting", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-08", category: "nabh", title: "Patient safety (adverse events)", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "NABH-09", category: "nabh", title: "Emergency care", status: "MISSING" },
-  { id: "NABH-10", category: "nabh", title: "Clinical documentation", status: "PARTIALLY_IMPLEMENTED" },
+  {
+    id: "NABH-01",
+    category: "nabh",
+    title: "Patient rights (consent capture/withdrawal)",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-02",
+    category: "nabh",
+    title: "Patient assessment (encounter/vitals/observations)",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-03",
+    category: "nabh",
+    title:
+      "Medication management (pharmacy dispense + controlled-substance gates)",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-04",
+    category: "nabh",
+    title: "Infection control",
+    status: "MISSING",
+  },
+  {
+    id: "NABH-05",
+    category: "nabh",
+    title: "Laboratory QC/verification",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-06",
+    category: "nabh",
+    title: "Radiology safety/dose",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-07",
+    category: "nabh",
+    title: "Quality improvement / incident reporting",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-08",
+    category: "nabh",
+    title: "Patient safety (adverse events)",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "NABH-09",
+    category: "nabh",
+    title: "Emergency care",
+    status: "MISSING",
+  },
+  {
+    id: "NABH-10",
+    category: "nabh",
+    title: "Clinical documentation",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
 
   // AI
-  { id: "AI-01", category: "ai", title: "Noelia single-governed identity; HIVE fail-closed; no self-authorization", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["noelia.adapter.ts"] },
+  {
+    id: "AI-01",
+    category: "ai",
+    title:
+      "Noelia single-governed identity; HIVE fail-closed; no self-authorization",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["noelia.adapter.ts"],
+  },
 
   // Operations
-  { id: "OPS-01", category: "ops", title: "Fail-closed production boot validation (JWT/CORS/Redis/MFA/Database)", status: "IMPLEMENTED", evidenceFiles: ["main.ts", "production-boot.guard.ts"] },
-  { id: "OPS-02", category: "ops", title: "Deep readiness/liveness (DB/migrations/RLS/queue/rate-limit/adapters)", status: "IMPLEMENTED", evidenceFiles: ["health.service.ts"] },
-  { id: "OPS-03", category: "ops", title: "Queue engine (retry/DLQ/idempotency/graceful drain) with prod fail-closed", status: "PARTIALLY_IMPLEMENTED", evidenceFiles: ["queue.service.ts"], notes: "Memory backend; Bull/BullMQ + Redis EXTERNAL_BLOCKED" },
-  { id: "OPS-04", category: "ops", title: "Correlation/causation propagation through HTTP/audit/outbox/queues", status: "PARTIALLY_IMPLEMENTED" },
-  { id: "OPS-05", category: "ops", title: "Secret redaction in boot diagnostics and logs", status: "IMPLEMENTED", evidenceFiles: ["main.ts", "json-logger.ts"] },
+  {
+    id: "OPS-01",
+    category: "ops",
+    title:
+      "Fail-closed production boot validation (JWT/CORS/Redis/MFA/Database)",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["main.ts", "production-boot.guard.ts"],
+  },
+  {
+    id: "OPS-02",
+    category: "ops",
+    title:
+      "Deep readiness/liveness (DB/migrations/RLS/queue/rate-limit/adapters)",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["health.service.ts"],
+  },
+  {
+    id: "OPS-03",
+    category: "ops",
+    title:
+      "Queue engine (retry/DLQ/idempotency/graceful drain) with prod fail-closed",
+    status: "PARTIALLY_IMPLEMENTED",
+    evidenceFiles: ["queue.service.ts"],
+    notes: "Memory backend; Bull/BullMQ + Redis EXTERNAL_BLOCKED",
+  },
+  {
+    id: "OPS-04",
+    category: "ops",
+    title: "Correlation/causation propagation through HTTP/audit/outbox/queues",
+    status: "PARTIALLY_IMPLEMENTED",
+  },
+  {
+    id: "OPS-05",
+    category: "ops",
+    title: "Secret redaction in boot diagnostics and logs",
+    status: "IMPLEMENTED",
+    evidenceFiles: ["main.ts", "json-logger.ts"],
+  },
 ];
 
 describe("Compliance control matrix — machine-readable, honest status", () => {
   beforeAll(() => {
     const outDir = path.resolve(__dirname, "..", "..", "..", "..", "coverage");
     fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(path.join(outDir, "compliance-control-matrix.json"), JSON.stringify({
-      generated: new Date().toISOString(),
-      disclaimer: "Status reflects engineering controls present in code. Does NOT represent legal accreditation, NABH certification, ISO certification, or regulatory approval — all of which require human/authoritative verification.",
-      controls: CONTROLS,
-      summary: CONTROLS.reduce((acc: any, c) => {
-        acc[c.status] = (acc[c.status] ?? 0) + 1;
-        return acc;
-      }, {}),
-    }, null, 2));
+    fs.writeFileSync(
+      path.join(outDir, "compliance-control-matrix.json"),
+      JSON.stringify(
+        {
+          generated: new Date().toISOString(),
+          disclaimer:
+            "Status reflects engineering controls present in code. Does NOT represent legal accreditation, NABH certification, ISO certification, or regulatory approval — all of which require human/authoritative verification.",
+          controls: CONTROLS,
+          summary: CONTROLS.reduce((acc: any, c) => {
+            acc[c.status] = (acc[c.status] ?? 0) + 1;
+            return acc;
+          }, {}),
+        },
+        null,
+        2,
+      ),
+    );
   });
 
   it("registers at least 40 controls", () => {
@@ -115,7 +447,9 @@ describe("Compliance control matrix — machine-readable, honest status", () => 
   });
 
   it("no control is silently labelled IMPLEMENTED without evidence for security-critical items", () => {
-    const mustHaveEvidence = CONTROLS.filter((c) => c.category === "security" && c.status === "IMPLEMENTED");
+    const mustHaveEvidence = CONTROLS.filter(
+      (c) => c.category === "security" && c.status === "IMPLEMENTED",
+    );
     for (const c of mustHaveEvidence) {
       expect(c.evidenceFiles?.length ?? 0).toBeGreaterThan(0);
     }

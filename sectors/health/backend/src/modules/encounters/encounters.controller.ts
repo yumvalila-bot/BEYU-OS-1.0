@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { EncountersService } from "./encounters.service";
 import { StartEncounterDto } from "./dto/start-encounter.dto";
@@ -31,7 +39,9 @@ export class EncountersController {
 
   @Post()
   @RequirePermission("encounter:start")
-  @RequireHcmPractitioner("encounter.start", { scope: ["encounter:start", "clinical:write"] })
+  @RequireHcmPractitioner("encounter.start", {
+    scope: ["encounter:start", "clinical:write"],
+  })
   @RequiresClinicalSafety("general")
   @ApiOperation({ summary: "Start a clinical encounter" })
   start(@Body() dto: StartEncounterDto) {
@@ -40,7 +50,9 @@ export class EncountersController {
 
   @Post(":id/complete")
   @RequirePermission("encounter:complete")
-  @RequireHcmPractitioner("encounter.complete", { scope: ["encounter:complete", "clinical:write"] })
+  @RequireHcmPractitioner("encounter.complete", {
+    scope: ["encounter:complete", "clinical:write"],
+  })
   @RequiresClinicalSafety("general")
   @ApiOperation({ summary: "Complete an encounter with a disposition" })
   complete(@Param("id") id: string, @Body() dto: CompleteEncounterDto) {

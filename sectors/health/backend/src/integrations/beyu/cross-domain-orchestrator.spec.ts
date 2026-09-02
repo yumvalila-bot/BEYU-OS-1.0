@@ -32,7 +32,15 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
     const tax = new TaxAdapter(bed.conn, bed.tenantCtx, cb, cfg);
     const noelia = new NoeliaAdapter(bed.conn, bed.tenantCtx, cb, cfg);
     const env = new TransactionEnvelopeBuilder(bed.tenantCtx);
-    orch = new CrossDomainOrchestrator(gov, hcm, fin, tax, noelia, env, bed.tenantCtx);
+    orch = new CrossDomainOrchestrator(
+      gov,
+      hcm,
+      fin,
+      tax,
+      noelia,
+      env,
+      bed.tenantCtx,
+    );
   });
 
   it("high-risk clinical action is DENIED when HCM licence unverified (EXTERNAL-BLOCKED conservative)", async () => {
@@ -41,7 +49,10 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
         action: "pharmacy.dispense.controlled",
         resourceType: "pharmacy.dispense",
         riskLevel: "high",
-        execute: async () => ({ resourceId: "rx-1", amount: { value: "5000", currency: "TZS" } }),
+        execute: async () => ({
+          resourceId: "rx-1",
+          amount: { value: "5000", currency: "TZS" },
+        }),
       });
       expect(out.status).toBe("denied");
       expect(out.denialReason).toMatch(/HCM_/);
@@ -60,7 +71,9 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
         execute: async () => ({ resourceId: "pt-1" }),
       });
       // Either denied (blocked licence) or committed — assert we never fabricate.
-      expect(["denied", "blocked", "committed", "pending"]).toContain(out.status);
+      expect(["denied", "blocked", "committed", "pending"]).toContain(
+        out.status,
+      );
       if (out.status === "committed") {
         expect(out.financeStatus).toBeNull();
       }
@@ -75,7 +88,10 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
         action: "patient.register",
         resourceType: "patient",
         riskLevel: "low",
-        execute: async () => ({ resourceId: "pt-2", amount: { value: "1000", currency: "TZS" } }),
+        execute: async () => ({
+          resourceId: "pt-2",
+          amount: { value: "1000", currency: "TZS" },
+        }),
         financeEvent: { type: "charge" },
         taxCategory: null, // don't invoke tax
       });
@@ -113,7 +129,9 @@ describe("Cross-domain orchestrator (fail-closed EXTERNAL-BLOCKED)", () => {
         action: "patient.register",
         resourceType: "patient",
         riskLevel: "low",
-        execute: async () => { throw new Error("SIMULATED_FAILURE"); },
+        execute: async () => {
+          throw new Error("SIMULATED_FAILURE");
+        },
       });
       expect(out.status).toBe("denied");
       expect(out.denialReason).toMatch(/SIMULATED_FAILURE/);

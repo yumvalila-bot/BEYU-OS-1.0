@@ -14,7 +14,11 @@ import { TenantContext } from "../security/tenant-context";
 import { DomainError } from "../errors/domain.error";
 import { runInTx, currentTx } from "./base.repository";
 
-async function inTx<T>(db: DbConnection, tenantCtx: TenantContext, fn: (tx: DbConnection) => Promise<T>): Promise<T> {
+async function inTx<T>(
+  db: DbConnection,
+  tenantCtx: TenantContext,
+  fn: (tx: DbConnection) => Promise<T>,
+): Promise<T> {
   const ambient = currentTx();
   if (ambient) return fn(ambient);
   const a = tenantCtx.current();
@@ -39,7 +43,12 @@ export async function atomicWrite<T>(
   return inTx(db, tenantCtx, async (tx) => {
     const result = await work(tx);
     if (!result) throw DomainError.invalidState("Operation produced no result");
-    await audit.record(tx, { operation, resourceType, resourceId: getResourceId(result), after: result });
+    await audit.record(tx, {
+      operation,
+      resourceType,
+      resourceId: getResourceId(result),
+      after: result,
+    });
     return result;
   });
 }
@@ -59,10 +68,18 @@ export async function atomicTransition(
   return inTx(db, tenantCtx, async (tx) => {
     const cur = await find(id, tx);
     if (!cur) throw DomainError.notFound(resourceType, id);
-    if (!transitions[cur.status]?.has(to)) throw DomainError.invalidState(`Cannot transition ${resourceType} from ${cur.status} to ${to}`);
+    if (!transitions[cur.status]?.has(to))
+      throw DomainError.invalidState(
+        `Cannot transition ${resourceType} from ${cur.status} to ${to}`,
+      );
     const result = await update(id, to, tx);
     if (!result) throw DomainError.notFound(resourceType, id);
-    await audit.record(tx, { operation, resourceType, resourceId: id, metadata: { to, from: cur.status } });
+    await audit.record(tx, {
+      operation,
+      resourceType,
+      resourceId: id,
+      metadata: { to, from: cur.status },
+    });
     return result;
   });
 }

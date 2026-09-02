@@ -9,11 +9,17 @@
  */
 import { Injectable, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { DbConnection, DB_CONNECTION } from "../../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../../modules/identity/db-connection";
 import { TenantContext } from "../../../common/security/tenant-context";
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
 import { BeyuBaseAdapter } from "../adapters/beyu-base.adapter";
-import type { AiInvocationRequest, AiInvocationResponse } from "../contracts/shared.types";
+import type {
+  AiInvocationRequest,
+  AiInvocationResponse,
+} from "../contracts/shared.types";
 import { randomUUID } from "crypto";
 
 @Injectable()
@@ -33,7 +39,9 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
     tenantCtx: TenantContext,
     circuit: CircuitBreaker,
     cfg: ConfigService,
-  ) { super(db, tenantCtx, circuit, cfg); }
+  ) {
+    super(db, tenantCtx, circuit, cfg);
+  }
 
   /**
    * Invoke a governed AI capability. Fail-closed when HIVE is not configured;
@@ -50,18 +58,31 @@ export class NoeliaAdapter extends BeyuBaseAdapter {
         outputRef: null,
         riskClassification: req.riskLevel,
         humanReviewer: null,
-        approvalStatus: req.requiresHumanApproval || req.riskLevel === "critical" ? "pending" : "not_required",
+        approvalStatus:
+          req.requiresHumanApproval || req.riskLevel === "critical"
+            ? "pending"
+            : "not_required",
         blocked: true,
-        failureReason: "Noelia/HIVE EXTERNAL-BLOCKED: HIVE endpoint and token not configured; AI invocation blocked. No fabricated response.",
+        failureReason:
+          "Noelia/HIVE EXTERNAL-BLOCKED: HIVE endpoint and token not configured; AI invocation blocked. No fabricated response.",
       };
     }
-    return this.execute("invoke", req, async (): Promise<AiInvocationResponse> => {
-      throw new Error("Noelia/HIVE HTTP transport not implemented in this build.");
-    });
+    return this.execute(
+      "invoke",
+      req,
+      async (): Promise<AiInvocationResponse> => {
+        throw new Error(
+          "Noelia/HIVE HTTP transport not implemented in this build.",
+        );
+      },
+    );
   }
 
   /** Mark an AI output as human-approved (binds the reviewer globalUserId). */
-  async markHumanApproved(invocationId: string, reviewerGlobalUserId: string): Promise<void> {
+  async markHumanApproved(
+    invocationId: string,
+    reviewerGlobalUserId: string,
+  ): Promise<void> {
     await this.db.query(
       `INSERT INTO health.audit_events
           (tenant_id, actor_id, operation, resource_type, resource_id, metadata,

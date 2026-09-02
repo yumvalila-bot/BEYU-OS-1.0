@@ -42,9 +42,11 @@ export class TransactionInterceptor implements NestInterceptor {
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<any> {
     const req = ctx.switchToHttp().getRequest<Request>();
     const res = ctx.switchToHttp().getResponse<Response>();
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      ctx.getHandler(), ctx.getClass(),
-    ]) ?? false;
+    const isPublic =
+      this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+        ctx.getHandler(),
+        ctx.getClass(),
+      ]) ?? false;
     const method = req.method?.toUpperCase() ?? "GET";
 
     if (isPublic || SAFE_METHODS.has(method)) {
@@ -68,23 +70,41 @@ export class TransactionInterceptor implements NestInterceptor {
 
     return new Observable((subscriber) => {
       this.txCtx.run(envelope, () => {
-        next.handle().pipe(
-          tap((result: any) => {
-            // Capture resource id when returned by the handler.
-            if (result && typeof result === "object" && !envelope.resourceId) {
-              const id = result.id ?? result.resourceId ?? result.patient_id
-                ?? result.encounter_id ?? result.order_id ?? result.prescription_id
-                ?? result.dispense_id ?? result.note_id ?? result.report_id
-                ?? result.audit_id ?? result.appointment_id ?? result.invoice_id
-                ?? result.payment_id ?? result.session_id ?? result.exam_id;
-              if (id) envelope.resourceId = String(id);
-            }
-          }),
-        ).subscribe({
-          next: (v) => subscriber.next(v),
-          error: (e) => subscriber.error(e),
-          complete: () => subscriber.complete(),
-        });
+        next
+          .handle()
+          .pipe(
+            tap((result: any) => {
+              // Capture resource id when returned by the handler.
+              if (
+                result &&
+                typeof result === "object" &&
+                !envelope.resourceId
+              ) {
+                const id =
+                  result.id ??
+                  result.resourceId ??
+                  result.patient_id ??
+                  result.encounter_id ??
+                  result.order_id ??
+                  result.prescription_id ??
+                  result.dispense_id ??
+                  result.note_id ??
+                  result.report_id ??
+                  result.audit_id ??
+                  result.appointment_id ??
+                  result.invoice_id ??
+                  result.payment_id ??
+                  result.session_id ??
+                  result.exam_id;
+                if (id) envelope.resourceId = String(id);
+              }
+            }),
+          )
+          .subscribe({
+            next: (v) => subscriber.next(v),
+            error: (e) => subscriber.error(e),
+            complete: () => subscriber.complete(),
+          });
       });
     });
   }

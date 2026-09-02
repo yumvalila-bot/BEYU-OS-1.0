@@ -3,10 +3,10 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { GraphQLModule } from "@nestjs/graphql";
 import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
 import { CacheModule } from "@nestjs/cache-manager";
+import { BullModule } from "@nestjs/bull";
 import { APP_GUARD } from "@nestjs/core";
 import { TenantContextMiddleware } from "./common/security/tenant-context.middleware";
 import { AuthContextMiddleware } from "./common/security/auth-context.middleware";
-import { TenantContext } from "./common/security/tenant-context";
 import { PermissionsGuard } from "./common/security/permissions.guard";
 import { CsrfDoubleSubmitGuard } from "./common/security/csrf-double-submit.guard";
 import { JwtAuthGuard } from "./modules/auth/guards/jwt.guard";
@@ -59,7 +59,11 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig], expandVariables: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [databaseConfig],
+      expandVariables: true,
+    }),
     CommonSecurityModule,
     DbModule.forRoot(),
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
@@ -75,7 +79,7 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 100 }),
     ...(process.env.REDIS_HOST
       ? [
-          require("@nestjs/bull").BullModule.forRootAsync({
+          BullModule.forRootAsync({
             useFactory: (configService: ConfigService) => ({
               redis: {
                 host: configService.get("REDIS_HOST"),
@@ -135,7 +139,11 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(CorrelationIdMiddleware, TenantContextMiddleware, AuthContextMiddleware)
+      .apply(
+        CorrelationIdMiddleware,
+        TenantContextMiddleware,
+        AuthContextMiddleware,
+      )
       .forRoutes("*");
   }
 }

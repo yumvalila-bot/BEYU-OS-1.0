@@ -12,8 +12,20 @@ import { RequireHcmPractitioner } from "../../integrations/beyu/guards/hcm-autho
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TelehealthController {
   constructor(private readonly svc: TelehealthService) {}
-  @Post("sessions") @RequirePermission("appointment:book") @RequireHcmPractitioner("telehealth.session.create", { scope: ["telehealth:conduct"] })
-  create(@Body() d: any) { return this.svc.createSession(d); }
-  @Post("sessions/:id/transition") @RequirePermission("appointment:transition") @RequireHcmPractitioner("telehealth.session.transition", { scope: ["telehealth:conduct"] })
-  transition(@Param("id") id: string, @Body() d: any) { return this.svc.transition(id, d.to, d.patch || {}); }
+  @Post("sessions")
+  @RequirePermission("appointment:book")
+  @RequireHcmPractitioner("telehealth.session.create", {
+    scope: ["telehealth:conduct"],
+  })
+  create(@Body() d: any) {
+    return this.svc.createSession(d);
+  }
+  @Post("sessions/:id/transition")
+  @RequirePermission("appointment:transition")
+  @RequireHcmPractitioner("telehealth.session.transition", {
+    scope: ["telehealth:conduct"],
+  })
+  transition(@Param("id") id: string, @Body() d: any) {
+    return this.svc.transition(id, d.to, d.patch || {});
+  }
 }

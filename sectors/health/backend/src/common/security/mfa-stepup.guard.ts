@@ -7,7 +7,10 @@ import {
   SetMetadata,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { DbConnection, DB_CONNECTION } from "../../modules/identity/db-connection";
+import {
+  DbConnection,
+  DB_CONNECTION,
+} from "../../modules/identity/db-connection";
 import { timingSafeEqual } from "../crypto/crypto";
 
 /**
@@ -73,8 +76,13 @@ export class MfaStepUpGuard implements CanActivate {
     const row = rows[0];
     if (!row) throw new ForbiddenException("MFA_REQUIRED");
     if (!row.verified_at) throw new ForbiddenException("MFA_REQUIRED");
-    if (row.c_sv !== row.security_version) throw new ForbiddenException("MFA_STALE_SECURITY_VERSION");
-    if (sessionId && row.session_id && !timingSafeEqual(String(row.session_id), sessionId)) {
+    if (row.c_sv !== row.security_version)
+      throw new ForbiddenException("MFA_STALE_SECURITY_VERSION");
+    if (
+      sessionId &&
+      row.session_id &&
+      !timingSafeEqual(String(row.session_id), sessionId)
+    ) {
       throw new ForbiddenException("MFA_SESSION_CROSSOVER");
     }
     return true;

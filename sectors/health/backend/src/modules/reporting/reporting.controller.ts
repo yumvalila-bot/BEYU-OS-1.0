@@ -11,7 +11,10 @@ export class ReportingController {
 
   @Get("mtuha")
   @RequirePermission("report:read")
-  generate(@Query("period_start") start: string, @Query("period_end") end: string) {
+  generate(
+    @Query("period_start") start: string,
+    @Query("period_end") end: string,
+  ) {
     return this.svc.generatePeriodReport(start, end);
   }
 

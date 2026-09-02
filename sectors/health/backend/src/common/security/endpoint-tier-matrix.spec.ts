@@ -23,7 +23,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as glob from "glob";
-import { classifyEndpoint, EndpointClassification, RequiredControls } from "./endpoint-tier.classification";
+import {
+  classifyEndpoint,
+  EndpointClassification,
+  RequiredControls,
+} from "./endpoint-tier.classification";
 
 interface ParsedEndpoint {
   controller: string;
@@ -40,7 +44,8 @@ interface ParsedEndpoint {
 }
 
 const CTRL_DIR = path.resolve(__dirname, "..", "..", "modules");
-const CTRL_FILES = glob.sync(path.join(CTRL_DIR, "**", "*.controller.ts"))
+const CTRL_FILES = glob
+  .sync(path.join(CTRL_DIR, "**", "*.controller.ts"))
   .filter((f) => !f.endsWith(".spec.ts"));
 const OUT_DIR = path.resolve(__dirname, "..", "..", "..", "..", "coverage");
 
@@ -71,7 +76,10 @@ function parse(file: string): ParsedEndpoint[] {
   }
   for (let i = 0; i < verbs.length; i++) {
     const { v, s } = verbs[i];
-    const block = src.slice(starts[i], i + 1 < verbs.length ? starts[i + 1] : src.length);
+    const block = src.slice(
+      starts[i],
+      i + 1 < verbs.length ? starts[i + 1] : src.length,
+    );
     out.push({
       controller,
       file: path.relative(path.resolve(__dirname, "..", "..", ".."), file),
@@ -90,7 +98,10 @@ function parse(file: string): ParsedEndpoint[] {
 }
 
 function hasGuard(block: string, name: string): boolean {
-  return new RegExp(`@UseGuards\\s*\\([\\s\\S]*?\\b${name}\\b[\\s\\S]*?\\)`, "m").test(block);
+  return new RegExp(
+    `@UseGuards\\s*\\([\\s\\S]*?\\b${name}\\b[\\s\\S]*?\\)`,
+    "m",
+  ).test(block);
 }
 function extractPerms(block: string): string[] {
   const re = /@RequirePermission\(([^)]*)\)/gs;
@@ -119,38 +130,72 @@ interface Row extends ParsedEndpoint {
 
 function assess(p: ParsedEndpoint): Row {
   const cls = classifyEndpoint(
-    p.method, p.path, p.controller, p.perms, p.hasPublic,
-    p.hasGovernance, p.hasHcm, p.hasMfa, p.hasClinical,
+    p.method,
+    p.path,
+    p.controller,
+    p.perms,
+    p.hasPublic,
+    p.hasGovernance,
+    p.hasHcm,
+    p.hasMfa,
+    p.hasClinical,
   );
   const gaps: string[] = [];
   const r = cls.required;
 
-  if (r.public && !p.hasPublic) gaps.push("missing @Public() on PUBLIC-tier endpoint");
-  if (!r.public && p.hasPublic) gaps.push("unexpected @Public() on non-PUBLIC endpoint");
+  if (r.public && !p.hasPublic)
+    gaps.push("missing @Public() on PUBLIC-tier endpoint");
+  if (!r.public && p.hasPublic)
+    gaps.push("unexpected @Public() on non-PUBLIC endpoint");
 
   if (r.permission.length > 0) {
     for (const perm of r.permission) {
-      if (!p.perms.includes(perm)) gaps.push(`missing @RequirePermission("${perm}")`);
+      if (!p.perms.includes(perm))
+        gaps.push(`missing @RequirePermission("${perm}")`);
     }
-  } else if (!r.public && ["CLINICAL", "FINANCIAL", "ADMINISTRATIVE", "AI_HIGH_RISK", "EXTERNAL_INTEGRATION"].includes(cls.tier)) {
-    if (p.perms.length === 0) gaps.push(`no @RequirePermission on ${cls.tier} endpoint`);
+  } else if (
+    !r.public &&
+    [
+      "CLINICAL",
+      "FINANCIAL",
+      "ADMINISTRATIVE",
+      "AI_HIGH_RISK",
+      "EXTERNAL_INTEGRATION",
+    ].includes(cls.tier)
+  ) {
+    if (p.perms.length === 0)
+      gaps.push(`no @RequirePermission on ${cls.tier} endpoint`);
   }
 
-  if (r.governanceAuthorization && !p.hasGovernance && cls.tier !== "EXTERNAL_INTEGRATION") {
+  if (
+    r.governanceAuthorization &&
+    !p.hasGovernance &&
+    cls.tier !== "EXTERNAL_INTEGRATION"
+  ) {
     gaps.push("missing @RequiresGovernance");
   }
-  if (r.hcmAuthorization && !p.hasHcm) gaps.push("missing @RequireHcmPractitioner");
+  if (r.hcmAuthorization && !p.hasHcm)
+    gaps.push("missing @RequireHcmPractitioner");
   if (r.mfaStepUp && !p.hasMfa) gaps.push("missing @RequiresMfaStepUp");
-  if (r.clinicalSafetyGate && !p.hasClinical) gaps.push("missing @RequiresClinicalSafety");
+  if (r.clinicalSafetyGate && !p.hasClinical)
+    gaps.push("missing @RequiresClinicalSafety");
 
   const implementableGaps = gaps.filter((g) => !isExternalBlocker(g));
   const externalBlockers = gaps.filter(isExternalBlocker);
   const status: Row["status"] =
-    gaps.length === 0 ? "PASS"
-    : implementableGaps.length === 0 ? "EXTERNAL_BLOCKED"
-    : "GAP";
+    gaps.length === 0
+      ? "PASS"
+      : implementableGaps.length === 0
+        ? "EXTERNAL_BLOCKED"
+        : "GAP";
 
-  return { ...p, classification: cls, implementableGaps, externalBlockers, status };
+  return {
+    ...p,
+    classification: cls,
+    implementableGaps,
+    externalBlockers,
+    status,
+  };
 }
 
 describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
@@ -166,7 +211,8 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
     const byStatus: Record<string, number> = {};
     for (const r of rows) {
       byTier[r.classification.tier] = (byTier[r.classification.tier] ?? 0) + 1;
-      byOpClass[r.classification.opClass] = (byOpClass[r.classification.opClass] ?? 0) + 1;
+      byOpClass[r.classification.opClass] =
+        (byOpClass[r.classification.opClass] ?? 0) + 1;
       byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
     }
 
@@ -199,19 +245,29 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
     };
 
     // Legacy Phase 9 artifact.
-    fs.writeFileSync(path.join(OUT_DIR, "endpoint-security-matrix.json"), JSON.stringify({
-      generated: registry.generated,
-      schema: "phase9-security-tier-v1",
-      summary: registry.summary,
-      endpoints: registry.endpoints.map((e) => ({
-        ...e,
-        gaps: [...e.implementableGaps, ...e.externalBlockers],
-        status: e.status === "EXTERNAL_BLOCKED" ? "GAP" : e.status,
-      })),
-    }, null, 2));
+    fs.writeFileSync(
+      path.join(OUT_DIR, "endpoint-security-matrix.json"),
+      JSON.stringify(
+        {
+          generated: registry.generated,
+          schema: "phase9-security-tier-v1",
+          summary: registry.summary,
+          endpoints: registry.endpoints.map((e) => ({
+            ...e,
+            gaps: [...e.implementableGaps, ...e.externalBlockers],
+            status: e.status === "EXTERNAL_BLOCKED" ? "GAP" : e.status,
+          })),
+        },
+        null,
+        2,
+      ),
+    );
 
     // Canonical Phase 12 registry.
-    fs.writeFileSync(path.join(OUT_DIR, "endpoint-security-registry.json"), JSON.stringify(registry, null, 2));
+    fs.writeFileSync(
+      path.join(OUT_DIR, "endpoint-security-registry.json"),
+      JSON.stringify(registry, null, 2),
+    );
   });
 
   it("discovers endpoints across all controllers (>= 60)", () => {
@@ -219,32 +275,48 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
   });
 
   it("no PUBLIC endpoint is classified without explicit @Public() decorator", () => {
-    const bad = rows.filter((r) => r.classification.tier === "PUBLIC" && !r.hasPublic);
+    const bad = rows.filter(
+      (r) => r.classification.tier === "PUBLIC" && !r.hasPublic,
+    );
     expect(bad.map((r) => `${r.method} ${r.path}`)).toEqual([]);
   });
 
   it("every endpoint has a tier and opClass assigned", () => {
     for (const r of rows) {
       expect(r.classification.tier).toBeDefined();
-      expect(["READ", "WRITE", "DESTRUCTIVE"]).toContain(r.classification.opClass);
+      expect(["READ", "WRITE", "DESTRUCTIVE"]).toContain(
+        r.classification.opClass,
+      );
     }
   });
 
   it("CI-fail: every endpoint is PASS (zero implementable GAPs across all 95 routes)", () => {
     const implementableGaps = rows
       .filter((r) => r.status === "GAP")
-      .map((r) => `${r.classification.tier} ${r.method} ${r.path} — ${r.implementableGaps.join("; ")}`);
+      .map(
+        (r) =>
+          `${r.classification.tier} ${r.method} ${r.path} — ${r.implementableGaps.join("; ")}`,
+      );
     expect(implementableGaps).toEqual([]);
   });
 
   it("writes both endpoint-security-matrix.json and endpoint-security-registry.json", () => {
-    expect(fs.existsSync(path.join(OUT_DIR, "endpoint-security-matrix.json"))).toBe(true);
-    expect(fs.existsSync(path.join(OUT_DIR, "endpoint-security-registry.json"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(OUT_DIR, "endpoint-security-matrix.json")),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(OUT_DIR, "endpoint-security-registry.json")),
+    ).toBe(true);
   });
 });
 
 function summarize(r: RequiredControls) {
   return Object.fromEntries(
-    Object.entries(r).filter(([, v]) => v === true || (typeof v === "string" && v !== "default") || (Array.isArray(v) && v.length > 0)),
+    Object.entries(r).filter(
+      ([, v]) =>
+        v === true ||
+        (typeof v === "string" && v !== "default") ||
+        (Array.isArray(v) && v.length > 0),
+    ),
   );
 }

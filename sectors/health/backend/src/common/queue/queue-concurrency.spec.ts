@@ -14,13 +14,25 @@ function mkCfg(overrides: Record<string, string> = {}): any {
   return { get: (k: string, d?: any) => overrides[k] ?? d };
 }
 
-function job(action: string, idem: string, payload: Record<string, unknown> = {}): JobEnvelope {
+function job(
+  action: string,
+  idem: string,
+  payload: Record<string, unknown> = {},
+): JobEnvelope {
   return {
     idempotencyKey: idem,
-    correlationId: "c", causationId: null, requestId: "r",
+    correlationId: "c",
+    causationId: null,
+    requestId: "r",
     globalUserId: "00000000-0000-0000-0000-000000000001",
-    tenantId: "11111111-1111-1111-1111-111111111111", entityCode: null, countryCode: "TZ",
-    provider: "health-os", action, payload, maxAttempts: 3, backoffMs: 1,
+    tenantId: "11111111-1111-1111-1111-111111111111",
+    entityCode: null,
+    countryCode: "TZ",
+    provider: "health-os",
+    action,
+    payload,
+    maxAttempts: 3,
+    backoffMs: 1,
   };
 }
 
@@ -29,10 +41,14 @@ describe("Queue concurrency hardening", () => {
   beforeEach(() => {
     q = new QueueService(mkCfg({ NODE_ENV: "test", QUEUE_BACKEND: "memory" }));
   });
-  afterEach(async () => { await q.onModuleDestroy(); });
+  afterEach(async () => {
+    await q.onModuleDestroy();
+  });
 
   it("concurrent enqueues with same idempotency key return a single job id", async () => {
-    q.registerHandler("dedup", async () => { /* no-op */ });
+    q.registerHandler("dedup", async () => {
+      /* no-op */
+    });
     q.startWorkers(2);
     const idem = "idem-" + Date.now();
     const jobs = await Promise.all(
@@ -45,7 +61,10 @@ describe("Queue concurrency hardening", () => {
 
   it("poison messages route to DLQ after max attempts under retry storm", async () => {
     let attempts = 0;
-    q.registerHandler("poison", async () => { attempts += 1; throw new Error("POISON"); });
+    q.registerHandler("poison", async () => {
+      attempts += 1;
+      throw new Error("POISON");
+    });
     q.startWorkers(2);
     await q.enqueue(job("poison", "j1"));
     await sleep(500);
@@ -55,7 +74,10 @@ describe("Queue concurrency hardening", () => {
 
   it("onModuleDestroy drains in-flight jobs (graceful shutdown)", async () => {
     let finished = 0;
-    q.registerHandler("slow", async () => { await sleep(20); finished += 1; });
+    q.registerHandler("slow", async () => {
+      await sleep(20);
+      finished += 1;
+    });
     q.startWorkers(1);
     for (let i = 0; i < 2; i++) await q.enqueue(job("slow", "s" + i));
     await sleep(30); // let first job start
@@ -65,7 +87,9 @@ describe("Queue concurrency hardening", () => {
   });
 
   it("QUEUE_BACKEND=redis without REDIS_URL → backend=blocked; enqueue throws", () => {
-    const q2 = new QueueService(mkCfg({ NODE_ENV: "production", QUEUE_BACKEND: "redis" }));
+    const q2 = new QueueService(
+      mkCfg({ NODE_ENV: "production", QUEUE_BACKEND: "redis" }),
+    );
     expect(q2.backend).toBe("blocked");
     expect(() => q2.enqueue(job("x", "y"))).rejects.toThrow(/BLOCKED/);
   });

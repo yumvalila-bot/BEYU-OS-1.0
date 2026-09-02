@@ -20,7 +20,6 @@ import {
   CSRF_TOKEN_TTL_MS,
   issueCsrfToken,
   Public,
-  revokeCsrfTokensForSession,
 } from "../../common/security/csrf-double-submit.guard";
 import { Inject } from "@nestjs/common";
 import { DbConnection, DB_CONNECTION } from "../identity/db-connection";
@@ -67,7 +66,6 @@ export class AuthController {
   }
 
   @Post("refresh")
-  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Rotate refresh token (with reuse detection)" })
   async refresh(
@@ -84,7 +82,6 @@ export class AuthController {
   }
 
   @Post("restore")
-  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Restore a session from the refresh cookie" })
   async restore(@Req() req: Request) {
@@ -103,7 +100,6 @@ export class AuthController {
   }
 
   @Post("logout")
-  
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Logout (revoke the session and clear cookie)" })
   async logout(

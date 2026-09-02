@@ -1,7 +1,10 @@
 import { buildTestBed, TEST_ACTOR } from "../testing/test-bed";
 import { AuditService } from "../../modules/audit/audit.service";
 import { AiGovernanceService } from "../../modules/ai/ai-governance.service";
-import { AdapterRegistry, registerStubAdapters } from "../../modules/integrations/adapter-registry";
+import {
+  AdapterRegistry,
+  registerStubAdapters,
+} from "../../modules/integrations/adapter-registry";
 import { TenantContext } from "./tenant-context";
 import { requestStorage } from "../observability/correlation-id.middleware";
 
@@ -28,7 +31,14 @@ describe("Security adversarial suite (fail-closed)", () => {
   it("audit.record outside actor context throws (fail-closed)", async () => {
     await new Promise<void>((resolve, reject) =>
       requestStorage.run(
-        { correlationId: "sec", requestId: "sec", startedAt: Date.now(), method: "T", path: "/", ip: "127.0.0.1" },
+        {
+          correlationId: "sec",
+          requestId: "sec",
+          startedAt: Date.now(),
+          method: "T",
+          path: "/",
+          ip: "127.0.0.1",
+        },
         async () => {
           // Ensure NO actor is in ALS by running with a null store context via TenantContext.run with empty context.
           try {
@@ -55,7 +65,9 @@ describe("Security adversarial suite (fail-closed)", () => {
         metadata: { cid: "sec-audit-immutable" } as any,
       });
       await expect(
-        bed.conn.query(`DELETE FROM health.audit_log WHERE audit_id=$1::uuid`, [id]),
+        bed.conn.query(`DELETE FROM health.audit_log WHERE audit_id=$1::uuid`, [
+          id,
+        ]),
       ).rejects.toThrow(/AUDIT_IMMUTABLE/i);
     }));
 
@@ -68,7 +80,8 @@ describe("Security adversarial suite (fail-closed)", () => {
       });
       const rows: any = await bed.conn.query(
         `SELECT entry_hash, prev_hash, hash_version FROM health.audit_log WHERE audit_id=$1::uuid`,
-        [id]);
+        [id],
+      );
       const r = rows.rows?.[0] ?? rows[0];
       expect(r.entry_hash).toMatch(/^[a-f0-9]{64}$/);
       expect(r.hash_version).toBe(1);
@@ -82,17 +95,24 @@ describe("Security adversarial suite (fail-closed)", () => {
         resourceType: "security",
       });
       await expect(
-        bed.conn.query(`UPDATE health.audit_log SET entry_hash='00' WHERE audit_id=$1::uuid`, [id]),
+        bed.conn.query(
+          `UPDATE health.audit_log SET entry_hash='00' WHERE audit_id=$1::uuid`,
+          [id],
+        ),
       ).rejects.toThrow(/AUDIT_CHAIN_IMMUTABLE/i);
     }));
 
   it("AI self-approval is rejected (same reviewer as invoker)", () =>
     bed.run(async () => {
-      const inv = await ai.invoke({ taskType: "differential_diagnosis", input: { note: "test" } });
+      const inv = await ai.invoke({
+        taskType: "differential_diagnosis",
+        input: { note: "test" },
+      });
       expect(inv.blocked).toBe(true);
       const rows: any = await bed.conn.query(
         `SELECT invocation_id FROM health.ai_invocations WHERE correlation_id=$1`,
-        [(inv as any).correlationId]);
+        [(inv as any).correlationId],
+      );
       const rid = (rows.rows ?? rows)[0]?.invocation_id;
       if (rid) {
         await expect(
@@ -105,7 +125,16 @@ describe("Security adversarial suite (fail-closed)", () => {
     bed.run(async () => {
       const adapters = new AdapterRegistry();
       registerStubAdapters(adapters);
-      const providers: any[] = ["nhif", "tra", "tmda", "pacs", "hive", "mtuha_submission", "payment_gateway", "fhir_endpoint"];
+      const providers: any[] = [
+        "nhif",
+        "tra",
+        "tmda",
+        "pacs",
+        "hive",
+        "mtuha_submission",
+        "payment_gateway",
+        "fhir_endpoint",
+      ];
       for (const p of providers) {
         const a = adapters.get(p as any);
         expect(a).not.toBeNull();
@@ -121,15 +150,21 @@ describe("Security adversarial suite (fail-closed)", () => {
       await bed.conn.query(
         `INSERT INTO health.legal_holds (tenant_id, resource_type, resource_id, reason, ordered_by, created_by)
          VALUES ($1::uuid,'patient',$3::uuid,'legal hold test','test-ordered',$2::uuid)`,
-        [TEST_ACTOR.tenantId, TEST_ACTOR.userId, patientId]);
+        [TEST_ACTOR.tenantId, TEST_ACTOR.userId, patientId],
+      );
       // Ensure GUCs are still set for the UPDATE (PGlite loses them across implicit
       // statements if not reset; the bed.run context sets them per statement).
       await expect(
         bed.conn.transaction(async (tx: any) => {
-          await tx.query(`SELECT set_config('app.tenant_id',$1,true)`, [TEST_ACTOR.tenantId]);
+          await tx.query(`SELECT set_config('app.tenant_id',$1,true)`, [
+            TEST_ACTOR.tenantId,
+          ]);
           await tx.query(`SELECT set_config('app.country_code','TZ',true)`);
           await tx.query(`SELECT set_config('app.entity_code','HOSP1',true)`);
-          await tx.query(`UPDATE health.patients SET voided_at=now() WHERE patient_id=$1::uuid`, [patientId]);
+          await tx.query(
+            `UPDATE health.patients SET voided_at=now() WHERE patient_id=$1::uuid`,
+            [patientId],
+          );
         }),
       ).rejects.toThrow(/LEGAL_HOLD_ACTIVE/i);
     }));

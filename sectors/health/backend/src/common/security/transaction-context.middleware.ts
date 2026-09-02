@@ -26,7 +26,9 @@ export class TransactionContext {
   require(): TransactionEnvelope {
     const env = this.current();
     if (!env) {
-      throw new Error("NO_TRANSACTION_CONTEXT: governed operation must have a TransactionEnvelope bound");
+      throw new Error(
+        "NO_TRANSACTION_CONTEXT: governed operation must have a TransactionEnvelope bound",
+      );
     }
     return env;
   }

@@ -28,7 +28,10 @@ export interface ClinicalActionRequest {
   riskLevel: RiskLevel;
   requiredScope?: string[];
   facilityId?: string | null;
-  execute: () => Promise<{ resourceId: string; amount?: { value: string; currency: string } }>;
+  execute: () => Promise<{
+    resourceId: string;
+    amount?: { value: string; currency: string };
+  }>;
   financeEvent?: { type: "charge" | "invoice_request" | "claim" };
   taxCategory?: string | null;
   aiAssistance?: {
@@ -44,7 +47,12 @@ export interface ClinicalActionRequest {
 export interface ClinicalActionOutcome {
   status: "committed" | "blocked" | "pending" | "denied";
   envelopeId: string;
-  steps: Array<{ step: string; status: string; detail?: any; reason?: string | null }>;
+  steps: Array<{
+    step: string;
+    status: string;
+    detail?: any;
+    reason?: string | null;
+  }>;
   resourceId: string | null;
   financeStatus: string | null;
   taxStatus: string | null;
@@ -64,13 +72,18 @@ export class CrossDomainOrchestrator {
     private readonly tenantCtx: TenantContext,
   ) {}
 
-  async executeClinicalAction(req: ClinicalActionRequest): Promise<ClinicalActionOutcome> {
+  async executeClinicalAction(
+    req: ClinicalActionRequest,
+  ): Promise<ClinicalActionOutcome> {
     const steps: ClinicalActionOutcome["steps"] = [];
 
     // 1. Build envelope (fail-closed if no canonical actor).
     let envelope;
     try {
-      envelope = this.env.build({ action: req.action, resourceType: req.resourceType });
+      envelope = this.env.build({
+        action: req.action,
+        resourceType: req.resourceType,
+      });
       steps.push({ step: "envelope", status: "ok" });
     } catch (e: any) {
       return {
@@ -97,7 +110,11 @@ export class CrossDomainOrchestrator {
     });
     if (!hcmRes.authorized) {
       steps.push({ step: "hcm", status: "denied", reason: hcmRes.reason });
-      return { ...empty(envelope.causationId), steps, denialReason: hcmRes.reason ?? "HCM_DENIED" };
+      return {
+        ...empty(envelope.causationId),
+        steps,
+        denialReason: hcmRes.reason ?? "HCM_DENIED",
+      };
     }
     steps.push({ step: "hcm", status: "ok" });
 
@@ -111,26 +128,51 @@ export class CrossDomainOrchestrator {
       riskLevel: req.riskLevel,
     });
     if (gres.decision !== "APPROVE") {
-      steps.push({ step: "governance", status: "denied", reason: gres.reasonCode ?? "GOVERNANCE_DENIED", detail: gres });
-      return { ...empty(envelope.causationId), steps, denialReason: gres.reasonCode ?? "GOVERNANCE_DENIED" };
+      steps.push({
+        step: "governance",
+        status: "denied",
+        reason: gres.reasonCode ?? "GOVERNANCE_DENIED",
+        detail: gres,
+      });
+      return {
+        ...empty(envelope.causationId),
+        steps,
+        denialReason: gres.reasonCode ?? "GOVERNANCE_DENIED",
+      };
     }
-    steps.push({ step: "governance", status: "ok", detail: { decisionId: gres.decisionId, policyVersion: gres.policyVersion } });
+    steps.push({
+      step: "governance",
+      status: "ok",
+      detail: {
+        decisionId: gres.decisionId,
+        policyVersion: gres.policyVersion,
+      },
+    });
 
     // 4. Execute health transaction.
     let tx;
     try {
       tx = await req.execute();
-      steps.push({ step: "health-tx", status: "ok", detail: { resourceId: tx.resourceId } });
+      steps.push({
+        step: "health-tx",
+        status: "ok",
+        detail: { resourceId: tx.resourceId },
+      });
     } catch (e: any) {
       steps.push({ step: "health-tx", status: "denied", reason: e.message });
-      return { ...empty(envelope.causationId), steps, denialReason: `HEALTH_TX_FAILED: ${e.message}` };
+      return {
+        ...empty(envelope.causationId),
+        steps,
+        denialReason: `HEALTH_TX_FAILED: ${e.message}`,
+      };
     }
 
     // 5. Finance event.
     let financeStatus: string | null = null;
     if (req.financeEvent && tx.amount) {
       const fr = await this.fin.emitEvent({
-        actor, propagation: baseProp(`finance:${req.financeEvent.type}`),
+        actor,
+        propagation: baseProp(`finance:${req.financeEvent.type}`),
         eventType: req.financeEvent.type,
         healthResourceType: req.resourceType,
         healthResourceId: tx.resourceId,
@@ -138,14 +180,19 @@ export class CrossDomainOrchestrator {
         amount: tx.amount,
       });
       financeStatus = fr.status;
-      steps.push({ step: "finance", status: fr.status, detail: { reasonCode: fr.reasonCode } });
+      steps.push({
+        step: "finance",
+        status: fr.status,
+        detail: { reasonCode: fr.reasonCode },
+      });
     }
 
     // 6. Tax determination.
     let taxStatus: string | null = null;
     if (req.financeEvent && tx.amount && req.taxCategory !== null) {
       const tr = await this.tax.determine({
-        actor, propagation: baseProp("tax"),
+        actor,
+        propagation: baseProp("tax"),
         taxableEventType: req.financeEvent.type,
         jurisdiction: envelope.countryCode ?? "TZ",
         entityCode: envelope.entityCode,
@@ -155,26 +202,49 @@ export class CrossDomainOrchestrator {
         effectiveDate: envelope.timestamp,
       });
       taxStatus = tr.status;
-      steps.push({ step: "tax", status: tr.status, detail: { reasonCode: tr.reasonCode } });
+      steps.push({
+        step: "tax",
+        status: tr.status,
+        detail: { reasonCode: tr.reasonCode },
+      });
     }
 
     // 7. AI assistance.
     let aiStatus: string | null = null;
     if (req.aiAssistance) {
       const air = await this.noelia.invoke({
-        actor, propagation: baseProp("ai"),
+        actor,
+        propagation: baseProp("ai"),
         capability: req.aiAssistance.capability,
         inputRef: `health://${req.resourceType}/${tx.resourceId}`,
         riskLevel: req.riskLevel,
       });
-      aiStatus = air.blocked ? "blocked" : (air.approvalStatus === "pending" ? "pending" : "ok");
-      steps.push({ step: "ai", status: aiStatus, detail: { outputClass: air.outputClass, failureReason: air.failureReason } });
+      aiStatus = air.blocked
+        ? "blocked"
+        : air.approvalStatus === "pending"
+          ? "pending"
+          : "ok";
+      steps.push({
+        step: "ai",
+        status: aiStatus,
+        detail: {
+          outputClass: air.outputClass,
+          failureReason: air.failureReason,
+        },
+      });
     }
 
-    const committed = (!req.financeEvent || financeStatus === "accepted")
-      && (req.taxCategory === null || req.taxCategory === undefined || taxStatus === "determined");
+    const committed =
+      (!req.financeEvent || financeStatus === "accepted") &&
+      (req.taxCategory === null ||
+        req.taxCategory === undefined ||
+        taxStatus === "determined");
     return {
-      status: committed ? "committed" : (financeStatus === "blocked" || taxStatus === "blocked" ? "blocked" : "pending"),
+      status: committed
+        ? "committed"
+        : financeStatus === "blocked" || taxStatus === "blocked"
+          ? "blocked"
+          : "pending",
       envelopeId: envelope.causationId,
       steps,
       resourceId: tx.resourceId,
@@ -185,7 +255,9 @@ export class CrossDomainOrchestrator {
     };
   }
 
-  private buildActor(envelope: ReturnType<TransactionEnvelopeBuilder["build"]>): CanonicalActorContext {
+  private buildActor(
+    envelope: ReturnType<TransactionEnvelopeBuilder["build"]>,
+  ): CanonicalActorContext {
     const cur = this.tenantCtx.current();
     return {
       globalUserId: envelope.globalUserId,

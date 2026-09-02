@@ -32,18 +32,31 @@ export function validateProductionBoot(cfg: ConfigService): BootCheckResult {
   requireEnv("JWT_AUDIENCE");
   requireEnv("DATABASE_URL");
   // Production cookie security
-  if (cfg.get<string>("COOKIE_SECURE") === "false") failures.push("COOKIE_SECURE must be true in production");
+  if (cfg.get<string>("COOKIE_SECURE") === "false")
+    failures.push("COOKIE_SECURE must be true in production");
   // CORS wildcard is forbidden in production (wildcard with credentials doesn't work anyway, but enforce).
   const corsOrigin = cfg.get<string>("CORS_ORIGIN");
-  if (!corsOrigin || corsOrigin === "*") failures.push("CORS_ORIGIN must be set to explicit allow-list in production");
+  if (!corsOrigin || corsOrigin === "*")
+    failures.push(
+      "CORS_ORIGIN must be set to explicit allow-list in production",
+    );
   // Queues/rate limiting: if QUEUE_BACKEND=redis or RATE_LIMIT_BACKEND=redis, require REDIS_URL.
-  if (cfg.get<string>("QUEUE_BACKEND") === "redis" && !cfg.get<string>("REDIS_URL")) {
+  if (
+    cfg.get<string>("QUEUE_BACKEND") === "redis" &&
+    !cfg.get<string>("REDIS_URL")
+  ) {
     failures.push("QUEUE_BACKEND=redis requires REDIS_URL");
   }
-  if (cfg.get<string>("RATE_LIMIT_BACKEND") === "redis" && !cfg.get<string>("REDIS_URL")) {
+  if (
+    cfg.get<string>("RATE_LIMIT_BACKEND") === "redis" &&
+    !cfg.get<string>("REDIS_URL")
+  ) {
     failures.push("RATE_LIMIT_BACKEND=redis requires REDIS_URL");
   }
-  if (cfg.get<string>("MFA_ENCRYPTION_KEY") && cfg.get<string>("MFA_ENCRYPTION_KEY")!.length < 32) {
+  if (
+    cfg.get<string>("MFA_ENCRYPTION_KEY") &&
+    cfg.get<string>("MFA_ENCRYPTION_KEY")!.length < 32
+  ) {
     failures.push("MFA_ENCRYPTION_KEY must be at least 32 bytes");
   }
   if (failures.length) {

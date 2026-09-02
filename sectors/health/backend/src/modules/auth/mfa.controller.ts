@@ -28,7 +28,10 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("enroll/totp")
-  async enrollTotp(@Req() req: any, @Body() body: { label?: string; issuer?: string }) {
+  async enrollTotp(
+    @Req() req: any,
+    @Body() body: { label?: string; issuer?: string },
+  ) {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
     return this.mfa.enrollTotp({
@@ -42,7 +45,10 @@ export class MfaController {
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("activate")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async activate(@Req() req: any, @Body() body: { challengeId: string; otp: string }) {
+  async activate(
+    @Req() req: any,
+    @Body() body: { challengeId: string; otp: string },
+  ) {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
     await this.mfa.activateTotp({
@@ -55,7 +61,10 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("challenge")
-  async challenge(@Req() req: any, @Body() body: { type: "verify" | "step_up"; userAgent?: string }) {
+  async challenge(
+    @Req() req: any,
+    @Body() body: { type: "verify" | "step_up"; userAgent?: string },
+  ) {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
     return this.mfa.createChallenge({
@@ -69,7 +78,10 @@ export class MfaController {
 
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)
   @Post("verify")
-  async verify(@Req() req: any, @Body() body: { challengeId: string; otp: string }) {
+  async verify(
+    @Req() req: any,
+    @Body() body: { challengeId: string; otp: string },
+  ) {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
     return this.mfa.verify({

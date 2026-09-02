@@ -9,13 +9,20 @@
  */
 
 export type MtuhaDomain =
-  | "opd" | "ipd" | "laboratory" | "imaging" | "pharmacy"
-  | "ambulance" | "public_health" | "mortality" | "maternal_perinatal"
+  | "opd"
+  | "ipd"
+  | "laboratory"
+  | "imaging"
+  | "pharmacy"
+  | "ambulance"
+  | "public_health"
+  | "mortality"
+  | "maternal_perinatal"
   | "disease_surveillance";
 
 export interface MtuhaPeriod {
   startInclusive: string; // ISO date
-  endExclusive: string;   // ISO date
+  endExclusive: string; // ISO date
 }
 
 export interface MtuhaAggregate {
@@ -44,26 +51,49 @@ export interface MtuhaReport {
 }
 
 export class MtuhaMappingRegistry {
-  private mappings: Record<MtuhaDomain, Array<{ internalMetric: string; nationalCode: string | null; description: string }>> = {
-    opd: [], ipd: [], laboratory: [], imaging: [], pharmacy: [],
-    ambulance: [], public_health: [], mortality: [], maternal_perinatal: [],
+  private mappings: Record<
+    MtuhaDomain,
+    Array<{
+      internalMetric: string;
+      nationalCode: string | null;
+      description: string;
+    }>
+  > = {
+    opd: [],
+    ipd: [],
+    laboratory: [],
+    imaging: [],
+    pharmacy: [],
+    ambulance: [],
+    public_health: [],
+    mortality: [],
+    maternal_perinatal: [],
     disease_surveillance: [],
   };
 
-  registerMapping(domain: MtuhaDomain, internalMetric: string, nationalCode: string | null, description: string): void {
+  registerMapping(
+    domain: MtuhaDomain,
+    internalMetric: string,
+    nationalCode: string | null,
+    description: string,
+  ): void {
     this.mappings[domain].push({ internalMetric, nationalCode, description });
   }
 
   /** Returns codes mapped for a metric or null if the mapping is missing. */
   codeFor(domain: MtuhaDomain, internalMetric: string): string | null {
-    return this.mappings[domain].find((m) => m.internalMetric === internalMetric)?.nationalCode ?? null;
+    return (
+      this.mappings[domain].find((m) => m.internalMetric === internalMetric)
+        ?.nationalCode ?? null
+    );
   }
 
   missing(): Array<{ domain: MtuhaDomain; internalMetric: string }> {
     const out: Array<{ domain: MtuhaDomain; internalMetric: string }> = [];
     for (const d of Object.keys(this.mappings) as MtuhaDomain[]) {
       for (const m of this.mappings[d]) {
-        if (!m.nationalCode) out.push({ domain: d, internalMetric: m.internalMetric });
+        if (!m.nationalCode)
+          out.push({ domain: d, internalMetric: m.internalMetric });
       }
     }
     return out;
@@ -106,7 +136,12 @@ export async function buildMtuhaReport(
       sourceRecordIds: [], // detailed record IDs could be fetched for audit; aggregate count sufficient
     });
   } catch {
-    aggregates.push({ domain: "opd", metric: "opd_encounters_total", value: 0, sourceRecordIds: [] });
+    aggregates.push({
+      domain: "opd",
+      metric: "opd_encounters_total",
+      value: 0,
+      sourceRecordIds: [],
+    });
   }
 
   // Pharmacy dispenses.
@@ -116,20 +151,31 @@ export async function buildMtuhaReport(
         WHERE tenant_id=$1::uuid AND dispensed_at >= $2 AND dispensed_at < $3`,
       [tenantId, period.startInclusive, period.endExclusive],
     );
-    aggregates.push({ domain: "pharmacy", metric: "pharmacy_dispenses_total", value: Number(ph[0]?.n ?? 0), sourceRecordIds: [] });
+    aggregates.push({
+      domain: "pharmacy",
+      metric: "pharmacy_dispenses_total",
+      value: Number(ph[0]?.n ?? 0),
+      sourceRecordIds: [],
+    });
   } catch {
-    aggregates.push({ domain: "pharmacy", metric: "pharmacy_dispenses_total", value: 0, sourceRecordIds: [] });
+    aggregates.push({
+      domain: "pharmacy",
+      metric: "pharmacy_dispenses_total",
+      value: 0,
+      sourceRecordIds: [],
+    });
   }
 
   const missing = mappings.missing();
-  const anyMetricRegistered = Object.values(mappings["mappings" as never] ?? (mappings as any).mappings)
-    ? (Object.values((mappings as any).mappings).some((arr: any) => (arr ?? []).length > 0))
-    : false;
-  const totalRegistrations =
-    Object.values((mappings as any).mappings).reduce((acc: number, arr: any) => acc + ((arr as any[])?.length ?? 0), 0);
-  const mappingStatus: "complete" | "incomplete" = totalRegistrations > 0 && missing.length === 0 ? "complete" : "incomplete";
+  const totalRegistrations = Object.values((mappings as any).mappings).reduce(
+    (acc: number, arr: any) => acc + ((arr as any[])?.length ?? 0),
+    0,
+  );
+  const mappingStatus: "complete" | "incomplete" =
+    totalRegistrations > 0 && missing.length === 0 ? "complete" : "incomplete";
   // If no metrics are registered at all, treat as INCOMPLETE (engine cannot emit codes).
-  const submissionStatus: MtuhaReport["submissionStatus"] = mappingStatus === "complete" ? "READY" : "BLOCKED";
+  const submissionStatus: MtuhaReport["submissionStatus"] =
+    mappingStatus === "complete" ? "READY" : "BLOCKED";
 
   // Persist an audit record for this run.
   let auditRecordId: string | null = null;
@@ -138,10 +184,16 @@ export async function buildMtuhaReport(
       `INSERT INTO health.audit_log (tenant_id, actor_type, actor_id, action, resource_type, metadata)
         VALUES ($1::uuid, 'user', $2, 'mtuha.report.generate', 'mtuha_report', $3::jsonb)
         RETURNING id`,
-      [tenantId, actorGlobalUserId, JSON.stringify({ period, mappingStatus, submissionStatus })],
+      [
+        tenantId,
+        actorGlobalUserId,
+        JSON.stringify({ period, mappingStatus, submissionStatus }),
+      ],
     );
     auditRecordId = r[0]?.id ?? null;
-  } catch { /* audit best-effort */ }
+  } catch {
+    /* audit best-effort */
+  }
 
   return {
     reportId: `mtuha-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -156,7 +208,8 @@ export async function buildMtuhaReport(
     mappingStatus,
     missingMappings: missing.map((m) => `${m.domain}:${m.internalMetric}`),
     submissionStatus,
-    submissionBlockedReason: mappingStatus === "incomplete" ? "MTUHA_MAPPINGS_INCOMPLETE" : undefined,
+    submissionBlockedReason:
+      mappingStatus === "incomplete" ? "MTUHA_MAPPINGS_INCOMPLETE" : undefined,
     auditRecordId,
   };
 }
