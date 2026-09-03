@@ -337,6 +337,95 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     expect(second).toHaveLength(0);
   });
 
+  it("multi-tenant map: a row is delivered under ITS tenant's code, not the configured default", async () => {
+    stub.mode = "accept";
+    await bed.run(async () => {
+      await outbox.publish(event("mapped-code-1"));
+    });
+    const ownCode = "BEYU-HEALTH-ALT";
+    const dispatcher = makeDispatcher(bed, stub, {
+      BEYU_EVENTS_TENANT_CODES: `${TEST_ACTOR.tenantId}:${ownCode}`,
+      BEYU_EVENTS_TENANT_CODE: "BEYU-DEFAULT-CODE",
+    });
+    const summary = await dispatcher.dispatchDueBatch();
+    expect(summary.delivered).toBeGreaterThanOrEqual(1);
+    const hit = stub.received.find(
+      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "mapped-code-1",
+    );
+    expect(hit).toBeDefined();
+    expect((hit!.body as { tenantCode?: string }).tenantCode).toBe(ownCode);
+  });
+
+  it("multi-tenant map: an UNMAPPED tenant dead-letters (permanent) — never delivered under another tenant's code", async () => {
+    stub.mode = "accept";
+    const foreignTenant = "11111111-2222-3333-4444-555555555555";
+    // Write a row owned by a tenant that has NO mapping in the configured map.
+    await bed.tenantCtx.run(
+      {
+        ...TEST_ACTOR,
+        tenantId: foreignTenant,
+      } as never,
+      async () => {
+        await outbox.publish(event("unmapped-tenant-1"));
+      },
+    );
+    const dispatcher = makeDispatcher(bed, stub, {
+      BEYU_EVENTS_TENANT_CODES: `${TEST_ACTOR.tenantId}:BEYU-HEALTH-ALT`,
+    });
+    const summary = await dispatcher.dispatchDueBatch();
+    expect(summary.deadLettered).toBeGreaterThanOrEqual(1);
+    const hit = stub.received.find(
+      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "unmapped-tenant-1",
+    );
+    expect(hit).toBeUndefined();
+    const row = await bed.tenantCtx.run(
+      {
+        ...TEST_ACTOR,
+        tenantId: foreignTenant,
+      } as never,
+      async () => outbox.row("unmapped-tenant-1"),
+    );
+    expect((row as { status: string }).status).toBe("dead_letter");
+    expect(String((row as { last_error: string }).last_error)).toContain("TENANT_CODE_UNMAPPED");
+  });
+
+  it("multi-tenant map: a NULL-tenant row dead-letters rather than assuming a code", async () => {
+    stub.mode = "accept";
+    await bed.conn.query(
+      `INSERT INTO health.beyu_outbox
+         (idempotency_key, provider, action, actor_global_user_id, tenant_id, request_payload, status, correlation_id)
+       VALUES ('null-tenant-map-1', 'beyu.events', 'event.publish', NULL, NULL, $1::jsonb, 'pending', 'corr-n')`,
+      [
+        JSON.stringify({
+          sectorEventId: "SEC-null-tenant-map-1",
+          eventType: "health.system.maintenance",
+          eventVersion: "1",
+          schemaVersion: "1",
+          domain: "system",
+          operation: "maintenance.event",
+          destinationDomain: null,
+          subjectType: "system",
+          subjectId: "platform",
+          actorGlobalUserId: null,
+          classification: "INTERNAL",
+          correlationId: "corr-n",
+          causationId: null,
+          occurredAt: new Date().toISOString(),
+          payload: {},
+        }),
+      ],
+    );
+    const dispatcher = makeDispatcher(bed, stub, {
+      BEYU_EVENTS_TENANT_CODES: `${TEST_ACTOR.tenantId}:BEYU-HEALTH-ALT`,
+    });
+    const summary = await dispatcher.dispatchDueBatch();
+    expect(summary.deadLettered).toBeGreaterThanOrEqual(1);
+    const hit = stub.received.find(
+      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "null-tenant-map-1",
+    );
+    expect(hit).toBeUndefined();
+  });
+
   it("delivers both tenant rows and service (NULL-tenant) rows", async () => {
     stub.mode = "accept";
     await bed.run(async () => {

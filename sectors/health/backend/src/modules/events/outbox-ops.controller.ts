@@ -94,6 +94,11 @@ export class OutboxOpsController {
     if (!actor.permissions?.includes("outbox:replay")) {
       throw new UnauthorizedException("OUTBOX_REPLAY_FORBIDDEN");
     }
+    // The audit chain is tenant-scoped: operator actions require a
+    // tenant-scoped operator. Fail closed on tenant-less principals.
+    if (!actor.tenantId) {
+      throw new UnauthorizedException("OPERATOR_TENANT_REQUIRED");
+    }
     return this.ops.replay({
       idempotencyKeys: body?.idempotencyKeys,
       all: body?.all === true,
@@ -133,6 +138,16 @@ export class OutboxOpsController {
     if (repair && !actor.permissions?.includes("outbox:replay")) {
       throw new UnauthorizedException("OUTBOX_REPAIR_FORBIDDEN");
     }
-    return this.ops.reconcile({ repair, limit: body?.limit });
+    // Tenant-scoped operator required (audit chain is tenant-scoped).
+    if (!actor.tenantId) {
+      throw new UnauthorizedException("OPERATOR_TENANT_REQUIRED");
+    }
+    return this.ops.reconcile({
+      repair,
+      limit: body?.limit,
+      // Tenant-scoped admins reconcile only their own tenant; global
+      // operators (trustee, tenantId null) reconcile across tenants.
+      operator: { userId: actor.userId, tenantId: actor.tenantId },
+    });
   }
 }

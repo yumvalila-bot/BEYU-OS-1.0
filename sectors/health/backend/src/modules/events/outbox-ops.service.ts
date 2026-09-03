@@ -111,13 +111,23 @@ export class OutboxOpsService {
     if (!args.reason || args.reason.trim().length < 3) {
       throw new Error("REPLAY_REASON_REQUIRED");
     }
+    // The tamper-evident health audit chain is TENANT-scoped: an operator
+    // action can only be audited (and therefore only performed) by a
+    // tenant-scoped operator. Cross-tenant operator actions are not a
+    // supported capability — fail closed.
+    if (!args.operator.tenantId) {
+      throw new Error("OPERATOR_TENANT_REQUIRED");
+    }
     const keys = args.idempotencyKeys ?? [];
     if (!args.all && keys.length === 0) {
       throw new Error("REPLAY_TARGETS_REQUIRED");
     }
 
     // Select candidates: undeliverable states only. Delivered rows are refused.
-    const rows = await this.selectRows(keys, args.all === true);
+    // Tenant-scoped operators (a tenant admin) may only requeue their OWN
+    // tenant's rows; only global operators (trustee/service, tenantId null)
+    // may act across tenants.
+    const rows = await this.selectRows(keys, args.all === true, args.operator.tenantId);
     const result: ReplayResult = {
       requested: rows.length,
       requeued: [],
@@ -140,14 +150,16 @@ export class OutboxOpsService {
         });
         continue;
       }
+      let requeuedRow = false;
       await this.runAs(row, async () => {
-        await this.db.query(
+        const updated = await this.db.query<{ id: string }>(
           `UPDATE health.beyu_outbox SET
              status = 'pending',
              attempt_count = 0,
              next_attempt_at = NULL,
              attempt_log = attempt_log || $3::jsonb
-           WHERE id = $1::uuid AND status = $2`,
+           WHERE id = $1::uuid AND status = $2
+           RETURNING id`,
           [
             row.id,
             row.status,
@@ -162,15 +174,26 @@ export class OutboxOpsService {
             ]),
           ],
         );
+        // A concurrent transition may have changed the status between select
+        // and update — only report what actually requeued.
+        requeuedRow = updated.length > 0;
       });
-      result.requeued.push({
-        idempotencyKey: row.idempotency_key,
-        previousStatus: row.status,
-      });
+      if (requeuedRow) {
+        result.requeued.push({
+          idempotencyKey: row.idempotency_key,
+          previousStatus: row.status,
+        });
+      } else {
+        result.refused.push({
+          idempotencyKey: row.idempotency_key,
+          reason: "CONCURRENT_STATE_CHANGE",
+        });
+      }
     }
 
-    // Audit the operator action (tamper-evident chain) under the operator's
-    // own context when available, else the first row's tenant.
+    // Audit the operator action (tamper-evident chain) under the OPERATOR's
+    // own tenant context — a global operator (trustee, tenantId null) audits
+    // under the global scope, never under an arbitrary row's tenant.
     await this.auditOperatorAction(
       "beyu.outbox.replay",
       {
@@ -178,7 +201,7 @@ export class OutboxOpsService {
         refused: result.refused,
         reason: args.reason,
       },
-      rows[0]?.tenant_id ?? args.operator.tenantId ?? null,
+      args.operator.tenantId,
     );
 
     // Immediate delivery pass (idempotency makes any racing delivery safe).
@@ -193,6 +216,8 @@ export class OutboxOpsService {
   async reconcile(args: {
     repair: boolean;
     limit?: number;
+    /** Operator context — a tenant-scoped operator reconciles only their own tenant. */
+    operator?: { userId: string; tenantId: string | null };
   }): Promise<ReconcileReport> {
     const report: ReconcileReport = {
       checked: 0,
@@ -203,14 +228,22 @@ export class OutboxOpsService {
       undelivered: [],
       unknown: [],
     };
+    // Reconciliation may only be run by a tenant-scoped operator (the audit
+    // chain is tenant-scoped) — fail closed when an operator context is
+    // provided without a tenant.
+    if (args.operator && !args.operator.tenantId) {
+      throw new Error("OPERATOR_TENANT_REQUIRED");
+    }
     const limit = Math.min(Math.max(args.limit ?? 500, 1), 5000);
+    const tenantFilter =
+      args.operator?.tenantId != null ? `AND tenant_id = $2::uuid` : "";
     const rows = (await this.db.query<OutboxStateRow>(
       `SELECT id, idempotency_key, tenant_id, status, attempt_count, request_payload, correlation_id
          FROM health.beyu_outbox
-        WHERE provider = 'beyu.events'
+        WHERE provider = 'beyu.events' ${tenantFilter}
         ORDER BY created_at DESC
         LIMIT $1`,
-      [limit],
+      args.operator?.tenantId != null ? [limit, args.operator.tenantId] : [limit],
     )) as OutboxStateRow[];
 
     for (const row of rows) {
@@ -254,8 +287,14 @@ export class OutboxOpsService {
       } else if (args.repair) {
         // Accepted by BEYU but the outbox never recorded it (crash between
         // acceptance and state write, or delivery without receipt capture).
-        await this.repairToDelivered(row, status.eventId);
-        report.repaired.push(row.idempotency_key);
+        const repairedNow = await this.repairToDelivered(row, status.eventId);
+        if (repairedNow) {
+          report.repaired.push(row.idempotency_key);
+        } else {
+          // A concurrent dispatcher delivery won the race — the row is
+          // delivered AND accepted: consistent, original response preserved.
+          report.consistent.push(row.idempotency_key);
+        }
       } else {
         report.acceptedNotRecorded.push({
           idempotencyKey: row.idempotency_key,
@@ -277,7 +316,10 @@ export class OutboxOpsService {
         unknown: report.unknown.length,
         repair: args.repair,
       },
-      rows[0]?.tenant_id ?? null,
+      // Operator context when provided (tenant-scoped → own tenant, enforced
+      // by the OPERATOR_TENANT_REQUIRED guard). Legacy direct calls keep the
+      // prior behavior.
+      args.operator ? args.operator.tenantId : (rows[0]?.tenant_id ?? null),
     );
     if (report.deliveredWithoutAcceptance.length > 0) {
       this.logger.error(
@@ -295,10 +337,10 @@ export class OutboxOpsService {
     const secret = this.cfg.get<string>("BEYU_EVENTS_TOKEN");
     if (!endpoint || !secret)
       throw new Error("BEYU_EVENTS_ENDPOINT/BEYU_EVENTS_TOKEN not configured");
-    const tenantCode =
-      this.cfg.get<string>("BEYU_EVENTS_TENANT_CODE") ??
-      this.cfg.get<string>("BEYU_IDENTITY_TENANT_CODE") ??
-      "BEYU-HEALTH";
+    // Per-row canonical tenant code (multi-tenant fail-closed resolution —
+    // see OutboxDispatcherService.tenantCodeFor). An unmapped tenant throws,
+    // which reconciliation reports as UNKNOWN (never guessed, never repaired).
+    const tenantCode = this.dispatcher.tenantCodeFor(row.tenant_id as string | null);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
@@ -333,13 +375,19 @@ export class OutboxOpsService {
     }
   }
 
-  /** Repair an accepted-but-not-recorded row to delivered (audited). */
+  /**
+   * Repair an accepted-but-not-recorded row to delivered (audited). Never
+   * overwrites a row a concurrent delivery already marked delivered (that
+   * would clobber the original response payload). Returns true when this
+   * call performed the repair.
+   */
   private async repairToDelivered(
     row: OutboxStateRow,
     eventId: string | null,
-  ): Promise<void> {
-    await this.runAs(row, () =>
-      this.db.query(
+  ): Promise<boolean> {
+    let repaired = false;
+    await this.runAs(row, async () => {
+      const updated = await this.db.query<{ id: string }>(
         `UPDATE health.beyu_outbox SET
            status = 'delivered',
            delivered_at = now(),
@@ -347,7 +395,8 @@ export class OutboxOpsService {
            last_error = NULL,
            response_payload = $2::jsonb,
            attempt_log = attempt_log || $3::jsonb
-         WHERE id = $1::uuid`,
+         WHERE id = $1::uuid AND status <> 'delivered'
+         RETURNING id`,
         [
           row.id,
           JSON.stringify({
@@ -364,8 +413,10 @@ export class OutboxOpsService {
             },
           ]),
         ],
-      ),
-    );
+      );
+      repaired = updated.length > 0;
+    });
+    return repaired;
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -373,21 +424,27 @@ export class OutboxOpsService {
   private async selectRows(
     keys: string[],
     all: boolean,
+    operatorTenantId: string | null,
   ): Promise<OutboxStateRow[]> {
+    // Tenant-scoped operators see only their own tenant's rows; global
+    // operators (trustee/service, tenantId null) see all.
+    const tenantFilter =
+      operatorTenantId != null ? `AND tenant_id = $${all ? 1 : 2}::uuid` : "";
     if (all) {
       return (await this.db.query<OutboxStateRow>(
         `SELECT id, idempotency_key, tenant_id, status, attempt_count, request_payload, correlation_id
            FROM health.beyu_outbox
-          WHERE provider = 'beyu.events' AND status IN ('dead_letter','failed','blocked')
+          WHERE provider = 'beyu.events' AND status IN ('dead_letter','failed','blocked') ${tenantFilter}
           ORDER BY created_at LIMIT 1000`,
+        operatorTenantId != null ? [operatorTenantId] : [],
       )) as OutboxStateRow[];
     }
     if (keys.length === 0) return [];
     const rows = (await this.db.query<OutboxStateRow>(
       `SELECT id, idempotency_key, tenant_id, status, attempt_count, request_payload, correlation_id
          FROM health.beyu_outbox
-        WHERE provider = 'beyu.events' AND idempotency_key = ANY($1)`,
-      [keys],
+        WHERE provider = 'beyu.events' AND idempotency_key = ANY($1) ${tenantFilter}`,
+      operatorTenantId != null ? [keys, operatorTenantId] : [keys],
     )) as OutboxStateRow[];
     return rows;
   }

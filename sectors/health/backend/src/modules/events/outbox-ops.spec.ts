@@ -451,6 +451,78 @@ describe("reconciliation — outbox ledger vs BEYU receipts", () => {
     ).toContain("rec-dwa-1");
   });
 
+  it("tenant-scoped operator: replay(all) never touches OTHER tenants' rows", async () => {
+    const foreignTenant = "99999999-8888-7777-6666-555555555555";
+    await bed.tenantCtx.run(
+      { ...TEST_ACTOR, tenantId: foreignTenant } as never,
+      async () => {
+        await outbox.publish(event("foreign-dead-1"));
+      },
+    );
+    await bed.conn.query(
+      `UPDATE health.beyu_outbox SET status = 'dead_letter' WHERE idempotency_key = 'foreign-dead-1'`,
+    );
+    const result = await ops.replay({
+      all: true,
+      reason: "tenant-scoped operator replay",
+      operator: { userId: "u-tenant-admin", tenantId: TEST_ACTOR.tenantId },
+    });
+    expect(
+      result.requeued.find((r) => r.idempotencyKey === "foreign-dead-1"),
+    ).toBeUndefined();
+    const foreignRow = await bed.tenantCtx.run(
+      { ...TEST_ACTOR, tenantId: foreignTenant } as never,
+      async () => outbox.row("foreign-dead-1"),
+    );
+    expect((foreignRow as { status: string }).status).toBe("dead_letter");
+  });
+
+  it("tenant-scoped operator: reconcile checks ONLY their own tenant's rows", async () => {
+    const foreignTenant = "99999999-8888-7777-6666-555555555556";
+    await bed.tenantCtx.run(
+      { ...TEST_ACTOR, tenantId: foreignTenant } as never,
+      async () => {
+        await outbox.publish(event("foreign-pending-1"));
+      },
+    );
+    const report = await ops.reconcile({
+      repair: false,
+      operator: { userId: "u-tenant-admin", tenantId: TEST_ACTOR.tenantId },
+    });
+    expect(report.checked).toBeGreaterThan(0);
+    expect(
+      report.undelivered.find((u) => u.idempotencyKey === "foreign-pending-1"),
+    ).toBeUndefined();
+    expect(
+      report.unknown.find((u) => u.idempotencyKey === "foreign-pending-1"),
+    ).toBeUndefined();
+  });
+
+  it("a tenant-LESS operator (tenantId null) is refused fail-closed on both endpoints", async () => {
+    await expect(
+      ops.reconcile({ repair: false, operator: { userId: "u-global", tenantId: null } }),
+    ).rejects.toThrow("OPERATOR_TENANT_REQUIRED");
+    await expect(
+      ops.replay({
+        idempotencyKeys: ["foreign-dead-1"],
+        reason: "global attempt",
+        operator: { userId: "u-global", tenantId: null },
+      }),
+    ).rejects.toThrow("OPERATOR_TENANT_REQUIRED");
+    await expect(
+      controller.reconcile(
+        { repair: false },
+        {
+          user: {
+            userId: "u-global",
+            tenantId: null,
+            permissions: ["outbox:replay", "outbox:reconcile"],
+          },
+        },
+      ),
+    ).rejects.toThrow("OPERATOR_TENANT_REQUIRED");
+  });
+
   it("BEYU unreachable → unknown entries, no repair, no guessing", async () => {
     beyu.down = true;
     try {

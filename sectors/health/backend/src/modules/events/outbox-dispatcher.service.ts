@@ -97,6 +97,47 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
       "BEYU-HEALTH"
     );
   }
+
+  /**
+   * Resolve the CANONICAL tenant code for a row's sector tenant id.
+   *
+   * Single-tenant deployments configure BEYU_EVENTS_TENANT_CODE and every row
+   * is delivered under it (legacy behavior). Multi-tenant deployments MUST
+   * configure BEYU_EVENTS_TENANT_CODES as `sectorTenantUuid:CODE` pairs
+   * (comma-separated): each row is then delivered under ITS tenant's code,
+   * and a row whose tenant has no mapping FAILS CLOSED with a permanent
+   * error (dead-letter) — a row must never be silently delivered under
+   * another tenant's code (cross-tenant misattribution).
+   */
+  tenantCodeFor(tenantId: string | null): string {
+    const mapRaw = this.cfg.get<string>("BEYU_EVENTS_TENANT_CODES");
+    if (mapRaw && mapRaw.trim()) {
+      const map = new Map<string, string>();
+      for (const pair of mapRaw.split(",")) {
+        const [uuid, code] = pair.split(":").map((p) => p?.trim());
+        if (uuid && code) map.set(uuid, code);
+      }
+      if (tenantId == null) {
+        throw Object.assign(
+          new Error(
+            "BEYU_EVENTS_TENANT_CODES is configured but the outbox row has no tenant id — refusing to deliver under an assumed tenant code",
+          ),
+          { permanent: true },
+        );
+      }
+      const code = map.get(tenantId);
+      if (!code) {
+        throw Object.assign(
+          new Error(
+            `TENANT_CODE_UNMAPPED: outbox tenant ${tenantId} has no mapping in BEYU_EVENTS_TENANT_CODES — refusing to deliver under another tenant's code`,
+          ),
+          { permanent: true },
+        );
+      }
+      return code;
+    }
+    return this.tenantCode();
+  }
   private maxAttempts(): number {
     return Number(this.cfg.get("BEYU_EVENTS_MAX_ATTEMPTS") ?? 8);
   }
@@ -294,7 +335,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     const body = {
       ...envelope,
       idempotencyKey: row.idempotency_key,
-      tenantCode: this.tenantCode(),
+      tenantCode: this.tenantCodeFor(row.tenant_id),
       // The source OS is whoever runs this dispatcher — stamped here, not
       // trusted from the stored envelope.
       source: "HEALTH_OS" as const,
