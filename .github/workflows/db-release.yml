@@ -1,0 +1,380 @@
+# BEYU OS — DATABASE RELEASE PIPELINE (GitHub → Supabase)
+#
+# Implements the direct GitHub → Supabase relationship of the mandated
+# three-way architecture (docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md):
+#
+#   GitHub commit → migration validation → safety preflight → authenticated
+#   Supabase connection → pending migrations → production database →
+#   schema verification → RLS/role verification → release provenance record
+#   → runtime verification.
+#
+# ARCHITECTURAL INVARIANTS
+#   * GitHub is the ONLY schema authority. Vercel never runs migrations;
+#     Supabase never receives schema from anywhere but this pipeline.
+#   * The admin/migration DSN (BEYU_ADMIN_DATABASE_URL secret) is used ONLY
+#     here — never by the application, never on pull requests.
+#   * ENVIRONMENT SEPARATION: pull_request events run repo-side validation
+#     against an ephemeral scratch PostgreSQL ONLY. The live jobs are
+#     conditioned to push-to-main / workflow_dispatch and can never execute
+#     from a pull request. Preview deployments get no database (documented).
+#   * FAIL-CLOSED: if the production secrets are absent the live jobs fail
+#     loudly with an EXTERNAL_BLOCKED annotation — they never silently skip.
+#   * DESTRUCTIVE MIGRATIONS (DROP/TRUNCATE/…) against an existing schema
+#     stop the pipeline for explicit human approval (--allow-destructive).
+#
+# SECRETS CONTRACT (repository secrets, set by the owner):
+#   BEYU_ADMIN_DATABASE_URL  Supabase Postgres ADMIN/migration DSN
+#                            (postgres.<ref> @ session pooler :5432,
+#                             sslmode=require). DDL authority.
+#   BEYU_RUNTIME_DB_PASSWORD password for the NOSUPERUSER runtime role.
+# REPOSITORY VARIABLE (optional):
+#   BEYU_PRODUCTION_URL      public production URL (defaults to the Vercel
+#                            default domain https://beyu-os-1-0.vercel.app).
+
+name: BEYU OS — database release (GitHub → Supabase)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight = read-only production inspection · deploy = migrate + verify + provenance · drift = scheduled drift report"
+        type: choice
+        options: [preflight, deploy, drift]
+        default: preflight
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC — production drift detection
+
+# Serialize production pipeline runs; never cancel a migration mid-flight.
+concurrency:
+  group: db-release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Ephemeral scratch-database credentials for the repo-side validation job.
+  # These are CI-only values for a run-scoped container, not secrets.
+  SCRATCH_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_scratch
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # REPO-SIDE VALIDATION — every PR, every production push, every dispatch.
+  # Proves THIS revision's migrations install cleanly on a fresh PostgreSQL 16
+  # and captures the expected schema fingerprint for the live jobs. No
+  # production secrets, no production access — pull requests can never touch
+  # production through this pipeline.
+  # ─────────────────────────────────────────────────────────────────────────
+  preflight-repo:
+    name: Migration validation (scratch PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyu_scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    outputs:
+      expected-fingerprint: ${{ steps.capture.outputs.fingerprint }}
+      expected-latest: ${{ steps.capture.outputs.latest }}
+      expected-count: ${{ steps.capture.outputs.count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Wait for PostgreSQL readiness and record version
+        run: |
+          for i in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 && break
+            sleep 2
+          done
+          psql "$SCRATCH_ADMIN_URL" -tAc "select version()" | head -1
+      - name: Clean install of all repository migrations (compatibility proof)
+        env:
+          BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
+        run: npx tsx scripts/migrate.ts
+      - name: Post-install preflight (must report zero pending, no drift)
+        env:
+          BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
+        run: npx tsx scripts/db-release.ts preflight
+      - name: Capture expected schema state for this revision
+        id: capture
+        env:
+          BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
+        run: |
+          npx tsx scripts/db-release.ts drift > preflight-state.json
+          {
+            echo "fingerprint=$(jq -r '.fingerprint' preflight-state.json)"
+            echo "latest=$(jq -r '.repository.latest' preflight-state.json)"
+            echo "count=$(jq -r '.repository.migrationCount' preflight-state.json)"
+          } >> "$GITHUB_OUTPUT"
+          jq '{fingerprint, repository: .repository}' preflight-state.json
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # LIVE PREFLIGHT — read-only inspection of the production database.
+  # Runs ONLY on push-to-main or explicit dispatch — never on pull requests.
+  # ─────────────────────────────────────────────────────────────────────────
+  live-preflight:
+    name: Production preflight (read-only)
+    needs: preflight-repo
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.mode == 'preflight' || inputs.mode == 'deploy'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Fail closed if the production DSN secret is not configured
+        run: |
+          if [ -z "$BEYU_ADMIN_DATABASE_URL" ]; then
+            echo "::error::EXTERNAL_BLOCKED — repository secret BEYU_ADMIN_DATABASE_URL (Supabase admin/migration DSN) is not configured. The GitHub → Supabase relationship cannot deploy until the owner adds it. See docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md § secrets contract."
+            exit 1
+          fi
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Read-only production preflight (version · pending · checksums · destructive scan)
+        run: npx tsx scripts/db-release.ts preflight | tee preflight-live.json
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: db-live-preflight-${{ github.run_id }}
+          path: preflight-live.json
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # DEPLOY — apply pending migrations, provision/constrain the runtime role,
+  # verify schema + RLS + role state. Gated on the Production environment
+  # (add required reviewers there for a human promotion gate).
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Production database deploy + verify
+    needs: [live-preflight, preflight-repo]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: Production
+    concurrency: db-release-production-deploy
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+      BEYU_RUNTIME_DB_PASSWORD: ${{ secrets.BEYU_RUNTIME_DB_PASSWORD }}
+    outputs:
+      fingerprint: ${{ steps.verify.outputs.fingerprint }}
+      applied-count: ${{ steps.verify.outputs.applied-count }}
+      latest: ${{ steps.verify.outputs.latest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Fail closed if production secrets are not configured
+        run: |
+          missing=0
+          [ -z "$BEYU_ADMIN_DATABASE_URL" ] && { echo "::error::EXTERNAL_BLOCKED — secret BEYU_ADMIN_DATABASE_URL is not configured."; missing=1; }
+          [ -z "$BEYU_RUNTIME_DB_PASSWORD" ] && { echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."; missing=1; }
+          [ "$missing" = "1" ] && exit 1
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Apply pending migrations (checksummed, per-migration transactions, advisory-locked)
+        run: npx tsx scripts/migrate.ts
+      - name: Provision / constrain the NOSUPERUSER runtime role
+        run: npx tsx scripts/setup-db-role.ts
+      - name: Verify schema fingerprint · migrations recorded · RLS · role constraints
+        id: verify
+        run: |
+          npx tsx scripts/db-release.ts verify \
+            --expected-fingerprint "${{ needs.preflight-repo.outputs.expected-fingerprint }}" \
+            > verify.json
+          {
+            echo "fingerprint=$(jq -r '.fingerprint' verify.json)"
+            echo "applied-count=$(jq -r '.target.appliedCount' verify.json)"
+            echo "latest=$(jq -r '.target.latestApplied' verify.json)"
+          } >> "$GITHUB_OUTPUT"
+          jq '{ok, fingerprint, fingerprintMatches, target, rls, runtimeRole}' verify.json
+      - name: Upload deployment verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: db-deploy-verification-${{ github.run_id }}
+          path: verify.json
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # RELEASE PROVENANCE — one record per production release tying together:
+  # Git SHA · Vercel deployment (queried from the GitHub commit status the
+  # Vercel app posts) · database migration state · timestamp · environment.
+  # ─────────────────────────────────────────────────────────────────────────
+  release-record:
+    name: Three-way release record
+    needs: [deploy, preflight-repo]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # to create the provenance tag + release record
+    env:
+      PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
+    steps:
+      - name: Assemble the release record
+        run: |
+          VERCEL_URL="$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/statuses" \
+            | jq -r '[.[] | select(.context == "Vercel")] | sort_by(.updated_at) | last | .target_url // "unavailable"')"
+          COMMIT_MSG="$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}" \
+            | jq -r '.commit.message')"
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg sha "${{ github.sha }}" \
+            --arg ref "${{ github.ref }}" \
+            --arg msg "$COMMIT_MSG" \
+            --arg count "${{ needs.deploy.outputs.applied-count }}" \
+            --arg latest "${{ needs.deploy.outputs.latest }}" \
+            --arg fp "${{ needs.deploy.outputs.fingerprint }}" \
+            --arg efp "${{ needs.preflight-repo.outputs.expected-fingerprint }}" \
+            --arg repo "${{ github.repository }}" \
+            --arg vercel "$VERCEL_URL" \
+            --arg prod "$PRODUCTION_URL" \
+            --arg ts "$TS" \
+            --arg run "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              system: "BEYU-OS/1.0.0",
+              releaseType: "production-database-release",
+              git: { sha: $sha, ref: $ref, commitMessage: $msg },
+              database: {
+                migrationCount: $count,
+                latestMigration: $latest,
+                schemaFingerprint: $fp,
+                expectedFingerprint: $efp,
+                migrationSource: ("github:" + $repo + "@drizzle/"),
+                verifiedBy: ".github/workflows/db-release.yml"
+              },
+              application: { runtime: "vercel", vercelDeployment: $vercel, productionUrl: $prod },
+              environment: "production",
+              timestamp: $ts,
+              provenance: { workflowRun: $run, pipeline: "github → ci → supabase → vercel" }
+            }' > release-record.json
+          jq . release-record.json
+      - name: Publish the provenance tag and release record
+        run: |
+          TAG="db-release-$(echo '${{ github.sha }}' | cut -c1-8)-${{ github.run_number }}"
+          jq -Rs . < release-record.json > body.json
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases" \
+            -d "$(jq -n --arg tag "$TAG" --arg name "Database release $TAG" --argjson body "$(cat body.json)" \
+              '{tag_name: $tag, target_commitish: "${{ github.sha }}", name: $name, body: $body, prerelease: false}')"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Upload release record artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-record-${{ github.run_id }}
+          path: release-record.json
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # RUNTIME VERIFICATION — the deployed application must actually reach the
+  # production database through the runtime role. Fails closed while the
+  # Vercel production environment is incomplete (e.g. DATABASE_URL unset).
+  # ─────────────────────────────────────────────────────────────────────────
+  runtime-verify:
+    name: Runtime verification (production /api/health)
+    needs: deploy
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
+    steps:
+      - name: Poll the production health endpoint until the database reports UP
+        run: |
+          echo "Probing ${PRODUCTION_URL}/api/health …"
+          for i in $(seq 1 24); do
+            BODY="$(curl -fsS --max-time 20 "${PRODUCTION_URL}/api/health" 2>/dev/null || true)"
+            if echo "$BODY" | grep -q '"database":"UP"'; then
+              echo "PASS — production runtime reports database UP:"
+              echo "$BODY"
+              exit 0
+            fi
+            echo "  attempt $i/24: $BODY"
+            sleep 30
+          done
+          echo "::error::Production runtime does not report database UP after 12 minutes. The Vercel production environment is incomplete (DATABASE_URL / runtime role DSN not configured, or the Supabase project is unreachable). This is a fail-closed deployment gate — see docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md § runtime connection."
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # DRIFT DETECTION — scheduled, read-only. Compares the repository migration
+  # state with the production database and reports drift. NEVER overwrites.
+  # ─────────────────────────────────────────────────────────────────────────
+  drift-report:
+    name: Production drift report (read-only)
+    needs: preflight-repo
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'drift')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Fail closed if the production DSN secret is not configured
+        run: |
+          if [ -z "$BEYU_ADMIN_DATABASE_URL" ]; then
+            echo "::error::EXTERNAL_BLOCKED — repository secret BEYU_ADMIN_DATABASE_URL is not configured; drift detection cannot run."
+            exit 1
+          fi
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Report drift (repository vs production)
+        run: |
+          npx tsx scripts/db-release.ts drift \
+            --expected-fingerprint "${{ needs.preflight-repo.outputs.expected-fingerprint }}" \
+            | tee drift-report.json
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: db-drift-report-${{ github.run_id }}
+          path: drift-report.json

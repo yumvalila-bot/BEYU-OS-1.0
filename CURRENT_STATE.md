@@ -133,3 +133,15 @@ CI is red on `main` for a false-positive filename pattern; two P0 defects (F-01,
 P1 defects (F-03…F-06) stand between the current state and a genuinely connected, certifiable
 architecture. No production deployment is attempted; all external integrations remain
 EXTERNAL_BLOCKED.
+
+---
+
+## 6. Production three-way integration (2026-09-03, Phase 7 continuation)
+
+Live findings (real probes, no fabrication):
+
+* **GitHub → Vercel: VERIFIED.** Vercel app on the repo; production deployment `5baCxa9pYj8EKXMpA5TZpdvRARCj` READY on `main`@`8e74e96`; preview `6t84aZuHQ7YCPc1v9Sf9PZhoh2NY` READY on `1b4f656` (SSO-protected).
+* **Production app is LIVE but its database is DOWN:** `https://beyu-os-1-0.vercel.app/api/health` → `{"ok":false,"checks":{"database":"DOWN"}}` (Vercel production env incomplete).
+* **Supabase project `siyzygezdmlxbvwttrdz` (eu-west-3) is ALIVE** (PostgREST gateway responds).
+* **GitHub → Supabase pipeline: IMPLEMENTED** — `.github/workflows/db-release.yml` + `scripts/db-release.ts` (preflight / deploy+verify / provenance record / runtime-verify / weekly drift detection; fail-closed on missing secrets; destructive-migration human gate). Functionally verified against real PostgreSQL 16 (fingerprint `1e5cca74ebd39999c3b1a5df7ec8dc06` deterministic across databases; tamper/drift/destructive/unreachable gates all proven).
+* **Execution EXTERNAL_BLOCKED:** repository secrets `BEYU_ADMIN_DATABASE_URL`, `BEYU_RUNTIME_DB_PASSWORD` must be added by the owner; Vercel production env must be completed (`DATABASE_URL` runtime-role DSN + auth secrets). Full blocker register and runbook: `docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md`.
