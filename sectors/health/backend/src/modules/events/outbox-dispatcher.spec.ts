@@ -337,6 +337,58 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     expect(second).toHaveLength(0);
   });
 
+  it("CONCURRENT claim attempts: each row is claimed by EXACTLY ONE worker (SKIP LOCKED)", async () => {
+    stub.mode = "accept";
+    await bed.run(async () => {
+      await outbox.publish(event("concurrent-claim-1"));
+      await outbox.publish(event("concurrent-claim-2"));
+      await outbox.publish(event("concurrent-claim-3"));
+    });
+    const d1 = makeDispatcher(bed, stub);
+    const d2 = makeDispatcher(bed, stub);
+    const d3 = makeDispatcher(bed, stub);
+    const claimOf = (d: OutboxDispatcherService, t: string | null) =>
+      (d as unknown as { claim(t: string | null): Promise<{ id: string }[]> }).claim(t);
+    // Three workers race for the same tenant's rows simultaneously.
+    const results = await Promise.all([
+      claimOf(d1, TEST_ACTOR.tenantId),
+      claimOf(d2, TEST_ACTOR.tenantId),
+      claimOf(d3, TEST_ACTOR.tenantId),
+    ]);
+    const all = results.flat().map((r) => r.id);
+    expect(all).toHaveLength(3);
+    expect(new Set(all).size).toBe(3); // no row claimed twice
+  });
+
+  it("a crashed worker's EXPIRED lease releases the row for re-claim (at-least-once)", async () => {
+    stub.mode = "accept";
+    await bed.run(async () => {
+      await outbox.publish(event("lease-expiry-1"));
+    });
+    const d = makeDispatcher(bed, stub, { BEYU_EVENTS_LEASE_MS: "60000" });
+    const first = await (
+      d as unknown as { claim(t: string | null): Promise<{ id: string }[]> }
+    ).claim(TEST_ACTOR.tenantId);
+    expect(first).toHaveLength(1);
+    // Simulate the worker crashing after claiming: no delivery, no state
+    // write — the lease is all that protects the row.
+    await bed.conn.query(
+      `UPDATE health.beyu_outbox SET next_attempt_at = now() - interval '1 second' WHERE idempotency_key = 'lease-expiry-1'`,
+    );
+    const second = await (
+      d as unknown as { claim(t: string | null): Promise<{ id: string }[]> }
+    ).claim(TEST_ACTOR.tenantId);
+    expect(second.map((r) => r.id)).toEqual([first[0].id]);
+    // The re-claim set a fresh lease; expire it so the dispatch pass can
+    // pick the row up, then verify delivery (at-least-once transport — the
+    // business effect stays exactly-once via BEYU's receipt).
+    await bed.conn.query(
+      `UPDATE health.beyu_outbox SET next_attempt_at = now() - interval '1 second' WHERE idempotency_key = 'lease-expiry-1'`,
+    );
+    const summary = await makeDispatcher(bed, stub).dispatchDueBatch();
+    expect(summary.delivered + summary.duplicates).toBeGreaterThanOrEqual(1);
+  });
+
   it("multi-tenant map: a row is delivered under ITS tenant's code, not the configured default", async () => {
     stub.mode = "accept";
     await bed.run(async () => {

@@ -422,6 +422,18 @@ describe("POST /api/v1/internal/events — Phase 8.5 adversarial hardening", () 
     expect(((await second.json()) as { error: { code: string } }).error.code).toBe("IDEMPOTENCY_KEY_COLLISION");
   });
 
+  it("identity boundary: a SECTOR uuid is NOT a canonical GlobalUserID — no shadow actors (422)", async () => {
+    // The Health sector's own actor uuid (its identity layer) must never be
+    // accepted where the CANONICAL GlobalUserId is required — the two layers
+    // are bridged link-once, never conflated.
+    const sectorUuid = "00000000-0000-0000-0000-000000000001";
+    const res = await publishRoute(
+      req("http://localhost/api/v1/internal/events", envelope({ actorGlobalUserId: sectorUuid }), token()),
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("ACTOR_NOT_FOUND");
+  });
+
   it("a SUSPENDED canonical user cannot be attributed as event actor (422, fail closed)", async () => {
     // Create a suspended user just for this test; removed in finally.
     const partyId = `PTY_TEST_${RUN}`;
