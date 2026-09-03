@@ -145,3 +145,52 @@ Live findings (real probes, no fabrication):
 * **Supabase project `siyzygezdmlxbvwttrdz` (eu-west-3) is ALIVE** (PostgREST gateway responds).
 * **GitHub → Supabase pipeline: IMPLEMENTED** — `.github/workflows/db-release.yml` + `scripts/db-release.ts` (preflight / deploy+verify / provenance record / runtime-verify / weekly drift detection; fail-closed on missing secrets; destructive-migration human gate). Functionally verified against real PostgreSQL 16 (fingerprint `1e5cca74ebd39999c3b1a5df7ec8dc06` deterministic across databases; tamper/drift/destructive/unreachable gates all proven).
 * **Execution EXTERNAL_BLOCKED:** repository secrets `BEYU_ADMIN_DATABASE_URL`, `BEYU_RUNTIME_DB_PASSWORD` must be added by the owner; Vercel production env must be completed (`DATABASE_URL` runtime-role DSN + auth secrets). Full blocker register and runbook: `docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md`.
+
+## 7. Phase 8 — governed cross-OS event runtime (2026-09-03, engineering complete)
+
+**Status: IMPLEMENTED + LOCALLY CERTIFIED. NOT deployed to production.** All Phase 0
+blockers (X-1…X-7) remain open and unchanged; production runtime database is still DOWN
+(X-3), so nothing in this section is a production claim.
+
+### What was built (five commits, branch `arena/01a0636a-beyu-os-1-0`)
+
+| Commit | Subject |
+|---|---|
+| `4d51772` | `phase8(events)` — root governed ingestion: `POST /api/v1/internal/events` (+`/status`), atomic idempotency receipts + enterprise event + audit in one transaction; migration `0019_internal_event_receipts` (RLS); root tests 16/16 |
+| `46d773f` | `phase8(outbox)` — health transactional outbox writer + lease-based dispatcher (at-least-once, backoff+jitter, dead-letter); migration `022`; health tests 9/9 |
+| `e4de389` | `phase8(replay)` — operator-authorized replay + reconciliation (`outbox:replay`/`outbox:reconcile`, admin+trustee only); tests 9/9 |
+| `823a677` | `phase8(finance)` — billing→transactional event→live BEYU acceptance; cross-OS live certification 5/5 (env-gated) |
+| `31fcd5f` | `test(substrate)` — baseline guards updated for migration 0019 (20 migrations) |
+
+Architecture, state machine, security model and configuration:
+`docs/events/PHASE8_EVENT_ARCHITECTURE.md`.
+
+### Fresh gates at HEAD (after Phase 8)
+
+| Gate | Result |
+|---|---|
+| Root `tsc --noEmit` / `eslint` | PASS |
+| Root `vitest run` (full) | **108/108 files, 2311/2311 tests** (was 107/2295 at b6d0d0a; +16 events tests, +10 previously env-skipped now counted) |
+| Root migration ledger | 20/20 applied, re-run no-op, `drizzle-kit generate` drift check clean; fingerprint after 0019: `053a78669f66b90964367b3455d7f82b` |
+| Health `tsc` / full jest | PASS — 87 suites + 2 env-gated (identity + events integration), 475 tests, 0 failures |
+| Health migration 022 | applied to local `beyu_health` (attempt state + `beyu_outbox_due_tenants()` verified) |
+| Live cross-OS chain (local) | billing transaction → outbox → dispatcher HTTP → real root `:3100` → receipt + hash-chained v2 enterprise event + SERVICE audit row asserted directly in root PG; crash-redelivery → exactly ONE event, `duplicate_count=1`, original `eventId` returned; reconciliation consistent |
+
+### Live-certified events (kept in the local root ledger, not production)
+
+`EVT_01K1ISQ77ISRARPC149GHW` (HTTP smoke), `EVT_01K1IUE2NI4CWMHMG4HCYC` + subsequent
+run events (integration chain). These live in the LOCAL `beyu_os` database only.
+
+### Honest classification (Phase 8)
+
+- Event transport + exactly-once acceptance: **IMPLEMENTED, VERIFIED (unit), VERIFIED
+  (live local), NOT DEPLOYED**.
+- Replay + reconciliation: **IMPLEMENTED, VERIFIED (unit + live reconciliation)**.
+- Finance chain: **PARTIALLY_IMPLEMENTED BY DESIGN** — billing → governed enterprise
+  event → Finance consequence complete; journal posting LOCKED (`CAP_POSTING`) remains a
+  governed human action. No automated financial effect is claimed or fabricated.
+- Circuit breaker: the dispatcher's retry/backoff/dead-letter state machine IS the
+  failure containment (a separate HTTP-level breaker is unnecessary — single-attempt
+  transport, retry owned by the outbox).
+- Production: **NOT READY** — X-3 (prod DB DOWN) and the other Phase 0 blockers gate
+  any production claim. PR #22 remains open pending explicit human authorization.
