@@ -20,7 +20,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { auditLog, enterpriseEvents, internalEventReceipts, tenants, users } from "../../src/db/schema";
+import { auditLog, enterpriseEvents, internalEventReceipts, legalEntities, tenants, users } from "../../src/db/schema";
 import { INTERNAL_SERVICE_TOKEN_ENV, signInternalServiceTokenForTests } from "../../src/lib/internal/service-auth";
 import { POST as publishRoute } from "../../src/app/api/v1/internal/events/route";
 import { POST as statusRoute } from "../../src/app/api/v1/internal/events/status/route";
@@ -360,5 +360,134 @@ describe("POST /api/v1/internal/events/status — reconciliation lookup", () => 
       req("http://localhost/api/v1/internal/events/status", { idempotencyKey: `x-${RUN}-xyz`, tenantCode: TENANT_CODE }),
     );
     expect([401, 403]).toContain(res.status);
+  });
+});
+
+describe("POST /api/v1/internal/events — Phase 8.5 adversarial hardening", () => {
+  let OTHER_TENANT_CODE = "BEYU-GROUP";
+
+  beforeAll(async () => {
+    const rows = await db.select({ code: tenants.code }).from(tenants);
+    OTHER_TENANT_CODE = rows.map((r) => r.code).find((c) => c !== TENANT_CODE) ?? "BEYU-GROUP";
+  });
+
+  it("an idempotency key reused under a DIFFERENT tenant is a 409 COLLISION — no cross-tenant leak, no second event", async () => {
+    const key = `evt-collide-${RUN}-${Math.random().toString(36).slice(2, 10)}`;
+    // First delivery under the health tenant → accepted.
+    const first = await publishRoute(
+      req("http://localhost/api/v1/internal/events", envelope({ idempotencyKey: key, tenantCode: TENANT_CODE }), token()),
+    );
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as { data: { eventId: string } };
+
+    // Same key under a different tenant → 409, never the original event id.
+    const second = await publishRoute(
+      req(
+        "http://localhost/api/v1/internal/events",
+        envelope({ idempotencyKey: key, tenantCode: OTHER_TENANT_CODE }),
+        token(),
+      ),
+    );
+    expect(second.status).toBe(409);
+    const body = (await second.json()) as { error: { code: string }; data?: unknown };
+    expect(body.error.code).toBe("IDEMPOTENCY_KEY_COLLISION");
+    expect(JSON.stringify(body)).not.toContain(firstBody.data.eventId);
+
+    // The original receipt is untouched (no duplicate_count bump, no second event).
+    const [receipt] = await db
+      .select()
+      .from(internalEventReceipts)
+      .where(eq(internalEventReceipts.idempotencyKey, key))
+      .limit(1);
+    expect(receipt.duplicateCount).toBe(0);
+    expect(receipt.eventId).toBe(firstBody.data.eventId);
+    expect(receipt.tenantId).not.toBeNull();
+  });
+
+  it("an idempotency key reused by a DIFFERENT source is a 409 COLLISION", async () => {
+    const key = `evt-srcollide-${RUN}-${Math.random().toString(36).slice(2, 10)}`;
+    const first = await publishRoute(
+      req("http://localhost/api/v1/internal/events", envelope({ idempotencyKey: key }), token("HEALTH_OS")),
+    );
+    expect(first.status).toBe(201);
+
+    const second = await publishRoute(
+      req(
+        "http://localhost/api/v1/internal/events",
+        envelope({ idempotencyKey: key, source: "AGRICULTURE_OS" }),
+        token("AGRICULTURE_OS"),
+      ),
+    );
+    expect(second.status).toBe(409);
+    expect(((await second.json()) as { error: { code: string } }).error.code).toBe("IDEMPOTENCY_KEY_COLLISION");
+  });
+
+  it("a SUSPENDED canonical user cannot be attributed as event actor (422, fail closed)", async () => {
+    // Create a suspended user just for this test; removed in finally.
+    const partyId = `PTY_TEST_${RUN}`;
+    const userId = `USR_TEST_SUSPENDED_${RUN}`;
+    const email = `suspended-actor-${RUN}@test.beyu.os`;
+    await db.execute(sql`insert into parties (id, type, display_name, classification)
+      values (${partyId}, 'PERSON', 'Suspended Actor Test', 'INTERNAL')`);
+    await db.execute(sql`insert into users (id, party_id, email, password_hash, primary_tenant_id, status)
+      values (${userId}, ${partyId}, ${email}, 'scrypt$x$y', (select id from tenants where code = ${TENANT_CODE}), 'SUSPENDED')`);
+    try {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ actorGlobalUserId: userId }), token()),
+      );
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe("ACTOR_NOT_FOUND");
+    } finally {
+      await db.execute(sql`delete from users where id = ${userId}`);
+      await db.execute(sql`delete from parties where id = ${partyId}`);
+    }
+  });
+
+  it("legalEntityId of ANOTHER tenant is rejected (422) — no entity misattribution", async () => {
+    const tenantRow = await db.select({ id: tenants.id }).from(tenants).where(eq(tenants.code, TENANT_CODE)).limit(1);
+    const entities = await db.select({ id: legalEntities.id, tenantId: legalEntities.tenantId }).from(legalEntities);
+    const foreign = entities.find((e) => e.tenantId !== tenantRow[0].id);
+    const own = entities.find((e) => e.tenantId === tenantRow[0].id);
+    if (foreign) {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ legalEntityId: foreign.id }), token()),
+      );
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe("LEGAL_ENTITY_NOT_FOUND");
+    }
+    if (own) {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ legalEntityId: own.id }), token()),
+      );
+      expect(res.status).toBe(201);
+    }
+  });
+
+  it("an unknown legalEntityId is rejected (422)", async () => {
+    const res = await publishRoute(
+      req("http://localhost/api/v1/internal/events", envelope({ legalEntityId: "LEN_DOES_NOT_EXIST" }), token()),
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("LEGAL_ENTITY_NOT_FOUND");
+  });
+
+  it("a >512 KiB body is refused 413 without being processed", async () => {
+    const big = envelope({ payload: { blob: "x".repeat(600 * 1024) } });
+    const res = await publishRoute(req("http://localhost/api/v1/internal/events", big, token()));
+    expect(res.status).toBe(413);
+  });
+
+  it("sector-declared occurredAt is honored on the governed event", async () => {
+    const declared = "2026-08-15T10:00:00.000Z";
+    const env = envelope({ occurredAt: declared });
+    const res = await publishRoute(req("http://localhost/api/v1/internal/events", env, token()));
+    expect(res.status).toBe(201);
+    const { eventId } = ((await res.json()) as { data: { eventId: string } }).data;
+    const [event] = await db
+      .select({ occurredAt: enterpriseEvents.occurredAt })
+      .from(enterpriseEvents)
+      .where(eq(enterpriseEvents.id, eventId))
+      .limit(1);
+    expect(new Date(event.occurredAt).toISOString()).toBe(declared);
   });
 });

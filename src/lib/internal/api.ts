@@ -111,6 +111,16 @@ export async function guardedInternal<S extends z.ZodTypeAny>(
     return apiError("RATE_LIMITED", "Too many internal requests.", 429, traceId);
   }
 
+  // Body-size cap BEFORE parsing: the payload limit is 128 KiB (route-level
+  // check) — allow 512 KiB of envelope overhead and refuse anything larger
+  // without reading it into memory.
+  const MAX_BODY_BYTES = 512 * 1024;
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    await deniedAudit(auth.payload, `internal.${opts.action}.validate`, "PAYLOAD_TOO_LARGE", traceId);
+    return apiError("PAYLOAD_TOO_LARGE", "Request body exceeds the internal endpoint size limit.", 413, traceId);
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();

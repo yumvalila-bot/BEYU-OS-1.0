@@ -29,10 +29,10 @@
  */
 
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users, tenants } from "@/db/schema";
+import { users, tenants, legalEntities } from "@/db/schema";
 import { publishEventTx } from "@/lib/audit";
 import { recordAuditTx, type EventInput } from "@/lib/audit";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
@@ -99,15 +99,40 @@ export async function POST(request: Request) {
       }
       const tenantId = tenant[0].id;
 
-      // A claimed human actor MUST be a canonical identity — no shadow actors.
+      // A claimed human actor MUST be a canonical identity — no shadow actors,
+      // and no attribution through a revoked or suspended identity (revocation
+      // must fail closed everywhere, including event attribution).
       if (body.actorGlobalUserId) {
         const actor = await db
-          .select({ id: users.id })
+          .select({ id: users.id, status: users.status })
           .from(users)
           .where(eq(users.id, body.actorGlobalUserId))
           .limit(1);
-        if (actor.length === 0) {
-          return apiError("ACTOR_NOT_FOUND", "actorGlobalUserId does not reference a canonical identity.", 422, traceId);
+        if (actor.length === 0 || actor[0].status !== "ACTIVE") {
+          return apiError(
+            "ACTOR_NOT_FOUND",
+            "actorGlobalUserId does not reference an ACTIVE canonical identity.",
+            422,
+            traceId,
+          );
+        }
+      }
+
+      // A claimed legal entity MUST exist and belong to the resolved tenant —
+      // a sender may never attribute an event to another tenant's entity.
+      if (body.legalEntityId) {
+        const entity = await db
+          .select({ id: legalEntities.id })
+          .from(legalEntities)
+          .where(and(eq(legalEntities.id, body.legalEntityId), eq(legalEntities.tenantId, tenantId)))
+          .limit(1);
+        if (entity.length === 0) {
+          return apiError(
+            "LEGAL_ENTITY_NOT_FOUND",
+            "legalEntityId does not reference a legal entity of the resolved tenant.",
+            422,
+            traceId,
+          );
         }
       }
 
@@ -124,12 +149,44 @@ export async function POST(request: Request) {
 
           if (claimed.rows.length === 0) {
             // ── DUPLICATE delivery: exactly-once acceptance ──────────────
+            // The duplicate is only honored when the existing receipt belongs
+            // to THIS (source, tenant, event type). A key reused across
+            // tenants/sources is an idempotency-key COLLISION — fail closed
+            // with 409 (permanent for the dispatcher) instead of leaking the
+            // original event id to a different tenant.
             const existing = await tx.execute(
               sql`update "internal_event_receipts"
                      set "duplicate_count" = "duplicate_count" + 1
                    where "idempotency_key" = ${body.idempotencyKey}
+                     and "source" = ${body.source}
+                     and "tenant_id" = ${tenantId}
+                     and "event_type" = ${body.eventType}
                    returning "event_id", "duplicate_count", "first_seen_at"`,
             );
+            if (existing.rows.length === 0) {
+              await recordAuditTx(tx as never, {
+                tenantId,
+                actorType: "SERVICE",
+                action: "internal.events.publish",
+                objectType: "EVENT",
+                objectId: body.idempotencyKey,
+                outcome: "DENIED",
+                reason: "IDEMPOTENCY_KEY_COLLISION",
+                newValue: {
+                  idempotencyKey: body.idempotencyKey,
+                  eventType: body.eventType,
+                  source: body.source,
+                  tenantCode: body.tenantCode,
+                },
+                traceId,
+              });
+              return apiError(
+                "IDEMPOTENCY_KEY_COLLISION",
+                "The idempotency key is already claimed by a different source, tenant or event type.",
+                409,
+                traceId,
+              );
+            }
             const receipt = existing.rows[0] as {
               event_id: string | null;
               duplicate_count: number;
@@ -191,6 +248,9 @@ export async function POST(request: Request) {
               policyVersion: null,
             },
             policyVersion: null,
+            // Sector-declared occurrence time is honored (already validated as
+            // ISO 8601 by the envelope schema) and covered by the event hash.
+            occurredAt: body.occurredAt ?? undefined,
           };
           const eventId = await publishEventTx(tx as never, eventInput);
 
