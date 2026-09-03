@@ -60,7 +60,10 @@ const FINGERPRINT_SQL = `
     select 'constraint:'||conname||':'||contype::text from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public'
     union all
     select 'index:'||indexname||':'||indexdef from pg_indexes where schemaname='public'
-  ) s`;
+
+      union all
+      select 'rls:'||c.relname||':'||c.relrowsecurity::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
+        ) s`;
 
 interface Snapshot {
   fingerprint: string;
@@ -118,13 +121,21 @@ async function snapshot(c: Client): Promise<Snapshot> {
  */
 async function copyTable(src: Client, dst: Client, table: string): Promise<number> {
   const res = await src.query(`select * from "${table}"`);
+  if (res.rows.length === 0) return 0;
+  // The copy is ALL-OR-NOTHING per table: one transaction wraps delete +
+  // inserts. If an insert hits an unmet FK (deferring the table to a later
+  // round), the WHOLE attempt rolls back — a partial insert must never be
+  // committed and then deleted again, because the governed ledgers
+  // (audit_log, enterprise_events, journal_*) are append-only and their
+  // immutability triggers correctly refuse any delete of committed rows.
+  await dst.query("begin");
   try {
     await dst.query(`delete from "${table}"`);
   } catch (e) {
+    await dst.query("rollback");
     if (`${e}`.includes("violates foreign key constraint")) return -1;
-    throw e;
+    throw new Error(`delete ${table}: ${(e as Error).message}`);
   }
-  if (res.rows.length === 0) return 0;
   // node-pg serializes JS arrays as PG array literals — WRONG for json/jsonb
   // columns — and Date objects need YYYY-MM-DD for date columns. Respect the
   // column types explicitly.
@@ -146,16 +157,20 @@ async function copyTable(src: Client, dst: Client, table: string): Promise<numbe
   const cols = res.fields.map((f) => `"${f.name}"`).join(", ");
   const placeholders = res.fields.map((_, i) => `$${i + 1}`).join(", ");
   let inserted = 0;
-  for (const row of res.rows) {
-    const values = res.fields.map((f) => coerce(f.name, row[f.name]));
-    try {
+  try {
+    for (const row of res.rows) {
+      const values = res.fields.map((f) => coerce(f.name, row[f.name]));
       await dst.query(`insert into "${table}" (${cols}) values (${placeholders})`, values);
       inserted++;
-    } catch (e) {
-      // Defer FK-blocked tables to a later round.
-      if (`${e}`.includes("violates foreign key constraint")) return -1;
-      throw new Error(`table ${table}: ${(e as Error).message}`);
     }
+    await dst.query("commit");
+  } catch (e) {
+    // Roll back the WHOLE per-table attempt: either the table copies
+    // completely or nothing changes. FK-blocked tables defer to a later
+    // round with no partial state left behind.
+    await dst.query("rollback");
+    if (`${e}`.includes("violates foreign key constraint")) return -1;
+    throw new Error(`table ${table}: ${(e as Error).message}`);
   }
   return inserted;
 }

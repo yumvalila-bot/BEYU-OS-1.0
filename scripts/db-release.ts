@@ -165,7 +165,10 @@ async function main() {
         select 'constraint:'||conname||':'||contype::text from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public'
         union all
         select 'index:'||indexname||':'||indexdef from pg_indexes where schemaname='public'
-      ) s
+
+      union all
+      select 'rls:'||c.relname||':'||c.relrowsecurity::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
+            ) s
     `)
   )?.fingerprint as string;
 
