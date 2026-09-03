@@ -803,14 +803,22 @@ describe("audit module — never mutates the ledger it inspects", () => {
       where table_schema = 'public' and (table_name like '%audit%' or table_name like '%event%')
       order by table_name
     `)).map((r) => r.table_name);
-    // Exactly the pre-existing tables from the baseline. Nothing added.
-    expect(names).toEqual(["audit_chain_heads", "audit_log", "employment_events", "enterprise_events"]);
+    // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
+    // governed cross-OS event idempotency — part of the ledger domain, RLS-
+    // isolated like audit_log). Nothing else added.
+    expect(names).toEqual([
+      "audit_chain_heads",
+      "audit_log",
+      "employment_events",
+      "enterprise_events",
+      "internal_event_receipts",
+    ]);
   });
 
   it("adds no migration", async () => {
-    // 16 = migrations 0000-0014 (kernel baseline) + 0016_noelia_scheduler_offsets
-// (governed Noelia expansion: additive, deterministic, RLS-aware).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(19);
+    // 20 = migrations 0000-0018 (prior baseline) + 0019_internal_event_receipts
+    // (Phase 8 governed cross-OS events: additive, RLS-aware).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(20);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
