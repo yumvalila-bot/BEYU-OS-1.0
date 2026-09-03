@@ -307,6 +307,21 @@ jobs:
           fi
           echo "No schema drift."
 
+      - name: Disaster-recovery drill — migration replay + restore + validation
+        # Phase 18: reconstruct a scratch database from NOTHING but the
+        # repository migrations, restore the source data into it, and verify
+        # fingerprint parity, row-count parity, the RLS set, and the governed
+        # chains. Proves the repository is self-sufficient for schema
+        # reconstruction (production PITR/Supabase restore remains a separate
+        # owner-gated exercise — blockers X-1/X-6).
+        shell: bash
+        env:
+          BEYU_ADMIN_DATABASE_URL: ${{ env.BEYU_ADMIN_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          npx tsx scripts/dr-drill.ts | tee /tmp/dr-drill.log
+          grep -q "\[dr-drill\] PASSED" /tmp/dr-drill.log
+
       # MANDATORY, and it must run BEFORE the tests.
       #
       # Without it the runtime role does not exist, DATABASE_URL falls back to the

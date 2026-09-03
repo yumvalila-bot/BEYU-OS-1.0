@@ -63,3 +63,31 @@ An external legal source never becomes binding BEYU policy automatically.
 2. Set the user `status = SUSPENDED`; force a password reset and MFA re-enrolment.
 3. Review the audit ledger filtered by `actorUserId` for the exposure window.
 4. Raise an anomaly signal and, if personal data is implicated, trigger breach management.
+
+## RB-08 · Disaster-recovery drill (local, engineering-certified)
+
+The repository's DR doctrine: **schema authority is the migration ledger in
+Git** — a database is reconstructable from migrations alone. The drill proves
+it end to end against a real PostgreSQL engine:
+
+```bash
+BEYU_ADMIN_DATABASE_URL=<admin url> npx tsx scripts/dr-drill.ts
+```
+
+Phases: snapshot source (fingerprint, RLS inventory, governed chains, counts)
+→ reconstruct a scratch database from NOTHING but the repository migrations
+(spawns the real `npm run migrate` runner) → verify fingerprint parity →
+restore all data table-by-table in FK-dependency rounds (with json/jsonb and
+date value coercion) → validate row-count parity, identical RLS table set,
+enterprise-event hash-chain integrity (parity with source), audit chain heads,
+service-principal registry → destroy the scratch database. Exit contract 0/1/2
+(pass / validation failed / could not run).
+
+This drill runs in CI on every push (root database gate). It certifies the
+LOCAL procedure and repository self-sufficiency.
+
+**NOT production restore certification:** production backup/PITR on Supabase,
+RTO/RPO measurement against production infrastructure, and a restore drill on
+production credentials remain **EXTERNAL_BLOCKED** (blockers X-1 admin
+credentials, X-6 drill on production). For the production procedure see
+`supabase-production-database.md`.
