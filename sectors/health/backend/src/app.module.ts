@@ -23,7 +23,6 @@ import { CorrelationIdMiddleware } from "./common/observability/correlation-id.m
 
 // Configuration
 import databaseConfig from "./config/database.config";
-import { SupabaseConfig } from "./config/supabase.config";
 import { DbModule } from "./common/db/db.module";
 
 // Modules
@@ -54,7 +53,6 @@ import { DialysisModule } from "./modules/dialysis/dialysis.module";
 import { ConsentModule } from "./modules/consent/consent.module";
 import { IncidentsModule } from "./modules/incidents/incidents.module";
 import { RecordsModule } from "./modules/records/records.module";
-import { SupabaseModule } from "./modules/supabase/supabase.module";
 import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
 
 @Module({
@@ -118,11 +116,9 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     ConsentModule,
     IncidentsModule,
     RecordsModule,
-    SupabaseModule,
     BeyuIntegrationModule,
   ],
   providers: [
-    SupabaseConfig,
     RateLimiter,
     QueueService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
