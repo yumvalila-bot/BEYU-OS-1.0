@@ -1,11 +1,11 @@
 {
-  "generated": "2026-09-01T04:42:14.246Z",
+  "generated": "2026-09-03T05:25:55.525Z",
   "schema": "endpoint-security-registry-v1",
   "scope": "all HTTP endpoints across src/modules/*/*.controller.ts",
   "summary": {
-    "total": 95,
+    "total": 89,
     "byTier": {
-      "PRIVILEGED": 36,
+      "PRIVILEGED": 30,
       "CLINICAL": 26,
       "EXTERNAL_INTEGRATION": 11,
       "PUBLIC": 5,
@@ -14,12 +14,11 @@
       "ADMINISTRATIVE": 1
     },
     "byOpClass": {
-      "WRITE": 51,
-      "READ": 43,
-      "DESTRUCTIVE": 1
+      "WRITE": 49,
+      "READ": 40
     },
     "byStatus": {
-      "PASS": 95
+      "PASS": 89
     }
   },
   "endpoints": [
@@ -84,205 +83,6 @@
         ],
         "governanceAuthorization": false,
         "hcmAuthorization": true,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "GET",
-      "path": "/api/supabase/health",
-      "tier": "PRIVILEGED",
-      "opClass": "READ",
-      "requiredControls": {
-        "jwt": true,
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "GET",
-      "path": "/api/supabase/:table",
-      "tier": "PRIVILEGED",
-      "opClass": "READ",
-      "requiredControls": {
-        "jwt": true,
-        "permission": [
-          "phi:read"
-        ],
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [
-          "phi:read"
-        ],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "GET",
-      "path": "/api/supabase/:table/:id",
-      "tier": "PRIVILEGED",
-      "opClass": "READ",
-      "requiredControls": {
-        "jwt": true,
-        "permission": [
-          "phi:read"
-        ],
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [
-          "phi:read"
-        ],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "POST",
-      "path": "/api/supabase/:table",
-      "tier": "PRIVILEGED",
-      "opClass": "WRITE",
-      "requiredControls": {
-        "jwt": true,
-        "permission": [
-          "phi:write"
-        ],
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [
-          "phi:write"
-        ],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "PUT",
-      "path": "/api/supabase/:table/:id",
-      "tier": "PRIVILEGED",
-      "opClass": "WRITE",
-      "requiredControls": {
-        "jwt": true,
-        "permission": [
-          "phi:write"
-        ],
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [
-          "phi:write"
-        ],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
-        "mfaStepUp": false,
-        "clinicalSafetyGate": false
-      },
-      "status": "PASS",
-      "implementableGaps": [],
-      "externalBlockers": []
-    },
-    {
-      "controller": "supabase",
-      "file": "src/modules/supabase/supabase.controller.ts",
-      "method": "DELETE",
-      "path": "/api/supabase/:table/:id",
-      "tier": "PRIVILEGED",
-      "opClass": "DESTRUCTIVE",
-      "requiredControls": {
-        "jwt": true,
-        "permission": [
-          "phi:write"
-        ],
-        "tenantIsolation": true,
-        "entityIsolation": true,
-        "countryIsolation": true,
-        "globalUserId": true,
-        "csrf": true,
-        "audit": true
-      },
-      "presentControls": {
-        "jwt": true,
-        "public": false,
-        "permissions": [
-          "phi:write"
-        ],
-        "governanceAuthorization": false,
-        "hcmAuthorization": false,
         "mfaStepUp": false,
         "clinicalSafetyGate": false
       },

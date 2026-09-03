@@ -28,6 +28,7 @@ import { DbModule } from "./common/db/db.module";
 // Modules
 import { AuthModule } from "./modules/auth/auth.module";
 import { IdentityModule } from "./modules/identity/identity.module";
+import { EventsModule } from "./modules/events/events.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { HealthModule } from "./modules/health/health.module";
 import { PatientsModule } from "./modules/patients/patients.module";
@@ -92,6 +93,8 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     HealthModule,
     AuthModule,
     IdentityModule,
+    // Phase 8: governed event delivery (transactional outbox + dispatcher).
+    EventsModule,
     TenantsModule,
     PatientsModule,
     EncountersModule,
