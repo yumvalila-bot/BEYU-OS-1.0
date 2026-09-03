@@ -30,6 +30,7 @@ import { db } from "@/db";
 import { parties, users, tenants } from "@/db/schema";
 import { newId } from "@/lib/ids";
 import { recordAudit, recordAuditTx } from "@/lib/audit";
+import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 import { apiError, apiOk, guardedInternal } from "@/lib/internal/api";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +77,10 @@ export async function POST(request: Request) {
         );
       }
 
+      // Tenant resolution (tenants/users/parties are not RLS tables; the
+      // audit ledger is — all audited work below runs inside an explicit
+      // transaction-local RLS context for the provisioned tenant, exactly as
+      // guarded() establishes for human sessions).
       const tenant = await db
         .select({ id: tenants.id, status: tenants.status, code: tenants.code })
         .from(tenants)
@@ -89,94 +94,96 @@ export async function POST(request: Request) {
       }
       const tenantId = tenant[0].id;
 
-      const existing = await db.select().from(users).where(eq(users.email, body.email)).limit(1);
-      if (existing.length > 0) {
-        const u = existing[0];
-        await recordAudit({
-          tenantId,
-          actorType: "SERVICE",
-          action: "internal.identity.register",
-          objectType: "USER",
-          objectId: u.id,
-          outcome: "SUCCESS",
-          reason: "IDEMPOTENT_EXISTING",
-          oldValue: null,
-          newValue: { email: u.email, sector: body.sector, idempotent: true },
-          traceId,
-        });
-        return apiOk(
-          {
-            globalUserId: u.id,
-            partyId: u.partyId,
-            email: u.email,
-            tenantId: u.primaryTenantId,
-            status: u.status,
-            created: false,
-          },
-          traceId,
-        );
-      }
+      return withDatabaseRlsContext([tenantId], false, async () => {
+        const existing = await db.select().from(users).where(eq(users.email, body.email)).limit(1);
+        if (existing.length > 0) {
+          const u = existing[0];
+          await recordAudit({
+            tenantId,
+            actorType: "SERVICE",
+            action: "internal.identity.register",
+            objectType: "USER",
+            objectId: u.id,
+            outcome: "SUCCESS",
+            reason: "IDEMPOTENT_EXISTING",
+            oldValue: null,
+            newValue: { email: u.email, sector: body.sector, idempotent: true },
+            traceId,
+          });
+          return apiOk(
+            {
+              globalUserId: u.id,
+              partyId: u.partyId,
+              email: u.email,
+              tenantId: u.primaryTenantId,
+              status: u.status,
+              created: false,
+            },
+            traceId,
+          );
+        }
 
-      const partyId = newId("PTY");
-      const userId = newId("USR");
-      // Random secret, hashed and never disclosed: the canonical account has
-      // no usable interactive credential — the sector owns authentication.
-      const canonicalPasswordHash = createHash("sha256")
-        .update(randomBytes(48))
-        .update(body.email)
-        .digest("hex");
+        const partyId = newId("PTY");
+        const userId = newId("USR");
+        // Random secret, hashed and never disclosed: the canonical account has
+        // no usable interactive credential — the sector owns authentication.
+        const canonicalPasswordHash = createHash("sha256")
+          .update(randomBytes(48))
+          .update(body.email)
+          .digest("hex");
 
-      await db.transaction(async (tx) => {
-        await tx.insert(parties).values({
-          id: partyId,
-          type: "PERSON",
-          displayName: body.displayName,
-          email: body.email,
-          countryCode: body.countryCode ?? null,
-          classification: "CONFIDENTIAL",
-          status: "ACTIVE",
-        });
-        await tx.insert(users).values({
-          id: userId,
-          partyId,
-          email: body.email,
-          passwordHash: canonicalPasswordHash,
-          passwordAlgo: "sha256-random",
-          passwordMustChange: true,
-          primaryTenantId: tenantId,
-          isServiceAccount: false,
-          status: "ACTIVE",
-        });
-        await recordAuditTx(tx, {
-          tenantId,
-          actorType: "SERVICE",
-          action: "internal.identity.register",
-          objectType: "USER",
-          objectId: userId,
-          outcome: "SUCCESS",
-          newValue: {
+        await db.transaction(async (tx) => {
+          await tx.insert(parties).values({
+            id: partyId,
+            type: "PERSON",
+            displayName: body.displayName,
+            email: body.email,
+            countryCode: body.countryCode ?? null,
+            classification: "CONFIDENTIAL",
+            status: "ACTIVE",
+          });
+          await tx.insert(users).values({
+            id: userId,
             partyId,
             email: body.email,
-            sector: body.sector,
-            sectorUserId: body.sectorUserId,
-            tenantCode: body.tenantCode,
+            passwordHash: canonicalPasswordHash,
+            passwordAlgo: "sha256-random",
+            passwordMustChange: true,
+            primaryTenantId: tenantId,
+            isServiceAccount: false,
+            status: "ACTIVE",
+          });
+          await recordAuditTx(tx, {
+            tenantId,
+            actorType: "SERVICE",
+            action: "internal.identity.register",
+            objectType: "USER",
+            objectId: userId,
+            outcome: "SUCCESS",
+            newValue: {
+              partyId,
+              email: body.email,
+              sector: body.sector,
+              sectorUserId: body.sectorUserId,
+              tenantCode: body.tenantCode,
+            },
+            traceId,
+          });
+        });
+
+        return apiOk(
+          {
+            globalUserId: userId,
+            partyId,
+            email: body.email,
+            tenantId,
+            status: "ACTIVE",
+            created: true,
           },
           traceId,
-        });
+          201,
+        );
       });
-
-      return apiOk(
-        {
-          globalUserId: userId,
-          partyId,
-          email: body.email,
-          tenantId,
-          status: "ACTIVE",
-          created: true,
-        },
-        traceId,
-        201,
-      );
     },
   );
 }

@@ -88,7 +88,11 @@ export class IdentityFederationService {
     const mode = this.mode();
 
     if (mode === "LIVE") {
-      const tenantCode = args.tenantCode ?? this.defaultTenantCode();
+      // Canonical provisioning ALWAYS targets the canonical sector tenant
+      // (defaultTenantCode, e.g. BEYU-HEALTH) — args.tenantCode is a
+      // SECTOR-side membership tenant code and is deliberately NOT forwarded:
+      // it does not exist as a canonical tenant on the control plane.
+      const tenantCode = this.defaultTenantCode();
       try {
         const canonical = await this.identity.registerCanonical({
           email: args.email,
@@ -155,8 +159,15 @@ export class IdentityFederationService {
       throw new ServiceUnavailableException("CANONICAL_IDENTITY_UNAVAILABLE");
     }
     if (canonical.status !== "ACTIVE" || canonical.partyStatus !== "ACTIVE") {
+      // Prime the cache with the observed status so the very next request
+      // (well within the TTL) ALSO denies instead of re-lookup racing.
+      this.primeStatusCache(link.beyuUserId, canonical);
       throw new UnauthorizedException("CANONICAL_IDENTITY_NOT_ACTIVE");
     }
+    // Write-through: a successful auth-moment lookup refreshes the per-request
+    // cache so the immediately following request does not spuriously hit a
+    // stale pre-auth entry.
+    this.primeStatusCache(link.beyuUserId, canonical);
   }
 
   // ── Request-path revalidation (strict-TTL cached canonical status) ────────
@@ -179,6 +190,18 @@ export class IdentityFederationService {
     string,
     { status: string; partyStatus: string; fetchedAt: number }
   >();
+
+  /** Write-through priming used by the auth-moment (uncached) checks. */
+  private primeStatusCache(
+    beyuUserId: string,
+    canonical: { status: string; partyStatus: string },
+  ): void {
+    this.statusCache.set(beyuUserId, {
+      status: canonical.status,
+      partyStatus: canonical.partyStatus,
+      fetchedAt: Date.now(),
+    });
+  }
 
   private ttlMs(): number {
     const raw = Number(this.cfg.get("BEYU_IDENTITY_STATUS_TTL_MS") ?? 30_000);

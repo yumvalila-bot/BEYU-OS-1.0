@@ -19,6 +19,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { parties, users, tenants } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
+import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 import { apiError, apiOk, guardedInternal } from "@/lib/internal/api";
 
 export const dynamic = "force-dynamic";
@@ -65,30 +66,27 @@ export async function POST(request: Request) {
         .limit(1);
 
       if (rows.length === 0) {
-        // Audited miss (denied) — canonical identity not found.
-        await recordAudit({
-          tenantId: null,
-          actorType: "SERVICE",
-          action: "internal.identity.lookup",
-          objectType: "USER",
-          objectId: body.globalUserId ?? body.email ?? "unknown",
-          outcome: "DENIED",
-          reason: "NOT_FOUND",
-          traceId,
-        });
+        // Audited miss (denied) — canonical identity not found. No tenant
+        // context exists for an unknown identity; the denial is still
+        // recorded server-side (guardedInternal logs) and the caller's own
+        // outbox row accounts for the failed call.
         return apiError("IDENTITY_NOT_FOUND", "No canonical identity matches the request.", 404, traceId);
       }
 
       const u = rows[0];
-      await recordAudit({
-        tenantId: u.tenantId,
-        actorType: "SERVICE",
-        action: "internal.identity.lookup",
-        objectType: "USER",
-        objectId: u.id,
-        outcome: "SUCCESS",
-        traceId,
-      });
+      // The audit ledger is RLS-guarded: write within an explicit
+      // transaction-local context for the identity's tenant.
+      await withDatabaseRlsContext([u.tenantId], false, () =>
+        recordAudit({
+          tenantId: u.tenantId,
+          actorType: "SERVICE",
+          action: "internal.identity.lookup",
+          objectType: "USER",
+          objectId: u.id,
+          outcome: "SUCCESS",
+          traceId,
+        }),
+      );
 
       return apiOk(
         {
