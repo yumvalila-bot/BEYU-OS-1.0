@@ -19,6 +19,7 @@
 import {
   Body,
   Controller,
+  Get,
   Post,
   Req,
   UnauthorizedException,
@@ -32,10 +33,43 @@ import {
   type ReconcileReport,
   type ReplayResult,
 } from "./outbox-ops.service";
+import {
+  OutboxMetricsService,
+  type OutboxMetricsSnapshot,
+} from "./outbox-metrics.service";
 
 @Controller("api/events/outbox")
 export class OutboxOpsController {
-  constructor(private readonly ops: OutboxOpsService) {}
+  constructor(
+    private readonly ops: OutboxOpsService,
+    private readonly metrics: OutboxMetricsService,
+  ) {}
+
+  /**
+   * Operational metrics for the governed event runtime (Phase 16):
+   * outbox gauges per track + dispatcher configuration. Read-only.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("metrics")
+  @RequirePermission("outbox:reconcile")
+  async getMetrics(
+    @Req()
+    req: {
+      user?: {
+        userId: string;
+        tenantId: string | null;
+        email?: string | null;
+        permissions?: string[];
+      };
+    },
+  ): Promise<OutboxMetricsSnapshot> {
+    const actor = req.user;
+    if (!actor) throw new UnauthorizedException("NO_ACTOR");
+    if (!actor.permissions?.includes("outbox:reconcile")) {
+      throw new UnauthorizedException("OUTBOX_METRICS_FORBIDDEN");
+    }
+    return this.metrics.snapshot();
+  }
 
   /** Operator-authorized replay of dead-lettered / failed / blocked events. */
   @UseGuards(JwtAuthGuard, CsrfOriginGuard)

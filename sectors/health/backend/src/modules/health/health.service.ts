@@ -7,6 +7,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { DB_CONNECTION, type DbConnection } from "../identity/db-connection";
 import { AdapterRegistry } from "../integrations/adapter-registry";
+import { OutboxMetricsService } from "../events/outbox-metrics.service";
 
 /**
  * Health endpoints implementing the LIVE / READY / DEPENDENCY distinction.
@@ -27,6 +28,7 @@ export class HealthService {
     @Inject(DB_CONNECTION) private readonly db: DbConnection,
     private readonly config: ConfigService,
     private readonly adapters: AdapterRegistry,
+    private readonly outboxMetrics: OutboxMetricsService,
   ) {}
 
   async check() {
@@ -62,7 +64,22 @@ export class HealthService {
     const migrations = await this.checkMigrations();
     const criticalConfig = this.checkCriticalConfig();
     const adapters = await this.checkAdapters();
-    return { database, migrations, critical_config: criticalConfig, adapters };
+    // Event dispatcher (Phase 16/17): operational state is REPORTED but never
+    // fails readiness on its own — a backlog or dead-letter is an operational
+    // condition for operators, not an unreadiness of the service process.
+    const eventDispatcher = await this.outboxMetrics
+      .readiness()
+      .catch((e: unknown) => ({
+        status: "degraded" as const,
+        detail: { error: `${(e as Error).message}`.slice(0, 200) },
+      }));
+    return {
+      database,
+      migrations,
+      critical_config: criticalConfig,
+      adapters,
+      event_dispatcher: eventDispatcher,
+    };
   }
 
   private async checkDatabase() {

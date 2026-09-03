@@ -37,6 +37,7 @@ import {
 import { EventOutboxService } from "./event-outbox.service";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service";
 import { OutboxOpsService } from "./outbox-ops.service";
+import { OutboxMetricsService } from "./outbox-metrics.service";
 import { OutboxOpsController } from "./outbox-ops.controller";
 import { AuditService } from "../audit/audit.service";
 import { ROLE_DEFINITIONS } from "../../common/security/permissions";
@@ -178,7 +179,10 @@ beforeAll(async () => {
     new AuditService(bed.conn, bed.tenantCtx),
     dispatcher,
   );
-  controller = new OutboxOpsController(ops);
+  controller = new OutboxOpsController(
+    ops,
+    new OutboxMetricsService(bed.conn, cfg),
+  );
 });
 
 afterAll(async () => {

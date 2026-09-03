@@ -15,11 +15,22 @@ import { EventOutboxService } from "./event-outbox.service";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service";
 import { OutboxOpsService } from "./outbox-ops.service";
 import { OutboxOpsController } from "./outbox-ops.controller";
+import { OutboxMetricsService } from "./outbox-metrics.service";
 
 @Global()
 @Module({
-  providers: [EventOutboxService, OutboxDispatcherService, OutboxOpsService],
+  providers: [
+    EventOutboxService,
+    OutboxDispatcherService,
+    OutboxOpsService,
+    OutboxMetricsService,
+  ],
   controllers: [OutboxOpsController],
-  exports: [EventOutboxService, OutboxDispatcherService, OutboxOpsService],
+  exports: [
+    EventOutboxService,
+    OutboxDispatcherService,
+    OutboxOpsService,
+    OutboxMetricsService,
+  ],
 })
 export class EventsModule {}
