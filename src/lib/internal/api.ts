@@ -22,6 +22,7 @@ import {
   authenticateInternalService,
   type InternalServiceTokenPayload,
 } from "@/lib/internal/service-auth";
+import { checkServicePrincipal } from "@/lib/internal/service-principals";
 
 const deniedAudit = async (
   payload: InternalServiceTokenPayload | null,
@@ -77,6 +78,28 @@ export async function guardedInternal<S extends z.ZodTypeAny>(
         ? "Internal service authentication is not configured on BEYU OS. Fail closed."
         : "Invalid service credentials.",
       auth.code === "INTERNAL_AUTH_NOT_CONFIGURED" ? 503 : 401,
+      traceId,
+    );
+  }
+
+  // Phase 6: per-issuer service-principal status — an explicitly revoked or
+  // suspended issuer is denied on EVERY internal endpoint immediately, without
+  // waiting for shared-secret rotation. Absent registry row = governed by the
+  // static allowlist (backward compatible). Registry unreachable = fail closed.
+  const principal = await checkServicePrincipal(auth.payload.iss);
+  if (!principal.ok) {
+    await deniedAudit(
+      auth.payload,
+      `internal.${opts.action}.principal`,
+      principal.code,
+      traceId,
+    );
+    return apiError(
+      principal.code,
+      principal.code === "SERVICE_PRINCIPAL_REGISTRY_UNAVAILABLE"
+        ? "The service-principal registry is unavailable. Fail closed."
+        : "The calling service principal is not permitted to call BEYU OS internal endpoints.",
+      principal.code === "SERVICE_PRINCIPAL_REGISTRY_UNAVAILABLE" ? 503 : 403,
       traceId,
     );
   }

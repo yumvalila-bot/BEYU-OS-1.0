@@ -816,9 +816,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
   });
 
   it("adds no migration", async () => {
-    // 20 = migrations 0000-0018 (prior baseline) + 0019_internal_event_receipts
-    // (Phase 8 governed cross-OS events: additive, RLS-aware).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(20);
+    // 21 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // (Phase 8 events + Phase 6 service-principal registry: additive).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(21);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

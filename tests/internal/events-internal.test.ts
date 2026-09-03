@@ -273,6 +273,65 @@ describe("POST /api/v1/internal/events — validation and authorization", () => 
   });
 });
 
+describe("POST /api/v1/internal/events — service-principal registry (Phase 6)", () => {
+  // Uses the AGRICULTURE_OS issuer (also allowlisted, also seeded ACTIVE) so
+  // these tests cannot interfere with the HEALTH_OS-based suites that may run
+  // concurrently in the same database.
+  const agriToken = () => token("AGRICULTURE_OS");
+
+  async function setPrincipal(issuer: string, status: string): Promise<void> {
+    await db.execute(sql`update service_principals set status = ${status} where issuer = ${issuer}`);
+  }
+
+  it("a SUSPENDED service principal is denied on every internal endpoint (403, audited)", async () => {
+    await setPrincipal("AGRICULTURE_OS", "SUSPENDED");
+    try {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ source: "AGRICULTURE_OS" }), agriToken()),
+      );
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SERVICE_PRINCIPAL_SUSPENDED");
+    } finally {
+      await setPrincipal("AGRICULTURE_OS", "ACTIVE");
+    }
+  });
+
+  it("a REVOKED service principal is denied (403, audited)", async () => {
+    await setPrincipal("AGRICULTURE_OS", "REVOKED");
+    try {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ source: "AGRICULTURE_OS" }), agriToken()),
+      );
+      expect(res.status).toBe(403);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe("SERVICE_PRINCIPAL_REVOKED");
+    } finally {
+      await setPrincipal("AGRICULTURE_OS", "ACTIVE");
+    }
+  });
+
+  it("an ABSENT registry row falls back to the static allowlist (allowed)", async () => {
+    await db.execute(sql`delete from service_principals where issuer = 'AGRICULTURE_OS'`);
+    try {
+      const res = await publishRoute(
+        req("http://localhost/api/v1/internal/events", envelope({ source: "AGRICULTURE_OS" }), agriToken()),
+      );
+      expect(res.status).toBe(201);
+    } finally {
+      await db.execute(
+        sql`insert into service_principals (issuer, status, reason) values ('AGRICULTURE_OS', 'ACTIVE', 'restored by test') on conflict (issuer) do update set status = 'ACTIVE'`,
+      );
+    }
+  });
+
+  it("an ACTIVE registry row is allowed (registry consulted, not just allowlist)", async () => {
+    await setPrincipal("AGRICULTURE_OS", "ACTIVE");
+    const res = await publishRoute(
+      req("http://localhost/api/v1/internal/events", envelope({ source: "AGRICULTURE_OS" }), agriToken()),
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
 describe("POST /api/v1/internal/events/status — reconciliation lookup", () => {
   it("resolves an accepted idempotency key to its canonical event", async () => {
     const env = envelope({ tenantCode: TENANT_CODE });
