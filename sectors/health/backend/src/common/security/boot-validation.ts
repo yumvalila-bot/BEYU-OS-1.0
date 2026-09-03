@@ -85,6 +85,29 @@ export function validateBootEnvironment(
     );
   }
 
+  // ── Canonical identity federation (BEYU OS control plane) ───────────────
+  // Production Health OS cannot onboard or authenticate identities without
+  // the canonical BEYU identity service: registration and new logins fail
+  // closed without it. Refusing to boot makes that contract explicit instead
+  // of failing per-request after startup.
+  if (isProd && !env.BEYU_IDENTITY_ENDPOINT) {
+    errors.push(
+      "BEYU_IDENTITY_ENDPOINT is required in production — canonical identity federation cannot be disabled (registration/login fail closed without the control plane)",
+    );
+  }
+  if (isProd && env.BEYU_IDENTITY_ENDPOINT && !env.BEYU_IDENTITY_TOKEN) {
+    errors.push(
+      "BEYU_IDENTITY_TOKEN is required in production when BEYU_IDENTITY_ENDPOINT is set (service credential; fail closed)",
+    );
+  }
+  // The identity test harness mints synthetic canonical references. It is
+  // structurally refused at runtime too (IdentityFederationService.mode()).
+  if (isProd && /^(1|true|yes|on)$/i.test(env.BEYU_IDENTITY_TEST_HARNESS ?? "")) {
+    errors.push(
+      "BEYU_IDENTITY_TEST_HARNESS must NOT be enabled in production — canonical identities would be synthetic",
+    );
+  }
+
   // ── Queue / rate-limit backend ───────────────────────────────────────────
   if (isProd && env.QUEUE_BACKEND === "memory") {
     errors.push(

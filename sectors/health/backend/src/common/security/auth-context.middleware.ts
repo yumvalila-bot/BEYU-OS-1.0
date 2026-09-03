@@ -1,6 +1,8 @@
 import {
+  Inject,
   Injectable,
   NestMiddleware,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { NextFunction, Request } from "express";
@@ -9,6 +11,7 @@ import { ConfigService } from "@nestjs/config";
 import { TenantContext, ActorContext } from "./tenant-context";
 import { IdentityRepository } from "../../modules/identity/identity.repository";
 import { AuditService } from "../../modules/identity/audit.service";
+import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
 
 interface TokenClaims {
   sub: string;
@@ -48,6 +51,8 @@ export class AuthContextMiddleware implements NestMiddleware {
     private readonly audit: AuditService,
     private readonly tenantContext: TenantContext,
     private readonly config: ConfigService,
+    @Optional() @Inject(BeyuIdentityBridge)
+    private readonly bridge?: BeyuIdentityBridge,
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -87,6 +92,26 @@ export class AuthContextMiddleware implements NestMiddleware {
         context: { reason: "account_disabled", status: user.account_status },
       });
       throw new UnauthorizedException("ACCOUNT_DISABLED");
+    }
+
+    // ── Canonical identity link gate ───────────────────────────────────────
+    // A valid token for a user WITHOUT a canonical BEYU identity link cannot
+    // act. (Fail-closed federation: the sector is a projection of canonical
+    // identity, never an alternative source of it.) The optional injection is
+    // a DIRECT-CONSTRUCTION compatibility shim for legacy unit fixtures; the
+    // application always provides the bridge — and when absent we still deny
+    // rather than silently trusting the token.
+    const link = this.bridge
+      ? await this.bridge.getLink(userId)
+      : null;
+    if (!link) {
+      await this.audit.record({
+        globalUserId: userId,
+        eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "no_canonical_identity_link" },
+      });
+      throw new UnauthorizedException("NO_CANONICAL_IDENTITY_LINK");
     }
 
     // Authorization changed after the token was issued → reject stale claims.

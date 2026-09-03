@@ -40,6 +40,8 @@ const PROD_BASE: Record<string, string> = {
   CORS_ORIGIN: "https://health.beyu.os",
   DATABASE_URL: "postgresql://prod/prod",
   ENCRYPTION_KEY: "x".repeat(48),
+  BEYU_IDENTITY_ENDPOINT: "https://beyu.os/api/internal",
+  BEYU_IDENTITY_TOKEN: "x".repeat(48),
 };
 
 const silentLogger = new Logger("test");

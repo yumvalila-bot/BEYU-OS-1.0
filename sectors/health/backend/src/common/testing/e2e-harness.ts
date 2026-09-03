@@ -99,6 +99,11 @@ export async function buildE2EHarness(
   // NODE_ENV is production.
   if (process.env.NODE_ENV !== "production") {
     process.env.BEYU_HCM_BYPASS_FOR_TEST = "true";
+    // Identity test harness: registrations link to SYNTHETIC canonical
+    // references through the REAL bridge machinery (link-once, conflict
+    // detection, acting gate). Production refuses this flag at boot AND
+    // structurally in IdentityFederationService.mode().
+    process.env.BEYU_IDENTITY_TEST_HARNESS = "true";
   }
   const db = new PGlite();
   const conn = new PGliteConnection(db);
@@ -119,9 +124,9 @@ export async function buildE2EHarness(
      INSERT INTO beyu_identity.tenant_memberships (global_user_id, tenant_id, role)
        VALUES ('${E2E_ACTOR.userId}','${E2E_ACTOR.tenantId}','doctor')
        ON CONFLICT DO NOTHING;
-     -- canonical link seed + identity harness env are added with the
-     -- identity-federation commit.
-`,
+     INSERT INTO beyu_identity.beyu_identity_links (global_user_id, beyu_user_id, linked_by)
+       VALUES ('${E2E_ACTOR.userId}','BEYU-TEST-${E2E_ACTOR.userId}','e2e-harness')
+       ON CONFLICT (global_user_id) DO NOTHING;`,
   );
 
   const moduleFixture: TestingModule = await Test.createTestingModule({

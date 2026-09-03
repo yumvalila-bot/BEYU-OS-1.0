@@ -40,6 +40,31 @@ export function validateProductionBoot(cfg: ConfigService): BootCheckResult {
       "BEYU_HCM_BYPASS_FOR_TEST must not be enabled in production — it disables HCM practitioner verification",
     );
   }
+  if (
+    /^(1|true|yes|on)$/i.test(
+      cfg.get<string>("BEYU_IDENTITY_TEST_HARNESS") ?? "",
+    )
+  ) {
+    failures.push(
+      "BEYU_IDENTITY_TEST_HARNESS must not be enabled in production — canonical identities would be synthetic",
+    );
+  }
+  // Canonical identity federation is mandatory in production (agreement with
+  // validateBootEnvironment): registration/login fail closed without the
+  // BEYU identity control plane, so a misconfigured boot must refuse to start.
+  if (!cfg.get<string>("BEYU_IDENTITY_ENDPOINT")) {
+    failures.push(
+      "BEYU_IDENTITY_ENDPOINT is required in production — canonical identity federation cannot be disabled",
+    );
+  }
+  if (
+    cfg.get<string>("BEYU_IDENTITY_ENDPOINT") &&
+    !cfg.get<string>("BEYU_IDENTITY_TOKEN")
+  ) {
+    failures.push(
+      "BEYU_IDENTITY_TOKEN is required in production when BEYU_IDENTITY_ENDPOINT is set",
+    );
+  }
   // Production cookie security
   if (cfg.get<string>("COOKIE_SECURE") === "false")
     failures.push("COOKIE_SECURE must be true in production");
