@@ -6,7 +6,7 @@
  *
  * Decorator accepts either a static resourceType string or { paramKey } to
  * read the resource type from a URL param (used for generic controllers
- * like SupabaseController where `:table` carries the table name).
+ * where a path parameter carries the table name).
  *
  * DB triggers (`block_void_patients_when_held`, `block_void_encounters_when_held`,
  * extended in migration 017) provide defence-in-depth — even a request that

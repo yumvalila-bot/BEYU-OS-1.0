@@ -1,29 +1,29 @@
 {
-  "generated": "2026-09-03T06:15:35.140Z",
+  "generated": "2026-09-03T10:26:44.755Z",
   "environment": "local-pglite-in-process",
   "disclaimer": "Local in-process PGlite measurements; NOT production-scale.",
   "metrics": {
     "health.live": {
       "samples": 20,
       "p50_ms": 2,
-      "p95_ms": 4,
-      "p99_ms": 4,
+      "p95_ms": 3,
+      "p99_ms": 3,
       "statusCounts": {
         "200": 20
       }
     },
     "auth.login": {
       "samples": 5,
-      "p50_ms": 729,
-      "p95_ms": 737,
-      "p99_ms": 737,
+      "p50_ms": 691,
+      "p95_ms": 738,
+      "p99_ms": 738,
       "statusCounts": {
         "200": 5
       }
     },
     "patient.list": {
       "samples": 15,
-      "p50_ms": 10,
+      "p50_ms": 12,
       "p95_ms": 15,
       "p99_ms": 15,
       "statusCounts": {
@@ -32,18 +32,18 @@
     },
     "patient.create": {
       "samples": 5,
-      "p50_ms": 28,
-      "p95_ms": 36,
-      "p99_ms": 36,
+      "p50_ms": 34,
+      "p95_ms": 51,
+      "p99_ms": 51,
       "statusCounts": {
         "201": 5
       }
     },
     "audit.read_probe": {
       "samples": 10,
-      "p50_ms": 4,
-      "p95_ms": 7,
-      "p99_ms": 7,
+      "p50_ms": 6,
+      "p95_ms": 10,
+      "p99_ms": 10,
       "statusCounts": {
         "503": 10
       }
