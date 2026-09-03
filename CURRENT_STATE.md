@@ -194,3 +194,39 @@ run events (integration chain). These live in the LOCAL `beyu_os` database only.
   transport, retry owned by the outbox).
 - Production: **NOT READY** — X-3 (prod DB DOWN) and the other Phase 0 blockers gate
   any production claim. PR #22 remains open pending explicit human authorization.
+
+## 8. Fresh reality audit — master program re-issue (2026-09-03, later session)
+
+**Environment reset disclosed:** the sandbox was reset between sessions. Git state arrived
+as a fresh shallow clone (HEAD `8e74e96` = branch origin) with all prior engineering
+present only as working-tree files; local PostgreSQL, the `:3100` server, `node_modules`
+and the untracked `.env` were gone. Recovery: fetched the remote branch — the previous
+session's final state HAD been pushed (`arena/01a0636a-beyu-os-1-0` @ `404852f`), the
+working tree matched it except 19 generated `coverage/*.json` timestamps — and hard-aligned
+the branch to `404852f` (proven lossless for source via tree-hash comparison). Local infra
+was rebuilt from scratch (embedded PostgreSQL 16.6 on :54329, databases `beyu_os` +
+`beyu_health`, `beyu_runtime` role NOSUPERUSER/NOBYPASSRLS, root migrations 20/20
+fingerprint `053a78669f66b90964367b3455d7f82b`, health migrations 22/22, root build +
+`:3100` server UP with database UP). GitHub authentication works again (rotated token).
+
+### Findings (all re-probed this session, none assumed)
+
+| Item | Fresh result |
+|---|---|
+| Repository | `/home/user/BEYU-OS-1.0`, branch `arena/01a0636a-beyu-os-1-0`, HEAD `e424e03` (lint fix), clean tree |
+| Remote | `github.com/yumvalila-bot/BEYU-OS-1.0.git`, branch synced, full history present (22 commits) |
+| PR #22 | OPEN, head `e424e03`, base `main`, mergeable — NOT merged (awaits explicit human authorization) |
+| CI @ `e424e03` | in progress; previous run @ `404852f` FAILED on health-backend lint (non-mutating eslint) — **fixed and pushed as `e424e03`**; root gate passed @ `404852f`; db-release green both |
+| Vercel | commit statuses: `e424e03` success, `404852f` success, `8e74e96` success (SHA-tie verified via GitHub API) |
+| Production runtime | `https://beyu-os-1-0.vercel.app/api/health` → `{"ok":false,…,"database":"DOWN"}` — **X-3 STILL OPEN** |
+| Supabase | PostgREST alive (`No API key found`) — project up; DB state unverifiable without credentials |
+| Branch protection | API 403 for the integration token — X-4 remains EXTERNAL_PERMISSION_BLOCKED (cannot inspect or configure) |
+| Local root DB | 20/20 checksummed migrations; 21 RLS tables / 21 policies; 11 FORCE RLS; runtime role NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB |
+| Local health DB | 22/22 migrations; outbox dispatcher state (022) + `beyu_outbox_due_tenants()` verified |
+
+### Blocker re-classification (unchanged)
+
+X-1 admin DB secret — EXTERNAL_BLOCKED · X-2 runtime DB password — EXTERNAL_BLOCKED ·
+X-3 production DB DOWN — EXTERNAL_BLOCKED (re-probed live) · X-4 protection rules —
+EXTERNAL_PERMISSION_BLOCKED (403, re-probed) · X-5 Health prod host — EXTERNAL_BLOCKED ·
+X-6 DR drill — NOT_ATTEMPTED · X-7 PR #22 merge — REQUIRES_HUMAN_APPROVAL.
