@@ -129,7 +129,9 @@ export class IdentityFederationService {
   }
 
   /** Login/refresh gate: the sector user MUST hold a canonical link. */
-  async requireLinkedIdentity(globalUserId: string): Promise<CanonicalUserLink> {
+  async requireLinkedIdentity(
+    globalUserId: string,
+  ): Promise<CanonicalUserLink> {
     return this.bridge.requireCanonicalLink(globalUserId);
   }
 
@@ -154,6 +156,103 @@ export class IdentityFederationService {
     }
     if (canonical.status !== "ACTIVE" || canonical.partyStatus !== "ACTIVE") {
       throw new UnauthorizedException("CANONICAL_IDENTITY_NOT_ACTIVE");
+    }
+  }
+
+  // ── Request-path revalidation (strict-TTL cached canonical status) ────────
+  //
+  // Revocation check strategy (documented in IDENTITY_FEDERATION.md):
+  //   * authentication moments (login/refresh/restore) → ALWAYS a fresh
+  //     uncached canonical lookup (assertCanonicalStatusActive);
+  //   * every authenticated request → canonical status revalidated at most
+  //     once per TTL (default 30s, hard cap 300s) per canonical identity;
+  //   * sector-side security_version is checked on EVERY request (existing
+  //     middleware behaviour — instant sector-level revocation);
+  //   * during a control-plane outage, a bounded-stale cached status may
+  //     carry READ requests for at most MAX_STALE (default 300s, hard cap
+  //     900s) — the documented degraded-mode allowance; MUTATING requests
+  //     and anything beyond MAX_STALE fail closed (503/401).
+  // There is deliberately no long-lived cache: every entry is at most
+  // TTL seconds old when trusted unconditionally.
+
+  private statusCache = new Map<
+    string,
+    { status: string; partyStatus: string; fetchedAt: number }
+  >();
+
+  private ttlMs(): number {
+    const raw = Number(this.cfg.get("BEYU_IDENTITY_STATUS_TTL_MS") ?? 30_000);
+    const ttl = Number.isFinite(raw) && raw > 0 ? raw : 30_000;
+    return Math.min(ttl, 300_000); // hard cap: never a long-lived cache
+  }
+
+  private maxStaleMs(): number {
+    const raw = Number(
+      this.cfg.get("BEYU_IDENTITY_STATUS_MAX_STALE_MS") ?? 300_000,
+    );
+    const ms = Number.isFinite(raw) && raw > 0 ? raw : 300_000;
+    return Math.min(ms, 900_000); // hard cap: 15 minutes, ever
+  }
+
+  /** Test hook: drop the cache so the next check revalidates remotely. */
+  invalidateStatusCache(): void {
+    this.statusCache.clear();
+  }
+
+  /**
+   * Per-request canonical status gate with strict TTL. `mutating` requests
+   * never ride a stale entry across an outage (fail closed); reads may use
+   * the bounded-stale entry within MAX_STALE (documented degraded mode).
+   */
+  async assertCanonicalStatusFresh(
+    link: CanonicalUserLink,
+    opts: { mutating: boolean },
+  ): Promise<void> {
+    if (this.mode() !== "LIVE") return; // harness/blocked: sector-local status + link only
+    const ttl = this.ttlMs();
+    const maxStale = this.maxStaleMs();
+    const entry = this.statusCache.get(link.beyuUserId);
+    const age = entry ? Date.now() - entry.fetchedAt : Number.POSITIVE_INFINITY;
+
+    if (entry && age <= ttl) {
+      // Fresh — but a non-ACTIVE cached status always denies (a revoked
+      // identity must never pass on a cache hit).
+      if (entry.status !== "ACTIVE" || entry.partyStatus !== "ACTIVE") {
+        throw new UnauthorizedException("CANONICAL_IDENTITY_NOT_ACTIVE");
+      }
+      return;
+    }
+
+    try {
+      const canonical = await this.identity.lookupCanonical({
+        globalUserId: link.beyuUserId,
+        tenantId: null,
+      });
+      this.statusCache.set(link.beyuUserId, {
+        status: canonical.status,
+        partyStatus: canonical.partyStatus,
+        fetchedAt: Date.now(),
+      });
+      if (canonical.status !== "ACTIVE" || canonical.partyStatus !== "ACTIVE") {
+        throw new UnauthorizedException("CANONICAL_IDENTITY_NOT_ACTIVE");
+      }
+      return;
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e; // definitive denial
+      // Control-plane outage during revalidation:
+      this.logger.error(
+        `canonical status revalidation failed for ${link.beyuUserId}: ${(e as Error).message}`,
+      );
+      if (entry && age <= maxStale && !opts.mutating) {
+        // Documented degraded-mode allowance for reads, bounded by MAX_STALE —
+        // but NEVER for a non-ACTIVE cached status (stale revocation denies).
+        if (entry.status !== "ACTIVE" || entry.partyStatus !== "ACTIVE") {
+          throw new UnauthorizedException("CANONICAL_IDENTITY_NOT_ACTIVE");
+        }
+        return;
+      }
+      // Mutating requests, or staleness beyond MAX_STALE: fail closed.
+      throw new ServiceUnavailableException("CANONICAL_IDENTITY_UNAVAILABLE");
     }
   }
 

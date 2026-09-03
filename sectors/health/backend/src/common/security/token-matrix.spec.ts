@@ -62,8 +62,10 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   const enter = (token: string | null) =>
     middleware.use(makeRequest(token), {} as any, () => undefined);
 
-  const sign = (payload: Record<string, unknown>, opts: Record<string, unknown> = {}) =>
-    jwt.sign(payload, { secret: SECRET, ...opts });
+  const sign = (
+    payload: Record<string, unknown>,
+    opts: Record<string, unknown> = {},
+  ) => jwt.sign(payload, { secret: SECRET, ...opts });
 
   /** Create a user + membership + canonical link; return its id + current sv. */
   async function linkedUser(tenantId: string, role = "doctor") {
@@ -74,14 +76,21 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       accountStatus: "active",
     });
     if (tenantId) {
-      await repo.ensureMembership({ globalUserId: user.global_user_id, tenantId, role });
+      await repo.ensureMembership({
+        globalUserId: user.global_user_id,
+        tenantId,
+        role,
+      });
     }
     await bridge.linkUser({
       globalUserId: user.global_user_id,
       beyuUserId: `BEYU-TEST-${user.global_user_id}`,
       linkedBy: "spec-fixture",
     });
-    return { id: user.global_user_id, sv: await repo.getSecurityVersion(user.global_user_id) };
+    return {
+      id: user.global_user_id,
+      sv: await repo.getSecurityVersion(user.global_user_id),
+    };
   }
 
   beforeAll(async () => {
@@ -112,7 +121,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("VALID token → actor established with canonical link present", async () => {
     const u = await linkedUser(tenantAId);
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     let actor: ActorContext | null = null;
@@ -126,7 +141,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("EXPIRED token → no actor", async () => {
     const u = await linkedUser(tenantAId);
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "beyu-api", expiresIn: "-1s" },
     );
     let actor: ActorContext | null = "sentinel" as any;
@@ -140,7 +161,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     const u = await linkedUser(tenantAId);
     const forged = new JwtService({ secret: "other-secret" });
     const token = forged.sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     let actor: ActorContext | null = "sentinel" as any;
@@ -152,21 +179,40 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_ALGORITHM (alg:none) token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+    const header = Buffer.from(
+      JSON.stringify({ alg: "none", typ: "JWT" }),
+    ).toString("base64url");
     const payload = Buffer.from(
-      JSON.stringify({ sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv, exp: Math.floor(Date.now() / 1000) + 600 }),
+      JSON.stringify({
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+        exp: Math.floor(Date.now() / 1000) + 600,
+      }),
     ).toString("base64url");
     let actor: ActorContext | null = "sentinel" as any;
-    await middleware.use(makeRequest(`${header}.${payload}.`), {} as any, () => {
-      actor = tenant.current();
-    });
+    await middleware.use(
+      makeRequest(`${header}.${payload}.`),
+      {} as any,
+      () => {
+        actor = tenant.current();
+      },
+    );
     expect(actor).toBeNull();
   });
 
   it("WRONG_AUDIENCE token → no actor", async () => {
     const u = await linkedUser(tenantAId);
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "somebody-else" },
     );
     let actor: ActorContext | null = "sentinel" as any;
@@ -179,7 +225,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("WRONG_ISSUER token → no actor", async () => {
     const u = await linkedUser(tenantAId);
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "evil", audience: "beyu-api" },
     );
     let actor: ActorContext | null = "sentinel" as any;
@@ -212,7 +264,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("STALE_SECURITY_VERSION → 401 AUTHORIZATION_CHANGED", async () => {
     const u = await linkedUser(tenantAId);
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     // Role change bumps security_version AFTER the token was issued.
@@ -224,7 +282,13 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     const u = await linkedUser(tenantAId);
     await repo.setAccountStatus(u.id, "disabled");
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: await repo.getSecurityVersion(u.id) },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: tenantAId,
+        sv: await repo.getSecurityVersion(u.id),
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     await expect(enter(token)).rejects.toThrow("ACCOUNT_DISABLED");
@@ -237,7 +301,11 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       passwordHash: "x",
       accountStatus: "active",
     });
-    await repo.ensureMembership({ globalUserId: user.global_user_id, tenantId: tenantAId, role: "doctor" });
+    await repo.ensureMembership({
+      globalUserId: user.global_user_id,
+      tenantId: tenantAId,
+      role: "doctor",
+    });
     const token = sign(
       {
         sub: user.global_user_id,
@@ -253,9 +321,18 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_TENANT (no membership) → 401 NO_TENANT_MEMBERSHIP", async () => {
     const u = await linkedUser(tenantAId);
-    const other = await repo.createTenant({ code: `MATRIX-B-${Math.random().toString(36).slice(2, 6)}`, name: "B" });
+    const other = await repo.createTenant({
+      code: `MATRIX-B-${Math.random().toString(36).slice(2, 6)}`,
+      name: "B",
+    });
     const token = sign(
-      { sub: u.id, email: "m@a.example", role: "doctor", tenantId: other.tenant_id, sv: u.sv },
+      {
+        sub: u.id,
+        email: "m@a.example",
+        role: "doctor",
+        tenantId: other.tenant_id,
+        sv: u.sv,
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     await expect(enter(token)).rejects.toThrow("NO_TENANT_MEMBERSHIP");
@@ -270,7 +347,12 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     });
     // No membership, no link.
     const token = sign(
-      { sub: user.global_user_id, email: "m@a.example", role: "patient", sv: 0 },
+      {
+        sub: user.global_user_id,
+        email: "m@a.example",
+        role: "patient",
+        sv: 0,
+      },
       { issuer: "beyu", audience: "beyu-api" },
     );
     await expect(enter(token)).rejects.toThrow("NO_CANONICAL_IDENTITY_LINK");

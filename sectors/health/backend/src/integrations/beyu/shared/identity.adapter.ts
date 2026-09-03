@@ -80,16 +80,27 @@ export class IdentityAdapter extends BeyuBaseAdapter {
     return this.runAsServiceActor(actor, () =>
       this.execute<CanonicalRegistration>(
         "identity.register",
-        { email: req.email, displayName: req.displayName, tenantCode: req.tenantCode },
+        {
+          email: req.email,
+          displayName: req.displayName,
+          tenantCode: req.tenantCode,
+        },
         () =>
-          this.postJson<CanonicalRegistration>("/api/v1/internal/identity/register", {
-            email: req.email,
-            displayName: req.displayName,
-            tenantCode: req.tenantCode,
-            sector: "HEALTH_OS",
-            sectorUserId: req.sectorUserId,
-          }),
-        { actor, idempotencyKey: `identity-register:${req.email.toLowerCase()}`, retries: 1 },
+          this.postJson<CanonicalRegistration>(
+            "/api/v1/internal/identity/register",
+            {
+              email: req.email,
+              displayName: req.displayName,
+              tenantCode: req.tenantCode,
+              sector: "HEALTH_OS",
+              sectorUserId: req.sectorUserId,
+            },
+          ),
+        {
+          actor,
+          idempotencyKey: `identity-register:${req.email.toLowerCase()}`,
+          retries: 1,
+        },
       ),
     );
   }

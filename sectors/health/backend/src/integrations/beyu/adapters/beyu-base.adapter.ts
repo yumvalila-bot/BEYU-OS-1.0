@@ -321,7 +321,8 @@ export abstract class BeyuBaseAdapter {
 
     const token = signServiceToken(secret, act);
     const correlationId = currentCorrelationId();
-    const requestId = (requestStorage as any).getStore?.()?.requestId ?? randomUUID();
+    const requestId =
+      (requestStorage as any).getStore?.()?.requestId ?? randomUUID();
 
     let res: Response;
     try {
@@ -342,7 +343,10 @@ export abstract class BeyuBaseAdapter {
       });
     }
 
-    let parsed: { data?: unknown; error?: { code?: string; message?: string } } = {};
+    let parsed: {
+      data?: unknown;
+      error?: { code?: string; message?: string };
+    } = {};
     try {
       parsed = (await res.json()) as typeof parsed;
     } catch {

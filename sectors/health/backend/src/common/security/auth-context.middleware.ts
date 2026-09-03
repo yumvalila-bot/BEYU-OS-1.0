@@ -12,6 +12,7 @@ import { TenantContext, ActorContext } from "./tenant-context";
 import { IdentityRepository } from "../../modules/identity/identity.repository";
 import { AuditService } from "../../modules/identity/audit.service";
 import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
+import { IdentityFederationService } from "../../modules/identity/identity-federation.service";
 
 interface TokenClaims {
   sub: string;
@@ -51,8 +52,12 @@ export class AuthContextMiddleware implements NestMiddleware {
     private readonly audit: AuditService,
     private readonly tenantContext: TenantContext,
     private readonly config: ConfigService,
-    @Optional() @Inject(BeyuIdentityBridge)
+    @Optional()
+    @Inject(BeyuIdentityBridge)
     private readonly bridge?: BeyuIdentityBridge,
+    @Optional()
+    @Inject(IdentityFederationService)
+    private readonly federation?: IdentityFederationService,
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -101,9 +106,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     // a DIRECT-CONSTRUCTION compatibility shim for legacy unit fixtures; the
     // application always provides the bridge — and when absent we still deny
     // rather than silently trusting the token.
-    const link = this.bridge
-      ? await this.bridge.getLink(userId)
-      : null;
+    const link = this.bridge ? await this.bridge.getLink(userId) : null;
     if (!link) {
       await this.audit.record({
         globalUserId: userId,
@@ -112,6 +115,34 @@ export class AuthContextMiddleware implements NestMiddleware {
         context: { reason: "no_canonical_identity_link" },
       });
       throw new UnauthorizedException("NO_CANONICAL_IDENTITY_LINK");
+    }
+
+    // ── Canonical status revalidation (revocation propagation) ────────────
+    // LIVE federation re-checks the canonical lifecycle status at most once
+    // per strict TTL per identity. Mutating requests never ride a stale
+    // entry across a control-plane outage (fail closed); reads may use the
+    // bounded-stale entry (documented degraded mode). security_version
+    // freshness above remains a per-request, sector-side control.
+    if (this.federation) {
+      const mutating = !["GET", "HEAD", "OPTIONS"].includes(req.method);
+      try {
+        await this.federation.assertCanonicalStatusFresh(link, { mutating });
+      } catch (e) {
+        await this.audit.record({
+          globalUserId: userId,
+          eventType: "token_rejected",
+          result: "DENIED",
+          context: {
+            reason:
+              e instanceof Error &&
+              e.message === "CANONICAL_IDENTITY_NOT_ACTIVE"
+                ? "canonical_identity_not_active"
+                : "canonical_status_unavailable",
+            mutating,
+          },
+        });
+        throw e;
+      }
     }
 
     // Authorization changed after the token was issued → reject stale claims.

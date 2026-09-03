@@ -102,7 +102,10 @@ export function validateBootEnvironment(
   }
   // The identity test harness mints synthetic canonical references. It is
   // structurally refused at runtime too (IdentityFederationService.mode()).
-  if (isProd && /^(1|true|yes|on)$/i.test(env.BEYU_IDENTITY_TEST_HARNESS ?? "")) {
+  if (
+    isProd &&
+    /^(1|true|yes|on)$/i.test(env.BEYU_IDENTITY_TEST_HARNESS ?? "")
+  ) {
     errors.push(
       "BEYU_IDENTITY_TEST_HARNESS must NOT be enabled in production — canonical identities would be synthetic",
     );

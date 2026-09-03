@@ -89,10 +89,30 @@ class ScriptedStub {
             return send(201, { data: { hello: "world" } });
           case "slow":
             // Slower than the adapter timeout (3s) — forces ETIMEDOUT.
-            return setTimeout(() => send(201, { data: { globalUserId: "USR_X", partyId: "PTY_X", email: "x@x", status: "ACTIVE", created: true } }), 8000);
+            return setTimeout(
+              () =>
+                send(201, {
+                  data: {
+                    globalUserId: "USR_X",
+                    partyId: "PTY_X",
+                    email: "x@x",
+                    status: "ACTIVE",
+                    created: true,
+                  },
+                }),
+              8000,
+            );
           case "ok":
           default:
-            return send(201, { data: { globalUserId: "USR_OK1", partyId: "PTY_OK1", email: "x@x", status: "ACTIVE", created: true } });
+            return send(201, {
+              data: {
+                globalUserId: "USR_OK1",
+                partyId: "PTY_OK1",
+                email: "x@x",
+                status: "ACTIVE",
+                created: true,
+              },
+            });
         }
       });
     });
@@ -132,17 +152,34 @@ describe("Identity transport failure matrix (fail closed)", () => {
       cfg,
       new LedgerAuditService(conn as never, tenantCtx),
     );
-    const federation = new IdentityFederationService(conn as never, bridge, adapter, cfg);
+    const federation = new IdentityFederationService(
+      conn as never,
+      bridge,
+      adapter,
+      cfg,
+    );
     return { adapter, federation };
   };
 
-  const email = () => `tmx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@beyu.test`;
+  const email = () =>
+    `tmx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@beyu.test`;
 
   beforeAll(async () => {
     const db = new PGlite();
     conn = new PGliteConnection(db);
-    const migDir = path.resolve(__dirname, "..", "..", "..", "..", "database", "migrations");
-    for (const f of fs.readdirSync(migDir).filter((f) => f.endsWith(".up.sql")).sort()) {
+    const migDir = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "database",
+      "migrations",
+    );
+    for (const f of fs
+      .readdirSync(migDir)
+      .filter((f) => f.endsWith(".up.sql"))
+      .sort()) {
       await conn.exec(fs.readFileSync(path.join(migDir, f), "utf8"));
     }
     repo = new IdentityRepository(conn as never);
@@ -246,7 +283,12 @@ describe("Identity transport failure matrix (fail closed)", () => {
       cfg,
       new LedgerAuditService(conn as never, tenantCtx),
     );
-    const federation = new IdentityFederationService(conn as never, bridge, adapter, cfg);
+    const federation = new IdentityFederationService(
+      conn as never,
+      bridge,
+      adapter,
+      cfg,
+    );
     const e = email();
     const { gid } = await registerViaFederation(e);
     await expect(
@@ -277,9 +319,11 @@ describe("Identity transport failure matrix (fail closed)", () => {
     const l2 = await federation.linkOnRegister(args);
     expect(l2.beyuUserId).toBe(l1.beyuUserId);
     // Exactly ONE link row for the sector user.
-    const rows = await (conn as unknown as {
-      query: (q: string, p?: unknown[]) => Promise<{ n: string }[]>;
-    }).query(
+    const rows = await (
+      conn as unknown as {
+        query: (q: string, p?: unknown[]) => Promise<{ n: string }[]>;
+      }
+    ).query(
       `select count(*)::int as n from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [gid],
     );
@@ -299,9 +343,13 @@ describe("Identity transport failure matrix (fail closed)", () => {
         tenantId: null,
       }),
     ).rejects.toThrow(ServiceUnavailableException);
-    const rows = await (conn as unknown as {
-      query: (q: string) => Promise<{ status: string; last_error: string | null }[]>;
-    }).query(
+    const rows = await (
+      conn as unknown as {
+        query: (
+          q: string,
+        ) => Promise<{ status: string; last_error: string | null }[]>;
+      }
+    ).query(
       `select status, last_error from health.beyu_outbox where action = 'identity.register' order by created_at desc limit 1`,
     );
     expect(rows[0].status).toBe("failed");

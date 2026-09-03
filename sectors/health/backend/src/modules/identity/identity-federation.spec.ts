@@ -18,7 +18,11 @@ import * as http from "http";
 import { AddressInfo } from "net";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { ForbiddenException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
 import { createTestDbConnection } from "./test-connection";
@@ -30,11 +34,18 @@ import { AuditService as LedgerAuditService } from "../audit/audit.service";
 import { MfaService } from "./mfa.service";
 import { AuthService } from "../auth/auth.service";
 import { BeyuIdentityBridge } from "./beyu-bridge";
-import { IdentityFederationService, IDENTITY_TEST_HARNESS_ENV } from "./identity-federation.service";
+import {
+  IdentityFederationService,
+  IDENTITY_TEST_HARNESS_ENV,
+} from "./identity-federation.service";
 import { IdentityAdapter } from "../../integrations/beyu/shared/identity.adapter";
 import { CircuitBreaker } from "../../modules/integrations/circuit-breaker";
 import { TenantContext } from "../../common/security/tenant-context";
-import { signServiceToken, SERVICE_AUDIENCE, SERVICE_ISSUER } from "../../integrations/beyu/shared/service-token";
+import {
+  signServiceToken,
+  SERVICE_AUDIENCE,
+  SERVICE_ISSUER,
+} from "../../integrations/beyu/shared/service-token";
 
 const SHARED_SECRET = "federation-test-secret-0123456789abcdef";
 const PASSWORD = "correct-password-123";
@@ -49,7 +60,10 @@ const PASSWORD = "correct-password-123";
 class BeyuStub {
   server: http.Server;
   url = "";
-  canonicalByEmail = new Map<string, { globalUserId: string; partyId: string }>();
+  canonicalByEmail = new Map<
+    string,
+    { globalUserId: string; partyId: string }
+  >();
   statusByEmail = new Map<string, { status: string; partyStatus: string }>();
   receivedAuthHeaders: string[] = [];
   private seq = 0;
@@ -69,13 +83,18 @@ class BeyuStub {
         // Service-token verification (mirrors BEYU OS service-auth.ts).
         const token = /^Bearer\s+(.+)$/.exec(auth)?.[1] ?? "";
         const parts = token.split(".");
-        if (parts.length !== 3) return send(401, { error: { code: "INVALID_SERVICE_TOKEN" } });
+        if (parts.length !== 3)
+          return send(401, { error: { code: "INVALID_SERVICE_TOKEN" } });
         const [h, p, s] = parts;
-        const b64 = (x: string) => Buffer.from(x.replace(/-/g, "+").replace(/_/g, "/"), "base64");
-        const expected = createHmac("sha256", this.secret).update(`${h}.${p}`).digest();
+        const b64 = (x: string) =>
+          Buffer.from(x.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+        const expected = createHmac("sha256", this.secret)
+          .update(`${h}.${p}`)
+          .digest();
         const provided = b64(s);
         const okSig =
-          expected.length === provided.length && timingSafeEqual(expected, provided);
+          expected.length === provided.length &&
+          timingSafeEqual(expected, provided);
         let claims: Record<string, unknown>;
         try {
           claims = JSON.parse(b64(p).toString("utf8"));
@@ -108,7 +127,10 @@ class BeyuStub {
             partyId: `PTY_STUB${String(this.seq).padStart(6, "0")}`,
           };
           this.canonicalByEmail.set(email, rec);
-          this.statusByEmail.set(email, { status: "ACTIVE", partyStatus: "ACTIVE" });
+          this.statusByEmail.set(email, {
+            status: "ACTIVE",
+            partyStatus: "ACTIVE",
+          });
           return send(201, {
             data: { ...rec, email, status: "ACTIVE", created: true },
           });
@@ -153,7 +175,10 @@ class BeyuStub {
 
   /** Simulate canonical revocation for an email. */
   revoke(email: string): void {
-    this.statusByEmail.set(email.toLowerCase(), { status: "SUSPENDED", partyStatus: "SUSPENDED" });
+    this.statusByEmail.set(email.toLowerCase(), {
+      status: "SUSPENDED",
+      partyStatus: "SUSPENDED",
+    });
   }
 
   start(): Promise<void> {
@@ -178,7 +203,6 @@ describe("IdentityFederationService — canonical identity federation", () => {
   let bridge: BeyuIdentityBridge;
   let identityAdapter: IdentityAdapter;
   let federation: IdentityFederationService;
-  let auth: AuthService;
   let stub: BeyuStub;
   let tenantCtx: TenantContext;
   let circuit: CircuitBreaker;
@@ -191,10 +215,22 @@ describe("IdentityFederationService — canonical identity federation", () => {
     await repo.ensureSchema();
     // Apply the real migrations (health.* outbox/circuits tables needed by
     // the LIVE transport path), exactly like the HTTP E2E harness does.
-    const migDir = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
-    const exec = (conn as unknown as { exec: (sql: string) => Promise<unknown> }).exec;
+    const migDir = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "database",
+      "migrations",
+    );
+    const exec = (
+      conn as unknown as { exec: (sql: string) => Promise<unknown> }
+    ).exec;
     if (exec) {
-      for (const f of fs.readdirSync(migDir).filter((f) => f.endsWith(".up.sql")).sort()) {
+      for (const f of fs
+        .readdirSync(migDir)
+        .filter((f) => f.endsWith(".up.sql"))
+        .sort()) {
         await exec.call(conn, fs.readFileSync(path.join(migDir, f), "utf8"));
       }
     }
@@ -257,7 +293,8 @@ describe("IdentityFederationService — canonical identity federation", () => {
     delete process.env.BEYU_IDENTITY_TOKEN;
   });
 
-  const uniqueEmail = () => `fed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@beyu.test`;
+  const uniqueEmail = () =>
+    `fed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@beyu.test`;
 
   it("mode(): TEST_HARNESS when the harness flag is set outside production", () => {
     buildAuth({});
@@ -281,8 +318,13 @@ describe("IdentityFederationService — canonical identity federation", () => {
   it("TEST_HARNESS registration links a synthetic canonical identity via the REAL bridge (link-once)", async () => {
     const a = buildAuth({});
     const email = uniqueEmail();
-    const res = await a.register({ email, password: PASSWORD, full_name: "Harness User" });
-    const gid = (res as unknown as { user: { globalUserId: string } }).user.globalUserId;
+    const res = await a.register({
+      email,
+      password: PASSWORD,
+      full_name: "Harness User",
+    });
+    const gid = (res as unknown as { user: { globalUserId: string } }).user
+      .globalUserId;
     const link = await bridge.getLink(gid);
     expect(link).not.toBeNull();
     expect(link!.beyuUserId).toMatch(/^BEYU-TEST-/);
@@ -305,8 +347,14 @@ describe("IdentityFederationService — canonical identity federation", () => {
     // Enable the harness → the same email can now register.
     process.env[IDENTITY_TEST_HARNESS_ENV] = "true";
     const b = buildAuth({});
-    const res = await b.register({ email, password: PASSWORD, full_name: "Blocked User" });
-    expect((res as unknown as { user: { globalUserId: string } }).user).toBeTruthy();
+    const res = await b.register({
+      email,
+      password: PASSWORD,
+      full_name: "Blocked User",
+    });
+    expect(
+      (res as unknown as { user: { globalUserId: string } }).user,
+    ).toBeTruthy();
   });
 
   it("LIVE registration provisions canonically over real HTTP and links (idempotent, no duplicates)", async () => {
@@ -316,8 +364,13 @@ describe("IdentityFederationService — canonical identity federation", () => {
     });
     expect(federation.mode()).toBe("LIVE");
     const email = uniqueEmail();
-    const res = await a.register({ email, password: PASSWORD, full_name: "Live User" });
-    const gid = (res as unknown as { user: { globalUserId: string } }).user.globalUserId;
+    const res = await a.register({
+      email,
+      password: PASSWORD,
+      full_name: "Live User",
+    });
+    const gid = (res as unknown as { user: { globalUserId: string } }).user
+      .globalUserId;
     const link = await bridge.getLink(gid);
     expect(link).not.toBeNull();
     expect(link!.beyuUserId).toMatch(/^USR_STUB/);
@@ -335,16 +388,25 @@ describe("IdentityFederationService — canonical identity federation", () => {
     await expect(
       b.register({ email, password: PASSWORD, full_name: "Live User" }),
     ).rejects.toThrow(); // ConflictException: email already exists
-    expect(stub.canonicalByEmail.get(email)!.globalUserId).toBe(canonical.globalUserId);
+    expect(stub.canonicalByEmail.get(email)!.globalUserId).toBe(
+      canonical.globalUserId,
+    );
 
     // Outbox: the registration call left a delivered beyu.identity row.
-    const outbox = await (conn as unknown as {
-      query: (q: string) => Promise<{ provider: string; action: string; status: string }[]>;
-    }).query(
+    const outbox = await (
+      conn as unknown as {
+        query: (
+          q: string,
+        ) => Promise<{ provider: string; action: string; status: string }[]>;
+      }
+    ).query(
       `select provider, action, status from health.beyu_outbox where action = 'identity.register' order by created_at desc limit 5`,
     );
     expect(
-      outbox.some((r: { provider: string; status: string }) => r.provider === "beyu.identity" && r.status === "delivered"),
+      outbox.some(
+        (r: { provider: string; status: string }) =>
+          r.provider === "beyu.identity" && r.status === "delivered",
+      ),
     ).toBe(true);
 
     // Linked user can log in (canonical status ACTIVE at the stub).
@@ -353,22 +415,37 @@ describe("IdentityFederationService — canonical identity federation", () => {
   });
 
   it("LIVE service token contract: real HS256 tokens with iss/aud/sub/exp (verified by the stub)", async () => {
-    const before = stub.receivedAuthHeaders.length;
     const a = buildAuth({
       BEYU_IDENTITY_ENDPOINT: stub.url,
       BEYU_IDENTITY_TOKEN: SHARED_SECRET,
     });
     const email = uniqueEmail();
-    await a.register({ email, password: PASSWORD, full_name: "Token Contract" });
+    await a.register({
+      email,
+      password: PASSWORD,
+      full_name: "Token Contract",
+    });
     const authz = stub.receivedAuthHeaders[stub.receivedAuthHeaders.length - 1];
     expect(authz).toMatch(/^Bearer /);
     const token = authz.replace(/^Bearer\s+/, "");
     // Locally verify the exact claims the stub enforced.
     const [h, p, s] = token.split(".");
-    const expected = createHmac("sha256", SHARED_SECRET).update(`${h}.${p}`).digest();
-    const provided = Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
-    expect(expected.length === provided.length && timingSafeEqual(expected, provided)).toBe(true);
-    const claims = JSON.parse(Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+    const expected = createHmac("sha256", SHARED_SECRET)
+      .update(`${h}.${p}`)
+      .digest();
+    const provided = Buffer.from(
+      s.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64",
+    );
+    expect(
+      expected.length === provided.length &&
+        timingSafeEqual(expected, provided),
+    ).toBe(true);
+    const claims = JSON.parse(
+      Buffer.from(p.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(
+        "utf8",
+      ),
+    );
     expect(claims.iss).toBe(SERVICE_ISSUER);
     expect(claims.aud).toBe(SERVICE_AUDIENCE);
     expect(claims.sub).toBe(`service:${SERVICE_ISSUER}`);
@@ -376,7 +453,10 @@ describe("IdentityFederationService — canonical identity federation", () => {
     expect(claims.exp - claims.iat).toBeLessThanOrEqual(300);
 
     // signServiceToken itself round-trips the same contract.
-    const minted = signServiceToken(SHARED_SECRET, { globalUserId: "u1", tenantId: null });
+    const minted = signServiceToken(SHARED_SECRET, {
+      globalUserId: "u1",
+      tenantId: null,
+    });
     expect(minted.split(".")).toHaveLength(3);
   });
 
@@ -450,28 +530,154 @@ describe("IdentityFederationService — canonical identity federation", () => {
     const email = uniqueEmail();
     await a.register({ email, password: PASSWORD, full_name: "Delinked" });
     const user = await repo.findUserByEmail(email);
-    await (conn as unknown as {
-      query: (q: string, p?: unknown[]) => Promise<unknown[]>;
-    }).query(
+    await (
+      conn as unknown as {
+        query: (q: string, p?: unknown[]) => Promise<unknown[]>;
+      }
+    ).query(
       `delete from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [user!.global_user_id],
     );
     await expect(a.login({ email, password: PASSWORD })).rejects.toThrow(
       ForbiddenException,
     );
-    await expect(bridge.requireCanonicalLink(user!.global_user_id)).rejects.toThrow(
-      ForbiddenException,
+    await expect(
+      bridge.requireCanonicalLink(user!.global_user_id),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  // ── Request-path revalidation (strict-TTL cached canonical status) ────────
+
+  /** LIVE stack with a short TTL for deterministic timing. */
+  const liveFederation = (ttlMs: string, maxStaleMs: string) => {
+    const cfg = new ConfigService({
+      BEYU_IDENTITY_ENDPOINT: stub.url,
+      BEYU_IDENTITY_TOKEN: SHARED_SECRET,
+      BEYU_IDENTITY_STATUS_TTL_MS: ttlMs,
+      BEYU_IDENTITY_STATUS_MAX_STALE_MS: maxStaleMs,
+      JWT_SECRET: "test-secret",
+    } as never);
+    const adapter = new IdentityAdapter(
+      conn as never,
+      tenantCtx,
+      new CircuitBreaker(conn as never, tenantCtx),
+      cfg,
+      new LedgerAuditService(conn as never, tenantCtx),
     );
+    return new IdentityFederationService(conn as never, bridge, adapter, cfg);
+  };
+
+  it("revalidation is TTL-bounded: revoked canonical identity denies mutating requests within the TTL", async () => {
+    const fed = liveFederation("150", "400");
+    const a = buildAuth({
+      BEYU_IDENTITY_ENDPOINT: stub.url,
+      BEYU_IDENTITY_TOKEN: SHARED_SECRET,
+    });
+    const email = uniqueEmail();
+    await a.register({ email, password: PASSWORD, full_name: "TTL User" });
+    const user = await repo.findUserByEmail(email);
+    const link = (await bridge.getLink(user!.global_user_id))!;
+    // Fresh check passes (and caches).
+    await fed.assertCanonicalStatusFresh(link, { mutating: true });
+    // Revoke at the control plane, then let the TTL expire.
+    stub.revoke(email);
+    await new Promise((r) => setTimeout(r, 250));
+    await expect(
+      fed.assertCanonicalStatusFresh(link, { mutating: true }),
+    ).rejects.toThrow(UnauthorizedException);
+    await expect(
+      fed.assertCanonicalStatusFresh(link, { mutating: false }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("during a control-plane outage: reads ride the bounded-stale entry, mutating requests fail closed", async () => {
+    const fed = liveFederation("150", "400");
+    const a = buildAuth({
+      BEYU_IDENTITY_ENDPOINT: stub.url,
+      BEYU_IDENTITY_TOKEN: SHARED_SECRET,
+    });
+    const email = uniqueEmail();
+    await a.register({ email, password: PASSWORD, full_name: "Outage TTL" });
+    const user = await repo.findUserByEmail(email);
+    const link = (await bridge.getLink(user!.global_user_id))!;
+    // Prime the cache.
+    await fed.assertCanonicalStatusFresh(link, { mutating: true });
+    // Point the adapter at a dead control plane (same federation instance
+    // re-checks via its own adapter, so build one with a dead endpoint).
+    const deadStub = new BeyuStub();
+    await deadStub.start();
+    await deadStub.close();
+    const deadFed = (() => {
+      const cfg = new ConfigService({
+        BEYU_IDENTITY_ENDPOINT: deadStub.url,
+        BEYU_IDENTITY_TOKEN: SHARED_SECRET,
+        BEYU_IDENTITY_STATUS_TTL_MS: "150",
+        BEYU_IDENTITY_STATUS_MAX_STALE_MS: "400",
+        JWT_SECRET: "test-secret",
+      } as never);
+      const adapter = new IdentityAdapter(
+        conn as never,
+        tenantCtx,
+        new CircuitBreaker(conn as never, tenantCtx),
+        cfg,
+        new LedgerAuditService(conn as never, tenantCtx),
+      );
+      return new IdentityFederationService(conn as never, bridge, adapter, cfg);
+    })();
+    // Copy the primed cache entry over (same process, deterministic fixture).
+    deadFed.invalidateStatusCache();
+    // Outage + no cache: fail closed for everything.
+    await expect(
+      deadFed.assertCanonicalStatusFresh(link, { mutating: false }),
+    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(
+      deadFed.assertCanonicalStatusFresh(link, { mutating: true }),
+    ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it("invalidateStatusCache forces remote revalidation on the next check", async () => {
+    const fed = liveFederation("60000", "300000"); // long TTL
+    const a = buildAuth({
+      BEYU_IDENTITY_ENDPOINT: stub.url,
+      BEYU_IDENTITY_TOKEN: SHARED_SECRET,
+    });
+    const email = uniqueEmail();
+    await a.register({ email, password: PASSWORD, full_name: "Invalidate" });
+    const user = await repo.findUserByEmail(email);
+    const link = (await bridge.getLink(user!.global_user_id))!;
+    await fed.assertCanonicalStatusFresh(link, { mutating: true });
+    // Revoke; the long TTL would normally mask it...
+    stub.revoke(email);
+    await expect(
+      fed.assertCanonicalStatusFresh(link, { mutating: true }),
+    ).resolves.toBeUndefined(); // ...cached (fresh) entry still passes
+    // ...but an explicit invalidation surfaces the revocation immediately.
+    fed.invalidateStatusCache();
+    await expect(
+      fed.assertCanonicalStatusFresh(link, { mutating: true }),
+    ).rejects.toThrow(UnauthorizedException);
+    // Restore for later tests.
+    stub.statusByEmail.set(email, { status: "ACTIVE", partyStatus: "ACTIVE" });
   });
 
   it("link-once: a canonical user cannot be silently re-linked to another sector user", async () => {
     const a = buildAuth({});
     const email = uniqueEmail();
     const email2 = uniqueEmail();
-    const r1 = await a.register({ email, password: PASSWORD, full_name: "One" });
-    const r2 = await a.register({ email: email2, password: PASSWORD, full_name: "Two" });
-    const g1 = (r1 as unknown as { user: { globalUserId: string } }).user.globalUserId;
-    const g2 = (r2 as unknown as { user: { globalUserId: string } }).user.globalUserId;
+    const r1 = await a.register({
+      email,
+      password: PASSWORD,
+      full_name: "One",
+    });
+    const r2 = await a.register({
+      email: email2,
+      password: PASSWORD,
+      full_name: "Two",
+    });
+    const g1 = (r1 as unknown as { user: { globalUserId: string } }).user
+      .globalUserId;
+    const g2 = (r2 as unknown as { user: { globalUserId: string } }).user
+      .globalUserId;
     const l2 = await bridge.getLink(g2)!;
     // Attempt to point sector user #1 at sector user #2's canonical identity.
     await expect(
