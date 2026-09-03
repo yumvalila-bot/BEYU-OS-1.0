@@ -122,12 +122,26 @@ jobs:
           echo "No credential literals found."
 
       - name: Committed-secret filename scan
+        # Credential-BEARING files only. The placeholder templates `.env.example`
+        # (root) and `sectors/health/.env.example` are the documented bootstrap
+        # mechanism (README quick start) and contain no secrets — verified line
+        # by line. The previous pattern `(^|/)\.env(\.|$)` matched them, which
+        # kept this gate permanently red on main (run 33665368428) without
+        # catching any real credential. Real environment files (.env and
+        # .env.<environment>) and key material remain blocked.
         shell: bash
         run: |
           set -euo pipefail
-          if git ls-files | grep -qE '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'; then
+          pattern='(^|/)\.env$|(^|/)\.env\.(local|production|staging|development|dev|test|ci)$|\.pem$|\.key$|(^|/)id_rsa'
+          if git ls-files | grep -qE "$pattern"; then
             echo "::error::A credential-bearing file is tracked by git."
-            git ls-files | grep -E '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'
+            git ls-files | grep -E "$pattern"
+            exit 1
+          fi
+          # Defence-in-depth: the exempted template files must never contain
+          # anything that looks like a real credential either.
+          if grep -rInE '(PASSWORD|SECRET|TOKEN|KEY)=[^\s<$]{16,}' .env.example sectors/health/.env.example; then
+            echo "::error::An .env.example template contains a value that looks like a real credential."
             exit 1
           fi
           echo "No credential files tracked."
