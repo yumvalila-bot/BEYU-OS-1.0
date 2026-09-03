@@ -188,7 +188,8 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
                    attempt_log = attempt_log || $4::jsonb
                  WHERE id IN (
                    SELECT id FROM health.beyu_outbox
-                    WHERE status IN ('pending','failed','blocked')
+                    WHERE provider = 'beyu.events'
+                      AND status IN ('pending','failed','blocked')
                       AND (next_attempt_at IS NULL OR next_attempt_at <= now())
                       AND attempt_count < $1
                       AND tenant_id IS NOT DISTINCT FROM $2::uuid
@@ -249,6 +250,9 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
       ...envelope,
       idempotencyKey: row.idempotency_key,
       tenantCode: this.tenantCode(),
+      // The source OS is whoever runs this dispatcher — stamped here, not
+      // trusted from the stored envelope.
+      source: "HEALTH_OS" as const,
     };
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs());

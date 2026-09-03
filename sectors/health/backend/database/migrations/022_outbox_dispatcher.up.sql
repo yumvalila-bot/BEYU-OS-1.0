@@ -50,7 +50,8 @@ SET search_path = health, pg_temp
 AS $$
   SELECT DISTINCT o.tenant_id
   FROM health.beyu_outbox o
-  WHERE o.status IN ('pending','failed','blocked')
+  WHERE o.provider = 'beyu.events'
+    AND o.status IN ('pending','failed','blocked')
     AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= now())
 $$;
 

@@ -69,7 +69,7 @@ export class EventOutboxService {
       destinationDomain: event.destinationDomain ?? null,
       subjectType: event.subjectType,
       subjectId: event.subjectId,
-      actorGlobalUserId: event.actorGlobalUserId ?? actor?.globalUserId ?? null,
+      actorGlobalUserId: event.actorGlobalUserId ?? null,
       classification: event.classification ?? "INTERNAL",
       correlationId: event.correlationId ?? currentCorrelationId() ?? `evt-${event.idempotencyKey}`,
       causationId: event.causationId ?? null,
@@ -79,6 +79,10 @@ export class EventOutboxService {
 
     // Joins the caller's AMBIENT business transaction when present (the
     // transactional-outbox guarantee); otherwise opens a tenant-scoped one.
+    // The outbox ROW's actor column stores the SECTOR actor uuid (its own
+    // identity layer); the CANONICAL GlobalUserId travels inside the
+    // envelope (request_payload) — the two layers are bridged, never
+    // conflated.
     const rows = await inTx(this.db, this.tenantCtx, (tx) =>
       tx.query<{ id: string }>(
       `INSERT INTO health.beyu_outbox
@@ -90,7 +94,7 @@ export class EventOutboxService {
        RETURNING id`,
         [
           event.idempotencyKey,
-          envelope.actorGlobalUserId,
+          actor?.globalUserId ?? null,
           actor?.tenantId ?? null,
           actor?.entityCode ?? null,
           actor?.countryCode ?? null,

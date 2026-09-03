@@ -3,6 +3,8 @@ import { buildTestBed, TestBed } from "../../common/testing/test-bed";
 import { BillingRepository } from "./billing.repository";
 import { BillingService } from "./billing.service";
 import { DomainError } from "../../common/errors/domain.error";
+import { EventOutboxService } from "../events/event-outbox.service";
+import { BeyuIdentityBridge } from "../identity/beyu-bridge";
 
 describe("BillingService", () => {
   let bed: TestBed;
@@ -11,7 +13,9 @@ describe("BillingService", () => {
   beforeAll(async () => {
     bed = await buildTestBed();
     const repo = new BillingRepository(bed.conn, bed.tenantCtx);
-    svc = new BillingService(repo, bed.audit, bed.tenantCtx);
+    const eventOutbox = new EventOutboxService(bed.conn, bed.tenantCtx);
+    const bridge = new BeyuIdentityBridge(bed.conn);
+    svc = new BillingService(repo, bed.audit, bed.tenantCtx, eventOutbox, bridge);
   });
 
   it("creates a billable service catalog entry and an invoice with line items", () =>
