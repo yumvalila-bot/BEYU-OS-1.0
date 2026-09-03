@@ -34,11 +34,7 @@ export interface GovernedEventInput {
   /** Canonical GlobalUserID of the acting human, if any. */
   actorGlobalUserId?: string | null;
   classification?:
-    | "PUBLIC"
-    | "INTERNAL"
-    | "CONFIDENTIAL"
-    | "RESTRICTED"
-    | "HIGHLY_RESTRICTED";
+    "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED" | "HIGHLY_RESTRICTED";
   correlationId?: string;
   causationId?: string | null;
   occurredAt?: string;
@@ -71,7 +67,10 @@ export class EventOutboxService {
       subjectId: event.subjectId,
       actorGlobalUserId: event.actorGlobalUserId ?? null,
       classification: event.classification ?? "INTERNAL",
-      correlationId: event.correlationId ?? currentCorrelationId() ?? `evt-${event.idempotencyKey}`,
+      correlationId:
+        event.correlationId ??
+        currentCorrelationId() ??
+        `evt-${event.idempotencyKey}`,
       causationId: event.causationId ?? null,
       occurredAt: event.occurredAt ?? new Date().toISOString(),
       payload: event.payload,
@@ -85,7 +84,7 @@ export class EventOutboxService {
     // conflated.
     const rows = await inTx(this.db, this.tenantCtx, (tx) =>
       tx.query<{ id: string }>(
-      `INSERT INTO health.beyu_outbox
+        `INSERT INTO health.beyu_outbox
          (idempotency_key, provider, action, actor_global_user_id, tenant_id, entity_code, country_code,
           request_payload, status, correlation_id, created_at)
        VALUES ($1, 'beyu.events', 'event.publish', $2::uuid, $3::uuid, $4, $5,

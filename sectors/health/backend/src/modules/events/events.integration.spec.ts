@@ -38,7 +38,11 @@ import "reflect-metadata";
 // full PGlite sector engine — allow generous per-test time.
 jest.setTimeout(120_000);
 import { Client } from "pg";
-import { buildTestBed, TEST_ACTOR, type TestBed } from "../../common/testing/test-bed";
+import {
+  buildTestBed,
+  TEST_ACTOR,
+  type TestBed,
+} from "../../common/testing/test-bed";
 import { BillingService } from "../billing/billing.service";
 import { BillingRepository } from "../billing/billing.repository";
 import { EventOutboxService } from "./event-outbox.service";
@@ -64,7 +68,10 @@ let root: Client;
 let canonicalActorId: string;
 const RUN_ID = Date.now().toString(36);
 
-async function rootFetch(path: string, body: unknown): Promise<{ status: number; json: any }> {
+async function rootFetch(
+  path: string,
+  body: unknown,
+): Promise<{ status: number; json: any }> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: {
@@ -105,7 +112,13 @@ beforeAll(async () => {
   const cfg = { get: (k: string) => map.get(k) } as never;
   dispatcher = new OutboxDispatcherService(bed.conn, bed.tenantCtx, cfg);
   const ledgerAudit = new AuditService(bed.conn, bed.tenantCtx);
-  ops = new OutboxOpsService(bed.conn, bed.tenantCtx, cfg, ledgerAudit, dispatcher);
+  ops = new OutboxOpsService(
+    bed.conn,
+    bed.tenantCtx,
+    cfg,
+    ledgerAudit,
+    dispatcher,
+  );
   const bridge = new BeyuIdentityBridge(bed.conn);
   billing = new BillingService(
     new BillingRepository(bed.conn, bed.tenantCtx),
@@ -126,17 +139,21 @@ beforeAll(async () => {
     sectorUserId: `sec-${RUN_ID}`,
   });
   if (reg.status !== 200 && reg.status !== 201) {
-    throw new Error(`canonical identity federation failed: ${reg.status} ${JSON.stringify(reg.json)}`);
+    throw new Error(
+      `canonical identity federation failed: ${reg.status} ${JSON.stringify(reg.json)}`,
+    );
   }
   canonicalActorId = reg.json?.data?.globalUserId ?? reg.json?.data?.id;
-  if (!canonicalActorId) throw new Error("no globalUserId in federation response");
+  if (!canonicalActorId)
+    throw new Error("no globalUserId in federation response");
   await bridge.linkUser({
     globalUserId: TEST_ACTOR.userId,
     beyuUserId: canonicalActorId,
     linkedBy: "phase8-integration",
   });
   const link = await bridge.getLink(TEST_ACTOR.userId);
-  if (link?.beyuUserId !== canonicalActorId) throw new Error("canonical link not established");
+  if (link?.beyuUserId !== canonicalActorId)
+    throw new Error("canonical link not established");
 
   root = new Client({ connectionString: ROOT_DB });
   await root.connect();
@@ -161,10 +178,9 @@ d("cross-OS governed finance event chain (live root)", () => {
     )) as Record<string, unknown>;
     expect(invoice.invoice_id).toBeTruthy();
 
-    const row = (await bed.run(async () => outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`))) as Record<
-      string,
-      unknown
-    > | null;
+    const row = (await bed.run(async () =>
+      outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`),
+    )) as Record<string, unknown> | null;
     expect(row).not.toBeNull();
     expect(row!.status).toBe("pending");
     expect(row!.provider).toBe("beyu.events");
@@ -172,17 +188,18 @@ d("cross-OS governed finance event chain (live root)", () => {
     expect(envelope.eventType).toBe("health.billing.invoice_created");
     expect(envelope.actorGlobalUserId).toBe(canonicalActorId);
     // Finance-scoped payload: no patient identifiers cross the boundary.
-    expect(JSON.stringify(envelope.payload)).not.toContain(String(patient.patient_id));
+    expect(JSON.stringify(envelope.payload)).not.toContain(
+      String(patient.patient_id),
+    );
   });
 
   it("dispatcher delivers to the live root and BEYU records the governed enterprise event", async () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.delivered).toBeGreaterThanOrEqual(1);
 
-    const row = (await bed.run(async () => outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`))) as Record<
-      string,
-      unknown
-    >;
+    const row = (await bed.run(async () =>
+      outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`),
+    )) as Record<string, unknown>;
     expect(row.status).toBe("delivered");
     const resp = row.response_payload as { accepted: boolean; eventId: string };
     expect(resp.accepted).toBe(true);
@@ -219,7 +236,9 @@ d("cross-OS governed finance event chain (live root)", () => {
     expect(e.actor_user_id).toBe(canonicalActorId);
     expect(e.hash_version).toBe("2");
     expect(e.prev_hash).not.toBeNull();
-    expect((e.payload as Record<string, unknown>).sectorEventId).toBe(`health-inv-${invoice.invoice_id}`);
+    expect((e.payload as Record<string, unknown>).sectorEventId).toBe(
+      `health-inv-${invoice.invoice_id}`,
+    );
 
     // ── Root PostgreSQL: SERVICE-actor audit row ──
     const audit = await root.query(
@@ -245,12 +264,14 @@ d("cross-OS governed finance event chain (live root)", () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.duplicates).toBeGreaterThanOrEqual(1);
 
-    const row = (await bed.run(async () => outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`))) as Record<
-      string,
-      unknown
-    >;
+    const row = (await bed.run(async () =>
+      outbox.row(`beyu-evt:invoice:${invoice.invoice_id}`),
+    )) as Record<string, unknown>;
     expect(row.status).toBe("delivered");
-    const resp = row.response_payload as { duplicate: boolean; eventId: string };
+    const resp = row.response_payload as {
+      duplicate: boolean;
+      eventId: string;
+    };
     expect(resp.duplicate).toBe(true);
     expect(resp.eventId).toBe(invoiceEventId);
 
@@ -278,16 +299,20 @@ d("cross-OS governed finance event chain (live root)", () => {
         currency: "TZS",
       }),
     )) as Record<string, unknown>;
+    expect(inv.invoice_id).toBeTruthy(); // payment needs an outstanding invoice
     const pay = (await asSectorActor(async () =>
-      billing.recordPayment({ patient_id: patient.patient_id, amount: 9000, method: "cash" }),
+      billing.recordPayment({
+        patient_id: patient.patient_id,
+        amount: 9000,
+        method: "cash",
+      }),
     )) as Record<string, unknown>;
     expect(pay.payment_id).toBeTruthy();
 
     await dispatcher.dispatchDueBatch();
-    const row = (await bed.run(async () => outbox.row(`beyu-evt:payment:${pay.payment_id}`))) as Record<
-      string,
-      unknown
-    >;
+    const row = (await bed.run(async () =>
+      outbox.row(`beyu-evt:payment:${pay.payment_id}`),
+    )) as Record<string, unknown>;
     expect(row.status).toBe("delivered");
 
     const receipt = await root.query(
@@ -307,7 +332,9 @@ d("cross-OS governed finance event chain (live root)", () => {
   it("reconciliation reports the live chain consistent (outbox ↔ BEYU receipts)", async () => {
     const report = await ops.reconcile({ repair: false, limit: 100 });
     expect(report.checked).toBeGreaterThanOrEqual(2);
-    expect(report.consistent).toContain(`beyu-evt:invoice:${invoice.invoice_id}`);
+    expect(report.consistent).toContain(
+      `beyu-evt:invoice:${invoice.invoice_id}`,
+    );
     expect(report.unknown).toHaveLength(0);
     expect(report.deliveredWithoutAcceptance).toHaveLength(0);
   });

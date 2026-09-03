@@ -15,7 +15,13 @@ describe("BillingService", () => {
     const repo = new BillingRepository(bed.conn, bed.tenantCtx);
     const eventOutbox = new EventOutboxService(bed.conn, bed.tenantCtx);
     const bridge = new BeyuIdentityBridge(bed.conn);
-    svc = new BillingService(repo, bed.audit, bed.tenantCtx, eventOutbox, bridge);
+    svc = new BillingService(
+      repo,
+      bed.audit,
+      bed.tenantCtx,
+      eventOutbox,
+      bridge,
+    );
   });
 
   it("creates a billable service catalog entry and an invoice with line items", () =>

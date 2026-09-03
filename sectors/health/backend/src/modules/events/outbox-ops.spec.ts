@@ -29,7 +29,11 @@ import * as fs from "fs";
 import * as path from "path";
 import * as http from "http";
 import { AddressInfo } from "net";
-import { buildTestBed, TEST_ACTOR, type TestBed } from "../../common/testing/test-bed";
+import {
+  buildTestBed,
+  TEST_ACTOR,
+  type TestBed,
+} from "../../common/testing/test-bed";
 import { EventOutboxService } from "./event-outbox.service";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service";
 import { OutboxOpsService } from "./outbox-ops.service";
@@ -42,7 +46,10 @@ import { ROLE_DEFINITIONS } from "../../common/security/permissions";
 class FakeBeyu {
   server: http.Server;
   url = "";
-  receipts = new Map<string, { eventId: string; acceptedAt: string; duplicateCount: number }>();
+  receipts = new Map<
+    string,
+    { eventId: string; acceptedAt: string; duplicateCount: number }
+  >();
   deliveries: { idempotencyKey: string }[] = [];
   down = false;
   seq = 0;
@@ -69,7 +76,12 @@ class FakeBeyu {
           res.statusCode = 200;
           res.end(
             JSON.stringify({
-              data: { accepted: true, eventId: r.eventId, duplicateCount: r.duplicateCount, firstSeenAt: r.acceptedAt },
+              data: {
+                accepted: true,
+                eventId: r.eventId,
+                duplicateCount: r.duplicateCount,
+                firstSeenAt: r.acceptedAt,
+              },
             }),
           );
           return;
@@ -81,19 +93,39 @@ class FakeBeyu {
         if (existing) {
           existing.duplicateCount++;
           res.statusCode = 200;
-          res.end(JSON.stringify({ data: { accepted: false, duplicate: true, eventId: existing.eventId, firstSeenAt: existing.acceptedAt, duplicateCount: existing.duplicateCount } }));
+          res.end(
+            JSON.stringify({
+              data: {
+                accepted: false,
+                duplicate: true,
+                eventId: existing.eventId,
+                firstSeenAt: existing.acceptedAt,
+                duplicateCount: existing.duplicateCount,
+              },
+            }),
+          );
           return;
         }
         const eventId = `EVT_FAKE_${++this.seq}`;
-        this.receipts.set(key, { eventId, acceptedAt: new Date().toISOString(), duplicateCount: 0 });
+        this.receipts.set(key, {
+          eventId,
+          acceptedAt: new Date().toISOString(),
+          duplicateCount: 0,
+        });
         res.statusCode = 201;
-        res.end(JSON.stringify({ data: { accepted: true, duplicate: false, eventId } }));
+        res.end(
+          JSON.stringify({
+            data: { accepted: true, duplicate: false, eventId },
+          }),
+        );
       });
     });
   }
 
   async start(): Promise<void> {
-    await new Promise<void>((resolve) => this.server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      this.server.listen(0, "127.0.0.1", resolve),
+    );
     this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
   }
   async stop(): Promise<void> {
@@ -125,7 +157,12 @@ let dispatcher: OutboxDispatcherService;
 let ops: OutboxOpsService;
 let controller: OutboxOpsController;
 
-const OPERATOR = { userId: "00000000-0000-0000-0000-0000000000aa", tenantId: TEST_ACTOR.tenantId, email: "ops@beyu.health", permissions: ["outbox:replay", "outbox:reconcile"] };
+const OPERATOR = {
+  userId: "00000000-0000-0000-0000-0000000000aa",
+  tenantId: TEST_ACTOR.tenantId,
+  email: "ops@beyu.health",
+  permissions: ["outbox:replay", "outbox:reconcile"],
+};
 
 beforeAll(async () => {
   bed = await buildTestBed();
@@ -134,7 +171,13 @@ beforeAll(async () => {
   outbox = new EventOutboxService(bed.conn, bed.tenantCtx);
   const cfg = configFor(beyu);
   dispatcher = new OutboxDispatcherService(bed.conn, bed.tenantCtx, cfg);
-  ops = new OutboxOpsService(bed.conn, bed.tenantCtx, cfg, new AuditService(bed.conn, bed.tenantCtx), dispatcher);
+  ops = new OutboxOpsService(
+    bed.conn,
+    bed.tenantCtx,
+    cfg,
+    new AuditService(bed.conn, bed.tenantCtx),
+    dispatcher,
+  );
   controller = new OutboxOpsController(ops);
 });
 
@@ -160,30 +203,61 @@ function event(idem: string) {
 describe("authorization — operator-only surface", () => {
   it("controller refuses replay without outbox:replay (fail-closed secondary check)", async () => {
     await expect(
-      controller.replay({ idempotencyKeys: ["x"], reason: "ops request" }, {
-        user: { userId: "u1", tenantId: TEST_ACTOR.tenantId, email: "x@y.z", permissions: ["billing:read"] },
-      }),
+      controller.replay(
+        { idempotencyKeys: ["x"], reason: "ops request" },
+        {
+          user: {
+            userId: "u1",
+            tenantId: TEST_ACTOR.tenantId,
+            email: "x@y.z",
+            permissions: ["billing:read"],
+          },
+        },
+      ),
     ).rejects.toThrow("OUTBOX_REPLAY_FORBIDDEN");
   });
 
   it("controller refuses reconcile without outbox:reconcile, and repair without outbox:replay", async () => {
     await expect(
-      controller.reconcile({}, { user: { userId: "u1", tenantId: TEST_ACTOR.tenantId, permissions: ["billing:read"] } }),
+      controller.reconcile(
+        {},
+        {
+          user: {
+            userId: "u1",
+            tenantId: TEST_ACTOR.tenantId,
+            permissions: ["billing:read"],
+          },
+        },
+      ),
     ).rejects.toThrow("OUTBOX_RECONCILE_FORBIDDEN");
     await expect(
-      controller.reconcile({ repair: true }, {
-        user: { userId: "u1", tenantId: TEST_ACTOR.tenantId, permissions: ["outbox:reconcile"] },
-      }),
+      controller.reconcile(
+        { repair: true },
+        {
+          user: {
+            userId: "u1",
+            tenantId: TEST_ACTOR.tenantId,
+            permissions: ["outbox:reconcile"],
+          },
+        },
+      ),
     ).rejects.toThrow("OUTBOX_REPAIR_FORBIDDEN");
   });
 
   it("source: both endpoints declare @RequirePermission; permissions granted only to admin + trustee", () => {
-    const ctl = fs.readFileSync(path.resolve(__dirname, "outbox-ops.controller.ts"), "utf8");
+    const ctl = fs.readFileSync(
+      path.resolve(__dirname, "outbox-ops.controller.ts"),
+      "utf8",
+    );
     expect(ctl).toMatch(/@RequirePermission\("outbox:replay"\)/);
     expect(ctl).toMatch(/@RequirePermission\("outbox:reconcile"\)/);
-    const holders = ROLE_DEFINITIONS.filter((r) => r.permissions.includes("outbox:replay")).map((r) => r.id);
+    const holders = ROLE_DEFINITIONS.filter((r) =>
+      r.permissions.includes("outbox:replay"),
+    ).map((r) => r.id);
     expect(holders.sort()).toEqual(["admin", "trustee"]);
-    const reconcileHolders = ROLE_DEFINITIONS.filter((r) => r.permissions.includes("outbox:reconcile")).map((r) => r.id);
+    const reconcileHolders = ROLE_DEFINITIONS.filter((r) =>
+      r.permissions.includes("outbox:reconcile"),
+    ).map((r) => r.id);
     expect(reconcileHolders.sort()).toEqual(["admin", "trustee"]);
   });
 });
@@ -203,16 +277,31 @@ describe("replay — operator-authorized, idempotent-safe", () => {
     });
 
     const result = await controller.replay(
-      { idempotencyKeys: ["replay-1"], reason: "operator investigated BEYU outage" },
+      {
+        idempotencyKeys: ["replay-1"],
+        reason: "operator investigated BEYU outage",
+      },
       { user: OPERATOR },
     );
-    expect(result.requeued).toEqual([{ idempotencyKey: "replay-1", previousStatus: "dead_letter" }]);
-    expect(result.dispatch.delivered + result.dispatch.duplicates).toBeGreaterThanOrEqual(1);
+    expect(result.requeued).toEqual([
+      { idempotencyKey: "replay-1", previousStatus: "dead_letter" },
+    ]);
+    expect(
+      result.dispatch.delivered + result.dispatch.duplicates,
+    ).toBeGreaterThanOrEqual(1);
 
-    const row = (await bed.run(async () => outbox.row("replay-1"))) as Record<string, unknown>;
+    const row = (await bed.run(async () => outbox.row("replay-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("delivered");
     expect(row.attempt_count).toBe(1); // budget was reset by the replay
-    const log = row.attempt_log as { phase: string; reason?: string; operator?: string; previousStatus?: string }[];
+    const log = row.attempt_log as {
+      phase: string;
+      reason?: string;
+      operator?: string;
+      previousStatus?: string;
+    }[];
     const replayEntry = log.find((e) => e.phase === "replay");
     expect(replayEntry?.reason).toBe("operator investigated BEYU outage");
     expect(replayEntry?.operator).toBe(OPERATOR.userId);
@@ -223,12 +312,19 @@ describe("replay — operator-authorized, idempotent-safe", () => {
   it("refuses to replay a delivered row", async () => {
     await bed.run(async () => outbox.publish(event("replay-2")));
     await dispatcher.dispatchDueBatch();
-    const before = (await bed.run(async () => outbox.row("replay-2"))) as Record<string, unknown>;
+    const before = (await bed.run(async () =>
+      outbox.row("replay-2"),
+    )) as Record<string, unknown>;
     expect(before.status).toBe("delivered");
 
-    const result = await controller.replay({ idempotencyKeys: ["replay-2"], reason: "should refuse" }, { user: OPERATOR });
+    const result = await controller.replay(
+      { idempotencyKeys: ["replay-2"], reason: "should refuse" },
+      { user: OPERATOR },
+    );
     expect(result.requeued).toHaveLength(0);
-    expect(result.refused).toEqual([{ idempotencyKey: "replay-2", reason: "ALREADY_DELIVERED" }]);
+    expect(result.refused).toEqual([
+      { idempotencyKey: "replay-2", reason: "ALREADY_DELIVERED" },
+    ]);
   });
 
   it("replaying an ALREADY-ACCEPTED event stays exactly-one BEYU event (duplicate receipt)", async () => {
@@ -240,22 +336,40 @@ describe("replay — operator-authorized, idempotent-safe", () => {
       );
     });
     const eventIdBefore = beyu.receipts.get("replay-1")?.eventId;
-    const result = await controller.replay({ idempotencyKeys: ["replay-1"], reason: "second replay after false alarm" }, { user: OPERATOR });
+    const result = await controller.replay(
+      {
+        idempotencyKeys: ["replay-1"],
+        reason: "second replay after false alarm",
+      },
+      { user: OPERATOR },
+    );
     expect(result.requeued).toHaveLength(1);
     expect(result.dispatch.duplicates).toBeGreaterThanOrEqual(1); // duplicate, not new acceptance
     expect(beyu.receipts.get("replay-1")?.eventId).toBe(eventIdBefore);
-    expect(beyu.receipts.get("replay-1")?.duplicateCount).toBeGreaterThanOrEqual(1);
-    const row = (await bed.run(async () => outbox.row("replay-1"))) as Record<string, unknown>;
+    expect(
+      beyu.receipts.get("replay-1")?.duplicateCount,
+    ).toBeGreaterThanOrEqual(1);
+    const row = (await bed.run(async () => outbox.row("replay-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("delivered");
-    const resp = row.response_payload as { duplicate: boolean; eventId: string };
+    const resp = row.response_payload as {
+      duplicate: boolean;
+      eventId: string;
+    };
     expect(resp.duplicate).toBe(true);
     expect(resp.eventId).toBe(eventIdBefore);
   });
 
   it("reason is mandatory", async () => {
-    await expect(ops.replay({ idempotencyKeys: ["replay-1"], reason: "", operator: OPERATOR })).rejects.toThrow(
-      "REPLAY_REASON_REQUIRED",
-    );
+    await expect(
+      ops.replay({
+        idempotencyKeys: ["replay-1"],
+        reason: "",
+        operator: OPERATOR,
+      }),
+    ).rejects.toThrow("REPLAY_REASON_REQUIRED");
   });
 });
 
@@ -290,30 +404,56 @@ describe("reconciliation — outbox ledger vs BEYU receipts", () => {
     });
 
     // Pass 1: report only (no repair)
-    const report = await controller.reconcile({ repair: false }, { user: OPERATOR });
+    const report = await controller.reconcile(
+      { repair: false },
+      { user: OPERATOR },
+    );
     expect(report.checked).toBeGreaterThanOrEqual(5);
     expect(report.consistent).toContain("replay-1");
-    expect(report.acceptedNotRecorded.map((x) => x.idempotencyKey)).toContain("rec-anr-1");
-    expect(report.deliveredWithoutAcceptance.map((x) => x.idempotencyKey)).toContain("rec-dwa-1");
-    expect(report.undelivered.map((x) => x.idempotencyKey)).toContain("rec-backlog-1");
+    expect(report.acceptedNotRecorded.map((x) => x.idempotencyKey)).toContain(
+      "rec-anr-1",
+    );
+    expect(
+      report.deliveredWithoutAcceptance.map((x) => x.idempotencyKey),
+    ).toContain("rec-dwa-1");
+    expect(report.undelivered.map((x) => x.idempotencyKey)).toContain(
+      "rec-backlog-1",
+    );
     // The ghost row is NEVER auto-repaired by a report-only pass.
-    expect((await bed.run(async () => outbox.row("rec-anr-1")))!.status).toBe("pending");
+    expect((await bed.run(async () => outbox.row("rec-anr-1")))!.status).toBe(
+      "pending",
+    );
 
     // Pass 2: repair — accepted-not-recorded is repaired; ghost is not.
-    const repaired = await controller.reconcile({ repair: true }, { user: OPERATOR });
+    const repaired = await controller.reconcile(
+      { repair: true },
+      { user: OPERATOR },
+    );
     expect(repaired.repaired).toContain("rec-anr-1");
-    const anr = (await bed.run(async () => outbox.row("rec-anr-1"))) as Record<string, unknown>;
+    const anr = (await bed.run(async () => outbox.row("rec-anr-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(anr.status).toBe("delivered");
-    expect((anr.response_payload as { eventId: string }).eventId).toBe(beyu.receipts.get("rec-anr-1")?.eventId);
-    const ghost = (await bed.run(async () => outbox.row("rec-dwa-1"))) as Record<string, unknown>;
+    expect((anr.response_payload as { eventId: string }).eventId).toBe(
+      beyu.receipts.get("rec-anr-1")?.eventId,
+    );
+    const ghost = (await bed.run(async () =>
+      outbox.row("rec-dwa-1"),
+    )) as Record<string, unknown>;
     expect(ghost.status).toBe("delivered"); // untouched: still flagged, awaiting operator
-    expect(repaired.deliveredWithoutAcceptance.map((x) => x.idempotencyKey)).toContain("rec-dwa-1");
+    expect(
+      repaired.deliveredWithoutAcceptance.map((x) => x.idempotencyKey),
+    ).toContain("rec-dwa-1");
   });
 
   it("BEYU unreachable → unknown entries, no repair, no guessing", async () => {
     beyu.down = true;
     try {
-      const report = await controller.reconcile({ repair: true }, { user: OPERATOR });
+      const report = await controller.reconcile(
+        { repair: true },
+        { user: OPERATOR },
+      );
       expect(report.unknown.length).toBeGreaterThanOrEqual(1);
       expect(report.repaired).toHaveLength(0);
     } finally {

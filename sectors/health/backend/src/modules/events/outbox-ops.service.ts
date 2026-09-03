@@ -53,16 +53,34 @@ export interface ReplayResult {
   requested: number;
   requeued: { idempotencyKey: string; previousStatus: string }[];
   refused: { idempotencyKey: string; reason: string }[];
-  dispatch: { claimed: number; delivered: number; duplicates: number; retried: number; deadLettered: number; errors: number };
+  dispatch: {
+    claimed: number;
+    delivered: number;
+    duplicates: number;
+    retried: number;
+    deadLettered: number;
+    errors: number;
+  };
 }
 
 export interface ReconcileReport {
   checked: number;
   consistent: string[];
-  acceptedNotRecorded: { idempotencyKey: string; eventId: string | null; outboxStatus: string }[];
+  acceptedNotRecorded: {
+    idempotencyKey: string;
+    eventId: string | null;
+    outboxStatus: string;
+  }[];
   repaired: string[];
-  deliveredWithoutAcceptance: { idempotencyKey: string; deliveredAt: unknown }[];
-  undelivered: { idempotencyKey: string; outboxStatus: string; attempts: number }[];
+  deliveredWithoutAcceptance: {
+    idempotencyKey: string;
+    deliveredAt: unknown;
+  }[];
+  undelivered: {
+    idempotencyKey: string;
+    outboxStatus: string;
+    attempts: number;
+  }[];
   unknown: { idempotencyKey: string; error: string }[];
 }
 
@@ -84,7 +102,11 @@ export class OutboxOpsService {
     idempotencyKeys?: string[];
     all?: boolean;
     reason: string;
-    operator: { userId: string; tenantId: string | null; email?: string | null };
+    operator: {
+      userId: string;
+      tenantId: string | null;
+      email?: string | null;
+    };
   }): Promise<ReplayResult> {
     if (!args.reason || args.reason.trim().length < 3) {
       throw new Error("REPLAY_REASON_REQUIRED");
@@ -100,12 +122,22 @@ export class OutboxOpsService {
       requested: rows.length,
       requeued: [],
       refused: [],
-      dispatch: { claimed: 0, delivered: 0, duplicates: 0, retried: 0, deadLettered: 0, errors: 0 },
+      dispatch: {
+        claimed: 0,
+        delivered: 0,
+        duplicates: 0,
+        retried: 0,
+        deadLettered: 0,
+        errors: 0,
+      },
     };
 
     for (const row of rows) {
       if (row.status === "delivered") {
-        result.refused.push({ idempotencyKey: row.idempotency_key, reason: "ALREADY_DELIVERED" });
+        result.refused.push({
+          idempotencyKey: row.idempotency_key,
+          reason: "ALREADY_DELIVERED",
+        });
         continue;
       }
       await this.runAs(row, async () => {
@@ -131,16 +163,23 @@ export class OutboxOpsService {
           ],
         );
       });
-      result.requeued.push({ idempotencyKey: row.idempotency_key, previousStatus: row.status });
+      result.requeued.push({
+        idempotencyKey: row.idempotency_key,
+        previousStatus: row.status,
+      });
     }
 
     // Audit the operator action (tamper-evident chain) under the operator's
     // own context when available, else the first row's tenant.
-    await this.auditOperatorAction("beyu.outbox.replay", {
-      requeued: result.requeued,
-      refused: result.refused,
-      reason: args.reason,
-    }, rows[0]?.tenant_id ?? args.operator.tenantId ?? null);
+    await this.auditOperatorAction(
+      "beyu.outbox.replay",
+      {
+        requeued: result.requeued,
+        refused: result.refused,
+        reason: args.reason,
+      },
+      rows[0]?.tenant_id ?? args.operator.tenantId ?? null,
+    );
 
     // Immediate delivery pass (idempotency makes any racing delivery safe).
     if (result.requeued.length > 0) {
@@ -176,12 +215,16 @@ export class OutboxOpsService {
 
     for (const row of rows) {
       report.checked++;
-      let status: { accepted: boolean; eventId: string | null } | "not_found" | "unknown";
+      let status:
+        { accepted: boolean; eventId: string | null } | "not_found" | "unknown";
       try {
         status = await this.probeStatus(row);
       } catch (e) {
         status = "unknown";
-        report.unknown.push({ idempotencyKey: row.idempotency_key, error: `${(e as Error).message}`.slice(0, 200) });
+        report.unknown.push({
+          idempotencyKey: row.idempotency_key,
+          error: `${(e as Error).message}`.slice(0, 200),
+        });
       }
 
       if (status === "unknown") continue;
@@ -191,9 +234,16 @@ export class OutboxOpsService {
           // CRITICAL: we recorded a delivery BEYU cannot confirm. Never
           // auto-repaired — surfaced for operator investigation (and replay,
           // which is safe because BEYU would treat it as first acceptance).
-          report.deliveredWithoutAcceptance.push({ idempotencyKey: row.idempotency_key, deliveredAt: null });
+          report.deliveredWithoutAcceptance.push({
+            idempotencyKey: row.idempotency_key,
+            deliveredAt: null,
+          });
         } else {
-          report.undelivered.push({ idempotencyKey: row.idempotency_key, outboxStatus: row.status, attempts: row.attempt_count });
+          report.undelivered.push({
+            idempotencyKey: row.idempotency_key,
+            outboxStatus: row.status,
+            attempts: row.attempt_count,
+          });
         }
         continue;
       }
@@ -207,7 +257,11 @@ export class OutboxOpsService {
         await this.repairToDelivered(row, status.eventId);
         report.repaired.push(row.idempotency_key);
       } else {
-        report.acceptedNotRecorded.push({ idempotencyKey: row.idempotency_key, eventId: status.eventId, outboxStatus: row.status });
+        report.acceptedNotRecorded.push({
+          idempotencyKey: row.idempotency_key,
+          eventId: status.eventId,
+          outboxStatus: row.status,
+        });
       }
     }
 
@@ -226,7 +280,9 @@ export class OutboxOpsService {
       rows[0]?.tenant_id ?? null,
     );
     if (report.deliveredWithoutAcceptance.length > 0) {
-      this.logger.error(`reconciliation: ${report.deliveredWithoutAcceptance.length} delivered-without-acceptance mismatch(es) require operator investigation`);
+      this.logger.error(
+        `reconciliation: ${report.deliveredWithoutAcceptance.length} delivered-without-acceptance mismatch(es) require operator investigation`,
+      );
     }
     return report;
   }
@@ -237,7 +293,8 @@ export class OutboxOpsService {
   ): Promise<{ accepted: boolean; eventId: string | null } | "not_found"> {
     const endpoint = this.cfg.get<string>("BEYU_EVENTS_ENDPOINT");
     const secret = this.cfg.get<string>("BEYU_EVENTS_TOKEN");
-    if (!endpoint || !secret) throw new Error("BEYU_EVENTS_ENDPOINT/BEYU_EVENTS_TOKEN not configured");
+    if (!endpoint || !secret)
+      throw new Error("BEYU_EVENTS_ENDPOINT/BEYU_EVENTS_TOKEN not configured");
     const tenantCode =
       this.cfg.get<string>("BEYU_EVENTS_TENANT_CODE") ??
       this.cfg.get<string>("BEYU_IDENTITY_TENANT_CODE") ??
@@ -245,18 +302,29 @@ export class OutboxOpsService {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch(`${endpoint.replace(/\/$/, "")}/api/v1/internal/events/status`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${signServiceToken(secret)}`,
-          "content-type": "application/json",
+      const res = await fetch(
+        `${endpoint.replace(/\/$/, "")}/api/v1/internal/events/status`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${signServiceToken(secret)}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            idempotencyKey: row.idempotency_key,
+            tenantCode,
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({ idempotencyKey: row.idempotency_key, tenantCode }),
-        signal: controller.signal,
-      });
+      );
       if (res.status === 200) {
-        const json = (await res.json()) as { data?: { accepted?: boolean; eventId?: string | null } };
-        return { accepted: json.data?.accepted ?? false, eventId: json.data?.eventId ?? null };
+        const json = (await res.json()) as {
+          data?: { accepted?: boolean; eventId?: string | null };
+        };
+        return {
+          accepted: json.data?.accepted ?? false,
+          eventId: json.data?.eventId ?? null,
+        };
       }
       if (res.status === 404) return "not_found";
       throw new Error(`BEYU status ${res.status}`);
@@ -266,7 +334,10 @@ export class OutboxOpsService {
   }
 
   /** Repair an accepted-but-not-recorded row to delivered (audited). */
-  private async repairToDelivered(row: OutboxStateRow, eventId: string | null): Promise<void> {
+  private async repairToDelivered(
+    row: OutboxStateRow,
+    eventId: string | null,
+  ): Promise<void> {
     await this.runAs(row, () =>
       this.db.query(
         `UPDATE health.beyu_outbox SET
@@ -279,8 +350,19 @@ export class OutboxOpsService {
          WHERE id = $1::uuid`,
         [
           row.id,
-          JSON.stringify({ accepted: true, duplicate: false, eventId, repairedBy: "reconciliation" }),
-          JSON.stringify([{ phase: "reconcile-repair", at: new Date().toISOString(), eventId }]),
+          JSON.stringify({
+            accepted: true,
+            duplicate: false,
+            eventId,
+            repairedBy: "reconciliation",
+          }),
+          JSON.stringify([
+            {
+              phase: "reconcile-repair",
+              at: new Date().toISOString(),
+              eventId,
+            },
+          ]),
         ],
       ),
     );
@@ -288,7 +370,10 @@ export class OutboxOpsService {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  private async selectRows(keys: string[], all: boolean): Promise<OutboxStateRow[]> {
+  private async selectRows(
+    keys: string[],
+    all: boolean,
+  ): Promise<OutboxStateRow[]> {
     if (all) {
       return (await this.db.query<OutboxStateRow>(
         `SELECT id, idempotency_key, tenant_id, status, attempt_count, request_payload, correlation_id
@@ -308,7 +393,10 @@ export class OutboxOpsService {
   }
 
   /** Run fn under the row's tenant context (RLS) with service identity. */
-  private async runAs(row: OutboxStateRow, fn: () => Promise<unknown>): Promise<void> {
+  private async runAs(
+    row: OutboxStateRow,
+    fn: () => Promise<unknown>,
+  ): Promise<void> {
     const actor = {
       globalUserId: SERVICE_PRINCIPAL_ID,
       userId: SERVICE_PRINCIPAL_ID,
@@ -328,7 +416,10 @@ export class OutboxOpsService {
           path: "/events/outbox",
           ip: "127.0.0.1",
         },
-        () => this.tenantCtx.run(actor as never, () => Promise.resolve(fn()).then(() => resolve(), reject)),
+        () =>
+          this.tenantCtx.run(actor as never, () =>
+            Promise.resolve(fn()).then(() => resolve(), reject),
+          ),
       );
     });
   }

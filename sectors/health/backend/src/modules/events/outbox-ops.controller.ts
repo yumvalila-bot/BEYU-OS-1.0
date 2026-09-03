@@ -16,11 +16,22 @@
  *     replayed delivery into duplicate:true with the ORIGINAL event id —
  *     replay can never create a second business effect
  */
-import { Body, Controller, Post, Req, UnauthorizedException, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
 import { CsrfOriginGuard } from "../../common/security/csrf-origin.guard";
 import { RequirePermission } from "../../common/security/require-permission.decorator";
-import { OutboxOpsService, type ReconcileReport, type ReplayResult } from "./outbox-ops.service";
+import {
+  OutboxOpsService,
+  type ReconcileReport,
+  type ReplayResult,
+} from "./outbox-ops.service";
 
 @Controller("api/events/outbox")
 export class OutboxOpsController {
@@ -33,7 +44,15 @@ export class OutboxOpsController {
   async replay(
     @Body() body: { idempotencyKeys?: string[]; all?: boolean; reason: string },
     // The guard populates req.user; typed loosely to match repo convention.
-    @Req() req: { user?: { userId: string; tenantId: string | null; email?: string | null; permissions?: string[] } },
+    @Req()
+    req: {
+      user?: {
+        userId: string;
+        tenantId: string | null;
+        email?: string | null;
+        permissions?: string[];
+      };
+    },
   ): Promise<ReplayResult> {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");
@@ -45,7 +64,11 @@ export class OutboxOpsController {
       idempotencyKeys: body?.idempotencyKeys,
       all: body?.all === true,
       reason: body?.reason ?? "",
-      operator: { userId: actor.userId, tenantId: actor.tenantId, email: actor.email ?? null },
+      operator: {
+        userId: actor.userId,
+        tenantId: actor.tenantId,
+        email: actor.email ?? null,
+      },
     });
   }
 
@@ -55,7 +78,15 @@ export class OutboxOpsController {
   @RequirePermission("outbox:reconcile")
   async reconcile(
     @Body() body: { repair?: boolean; limit?: number },
-    @Req() req: { user?: { userId: string; tenantId: string | null; email?: string | null; permissions?: string[] } },
+    @Req()
+    req: {
+      user?: {
+        userId: string;
+        tenantId: string | null;
+        email?: string | null;
+        permissions?: string[];
+      };
+    },
   ): Promise<ReconcileReport> {
     const actor = req.user;
     if (!actor) throw new UnauthorizedException("NO_ACTOR");

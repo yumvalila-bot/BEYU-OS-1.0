@@ -20,12 +20,17 @@
 import "reflect-metadata";
 import * as http from "http";
 import { AddressInfo } from "net";
-import { buildTestBed, TEST_ACTOR, type TestBed } from "../../common/testing/test-bed";
+import {
+  buildTestBed,
+  TEST_ACTOR,
+  type TestBed,
+} from "../../common/testing/test-bed";
 import { EventOutboxService } from "./event-outbox.service";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service";
 import { inTx } from "../../common/db/crud-factory";
 
-type StubMode = "accept" | "duplicate" | "server_error" | "permanent_reject" | "rate_limited";
+type StubMode =
+  "accept" | "duplicate" | "server_error" | "permanent_reject" | "rate_limited";
 
 /** Minimal stand-in for the BEYU OS events endpoint. */
 class BeyuStub {
@@ -43,7 +48,11 @@ class BeyuStub {
         const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
         this.received.push({ body, auth: req.headers.authorization });
         res.setHeader("content-type", "application/json");
-        if (this.mode === "accept" || this.mode === "duplicate" || this.mode === "rate_limited") {
+        if (
+          this.mode === "accept" ||
+          this.mode === "duplicate" ||
+          this.mode === "rate_limited"
+        ) {
           const eventId = `EVT_STUB_${++this.eventSeq}`;
           if (this.mode === "rate_limited") {
             res.statusCode = 429;
@@ -53,7 +62,11 @@ class BeyuStub {
           res.statusCode = this.mode === "accept" ? 201 : 200;
           res.end(
             JSON.stringify({
-              data: { accepted: this.mode === "accept", duplicate: this.mode === "duplicate", eventId },
+              data: {
+                accepted: this.mode === "accept",
+                duplicate: this.mode === "duplicate",
+                eventId,
+              },
             }),
           );
           return;
@@ -70,7 +83,9 @@ class BeyuStub {
   }
 
   async start(): Promise<void> {
-    await new Promise<void>((resolve) => this.server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      this.server.listen(0, "127.0.0.1", resolve),
+    );
     this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
   }
 
@@ -137,7 +152,10 @@ describe("EventOutboxService — transactional outbox writer", () => {
     await bed.run(async () => {
       await outbox.publish(event("smoke-1"));
     });
-    const row = (await bed.run(async () => outbox.row("smoke-1"))) as Record<string, unknown> | null;
+    const row = (await bed.run(async () => outbox.row("smoke-1"))) as Record<
+      string,
+      unknown
+    > | null;
     expect(row).not.toBeNull();
     expect(row!.status).toBe("pending");
     expect(row!.provider).toBe("beyu.events");
@@ -173,7 +191,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     expect(summary.delivered).toBeGreaterThanOrEqual(1);
     expect(summary.deadLettered).toBe(0);
 
-    const row = (await bed.run(async () => outbox.row("happy-1"))) as Record<string, unknown>;
+    const row = (await bed.run(async () => outbox.row("happy-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("delivered");
     expect(row.attempt_count).toBe(1);
     expect(row.delivered_at).not.toBeNull();
@@ -186,7 +207,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     if (!sent) throw new Error("happy-1 was never delivered to the stub");
     expect(sent.auth).toMatch(/^Bearer /);
     expect(sent.body.tenantCode).toBe("BEYU-HEALTH");
-    expect((sent.body.payload as Record<string, unknown>).amount).toBe("12500.00");
+    expect((sent.body.payload as Record<string, unknown>).amount).toBe(
+      "12500.00",
+    );
   });
 
   it("BEYU 200 duplicate:true → delivered (re-delivery after crash is safe)", async () => {
@@ -197,7 +220,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const dispatcher = makeDispatcher(bed, stub);
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.duplicates).toBeGreaterThanOrEqual(1);
-    const row = (await bed.run(async () => outbox.row("dup-1"))) as Record<string, unknown>;
+    const row = (await bed.run(async () => outbox.row("dup-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("delivered");
   });
 
@@ -209,7 +235,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const dispatcher = makeDispatcher(bed, stub);
     const first = await dispatcher.dispatchDueBatch();
     expect(first.retried).toBeGreaterThanOrEqual(1);
-    let row = (await bed.run(async () => outbox.row("retry-1"))) as Record<string, unknown>;
+    let row = (await bed.run(async () => outbox.row("retry-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("failed");
     expect(row.attempt_count).toBe(1);
     expect(row.last_error).toMatch(/BEYU 500/);
@@ -219,7 +248,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     // Not due yet → a second cycle must NOT touch the row.
     const idle = await dispatcher.dispatchDueBatch();
     expect(idle.claimed).toBe(0);
-    row = (await bed.run(async () => outbox.row("retry-1"))) as Record<string, unknown>;
+    row = (await bed.run(async () => outbox.row("retry-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.attempt_count).toBe(1);
 
     // Force due → delivered on attempt 2.
@@ -232,11 +264,19 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     });
     const second = await dispatcher.dispatchDueBatch();
     expect(second.delivered).toBeGreaterThanOrEqual(1);
-    row = (await bed.run(async () => outbox.row("retry-1"))) as Record<string, unknown>;
+    row = (await bed.run(async () => outbox.row("retry-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("delivered");
     expect(row.attempt_count).toBe(2);
     const log = row.attempt_log as { phase: string }[];
-    expect(log.map((e) => e.phase)).toEqual(["claim", "retry", "claim", "delivered"]);
+    expect(log.map((e) => e.phase)).toEqual([
+      "claim",
+      "retry",
+      "claim",
+      "delivered",
+    ]);
   });
 
   it("permanent 422 → dead_letter immediately (the event can never be accepted)", async () => {
@@ -247,7 +287,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const dispatcher = makeDispatcher(bed, stub);
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.deadLettered).toBeGreaterThanOrEqual(1);
-    const row = (await bed.run(async () => outbox.row("perm-1"))) as Record<string, unknown>;
+    const row = (await bed.run(async () => outbox.row("perm-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("dead_letter");
     expect(row.attempt_count).toBe(1);
     expect(row.next_attempt_at).toBeNull();
@@ -259,7 +302,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     await bed.run(async () => {
       await outbox.publish(event("max-1"));
     });
-    const dispatcher = makeDispatcher(bed, stub, { BEYU_EVENTS_MAX_ATTEMPTS: "2" });
+    const dispatcher = makeDispatcher(bed, stub, {
+      BEYU_EVENTS_MAX_ATTEMPTS: "2",
+    });
     await dispatcher.dispatchDueBatch(); // attempt 1 → failed
     await bed.run(async () => {
       await bed.conn.query(
@@ -269,7 +314,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     });
     const second = await dispatcher.dispatchDueBatch(); // attempt 2 → dead_letter
     expect(second.deadLettered).toBeGreaterThanOrEqual(1);
-    const row = (await bed.run(async () => outbox.row("max-1"))) as Record<string, unknown>;
+    const row = (await bed.run(async () => outbox.row("max-1"))) as Record<
+      string,
+      unknown
+    >;
     expect(row.status).toBe("dead_letter");
     expect(row.attempt_count).toBe(2);
   });
@@ -279,13 +327,13 @@ describe("OutboxDispatcherService — delivery state machine", () => {
       await outbox.publish(event("lease-1"));
     });
     const dispatcher = makeDispatcher(bed, stub);
-    const first = await (dispatcher as unknown as { claim(t: string | null): Promise<unknown[]> }).claim(
-      TEST_ACTOR.tenantId,
-    );
+    const first = await (
+      dispatcher as unknown as { claim(t: string | null): Promise<unknown[]> }
+    ).claim(TEST_ACTOR.tenantId);
     expect(first).toHaveLength(1);
-    const second = await (dispatcher as unknown as { claim(t: string | null): Promise<unknown[]> }).claim(
-      TEST_ACTOR.tenantId,
-    );
+    const second = await (
+      dispatcher as unknown as { claim(t: string | null): Promise<unknown[]> }
+    ).claim(TEST_ACTOR.tenantId);
     expect(second).toHaveLength(0);
   });
 
@@ -323,7 +371,10 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.delivered).toBeGreaterThanOrEqual(2);
     for (const key of ["tenant-row-1", "service-row-1"]) {
-      const row = (await bed.run(async () => outbox.row(key))) as Record<string, unknown>;
+      const row = (await bed.run(async () => outbox.row(key))) as Record<
+        string,
+        unknown
+      >;
       expect(row.status).toBe("delivered");
     }
   });
