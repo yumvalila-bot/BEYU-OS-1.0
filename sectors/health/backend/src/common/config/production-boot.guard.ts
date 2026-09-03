@@ -31,6 +31,15 @@ export function validateProductionBoot(cfg: ConfigService): BootCheckResult {
   requireEnv("JWT_ISSUER");
   requireEnv("JWT_AUDIENCE");
   requireEnv("DATABASE_URL");
+  // Test-only bypass flags are never valid in production (agreement with
+  // validateBootEnvironment in common/security/boot-validation.ts).
+  if (
+    /^(1|true|yes|on)$/i.test(cfg.get<string>("BEYU_HCM_BYPASS_FOR_TEST") ?? "")
+  ) {
+    failures.push(
+      "BEYU_HCM_BYPASS_FOR_TEST must not be enabled in production — it disables HCM practitioner verification",
+    );
+  }
   // Production cookie security
   if (cfg.get<string>("COOKIE_SECURE") === "false")
     failures.push("COOKIE_SECURE must be true in production");

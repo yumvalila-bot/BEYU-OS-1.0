@@ -99,10 +99,15 @@ export class HcmAdapter extends BeyuBaseAdapter {
     // Fail closed when HCM is required but cannot verify licence / employment.
     // The ONLY exception is HTTP E2E/integration test harnesses that set
     // BEYU_HCM_BYPASS_FOR_TEST=true — never honored in the presence of a real
-    // BEYU_HCM_ENDPOINT. Production deployments MUST configure BEYU_HCM_ENDPOINT.
+    // BEYU_HCM_ENDPOINT, and never honored when NODE_ENV=production (structural
+    // refusal in addition to the boot-validation gate: production deployments
+    // MUST configure BEYU_HCM_ENDPOINT or rely on the local practitioner
+    // registry; a test flag can never strip clinical-safety enforcement).
     const hcmEndpointConfigured = !!process.env.BEYU_HCM_ENDPOINT;
     const testBypassAllowed =
-      process.env.BEYU_HCM_BYPASS_FOR_TEST === "true" && !hcmEndpointConfigured;
+      process.env.BEYU_HCM_BYPASS_FOR_TEST === "true" &&
+      !hcmEndpointConfigured &&
+      process.env.NODE_ENV !== "production";
     if (rec.externalVerificationRequired && this.highRiskAction(opts.action)) {
       return {
         authorized: false,

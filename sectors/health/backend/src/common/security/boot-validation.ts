@@ -73,6 +73,18 @@ export function validateBootEnvironment(
     errors.push("DB_SKIP_RLS_CHECK must NOT be true in production");
   }
 
+  // ── Test-only bypass flags ───────────────────────────────────────────────
+  // BEYU_HCM_BYPASS_FOR_TEST disables practitioner licence/employment/scope
+  // verification in the HCM adapter when no live BEYU_HCM_ENDPOINT is
+  // configured. It exists solely for the HTTP E2E harness under a provably
+  // non-production NODE_ENV. Any effective (truthy) value in production is a
+  // boot failure: it would silently strip clinical-safety enforcement.
+  if (isProd && /^(1|true|yes|on)$/i.test(env.BEYU_HCM_BYPASS_FOR_TEST ?? "")) {
+    errors.push(
+      "BEYU_HCM_BYPASS_FOR_TEST must NOT be enabled in production — it disables HCM practitioner verification",
+    );
+  }
+
   // ── Queue / rate-limit backend ───────────────────────────────────────────
   if (isProd && env.QUEUE_BACKEND === "memory") {
     errors.push(
