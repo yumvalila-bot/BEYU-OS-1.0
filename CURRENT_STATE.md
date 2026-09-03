@@ -230,3 +230,37 @@ X-1 admin DB secret — EXTERNAL_BLOCKED · X-2 runtime DB password — EXTERNAL
 X-3 production DB DOWN — EXTERNAL_BLOCKED (re-probed live) · X-4 protection rules —
 EXTERNAL_PERMISSION_BLOCKED (403, re-probed) · X-5 Health prod host — EXTERNAL_BLOCKED ·
 X-6 DR drill — NOT_ATTEMPTED · X-7 PR #22 merge — REQUIRES_HUMAN_APPROVAL.
+
+## 9. Program completion — Phases 6/16/17/18 + final regression (2026-09-03, final session)
+
+**Service-principal registry (Phase 6, `c34e0d6`)** — per-issuer revocation
+closed: migration 0020 (`service_principals`, 5 issuers seeded ACTIVE),
+`checkServicePrincipal` (absent→allowlist, ACTIVE→allow, SUSPENDED/REVOKED→403
+audited, registry error→503 fail-closed), enforced by `guardedInternal` after
+signature validation. Internal suites 53/53; specialist baselines 21
+migrations.
+
+**Outbox observability (Phases 16/17, `52fe877`)** —
+`beyu_outbox_metrics()` SECURITY DEFINER; OutboxMetricsService gauges;
+operator-gated `GET /api/events/outbox/metrics`; `/health/ready` treats
+event_dispatcher as NON-CRITICAL. Full OTEL stack: MISSING/EXTERNAL.
+
+**Dead code (`e093df9`)** — unreferenced health users-module stub removed;
+full health suite re-verified.
+
+**DR drill (Phase 18, `9f331e5`)** — `scripts/dr-drill.ts`: scratch database
+reconstructed from migrations only (real runner), fingerprint parity, FK-round
+data restore, RLS/chain/count validation, scratch destroyed. PASSED locally
+(85 tables, exit 0); wired into CI after the drift gate; runbook RB-08.
+Production PITR/RTO/RPO: EXTERNAL_BLOCKED (X-1/X-6).
+
+**Fresh final regression (Phase 27)** — root: **108/108 files, 2315/2315
+tests, 0 skipped** (HTTP suites live, bootstrap+MFA creds, runtime grants
+restored via setup-db-role, MFA keys set); health: 87+1 suites, 456 passed/10
+env-skipped, 0 failures; cross-OS integration chains vs rebuilt root: 29/29;
+tsc+eslint clean everywhere; DR drill PASSED. Local beyu_os fingerprint
+`87c6d5e7e6613c6c4663261955497a2f` (21/21 migrations).
+
+**Final report:** `docs/remediation/PHASE28_FINAL_REPORT.md` — outcome
+**ENGINEERING_READY_WITH_EXTERNAL_BLOCKERS**; gates A–V; X-7 NEW (GitHub
+token invalid — 6 program commits local-only until reconnected).
