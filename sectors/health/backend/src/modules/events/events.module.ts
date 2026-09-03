@@ -13,10 +13,13 @@
 import { Global, Module } from "@nestjs/common";
 import { EventOutboxService } from "./event-outbox.service";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service";
+import { OutboxOpsService } from "./outbox-ops.service";
+import { OutboxOpsController } from "./outbox-ops.controller";
 
 @Global()
 @Module({
-  providers: [EventOutboxService, OutboxDispatcherService],
-  exports: [EventOutboxService, OutboxDispatcherService],
+  providers: [EventOutboxService, OutboxDispatcherService, OutboxOpsService],
+  controllers: [OutboxOpsController],
+  exports: [EventOutboxService, OutboxDispatcherService, OutboxOpsService],
 })
 export class EventsModule {}

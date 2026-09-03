@@ -1,11 +1,11 @@
 {
-  "generated": "2026-09-03T05:25:55.525Z",
+  "generated": "2026-09-03T05:35:48.537Z",
   "schema": "endpoint-security-registry-v1",
   "scope": "all HTTP endpoints across src/modules/*/*.controller.ts",
   "summary": {
-    "total": 89,
+    "total": 91,
     "byTier": {
-      "PRIVILEGED": 30,
+      "PRIVILEGED": 32,
       "CLINICAL": 26,
       "EXTERNAL_INTEGRATION": 11,
       "PUBLIC": 5,
@@ -14,11 +14,11 @@
       "ADMINISTRATIVE": 1
     },
     "byOpClass": {
-      "WRITE": 49,
+      "WRITE": 51,
       "READ": 40
     },
     "byStatus": {
-      "PASS": 89
+      "PASS": 91
     }
   },
   "endpoints": [
@@ -1541,6 +1541,74 @@
         "public": false,
         "permissions": [
           "phi:read"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": []
+    },
+    {
+      "controller": "outbox-ops",
+      "file": "src/modules/events/outbox-ops.controller.ts",
+      "method": "POST",
+      "path": "/api/events/outbox/replay",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "outbox:replay"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "outbox:replay"
+        ],
+        "governanceAuthorization": false,
+        "hcmAuthorization": false,
+        "mfaStepUp": false,
+        "clinicalSafetyGate": false
+      },
+      "status": "PASS",
+      "implementableGaps": [],
+      "externalBlockers": []
+    },
+    {
+      "controller": "outbox-ops",
+      "file": "src/modules/events/outbox-ops.controller.ts",
+      "method": "POST",
+      "path": "/api/events/outbox/reconcile",
+      "tier": "PRIVILEGED",
+      "opClass": "WRITE",
+      "requiredControls": {
+        "jwt": true,
+        "permission": [
+          "outbox:reconcile"
+        ],
+        "tenantIsolation": true,
+        "entityIsolation": true,
+        "countryIsolation": true,
+        "globalUserId": true,
+        "csrf": true,
+        "audit": true
+      },
+      "presentControls": {
+        "jwt": true,
+        "public": false,
+        "permissions": [
+          "outbox:reconcile"
         ],
         "governanceAuthorization": false,
         "hcmAuthorization": false,

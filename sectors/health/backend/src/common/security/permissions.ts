@@ -52,6 +52,9 @@ export type Permission =
   | "ai:override"
   | "rbac:read"
   | "rbac:write"
+  // Phase 8 governed event operations (operator-only)
+  | "outbox:replay"
+  | "outbox:reconcile"
   | "contract:sign"
   | "contract:anchor"
   | "board:vote"
@@ -144,6 +147,8 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "audit:export",
       "ai:killswitch",
       "trustee:veto",
+      "outbox:replay",
+      "outbox:reconcile",
       "contract:sign",
       "contract:anchor",
       "rbac:read",
@@ -356,6 +361,8 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "rbac:read",
       "inventory:read",
       "breakglass:request",
+      "outbox:replay",
+      "outbox:reconcile",
     ],
   },
   {
