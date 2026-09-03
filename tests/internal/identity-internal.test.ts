@@ -219,6 +219,44 @@ describe("POST /api/v1/internal/identity/lookup", () => {
     expect(res.status).toBe(401);
   });
 
+  it("propagates canonical revocation: lookup returns SUSPENDED after the canonical status changes", async () => {
+    // Register a fresh canonical identity.
+    const email = `revoked-${RUN}@beyu.test`;
+    const res = await registerRoute(
+      req("http://localhost/api/v1/internal/identity/register", { email, displayName: "Revocation Test", tenantCode: TENANT_CODE, sector: "HEALTH_OS", sectorUserId: `health-rev-${RUN}` }, token()),
+    );
+    expect(res.status).toBe(201);
+    const { globalUserId } = ((await res.json()) as { data: { globalUserId: string } }).data;
+    // BEYU operator action: suspend the canonical identity.
+    await db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, globalUserId));
+    const look = await lookupRoute(
+      req("http://localhost/api/v1/internal/identity/lookup", { globalUserId }, token()),
+    );
+    expect(look.status).toBe(200);
+    const body = (await look.json()) as { data: { status: string; partyStatus: string } };
+    expect(body.data.status).toBe("SUSPENDED"); // the authoritative revocation signal
+    // Cleanup (users first — FK to parties).
+    const [u] = await db.select({ partyId: users.partyId }).from(users).where(eq(users.id, globalUserId));
+    await db.delete(users).where(eq(users.id, globalUserId));
+    await db.delete(parties).where(eq(parties.id, u.partyId));
+  });
+
+  it("register refuses a SUSPENDED tenant (TENANT_NOT_ACTIVE)", async () => {
+    const code = `SUSPENDED-${RUN}`;
+    // Create a dedicated suspended tenant for this test.
+    await db.insert(tenants).values({ id: `TEN_SUSPENDED_${RUN}`, code, name: "Suspended Tenant", type: "SECTOR", status: "SUSPENDED" });
+    try {
+      const res = await registerRoute(
+        req("http://localhost/api/v1/internal/identity/register", { email: `susp-${RUN}@beyu.test`, displayName: "X", tenantCode: code, sector: "HEALTH_OS", sectorUserId: "s-1" }, token()),
+      );
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("TENANT_NOT_ACTIVE");
+    } finally {
+      await db.delete(tenants).where(eq(tenants.code, code));
+    }
+  });
+
   it("writes a SERVICE-actor audit row for a successful lookup", async () => {
     await lookupRoute(req("http://localhost/api/v1/internal/identity/lookup", { email: EMAIL }, token()));
     const audits = await db
