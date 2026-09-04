@@ -2,7 +2,9 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   Optional,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -17,6 +19,7 @@ import { SessionService } from "../identity/session.service";
 import { AuditService as IdentityAuditService } from "../identity/audit.service";
 import { MfaService as LegacyMfaService } from "../identity/mfa.service";
 import { RateLimiter } from "../../common/security/rate-limiter";
+import { IdentityFederationService } from "../identity/identity-federation.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -37,6 +40,8 @@ export interface LoginContext {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -44,8 +49,24 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly audit: IdentityAuditService,
     private readonly mfa: LegacyMfaService,
+    @Optional()
+    @Inject(IdentityFederationService)
+    private readonly federation?: IdentityFederationService,
     @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,
   ) {}
+
+  /**
+   * Guaranteed federation service: direct construction in legacy tests may
+   * not provide one; those constructions are pre-federation fixtures. When
+   * absent we do NOT silently skip the canonical gate — we fail closed at
+   * the point of use (register/login) exactly as a BLOCKED deployment does.
+   */
+  private fed(): IdentityFederationService {
+    if (!this.federation) {
+      throw new ServiceUnavailableException("CANONICAL_IDENTITY_REQUIRED");
+    }
+    return this.federation;
+  }
 
   /** Guaranteed rate limiter: if DI didn't provide one (legacy direct construction in tests) use a safe no-op. */
   private rl(): RateLimiter {
@@ -102,6 +123,25 @@ export class AuthService {
         tenantId = tenant.tenant_id;
       }
     }
+    // ── Canonical identity federation (link-once) ─────────────────────────
+    // The sector account is only usable once linked to the ONE canonical
+    // BEYU identity. When the canonical identity cannot be established we
+    // COMPENSATE: delete the just-created sector user so a retry is not
+    // permanently blocked, then fail closed (503). No orphan sector
+    // accounts without canonical identity are left behind.
+    try {
+      await this.fed().linkOnRegister({
+        globalUserId: user.global_user_id,
+        email: user.email,
+        displayName: registerDto.full_name,
+        tenantCode: registerDto.tenantCode ?? null,
+        tenantId,
+      });
+    } catch (e) {
+      await this.compensateRegistration(user.global_user_id, e as Error);
+      throw e;
+    }
+
     if (!tenantId) {
       await this.repo.recordAuthEvent({
         globalUserId: user.global_user_id,
@@ -126,6 +166,35 @@ export class AuthService {
       message: "User registered successfully",
       user: this.publicUser(user),
     };
+  }
+
+  /**
+   * Compensation for a failed canonical registration: hard-delete the sector
+   * user (memberships/sessions/links cascade) and record why. Best-effort —
+   * if the delete itself fails the account remains unusable (no link → no
+   * login), which is the fail-closed outcome, and the error is logged.
+   */
+  private async compensateRegistration(
+    globalUserId: string,
+    cause: Error,
+  ): Promise<void> {
+    try {
+      await this.repo.hardDeleteUser(globalUserId);
+      await this.repo.recordAuthEvent({
+        globalUserId,
+        eventType: "registration_compensated",
+        result: "FAILURE",
+        context: {
+          reason: "canonical_identity_unavailable",
+          error: cause.message,
+        },
+      });
+    } catch (e) {
+      // recordAuthEvent above will also fail (user gone) — that's fine.
+      this.logger.error(
+        `registration compensation failed for ${globalUserId}: ${(e as Error).message}`,
+      );
+    }
   }
 
   // ── Login ──────────────────────────────────────────────────────────────────
@@ -194,13 +263,20 @@ export class AuthService {
 
     const { role } = await this.resolveActor(user, tenantId);
 
+    // ── Canonical identity gate (fail-closed) ─────────────────────────────
+    // No canonical link → no session. When LIVE, the canonical lifecycle
+    // status is re-checked (revocation propagation); a control-plane outage
+    // denies NEW sessions rather than downgrading identity assurance.
+    const link = await this.fed().requireLinkedIdentity(user.global_user_id);
+    await this.fed().assertCanonicalStatusActive(link);
+
     await this.repo.recordLastAuthenticated(user.global_user_id);
     await this.audit.record({
       globalUserId: user.global_user_id,
       tenantId,
       eventType: "login_success",
       result: "SUCCESS",
-      context: { ...ctx, role },
+      context: { ...ctx, role, canonical: link.beyuUserId },
     });
     return this.issueTokens(user, role, tenantId, ctx);
   }
@@ -221,6 +297,11 @@ export class AuthService {
       throw new UnauthorizedException("ACCOUNT_DISABLED");
     }
     const { role } = await this.resolveActor(user, session.tenant_id);
+
+    // Canonical identity gate on session continuation (revocation at
+    // refresh, not just at next login).
+    const link = await this.fed().requireLinkedIdentity(user.global_user_id);
+    await this.fed().assertCanonicalStatusActive(link);
 
     await this.audit.record({
       globalUserId: user.global_user_id,
@@ -248,6 +329,9 @@ export class AuthService {
     if (!user || user.account_status !== "active") {
       throw new UnauthorizedException("ACCOUNT_DISABLED");
     }
+    // Canonical identity gate on session restoration.
+    const link = await this.fed().requireLinkedIdentity(user.global_user_id);
+    await this.fed().assertCanonicalStatusActive(link);
     const { role } = await this.resolveActor(user, session.tenant_id);
     const accessJti = this.sessions.newJti();
     await this.sessions.updateJti(session.session_id, accessJti);

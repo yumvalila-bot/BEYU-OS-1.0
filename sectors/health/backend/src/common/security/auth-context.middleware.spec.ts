@@ -16,6 +16,7 @@ import { IdentityRepository } from "../../modules/identity/identity.repository";
 import { AuditService } from "../../modules/identity/audit.service";
 import { TenantContext, ActorContext } from "./tenant-context";
 import { AuthContextMiddleware } from "./auth-context.middleware";
+import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
 import * as bcrypt from "bcryptjs";
 
 jest.setTimeout(60_000);
@@ -33,6 +34,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
   let audit: AuditService;
   let tenant: TenantContext;
   let jwt: JwtService;
+  let bridge: BeyuIdentityBridge;
   let middleware: AuthContextMiddleware;
 
   let tenantAId: string;
@@ -66,6 +68,12 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
       tenantId: tenantAId,
       role: "doctor",
     });
+    // Canonical link (registration would create this in the API path).
+    await bridge.linkUser({
+      globalUserId: user.global_user_id,
+      beyuUserId: `BEYU-TEST-${user.global_user_id}`,
+      linkedBy: "spec-fixture",
+    });
     return user.global_user_id;
   };
 
@@ -76,12 +84,19 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     audit = new AuditService(repo);
     tenant = new TenantContext();
     jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: "15m" } });
+    // Canonical identity bridge: the middleware requires every authenticated
+    // actor to hold a canonical link. Fixture users are linked through the
+    // REAL bridge machinery (synthetic canonical reference — the same
+    // mechanism the identity test harness uses).
+    bridge = new BeyuIdentityBridge(conn as never);
+    await bridge.ensureBridgeSchema();
     middleware = new AuthContextMiddleware(
       jwt,
       repo,
       audit,
       tenant,
       new ConfigService({}),
+      bridge,
     );
     const ta = await repo.createTenant({ code: "TENANT-A", name: "A" });
     tenantAId = ta.tenant_id;
@@ -147,6 +162,27 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     await expect(enter(token)).rejects.toThrow("NO_TENANT_MEMBERSHIP");
   });
 
+  it("rejects a valid token whose user has NO canonical identity link (federation gate)", async () => {
+    const hash = await bcrypt.hash(PASSWORD, 10);
+    const user = await repo.createUser({
+      email: `unlinked-${Math.random().toString(36).slice(2)}@a.example`,
+      displayName: "Unlinked",
+      passwordHash: hash,
+    });
+    await repo.ensureMembership({
+      globalUserId: user.global_user_id,
+      tenantId: tenantAId,
+      role: "doctor",
+    });
+    // NOTE: no canonical link created — exactly the unlinked-sector-user case.
+    const token = signToken(
+      user.global_user_id,
+      await repo.getSecurityVersion(user.global_user_id),
+      tenantAId,
+    );
+    await expect(enter(token)).rejects.toThrow("NO_CANONICAL_IDENTITY_LINK");
+  });
+
   it("does not enter an actor for a request without a token", async () => {
     await enter(null);
     // No actor should have been established for this (fresh) async chain.
@@ -166,6 +202,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
       audit,
       new TenantContext(),
       cfg,
+      bridge,
     );
 
     // Token signed WITHOUT issuer/audience → rejected (no actor established).
@@ -204,6 +241,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
       audit,
       new TenantContext(),
       new ConfigService({}),
+      bridge,
     );
 
     // Craft an unsigned alg:none token. The middleware must NOT accept it.

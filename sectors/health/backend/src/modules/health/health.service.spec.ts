@@ -6,6 +6,7 @@ function svc(
     migrationRows?: any[];
     env?: Record<string, any>;
     adapters?: any[];
+    outbox?: any;
   } = {},
 ) {
   const db = {
@@ -22,7 +23,16 @@ function svc(
   } as any;
   const cfg = { get: (k: string) => overrides.env?.[k] ?? undefined } as any;
   const reg = { probeAll: async () => overrides.adapters ?? [] } as any;
-  return new HealthService(db, cfg, reg);
+  const metrics = {
+    readiness: async () => overrides.outbox ?? { status: "up", detail: {} },
+    snapshot: async () => ({
+      governed_events: {},
+      sync_adapters: {},
+      dispatcher: {},
+      timestamp: "",
+    }),
+  } as any;
+  return new HealthService(db, cfg, reg, metrics);
 }
 
 describe("HealthService readiness", () => {

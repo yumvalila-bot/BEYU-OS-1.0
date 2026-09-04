@@ -94,8 +94,17 @@ export async function buildE2EHarness(
   // Allow HTTP E2E harness to bypass live HCM verification (no practitioner
   // records are seeded in the PGlite database). Production deployments MUST
   // set BEYU_HCM_ENDPOINT and leave this flag unset — the adapter ignores
-  // it whenever a real endpoint is configured.
-  process.env.BEYU_HCM_BYPASS_FOR_TEST = "true";
+  // it whenever a real endpoint is configured, boot validation refuses it
+  // under NODE_ENV=production, and the harness itself never sets it when
+  // NODE_ENV is production.
+  if (process.env.NODE_ENV !== "production") {
+    process.env.BEYU_HCM_BYPASS_FOR_TEST = "true";
+    // Identity test harness: registrations link to SYNTHETIC canonical
+    // references through the REAL bridge machinery (link-once, conflict
+    // detection, acting gate). Production refuses this flag at boot AND
+    // structurally in IdentityFederationService.mode().
+    process.env.BEYU_IDENTITY_TEST_HARNESS = "true";
+  }
   const db = new PGlite();
   const conn = new PGliteConnection(db);
   const migs = fs
@@ -114,7 +123,10 @@ export async function buildE2EHarness(
        ON CONFLICT DO NOTHING;
      INSERT INTO beyu_identity.tenant_memberships (global_user_id, tenant_id, role)
        VALUES ('${E2E_ACTOR.userId}','${E2E_ACTOR.tenantId}','doctor')
-       ON CONFLICT DO NOTHING;`,
+       ON CONFLICT DO NOTHING;
+     INSERT INTO beyu_identity.beyu_identity_links (global_user_id, beyu_user_id, linked_by)
+       VALUES ('${E2E_ACTOR.userId}','BEYU-TEST-${E2E_ACTOR.userId}','e2e-harness')
+       ON CONFLICT (global_user_id) DO NOTHING;`,
   );
 
   const moduleFixture: TestingModule = await Test.createTestingModule({

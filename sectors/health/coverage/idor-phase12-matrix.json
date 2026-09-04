@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-01T04:41:59.823Z",
+  "generated": "2026-09-03T11:40:50.029Z",
   "schema": "idor-phase12-matrix-v1",
   "methodology": "resource x 20-axis isolation matrix derived from the bootstrapped PGlite catalog (pg_class.relrowsecurity + pg_policies) + existing test coverage; eight-state classification; no fabricated results",
   "axes": [

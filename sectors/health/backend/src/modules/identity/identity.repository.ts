@@ -122,6 +122,19 @@ export class IdentityRepository {
     return rows.length ? mapUser(rows[0]) : null;
   }
 
+  /**
+   * Compensation delete for a registration whose canonical identity could
+   * not be established (fail-closed federation). Memberships, sessions and
+   * identity links cascade (ON DELETE CASCADE). Audit/auth events keep their
+   * rows — history is never rewritten.
+   */
+  async hardDeleteUser(globalUserId: string): Promise<void> {
+    await this.conn.query(
+      `DELETE FROM beyu_identity.users WHERE global_user_id = $1`,
+      [globalUserId],
+    );
+  }
+
   async createUser(input: {
     email: string;
     displayName: string;

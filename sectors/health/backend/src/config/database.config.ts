@@ -10,10 +10,10 @@ export default () => ({
   DB_DATABASE: process.env.DB_DATABASE || "beyu_health",
   DB_LOGGING: process.env.DB_LOGGING === "true",
 
-  // Supabase
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+  // NOTE: Supabase configuration was removed together with the legacy
+  // Supabase proxy (P0 retirement, 2026-09-02). The canonical Health OS data
+  // layer is the `beyu_identity`/`health` PostgreSQL schemas; Supabase is not
+  // a runtime dependency. No SUPABASE_* variable is read by this backend.
 
   // JWT
   JWT_SECRET: process.env.JWT_SECRET || "your-secret-key",

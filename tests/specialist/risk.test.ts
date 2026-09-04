@@ -1016,10 +1016,10 @@ describe("risk module — leaves governance and financial state untouched", () =
   });
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
-    // 16 = migrations 0000-0014 (kernel baseline) + 0016_noelia_scheduler_offsets
-    // (governed Noelia expansion: additive, deterministic, RLS-aware).
+    // 21 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // (Phase 8 events + Phase 6 service-principal registry: additive).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(19);
+    expect(n).toBe(21);
   });
 
   it("leaves all triggers enabled", async () => {

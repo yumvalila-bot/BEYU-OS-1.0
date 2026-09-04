@@ -24,6 +24,9 @@ describe("Boot validation (production fail-closed)", () => {
     REDIS_URL: "redis://r:6379/0",
     ENCRYPTION_KEY: "k".repeat(32),
     CORS_ORIGIN: "https://app.beyu.health",
+    // Canonical identity federation is mandatory in production.
+    BEYU_IDENTITY_ENDPOINT: "https://beyu.os/api/internal",
+    BEYU_IDENTITY_TOKEN: "t".repeat(40),
   };
 
   it("passes with a complete, secure production env", () => {
@@ -74,6 +77,32 @@ describe("Boot validation (production fail-closed)", () => {
     const r = validateBootEnvironment(e, silent);
     expect(r.ok).toBe(false);
     expect(r.errors.join(" ")).toMatch(/ENCRYPTION_KEY/);
+  });
+
+  it("rejects production without BEYU_IDENTITY_ENDPOINT (federation mandatory)", () => {
+    const e = { ...PROD_ENV };
+    delete e.BEYU_IDENTITY_ENDPOINT;
+    const r = validateBootEnvironment(e, silent);
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/BEYU_IDENTITY_ENDPOINT/);
+  });
+
+  it("rejects production BEYU_IDENTITY_ENDPOINT without BEYU_IDENTITY_TOKEN", () => {
+    const r = validateBootEnvironment(
+      { ...PROD_ENV, BEYU_IDENTITY_TOKEN: undefined },
+      silent,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/BEYU_IDENTITY_TOKEN/);
+  });
+
+  it("rejects BEYU_IDENTITY_TEST_HARNESS in production", () => {
+    const r = validateBootEnvironment(
+      { ...PROD_ENV, BEYU_IDENTITY_TEST_HARNESS: "true" },
+      silent,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/BEYU_IDENTITY_TEST_HARNESS/);
   });
 
   it("development NODE_ENV accepts minimal config", () => {

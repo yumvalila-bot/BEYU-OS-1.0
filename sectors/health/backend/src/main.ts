@@ -38,8 +38,6 @@ const EXTERNAL_ADAPTER_ENV_VARS: Array<{
   { key: "JWT_REFRESH_SECRET", required: true, adapter: "auth" },
   { key: "JWT_ISSUER", required: true, adapter: "auth" },
   { key: "JWT_AUDIENCE", required: true, adapter: "auth" },
-  { key: "SUPABASE_URL", required: false, adapter: "supabase" },
-  { key: "SUPABASE_SERVICE_ROLE_KEY", required: false, adapter: "supabase" },
   { key: "NHIF_API_BASE_URL", required: false, adapter: "nhif" },
   { key: "NHIF_API_KEY", required: false, adapter: "nhif" },
   { key: "TRA_API_BASE_URL", required: false, adapter: "tra" },

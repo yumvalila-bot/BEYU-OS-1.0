@@ -27,12 +27,27 @@ import {
 import { CircuitBreaker } from "../../../modules/integrations/circuit-breaker";
 import { AuditService } from "../../../modules/audit/audit.service";
 import { inTx } from "../../../common/db/crud-factory";
+import {
+  signServiceToken,
+  type ServiceTokenAct,
+} from "../shared/service-token";
 import type {
   IntegrationState,
   PropagationEnvelope,
   CanonicalActorContext,
 } from "../contracts/shared.types";
 import { DomainError } from "../../../common/errors/domain.error";
+
+/**
+ * Stable identity for the Health OS service principal. This is NOT a human
+ * GlobalUserId and can never authenticate as one — it exists so
+ * service-initiated outbound calls (registration-time canonical provisioning)
+ * are attributable in the outbox/audit ledgers.
+ */
+export const SERVICE_PRINCIPAL_ID = "00000000-0000-0000-0000-0000000009ee";
+
+/** Tenant bucket for service-initiated calls with no tenant context. */
+export const SERVICE_PRINCIPAL_TENANT = "00000000-0000-0000-0000-0000000009ef";
 
 export interface BeyuAdapterConfig {
   provider: string;
@@ -50,6 +65,12 @@ export interface BeyuCallOptions {
   idempotencyKey?: string;
   retries?: number;
   propagateAudit?: boolean;
+  /**
+   * Explicit actor for SERVICE-initiated calls that have no human request
+   * context (e.g. canonical identity provisioning during registration).
+   * When omitted, the current human actor is required (fail-closed).
+   */
+  actor?: CanonicalActorContext;
 }
 
 @Injectable()
@@ -138,6 +159,33 @@ export abstract class BeyuBaseAdapter {
     };
   }
 
+  /**
+   * Explicit actor for SERVICE-initiated outbound calls with no human
+   * request context (canonical identity provisioning during registration).
+   * The service principal is auditable in the outbox; the prospective user
+   * being provisioned travels in the (redacted) request payload.
+   */
+  protected serviceActor(tenantId: string | null): CanonicalActorContext {
+    return {
+      globalUserId: SERVICE_PRINCIPAL_ID,
+      email: null,
+      // A real tenant when known; the service principal bucket otherwise.
+      // Outbox rows for service actors always persist tenant_id NULL (the
+      // RLS policy's explicit service-level lane).
+      tenantId: tenantId ?? SERVICE_PRINCIPAL_TENANT,
+      entityCode: null,
+      countryCode: null,
+      licenceNumber: null,
+      practitionerId: null,
+      facilityId: null,
+      sessionId: null,
+      role: "service",
+      permissions: [],
+      timezone: null,
+      sourceService: "health-os",
+    };
+  }
+
   protected propagation(opts?: BeyuCallOptions): PropagationEnvelope {
     const reqCtx = (requestStorage as any).getStore?.() as any;
     return {
@@ -152,7 +200,8 @@ export abstract class BeyuBaseAdapter {
   /* ---------------- execution wrapper ---------------- */
 
   /** Wrap outbound call with timeout, circuit breaker, idempotency, audit.
-   *  This method does NOT itself perform HTTP; subclasses implement `doCall`. */
+   *  This method does NOT itself perform HTTP; subclasses implement `doCall`
+   *  (typically via postJson). */
   protected async execute<T>(
     action: string,
     req: unknown,
@@ -165,15 +214,30 @@ export abstract class BeyuBaseAdapter {
     const idempotencyKey = opts?.idempotencyKey ?? randomUUID();
 
     // Idempotency outbox record (written BEFORE call so a crash can reconcile).
-    const outboxId = await this.writeOutbox(action, req, idempotencyKey);
+    // Human actor by default; explicit service actor for service-initiated
+    // calls (registration-time provisioning).
+    const outboxActor = opts?.actor ?? this.currentActor();
+    const isService = outboxActor.globalUserId === SERVICE_PRINCIPAL_ID;
+    const outboxId = await this.writeOutbox(
+      action,
+      req,
+      idempotencyKey,
+      outboxActor,
+    );
 
     let lastErr: any;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const result = await this.circuit.execute(
-          `${this.config.provider}:${action}`,
-          () => withTimeout(doCall(), timeoutMs),
-        );
+        // The per-tenant circuit breaker is keyed by a REAL tenant (FK to
+        // beyu_identity.tenants). Service-initiated calls have no human
+        // tenant, so they run under timeout + retry + outbox accounting
+        // directly — never a fabricated tenant row.
+        const result = isService
+          ? await withTimeout(doCall(), timeoutMs)
+          : await this.circuit.execute(
+              `${this.config.provider}:${action}`,
+              () => withTimeout(doCall(), timeoutMs),
+            );
         await this.markOutbox(outboxId, "delivered", null);
         await this.auditOutbound(action, req, result, idempotencyKey, null);
         return result;
@@ -199,32 +263,141 @@ export abstract class BeyuBaseAdapter {
     throw lastErr;
   }
 
+  /* ---------------- HTTP transport ---------------- */
+
+  /**
+   * POST JSON to a BEYU OS internal endpoint (service-to-service).
+   *
+   * - Signs a fresh HS256 service token per call from this adapter's
+   *   credential env (never logged, never written to the outbox payload).
+   * - Adds correlation/request-id headers.
+   * - Unwraps the BEYU envelope ({ data } on 2xx) and converts non-2xx to an
+   *   error carrying .status/.code so execute()'s retry policy can classify
+   *   it (4xx → fail fast; 5xx/429/network → retryable).
+   * - Uses the platform fetch; no direct internet exposure — endpoints are
+   *   operator-configured internal BEYU control-plane URLs.
+   */
+  protected async postJson<TRes>(
+    path: string,
+    body: unknown,
+    opts?: { act?: ServiceTokenAct | null },
+  ): Promise<TRes> {
+    const endpoint = this.cfg.get<string>(this.config.endpointEnv);
+    const secret = this.config.credentialEnvs
+      .map((k) => this.cfg.get<string>(k))
+      .find((v) => !!v);
+    if (!endpoint) {
+      throw Object.assign(new Error("ENDPOINT_NOT_CONFIGURED"), {
+        status: 503,
+        code: "ENDPOINT_NOT_CONFIGURED",
+      });
+    }
+    if (!secret) {
+      // Fail closed: an endpoint without its credential is unusable.
+      throw Object.assign(new Error("CREDENTIAL_NOT_CONFIGURED"), {
+        status: 503,
+        code: "CREDENTIAL_NOT_CONFIGURED",
+      });
+    }
+
+    // Acting human context (when the call is on behalf of a user).
+    let act: ServiceTokenAct | undefined;
+    if (opts?.act !== null) {
+      try {
+        const a = this.currentActor();
+        act = {
+          globalUserId: a.globalUserId,
+          tenantId: a.tenantId,
+          entityCode: a.entityCode,
+          countryCode: a.countryCode,
+          role: a.role,
+        };
+      } catch {
+        act = opts?.act ?? undefined;
+      }
+    } else {
+      act = opts?.act ?? undefined;
+    }
+
+    const token = signServiceToken(secret, act);
+    const correlationId = currentCorrelationId();
+    const requestId =
+      (requestStorage as any).getStore?.()?.requestId ?? randomUUID();
+
+    let res: Response;
+    try {
+      res = await fetch(`${endpoint.replace(/\/$/, "")}${path}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          "x-correlation-id": correlationId,
+          "x-request-id": requestId,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e: any) {
+      // Network-level failure — mark retryable for execute()'s backoff loop.
+      throw Object.assign(new Error(e?.message ?? "NETWORK_ERROR"), {
+        code: e?.code ?? "ECONNREFUSED",
+      });
+    }
+
+    let parsed: {
+      data?: unknown;
+      error?: { code?: string; message?: string };
+    } = {};
+    try {
+      parsed = (await res.json()) as typeof parsed;
+    } catch {
+      // Non-JSON body (e.g. HTML error page from a misrouted gateway).
+    }
+    if (!res.ok) {
+      throw Object.assign(
+        new Error(
+          `BEYU_${path} responded ${res.status}: ${parsed.error?.code ?? "UNKNOWN"}`,
+        ),
+        {
+          status: res.status,
+          code: parsed.error?.code ?? "HTTP_ERROR",
+        },
+      );
+    }
+    return parsed.data as TRes;
+  }
+
   /* ---------------- outbox / audit ---------------- */
 
   private async writeOutbox(
     action: string,
     req: unknown,
     idemKey: string,
+    actor: CanonicalActorContext,
   ): Promise<string> {
-    const actor = this.currentActor();
-    const rows = await this.db.query<{ id: string }>(
-      `INSERT INTO health.beyu_outbox
+    // Service-initiated calls (no human tenant context) record a NULL
+    // tenant_id — the RLS isolation policy explicitly allows service-level
+    // rows (tenant_id IS NULL) while app.tenant_id is unset in inTx.
+    const isService = actor.globalUserId === SERVICE_PRINCIPAL_ID;
+    const rows = await inTx(this.db, this.tenantCtx, (tx) =>
+      tx.query<{ id: string }>(
+        `INSERT INTO health.beyu_outbox
           (idempotency_key, provider, action, actor_global_user_id, tenant_id, entity_code, country_code,
            request_payload, status, correlation_id, created_at)
        VALUES ($1,$2,$3,$4::uuid,$5::uuid,$6,$7,$8::jsonb,'pending',$9,now())
        ON CONFLICT (idempotency_key) DO UPDATE SET updated_at=now()
        RETURNING id`,
-      [
-        idemKey,
-        this.config.provider,
-        action,
-        actor.globalUserId,
-        actor.tenantId,
-        actor.entityCode,
-        actor.countryCode,
-        JSON.stringify(redact(req)),
-        currentCorrelationId(),
-      ],
+        [
+          idemKey,
+          this.config.provider,
+          action,
+          actor.globalUserId,
+          isService ? null : actor.tenantId,
+          actor.entityCode,
+          actor.countryCode,
+          JSON.stringify(redact(req)),
+          currentCorrelationId(),
+        ],
+      ),
     );
     return rows[0].id;
   }
@@ -234,9 +407,11 @@ export abstract class BeyuBaseAdapter {
     status: "pending" | "delivered" | "failed",
     error: string | null,
   ): Promise<void> {
-    await this.db.query(
-      `UPDATE health.beyu_outbox SET status=$2, last_error=$3, updated_at=now() WHERE id=$1::uuid`,
-      [id, status, error],
+    await inTx(this.db, this.tenantCtx, (tx) =>
+      tx.query(
+        `UPDATE health.beyu_outbox SET status=$2, last_error=$3, updated_at=now() WHERE id=$1::uuid`,
+        [id, status, error],
+      ),
     );
   }
 

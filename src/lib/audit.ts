@@ -186,6 +186,12 @@ export type EventInput = {
   /** Optional at the input boundary for legacy callers; the writer records a controlled default. */
   eventVersion?: string;
   schemaVersion?: string;
+  /**
+   * Sector-declared occurrence time (ISO 8601). When absent the writer stamps
+   * the current time. Included verbatim in the hashed canonical payload, so
+   * the declared time is tamper-evident once accepted.
+   */
+  occurredAt?: string;
 };
 
 /** Version 1 is retained solely for verification of historical events. */
@@ -237,7 +243,7 @@ function canonicalEventPayloadV2(input: EventInput, id: string, occurredAt: stri
 
 async function appendEvent(tx: Tx, input: EventInput): Promise<string> {
   const id = newId(ID_PREFIX.event);
-  const occurredAt = new Date().toISOString();
+  const occurredAt = input.occurredAt ?? new Date().toISOString();
   const actorType = input.actorType ?? "HUMAN";
   assertInteroperabilityEnvelope({
     messageId: id,

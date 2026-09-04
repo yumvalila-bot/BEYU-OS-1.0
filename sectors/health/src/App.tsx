@@ -73,8 +73,6 @@ import { ApplicationsScreen } from "./views/Applications";
 import { SecurityOpsScreen } from "./views/SecurityOps";
 import { SecurityPostureBanner } from "./components/Security";
 
-import { SupabaseDataPanel } from "./components/SupabaseDataPanel";
-
 import { DepartmentCoverageTest } from "./views/DepartmentTest";
 import { StandaloneBusinessTest } from "./views/StandaloneTest";
 
@@ -85,12 +83,7 @@ import { ComplianceScreen } from "./views/Compliance";
 import { TaxOrchestrationScreen } from "./views/TaxOrchestration";
 import { NABHScreen } from "./views/NABH";
 
-import { SupabaseDataScreen } from "./views/SupabaseData";
-import { FoundationTablesScreen } from "./views/FoundationTables";
-
 import { ROLES, TENANTS } from "./data/mock";
-
-import {getSupabaseHealth,type SupabaseStatus} from "./services/supabase";
 
 type Stage = "landing" | "login" | "app";
 
@@ -164,8 +157,6 @@ function navMain(): NavItem[] {
     { id: "tele", label: "Telemedicine", icon: "phone", group: "System" },
     { id: "research", label: "Research & Trials", icon: "flask", group: "System" },
     { id: "settings", label: "Settings", icon: "settings", group: "System" },
-    { id: "supabase-data", label: "Supabase Records", icon: "database", group: "System" },
-    { id: "foundation-tables", label: "Foundation Tables", icon: "database", group: "System" },
   ];
 }
 
@@ -235,11 +226,6 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseStatus>({
-    configured: false,
-    connected: false,
-    message: "Checking Supabase connection…",
-  });
 
   // Derive the app role from the server-issued role (never from client state).
   useEffect(() => {
@@ -249,15 +235,7 @@ export default function App() {
     }
   }, [authStatus, authUser]);
 
-  useEffect(() => {
-    let active = true;
-    void getSupabaseHealth().then((status) => {
-      if (active) setSupabaseStatus(status);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+
 
   // Authentication gates — the app is only reachable when authenticated.
   if (authStatus === "loading") {
@@ -343,8 +321,6 @@ export default function App() {
       case "tele": return <TelemedicineDashboard />;
       case "research": return <ResearchTrialsScreen />;
       case "settings": return <SettingsScreen />;
-      case "supabase-data": return <SupabaseDataScreen />;
-      case "foundation-tables": return <FoundationTablesScreen />;
 
       // Newly added system modules
       case "billing": return <BillingScreen />;
@@ -403,11 +379,6 @@ export default function App() {
         />
         <div className="px-4 lg:px-6 pt-4 space-y-3">
           <SecurityPostureBanner role={role} tenantName={TENANTS.find((t) => t.id === tenant)?.name || ""} />
-          <div className={`rounded-xl border px-4 py-3 text-sm ${supabaseStatus.connected ? "border-emerald-200 bg-emerald-50 text-emerald-800" : supabaseStatus.configured ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-700"}`}>
-            <div className="font-semibold">Supabase status</div>
-            <div>{supabaseStatus.message}</div>
-          </div>
-          <SupabaseDataPanel />
         </div>
         <div className="slidein">{view()}</div>
       </main>

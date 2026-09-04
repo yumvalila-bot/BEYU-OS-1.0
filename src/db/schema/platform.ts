@@ -120,6 +120,56 @@ export const enterpriseEvents = pgTable(
   ],
 );
 
+/**
+ * Idempotency receipts for cross-OS event ingestion
+ * (POST /api/v1/internal/events).
+ *
+ * ONE receipt per idempotency key. The receipt is claimed atomically
+ * (`INSERT … ON CONFLICT DO NOTHING`) in the SAME transaction that appends
+ * the governed enterprise event, so at-most-once acceptance is structural:
+ * a duplicate delivery can never produce a second enterprise event — it
+ * increments `duplicateCount` and returns the original event id.
+ *
+ * `eventId` links the receipt to the canonical enterprise event (EVT_…).
+ * `duplicateCount` doubles as the transport-level duplicate telemetry the
+ * sector's dispatcher reconciliation reads via /internal/events/status.
+ */
+/**
+ * Service-principal registry (Phase 6 hardening): per-issuer status for the
+ * cross-OS service-token model. A missing row means "governed by the static
+ * issuer allowlist in service-auth" (backward compatible); an explicit
+ * SUSPENDED/REVOKED row denies that issuer's service tokens on EVERY internal
+ * endpoint immediately — no waiting for shared-secret rotation (which remains
+ * the fallback for compromise of the secret itself).
+ *
+ * Global operational registry (like beyu_migrations): intentionally NOT
+ * tenant-scoped and NOT RLS-isolated — it carries no tenant data. Writes are
+ * administrative actions (documented runbook); the runtime role reads only.
+ */
+export const servicePrincipals = pgTable(
+  "service_principals",
+  {
+    issuer: text("issuer").primaryKey(),
+    status: text("status").notNull(), // ACTIVE | SUSPENDED | REVOKED
+    reason: text("reason"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const internalEventReceipts = pgTable(
+  "internal_event_receipts",
+  {
+    idempotencyKey: text("idempotency_key").primaryKey(),
+    eventId: text("event_id"),
+    source: text("source").notNull(),
+    tenantId: text("tenant_id").references(() => tenants.id),
+    eventType: text("event_type").notNull(),
+    duplicateCount: integer("duplicate_count").notNull().default(0),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("event_receipts_event_idx").on(t.eventId)],
+);
+
 /** Tamper-evident audit ledger. Append only — never updated or deleted. */
 export const auditLog = pgTable(
   "audit_log",

@@ -17,6 +17,11 @@ import { SessionService } from "./session.service";
 import { AuditService } from "./audit.service";
 import { MfaService } from "./mfa.service";
 import { AuthService } from "../auth/auth.service";
+import { BeyuIdentityBridge } from "./beyu-bridge";
+import { IdentityFederationService } from "./identity-federation.service";
+import { IdentityAdapter } from "../../integrations/beyu/shared/identity.adapter";
+import { CircuitBreaker } from "../../modules/integrations/circuit-breaker";
+import { AuditService as LedgerAuditService } from "../../modules/audit/audit.service";
 import { permissionsForRole } from "../../common/security/permissions";
 import { TenantScopeGuard } from "../../common/security/tenant-scope.guard";
 import {
@@ -32,6 +37,7 @@ describe("Phase 1A identity persistence (real PostgreSQL)", () => {
   let mfa: MfaService;
   let auth: AuthService;
   let jwt: JwtService;
+  let bridge: BeyuIdentityBridge;
 
   // precomputed bcrypt hash of "correct-password-123"
   const PASSWORD = "correct-password-123";
@@ -101,7 +107,35 @@ describe("Phase 1A identity persistence (real PostgreSQL)", () => {
       secret: "test-secret",
       signOptions: { expiresIn: "15m" },
     });
-    auth = new AuthService(jwt, config, repo, sessions, audit, mfa);
+    // Canonical identity federation (TEST_HARNESS mode via jest setup env):
+    // fixture users get synthetic canonical links through the REAL bridge, so
+    // the login/refresh canonical gates hold exactly as in production LIVE
+    // mode (fail-closed without a link).
+    bridge = new BeyuIdentityBridge(conn as never);
+    await bridge.ensureBridgeSchema();
+    const tenantCtx = new TenantContext();
+    const federation = new IdentityFederationService(
+      conn as never,
+      bridge,
+      new IdentityAdapter(
+        conn as never,
+        tenantCtx,
+        new CircuitBreaker(conn as never, tenantCtx),
+        config,
+        new LedgerAuditService(conn as never, tenantCtx),
+      ),
+      config,
+    );
+    auth = new AuthService(jwt, config, repo, sessions, audit, mfa, federation);
+    // Link the SQL-created fixture users canonically (registration would do
+    // this automatically in the API path).
+    for (const gid of [doctorA, nurseA]) {
+      await bridge.linkUser({
+        globalUserId: gid,
+        beyuUserId: `BEYU-TEST-${gid}`,
+        linkedBy: "spec-fixture",
+      });
+    }
   });
 
   afterAll(async () => {
