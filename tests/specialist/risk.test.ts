@@ -1016,10 +1016,11 @@ describe("risk module — leaves governance and financial state untouched", () =
   });
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
-    // 21 = migrations 0000-0019 (prior baseline) + 0020_service_principals
-    // (Phase 8 events + Phase 6 service-principal registry: additive).
+    // 22 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // + 0021_financial_ledger_rls (Phase 8 events, Phase 6 service-principal
+    // registry, ledger RLS hardening: all additive).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(21);
+    expect(n).toBe(22);
   });
 
   it("leaves all triggers enabled", async () => {

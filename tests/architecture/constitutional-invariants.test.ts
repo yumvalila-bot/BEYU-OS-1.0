@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { can, type Principal, type AccessDecision } from "../../src/lib/authz";
+import { recordAudit } from "../../src/lib/audit";
 import { PERMISSIONS, HIGH_RISK_PERMISSIONS, ROLES, NOELIA_IDENTITY } from "../../src/lib/constants";
 
 async function rows<T>(query: Parameters<typeof db.execute>[0]): Promise<T[]> {
@@ -147,6 +148,23 @@ describe("Constitutional invariant 6 — financial truth has one canonical owner
 
 describe("Constitutional invariant 7 — consequential actions are attributable (audit exists for them)", () => {
   it("audit rows carry actor + object + outcome and the chain is hash-bound", async () => {
+    // DETERMINISTIC FIXTURE. The invariant was previously asserted against
+    // whatever audit history earlier suites happened to leave behind, which
+    // made it pass or fail depending on execution history. Instead, this gate
+    // now creates ONE attributable audit row through the REAL append path
+    // (hash-chained, chain-head locked) and asserts on it — the invariant is
+    // proven regardless of suite ordering or leftover state.
+    await recordAudit({
+      tenantId: "TEN_BEYU_TZ",
+      actorUserId: "USR_CONST_INVARIANT_7",
+      actorType: "HUMAN",
+      action: "architecture.invariant7.probe",
+      objectType: "TEST_PROBE",
+      objectId: `CONST_INVARIANT_7_${Date.now().toString(36)}`,
+      outcome: "SUCCESS",
+      reason: "deterministic fixture for the attributable-audit invariant",
+    });
+
     const n = await count(sql`select count(*)::int n from audit_log`);
     const [cols] = await rows<{ c: number }>(
       sql`select count(*)::int c from information_schema.columns where table_schema='public' and table_name='audit_log' and column_name in ('actor_user_id','object_id','outcome','hash','prev_hash')`,

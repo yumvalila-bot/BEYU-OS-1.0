@@ -500,7 +500,10 @@ describe("reconciliation — outbox ledger vs BEYU receipts", () => {
 
   it("a tenant-LESS operator (tenantId null) is refused fail-closed on both endpoints", async () => {
     await expect(
-      ops.reconcile({ repair: false, operator: { userId: "u-global", tenantId: null } }),
+      ops.reconcile({
+        repair: false,
+        operator: { userId: "u-global", tenantId: null },
+      }),
     ).rejects.toThrow("OPERATOR_TENANT_REQUIRED");
     await expect(
       ops.replay({
