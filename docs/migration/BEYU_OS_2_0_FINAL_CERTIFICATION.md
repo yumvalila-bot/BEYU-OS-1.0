@@ -9,7 +9,7 @@ Certification authority: X10THINK-style independent audit (Arena Agent).
 
 The DB-backed verification gates that were **BLOCKED** in the previous session were **recovered and executed**. The destination repository now passes its complete executable regression against a fresh PostgreSQL 16 cluster:
 
-- Root BEYU OS: **111 files / 2375 tests / 2375 pass / 0 fail / 0 skip**
+- Root BEYU OS (fresh real-PG on new HEAD `d8f9243`): **114 files / 2394 tests / 2394 pass / 0 fail / 0 skip**
 - Health backend PGlite: **488 pass / 15 skip / 0 fail**
 - Health backend real-PostgreSQL security subset: **94 pass / 0 fail**
 - Health frontend: **14 pass / 0 fail**
@@ -184,7 +184,7 @@ Fresh PG16 cluster; root 23 migrations + Health 25 migrations, idempotent; seed 
 
 | Layer | PASS | FAIL | SKIP | BLOCKED |
 |---|---|---|---|---|
-| Root `npm test` (real PG + HTTP) | 2375 | 0 | 0 | 0 |
+| Root `npm test` (real PG + HTTP) | 2394 | 0 | 0 | 0 |
 | Targeted security/finance (real PG) | 585 | 0 | 0 | 0 |
 | Health backend PGlite | 488 | 0 | 15 | 0 |
 | Health backend real-PG | **94** | 0 | 0 | 0 |
