@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-05T20:57:50.066Z",
+  "generated": "2026-09-05T22:58:58.162Z",
   "schema": "endpoint-security-registry-v1",
   "scope": "all HTTP endpoints across src/modules/*/*.controller.ts",
   "summary": {
