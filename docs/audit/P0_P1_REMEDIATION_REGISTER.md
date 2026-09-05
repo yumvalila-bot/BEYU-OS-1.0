@@ -28,3 +28,15 @@ After committing remediation `1027572debc3771aa57559937ba102fdbe085fab` and open
 - GitHub root CI workflow run `33978661410`: **failure**. The original schema-drift step now passes, and later root steps through DR drill, runtime role provisioning, seed, production build, production start, and server DB health executed successfully. The remaining failure is `Full root regression (PostgreSQL-backed + HTTP/E2E)`. Attempts to retrieve the detailed log/artifact failed with EOF from GitHub Actions blob storage, so the exact failing tests remain unverified in this sandbox.
 
 Updated F-003 status: **schema-drift sub-finding remediated, overall root CI remains OPEN P1 because full regression is red**.
+
+## CI Failure Diagnosis Update — 2026-09-05 UTC
+
+GitHub check annotations for root CI job `101341032480` (run `33979132075`, commit `64b833d97ec3b388ab2b21ab17195128d1394efd`) were retrieved through the GitHub API after log blob downloads failed. The exact full-regression failures were:
+
+- `tests/specialist/treasury.test.ts > treasury module — creates no second truth > adds no migration`: expected migration count `22`, received `23`.
+- `tests/specialist/risk.test.ts > risk module — leaves governance and financial state untouched > adds no migration`: expected `22`, received `23`.
+- `tests/specialist/forecast.test.ts > forecast service — hostile inputs > adds no migration and no table`: expected `22`, received `23`.
+- `tests/specialist/compliance.test.ts > compliance module — creates no second truth > adds no migration`: expected `22`, received `23`.
+- `tests/specialist/audit-intel.test.ts > audit module — never mutates the ledger it inspects > adds no migration`: expected `22`, received `23`.
+
+Root cause: the tests encoded the old migration baseline and did not account for committed migration `0022_chart_of_accounts_tenant_uniqueness`. This was not a product security failure in the specialist modules; it was a stale invariant count. The tests were updated to expect `23` and explicitly identify `0022` as chart-of-accounts tenant hardening. No test was skipped, removed, or relaxed from asserting that specialist modules add no extra migrations/tables.

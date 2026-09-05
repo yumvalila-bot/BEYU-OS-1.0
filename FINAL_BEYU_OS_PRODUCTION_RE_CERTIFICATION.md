@@ -634,3 +634,27 @@ This strengthens one conclusion and worsens another:
 - CI as a whole remains **FAIL**, so production certification remains blocked.
 
 The final verdict remains **NOT PRODUCTION READY**.
+
+---
+
+## Root CI Full-Regression Failure Diagnosis and Second Remediation
+
+Fresh GitHub API annotations for root CI job `101341032480` identified the exact full-regression failures. Five specialist tests failed because they hard-coded the previous migration baseline of `22` rows in `public.beyu_migrations`, while the repository now legitimately contains and applies migration `0022_chart_of_accounts_tenant_uniqueness`, making the correct count `23`.
+
+Failures reproduced from annotations:
+
+- `tests/specialist/treasury.test.ts:877`: expected `22`, received `23`.
+- `tests/specialist/risk.test.ts:1023`: expected `22`, received `23`.
+- `tests/specialist/forecast.test.ts:944`: expected `22`, received `23`.
+- `tests/specialist/compliance.test.ts:1106`: expected `22`, received `23`.
+- `tests/specialist/audit-intel.test.ts:822`: expected `22`, received `23`.
+
+Controlled fix: those five tests now expect `23` and document `0022_chart_of_accounts_tenant_uniqueness` as additive/hardening baseline. This preserves the security intent: the specialist modules must not introduce their own new tables or migrations. No test was skipped, deleted, or weakened to hide a failure.
+
+Local verification after this second remediation:
+
+- `npm run lint`: PASS.
+- `npm run typecheck`: PASS.
+- `DATABASE_URL=postgres://x:y@localhost/db npx drizzle-kit generate --name=ci_drift_check`: PASS, `No schema changes, nothing to migrate 😴`.
+
+A new GitHub CI run is still required to prove the complete root PostgreSQL-backed regression is green.
