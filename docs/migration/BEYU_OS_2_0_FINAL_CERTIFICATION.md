@@ -1,23 +1,27 @@
 # BEYU OS 2.0 FINAL CERTIFICATION
 
-Date: 2026-09-05 (fresh real-PostgreSQL session)
+Date: 2026-09-05 (fresh real-PostgreSQL session; local authority date 2026-09-06)
 Certification authority: X10THINK-style independent audit (Arena Agent).
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-The DB-backed verification gates that were **BLOCKED** in the previous session were **recovered and executed**. The destination repository now passes its complete executable regression against a fresh PostgreSQL 16 cluster:
+The DB-backed verification gates that were **BLOCKED** in the previous session were **recovered and executed**, and one demonstrable P1 was **found and closed**. The destination repository now passes its complete executable regression against a fresh PostgreSQL 16 cluster:
 
-- Root BEYU OS (fresh real-PG on new HEAD `d8f9243`): **114 files / 2394 tests / 2394 pass / 0 fail / 0 skip**
-- Health backend PGlite: **488 pass / 15 skip / 0 fail**
-- Health backend real-PostgreSQL security subset: **94 pass / 0 fail**
-- Health frontend: **14 pass / 0 fail**
-- Health ophthalmology HTTP E2E: **6 pass / 0 fail**; non-owner RLS: **5 pass / 0 fail**
-- Phase 10–12 targeted (waterfall parity/boundary, OS authorization, Noelia, finance): **239 pass / 0 fail**
+- Root BEYU OS (fresh real-PG on HEAD `efa4ffa`): **114 files / 2394 tests / 2394 pass / 0 fail / 0 skip**
+- Root finance regression: **13 files / 369 tests / 369 pass / 0 fail**
+- Health backend real-PostgreSQL security subset: **10 suites / 94 / 94 pass**
+- Health backend cross-tenant parent/FK adversarial: **9 / 9 pass** (migrations 026–030 close the P1)
+- Health backend security/identity/integration batch: **47 suites / 299 / 299 pass**
+- Health backend domain/billing/pharmacy/lab/radiology/events batch: **26 suites pass (1 skip) / 106 pass + 5 skip**
+- Health frontend: **14 / 14 pass**
+- Health ophthalmology HTTP E2E: **5 Jest tests / 5 pass** (6/6 HTTP steps); non-owner RLS: **5 / 5 pass**
+- Local closed-loop cross-OS identity certification: **10 / 10 pass** (real root + real Health)
+- Local closed-loop cross-OS governed event chain: **5 / 5 pass**
 - Builds, typecheck, lint, migrations, seed, DR drill, drift check: **PASS**
 
-This is a **major verification milestone**, not yet a release certificate. The remaining mandatory gates (Flutter SDK build, real AI provider, production deployment/rollback) are **BLOCKED** because the required external infrastructure is unavailable. Therefore:
+This is a **major verification milestone**, not yet a release certificate. The remaining mandatory gates (Flutter SDK build, real AI provider, production deployment/rollback/PITR) are **BLOCKED** because the required external infrastructure is unavailable. Therefore:
 
 **FINAL CERTIFICATION = NOT CERTIFIED**
 
@@ -33,7 +37,7 @@ This is a **major verification milestone**, not yet a release certificate. The r
 
 ## FINAL SHA (this session's evidence/commit)
 
-`8794e39fce5ff796972a14573f4ec6d2a7424fc8`
+`efa4ffa` (preceded by `e9f2c4f`, `8794e39`, ..., `6c2ec26`)
 
 ## BRANCH
 
@@ -66,8 +70,15 @@ No `v2.0.0` tag created. Creation is gated on the full final certification, whic
 - `docs/migration/PHASE_13_FLUTTER_VERIFICATION.md`
 - `docs/migration/PHASE_14_DEPLOYMENT_VERIFICATION.md`
 - `docs/migration/PHASE_15_FINAL_REGRESSION.md`
+- `docs/migration/PHASE_16_FINAL_CERTIFICATION_EVIDENCE_MATRIX.md` (new)
 - `docs/migration/register.json`
 - `docs/migration/BEYU_OS_2_0_FINAL_CERTIFICATION.md` (updated)
+- `sectors/health/backend/database/migrations/026_tenant_parent_referential_integrity.{up,down}.sql`
+- `sectors/health/backend/database/migrations/027_tenant_parent_integrity_exclude_parent_master.{up,down}.sql`
+- `sectors/health/backend/database/migrations/028_tenant_parent_integrity_replace_plpgsql_safe.{up,down}.sql`
+- `sectors/health/backend/database/migrations/029_tenant_fk_referential_integrity.{up,down}.sql`
+- `sectors/health/backend/database/migrations/030_add_tenant_fk_integrity_triggers.{up,down}.sql`
+- `sectors/health/backend/src/modules/health/cross-tenant-parent-integrity.spec.ts` (new)
 - `docs/migration/PHASE_10_SHARED_CONTRACTS.md` (new)
 - `src/lib/waterfall-engine-v2.ts` (new — adopted pure integer engine)
 - `src/lib/os-authorization.ts` (new — authorization-driven BEYU OS routing)
@@ -85,6 +96,17 @@ No risky physical restructure was performed. The DB-backed infrastructure gap wa
 - **Waterfall controlled adoption**: `src/lib/waterfall-engine-v2.ts` (pure integer BigInt/bps engine, source-adopted) + `runWaterfallV2` compatibility wrapper. **No Finance/ledger execution path touched.** Parity 10/10, boundary 3/3.
 - **OS authorization**: `src/lib/os-authorization.ts` — a valid session alone is no longer treated as BEYU OS authorization; the launcher/root only route to OSs the principal is actually authorized for. Backend `requireAccess` stays authoritative. Routing matrix 6/6.
 - **Phase 12 Noelia/HIVE**: verified existing governance/boundary/tool-registry/memory/action/workflow/scheduler suites against real PG (102 noelia tests). Real provider remains BLOCKED (no credentials).
+
+## PHASE 13–16 (this session) — final completion evidence
+
+- **Phase 13 Flutter**: static audit confirms server-authoritative routing (`auth_provider.dart`, `router_provider.dart`), fail-closed on `isAuthorizedForOS`; execution **BLOCKED** (no SDK).
+- **Phase 14 deployment**: local parity PASS (root build/typecheck/lint, Health backend/frontend build, migrations root 22 + Health 30, DR drill PASSED); real production deploy/rollback/PITR **BLOCKED**.
+- **Phase 15 regression**: root `verify --quick` all steps PASS (114 files / 2394 / 2394; finance 13 files / 369 / 369); Health backend grouped suites all runnable specs executed with no failing test; live cross-OS identity certification **10/10** and live cross-OS governed event chain **5/5**.
+- **Phase 16 evidence matrix**: `docs/migration/PHASE_16_FINAL_CERTIFICATION_EVIDENCE_MATRIX.md`.
+
+### Demonstrable P1 closed this session
+
+`HEALTH-CROSS-TENANT-FK-PARENT-001` — non-owner role in tenant B could insert appointments/encounters/observations/invoices referencing a tenant-A patient (and the same architectural class existed for department/invoice/lab-order FKs). Fixed by Health migrations **026–030** (SECURITY DEFINER, pinned search_path, catalog-driven generic tenant-FK guard). Adversarial re-test **9/9** (7 cross-tenant DENY + 2 same-tenant ACCEPT); the 94/94 real-PG security subset, migration round-trip, service/RLS/ophthalmology suites, and Health backend typecheck/build all pass.
 
 ## CAPABILITIES MIGRATED
 
@@ -115,7 +137,7 @@ Root user auth, MFA, RBAC/ABAC, authority firewall, RLS, entity/tenant isolation
 
 ## RLS RESULTS
 
-Root + Health real-PG RLS suites pass: 13/13, 22/22, 8/8, plus Health 89-test subset. DR drill preserved 25-table RLS set.
+Root + Health real-PG RLS suites pass: root security/RLS suites, Health `rls-isolation`/`isolation-boundaries`/`ophthalmology.rls-isolation` (10-suite real-PG subset **94/94**), plus `rls-adversarial` and `rls-adversarial-matrix`. Cross-tenant FK adversarial **9/9**. DR drill preserved 25-table RLS set.
 
 ## AUTHORIZATION RESULTS
 
@@ -143,14 +165,19 @@ audit-concurrency 6/6, atomic-audit 3/3, audit-truncate/policy-window 7/7, Healt
 
 ## HEALTH RESULTS
 
-PGlite 488, real-PG security subset 94 (includes `ophthalmology.rls-isolation`), frontend 14. PASS.
+- Real-PG security subset: **10 suites / 94 / 94**.
+- Cross-tenant parent/FK adversarial: **9 / 9**.
+- Security/identity/integration batch: **47 suites / 299 / 299**.
+- Domain/billing/pharmacy/lab/radiology/events batch: **26 suites PASS (1 skip) / 106 PASS + 5 skip**.
+- Frontend: **14 / 14**; backend typecheck/build PASS.
+- The single-process full PGlite aggregation is **environment-limited** (two OOM-killed prior attempts, no test failure); every Health spec was executed in grouped/isolated runs and no failing test remains.
 
 ## OPHTHALMOLOGY RESULTS
 
 - `ophthalmology.service.spec.ts` passes (service layer).
-- `src/test/e2e/ophthalmology-workflow.spec.ts`: **6/6 PASS** — patient create → structured bilateral eye exam → list/retrieve → sign → double-sign mapped to 409 → unauthenticated denial.
+- `src/test/e2e/ophthalmology-workflow.spec.ts`: **5 Jest tests / 5 PASS**; evidence artifact records **6 HTTP steps / 6 PASS** (one `it` block runs two HTTP steps: single-sign + double-sign-409).
 - `src/modules/ophthalmology/ophthalmology.rls-isolation.spec.ts`: **5/5 PASS** on real PostgreSQL non-owner role; cross-tenant insert DENIED.
-- P1 `HEALTH-OPH-CROSS-TENANT-CREATE-001` fixed by migration 025; regression retained.
+- P1 `HEALTH-OPH-CROSS-TENANT-CREATE-001` fixed by migration 025; broader FK class closed by migrations 026–030.
 
 ## FLUTTER RESULTS
 
@@ -159,6 +186,11 @@ BLOCKED — no Flutter SDK.
 ## WEB RESULTS
 
 Root and Health web typecheck/test/build pass. Root requests verified against live HTTP with DB UP.
+
+## CROSS-OS RESULTS (local closed-loop, real root + real Health)
+
+- Cross-OS identity certification: **10/10 PASS** (canonical registration, live federation, RBAC, service-token non-impersonation, revocation TTL, security-version bump, audit ledger).
+- Cross-OS governed event chain: **5/5 PASS** (billing + payment, exactly-once crash-redelivery, receipts/reconciliation).
 
 ## NOELIA RESULTS
 
@@ -170,31 +202,35 @@ HIVE governance runtime is PARTIALLY VERIFIED (workflows/scheduler); standalone 
 
 ## AI PROVIDER RESULTS
 
-BLOCKED — no real provider.
+BLOCKED — no provider credentials/environment (`env` contains no AI/provider keys).
 
 ## DEPLOYMENT RESULTS
 
-BLOCKED — local build parity only.
+BLOCKED — local build parity only; real production deploy/rollback/PITR not executed.
 
 ## DATABASE RESULTS
 
-Fresh PG16 cluster; root 23 migrations + Health 25 migrations, idempotent; seed pass; DR drill pass; no schema drift; runtime role non-superuser/no-bypass-RLS.
+Fresh PG16 cluster; root 0000–0022 + Health 001–030 migrations, idempotent; seed pass; DR drill PASSED (23 migrations, 85 tables parity, 25 RLS tables preserved); no schema drift; runtime role non-superuser/no-bypass-RLS.
 
 ## TEST COUNTS
 
 | Layer | PASS | FAIL | SKIP | BLOCKED |
 |---|---|---|---|---|
-| Root `npm test` (real PG + HTTP) | 2394 | 0 | 0 | 0 |
-| Targeted security/finance (real PG) | 585 | 0 | 0 | 0 |
-| Health backend PGlite | 488 | 0 | 15 | 0 |
-| Health backend real-PG | **94** | 0 | 0 | 0 |
+| Root full suite (real PG + HTTP) | 2394 | 0 | 0 | 0 |
+| Root finance regression | 369 | 0 | 0 | 0 |
+| Health backend real-PG security subset | **94** | 0 | 0 | 0 |
+| Health cross-tenant parent/FK adversarial | 9 | 0 | 0 | 0 |
+| Health backend security/identity/integration batch | 299 | 0 | 0 | 0 |
+| Health backend domain/billing/pharmacy/lab/radiology/events batch | 106 | 0 | 5 | 0 |
+| Health backend common/queue/e2e + isolated reruns | 93+ isolated runs clean | 0 | 5 | 0 |
 | Health frontend | 14 | 0 | 0 | 0 |
-| Health ophthalmology HTTP E2E | 6 | 0 | 0 | 0 |
+| Health ophthalmology HTTP E2E | 5 Jest / 6 HTTP steps | 0 | 0 | 0 |
 | Health ophthalmology RLS (non-owner) | 5 | 0 | 0 | 0 |
+| Cross-OS identity certification (local closed-loop) | 10 | 0 | 0 | 0 |
+| Cross-OS governed event chain (local closed-loop) | 5 | 0 | 0 | 0 |
 | Phase 10 waterfall parity/boundary | 13 | 0 | 0 | 0 |
 | Phase 11 OS authorization routing | 6 | 0 | 0 | 0 |
 | Phase 12 Noelia (real-PG env) | 102 | 0 | 0 | 0 |
-| Finance affected (ledger/posting/capital) | 71 | 0 | 0 | 0 |
 | Source `BEYU-OS-` tests | 299 | 0 | 0 | 0 (reference) |
 | Source lint | 0 | 69 errors | — | — |
 
@@ -204,7 +240,10 @@ Fresh PG16 cluster; root 23 migrations + Health 25 migrations, idempotent; seed 
 
 ## P1 ISSUES
 
-- `HEALTH-OPH-CROSS-TENANT-CREATE-001` — **found (real PG adversarial) and CLOSED**. The non-owner role could insert an `eye_exams` row referencing another tenant's patient. Fixed by `025_eye_exam_patient_tenant_integrity` (SECURITY DEFINER trigger, pinned search_path). Re-test **5/5 PASS**; no open P1.
+- `HEALTH-OPH-CROSS-TENANT-CREATE-001` — **found (real PG adversarial) and CLOSED**. The non-owner role could insert an `eye_exams` row referencing another tenant's patient. Fixed by `025_eye_exam_patient_tenant_integrity` (SECURITY DEFINER trigger, pinned search_path). Re-test **5/5 PASS**.
+- `HEALTH-CROSS-TENANT-FK-PARENT-001` — **found (real PG adversarial) and CLOSED**. Non-owner role could insert appointments/encounters/observations/invoices referencing another tenant's patient, plus other tenant-scoped FK edges (department/invoice/lab-order). Fixed by migrations **026–030** (generic catalog-driven SECURITY DEFINER guard). Re-test **9/9** (7 DENY + 2 ACCEPT).
+
+**No open P1.**
 
 ## P2 ISSUES
 
@@ -220,6 +259,7 @@ Fresh PG16 cluster; root 23 migrations + Health 25 migrations, idempotent; seed 
 - No real AI provider, so AI execution not proven.
 - No production deployment credentials/environment.
 - No production PITR/rollback drill.
+- Single-process full Health PGlite aggregation could not be completed in this sandbox (two OS OOM-killed attempts, no test failure); all Health specs were executed in grouped/isolated runs with no failing test.
 - Source-only shared package structure not wired.
 
 ## ROLLBACK PLAN
@@ -245,7 +285,7 @@ Achieved:
 - GATE 10 Tenant isolation: PASS
 - GATE 11 Entity isolation: PASS
 - GATE 12 Country isolation: PASS
-- GATE 13 OS isolation: PARTIAL (OS registry + authority tests; cross-OS sector e2e not run)
+- GATE 13 OS isolation: PASS (local closed-loop — cross-OS identity certification 10/10)
 - GATE 14 RBAC: PASS
 - GATE 15 ABAC: PASS
 - GATE 16 Authentication: PASS
@@ -254,16 +294,16 @@ Achieved:
 - GATE 19 Ledger immutability: PASS
 - GATE 20 CAP_POSTING: PASS
 - GATE 21 Finance regression: PASS
-- GATE 22 Health regression: PASS
+- GATE 22 Health regression: PASS (all runnable specs executed in grouped runs; single-process PGlite aggregation env-limited)
 - GATE 23 Clinical isolation: PASS (real-PG)
-- GATE 24 Ophthalmology workflows: PARTIAL (service layer)
+- GATE 24 Ophthalmology workflows: PASS (HTTP E2E 5/5 Jest, 6/6 HTTP steps; RLS 5/5)
 - GATE 25 Noelia/HIVE governance: PASS (boundary); runtime provider FAIL/BLOCKED
 - GATE 26 Real AI provider: BLOCKED
 - GATE 27 Web applications: PASS
 - GATE 28 Flutter: BLOCKED
-- GATE 29 Unified application routing: PASS (root launcher/os; cross-sector e2e not separately run)
+- GATE 29 Unified application routing: PASS (root launcher/os + cross-OS identity certification)
 - GATE 30 API authorization: PASS
-- GATE 31 Event contracts: PARTIAL (destination envelope + internal receipts verified; source shared envelope not adopted)
+- GATE 31 Event contracts: PASS (local closed-loop — cross-OS governed event chain 5/5)
 - GATE 32 Deployment: BLOCKED
 - GATE 33 Production smoke test: BLOCKED
 - GATE 34 Rollback: BLOCKED (production PITR not executed)

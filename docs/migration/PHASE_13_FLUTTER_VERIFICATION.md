@@ -8,9 +8,16 @@ Status: **BLOCKED — Flutter SDK not available.**
 ```bash
 which flutter
 flutter --version
+dart --version
 ```
 
-Result: `flutter: command not found`; `dart` also absent.
+Result: `flutter: command not found`; `dart` also absent. `flutter doctor`, `flutter pub get`, `flutter analyze`, `flutter test`, `flutter build` therefore cannot run.
+
+## Static security audit (no SDK required) — PASS
+
+- `mobile/flutter/lib/providers/auth_provider.dart`: consumes the canonical server `AuthorizationContext`; uses `authorizedOSs` / `routingRecommendation`; **fail-closed** on `isAuthorizedForOS`; a deep-link never grants OS authorization.
+- `mobile/flutter/lib/providers/router_provider.dart`: routing matrix is deny/direct/launcher/inOS; `enterOS`/`switchOS` re-check `isAuthorizedForOS`; unknown OS is fail-closed.
+- Conclusion: **no second authorization authority**; the client is server-authoritative. This is verified statically, not by execution.
 
 ## Not executed
 
@@ -22,7 +29,7 @@ Result: `flutter: command not found`; `dart` also absent.
 
 ## Current Flutter implementation
 
-- Destination: `mobile/flutter/` — real Dart client (main, auth provider, MFA screen, launcher, OS shell, api client, secure storage). Static source present; **not executable-verified** in this session.
+- Destination: `mobile/flutter/` — real Dart client (main, auth provider, MFA screen, launcher, OS shell, api client, secure storage). Static source present; **not executable-verified**.
 - Source: `apps/beyu-health-mobile/` — only `pubspec.yaml` + README (scaffold). Not adopted.
 
 ## Decision
