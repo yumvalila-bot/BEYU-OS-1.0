@@ -13,9 +13,14 @@ cp .env.example .env        # then fill in DATABASE_URL and the secrets
 npm ci                      # reproducible install from the committed lockfile
 npm run migrate             # apply versioned migrations (scripts/migrate.ts)
 npm run seed                # idempotent constitutional bootstrap
-npm test                    # 155 tests across 11 suites (PostgreSQL required)
+npm test                    # vitest suite (111 test files; PostgreSQL required for DB-backed suites)
 npm run build && npm start  # production build
 ```
+
+> Test-count note: the root Vitest suite is 111 test files / 2375 tests. Without a
+> live `DATABASE_URL` only the non-DB portion passes (measured 2026-09-05:
+> 1109 pass / 450 fail / 816 skip). The failures are `DATABASE_URL is required`
+> in governed-mutation suites, not product regressions.
 
 `npm run migrate` is the only supported way to apply schema changes. `drizzle-kit
 push` must never be used against a shared or production database; author changes
@@ -77,6 +82,29 @@ classification ceilings enforced live.
   output-classified, fully audited, with mandatory human review for material matters.
 - **Registries** — OS registry, source-of-truth matrix, ADRs, integrations, data assets, metric
   definitions, feature flags, regulatory change watch.
+
+## BEYU OS 2.0 migration status (evidence-based)
+
+A fresh independent reality audit and baseline capture of both `BEYU-OS-`
+(`b9c94d4`) and `BEYU-OS-1.0` (`6c2ec26`) has been performed. The migration
+program is **NOT certified** yet, and no functional control-plane / finance /
+ledger / audit / Health source was changed. The evidence and the honest
+capability decisions are in:
+
+- `docs/migration/PHASE_00_REALITY_AUDIT.md`
+- `docs/migration/BEYU_OS_1_0_BASELINE.md`
+- `docs/migration/NEW_REPOSITORY_BASELINE.md`
+- `docs/migration/BEYU_OS_2_0_CAPABILITY_MATRIX.md`
+- `docs/migration/BEYU_OS_2_0_ARCHITECTURE.md`
+- `docs/migration/BEYU_OS_2_0_DATA_CONTRACTS.md`
+- `docs/migration/BEYU_OS_2_0_SECURITY_MODEL.md`
+- `docs/migration/BEYU_OS_2_0_MIGRATION_REGISTER.md`
+- `docs/migration/BEYU_OS_2_0_REGRESSION_REPORT.md`
+- `docs/migration/BEYU_OS_2_0_ADVERSARIAL_TEST_REPORT.md`
+- `docs/migration/BEYU_OS_2_0_DEPLOYMENT_READINESS.md`
+- `docs/migration/BEYU_OS_2_0_FINAL_CERTIFICATION.md`
+
+Reproducible facts can be regenerated with `node scripts/migration/capture-reality.mjs --json`.
 
 ## Documentation
 
