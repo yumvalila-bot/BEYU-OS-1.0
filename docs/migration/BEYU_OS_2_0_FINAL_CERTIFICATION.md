@@ -1,173 +1,248 @@
 # BEYU OS 2.0 FINAL CERTIFICATION
 
-Date: 2026-09-05
+Date: 2026-09-05 (fresh real-PostgreSQL session)
 Certification authority: X10THINK-style independent audit (Arena Agent).
-This document is evidence-based and **does not inherit previous certifications**.
 
 ---
 
-## 1. Executive Summary
+## EXECUTIVE SUMMARY
 
-A fresh reality audit of both repositories was performed, plus real baselines (install, typecheck, lint, build, tests) on the available toolchain. The result is clear:
+The DB-backed verification gates that were **BLOCKED** in the previous session were **recovered and executed**. The destination repository now passes its complete executable regression against a fresh PostgreSQL 16 cluster:
 
-- `BEYU-OS-1.0` (`6c2ec26`) is the stronger, more mature and more heavily verified repository across governance, finance/CAP_POSTING, family office, Health OS, Flutter, audit, RLS and CI/CD.
-- `BEYU-OS-` (`b9c94d4`) is the better physically partitioned monorepo and offers reusable shared packages, but it is not a superset and its Health OS has only 7 tests versus 488 in the destination.
-- No destructive migration was performed. No finance/ledger/RLS/audit/Health source was changed.
-- The migration is **NOT COMPLETE** and is **NOT CERTIFIED**. It is blocked on real PostgreSQL, Flutter SDK, real AI provider and real production secrets/deployment.
+- Root BEYU OS: **111 files / 2375 tests / 2375 pass / 0 fail / 0 skip**
+- Health backend PGlite: **488 pass / 15 skip / 0 fail**
+- Health backend real-PostgreSQL security subset: **89 pass / 0 fail**
+- Health frontend: **14 pass / 0 fail**
+- Builds, typecheck, lint, migrations, seed, DR drill, drift check: **PASS**
 
-## 2. Repositories audited
+This is a **major verification milestone**, not yet a release certificate. The remaining mandatory gates (Flutter SDK build, real AI provider, production deployment/rollback) are **BLOCKED** because the required external infrastructure is unavailable. Therefore:
 
-- SOURCE: `https://github.com/yumvalila-bot/BEYU-OS-` @ `b9c94d4f8ce7c3466cc3c27242eaa6a1650f0b72`
-- DEST: `https://github.com/yumvalila-bot/BEYU-OS-1.0` @ `6c2ec2663c4f704fd6ca4054d0f9ddedb8fb3878`
+**FINAL CERTIFICATION = NOT CERTIFIED**
 
-## 3. Source and destination SHAs
+---
 
-- Source SHA: `b9c94d4f8ce7c3466cc3c27242eaa6a1650f0b72`
-- Destination SHA (baseline): `6c2ec2663c4f704fd6ca4054d0f9ddedb8fb3878`
-- Working branch: `arena/01a072db-beyu-os-1-0`
+## SOURCE SHA
 
-## 4. Migration scope
+`b9c94d4f8ce7c3466cc3c27242eaa6a1650f0b72` (`BEYU-OS-`)
 
-Phase 0 (reality audit), Phase 1 (1.0 baseline), Phase 2 (source baseline), Phase 3 (capability matrix) completed. Phases 4–20 are **BLOCKED** on the reasons in §27–§29.
+## DESTINATION BASELINE SHA
 
-## 5. Architecture changes
+`6c2ec2663c4f704fd6ca4054d0f9ddedb8fb3878` (`BEYU-OS-1.0`)
 
-No physical architecture changes were made. A documented target architecture (apps/services/packages/sectors/infra) is provided in `BEYU_OS_2_0_ARCHITECTURE.md`.
+## FINAL SHA (this session's evidence/commit)
 
-## 6. Capability matrix
+`<filled at commit time>`
 
-See `BEYU_OS_2_0_CAPABILITY_MATRIX.md`. Net decision: `KEEP_1_0` for mature systems; `MERGE/REFACTOR/ADOPT` for source shared package/architecture pattern; `BLOCK` for full migration until DB-backed parity proof.
+## BRANCH
 
-## 7. Preserved 1.0 capabilities
+`arena/01a072db-beyu-os-1-0`
 
-Governance, constitution, reserved matters, voting, resolutions/decisions, risk/compliance, finance/ledger/CAP_POSTING/waterfall/reconciliation, family office (lineage/eligibility/vaults/succession), HCM, audit hash chain, RLS, service principals, Health OS (FHIR/HL7/DICOM/MTUHA/dialysis/ophthalmology/pharmacy/lab/radiology/ambulance/telemedicine), Flutter client, CI/CD.
+## PR
 
-## 8. Imported new capabilities
+#29 `feat: BEYU OS 2.0 controlled architecture and capability fusion`
 
-None were imported in this session. The source's shared package/contract architecture is documented as the recommended adoption candidate but was **not wired** because it would touch mature security/audit/finance code without DB-backed verification.
+## RELEASE
 
-## 9. Health OS integration
+No `v2.0.0` tag created. Creation is gated on the full final certification, which is **NOT** achieved.
 
-Decision: **KEEP_1_0**. Destination Health backend: 24 migrations, 28+ modules, 488 tests, 2 skipped suites, 0 failures. Source Health API: 11 migrations, 28 modules, **7 tests**. Source Health OS is not a replacement.
+## FILES CHANGED (this session)
 
-## 10. Finance OS preservation
+- `scripts/infra/pg16-server.mjs` (new — embedded PostgreSQL 16 harness)
+- `package.json` / `package-lock.json` (add `embedded-postgres` devDependency, `pg16:start`, `pg16:stop`)
+- `docs/migration/PHASE_01_SOURCE_BASELINE.md`
+- `docs/migration/PHASE_02_DESTINATION_BASELINE.md`
+- `docs/migration/PHASE_03_CAPABILITY_MATRIX.md`
+- `docs/migration/PHASE_04_INFRASTRUCTURE_RECOVERY.md`
+- `docs/migration/PHASE_05_DATABASE_VERIFICATION.md`
+- `docs/migration/PHASE_06_SECURITY_VERIFICATION.md`
+- `docs/migration/PHASE_07_FINANCE_VERIFICATION.md`
+- `docs/migration/PHASE_08_HEALTH_VERIFICATION.md`
+- `docs/migration/PHASE_09_ARCHITECTURE_FUSION.md`
+- `docs/migration/PHASE_10_IDENTITY_AND_AUTHORIZATION.md`
+- `docs/migration/PHASE_11_AI_GOVERNANCE.md`
+- `docs/migration/PHASE_12_APPLICATION_FUSION.md`
+- `docs/migration/PHASE_13_FLUTTER_VERIFICATION.md`
+- `docs/migration/PHASE_14_DEPLOYMENT_VERIFICATION.md`
+- `docs/migration/PHASE_15_FINAL_REGRESSION.md`
+- `docs/migration/register.json`
+- `docs/migration/BEYU_OS_2_0_FINAL_CERTIFICATION.md` (updated)
+- `README.md` (test-count note + infra helper)
 
-**Preserved unchanged.** Source has no Finance OS. No finance code was touched.
+## ARCHITECTURAL CHANGES
 
-## 11. CAP_POSTING verification
+No risky physical restructure was performed. The DB-backed infrastructure gap was closed (`scripts/infra/pg16-server.mjs`). Source `apps/services/packages` architecture remains a **reference target**; it is classified `ADOPT_SOURCE / DEFER` because wholesale adoption is not verified-value-positive.
 
-**BLOCKED.** Existing destination CAP_POSTING/capital-governance suites are present but require real PostgreSQL. Not verified in this session. **No change made.**
+## CAPABILITIES MIGRATED
 
-## 12. Governance verification
+None (all mature capabilities remain in `BEYU-OS-1.0`, which is the canonical repo). Source abstractions (shared package structure, health API contracts, infra configs) are classified for future `ADOPT_SOURCE/MERGE`, not migrated.
 
-Destination governance suites are present (voting, resolution, decision, authority, family/institution). Non-DB portion passes; DB-backed portion **BLOCKED**. No change made.
+## CAPABILITIES PRESERVED
 
-## 13. Family Office verification
+Governance, constitution, reserved matters, voting, resolutions/decisions, ownership/beneficial ownership, Family Office, Finance OS, CAP_POSTING, ledger immutability, waterfall, treasury, reconciliation, tax intelligence, HCM, Noelia/HIVE governance, audit chain, RLS, tenant/entity/country/OS isolation, Health OS (EHR/clinical/pharmacy/lab/radiology/ophthalmology/dialysis/billing/insurance/ambulance/telemedicine/MTUHA/FHIR/HL7/DICOM), Flutter client, CI/CD.
 
-Preserved unchanged. Tests present; DB-backed portions blocked. Destination is authoritative; source has no Family Office.
+## CAPABILITIES REFACTORED
 
-## 14. Identity verification
+None.
 
-Destination has canonical GlobalUserID (`migration 0011_global_user_party_uniqueness`), identity graph, sessions, MFA. Tests present; DB-backed portions blocked. Source has a shared auth package with 43 tests but it is a **separate** identity model; not adopted because it would create competing global identity if mis-wired. **No change made.**
+## CAPABILITIES DEPRECATED
 
-## 15. Security verification
+None.
 
-Root typecheck/lint/build pass; non-DB suites pass; DB-backed security suites (RLS, entity/country/OS isolation, audit chain, ledger) **BLOCKED**. No security code changed.
+## CAPABILITIES BLOCKED
 
-## 16. RLS verification
+- Flutter build/analyze/test (no Flutter SDK)
+- Real AI provider runtime (no provider)
+- Production deployment/smoke/rollback (no environment/secrets)
+- Production-grade monitoring/alerting (not verified)
 
-**BLOCKED** — requires real PostgreSQL. RLS migrations and suites are intact.
+## SECURITY RESULTS
 
-## 17. Audit verification
+Root user auth, MFA, RBAC/ABAC, authority firewall, RLS, entity/tenant isolation, audit, ledger, CAP_POSTING; all relevant suites pass against real PostgreSQL. Live HTTP login returns `MFA_REQUIRED`. **No P0 discovered.**
 
-**BLOCKED** — requires real PostgreSQL for concurrent-write/tamper-detection verification. Code and suites intact.
+## RLS RESULTS
 
-## 18. AI/HIVE/Noelia verification
+Root + Health real-PG RLS suites pass: 13/13, 22/22, 8/8, plus Health 89-test subset. DR drill preserved 25-table RLS set.
 
-Noelia/HIVE governance code and tests exist. **No real provider verified**; AI production runtime **BLOCKED**. Source's project also has no real provider.
+## AUTHORIZATION RESULTS
 
-## 19. Unified Application verification
+ABAC 12+5, RBAC 8, authority-firewall 24, identity-adversarial 9. All pass.
 
-Destination has one auth boundary + launcher/OS shell + OS registry. Unified `apps/services/packages` physical layout is **NOT implemented**. Phase 9 **BLOCKED**.
+## IDENTITY RESULTS
 
-## 20. Flutter verification
+GlobalUserID uniqueness migration present; identity graph/adversarial/Health bridge pass.
 
-Destination has a real Flutter client (Dart source). **Flutter SDK unavailable**; build **BLOCKED**. Source mobile is a scaffold (pubspec only). Decision: KEEP_1_0.
+## FINANCE RESULTS
 
-## 21. Database/migration verification
+Full targeted finance run passes (multiple suites; 585 targeted total includes finance).
 
-Root has 23 Drizzle migrations; Health has 24 SQL migrations. **Neither was applied to a real PostgreSQL server in this sandbox.** DB architecture per OS boundary is documented; full per-OS DB separation (future dedicated schemas) is **BLOCKED**.
+## CAP_POSTING RESULTS
 
-## 22. Event/Federation verification
+`capital-governance` 26/26, `capital-governance-http` 14/14, posting-engine 21/21. PASS.
 
-Destination internal event receipts, interoperability envelope, outbox and service principals exist. Source `packages/events` is a candidate for the canonical envelope but has **not** been merged. Non-DB tests pass; DB-backed outbox/federation **BLOCKED**.
+## LEDGER RESULTS
 
-## 23. Infrastructure verification
+ledger-integrity 18/18, ledger-write-authority 6/6, ledger-control-durability 6/6, ledger-rls-isolation 22/22, journal-scope-integrity 6/6. PASS.
 
-Destination CI/CD is real (PostgreSQL service containers, secret scans, dependency audit). Source has infra configs (Docker/K8s/Terraform/Supabase/Vercel) that are candidates for adoption. No real production deployment was performed. **BLOCKED.**
+## AUDIT RESULTS
 
-## 24. Test results
+audit-concurrency 6/6, atomic-audit 3/3, audit-truncate/policy-window 7/7, Health audit-chain 89-test subset, DR-drill chain intact. PASS.
 
-| Suite | Result |
-|---|---|
-| Root typecheck/lint/build | PASS |
-| Root vitest (no DB) | 1109 pass / 450 fail / 816 skip (failures = missing DATABASE_URL) |
-| Health backend jest | 488 pass / 15 skip / 0 fail |
-| Health frontend vitest | 14 pass / 0 fail |
-| Source pnpm typecheck | PASS |
-| Source pnpm lint | FAIL (69 errors / 229 warnings) |
-| Source pnpm build | PASS |
-| Source pnpm test | 299 pass / 0 fail |
+## HEALTH RESULTS
 
-## 25. Adversarial results
+PGlite 488, real-PG 89, frontend 14. PASS.
 
-No live DB-backed adversarial attack could be executed. **Result: NOT VERIFIED.** See `BEYU_OS_2_0_ADVERSARIAL_TEST_REPORT.md`.
+## OPHTHALMOLOGY RESULTS
 
-## 26. Regression results
+`ophthalmology.service.spec.ts` passes (service-layer). Full patient-level e2e ophthalmology journey not executed; documented as PARTIALLY VERIFIED.
 
-No functional source change → no migration regression introduced. See `BEYU_OS_2_0_REGRESSION_REPORT.md`. The remaining 450 root failures and 146 finance/family failures are DB-unavailability, not migration regressions.
+## FLUTTER RESULTS
 
-## 27. Remaining limitations
+BLOCKED — no Flutter SDK.
 
-1. No PostgreSQL service in sandbox (apt/Prisma mirrors unreachable).
-2. No Flutter SDK.
-3. No real AI provider.
-4. No production secrets / real deployment.
-5. Source repo has no CI and fails lint.
-6. Destination Health backend has pre-existing lint debt.
-7. Full monorepo restructuring not performed (would require parity proof).
+## WEB RESULTS
 
-## 28. P0/P1/P2 register
+Root and Health web typecheck/test/build pass. Root requests verified against live HTTP with DB UP.
 
-| Type | Count | Disposition |
-|---|---|---|
-| P0 | 0 *discovered*; **0 verified-clean** | DB-backed adversarial gate not run |
-| P1 | 0 introduced | no functional code changed |
-| P2 | multiple pre-existing (source lint, health backend lint debt, stale docs counts) | documented; must not block non-security work |
+## NOELIA RESULTS
 
-## 29. Production readiness
+Noelia governance/boundary/memory/http/action/scheduler suites pass.
 
-**BLOCKED** — no real secrets, no real DB, no real deployment, no real AI provider, no Flutter build.
+## HIVE RESULTS
 
-## 30. Exact Git commit
+HIVE governance runtime is PARTIALLY VERIFIED (workflows/scheduler); standalone HIVE service not deployed/verified.
 
-The documentation/evidence commit is made on branch `arena/01a072db-beyu-os-1-0`.
+## AI PROVIDER RESULTS
 
-## 31. Pull Request
+BLOCKED — no real provider.
 
-PR opened from `arena/01a072db-beyu-os-1-0` against `main` (see PR body).
+## DEPLOYMENT RESULTS
 
-## 32. Final Certification Decision
+BLOCKED — local build parity only.
+
+## DATABASE RESULTS
+
+Fresh PG16 cluster; root 23 migrations + Health 24 migrations, idempotent; seed pass; DR drill pass; no schema drift; runtime role non-superuser/no-bypass-RLS.
+
+## TEST COUNTS
+
+| Layer | PASS | FAIL | SKIP | BLOCKED |
+|---|---|---|---|---|
+| Root `npm test` (real PG + HTTP) | 2375 | 0 | 0 | 0 |
+| Targeted security/finance (real PG) | 585 | 0 | 0 | 0 |
+| Health backend PGlite | 488 | 0 | 15 | 0 |
+| Health backend real-PG | 89 | 0 | 0 | 0 |
+| Health frontend | 14 | 0 | 0 | 0 |
+| Source `BEYU-OS-` tests | 299 | 0 | 0 | 0 (reference) |
+| Source lint | 0 | 69 errors | — | — |
+
+## P0 ISSUES
+
+0 discovered.
+
+## P1 ISSUES
+
+0 introduced/found.
+
+## P2 ISSUES
+
+- Source repo lang lint debt (69 errors) — reference.
+- Health backend lint debt (documented pre-existing).
+- Ophthalmology full e2e not yet executed.
+- Physical monorepo fusion not performed (risk-justified deferral).
+
+## KNOWN LIMITATIONS
+
+- No Flutter SDK, so no mobile execution.
+- No real AI provider, so AI execution not proven.
+- No production deployment credentials/environment.
+- No production PITR/rollback drill.
+- Source-only shared package structure not wired.
+
+## ROLLBACK PLAN
+
+The migration/evidence changes are non-destructive and reversible: `embedded-postgres` is a devDependency, `pgdata/` is gitignored, and all infra changes are additive. No production data touched.
+
+## FINAL CERTIFICATION STATUS
 
 ```
 NOT CERTIFIED
 ```
 
-Reasons:
-- Required DB-backed regression + adversarial suites (RLS, finance/ledger/CAP_POSTING, audit chain, tenant/entity/country/OS isolation) could not execute.
-- Flutter build not executed.
-- No real AI provider verified.
-- No production deployment verified.
-- The physical architecture fusion (apps/services/packages/sectors) is not implemented.
+Achieved:
+- GATE 1 Repository integrity: PASS
+- GATE 2 Source/destination parity: PARTIAL (evaluated)
+- GATE 3 Build: PASS
+- GATE 4 Typecheck: PASS
+- GATE 5 Lint: PASS (destination)
+- GATE 6 Unit tests: PASS
+- GATE 7 Integration tests: PASS
+- GATE 8 Real PostgreSQL tests: PASS
+- GATE 9 RLS: PASS
+- GATE 10 Tenant isolation: PASS
+- GATE 11 Entity isolation: PASS
+- GATE 12 Country isolation: PASS
+- GATE 13 OS isolation: PARTIAL (OS registry + authority tests; cross-OS sector e2e not run)
+- GATE 14 RBAC: PASS
+- GATE 15 ABAC: PASS
+- GATE 16 Authentication: PASS
+- GATE 17 MFA/session/CSRF: PASS
+- GATE 18 Audit integrity: PASS
+- GATE 19 Ledger immutability: PASS
+- GATE 20 CAP_POSTING: PASS
+- GATE 21 Finance regression: PASS
+- GATE 22 Health regression: PASS
+- GATE 23 Clinical isolation: PASS (real-PG)
+- GATE 24 Ophthalmology workflows: PARTIAL (service layer)
+- GATE 25 Noelia/HIVE governance: PASS (boundary); runtime provider FAIL/BLOCKED
+- GATE 26 Real AI provider: BLOCKED
+- GATE 27 Web applications: PASS
+- GATE 28 Flutter: BLOCKED
+- GATE 29 Unified application routing: PASS (root launcher/os; cross-sector e2e not separately run)
+- GATE 30 API authorization: PASS
+- GATE 31 Event contracts: PARTIAL (destination envelope + internal receipts verified; source shared envelope not adopted)
+- GATE 32 Deployment: BLOCKED
+- GATE 33 Production smoke test: BLOCKED
+- GATE 34 Rollback: BLOCKED (production PITR not executed)
+- GATE 35 Full final regression: PASS for all runnable gates
 
-The repo is in its **strongest honest non-DB state**, and the deliverable is a **verified evidence baseline + certified migration safety decision**, not a completed BEYU OS 2.0 build.
+Because mandatory Gates 26, 28, 32–34 are BLOCKED, the release is **NOT CERTIFIED**.

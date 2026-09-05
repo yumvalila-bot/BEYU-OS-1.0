@@ -17,10 +17,27 @@ npm test                    # vitest suite (111 test files; PostgreSQL required 
 npm run build && npm start  # production build
 ```
 
-> Test-count note: the root Vitest suite is 111 test files / 2375 tests. Without a
-> live `DATABASE_URL` only the non-DB portion passes (measured 2026-09-05:
-> 1109 pass / 450 fail / 816 skip). The failures are `DATABASE_URL is required`
-> in governed-mutation suites, not product regressions.
+## Local disposable PostgreSQL 16
+
+If no system PostgreSQL is available (e.g. the Arena sandbox where apt is
+unreachable), start the in-repo embedded PostgreSQL harness (adds an
+`embedded-postgres` dev dependency only; no production dependency):
+
+```bash
+npm run pg16:start   # provisions beyu_os + beyu_health + runtime roles on 127.0.0.1:5432
+npm run pg16:stop
+```
+
+Then export the CI-style env (`BEYU_ADMIN_DATABASE_URL`, `BEYU_RUNTIME_DATABASE_URL`,
+`BEYU_TEST_DATABASE_URL`, `BEYU_BOOTSTRAP_PASSWORD`, `AUTH_SECRET`,
+`MFA_ENCRYPTION_KEY`) as documented in `.env.example` before running migrate/seed/test.
+
+> Test-count note: the root Vitest suite is 111 test files / 2375 tests. Against a
+> live PostgreSQL 16 with the app server running, this suite is fully green
+> (measured 2026-09-05: **2375 pass / 0 fail / 0 skip**). Without a live
+> `DATABASE_URL` the DB-backed governed-mutation suites cannot run and will
+> report `DATABASE_URL is required` failures — that is environmental, not a
+> product regression.
 
 `npm run migrate` is the only supported way to apply schema changes. `drizzle-kit
 push` must never be used against a shared or production database; author changes
@@ -85,26 +102,35 @@ classification ceilings enforced live.
 
 ## BEYU OS 2.0 migration status (evidence-based)
 
-A fresh independent reality audit and baseline capture of both `BEYU-OS-`
-(`b9c94d4`) and `BEYU-OS-1.0` (`6c2ec26`) has been performed. The migration
-program is **NOT certified** yet, and no functional control-plane / finance /
-ledger / audit / Health source was changed. The evidence and the honest
-capability decisions are in:
+The DB-backed verification gates were **recovered and executed** against a fresh
+PostgreSQL 16: root regression is **2375/2375 pass**; Health backend real-PG
+security is **89/89 pass**; PGlite layer is **488 pass / 15 skip**; Health
+frontend is **14/14 pass**. The migration/release program is still **NOT
+certified** because the mandatory Flutter SDK, real AI provider and production
+deployment gates remain blocked. The evidence and honest capability decisions
+are in:
 
 - `docs/migration/PHASE_00_REALITY_AUDIT.md`
-- `docs/migration/BEYU_OS_1_0_BASELINE.md`
-- `docs/migration/NEW_REPOSITORY_BASELINE.md`
-- `docs/migration/BEYU_OS_2_0_CAPABILITY_MATRIX.md`
-- `docs/migration/BEYU_OS_2_0_ARCHITECTURE.md`
-- `docs/migration/BEYU_OS_2_0_DATA_CONTRACTS.md`
-- `docs/migration/BEYU_OS_2_0_SECURITY_MODEL.md`
-- `docs/migration/BEYU_OS_2_0_MIGRATION_REGISTER.md`
-- `docs/migration/BEYU_OS_2_0_REGRESSION_REPORT.md`
-- `docs/migration/BEYU_OS_2_0_ADVERSARIAL_TEST_REPORT.md`
-- `docs/migration/BEYU_OS_2_0_DEPLOYMENT_READINESS.md`
+- `docs/migration/PHASE_01_SOURCE_BASELINE.md`
+- `docs/migration/PHASE_02_DESTINATION_BASELINE.md`
+- `docs/migration/PHASE_03_CAPABILITY_MATRIX.md`
+- `docs/migration/PHASE_04_INFRASTRUCTURE_RECOVERY.md`
+- `docs/migration/PHASE_05_DATABASE_VERIFICATION.md`
+- `docs/migration/PHASE_06_SECURITY_VERIFICATION.md`
+- `docs/migration/PHASE_07_FINANCE_VERIFICATION.md`
+- `docs/migration/PHASE_08_HEALTH_VERIFICATION.md`
+- `docs/migration/PHASE_09_ARCHITECTURE_FUSION.md`
+- `docs/migration/PHASE_10_IDENTITY_AND_AUTHORIZATION.md`
+- `docs/migration/PHASE_11_AI_GOVERNANCE.md`
+- `docs/migration/PHASE_12_APPLICATION_FUSION.md`
+- `docs/migration/PHASE_13_FLUTTER_VERIFICATION.md`
+- `docs/migration/PHASE_14_DEPLOYMENT_VERIFICATION.md`
+- `docs/migration/PHASE_15_FINAL_REGRESSION.md`
+- `docs/migration/register.json`
 - `docs/migration/BEYU_OS_2_0_FINAL_CERTIFICATION.md`
 
-Reproducible facts can be regenerated with `node scripts/migration/capture-reality.mjs --json`.
+Reproducible facts and the embedded-PG harness are in `scripts/infra/pg16-server.mjs`
+and `scripts/migration/capture-reality.mjs`.
 
 ## Documentation
 
