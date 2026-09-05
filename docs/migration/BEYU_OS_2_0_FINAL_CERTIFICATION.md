@@ -11,8 +11,10 @@ The DB-backed verification gates that were **BLOCKED** in the previous session w
 
 - Root BEYU OS: **111 files / 2375 tests / 2375 pass / 0 fail / 0 skip**
 - Health backend PGlite: **488 pass / 15 skip / 0 fail**
-- Health backend real-PostgreSQL security subset: **89 pass / 0 fail**
+- Health backend real-PostgreSQL security subset: **94 pass / 0 fail**
 - Health frontend: **14 pass / 0 fail**
+- Health ophthalmology HTTP E2E: **6 pass / 0 fail**; non-owner RLS: **5 pass / 0 fail**
+- Phase 10–12 targeted (waterfall parity/boundary, OS authorization, Noelia, finance): **239 pass / 0 fail**
 - Builds, typecheck, lint, migrations, seed, DR drill, drift check: **PASS**
 
 This is a **major verification milestone**, not yet a release certificate. The remaining mandatory gates (Flutter SDK build, real AI provider, production deployment/rollback) are **BLOCKED** because the required external infrastructure is unavailable. Therefore:
@@ -31,7 +33,7 @@ This is a **major verification milestone**, not yet a release certificate. The r
 
 ## FINAL SHA (this session's evidence/commit)
 
-`946ac4847347bf2367c5ec95d8ca034a3fa3a52c`
+`8794e39fce5ff796972a14573f4ec6d2a7424fc8`
 
 ## BRANCH
 
@@ -66,11 +68,23 @@ No `v2.0.0` tag created. Creation is gated on the full final certification, whic
 - `docs/migration/PHASE_15_FINAL_REGRESSION.md`
 - `docs/migration/register.json`
 - `docs/migration/BEYU_OS_2_0_FINAL_CERTIFICATION.md` (updated)
+- `docs/migration/PHASE_10_SHARED_CONTRACTS.md` (new)
+- `src/lib/waterfall-engine-v2.ts` (new — adopted pure integer engine)
+- `src/lib/os-authorization.ts` (new — authorization-driven BEYU OS routing)
+- `tests/waterfall-parity.test.ts`, `tests/waterfall-boundary.test.ts`, `tests/authorization/os-authorization.test.ts`
+- `src/app/launcher/page.tsx`, `src/app/page.tsx` (authorization-driven routing)
 - `README.md` (test-count note + infra helper)
 
 ## ARCHITECTURAL CHANGES
 
 No risky physical restructure was performed. The DB-backed infrastructure gap was closed (`scripts/infra/pg16-server.mjs`). Source `apps/services/packages` architecture remains a **reference target**; it is classified `ADOPT_SOURCE / DEFER` because wholesale adoption is not verified-value-positive.
+
+## PHASE 10–12 (this session) — controlled fusion executed
+
+- **Phase 10 shared contracts**: audited identity/authorization/money/waterfall/event/OS contracts. One canonical GlobalUserID, one runtime `Principal`, integer-minor-unit money, integer-bp waterfall. `docs/migration/PHASE_10_SHARED_CONTRACTS.md`.
+- **Waterfall controlled adoption**: `src/lib/waterfall-engine-v2.ts` (pure integer BigInt/bps engine, source-adopted) + `runWaterfallV2` compatibility wrapper. **No Finance/ledger execution path touched.** Parity 10/10, boundary 3/3.
+- **OS authorization**: `src/lib/os-authorization.ts` — a valid session alone is no longer treated as BEYU OS authorization; the launcher/root only route to OSs the principal is actually authorized for. Backend `requireAccess` stays authoritative. Routing matrix 6/6.
+- **Phase 12 Noelia/HIVE**: verified existing governance/boundary/tool-registry/memory/action/workflow/scheduler suites against real PG (102 noelia tests). Real provider remains BLOCKED (no credentials).
 
 ## CAPABILITIES MIGRATED
 
@@ -129,11 +143,14 @@ audit-concurrency 6/6, atomic-audit 3/3, audit-truncate/policy-window 7/7, Healt
 
 ## HEALTH RESULTS
 
-PGlite 488, real-PG 89, frontend 14. PASS.
+PGlite 488, real-PG security subset 94 (includes `ophthalmology.rls-isolation`), frontend 14. PASS.
 
 ## OPHTHALMOLOGY RESULTS
 
-`ophthalmology.service.spec.ts` passes (service-layer). Full patient-level e2e ophthalmology journey not executed; documented as PARTIALLY VERIFIED.
+- `ophthalmology.service.spec.ts` passes (service layer).
+- `src/test/e2e/ophthalmology-workflow.spec.ts`: **6/6 PASS** — patient create → structured bilateral eye exam → list/retrieve → sign → double-sign mapped to 409 → unauthenticated denial.
+- `src/modules/ophthalmology/ophthalmology.rls-isolation.spec.ts`: **5/5 PASS** on real PostgreSQL non-owner role; cross-tenant insert DENIED.
+- P1 `HEALTH-OPH-CROSS-TENANT-CREATE-001` fixed by migration 025; regression retained.
 
 ## FLUTTER RESULTS
 
@@ -161,7 +178,7 @@ BLOCKED — local build parity only.
 
 ## DATABASE RESULTS
 
-Fresh PG16 cluster; root 23 migrations + Health 24 migrations, idempotent; seed pass; DR drill pass; no schema drift; runtime role non-superuser/no-bypass-RLS.
+Fresh PG16 cluster; root 23 migrations + Health 25 migrations, idempotent; seed pass; DR drill pass; no schema drift; runtime role non-superuser/no-bypass-RLS.
 
 ## TEST COUNTS
 
@@ -170,8 +187,14 @@ Fresh PG16 cluster; root 23 migrations + Health 24 migrations, idempotent; seed 
 | Root `npm test` (real PG + HTTP) | 2375 | 0 | 0 | 0 |
 | Targeted security/finance (real PG) | 585 | 0 | 0 | 0 |
 | Health backend PGlite | 488 | 0 | 15 | 0 |
-| Health backend real-PG | 89 | 0 | 0 | 0 |
+| Health backend real-PG | **94** | 0 | 0 | 0 |
 | Health frontend | 14 | 0 | 0 | 0 |
+| Health ophthalmology HTTP E2E | 6 | 0 | 0 | 0 |
+| Health ophthalmology RLS (non-owner) | 5 | 0 | 0 | 0 |
+| Phase 10 waterfall parity/boundary | 13 | 0 | 0 | 0 |
+| Phase 11 OS authorization routing | 6 | 0 | 0 | 0 |
+| Phase 12 Noelia (real-PG env) | 102 | 0 | 0 | 0 |
+| Finance affected (ledger/posting/capital) | 71 | 0 | 0 | 0 |
 | Source `BEYU-OS-` tests | 299 | 0 | 0 | 0 (reference) |
 | Source lint | 0 | 69 errors | — | — |
 
@@ -181,14 +204,15 @@ Fresh PG16 cluster; root 23 migrations + Health 24 migrations, idempotent; seed 
 
 ## P1 ISSUES
 
-0 introduced/found.
+- `HEALTH-OPH-CROSS-TENANT-CREATE-001` — **found (real PG adversarial) and CLOSED**. The non-owner role could insert an `eye_exams` row referencing another tenant's patient. Fixed by `025_eye_exam_patient_tenant_integrity` (SECURITY DEFINER trigger, pinned search_path). Re-test **5/5 PASS**; no open P1.
 
 ## P2 ISSUES
 
 - Source repo lang lint debt (69 errors) — reference.
 - Health backend lint debt (documented pre-existing).
-- Ophthalmology full e2e not yet executed.
+- Source-only shared package structure not wired (deferred, not required for parity).
 - Physical monorepo fusion not performed (risk-justified deferral).
+- Legacy destination `runWaterfall` still uses float-rates for the existing Finance execution path; adopted integer engine is available but not yet wired as the default (controlled switchover deferred to a Finance-authorized change).
 
 ## KNOWN LIMITATIONS
 
