@@ -37,10 +37,12 @@ const root = resolve(here, "..", "..");
 
 const args = process.argv.slice(2);
 const mode = args[0] ?? "start";
+const fresh = args.includes("--fresh");
 const portArg = args.indexOf("--port") >= 0 ? Number(args[args.indexOf("--port") + 1]) : 5432;
 const dataArg = args.indexOf("--data") >= 0 ? resolve(root, args[args.indexOf("--data") + 1]) : resolve(root, "pgdata");
 const pidFile = resolve(root, "pgdata", "pg16.pid");
 const logFile = resolve(root, "pgdata", "pg16.log");
+const versionFile = resolve(root, "pgdata", "PG_VERSION");
 
 function readPid() {
   try {
@@ -147,7 +149,16 @@ async function main() {
     binaryVersion: "16.14.0-beta.17",
   });
 
-  await pg.initialise();
+  const clusterExists = existsSync(versionFile);
+  if (fresh && clusterExists) {
+    console.log("PG16 --fresh: removing existing data cluster.");
+    rmSync(dataArg, { recursive: true, force: true });
+  }
+  if (!existsSync(versionFile)) {
+    await pg.initialise();
+  } else {
+    console.log("PG16 resuming existing cluster.");
+  }
   await pg.start();
 
   let booted = false;
