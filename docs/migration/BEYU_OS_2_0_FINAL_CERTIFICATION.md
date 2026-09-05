@@ -31,7 +31,7 @@ This is a **major verification milestone**, not yet a release certificate. The r
 
 ## FINAL SHA (this session's evidence/commit)
 
-`<filled at commit time>`
+`946ac4847347bf2367c5ec95d8ca034a3fa3a52c`
 
 ## BRANCH
 
