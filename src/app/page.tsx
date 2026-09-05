@@ -3,6 +3,7 @@ import { resolvePrincipal } from "@/lib/session";
 import { BeyuLogo } from "@/components/beyu-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -59,18 +60,22 @@ export default async function SignInPage() {
   const principal = await resolvePrincipal();
   
   if (principal) {
-    // Smart routing: resolve authorized OSs
+    // Smart routing: resolve authorized OSs. BEYU OS is NOT assumed for every
+    // valid session; a session must carry at least one control-plane capability.
     const healthAuth = await checkHealthOSAuthorization(principal.userId);
-    const authorizedCount = 1 + (healthAuth.authorized ? 1 : 0); // BEYU OS always authorized
-    
+    const beyuAuth = checkBeyuOSAuthorization(principal);
+    const authorizedCount = (beyuAuth.authorized ? 1 : 0) + (healthAuth.authorized ? 1 : 0);
+
     if (authorizedCount > 1) {
       // Multiple OSs authorized → launcher
       redirect("/launcher");
     } else if (authorizedCount === 1) {
       // Single OS authorized → direct routing
-      redirect("/os");
+      redirect(beyuAuth.authorized ? "/os" : "/health");
     }
-    // If 0 authorized (shouldn't happen with valid session), show sign-in page
+    // If 0 authorized, fall through to the sign-in page (session present but
+    // no operational OS access) rather than advertising an unusable control
+    // plane.
   }
 
   return (

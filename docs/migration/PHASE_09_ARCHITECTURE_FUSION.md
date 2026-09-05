@@ -60,7 +60,18 @@ Decision:
 | Adopt source mobile scaffold | REJECTED | source mobile is pubspec-only |
 | Adopt source infra wholesale | BLOCKED | no real production env/secrets |
 
+## Fusion register (Phase 10–12 additions)
+
+| FEATURE | SOURCE LOCATION | DESTINATION LOCATION | DECISION | RATIONALE | SECURITY IMPACT | TEST IMPACT | MIGRATION RISK | STATUS |
+|---|---|---|---|---|---|---|---|---|
+| Waterfall pure engine | `services/beyu-api/.../waterfall.engine.ts` | `src/lib/waterfall-engine-v2.ts` | ADOPT_SOURCE | integer bps + BigInt, no float money path | improves financial determinism; no new DB/ledger coupling | parity: 10, boundary: 3 | none (pure module, not wired to Finance execution) | IMPLEMENTED |
+| Waterfall wrapper | legacy destination `src/lib/waterfall.ts` input | `runWaterfallV2` | MERGE | converts legacy params to integer bps/gross semantics | preserves legacy call path | parity tests | none | IMPLEMENTED |
+| OS authorization | source `SecurityContext.osIds` concept | `src/lib/os-authorization.ts` + launcher/root | ADOPT (minimal) | a valid session alone must not grant BEYU OS | closes "always authorized" reachability leak | 6 routing tests | low | IMPLEMENTED |
+| Shared package `packages/types` wholesale | `packages/types/*` | no `packages/` | DEFER | would create duplicate contracts | low (if unused) | n/a | high (cosmetic) | DEFERRED |
+| Noelia/HIVE | source `@beyu`/`packages` AI runtime pieces | `src/lib/noelia/*` | KEEP_1_0 | destination governance is stronger, tested | none | noelia suites 117 passed | none | KEEP_1_0 |
+
 ## Status
 
 - **PARTIALLY VERIFIED / ARCHITECTURALLY PRESERVED.**
+- Phase 10 shared-contract audit, waterfall controlled adoption and Phase 11 OS authorization routing are implemented and tested.
 - Canonical BEYU OS 2.0 release may proceed as a **v2.0.0 inside BEYU-OS-1.0** without risky physical restructure, once the remaining non-architecture gates (Flutter, provider, deployment) are handled.
