@@ -1,6 +1,6 @@
 # PHASE 16 — FINAL CERTIFICATION EVIDENCE MATRIX
 
-Date: 2026-09-05 (fresh real-PostgreSQL session, HEAD `efa4ffa`)
+Date: 2026-09-05 (fresh real-PostgreSQL session; evidence HEAD `efa4ffa`, report commit `3675bec`)
 Branch: `arena/01a072db-beyu-os-1-0`; PR #29.
 Certification authority: X10THINK-style independent audit (Arena Agent).
 
@@ -12,7 +12,7 @@ Certification authority: X10THINK-style independent audit (Arena Agent).
 
 | # | Gate | Status | Evidence |
 |---|---|---|---|
-| 1 | Repository integrity | **PASS** | `git status` clean after commit `efa4ffa`; branch synced |
+| 1 | Repository integrity | **PASS** | working tree clean; local HEAD `3675bec`; `efa4ffa` pushed, `3675bec` awaiting push (GitHub auth expired at end of session) |
 | 2 | Source/destination parity | **PARTIAL** | evaluated; `KEEP_1_0 / ADOPT_SOURCE / DEFER` for source-only scaffolds |
 | 3 | Build | **PASS** | root `next build`; Health backend `nest build`; Health frontend `vite build` |
 | 4 | Typecheck | **PASS** | root `tsc --noEmit`; Health backend `tsc --noEmit`; Health frontend `tsc --noEmit` |

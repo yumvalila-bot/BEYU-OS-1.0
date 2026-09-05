@@ -37,7 +37,7 @@ This is a **major verification milestone**, not yet a release certificate. The r
 
 ## FINAL SHA (this session's evidence/commit)
 
-`efa4ffa` (preceded by `e9f2c4f`, `8794e39`, ..., `6c2ec26`)
+`3675bec` (report commit; executable-suite evidence was captured on parent `efa4ffa`; preceded by `e9f2c4f`, `8794e39`, ..., `6c2ec26`)
 
 ## BRANCH
 
