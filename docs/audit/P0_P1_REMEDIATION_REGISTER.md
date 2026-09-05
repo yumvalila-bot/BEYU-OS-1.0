@@ -51,3 +51,13 @@ After commit `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`:
 - Fresh production `/api/health` still returns database `DOWN`.
 
 Updated status: F-003 and F-004 are resolved for PR engineering/CI. Production P0/P1 findings remain open until secure production secrets, production DB health, production migration preflight/deploy/verify, and live authenticated security certification are completed.
+
+## Current Head CI Confirmation — 2026-09-05 UTC
+
+Current PR #28 head `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7` was verified after the documentation-finalization commit:
+
+- Root engineering CI: `BEYU OS CI — PostgreSQL-backed security gate`, run `33980464301`: **SUCCESS**.
+- Root PostgreSQL job `101344657098`: **SUCCESS**, including full regression and skip-detection.
+- DB release PR scratch validation: run `33980464224`: **SUCCESS for scratch migration validation**; production jobs skipped on PR by design.
+
+Production `/api/health` remains `database":"DOWN"`, so the production status remains **NOT PRODUCTION READY**.

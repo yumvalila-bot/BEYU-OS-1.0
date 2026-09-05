@@ -3,7 +3,7 @@
 **Purpose:** exact safe sequence to move BEYU OS from current **NOT PRODUCTION READY** state toward production certification.  
 **Last updated:** 2026-09-05 UTC  
 **Current PR:** #28  
-**Current remediation commit:** `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`
+**Current remediation commit:** `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7`
 
 Do not place secrets in source, logs, chat, screenshots, commits, or artifacts. Use only GitHub Actions secrets, Vercel encrypted environment variables, and the managed database secret store.
 

@@ -2,7 +2,7 @@
 
 **Updated:** 2026-09-05 UTC  
 **Branch:** `arena/01a07261-beyu-os-1-0`  
-**Current remediation commit:** `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`  
+**Current remediation commit:** `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7`  
 **PR:** #28  
 **Production:** <https://beyu-os-1-0.vercel.app>
 
@@ -33,9 +33,9 @@ Root engineering CI for PR #28 is now green at commit `9c0a652c574cede6b382e0aae
 
 ## Current Positive Engineering Evidence
 
-- PR #28 current head: `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`.
-- GitHub Actions run `33979933714`: `BEYU OS CI — PostgreSQL-backed security gate` **SUCCESS**.
-- GitHub Actions run `33979933707`: PR scratch DB release validation **SUCCESS**; production jobs skipped by design on PR.
+- PR #28 current head: `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7`.
+- GitHub Actions run `33980464301`: `BEYU OS CI — PostgreSQL-backed security gate` **SUCCESS**.
+- GitHub Actions run `33980464224`: PR scratch DB release validation **SUCCESS**; production jobs skipped by design on PR.
 - Schema drift remediation verified locally and in CI.
 
 ## Non-Blocking/High Risk P2 Items

@@ -5,7 +5,7 @@
 **Repository:** `yumvalila-bot/BEYU-OS-1.0`  
 **Branch:** `arena/01a07261-beyu-os-1-0`  
 **PR:** #28 — <https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/28>  
-**Current remediation commit:** `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`  
+**Current remediation commit:** `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7`  
 **Production:** <https://beyu-os-1-0.vercel.app>
 
 ---
@@ -14,7 +14,7 @@
 
 Status: **NOT PRODUCTION READY**
 
-Commit: `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc` on PR #28. `origin/main` remains `6bc9fe9ab5072aaa9fc0746313b54285f8c1b3cc` at the time of this re-certification.  
+Commit: `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7` on PR #28. Latest full engineering CI also passed at this commit. `origin/main` remains `6bc9fe9ab5072aaa9fc0746313b54285f8c1b3cc` at the time of this re-certification.  
 Deployment: Vercel PR preview status is success; production deployment identity and production commit parity remain unverified.  
 Database: **DOWN** in production according to `/api/health`.  
 CI: **PASS for PR engineering CI** at commit `9c0a652`; **production DB release/deploy not executed** on PR and previous main production DB release remains failed.
@@ -85,20 +85,20 @@ Fresh attempted checks:
 
 ## 6. CI/CD
 
-Latest PR #28 checks for commit `9c0a652c574cede6b382e0aae4fc6e21fa5c9cbc`:
+Latest PR #28 checks for commit `7c9e2fb3fe24af5331eccd48eaedca34e745e4f7`:
 
 | Workflow / job | Run | Result |
 |---|---:|---|
-| `BEYU OS CI — PostgreSQL-backed security gate` | `33979933714` | **SUCCESS** |
-| Root BEYU OS — PostgreSQL security gate | job `101343232013` | **SUCCESS** |
+| `BEYU OS CI — PostgreSQL-backed security gate` | `33980464301` | **SUCCESS** |
+| Root BEYU OS — PostgreSQL security gate | job `101344657098` | **SUCCESS** |
 | Committed secret scan | job `101343231895` | **SUCCESS** |
 | Health OS backend — real PostgreSQL gate | job `101343231924` | **SUCCESS** |
 | Health OS frontend verification | job `101343231791` | **SUCCESS** |
 | Root critical-only production dependency audit | job `101343231935` | **SUCCESS** |
 | Health frontend critical-only dependency audit | job `101343231847` | **SUCCESS** |
 | Health backend critical-only dependency audit | job `101343231927` | **SUCCESS** |
-| `BEYU OS — database release (GitHub → Supabase)` PR scratch validation | run `33979933707` | **SUCCESS for scratch validation only** |
-| Production preflight/deploy/runtime verification in DB release workflow | run `33979933707` | **SKIPPED on PR by design** |
+| `BEYU OS — database release (GitHub → Supabase)` PR scratch validation | run `33980464224` | **SUCCESS for scratch validation only** |
+| Production preflight/deploy/runtime verification in DB release workflow | run `33980464224` | **SKIPPED on PR by design** |
 
 Important history:
 
@@ -345,8 +345,8 @@ Key P0/P1 evidence:
 | Claim | Test | Result | Evidence | Environment | Commit | Timestamp | Remaining limitation |
 |---|---|---|---|---|---|---|---|
 | Schema drift fixed | `DATABASE_URL=postgres://x:y@localhost/db npx drizzle-kit generate --name=ci_drift_check` | PASS | `No schema changes, nothing to migrate 😴` | Local | `9c0a652` | 2026-09-05 UTC | Does not prove production DB |
-| Root CI fixed | GitHub Actions run `33979933714` | PASS | Root PostgreSQL security gate and full regression passed | GitHub CI scratch PostgreSQL | `9c0a652` | 2026-09-05 UTC | Production DB release still skipped on PR |
-| DB release scratch validation | GitHub Actions run `33979933707` | PASS for scratch | Migration validation passed; production jobs skipped | GitHub CI scratch PostgreSQL | `9c0a652` | 2026-09-05 UTC | No production preflight/deploy |
+| Root CI fixed | GitHub Actions run `33980464301` | PASS | Root PostgreSQL security gate and full regression passed | GitHub CI scratch PostgreSQL | `9c0a652` | 2026-09-05 UTC | Production DB release still skipped on PR |
+| DB release scratch validation | GitHub Actions run `33980464224` | PASS for scratch | Migration validation passed; production jobs skipped | GitHub CI scratch PostgreSQL | `9c0a652` | 2026-09-05 UTC | No production preflight/deploy |
 | Production process alive | `fetch_page(/api/health/live)` | PASS | `process":"ALIVE"` | Production | deployed unknown | 2026-09-05 UTC | Process-only |
 | Production DB health | `fetch_page(/api/health)` | FAIL | `database":"DOWN"` | Production | deployed unknown | 2026-09-05 UTC | P0 open |
 | GitHub secret access | `gh secret list` | BLOCKED | `HTTP 403` | GitHub API | n/a | 2026-09-05 UTC | Cannot verify secret names |
