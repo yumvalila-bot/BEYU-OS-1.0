@@ -937,11 +937,12 @@ describe("forecast service — hostile inputs", () => {
   });
 
   it("adds no migration and no table", async () => {
-    // 22 = migrations 0000-0014 (kernel baseline) + 0016_noelia_scheduler_offsets
+    // 23 = migrations 0000-0014 (kernel baseline) + 0016_noelia_scheduler_offsets
 // (governed Noelia expansion: additive, deterministic, RLS-aware)
 // + 0019 internal receipts + 0020 service principals
-// + 0021 financial-ledger RLS (all additive).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(22);
+// + 0021 financial-ledger RLS + 0022 chart-of-accounts tenant uniqueness
+// (all additive/hardening; specialist modules add no migration).
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(23);
     expect(await count(sql`
       select count(*)::int as n from information_schema.tables
       where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')

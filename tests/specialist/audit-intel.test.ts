@@ -816,10 +816,11 @@ describe("audit module — never mutates the ledger it inspects", () => {
   });
 
   it("adds no migration", async () => {
-    // 22 = migrations 0000-0019 (prior baseline) + 0020_service_principals
-    // + 0021_financial_ledger_rls (Phase 8 events, Phase 6 service-principal
-    // registry, ledger RLS hardening: all additive).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(22);
+    // 23 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // + 0021_financial_ledger_rls + 0022_chart_of_accounts_tenant_uniqueness
+    // (Phase 8 events, Phase 6 service-principal registry, ledger RLS and
+    // chart-of-accounts tenant hardening: all additive/hardening).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(23);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
