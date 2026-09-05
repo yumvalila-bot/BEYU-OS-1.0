@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'finance_os_screen.dart';
 
 class BeyuOSScreen extends StatelessWidget {
   const BeyuOSScreen({super.key});
@@ -62,10 +63,19 @@ class BeyuOSScreen extends StatelessWidget {
           ),
           _ModuleCard(
             title: 'Finance OS',
-            description: 'Capital, treasury, waterfall, tax',
+            description: 'General ledger, capital, treasury, waterfall, tax',
             icon: Icons.account_balance,
             color: Colors.green,
             hasAccess: permissions.any((p) => p.startsWith('finance:')),
+            onTap: permissions.any((p) => p.startsWith('finance:'))
+                ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const FinanceOSScreen(),
+                      ),
+                    );
+                  }
+                : null,
           ),
           _ModuleCard(
             title: 'HCM',
@@ -124,6 +134,7 @@ class _ModuleCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool hasAccess;
+  final VoidCallback? onTap;
 
   const _ModuleCard({
     required this.title,
@@ -131,48 +142,59 @@ class _ModuleCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.hasAccess,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, color: hasAccess ? color : Colors.grey, size: 32),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: hasAccess ? Colors.white : Colors.white38,
+      child: InkWell(
+        onTap: hasAccess ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(icon, color: hasAccess ? color : Colors.grey, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: hasAccess ? Colors.white : Colors.white38,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white60,
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white60,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            if (!hasAccess)
-              const Icon(
-                Icons.lock_outline,
-                color: Colors.white38,
-                size: 20,
-              ),
-          ],
+              if (!hasAccess)
+                const Icon(
+                  Icons.lock_outline,
+                  color: Colors.white38,
+                  size: 20,
+                )
+              else if (onTap != null)
+                const Icon(
+                  Icons.chevron_right,
+                  color: Colors.white60,
+                  size: 20,
+                ),
+            ],
+          ),
         ),
       ),
     );
