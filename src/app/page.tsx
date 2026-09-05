@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuLogo } from "@/components/beyu-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
+import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,21 @@ const PILLARS = [
 
 export default async function SignInPage() {
   const principal = await resolvePrincipal();
-  if (principal) redirect("/os");
+  
+  if (principal) {
+    // Smart routing: resolve authorized OSs
+    const healthAuth = await checkHealthOSAuthorization(principal.userId);
+    const authorizedCount = 1 + (healthAuth.authorized ? 1 : 0); // BEYU OS always authorized
+    
+    if (authorizedCount > 1) {
+      // Multiple OSs authorized → launcher
+      redirect("/launcher");
+    } else if (authorizedCount === 1) {
+      // Single OS authorized → direct routing
+      redirect("/os");
+    }
+    // If 0 authorized (shouldn't happen with valid session), show sign-in page
+  }
 
   return (
     <main className="beyu-shell min-h-screen text-white">
