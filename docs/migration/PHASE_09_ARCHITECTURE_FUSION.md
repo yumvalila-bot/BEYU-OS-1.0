@@ -37,6 +37,18 @@ The **destination is already the stronger verified implementation**. The source'
 1. Real disposable PostgreSQL 16 harness (`scripts/infra/pg16-server.mjs`, `pg16:start`/`pg16:stop`, `embedded-postgres` devDependency) — infrastructure pattern from source/CI model, now executable locally.
 2. Real-PG verification (this is the architectural gate enabler, not a UI change).
 
+## Waterfall engine comparison — RESOLVED (ADOPT_SOURCE engine, KEEP_1_0 finance)
+
+The previously-open "source `beyu-api` waterfall engine vs destination `src/lib/waterfall.ts`" decision was resolved against both sources:
+
+- Source `services/beyu-api/src/modules/waterfall/waterfall.engine.ts` is a **pure** engine using integer **basis points (bps)** + `BigInt` multiplication, canonical-rule hashing, version-pinned calculation result, and no floating point anywhere in the money path. It also carries typed conditions and a deterministic spec-§80 validation surface.
+- Destination `src/lib/waterfall.ts` (`runWaterfall`) is older/simpler and multiplies integer minor units by **float percentage rates** (`gross * 0.3`), which violates the deterministic-integer arithmetic rule (Rule 10 / spec §80) even though it rounds afterwards.
+
+Decision:
+- **ADOPT_SOURCE**: the source `calculateWaterfall` engine is the better implementation for WHAT SHOULD HAPPEN. It is pure and can be carried into the destination control plane as a typed module without touching Finance/ledger files.
+- **KEEP_1_0**: destination Finance/ledger/CAP_POSTING authority is unchanged; Finance/Treasury still executes approved allocations. The engine never moves money.
+- **DEFER**: physical port is deferred to the shared-package step (Phase 10) because it requires reconciling source `@beyu/types` with destination types; no finance file is modified before that gate.
+
 ## What was NOT changed (and why)
 
 | Change | Decision | Rationale |
