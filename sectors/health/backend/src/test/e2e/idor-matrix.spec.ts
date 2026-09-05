@@ -174,11 +174,13 @@ describe("IDOR Adversarial Matrix — 18 axes (patients)", () => {
             "facilities",
           ].map((name) => ({
             resource: name,
-            covered: name === "patients",
+            covered: name === "patients" || name === "ophthalmology",
             notes:
               name === "patients"
                 ? "HTTP E2E 18-axis"
-                : "Pending — requires service/decorator wiring",
+                : name === "ophthalmology"
+                  ? "HTTP happy path E2E + SQL-level RLS (non-owner role)"
+                  : "Pending — requires service/decorator wiring",
           })),
         },
         null,
