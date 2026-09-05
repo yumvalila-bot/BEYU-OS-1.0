@@ -55,7 +55,10 @@ export const ledgerAccounts = pgTable(
     parentAccountId: text("parent_account_id"),
     active: boolean("active").notNull().default(true),
   },
-  (t) => [uniqueIndex("ledger_accounts_code_uidx").on(t.code)],
+  (t) => [
+    uniqueIndex("ledger_accounts_tenant_code_uidx").on(t.tenantId, t.code),
+    index("ledger_accounts_tenant_idx").on(t.tenantId),
+  ],
 );
 
 /** Immutable double-entry journal. Corrections are reversals, never edits. */

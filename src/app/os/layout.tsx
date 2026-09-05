@@ -46,6 +46,7 @@ const NAV: { group: string; items: { href: string; label: string; permission?: P
   {
     group: "Finance OS",
     items: [
+      { href: "/os/finance", label: "General Ledger & CoA", permission: "finance:ledger.read" },
       { href: "/os/capital", label: "Capital & Treasury", permission: "finance:capital.read" },
       { href: "/os/waterfall", label: "Waterfall Engine", permission: "finance:waterfall.read" },
       { href: "/os/tax", label: "Tax Strategy Intelligence", permission: "finance:tax.read" },
