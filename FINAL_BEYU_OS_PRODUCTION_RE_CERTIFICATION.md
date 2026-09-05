@@ -618,3 +618,19 @@ Required next action by repository/production owner:
 4. Re-run full production certification with controlled authenticated test identities and ordinary runtime-role DB probes.
 
 Only after those steps pass can BEYU OS be considered for production activation.
+
+---
+
+## Post-Push CI Update — 2026-09-05 UTC
+
+After the first remediation commit (`1027572debc3771aa57559937ba102fdbe085fab`) was pushed and PR #28 opened, GitHub Actions provided new evidence:
+
+- `BEYU OS — database release (GitHub → Supabase)`, run `33978661392`: **success for pull-request scratch PostgreSQL migration validation**. Production preflight/deploy/runtime verification jobs were skipped on PR, so this does not prove production DB readiness.
+- `BEYU OS CI — PostgreSQL-backed security gate`, run `33978661410`: **failure**. The previously failing `Verify no schema drift against src/db/schema` step passed after adding `drizzle/meta/0022_snapshot.json`. The root job advanced through DR drill, runtime role provisioning, seed, production build, production start, and server DB health; it then failed at `Full root regression (PostgreSQL-backed + HTTP/E2E)`. Log and artifact retrieval attempts through `gh run view --log`, `gh api .../logs`, and `gh run download` failed with EOF from GitHub Actions storage, so the exact failing tests could not be identified in this sandbox.
+
+This strengthens one conclusion and worsens another:
+
+- The schema-drift root cause is remediated.
+- CI as a whole remains **FAIL**, so production certification remains blocked.
+
+The final verdict remains **NOT PRODUCTION READY**.

@@ -19,3 +19,12 @@ This register records only P0/P1 findings from `FINAL_BEYU_OS_PRODUCTION_REALITY
 | F-007 | P1: CAP_POSTING not production operational/certified. | Code intentionally gates `CAP_POSTING` behind governance capability activation; production DB down prevents verification of registry state and end-to-end posting. | **Not fixed.** No policy ratification or production capability activation was performed. | Source still calls `requireCapability("CAP_POSTING")`; no successful production journal/audit/event chain demonstrated. | **OPEN P1** |
 | F-008 | P1: Deployment-to-code/database integrity unverified/failed. | Production app exposes no audited commit/deployment identity; DB release failed; production DB down. | **Not fixed.** Requires Vercel deployment metadata/config and healthy DB release. | Production still exposes only `BEYU-OS/1.0.0`; GitHub DB release remains failed. | **OPEN P1** |
 | F-009 | P1: Flutter mobile not certifiable. | Flutter/Dart SDK unavailable; source contains incomplete MFA and Health flow. | **Not fixed.** Requires Flutter SDK in CI/audit and source implementation work. | `flutter --version` and `dart --version` still fail. Source inspection still shows `submitMfaCode` not fully implemented and Health dashboard throws `UnimplementedError`. | **OPEN P1 / EXTERNALLY BLOCKED** |
+
+## Post-push CI Update — 2026-09-05 UTC
+
+After committing remediation `1027572debc3771aa57559937ba102fdbe085fab` and opening PR #28:
+
+- GitHub DB release workflow run `33978661392`: **success for PR scratch validation only**. Production preflight, production DB deploy/verify, runtime verification, and release record jobs were skipped because the event is `pull_request`; this does not remediate production P0 database connectivity.
+- GitHub root CI workflow run `33978661410`: **failure**. The original schema-drift step now passes, and later root steps through DR drill, runtime role provisioning, seed, production build, production start, and server DB health executed successfully. The remaining failure is `Full root regression (PostgreSQL-backed + HTTP/E2E)`. Attempts to retrieve the detailed log/artifact failed with EOF from GitHub Actions blob storage, so the exact failing tests remain unverified in this sandbox.
+
+Updated F-003 status: **schema-drift sub-finding remediated, overall root CI remains OPEN P1 because full regression is red**.
