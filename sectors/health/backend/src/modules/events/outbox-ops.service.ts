@@ -127,7 +127,11 @@ export class OutboxOpsService {
     // Tenant-scoped operators (a tenant admin) may only requeue their OWN
     // tenant's rows; only global operators (trustee/service, tenantId null)
     // may act across tenants.
-    const rows = await this.selectRows(keys, args.all === true, args.operator.tenantId);
+    const rows = await this.selectRows(
+      keys,
+      args.all === true,
+      args.operator.tenantId,
+    );
     const result: ReplayResult = {
       requested: rows.length,
       requeued: [],
@@ -243,7 +247,9 @@ export class OutboxOpsService {
         WHERE provider = 'beyu.events' ${tenantFilter}
         ORDER BY created_at DESC
         LIMIT $1`,
-      args.operator?.tenantId != null ? [limit, args.operator.tenantId] : [limit],
+      args.operator?.tenantId != null
+        ? [limit, args.operator.tenantId]
+        : [limit],
     )) as OutboxStateRow[];
 
     for (const row of rows) {
@@ -340,7 +346,9 @@ export class OutboxOpsService {
     // Per-row canonical tenant code (multi-tenant fail-closed resolution —
     // see OutboxDispatcherService.tenantCodeFor). An unmapped tenant throws,
     // which reconciliation reports as UNKNOWN (never guessed, never repaired).
-    const tenantCode = this.dispatcher.tenantCodeFor(row.tenant_id as string | null);
+    const tenantCode = this.dispatcher.tenantCodeFor(
+      row.tenant_id as string | null,
+    );
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {

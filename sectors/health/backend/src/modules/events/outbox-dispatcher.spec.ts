@@ -348,7 +348,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const d2 = makeDispatcher(bed, stub);
     const d3 = makeDispatcher(bed, stub);
     const claimOf = (d: OutboxDispatcherService, t: string | null) =>
-      (d as unknown as { claim(t: string | null): Promise<{ id: string }[]> }).claim(t);
+      (
+        d as unknown as { claim(t: string | null): Promise<{ id: string }[]> }
+      ).claim(t);
     // Three workers race for the same tenant's rows simultaneously.
     const results = await Promise.all([
       claimOf(d1, TEST_ACTOR.tenantId),
@@ -402,7 +404,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.delivered).toBeGreaterThanOrEqual(1);
     const hit = stub.received.find(
-      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "mapped-code-1",
+      (r) =>
+        (r.body as { idempotencyKey?: string }).idempotencyKey ===
+        "mapped-code-1",
     );
     expect(hit).toBeDefined();
     expect((hit!.body as { tenantCode?: string }).tenantCode).toBe(ownCode);
@@ -427,7 +431,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.deadLettered).toBeGreaterThanOrEqual(1);
     const hit = stub.received.find(
-      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "unmapped-tenant-1",
+      (r) =>
+        (r.body as { idempotencyKey?: string }).idempotencyKey ===
+        "unmapped-tenant-1",
     );
     expect(hit).toBeUndefined();
     const row = await bed.tenantCtx.run(
@@ -438,7 +444,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
       async () => outbox.row("unmapped-tenant-1"),
     );
     expect((row as { status: string }).status).toBe("dead_letter");
-    expect(String((row as { last_error: string }).last_error)).toContain("TENANT_CODE_UNMAPPED");
+    expect(String((row as { last_error: string }).last_error)).toContain(
+      "TENANT_CODE_UNMAPPED",
+    );
   });
 
   it("multi-tenant map: a NULL-tenant row dead-letters rather than assuming a code", async () => {
@@ -473,7 +481,9 @@ describe("OutboxDispatcherService — delivery state machine", () => {
     const summary = await dispatcher.dispatchDueBatch();
     expect(summary.deadLettered).toBeGreaterThanOrEqual(1);
     const hit = stub.received.find(
-      (r) => (r.body as { idempotencyKey?: string }).idempotencyKey === "null-tenant-map-1",
+      (r) =>
+        (r.body as { idempotencyKey?: string }).idempotencyKey ===
+        "null-tenant-map-1",
     );
     expect(hit).toBeUndefined();
   });

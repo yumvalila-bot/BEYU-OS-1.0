@@ -22,8 +22,10 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { auditLog, enterpriseEvents, internalEventReceipts, legalEntities, tenants, users } from "../../src/db/schema";
 import { INTERNAL_SERVICE_TOKEN_ENV, signInternalServiceTokenForTests } from "../../src/lib/internal/service-auth";
+import { publishEvent } from "../../src/lib/audit";
 import { POST as publishRoute } from "../../src/app/api/v1/internal/events/route";
 import { POST as statusRoute } from "../../src/app/api/v1/internal/events/status/route";
+import { resetAuditLedgers } from "../helpers/ledger-reset";
 
 const SECRET = "test-internal-secret-0123456789abcdef0123456789";
 const RUN = Date.now().toString(36);
@@ -77,16 +79,60 @@ function envelope(overrides: Record<string, unknown> = {}) {
 }
 
 let TENANT_CODE = "BEYU-HEALTH";
+let TENANT_ID: string | null = null;
 let ACTOR_ID: string | null = null;
 
 beforeAll(async () => {
   process.env[INTERNAL_SERVICE_TOKEN_ENV] = SECRET;
-  const rows = await db.select({ code: tenants.code, type: tenants.type }).from(tenants).limit(50);
+  const rows = await db.select({ id: tenants.id, code: tenants.code, type: tenants.type }).from(tenants).limit(50);
   const health = rows.find((r) => r.type === "SECTOR" || /health/i.test(r.code));
-  TENANT_CODE = (health ?? rows[0]).code;
+  const tenant = health ?? rows[0];
+  TENANT_CODE = tenant.code;
+  TENANT_ID = tenant.id;
   // Reuse any existing canonical user as the acting human (existence check).
   const [u] = await db.select({ id: users.id }).from(users).limit(1);
   ACTOR_ID = u?.id ?? null;
+
+  // DETERMINISTIC CHAIN FIXTURE.
+  //
+  // The exactly-once acceptance test asserts the first accepted event carries
+  // a non-null prev_hash (it chains onto a predecessor), and the integrity
+  // test asserts the chain has exactly ONE genesis row. Both are structural
+  // properties, but they were asserted against whatever state earlier suites
+  // happened to leave behind, so the full suite failed or passed depending on
+  // execution history (order/state-dependent flake).
+  //
+  // This fixture makes the file self-sufficient: it resets the governed
+  // ledgers through the SAME sanctioned helper other suites use
+  // (tests/helpers/ledger-reset.ts), then appends exactly one genesis event
+  // and one child event through the REAL publish path (canonical hashes,
+  // chain-head locked), so every later append provably chains (prev_hash
+  // non-null), the chain still has a single genesis, and the certification
+  // suite's full-chain authenticity verification (ART-8) also holds.
+  await resetAuditLedgers();
+  const seedBase = {
+    type: "test.determinism.seed",
+    source: "TEST",
+    domain: "test",
+    operation: "seed",
+    destinationDomain: "test" as string | null,
+    tenantId: TENANT_ID,
+    legalEntityId: null,
+    subjectType: "test",
+    actorType: "SERVICE" as const,
+    classification: "INTERNAL" as const,
+    payload: {},
+    traceId: `seed-trace-${RUN}`,
+    correlationId: `seed-corr-${RUN}`,
+    causationId: null,
+    authorityContext: null,
+    policyVersion: null,
+    eventVersion: "1",
+    schemaVersion: "1",
+    occurredAt: "2000-01-01T00:00:00.000Z",
+  };
+  await publishEvent({ ...seedBase, subjectId: `EVT_TEST_SEED_GENESIS_${RUN}` });
+  await publishEvent({ ...seedBase, subjectId: `EVT_TEST_SEED_CHILD_${RUN}` });
 });
 
 describe("POST /api/v1/internal/events — fail-closed configuration", () => {
