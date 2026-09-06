@@ -17,7 +17,8 @@
     "certify": "tsx scripts/certify-production.mts",
     "evidence:gate1": "tsx scripts/evidence/kernel-gate1.ts",
     "pg16:start": "node scripts/infra/pg16-server.mjs start",
-    "pg16:stop": "node scripts/infra/pg16-server.mjs stop"
+    "pg16:stop": "node scripts/infra/pg16-server.mjs stop",
+    "scan:secrets": "node scripts/scan-secrets.mjs"
   },
   "dependencies": {
     "dotenv": "17.3.1",
