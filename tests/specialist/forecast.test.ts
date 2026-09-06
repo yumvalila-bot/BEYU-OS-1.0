@@ -945,7 +945,7 @@ describe("forecast service — hostile inputs", () => {
 // + 0024_noelia_model_runtime
 // + 0025_noelia_model_lifecycle
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(27);
     expect(await count(sql`
       select count(*)::int as n from information_schema.tables
       where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')

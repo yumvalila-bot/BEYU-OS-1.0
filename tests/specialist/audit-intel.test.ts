@@ -814,6 +814,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
       "employment_events",
       "enterprise_events",
       "internal_event_receipts",
+      "noelia_internal_audits",
       "noelia_model_lifecycle_events",
       "noelia_provider_lifecycle_events",
     ]);
@@ -828,7 +829,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening and Phase 1 Noelia AI platform:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(27);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

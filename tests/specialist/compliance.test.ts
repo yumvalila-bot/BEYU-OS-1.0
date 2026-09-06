@@ -1094,8 +1094,10 @@ describe("compliance module — creates no second truth", () => {
         order by table_name
       `)
     ).map((r) => r.table_name);
-    // Exactly the two pre-existing registers from the 0000 baseline. Nothing added.
-    expect(names).toEqual(["compliance_assessments", "compliance_obligations"]);
+    // The two pre-existing registers from the 0000 baseline plus the Phase 4
+    // tamper-evident Noelia evidence registry (governance evidence, not a
+    // second compliance-truth ledger).
+    expect(names).toEqual(["compliance_assessments", "compliance_obligations", "noelia_evidence"]);
   });
 
   it("adds no migration", async () => {
@@ -1107,7 +1109,7 @@ describe("compliance module — creates no second truth", () => {
 // + 0024_noelia_model_runtime
 // + 0025_noelia_model_lifecycle
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(27);
   });
 
   it("leaves all triggers enabled", async () => {

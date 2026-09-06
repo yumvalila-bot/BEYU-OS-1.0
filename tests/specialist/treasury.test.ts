@@ -878,7 +878,7 @@ describe("treasury module — creates no second truth", () => {
 // + 0024_noelia_model_runtime
 // + 0025_noelia_model_lifecycle
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(27);
   });
 
   it("leaves all triggers enabled", async () => {

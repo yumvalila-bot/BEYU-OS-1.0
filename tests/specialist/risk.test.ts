@@ -1004,7 +1004,8 @@ describe("risk module — leaves governance and financial state untouched", () =
   it("defines no tables of its own — risk analysis stores nothing", async () => {
     // `risks` is the pre-existing risk REGISTER from the 0000 baseline, unrelated to this module.
     // `noelia_risk_register` is the Phase 1 AI governance register (also not
-    // risk-analysis storage). Phase 7D added no table of its own.
+    // risk-analysis storage). Phase 4 adds `noelia_risk_treatments`, an AI
+    // governance treatment register; it is not risk-analysis storage either.
     const names = (
       await rowsOf<{ table_name: string }>(sql`
         select table_name from information_schema.tables
@@ -1013,7 +1014,7 @@ describe("risk module — leaves governance and financial state untouched", () =
         order by table_name
       `)
     ).map((r) => r.table_name);
-    expect(names).toEqual(["noelia_risk_register", "risks"]);
+    expect(names).toEqual(["noelia_risk_register", "noelia_risk_treatments", "risks"]);
   });
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
@@ -1026,7 +1027,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // chart-of-accounts tenant hardening and Phase 1 Noelia AI platform:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(26);
+    expect(n).toBe(27);
   });
 
   it("leaves all triggers enabled", async () => {

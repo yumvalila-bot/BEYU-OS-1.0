@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { Client } from "pg";
 import { db, withDatabaseTransactionContext } from "@/db";
-import { noeliaIncidents, noeliaRoutingDecisions } from "@/db/schema";
+import { noeliaEvidence, noeliaIncidents, noeliaRoutingDecisions } from "@/db/schema";
+import { computeEvidenceHash } from "@/lib/noelia/compliance-engine";
 import { analyzeNoelia, askNoelia } from "@/lib/noelia";
 import { BeyuNoeliaAiPlatformService } from "@/lib/noelia/ai-platform";
 import { BeyuNoeliaModelGateway } from "@/lib/noelia/model-gateway";
@@ -104,6 +105,75 @@ describe("Phase 3 adversarial AI security matrix", () => {
       await withTenantDatabaseContext(p, async () => {
         for (const id of routingId) await db.delete(noeliaRoutingDecisions).where(eq(noeliaRoutingDecisions.id, id));
         await db.delete(noeliaIncidents).where(eq(noeliaIncidents.id, `AIC_ADV_${suffix}`));
+      });
+    });
+  });
+
+  it("proves Phase 4 compliance-evidence isolation through the runtime role", async () => {
+    const p = await seededPrincipal("admin@beyu.os");
+    const suffix = `${Date.now()}`;
+    const tzId = `AEV2_ADV_TZ_${suffix}`;
+    const otherId = `AEV2_ADV_OTHER_${suffix}`;
+    const hash = computeEvidenceHash({
+      evidenceCode: `EVD_ADV_${suffix}`,
+      evidenceType: "TEST",
+      title: "Phase 4 RLS probe",
+      description: "Cross-tenant evidence must not be visible through the runtime role.",
+      subjectType: "SYSTEM",
+      subjectId: "AII_NOELIA",
+      tenantId: "TEN_BEYU_AGRI",
+    });
+
+    await withDatabaseTransactionContext(async () => {
+      await withTenantDatabaseContext(p, async () => {
+        await db.insert(noeliaEvidence).values({
+          id: tzId,
+          evidenceCode: `EVD_ADV_TZ_${suffix}`,
+          evidenceType: "TEST",
+          title: "TZ evidence",
+          description: "Tenant-scoped evidence for TEN_BEYU_TZ.",
+          subjectType: "SYSTEM",
+          subjectId: "AII_NOELIA",
+          tenantId: "TEN_BEYU_TZ",
+          artifactHash: hash,
+          hashAlgorithm: "SHA-256",
+          status: "DRAFT",
+          recordedBy: p.userId,
+        });
+        await db.insert(noeliaEvidence).values({
+          id: otherId,
+          evidenceCode: `EVD_ADV_AGRI_${suffix}`,
+          evidenceType: "TEST",
+          title: "AGRI evidence",
+          description: "Cross-tenant evidence probe for TEN_BEYU_AGRI.",
+          subjectType: "SYSTEM",
+          subjectId: "AII_NOELIA",
+          tenantId: "TEN_BEYU_AGRI",
+          artifactHash: hash,
+          hashAlgorithm: "SHA-256",
+          status: "DRAFT",
+          recordedBy: p.userId,
+        });
+      });
+    });
+
+    const runtime = new Client({ connectionString: process.env.BEYU_RUNTIME_DATABASE_URL! });
+    await runtime.connect();
+    try {
+      await runtime.query("begin");
+      await runtime.query("select set_config('beyu.current_tenant_ids', $1, true)", ["TEN_BEYU_TZ"]);
+      await runtime.query("select set_config('beyu.global_scope', 'off', true)");
+      const rows = await runtime.query("select tenant_id from noelia_evidence where id = any($1::text[])", [[tzId, otherId]]);
+      expect((rows.rows as Array<{ tenant_id: string }>).map((r) => r.tenant_id)).toEqual(["TEN_BEYU_TZ"]);
+    } finally {
+      await runtime.query("rollback").catch(() => undefined);
+      await runtime.end().catch(() => undefined);
+    }
+
+    await withDatabaseTransactionContext(async () => {
+      await withTenantDatabaseContext(p, async () => {
+        await db.delete(noeliaEvidence).where(eq(noeliaEvidence.id, tzId));
+        await db.delete(noeliaEvidence).where(eq(noeliaEvidence.id, otherId));
       });
     });
   });
