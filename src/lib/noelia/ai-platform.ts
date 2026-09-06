@@ -19,6 +19,38 @@ function requireCanonicalContext(): void {
   }
 }
 
+/**
+ * Resolve the target values that may be written to the tenant-scoped routing
+ * ledger.
+ *
+ * The routing ledger is RLS-bound and carries FKs to tenants, legal entities
+ * and countries. A denied/unresolved target (e.g. a tenant outside the
+ * caller's scope, a non-existent tenant, or an entity/country reference the
+ * caller is not authorized for) must never be written into that ledger: doing
+ * so turns a governed denial into a database 500 and can also leak an
+ * existence oracle. The denial itself is still reported through the answer's
+ * `deniedScopes` and the evidence row; the routing row records the caller's
+ * own canonical scope and leaves unverifiable optional references null.
+ */
+function persistableRoutingTarget(
+  context: ToolInvocationContext,
+  request: NoeliaRouteRequest,
+): { tenantId: string; legalEntityId: string | null; countryCode: string | null } {
+  const inScopeTenant = context.scope.tenantIds.includes(request.tenantId);
+  const fallbackTenantId = context.scope.tenantIds.find(
+    (id) => id === context.principal.tenantId,
+  ) ?? context.scope.tenantIds[0] ?? context.principal.tenantId;
+  return {
+    tenantId: inScopeTenant ? request.tenantId : fallbackTenantId,
+    legalEntityId: request.legalEntityId && context.scope.legalEntityIds.includes(request.legalEntityId)
+      ? request.legalEntityId
+      : null,
+    countryCode: request.countryCode && context.scope.countryCodes.includes(request.countryCode)
+      ? request.countryCode
+      : null,
+  };
+}
+
 export type NoeliaRouteRequest = {
   /** Stable caller-supplied request id enables replay protection (additive). */
   requestId?: string;
@@ -332,6 +364,7 @@ export class BeyuNoeliaAiPlatformService {
     const requestId = request.requestId ?? `REQ_${Date.now()}_${context.traceId}`;
     const reasons: string[] = [];
     const routingId = `ART_${Date.now()}_${context.traceId}`;
+    const target = persistableRoutingTarget(context, request);
 
     // Replay protection: a previously recorded routing decision for the same
     // requestId is authoritative and is not inserted a second time.
@@ -365,9 +398,9 @@ export class BeyuNoeliaAiPlatformService {
         await db.insert(noeliaRoutingDecisions).values({
           id: routingId,
           requestId,
-          tenantId: request.tenantId,
-          legalEntityId: request.legalEntityId,
-          countryCode: request.countryCode,
+          tenantId: target.tenantId,
+          legalEntityId: target.legalEntityId,
+          countryCode: target.countryCode,
           osId: request.osId ?? null,
           task: request.task,
           capability: request.capability,
@@ -455,9 +488,9 @@ export class BeyuNoeliaAiPlatformService {
       await db.insert(noeliaRoutingDecisions).values({
         id: routingId,
         requestId,
-        tenantId: request.tenantId,
-        legalEntityId: request.legalEntityId,
-        countryCode: request.countryCode,
+        tenantId: target.tenantId,
+        legalEntityId: target.legalEntityId,
+        countryCode: target.countryCode,
         osId: request.osId ?? null,
         task: request.task,
         capability: request.capability,
@@ -484,9 +517,9 @@ export class BeyuNoeliaAiPlatformService {
     await db.insert(noeliaRoutingDecisions).values({
       id: routingId,
       requestId,
-      tenantId: request.tenantId,
-      legalEntityId: request.legalEntityId,
-      countryCode: request.countryCode,
+      tenantId: target.tenantId,
+      legalEntityId: target.legalEntityId,
+      countryCode: target.countryCode,
       osId: request.osId ?? null,
       task: request.task,
       capability: request.capability,
@@ -548,12 +581,13 @@ export class BeyuNoeliaAiPlatformService {
     requireCanonicalContext();
     const requestId = `REQ_${Date.now()}_${context.traceId}`;
     const routingId = `ART_${Date.now()}_${context.traceId}`;
+    const target = persistableRoutingTarget(context, request);
     await db.insert(noeliaRoutingDecisions).values({
       id: routingId,
       requestId,
-      tenantId: request.tenantId,
-      legalEntityId: request.legalEntityId,
-      countryCode: request.countryCode,
+      tenantId: target.tenantId,
+      legalEntityId: target.legalEntityId,
+      countryCode: target.countryCode,
       osId: request.osId ?? null,
       task: request.task,
       capability: request.capability,
