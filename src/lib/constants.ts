@@ -178,6 +178,11 @@ export const PERMISSIONS = {
   "ai:risk.register.manage": "Maintain the BEYU AI risk register",
   "ai:incident.manage": "Manage AI incident containment/resolution records",
   "ai:killswitch.manage": "Activate or deactivate a Noelia kill switch",
+  "ai:compliance.read": "Read AI requirements, applicability, controls, evidence and assurance records",
+  "ai:compliance.write": "Create/update AI requirements, applicability, controls, evidence and assurance records",
+  "ai:compliance.audit": "Run and manage AI internal audits, findings and corrective actions",
+  "ai:compliance.certification": "Transition certification/readiness state using documented evidence",
+  "ai:compliance.metrics": "Read AI compliance metrics, blocking controls and assurance dashboards",
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
@@ -224,6 +229,11 @@ export const ROLES: Record<
       "ai:identity.read",
       "ai:evaluation.read",
       "ai:risk.register.read",
+      "ai:compliance.read",
+      "ai:compliance.write",
+      "ai:compliance.audit",
+      "ai:compliance.certification",
+      "ai:compliance.metrics",
     ],
   },
   GROUP_CEO: {
@@ -295,6 +305,11 @@ export const ROLES: Record<
       "ai:identity.read",
       "ai:evaluation.read",
       "ai:risk.register.read",
+      "ai:compliance.read",
+      "ai:compliance.write",
+      "ai:compliance.audit",
+      "ai:compliance.certification",
+      "ai:compliance.metrics",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -373,6 +388,11 @@ export const ROLES: Record<
       "ai:identity.read",
       "ai:evaluation.read",
       "ai:risk.register.read",
+      "ai:compliance.read",
+      "ai:compliance.write",
+      "ai:compliance.audit",
+      "ai:compliance.certification",
+      "ai:compliance.metrics",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -405,6 +425,11 @@ export const ROLES: Record<
       "ai:evaluation.read",
       "ai:risk.register.read",
       "ai:risk.register.manage",
+      "ai:compliance.read",
+      "ai:compliance.write",
+      "ai:compliance.audit",
+      "ai:compliance.certification",
+      "ai:compliance.metrics",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {

@@ -98,6 +98,20 @@ export const ID_PREFIX = {
   providerLifecycle: "PLC",
   modelProvenance: "MPV",
   modelArtifact: "MAT",
+  aiRequirement: "ARQ",
+  requirementControl: "RCM",
+  applicability: "AAP",
+  evidence: "AEV2",
+  impactAssessment: "AIA",
+  riskTreatment: "ART2",
+  noeliaInternalAudit: "AAUD",
+  finding: "AFIN",
+  correctiveAction: "ACA",
+  exception: "AEXC",
+  managementReview: "AMR",
+  monitoringIndicator: "AMI",
+  certReadiness: "ACR",
+  assessorPackage: "APKG",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

@@ -11,3 +11,4 @@ export * from "./schema/finance";
 export * from "./schema/people";
 export * from "./schema/platform";
 export * from "./schema/ai";
+export * from "./schema/ai-compliance";
