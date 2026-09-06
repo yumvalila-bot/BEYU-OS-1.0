@@ -34,6 +34,14 @@ export {
   isEvidenceCurrent,
 } from "./noelia/compliance-engine";
 export type { CertificationState } from "./noelia/compliance-engine";
+export { BeyuNoeliaObservabilityService } from "./noelia/observability";
+export { HiveRuntimeBoundary, resolveHiveExecutionContext, type HiveExecutionContext, type HiveRunInput } from "./noelia/hive-runtime";
+export { BeyuNoeliaKnowledgeFabric, computeKnowledgeDigest } from "./noelia/knowledge-fabric";
+export { BeyuNoeliaEvaluationEngine } from "./noelia/evaluation-engine";
+export { BeyuNoeliaModelOperations } from "./noelia/model-operations";
+export { BeyuNoeliaProductionResilience, BeyuNoeliaCircuitBreaker, type CircuitState } from "./noelia/resilience";
+export { BeyuNoeliaContinuousAssurance, type ContinuousAssuranceAttestation, type AssuranceStatus } from "./noelia/continuous-assurance";
+export { phase5StatusBlock, type Phase5StatusKey, type Phase5StatusRow } from "./noelia/phase5-status";
 
 /** Phase 2 — production model ports: authoritative routing + governed gateway. */
 function createNoeliaModelPorts(): NoeliaModelPorts {

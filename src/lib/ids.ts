@@ -112,6 +112,11 @@ export const ID_PREFIX = {
   monitoringIndicator: "AMI",
   certReadiness: "ACR",
   assessorPackage: "APKG",
+  telemetry: "ATM",
+  span: "ASP",
+  evalRun: "AER",
+  redTeam: "ART",
+  ragEvent: "ARG",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

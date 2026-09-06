@@ -321,6 +321,15 @@ export const knowledgeSources = pgTable(
     supersedesCode: text("supersedes_code"),
     content: text("content").notNull(),
     keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    // ---- Phase 5 knowledge-fabric metadata (migration 0027, additive) ----
+    contentDigest: text("content_digest"),
+    sourceType: text("source_type").notNull().default("GOVERNED_DOCUMENT"),
+    osId: text("os_id"),
+    embeddingStatus: text("embedding_status").notNull().default("NOT_EMBEDDED"),
+    embeddingModelId: text("embedding_model_id"),
+    embeddingDimensions: integer("embedding_dimensions"),
+    chunkCount: integer("chunk_count").notNull().default(0),
+    lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
   },
   (t) => [
     uniqueIndex("knowledge_sources_code_uidx").on(t.code),

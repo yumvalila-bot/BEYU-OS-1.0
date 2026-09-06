@@ -807,7 +807,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // governed cross-OS event idempotency — part of the ledger domain, RLS-
     // isolated like audit_log). Phase 3 adds the append-only AI lifecycle event
     // tables to the same event-name space; they are governance evidence, not a
-    // second audit ledger and remain separate from audit_log.
+    // second audit ledger and remain separate from audit_log. Phase 5 adds the
+    // RAG retrieval audit event table, which records authorization decisions and
+    // excerpt hashes — never retrieved document content.
     expect(names).toEqual([
       "audit_chain_heads",
       "audit_log",
@@ -817,19 +819,23 @@ describe("audit module — never mutates the ledger it inspects", () => {
       "noelia_internal_audits",
       "noelia_model_lifecycle_events",
       "noelia_provider_lifecycle_events",
+      "noelia_rag_retrieval_events",
     ]);
   });
 
   it("adds no migration", async () => {
-    // 26 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // 28 = migrations 0000-0019 (prior baseline) + 0020_service_principals
     // + 0021_financial_ledger_rls + 0022_chart_of_accounts_tenant_uniqueness
     // + 0023_noelia_ai_platform
     // + 0024_noelia_model_runtime
-// + 0025_noelia_model_lifecycle
+    // + 0025_noelia_model_lifecycle
+    // + 0026_noelia_ai_compliance
+    // + 0027_noelia_ai_phase5_platform
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
-    // chart-of-accounts tenant hardening and Phase 1 Noelia AI platform:
+    // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
+    // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(27);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(28);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
