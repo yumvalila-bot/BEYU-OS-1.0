@@ -25,6 +25,15 @@ export { NoeliaToolRegistry } from "./noelia/tool-registry";
 export { decideMemoryVisibility, retrieveGovernedMemory } from "./noelia/memory";
 export { BeyuNoeliaWorkflowService } from "./noelia/workflows";
 export { BeyuNoeliaSchedulerService } from "./noelia/scheduler-service";
+export {
+  BeyuNoeliaComplianceService,
+  ComplianceAccessError,
+  ComplianceStateError,
+  EvidenceIntegrityError,
+  computeEvidenceHash,
+  isEvidenceCurrent,
+} from "./noelia/compliance-engine";
+export type { CertificationState } from "./noelia/compliance-engine";
 
 /** Phase 2 — production model ports: authoritative routing + governed gateway. */
 function createNoeliaModelPorts(): NoeliaModelPorts {
