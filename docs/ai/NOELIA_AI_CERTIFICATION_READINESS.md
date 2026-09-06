@@ -81,6 +81,8 @@ Until that exists, `BeyuDeterministicAnalystProvider.generate()` returns
   count baseline is 25 across the repository).
 - Phase 2 suites: `tests/noelia/ai-platform.test.ts` (8 tests),
   `tests/noelia/runtime-governed-model.test.ts` (6 tests).
-- Full regression in this repository: 104 passing files / 2283 passing tests (125 skipped,
-  116 files) — `npx tsc --noEmit`, `npm run lint` and `npm run build` all clean.
+- Full regression in this repository: **109 passing files / 2308 passing tests, 125 skipped
+  (121 files)** — `npx tsc --noEmit`, `npm run lint`, `npm run build` and
+  `npm run scan:secrets` all clean. `npm audit` reports 4 moderate dev-tooling
+  advisories in the `drizzle-kit`/esbuild chain (no runtime secrets/changes).
 - No ISO, NIST or EU AI Act certification is claimed.

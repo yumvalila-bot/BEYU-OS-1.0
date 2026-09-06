@@ -166,8 +166,11 @@ count baseline updated to 26. No historical migration was rewritten.
 
 ## 30. Full tests
 
-Full `npm test` result is reported in the verification section; targeted Noelia
-and specialist suites are green. See the final regression table for exact counts.
+`npm test`: **109 passing files / 2308 passing tests, 125 skipped (121 files), 0 failed.**
+Targeted Noelia suites: 18 passed / 2 skipped (129 passed tests, 12 skipped).
+`npm run typecheck`, `npm run lint`, `npm run build` and `npm run scan:secrets`
+all clean. `npm audit` reports 4 moderate advisories in dev tooling
+(`drizzle-kit`/esbuild); they are not runtime dependencies.
 
 ## 31. Secret scan
 
@@ -223,7 +226,26 @@ assessment are still required. None are claimed.
 - Structured AI usage/latency cost telemetry for a real runtime.
 - RAG/embeddings: provider-neutral interfaces only; no real vector RAG exists.
 
-## 40. Recommended Phase 4
+## 40. Final verification table
+
+| Control | Status | Evidence | Test | Owner | Risk | External Assessment Required |
+|---|---|---|---|---|---|---|
+| Provider-independent abstraction | IMPLEMENTED | normalized AI contracts | provider-contract | AI Platform | LOW | INTERNAL |
+| No-fabrication generative adapter | IMPLEMENTED | NOT_CONFIGURED/FAIL_CLOSED | provider-contract | AI Security | HIGH | INTERNAL |
+| Real generative inference | BLOCKED | BLOCKED_BY_ENVIRONMENT | provider-contract/runtime | AI Platform | MEDIUM | EXTERNAL |
+| Model lifecycle | IMPLEMENTED | lifecycle events + gate | model-lifecycle | AI Governance | MEDIUM | INTERNAL |
+| Provider lifecycle | IMPLEMENTED | supplier chain | model-lifecycle | AI Governance | MEDIUM | INTERNAL |
+| Provenance/supply chain | IMPLEMENTED | provenance/artifacts | model-lifecycle | AI Governance | MEDIUM | EXTERNAL |
+| Prompt governance | IMPLEMENTED | injection/boundary denial | governance + adversarial | AI Security | HIGH | EXTERNAL |
+| Output governance | IMPLEMENTED | output untrusted | governance | AI Security | HIGH | EXTERNAL |
+| Human oversight | IMPLEMENTED | DUAL_CONTROL/REQUIRED_REVIEW | governance | AI Governance | HIGH | EXTERNAL |
+| Tenant isolation | VERIFIED | runtime role RLS | ai-platform + adversarial | Database Security | CRITICAL | EXTERNAL |
+| Cross-OS authz | VERIFIED | analytic deny for non-grant | adversarial | AI Security | CRITICAL | EXTERNAL |
+| Routing fail-closed | IMPLEMENTED | kill-switch/approval/residency | ai-platform + runtime | AI Platform | HIGH | INTERNAL |
+| Replay protection | IMPLEMENTED | requestId dedupe | ai-platform | AI Platform | MEDIUM | INTERNAL |
+| AI attribution/audit | IMPLEMENTED | ai_decisions attribution | runtime-governed-model | AI Governance | MEDIUM | INTERNAL |
+
+## 41. Recommended Phase 4
 
 1. Provide a real approved BEYU-owned/self-hosted/open-weight runtime mounted
    through `NOELIA_GENERATIVE_ENDPOINT` + a real credential ref.
