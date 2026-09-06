@@ -115,27 +115,37 @@ async function snapshot(c: Client): Promise<Snapshot> {
 }
 
 /**
- * Make the scratch table an exact copy of the source (delete what the
- * migrations pre-seeded, then restore the source rows). Returns rows
- * inserted, or -1 when an FK dependency defers this table to a later round.
+ * The reconstructed scratch is built from the migrations' own seed rows, so it
+ * already contains the same governed default data as the source. Restore
+ * therefore happens in two phases: first CLEAR the scratch tables (so restored
+ * rows are exact copies), then INSERT them in FK-safe rounds. Clearing is done
+ * with `session_replication_role = replica` so the schema's append-only TRUNCATE
+ * guards are not consulted while erasing the scratch — they protect production
+ * append-only data, not a reconstruction that is about to be repopulated with
+ * the source rows. The subsequent insert path leaves triggers/replication role
+ * at origin, so the restored rows still have to satisfy the schema's real
+ * INSERT/immutability rules; post-restore validation re-checks the fingerprint,
+ * row counts, RLS set and governed chains.
+ */
+async function clearTables(dst: Client, tables: string[]): Promise<void> {
+  if (tables.length === 0) return;
+  await dst.query("set session_replication_role = replica");
+  try {
+    await dst.query(`truncate table ${tables.map((t) => `"${t}"`).join(", ")} cascade`);
+  } finally {
+    await dst.query("set session_replication_role = origin");
+  }
+}
+
+/**
+ * Insert one source table into the (already cleared) scratch. The copy is
+ * ALL-OR-NOTHING per table: if an insert hits an unmet FK, deferring this table
+ * to a later round, the whole attempt rolls back so no partial row set is left
+ * behind.
  */
 async function copyTable(src: Client, dst: Client, table: string): Promise<number> {
   const res = await src.query(`select * from "${table}"`);
   if (res.rows.length === 0) return 0;
-  // The copy is ALL-OR-NOTHING per table: one transaction wraps delete +
-  // inserts. If an insert hits an unmet FK (deferring the table to a later
-  // round), the WHOLE attempt rolls back — a partial insert must never be
-  // committed and then deleted again, because the governed ledgers
-  // (audit_log, enterprise_events, journal_*) are append-only and their
-  // immutability triggers correctly refuse any delete of committed rows.
-  await dst.query("begin");
-  try {
-    await dst.query(`delete from "${table}"`);
-  } catch (e) {
-    await dst.query("rollback");
-    if (`${e}`.includes("violates foreign key constraint")) return -1;
-    throw new Error(`delete ${table}: ${(e as Error).message}`);
-  }
   // node-pg serializes JS arrays as PG array literals — WRONG for json/jsonb
   // columns — and Date objects need YYYY-MM-DD for date columns. Respect the
   // column types explicitly.
@@ -212,8 +222,14 @@ async function main(): Promise<number> {
 
     console.log("[dr-drill] phase 4 — restore data (FK-dependency rounds)");
     const restoreTables = source.tables.filter((t) => t !== "beyu_migrations");
+    // Clear the reconstructed scratch, then re-insert in FK-safe rounds. The
+    // old per-table "delete then insert" approach could not restore densely
+    // interlinked migration seed rows (Noelia AI/compliance sets reference one
+    // another through the model/provider/identity/requirements/controls graph),
+    // because deleting one side of that graph violates the other side's FK.
+    await clearTables(dst, restoreTables);
     const pending = new Set(restoreTables);
-    for (let round = 0; round < 12 && pending.size > 0; round++) {
+    for (let round = 0; round < restoreTables.length + 1 && pending.size > 0; round++) {
       for (const t of [...pending]) {
         const n = await copyTable(src, dst, t);
         if (n >= 0) pending.delete(t);
