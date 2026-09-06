@@ -60,6 +60,21 @@ The exact runtime requirement for enabling `REAL_GENERATIVE_INFERENCE` is:
 Until that exists, `BeyuDeterministicAnalystProvider.generate()` returns
 `GENERATIVE_INFERENCE_BLOCKED` and the platform does **not** fabricate inference.
 
+## Phase 3 — governance, lifecycle, provider & compliance readiness
+
+| Item | Status | Evidence |
+|---|---|---|
+| Normalized provider-neutral AI contracts | IMPLEMENTED / TESTED | `model-provider.ts`; `tests/noelia/provider-contract.test.ts` |
+| Real generative adapter scaffolding | ENVIRONMENT_LIMITED / BLOCKED | `OpenAICompatibleAdapter` inert without endpoint+credential ref |
+| Model lifecycle | IMPLEMENTED / TESTED | `model-lifecycle.ts`; migration `0025`; lifecycle test |
+| Provider lifecycle / supplier onboarding | IMPLEMENTED / TESTED | `noelia_provider_lifecycle_events`; lifecycle test |
+| Model provenance / supply chain | IMPLEMENTED / TESTED | `noelia_model_provenance`, `noelia_model_artifacts` |
+| Prompt governance | IMPLEMENTED / TESTED | `governance.ts`; governance + adversarial tests |
+| Output governance | IMPLEMENTED / TESTED | `governance.ts`; governance test |
+| High-risk action human oversight | IMPLEMENTED / TESTED | `governance.ts`; governance test |
+| Tenant/cross-OS isolation verified | VERIFIED | runtime-role RLS + cross-OS adversarial tests |
+| Compliance/evidence architecture | IMPLEMENTED | `src/lib/noelia/compliance.ts` + docs/ai |
+
 ## Harness
 
 - Migrations: `0023_noelia_ai_platform.sql`, `0024_noelia_model_runtime.sql` (applied; migration
