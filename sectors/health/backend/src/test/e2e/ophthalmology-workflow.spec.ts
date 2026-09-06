@@ -72,12 +72,14 @@ async function makeActor(
     [email],
   );
   if ((existing as any[]).length === 0) {
-    const reg = await request(h.app.getHttpServer()).post("/auth/register").send({
-      email,
-      password: "CorrectHorseBattery1!",
-      full_name: email,
-      tenantCode,
-    });
+    const reg = await request(h.app.getHttpServer())
+      .post("/auth/register")
+      .send({
+        email,
+        password: "CorrectHorseBattery1!",
+        full_name: email,
+        tenantCode,
+      });
     expect(reg.status).toBe(201);
   }
   const u = await h.conn.query(
@@ -139,7 +141,9 @@ describe("HTTP E2E — Ophthalmology clinical journey (happy path + mapped denia
         blocked: steps.filter((s) => s.status === "BLOCKED").length,
       },
       rlsProof: {
-        engine: process.env.TEST_DATABASE_URL ? "real-postgres" : "pglite-setrole",
+        engine: process.env.TEST_DATABASE_URL
+          ? "real-postgres"
+          : "pglite-setrole",
         spec: "src/modules/ophthalmology/ophthalmology.rls-isolation.spec.ts",
       },
       steps,
@@ -244,8 +248,7 @@ describe("HTTP E2E — Ophthalmology clinical journey (happy path + mapped denia
           .set("Authorization", `Bearer ${doctorAToken}`)
           .send({});
         return {
-          status:
-            (r.status === 200 || r.status === 201) && !!r.body?.signed_at,
+          status: (r.status === 200 || r.status === 201) && !!r.body?.signed_at,
           detail: `status=${r.status} signed_at=${r.body?.signed_at ?? "none"}`,
         };
       },

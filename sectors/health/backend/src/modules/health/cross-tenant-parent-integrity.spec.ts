@@ -33,7 +33,14 @@ const LAB_ORDER_A = "77777777-7777-7777-7777-777777777777";
 const LAB_ORDER_B = "77777777-7777-7777-7777-777777777778";
 const LAB_TEST_B = "88888888-8888-8888-8888-888888888888";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
 async function nonOwnerInsert(
   conn: TestDbConnection,
@@ -96,7 +103,9 @@ describe("health patient child tables reject cross-tenant parent", () => {
          health.lab_order_items, health.departments, health.lab_tests
        TO rls_xt_app`,
     );
-    await conn.exec(`GRANT SELECT ON health.patients, beyu_identity.tenants TO rls_xt_app`);
+    await conn.exec(
+      `GRANT SELECT ON health.patients, beyu_identity.tenants TO rls_xt_app`,
+    );
   });
 
   afterAll(async () => {

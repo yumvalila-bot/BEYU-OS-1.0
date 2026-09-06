@@ -34,12 +34,16 @@ const TENANT_B = "22222222-2222-2222-2222-222222222222";
 const PATIENT_A = "33333333-3333-3333-3333-333333333333";
 const EXAM_A = "44444444-4444-4444-4444-444444444444";
 
-const MIG_DIR = path.resolve(__dirname, "..", "..", "..", "database", "migrations");
+const MIG_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
-async function count(
-  conn: TestDbConnection,
-  where = "",
-): Promise<number> {
+async function count(conn: TestDbConnection, where = ""): Promise<number> {
   const r = await conn.query(
     `SELECT count(*)::int AS n FROM health.eye_exams ${where}`,
   );
@@ -144,9 +148,7 @@ describe("health.eye_exams RLS (non-owner database role)", () => {
     await conn.exec(`SET app.tenant_id = '${TENANT_A}'`);
     await conn.exec(`SET ROLE rls_oph_app`);
     expect(await count(conn)).toBe(1);
-    expect(
-      await count(conn, `WHERE tenant_id::text = '${TENANT_A}'`),
-    ).toBe(1);
+    expect(await count(conn, `WHERE tenant_id::text = '${TENANT_A}'`)).toBe(1);
     await conn.exec(`RESET ROLE`);
     await conn.exec(`RESET app.tenant_id`);
   });
