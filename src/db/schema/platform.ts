@@ -597,6 +597,11 @@ export const modelRegistry = pgTable(
     license: text("license"),
     checksum: text("checksum"),
     source: text("source"),
+    // ---- Phase 3 lifecycle/provenance status (migration 0025) ----
+    lifecycleStatus: text("lifecycle_status").notNull().default("REGISTERED"),
+    provenanceStatus: text("provenance_status").notNull().default("EVIDENCE_REQUIRED"),
+    verificationStatus: text("verification_status").notNull().default("NOT_VERIFIED"),
+    riskStatus: text("risk_status").notNull().default("NOT_ASSESSED"),
     createdBy: text("created_by").notNull().default("SYSTEM"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

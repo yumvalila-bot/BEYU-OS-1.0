@@ -70,6 +70,7 @@ export const noeliaProviders = pgTable(
     authenticationMethod: text("authentication_method").notNull().default("NONE"),
     securityStatus: text("security_status").notNull().default("NOT_ASSESSED"),
     complianceStatus: text("compliance_status").notNull().default("NOT_ASSESSED"),
+    lifecycleStatus: text("lifecycle_status").notNull().default("REGISTERED"),
     active: boolean("active").notNull().default(false),
     description: text("description"),
     assessment: jsonb("assessment").$type<Record<string, unknown>>().notNull().default({}),
@@ -78,6 +79,145 @@ export const noeliaProviders = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("noelia_providers_name_uidx").on(t.providerName)],
+);
+
+/**
+ * Model lifecycle events (Phase 3, prompt sections 11/34).
+ *
+ * A model reaches ACTIVE only through a recorded chain from REGISTERED →
+ * PROVENANCE VERIFY → SECURITY REVIEW → EVALUATE → RISK ASSESS → APPROVE →
+ * CANARY → ACTIVE. This is append-only governance evidence; a lifecycle row
+ * never grants authority by itself.
+ */
+export const noeliaModelLifecycleEvents = pgTable(
+  "noelia_model_lifecycle_events",
+  {
+    id: text("id").primaryKey(),
+    modelId: text("model_id")
+      .notNull()
+      .references(() => modelRegistry.id),
+    modelVersion: text("model_version").notNull(),
+    providerId: text("provider_id").references(() => noeliaProviders.id),
+    lifecycleState: text("lifecycle_state").notNull(),
+    previousState: text("previous_state"),
+    reason: text("reason").notNull(),
+    actor: text("actor").notNull(),
+    requestId: text("request_id"),
+    traceId: text("trace_id"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => [
+    index("noelia_model_lifecycle_model_idx").on(t.modelId, t.modelVersion),
+    index("noelia_model_lifecycle_state_idx").on(t.lifecycleState),
+    index("noelia_model_lifecycle_request_idx").on(t.requestId),
+  ],
+);
+
+/**
+ * Model provenance (Phase 3, prompt sections 12/13).
+ *
+ * Records origin, publisher, artifact identity, checksum, license, source,
+ * deployment, transformation and adapter lineage. BEYU ownership is never
+ * claimed without an explicit `origin`/`publisher` value.
+ */
+export const noeliaModelProvenance = pgTable(
+  "noelia_model_provenance",
+  {
+    id: text("id").primaryKey(),
+    modelId: text("model_id")
+      .notNull()
+      .references(() => modelRegistry.id),
+    modelVersion: text("model_version").notNull(),
+    providerId: text("provider_id").references(() => noeliaProviders.id),
+    origin: text("origin").notNull(),
+    publisher: text("publisher").notNull(),
+    family: text("family"),
+    artifactIdentity: text("artifact_identity"),
+    checksum: text("checksum"),
+    license: text("license"),
+    sourceUri: text("source_uri"),
+    deployment: text("deployment").notNull().default("SELF_HOSTED"),
+    transformation: text("transformation").notNull().default("NONE"),
+    baseModelId: text("base_model_id"),
+    baseModelVersion: text("base_model_version"),
+    fineTune: text("fine_tune"),
+    quantization: text("quantization"),
+    adapterLineage: jsonb("adapter_lineage").$type<Record<string, unknown>>().notNull().default({}),
+    verificationStatus: text("verification_status").notNull().default("NOT_VERIFIED"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifier: text("verifier"),
+    supplyChainNotes: text("supply_chain_notes"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("noelia_model_provenance_model_version_uidx").on(t.modelId, t.modelVersion),
+    index("noelia_model_provenance_verification_idx").on(t.verificationStatus),
+  ],
+);
+
+/**
+ * Model artifacts (Phase 3, prompt sections 12/13).
+ *
+ * Each non-secret artifact identity is recorded with its checksum. Artifact
+ * URIs are governance metadata; credentials and private keys are never stored.
+ */
+export const noeliaModelArtifacts = pgTable(
+  "noelia_model_artifacts",
+  {
+    id: text("id").primaryKey(),
+    modelId: text("model_id")
+      .notNull()
+      .references(() => modelRegistry.id),
+    modelVersion: text("model_version").notNull(),
+    kind: text("kind").notNull().default("WEIGHTS"),
+    uri: text("uri").notNull(),
+    checksum: text("checksum").notNull(),
+    sizeBytes: integer("size_bytes"),
+    license: text("license"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("noelia_model_artifacts_model_version_checksum_uidx").on(t.modelId, t.modelVersion, t.checksum),
+    index("noelia_model_artifacts_model_idx").on(t.modelId, t.modelVersion),
+  ],
+);
+
+/**
+ * Provider lifecycle events (Phase 3, prompt section 55).
+ *
+ * External providers are suppliers. Their onboarding chain is append-only and
+ * must be: REGISTER → IDENTIFY → SECURITY REVIEW → PRIVACY REVIEW → DATA REVIEW
+ * → RESIDENCY REVIEW → CONTRACT REVIEW → RISK ASSESS → EVALUATION → APPROVAL →
+ * ACTIVATION. No automatic approval.
+ */
+export const noeliaProviderLifecycleEvents = pgTable(
+  "noelia_provider_lifecycle_events",
+  {
+    id: text("id").primaryKey(),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => noeliaProviders.id),
+    lifecycleState: text("lifecycle_state").notNull(),
+    previousState: text("previous_state"),
+    reason: text("reason").notNull(),
+    actor: text("actor").notNull(),
+    requestId: text("request_id"),
+    traceId: text("trace_id"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => [
+    index("noelia_provider_lifecycle_provider_idx").on(t.providerId),
+    index("noelia_provider_lifecycle_state_idx").on(t.lifecycleState),
+    index("noelia_provider_lifecycle_request_idx").on(t.requestId),
+  ],
 );
 
 /**

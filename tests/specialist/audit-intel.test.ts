@@ -805,25 +805,30 @@ describe("audit module — never mutates the ledger it inspects", () => {
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
     // governed cross-OS event idempotency — part of the ledger domain, RLS-
-    // isolated like audit_log). Nothing else added.
+    // isolated like audit_log). Phase 3 adds the append-only AI lifecycle event
+    // tables to the same event-name space; they are governance evidence, not a
+    // second audit ledger and remain separate from audit_log.
     expect(names).toEqual([
       "audit_chain_heads",
       "audit_log",
       "employment_events",
       "enterprise_events",
       "internal_event_receipts",
+      "noelia_model_lifecycle_events",
+      "noelia_provider_lifecycle_events",
     ]);
   });
 
   it("adds no migration", async () => {
-    // 25 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // 26 = migrations 0000-0019 (prior baseline) + 0020_service_principals
     // + 0021_financial_ledger_rls + 0022_chart_of_accounts_tenant_uniqueness
     // + 0023_noelia_ai_platform
     // + 0024_noelia_model_runtime
+// + 0025_noelia_model_lifecycle
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening and Phase 1 Noelia AI platform:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(25);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

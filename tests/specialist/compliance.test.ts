@@ -1105,8 +1105,9 @@ describe("compliance module — creates no second truth", () => {
 // + 0021 financial-ledger RLS + 0022 chart-of-accounts tenant uniqueness
 // + 0023_noelia_ai_platform
 // + 0024_noelia_model_runtime
+// + 0025_noelia_model_lifecycle
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(25);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(26);
   });
 
   it("leaves all triggers enabled", async () => {

@@ -94,6 +94,10 @@ export const ID_PREFIX = {
   incident: "AIC",
   killSwitch: "AKS",
   routing: "ART",
+  modelLifecycle: "MLC",
+  providerLifecycle: "PLC",
+  modelProvenance: "MPV",
+  modelArtifact: "MAT",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
