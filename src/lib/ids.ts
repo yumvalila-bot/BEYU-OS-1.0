@@ -87,6 +87,13 @@ export const ID_PREFIX = {
   dataAsset: "DAT",
   adr: "ADR",
   regulatoryChange: "REG",
+  aiIdentity: "AII",
+  provider: "PROV",
+  model: "MOD",
+  evaluation: "AEV",
+  incident: "AIC",
+  killSwitch: "AKS",
+  routing: "ART",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

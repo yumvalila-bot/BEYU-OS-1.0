@@ -574,6 +574,28 @@ export const modelRegistry = pgTable(
     effectiveFrom: date("effective_from"),
     /** Retirement timestamp; a retired model must not be selected. */
     retiredAt: timestamp("retired_at", { withTimezone: true }),
+    // ---- Provider-independent router metadata (migration 0023) ----
+    providerId: text("provider_id"),
+    modelFamily: text("model_family"),
+    modelType: text("model_type").notNull().default("GENERAL"),
+    capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+    inputModalities: jsonb("input_modalities").$type<string[]>().notNull().default(["TEXT"]),
+    outputModalities: jsonb("output_modalities").$type<string[]>().notNull().default(["TEXT"]),
+    contextWindow: integer("context_window"),
+    deploymentType: text("deployment_type").notNull().default("SELF_HOSTED"),
+    hostingLocation: text("hosting_location"),
+    dataResidency: text("data_residency").notNull().default("BEYU_CONTROLLED"),
+    riskLevel: text("risk_level").notNull().default("LOW"),
+    approvalStatus: text("approval_status").notNull().default("PENDING"), // PENDING | APPROVED | REJECTED | SUSPENDED
+    evaluationStatus: text("evaluation_status").notNull().default("NOT_EVALUATED"),
+    securityStatus: text("security_status").notNull().default("NOT_ASSESSED"),
+    modelCardVersion: text("model_card_version"),
+    license: text("license"),
+    checksum: text("checksum"),
+    source: text("source"),
+    createdBy: text("created_by").notNull().default("SYSTEM"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("model_registry_provider_model_version_uidx").on(t.provider, t.model, t.version)],
 );

@@ -77,6 +77,23 @@
 - Tests added: `workflow-integration.test.ts` (8), `scheduler-integration.test.ts` (3);
   existing suites extended with governed metadata.
 
+## Phase 1 — provider-independent AI platform registry (2026-09-06)
+
+`0023_noelia_ai_platform.sql` + `src/db/schema/ai.ts` add the governed AI platform
+substrate without changing the existing HIVE/tool authorization boundary:
+
+- `noelia_ai_identity` (`AII_NOELIA`) — separate from human `GlobalUserID`; no role grants.
+- `noelia_providers` — `BEYU_OWNED` / `SELF_HOSTED` / `OPEN_WEIGHT` / `EXTERNAL`, default `active=false`.
+- Router metadata on `model_registry` — provider/family/type/capabilities/modalities/context,
+  deployment/residency, risk/approval/evaluation/security, model card/licence/source.
+- `noelia_evaluations`, `noelia_risk_register`, `noelia_incidents`, `noelia_kill_switch`,
+  `noelia_routing_decisions`.
+
+Tenant-scoped AI tables enforce `FORCE ROW LEVEL SECURITY` via `beyu_tenant_ids()` /
+`beyu_global_scope()`. `BeyuNoeliaAiPlatformService` (`src/lib/noelia/ai-platform.ts`) adds a
+deterministic fail-closed model router and read tools for identity/providers/evaluations/risk/
+incidents/kill-switch/routing. External providers remain optional and BLOCKED until activated.
+
 ## Final classification
 
 | Class | Items |

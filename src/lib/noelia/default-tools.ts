@@ -9,6 +9,7 @@ import { BeyuNoeliaLegalService } from "./legal-service";
 import { BeyuNoeliaHealthBoundary } from "./health-boundary";
 import { BeyuNoeliaMemoryService } from "./enterprise-memory";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
+import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { can } from "@/lib/authz";
 
 /**
@@ -91,6 +92,7 @@ export function createDefaultNoeliaToolRegistry(
   health = new BeyuNoeliaHealthBoundary(),
   memory = new BeyuNoeliaMemoryService(),
   models = new BeyuNoeliaModelGateway(),
+  aiPlatform = new BeyuNoeliaAiPlatformService(),
 ): NoeliaToolRegistry {
   const registry = new NoeliaToolRegistry();
 
@@ -924,6 +926,229 @@ export function createDefaultNoeliaToolRegistry(
       outputSchema: noeliaToolOutputSchema,
     },
     execute: (context) => models.registry(context),
+  });
+
+  /* ---------------- Noelia AI platform (schema 0023) ---------------- */
+
+  registry.register({
+    name: "ai.identity.read",
+    permission: "ai:identity.read",
+    classification: "INTERNAL",
+    risk: "LOW",
+    description: "Read the canonical BEYU AI identity registry (e.g. NOELIA).",
+    metadata: {
+      stableId: "cap-ai-identity-read",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "NONE",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.identity(context),
+  });
+  registry.register({
+    name: "ai.providers.list",
+    permission: "ai:provider.registry.read",
+    classification: "INTERNAL",
+    risk: "LOW",
+    description: "List the governed AI provider registry; external providers always reported as optional/inactive unless activated.",
+    metadata: {
+      stableId: "cap-ai-providers-list",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "NONE",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.providers(context),
+  });
+  registry.register({
+    name: "ai.evaluations.list",
+    permission: "ai:evaluation.read",
+    classification: "INTERNAL",
+    risk: "LOW",
+    description: "List governed model evaluation evidence (evidence, not certificates).",
+    metadata: {
+      stableId: "cap-ai-evaluations-list",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "NONE",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.evaluations(context),
+  });
+  registry.register({
+    name: "ai.risk.register.list",
+    permission: "ai:risk.register.read",
+    classification: "RESTRICTED",
+    risk: "LOW",
+    description: "Read the BEYU AI risk register.",
+    metadata: {
+      stableId: "cap-ai-risk-register-list",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "NONE",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.riskRegister(context),
+  });
+  registry.register({
+    name: "ai.incidents.list",
+    permission: "ai:incident.manage",
+    classification: "RESTRICTED",
+    risk: "LOW",
+    description: "List AI incidents visible in the requesting tenant scope.",
+    metadata: {
+      stableId: "cap-ai-incidents-list",
+      version: "1.0.0",
+      ownerRole: "AI_SECURITY_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.incidents(context),
+  });
+  registry.register({
+    name: "ai.killswitch.list",
+    permission: "ai:killswitch.manage",
+    classification: "RESTRICTED",
+    risk: "LOW",
+    description: "List active and historical kill switch records.",
+    metadata: {
+      stableId: "cap-ai-killswitch-list",
+      version: "1.0.0",
+      ownerRole: "AI_SECURITY_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.killSwitches(context),
+  });
+  registry.register({
+    name: "ai.routing.decisions.list",
+    permission: "ai:model.router.read",
+    classification: "RESTRICTED",
+    risk: "LOW",
+    description: "Read non-sensitive model routing decision metadata within the requesting tenant scope.",
+    metadata: {
+      stableId: "cap-ai-routing-decisions-list",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => aiPlatform.routingDecisions(context),
+  });
+  registry.register({
+    name: "ai.model.route",
+    permission: "ai:model.registry.read",
+    classification: "RESTRICTED",
+    risk: "LOW",
+    description: "Deterministically route a capability to a governed model; fails closed when no approved model satisfies the context.",
+    metadata: {
+      stableId: "cap-ai-model-route",
+      version: "1.0.0",
+      ownerRole: "AI_GOVERNANCE_OFFICER",
+      domain: "AI",
+      sideEffects: "DOMAIN_WRITE",
+      idempotent: false,
+      timeoutMs: 10000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_ROUTING_DECISION" },
+      inputSchema: z.object({
+        task: z.string().min(2).max(200),
+        capability: z.string().min(2).max(100),
+        classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
+        riskLevel: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("LOW"),
+        legalEntityId: z.string().nullable().optional(),
+        countryCode: z.string().length(2).nullable().optional(),
+        osId: z.string().nullable().optional(),
+      }).strict(),
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context, input) => {
+      const parsed = z.object({
+        task: z.string().min(2).max(200),
+        capability: z.string().min(2).max(100),
+        classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
+        riskLevel: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("LOW"),
+        legalEntityId: z.string().nullable().optional(),
+        countryCode: z.string().length(2).nullable().optional(),
+        osId: z.string().nullable().optional(),
+      }).parse(input ?? {});
+      return aiPlatform.routeOutput(context, {
+        tenantId: context.target.tenantId,
+        legalEntityId: parsed.legalEntityId ?? context.target.legalEntityId,
+        countryCode: parsed.countryCode ?? context.target.countryCode,
+        osId: parsed.osId ?? null,
+        task: parsed.task,
+        capability: parsed.capability,
+        classification: parsed.classification,
+        riskLevel: parsed.riskLevel,
+      });
+    },
   });
 
   /* ---------------- Cross-OS intelligence ---------------- */
