@@ -149,7 +149,7 @@ GlobalUserID uniqueness migration present; identity graph/adversarial/Health bri
 
 ## FINANCE RESULTS
 
-Full targeted finance run passes (multiple suites; 585 targeted total includes finance).
+Root finance regression: **13 files / 369 / 369 PASS**. CAP_POSTING, ledger-write-authority, journal-scope-integrity and accounting-substrate suites included and PASS.
 
 ## CAP_POSTING RESULTS
 
@@ -161,7 +161,7 @@ ledger-integrity 18/18, ledger-write-authority 6/6, ledger-control-durability 6/
 
 ## AUDIT RESULTS
 
-audit-concurrency 6/6, atomic-audit 3/3, audit-truncate/policy-window 7/7, Health audit-chain 89-test subset, DR-drill chain intact. PASS.
+audit-concurrency 6/6, atomic-audit 3/3, audit-truncate/policy-window 7/7, Health `audit-chain-integrity` + `outbound-audit-integrity` real-PG security subset (included in 94/94), DR-drill chain intact. PASS.
 
 ## HEALTH RESULTS
 
