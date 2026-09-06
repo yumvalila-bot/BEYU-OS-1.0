@@ -62,8 +62,10 @@ Until that exists, `BeyuDeterministicAnalystProvider.generate()` returns
 
 ## Harness
 
-- Migrations: `0023_noelia_ai_platform.sql`, `0024_noelia_model_runtime.sql` (applied).
-- Tests: `tests/noelia/ai-platform.test.ts`, `tests/noelia/runtime-governed-model.test.ts`.
-- Full regression: 103 passing files / 2274 passing tests before Phase 2; Phase 2 suites added on
-  top and re-run in this repository.
+- Migrations: `0023_noelia_ai_platform.sql`, `0024_noelia_model_runtime.sql` (applied; migration
+  count baseline is 25 across the repository).
+- Phase 2 suites: `tests/noelia/ai-platform.test.ts` (8 tests),
+  `tests/noelia/runtime-governed-model.test.ts` (6 tests).
+- Full regression in this repository: 104 passing files / 2283 passing tests (125 skipped,
+  116 files) — `npx tsc --noEmit`, `npm run lint` and `npm run build` all clean.
 - No ISO, NIST or EU AI Act certification is claimed.
