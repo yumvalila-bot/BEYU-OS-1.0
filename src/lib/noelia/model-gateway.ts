@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import { modelRegistry } from "@/db/schema";
+import { BeyuDeterministicAnalystProvider, type AIModelProvider, type GovernedModelRoute, type ModelExecutionRequest, type ModelExecutionResult } from "./model-provider";
+import type { NoeliaRouteRequest } from "./ai-platform";
 import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
 
 /**
@@ -18,11 +20,167 @@ import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
  * provider activation is a governed write that requires authority.
  */
 export class BeyuNoeliaModelGateway {
+  private readonly providers: Map<string, AIModelProvider>;
+
+  constructor(providers?: AIModelProvider[]) {
+    this.providers = new Map((providers ?? [new BeyuDeterministicAnalystProvider()]).map((provider) => [provider.id, provider]));
+  }
+
   private requireContext(): void {
     if (!hasDatabaseTransactionContext()) {
       throw new Error("Noelia model gateway requires canonical transaction-scoped tenant context");
     }
   }
+
+  /** Provider-neutral surface: list the registered model runtimes. */
+  async listProviders(_context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    this.requireContext();
+    const rows = [...this.providers.values()];
+    return {
+      headline: `${rows.length} model runtime adapter(s) registered.`,
+      findings: rows.map((provider) => ({
+        label: provider.providerName,
+        value: `${provider.kind} · ${provider.getCapabilities().join(", ")}`,
+        kind: "FACT" as const,
+      })),
+      sources: rows.map((provider) => ({
+        kind: "MODEL_RUNTIME",
+        ref: provider.id,
+        label: provider.providerName,
+        authority: "MODEL_GATEWAY",
+      })),
+      narrative:
+        "Adapters are implementations, not activations. Generative runtimes remain BLOCKED until a real runtime is available; the deterministic BEYU analyst is the first governed adapter.",
+      confidence: 0.95,
+      metadata: {
+        adapters: rows.map((provider) => ({
+          id: provider.id,
+          providerName: provider.providerName,
+          kind: provider.kind,
+          capabilities: provider.getCapabilities(),
+          generativeInference: provider.kind !== "DETERMINISTIC_ANALYST",
+        })),
+      },
+    };
+  }
+
+  /**
+   * Explicit execution of a governed, already-routed model.
+   *
+   * The routing decision is authoritative at this boundary. If the route was
+   * not SELECTED, the gateway returns BLOCKED and never invokes a runtime.
+   */
+  async executeRouted(
+    context: ToolInvocationContext,
+    route: GovernedModelRoute,
+    request: Omit<NoeliaRouteRequest, "task" | "capability" | "classification" | "riskLevel"> & {
+      task: string;
+      capability: string;
+      classification: NoeliaRouteRequest["classification"];
+      riskLevel: NoeliaRouteRequest["riskLevel"];
+      requestId: string;
+      routingId: string;
+    },
+  ): Promise<ModelExecutionResult> {
+    this.requireContext();
+
+    if (route.decision !== "SELECTED" || !route.selectedModelId) {
+      return {
+        requestId: request.requestId,
+        routingId: request.routingId,
+        modelId: "none",
+        modelVersion: "none",
+        providerId: null,
+        providerName: null,
+        modelKind: "UNKNOWN",
+        status: "BLOCKED",
+        output: null,
+        error: route.reasons.join(" "),
+        metadata: { blockedBy: "MODEL_ROUTE", reasons: route.reasons },
+        executedAt: new Date().toISOString(),
+      };
+    }
+
+    const providerId = route.selectedProviderId ?? null;
+    const provider = providerId ? this.providers.get(providerId) : undefined;
+    if (!provider) {
+      return this.unavailable({ ...request, selectedModelId: route.selectedModelId ?? "none" }, route, providerId, `No registered model runtime for provider ${providerId ?? "none"}.`);
+    }
+
+    const [modelRow] = await db.select().from(modelRegistry).where(eq(modelRegistry.id, route.selectedModelId)).limit(1);
+    if (!modelRow) {
+      return this.unavailable({ ...request, selectedModelId: route.selectedModelId ?? "none" }, route, providerId, `Routed model ${route.selectedModelId} is not present in the governed registry.`);
+    }
+    if (modelRow.status !== "ACTIVE" || modelRow.approvalStatus !== "APPROVED" || modelRow.evaluationStatus !== "APPROVED") {
+      return this.unavailable({ ...request, selectedModelId: route.selectedModelId ?? "none" }, route, providerId, `Routed model ${route.selectedModelId} is not ACTIVE/APPROVED/APPROVED.`);
+    }
+
+    const executionRequest: ModelExecutionRequest = {
+      requestId: request.requestId,
+      routingId: request.routingId,
+      tenantId: request.tenantId,
+      legalEntityId: request.legalEntityId,
+      countryCode: request.countryCode,
+      osId: request.osId ?? null,
+      task: request.task,
+      capability: request.capability,
+      classification: request.classification,
+      riskLevel: request.riskLevel,
+      selectedModelId: route.selectedModelId,
+      selectedProviderId: providerId,
+      traceId: context.traceId,
+    };
+
+    try {
+      const result = await provider.execute(executionRequest);
+      return {
+        ...result,
+        modelKind: provider.kind,
+      };
+    } catch (err) {
+      return {
+        requestId: request.requestId,
+        routingId: request.routingId,
+        modelId: modelRow.id,
+        modelVersion: modelRow.version,
+        providerId,
+        providerName: provider.providerName,
+        modelKind: provider.kind,
+        status: "FAIL_CLOSED",
+        output: null,
+        error: String((err as Error)?.message ?? err),
+        metadata: { blockedBy: "MODEL_RUNTIME_ERROR" },
+        executedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  private unavailable(
+    request: {
+      requestId: string;
+      routingId: string;
+      selectedModelId: string;
+    },
+    _route: GovernedModelRoute,
+    providerId: string | null,
+    error: string,
+  ): ModelExecutionResult {
+    return {
+      requestId: request.requestId,
+      routingId: request.routingId,
+      modelId: request.selectedModelId,
+      modelVersion: "unknown",
+      providerId,
+      providerName: null,
+      modelKind: "UNKNOWN",
+      status: "FAIL_CLOSED",
+      output: null,
+      error,
+      metadata: { blockedBy: "MODEL_GATEWAY" },
+      executedAt: new Date().toISOString(),
+    };
+  }
+
 
   async registry(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
     this.requireContext();

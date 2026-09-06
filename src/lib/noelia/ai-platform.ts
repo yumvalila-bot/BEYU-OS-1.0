@@ -20,6 +20,8 @@ function requireCanonicalContext(): void {
 }
 
 export type NoeliaRouteRequest = {
+  /** Stable caller-supplied request id enables replay protection (additive). */
+  requestId?: string;
   tenantId: string;
   legalEntityId: string | null;
   countryCode: string | null;
@@ -327,8 +329,28 @@ export class BeyuNoeliaAiPlatformService {
   async route(context: ToolInvocationContext, request: NoeliaRouteRequest): Promise<NoeliaRouteVerdict> {
     requireCanonicalContext();
 
-    const requestId = `REQ_${Date.now()}_${context.traceId}`;
+    const requestId = request.requestId ?? `REQ_${Date.now()}_${context.traceId}`;
     const reasons: string[] = [];
+    const routingId = `ART_${Date.now()}_${context.traceId}`;
+
+    // Replay protection: a previously recorded routing decision for the same
+    // requestId is authoritative and is not inserted a second time.
+    const existing = await db
+      .select()
+      .from(noeliaRoutingDecisions)
+      .where(eq(noeliaRoutingDecisions.requestId, requestId))
+      .limit(1);
+    if (existing.length > 0) {
+      const prior = existing[0];
+      return {
+        decision: prior.decision === "SELECTED" ? "SELECTED" : prior.decision === "FAIL_CLOSED" ? "FAIL_CLOSED" : "DENIED",
+        selectedModelId: prior.selectedModelId,
+        selectedProviderId: prior.selectedProviderId,
+        reasons: prior.denialReasons.length ? prior.denialReasons : ["Replay: routing decision already recorded."],
+        requestId: prior.requestId,
+        routingId: prior.id,
+      };
+    }
 
     // 1. Kill switch: an enabled switch at ANY matching scope denies first.
     const killSwitches = await db.select().from(noeliaKillSwitch).where(eq(noeliaKillSwitch.enabled, true));
@@ -339,13 +361,32 @@ export class BeyuNoeliaAiPlatformService {
         switched.targetType === "TENANT" && switched.targetRef === request.tenantId ||
         switched.targetType === "CAPABILITY" && switched.targetRef === request.capability;
       if (matches) {
+        const denialReasons = [`Active kill switch ${switched.targetType}:${switched.targetRef} blocks ${request.capability}.`];
+        await db.insert(noeliaRoutingDecisions).values({
+          id: routingId,
+          requestId,
+          tenantId: request.tenantId,
+          legalEntityId: request.legalEntityId,
+          countryCode: request.countryCode,
+          osId: request.osId ?? null,
+          task: request.task,
+          capability: request.capability,
+          classification: request.classification,
+          riskLevel: request.riskLevel,
+          selectedModelId: null,
+          selectedProviderId: null,
+          decision: "FAIL_CLOSED",
+          denialReasons,
+          policyVersion: "2026.09",
+          createdBy: "NOELIA",
+        });
         return {
           decision: "FAIL_CLOSED",
           selectedModelId: null,
           selectedProviderId: null,
-          reasons: [`Active kill switch ${switched.targetType}:${switched.targetRef} blocks ${request.capability}.`],
+          reasons: denialReasons,
           requestId,
-          routingId: "",
+          routingId,
         };
       }
     }
@@ -368,6 +409,18 @@ export class BeyuNoeliaAiPlatformService {
       }
       if (model.dataResidency !== "BEYU_CONTROLLED" && request.countryCode && model.hostingLocation && model.hostingLocation !== request.countryCode) {
         reasons.push(`Model ${model.id} hosting ${model.hostingLocation} does not satisfy ${request.countryCode} residency.`);
+        continue;
+      }
+      // Restricted/internal data is never routed to a non-BEYU-controlled or
+      // external runtime while the provider is not formally trusted. This is a
+      // fail-closed data-residency guard, not a policy that external providers
+      // cannot eventually be qualified.
+      if (
+        isKnownClassification(request.classification) &&
+        classificationRank(request.classification) > classificationRank("INTERNAL") &&
+        (model.deploymentType === "EXTERNAL" || model.dataResidency !== "BEYU_CONTROLLED")
+      ) {
+        reasons.push(`Model ${model.id} is external/non-BEYU-controlled and cannot carry ${request.classification}.`);
         continue;
       }
       const providerRows = model.providerId
@@ -396,18 +449,38 @@ export class BeyuNoeliaAiPlatformService {
     });
 
     if (candidates.length === 0) {
+      const denialReasons = reasons.length
+        ? reasons
+        : ["No approved and evaluated model satisfies the requested capability, classification or residency."];
+      await db.insert(noeliaRoutingDecisions).values({
+        id: routingId,
+        requestId,
+        tenantId: request.tenantId,
+        legalEntityId: request.legalEntityId,
+        countryCode: request.countryCode,
+        osId: request.osId ?? null,
+        task: request.task,
+        capability: request.capability,
+        classification: request.classification,
+        riskLevel: request.riskLevel,
+        selectedModelId: null,
+        selectedProviderId: null,
+        decision: "FAIL_CLOSED",
+        denialReasons,
+        policyVersion: "2026.09",
+        createdBy: "NOELIA",
+      });
       return {
         decision: "DENIED",
         selectedModelId: null,
         selectedProviderId: null,
-        reasons: reasons.length ? reasons : ["No approved and evaluated model satisfies the requested capability, classification or residency."],
+        reasons: denialReasons,
         requestId,
-        routingId: "",
+        routingId,
       };
     }
 
     const chosen = candidates[0];
-    const routingId = `ART_${Date.now()}_${context.traceId}`;
     await db.insert(noeliaRoutingDecisions).values({
       id: routingId,
       requestId,
@@ -441,16 +514,8 @@ export class BeyuNoeliaAiPlatformService {
   async routeOutput(context: ToolInvocationContext, request: NoeliaRouteRequest): Promise<NoeliaToolOutput> {
     const verdict = await this.route(context, request);
 
-    // Denials and fail-closed verdicts are evidence too: persist a non-sensitive
-    // routing decision so the ledger shows why nothing was selected.
-    if (verdict.decision !== "SELECTED" && !verdict.routingId) {
-      const denied = await this.writeRoutingDenial(context, request, verdict.reasons);
-      return {
-        ...denied,
-        metadata: { ...(denied.metadata ?? {}), verdict },
-      };
-    }
-
+    // `route()` persists every decision (SELECTED and FAIL_CLOSED). Denials and
+    // fail-closed verdicts are evidence too; routeOutput only renders them.
     const humanReviewRequired = verdict.decision !== "SELECTED";
     return {
       headline:

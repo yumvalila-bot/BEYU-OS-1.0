@@ -1017,14 +1017,15 @@ describe("risk module — leaves governance and financial state untouched", () =
   });
 
   it("adds no migration: the substrate is unchanged by Phase 7D", async () => {
-    // 24 = migrations 0000-0019 (prior baseline) + 0020_service_principals
+    // 25 = migrations 0000-0019 (prior baseline) + 0020_service_principals
     // + 0021_financial_ledger_rls + 0022_chart_of_accounts_tenant_uniqueness
     // + 0023_noelia_ai_platform
+// + 0024_noelia_model_runtime
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening and Phase 1 Noelia AI platform:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(24);
+    expect(n).toBe(25);
   });
 
   it("leaves all triggers enabled", async () => {

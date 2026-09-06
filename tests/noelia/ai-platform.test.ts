@@ -12,9 +12,11 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { db, withDatabaseTransactionContext } from "@/db";
 import {
+  modelRegistry,
   noeliaIncidents,
   noeliaKillSwitch,
   noeliaRoutingDecisions,
+  noeliaProviders,
 } from "@/db/schema";
 import { BeyuNoeliaAiPlatformService } from "@/lib/noelia/ai-platform";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
@@ -300,6 +302,185 @@ describe("Noelia AI platform routing (migration 0023)", () => {
       const n = Number(count.rows?.[0]?.n ?? 0);
       expect(output.findings?.length ?? 0).toBe(n);
       expect(output.narrative).toMatch(/governance record/);
+    });
+  });
+
+  it("does not select an unapproved model even when it would otherwise match", async () => {
+    await inRollbackedScope(globalPrincipal(), async () => {
+      const p = globalPrincipal();
+      const tenant = "TEN_BEYU_TZ";
+      await db.insert(noeliaProviders).values({
+        id: "PROV_UNREVIEWED_TEST",
+        providerName: "unreviewed-model-test",
+        providerType: "OPEN_WEIGHT",
+        ownership: "BEYU",
+        endpoint: null,
+        region: null,
+        dataResidency: "BEYU_CONTROLLED",
+        authenticationMethod: "NONE",
+        securityStatus: "NOT_ASSESSED",
+        complianceStatus: "NOT_ASSESSED",
+        active: true,
+        assessment: {},
+        createdBy: "USR_TEST",
+      }).onConflictDoNothing({ target: noeliaProviders.id });
+      await db.insert(modelRegistry).values({
+        id: "MOD_UNREVIEWED_TEST",
+        provider: "unreviewed-model-test",
+        model: "unreviewed-model-test",
+        version: "1.0.0",
+        status: "ACTIVE",
+        maxClassification: "RESTRICTED",
+        jurisdictionRestrictions: [],
+        capabilityMetadata: {},
+        approvedBy: "USR_TEST",
+        providerId: "PROV_UNREVIEWED_TEST",
+        modelFamily: "TEST",
+        modelType: "SELF_HOSTED",
+        deploymentType: "SELF_HOSTED",
+        dataResidency: "BEYU_CONTROLLED",
+        riskLevel: "HIGH",
+        approvalStatus: "PENDING",
+        evaluationStatus: "NOT_EVALUATED",
+        securityStatus: "NOT_ASSESSED",
+        createdBy: "USR_TEST",
+      }).onConflictDoNothing({ target: [modelRegistry.provider, modelRegistry.model, modelRegistry.version] });
+
+      const context = {
+        principal: p,
+        traceId: "TRACE_AI_PLATFORM_UNAPPROVED",
+        target: { tenantId: tenant, legalEntityId: null, countryCode: null },
+        scope: {
+          tenantIds: [tenant],
+          legalEntityIds: [],
+          countryCodes: [],
+          entities: [],
+          tenantCountries: [],
+          enterprise: true,
+        },
+      };
+      const verdict = await service.route(context, {
+        requestId: "REQ_UNAPPROVED_SELECTION",
+        tenantId: tenant,
+        legalEntityId: null,
+        countryCode: null,
+        task: "select a model",
+        capability: "governed-analysis",
+        classification: "RESTRICTED",
+        riskLevel: "LOW",
+      });
+      expect(verdict.decision).toBe("SELECTED");
+      expect(verdict.selectedModelId).toBe("MOD_NOELIA_DET");
+    });
+  });
+
+  it("does not route restricted data to an external/non-BEYU-controlled provider", async () => {
+    await inRollbackedScope(globalPrincipal(), async () => {
+      const p = globalPrincipal();
+      const tenant = "TEN_BEYU_TZ";
+      await db.insert(noeliaProviders).values({
+        id: "PROV_EXT_ACTIVE_TEST",
+        providerName: "external-active-test",
+        providerType: "EXTERNAL",
+        ownership: "EXTERNAL",
+        endpoint: "https://unused.example.invalid",
+        region: "us-east-1",
+        dataResidency: "EXTERNAL_US",
+        authenticationMethod: "API_KEY",
+        securityStatus: "ASSESSED",
+        complianceStatus: "NOT_ASSESSED",
+        active: true,
+        assessment: {},
+        createdBy: "USR_TEST",
+      }).onConflictDoNothing({ target: noeliaProviders.id });
+      await db.insert(modelRegistry).values({
+        id: "MOD_EXT_ACTIVE_TEST",
+        provider: "external-active-test",
+        model: "external-active-test",
+        version: "1.0.0",
+        status: "ACTIVE",
+        maxClassification: "RESTRICTED",
+        jurisdictionRestrictions: [],
+        capabilityMetadata: {},
+        approvedBy: "USR_TEST",
+        providerId: "PROV_EXT_ACTIVE_TEST",
+        modelFamily: "TEST",
+        modelType: "FOUNDATION_MODEL",
+        deploymentType: "EXTERNAL",
+        hostingLocation: "us-east-1",
+        dataResidency: "EXTERNAL_US",
+        riskLevel: "HIGH",
+        approvalStatus: "APPROVED",
+        evaluationStatus: "APPROVED",
+        securityStatus: "ASSESSED",
+        createdBy: "USR_TEST",
+      }).onConflictDoNothing({ target: [modelRegistry.provider, modelRegistry.model, modelRegistry.version] });
+
+      const context = {
+        principal: p,
+        traceId: "TRACE_AI_PLATFORM_EXTERNAL_DATA",
+        target: { tenantId: tenant, legalEntityId: null, countryCode: null },
+        scope: {
+          tenantIds: [tenant],
+          legalEntityIds: [],
+          countryCodes: [],
+          entities: [],
+          tenantCountries: [],
+          enterprise: true,
+        },
+      };
+      const verdict = await service.route(context, {
+        requestId: "REQ_EXTERNAL_RESTRICTED",
+        tenantId: tenant,
+        legalEntityId: null,
+        countryCode: null,
+        task: "restricted data must not leave BEYU control",
+        capability: "governed-analysis",
+        classification: "RESTRICTED",
+        riskLevel: "LOW",
+      });
+      expect(verdict.decision).toBe("SELECTED");
+      expect(verdict.selectedProviderId).toBe("PROV_NOELIA_DET");
+      expect(verdict.selectedModelId).toBe("MOD_NOELIA_DET");
+      const rows = await db.select().from(noeliaRoutingDecisions).where(eq(noeliaRoutingDecisions.requestId, "REQ_EXTERNAL_RESTRICTED"));
+      expect(rows.length).toBe(1);
+      expect(rows[0].selectedModelId).toBe("MOD_NOELIA_DET");
+    });
+  });
+
+  it("reuses an existing routing decision for a replayed requestId instead of duplicating it", async () => {
+    await inRollbackedScope(globalPrincipal(), async () => {
+      const p = globalPrincipal();
+      const tenant = "TEN_BEYU_TZ";
+      const context = {
+        principal: p,
+        traceId: "TRACE_AI_PLATFORM_REPLAY",
+        target: { tenantId: tenant, legalEntityId: null, countryCode: null },
+        scope: {
+          tenantIds: [tenant],
+          legalEntityIds: [],
+          countryCodes: [],
+          entities: [],
+          tenantCountries: [],
+          enterprise: true,
+        },
+      };
+      const request = {
+        requestId: "REQ_REPLAY_TEST",
+        tenantId: tenant,
+        legalEntityId: null,
+        countryCode: null,
+        task: "replay test",
+        capability: "governed-analysis",
+        classification: "RESTRICTED",
+        riskLevel: "LOW",
+      } as const;
+      const first = await service.route(context, request);
+      const second = await service.route(context, request);
+      expect(second.routingId).toBe(first.routingId);
+      expect(second.requestId).toBe(first.requestId);
+      const rows = await db.select().from(noeliaRoutingDecisions).where(eq(noeliaRoutingDecisions.requestId, "REQ_REPLAY_TEST"));
+      expect(rows).toHaveLength(1);
     });
   });
 });

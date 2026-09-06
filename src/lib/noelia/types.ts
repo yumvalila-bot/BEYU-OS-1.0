@@ -142,6 +142,15 @@ export type NoeliaAnswer = {
   deniedSources?: string[];
   traceId?: string;
   correlationId?: string;
+  // ---- Phase 2: governed model execution attribution (additive) ----
+  requestId?: string;
+  model?: string;
+  modelVersion?: string;
+  provider?: string;
+  modelKind?: string;
+  routingDecisionId?: string;
+  modelExecutionStatus?: "COMPLETED" | "DENIED" | "FAIL_CLOSED" | "BLOCKED" | "NOT_SUPPORTED";
+  modelExecutionReason?: string;
 };
 
 /** Board/executive/operational briefing structure (presentation metadata only). */
@@ -343,6 +352,12 @@ export type NoeliaEvidenceInput = {
   policy: PolicyEvaluation;
   target: NoeliaTargetContext;
   latencyMs: number;
+  requestId?: string;
+  model?: string;
+  modelVersion?: string;
+  provider?: string;
+  modelKind?: string;
+  routingDecisionId?: string;
 };
 
 export type NoeliaEvidencePort = {

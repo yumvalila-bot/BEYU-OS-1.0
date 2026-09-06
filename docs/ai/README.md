@@ -84,6 +84,16 @@ classification and residency, prefers BEYU-owned/self-hosted implementations, an
 non-sensitive routing decision. An empty registry, inactive external provider, disabled capability
 or suspended model all DENY with an honest `FAIL_CLOSED` verdict.
 
+## Phase 2 — governed model execution (`0024`)
+
+`NoeliaRuntime` now runs AI authorization → `ai.model.route` → model gateway → `AIModelProvider`
+→ deterministic BEYU analyst → response → audit before any tool execution in the production facade.
+The deterministic adapter is classified `DETERMINISTIC_ANALYST`, never `FOUNDATION_MODEL` /
+`GENERATIVE_MODEL`. `generate()`, `stream()` and `embed()` return an honest `NOT_SUPPORTED` —
+`REAL_GENERATIVE_INFERENCE` is `BLOCKED` until a real BEYU-owned, self-hosted, open-weight or
+activated external runtime exists. Full evidence is in
+`docs/ai/NOELIA_AI_CERTIFICATION_READINESS.md`.
+
 ## Human accountability (Constitution Art. 6)
 
 AI may analyse, summarise, detect, classify, predict, calculate and automate authorised low-risk

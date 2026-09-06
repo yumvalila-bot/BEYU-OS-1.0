@@ -875,8 +875,9 @@ describe("treasury module — creates no second truth", () => {
 // + 0019 internal receipts + 0020 service principals
 // + 0021 financial-ledger RLS + 0022 chart-of-accounts tenant uniqueness
 // + 0023_noelia_ai_platform
+// + 0024_noelia_model_runtime
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(24);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(25);
   });
 
   it("leaves all triggers enabled", async () => {
