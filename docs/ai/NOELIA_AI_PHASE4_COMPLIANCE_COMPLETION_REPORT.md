@@ -36,7 +36,17 @@ generative inference `BLOCKED/ENVIRONMENT_LIMITED`.
 | Compliance dashboard/API | `GET /api/v1/ai/noelia/compliance` and `POST /api/v1/ai/noelia/compliance/actions`. |
 | RLS / adversarial tests | Runtime-role isolation on Phase 4 tenant-scoped tables. |
 
-## 2. Honesty invariants preserved
+## 2. HIVE namespace verdict
+
+`HIVE` is not a separate executable namespace to be invented. In the verified
+codebase `HIVE_RUNTIME` is a boundary name used by `NoeliaRuntime`
+(`src/lib/noelia/runtime.ts`) and the governed model adapter contract in
+`src/lib/noelia/model-provider.ts`; the only registered runtime is the BEYU-owned
+deterministic analyst (`beyu-hive-deterministic-analyst` / `MOD_NOELIA_DET`).
+Phase 4 therefore adds no new runtime, provider or model inventory and keeps
+`REAL_GENERATIVE_INFERENCE=BLOCKED/ENVIRONMENT_LIMITED`.
+
+## 3. Honesty invariants preserved
 
 - `REAL_GENERATIVE_INFERENCE` remains `BLOCKED/ENVIRONMENT_LIMITED`; no fake
   runtime, provider or model was added.
@@ -48,7 +58,7 @@ generative inference `BLOCKED/ENVIRONMENT_LIMITED`.
   `EXTERNAL_CERTIFICATE` evidence record with an external assessor.
 - No external provider was fabricated or activated.
 
-## 3. Files changed (Phase 4)
+## 4. Files changed (Phase 4)
 
 - `src/db/schema/ai-compliance.ts`
 - `src/db/schema.ts`
@@ -63,7 +73,7 @@ generative inference `BLOCKED/ENVIRONMENT_LIMITED`.
 - `tests/noelia/adversarial-ai-security.test.ts`
 - `docs/ai/NOELIA_AI_PHASE4_COMPLIANCE_ENGINE.md`
 
-## 4. Gate results
+## 5. Gate results
 
 - Migration `0026` applied cleanly against the existing schema
   (`fingerprintAfter` changed as expected).
@@ -73,14 +83,14 @@ generative inference `BLOCKED/ENVIRONMENT_LIMITED`.
 - Phase 4 adversarial runtime-role RLS test — PASS.
 - Secret scanner remains clean on all tracked non-fixture files.
 
-## 5. Remaining honest gaps (not invented as done)
+## 6. Remaining honest gaps (not invented as done)
 
 - External EU AI Act applicability classification still requires legal review.
 - ISO/IEC 42001 and NIST AI RMF alignment are internal readiness records;
   independent assessment has not been performed.
 - No real generative runtime is mounted.
 
-## 6. §90 Status Categories
+## 7. §90 Status Categories
 
 - `EU_AI_ACT_READINESS=PARTIAL`
 - `ISO_42001_READINESS=PARTIAL`
