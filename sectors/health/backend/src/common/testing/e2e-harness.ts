@@ -18,6 +18,7 @@ import {
 } from "../../modules/identity/db-connection";
 import { TenantContext } from "../security/tenant-context";
 import { requestStorage } from "../observability/correlation-id.middleware";
+import { DomainExceptionFilter } from "../errors/domain-exception.filter";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const cookieParser = require("cookie-parser");
 
@@ -138,6 +139,14 @@ export async function buildE2EHarness(
 
   const app = moduleFixture.createNestApplication();
   app.use(cookieParser());
+  // Match production main.ts: normalize DomainError to its mapped HTTP status
+  // (e.g. NOT_FOUND→404, INVALID_STATE→409) instead of a bare 500. Opt-in only
+  // because the pre-existing E2E scenarios assert the raw (unfiltered) Nest
+  // error shape; scenarios that assert normalized domain codes should pass
+  // { normalizeDomainErrors: true }.
+  if (_overrides.normalizeDomainErrors) {
+    app.useGlobalFilters(new DomainExceptionFilter());
+  }
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

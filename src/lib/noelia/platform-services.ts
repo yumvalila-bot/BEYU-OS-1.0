@@ -34,6 +34,12 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
     const policyVersion = input.policy.appliedPolicies
       .map((policy) => `${policy.code}@${policy.version}`)
       .join(",") || null;
+    const model = input.model ?? NOELIA_MODEL;
+    const modelVersion = input.modelVersion ?? NOELIA_MODEL_VERSION;
+    const provider = input.provider ?? null;
+    const modelKind = input.modelKind ?? "DETERMINISTIC_ANALYST";
+    const requestId = input.requestId ?? null;
+    const routingDecisionId = input.routingDecisionId ?? null;
 
     await db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as typeof db;
@@ -44,8 +50,12 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
         agent: NOELIA_IDENTITY,
         runtime: HIVE_RUNTIME,
         engine: input.engine,
-        model: NOELIA_MODEL,
-        modelVersion: NOELIA_MODEL_VERSION,
+        model,
+        modelVersion,
+        modelKind,
+        provider,
+        requestId,
+        routingDecisionId,
         promptVersion: NOELIA_PROMPT_VERSION,
         requestType: "ANALYSIS",
         question: input.question,
@@ -79,12 +89,19 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
         objectId: decisionId,
         reason: input.question.slice(0, 240),
         policyVersion: policyVersion ?? undefined,
-        aiVersion: `${NOELIA_MODEL}@${NOELIA_MODEL_VERSION}/${NOELIA_PROMPT_VERSION}`,
+        aiVersion: `${model}@${modelVersion}/${NOELIA_PROMPT_VERSION}`,
         traceId: input.traceId,
         newValue: {
           requestingHuman: input.principal.userId,
           executingAi: NOELIA_IDENTITY,
           approvingHuman: null,
+          model,
+          modelVersion,
+          provider,
+          modelKind,
+          requestId,
+          routingDecisionId,
+          routingDecision: routingDecisionId ? { id: routingDecisionId, decision: input.answer.policyDecision === "MODEL_ROUTE_DENIED" ? "DENIED" : "ROUTED" } : null,
         },
       });
       await publishEventTx(tx, {
@@ -105,6 +122,12 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
           outputClass: input.answer.outputClass,
           humanReviewRequired: input.answer.humanReviewRequired,
           confidence: input.answer.confidence,
+          model,
+          modelVersion,
+          provider,
+          modelKind,
+          requestId,
+          routingDecisionId,
         },
         traceId: input.traceId,
         correlationId: input.traceId,

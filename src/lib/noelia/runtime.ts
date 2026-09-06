@@ -1,6 +1,12 @@
 import type { Principal } from "@/lib/authz";
+import { can } from "@/lib/authz";
+import { type Classification, isKnownClassification } from "@/lib/constants";
 import { parseHorizon, synthesizeExecutiveBriefing, type BriefingInputs } from "./executive";
 import { NoeliaToolRegistry } from "./tool-registry";
+import { BeyuNoeliaAiPlatformService, type NoeliaRouteVerdict } from "./ai-platform";
+import { type ModelExecutionResult, toGovernedRoute, type NoeliaTargetedRouteRequest } from "./model-provider";
+import { BeyuNoeliaModelGateway } from "./model-gateway";
+import { OutputGovernor, PromptGovernor } from "./governance";
 import type {
   NoeliaAnalysisType,
   NoeliaAnswer,
@@ -112,11 +118,17 @@ function outputClassFor(engine: NoeliaEngine, hasSources: boolean): NoeliaAnswer
   return "FACT";
 }
 
+export type NoeliaModelPorts = {
+  router: BeyuNoeliaAiPlatformService;
+  gateway: BeyuNoeliaModelGateway;
+};
+
 export class NoeliaRuntime {
   constructor(
     private readonly tools: NoeliaToolRegistry,
     private readonly policy: NoeliaPolicyPort,
     private readonly evidence: NoeliaEvidencePort,
+    private readonly modelPorts?: NoeliaModelPorts,
   ) {}
 
   /** Shared tool plan execution for a given engine. */
@@ -176,6 +188,270 @@ export class NoeliaRuntime {
     return { policy, findings, sources, outputs, toolsUsed, deniedScopes };
   }
 
+  private opt(value: string | null | undefined): string | undefined {
+    return value ?? undefined;
+  }
+
+  private capabilityFor(engine: NoeliaEngine): string {
+    switch (engine) {
+      case "FINANCIAL": return "finance-intelligence";
+      case "RISK": return "risk-intelligence";
+      case "COMPLIANCE": return "compliance-intelligence";
+      case "GOVERNANCE": return "governance-intelligence";
+      case "TAX": return "tax-intelligence";
+      case "LEGAL": return "legal-intelligence";
+      case "WORKFORCE": return "workforce-intelligence";
+      case "HEALTH": return "health-intelligence";
+      case "KNOWLEDGE": return "knowledge-intelligence";
+      case "EXECUTIVE": return "executive-intelligence";
+      case "ANALYTICS": return "analytics-intelligence";
+      case "CROSS_OS": return "cross-os-intelligence";
+      default: return "noelia-governed-analysis";
+    }
+  }
+
+  private classificationFor(principal: Principal): Classification {
+    return isKnownClassification(principal.clearance) ? principal.clearance : "INTERNAL";
+  }
+
+  private riskLevelFor(engine: NoeliaEngine): "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" {
+    if (engine === "LEGAL" || engine === "TAX" || engine === "HEALTH") return "MEDIUM";
+    if (engine === "RISK" || engine === "COMPLIANCE" || engine === "GOVERNANCE") return "MEDIUM";
+    return "LOW";
+  }
+
+  /**
+   * Phase 2: the routing decision is authoritative before any governed model
+   * execution. If no model ports are injected (unit-test construction), the
+   * runtime remains backward compatible and executes through tools only.
+   */
+  private async routeAndExecuteModel(
+    input: {
+      principal: Principal;
+      traceId: string;
+      target: NoeliaTargetContext;
+      scope: NoeliaAuthorizedScope;
+    },
+    engine: NoeliaEngine,
+    task: string,
+    requestId?: string,
+  ): Promise<{
+    ok: boolean;
+    route: NoeliaRouteVerdict | null;
+    execution: ModelExecutionResult | null;
+    denial: string | null;
+    model: string | null;
+    modelVersion: string | null;
+    provider: string | null;
+    modelKind: string | null;
+    routingId: string | null;
+  }> {
+    if (!this.modelPorts) {
+      return {
+        ok: true,
+        route: null,
+        execution: null,
+        denial: null,
+        model: null,
+        modelVersion: null,
+        provider: null,
+        modelKind: null,
+        routingId: null,
+      };
+    }
+
+    const context: ToolInvocationContext = {
+      principal: input.principal,
+      traceId: input.traceId,
+      target: input.target,
+      scope: input.scope,
+      approval: null,
+    };
+
+    // AI authorization is evaluated BEFORE routing: a principal that cannot ask
+    // Noelia for this intelligence domain never reaches the model router.
+    const permissionForEngine: Record<NoeliaEngine, string> = {
+      FINANCIAL: "ai:noelia.query",
+      RISK: "ai:noelia.query",
+      COMPLIANCE: "ai:noelia.query",
+      GOVERNANCE: "ai:noelia.query",
+      TAX: "ai:noelia.query",
+      LEGAL: "ai:noelia.query",
+      WORKFORCE: "ai:noelia.query",
+      HEALTH: "ai:noelia.query",
+      KNOWLEDGE: "ai:noelia.query",
+      EXECUTIVE: "ai:executive.read",
+      ANALYTICS: "ai:analytics.read",
+      CROSS_OS: "ai:analytics.read",
+    };
+    const permission = permissionForEngine[engine] as Parameters<typeof can>[1];
+    const authz = can(input.principal, permission);
+    if (!authz.allowed) {
+      return {
+        ok: false,
+        route: null,
+        execution: null,
+        denial: `AI authorization denied for ${permission}: ${authz.reason}`,
+        model: null,
+        modelVersion: null,
+        provider: null,
+        modelKind: null,
+        routingId: null,
+      };
+    }
+
+    // Phase 3 prompt governance: non-policy content is untrusted and cannot
+    // alter the control-plane boundary. This runs before routing so an injected
+    // request never reaches a model.
+    const promptGovernance = new PromptGovernor().evaluate({
+      segments: [
+        { kind: "SYSTEM_POLICY", content: "BEYU OS Noelia: governed enterprise intelligence only." },
+        { kind: "USER", content: task },
+      ],
+      classification: this.classificationFor(input.principal),
+      tenantId: input.target.tenantId,
+      countryCode: input.target.countryCode,
+      requestedAction: task.includes("TENANT_CHANGE") || task.includes("PERMISSION_CHANGE") || task.includes("APPROVAL") ? "CONTROL_PLANE_MUTATION" : null,
+    });
+    if (!promptGovernance.allowed) {
+      return {
+        ok: false,
+        route: null,
+        execution: null,
+        denial: `Prompt governance denial: ${promptGovernance.reasons.join(" ")}`,
+        model: null,
+        modelVersion: null,
+        provider: null,
+        modelKind: null,
+        routingId: null,
+      };
+    }
+
+    const classification = this.classificationFor(input.principal);
+    const routeRequest: NoeliaTargetedRouteRequest = {
+      requestId: requestId ?? `REQ_${input.traceId}`,
+      tenantId: input.target.tenantId,
+      legalEntityId: input.target.legalEntityId,
+      countryCode: input.target.countryCode,
+      osId: null,
+      task: task.slice(0, 200),
+      capability: this.capabilityFor(engine),
+      classification,
+      riskLevel: this.riskLevelFor(engine),
+    };
+
+    const route = await this.modelPorts.router.route(context, routeRequest);
+    if (route.decision !== "SELECTED") {
+      return {
+        ok: false,
+        route,
+        execution: null,
+        denial: `Governed model route ${route.decision}: ${route.reasons.join(" ")}`,
+        model: null,
+        modelVersion: null,
+        provider: null,
+        modelKind: null,
+        routingId: route.routingId,
+      };
+    }
+
+    const governedRoute = toGovernedRoute(route);
+    const execution = await this.modelPorts.gateway.executeRouted(context, governedRoute, {
+      requestId: route.requestId,
+      routingId: route.routingId,
+      tenantId: input.target.tenantId,
+      legalEntityId: input.target.legalEntityId,
+      countryCode: input.target.countryCode,
+      osId: null,
+      task: task.slice(0, 200),
+      capability: this.capabilityFor(engine),
+      classification,
+      riskLevel: this.riskLevelFor(engine),
+    });
+
+    if (execution.status !== "COMPLETED") {
+      return {
+        ok: false,
+        route,
+        execution,
+        denial: `Governed model execution ${execution.status}: ${execution.error ?? "unknown runtime failure."}`,
+        model: execution.modelId,
+        modelVersion: execution.modelVersion,
+        provider: execution.providerName,
+        modelKind: execution.modelKind,
+        routingId: execution.routingId,
+      };
+    }
+
+    // Phase 3 output governance: model output is untrusted and any proposed
+    // action is a REQUESTED ACTION, never an AUTHORIZED ACTION.
+    const outputGovernance = new OutputGovernor().validate({
+      output: execution.output,
+      classification,
+      tenantId: input.target.tenantId,
+      countryCode: input.target.countryCode,
+      allowedActionClasses: ["LOW", "MEDIUM"],
+    });
+    if (!outputGovernance.valid) {
+      return {
+        ok: false,
+        route,
+        execution,
+        denial: `Output governance denial: ${outputGovernance.reasons.join(" ")}`,
+        model: execution.modelId,
+        modelVersion: execution.modelVersion,
+        provider: execution.providerName,
+        modelKind: execution.modelKind,
+        routingId: execution.routingId,
+      };
+    }
+
+    return {
+      ok: true,
+      route,
+      execution,
+      denial: null,
+      model: execution.modelId,
+      modelVersion: execution.modelVersion,
+      provider: execution.providerName,
+      modelKind: execution.modelKind,
+      routingId: execution.routingId,
+    };
+  }
+
+  private modelDeniedAnswer(
+    engine: NoeliaEngine,
+    denial: string,
+    modelExecution: Awaited<ReturnType<NoeliaRuntime["routeAndExecuteModel"]>>,
+  ): Omit<NoeliaAnswer, "decisionId" | "latencyMs"> {
+    return {
+      engine,
+      outputClass: "UNCERTAINTY",
+      headline: "Governed model execution blocked before the request could run.",
+      findings: [],
+      narrative: denial,
+      sources: modelExecution.routingId ? [{
+        kind: "AI_ROUTING_DECISION",
+        ref: modelExecution.routingId,
+        label: "blocked model route",
+        authority: "NOELIA_AI_PLATFORM",
+      }] : [],
+      confidence: 1,
+      humanReviewRequired: true,
+      deniedScopes: [`model.route:${modelExecution.route?.decision ?? "BLOCKED"}`],
+      policyDecision: "MODEL_ROUTE_DENIED",
+      toolsUsed: [],
+      requestId: this.opt(modelExecution.route?.requestId),
+      model: this.opt(modelExecution.model),
+      modelVersion: this.opt(modelExecution.modelVersion),
+      provider: this.opt(modelExecution.provider),
+      modelKind: this.opt(modelExecution.modelKind),
+      routingDecisionId: this.opt(modelExecution.routingId),
+      modelExecutionStatus: "DENIED",
+      modelExecutionReason: denial,
+    };
+  }
+
   /** The governed query path (Phase 15 contract, preserved). */
   async ask(input: {
     principal: Principal;
@@ -186,6 +462,37 @@ export class NoeliaRuntime {
   }): Promise<NoeliaAnswer> {
     const started = Date.now();
     const engine = routeEngine(input.question);
+    const modelExecution = await this.routeAndExecuteModel(input, engine, input.question);
+    if (!modelExecution.ok) {
+      const answerWithoutIds = this.modelDeniedAnswer(engine, modelExecution.denial ?? "Model execution blocked.", modelExecution);
+      const latencyMs = Date.now() - started;
+      const decisionId = await this.evidence.recordDecision({
+        principal: input.principal,
+        traceId: input.traceId,
+        question: input.question,
+        engine,
+        answer: answerWithoutIds,
+        policy: {
+          effect: "DENY",
+          obligations: [],
+          denials: [{
+            policyCode: "MODEL_ROUTE",
+            message: modelExecution.denial ?? "Model execution blocked.",
+          }],
+          appliedPolicies: [{ code: "MODEL_ROUTE", version: "2026.09", level: "PLATFORM" }],
+        },
+        target: input.target,
+        latencyMs,
+        requestId: answerWithoutIds.requestId,
+        model: answerWithoutIds.model ?? undefined,
+        modelVersion: answerWithoutIds.modelVersion ?? undefined,
+        provider: answerWithoutIds.provider ?? undefined,
+        modelKind: answerWithoutIds.modelKind ?? undefined,
+        routingDecisionId: answerWithoutIds.routingDecisionId ?? undefined,
+      });
+      return { decisionId, latencyMs, ...answerWithoutIds };
+    }
+
     const { policy, findings, sources, outputs, toolsUsed, deniedScopes } = await this.executePlan(input, engine, ENGINE_TOOLS[engine]);
 
     const uniqueSources = [...new Map(sources.map((source) => [`${source.kind}:${source.ref}`, source])).values()];
@@ -230,6 +537,12 @@ export class NoeliaRuntime {
       deniedScopes,
       policyDecision: policy.effect,
       toolsUsed,
+      requestId: this.opt(modelExecution.route?.requestId),
+      model: this.opt(modelExecution.model),
+      modelVersion: this.opt(modelExecution.modelVersion),
+      provider: this.opt(modelExecution.provider),
+      modelKind: this.opt(modelExecution.modelKind),
+      routingDecisionId: this.opt(modelExecution.routingId),
     };
     const latencyMs = Date.now() - started;
     const decisionId = await this.evidence.recordDecision({
@@ -241,6 +554,12 @@ export class NoeliaRuntime {
       policy,
       target: input.target,
       latencyMs,
+      requestId: answerWithoutIds.requestId,
+      model: answerWithoutIds.model ?? undefined,
+      modelVersion: answerWithoutIds.modelVersion ?? undefined,
+      provider: answerWithoutIds.provider ?? undefined,
+      modelKind: answerWithoutIds.modelKind ?? undefined,
+      routingDecisionId: answerWithoutIds.routingDecisionId ?? undefined,
     });
 
     return { decisionId, latencyMs, ...answerWithoutIds };
@@ -260,6 +579,66 @@ export class NoeliaRuntime {
   }): Promise<NoeliaExecutiveBriefing> {
     const started = Date.now();
     const horizon = parseHorizon(input.horizon);
+    const modelExecution = await this.routeAndExecuteModel(input, "EXECUTIVE", input.question);
+    if (!modelExecution.ok) {
+      const base = this.modelDeniedAnswer("EXECUTIVE", modelExecution.denial ?? "Model execution blocked.", modelExecution);
+      const deniedBriefing: NoeliaExecutiveBriefing = {
+        decisionId: "",
+        latencyMs: 0,
+        ...base,
+        engine: "EXECUTIVE",
+        analysisType: "EXECUTIVE_BRIEFING",
+        horizon,
+        structure: input.structure ?? "EXECUTIVE",
+        summary: "",
+        metrics: [],
+        recommendations: [],
+        observedFacts: [],
+        derivedConclusions: [],
+        forecasts: [],
+        scenarios: [],
+        enterprisePosition: [],
+        strategicVariance: [],
+        kpiInterpretation: [],
+        materialItems: [],
+        opportunities: [],
+        recommendationComparison: [],
+        whatIsMissing: [],
+        requiresHumanDecision: [],
+        deteriorating: [],
+        improving: [],
+        managementAttentionRequired: [],
+        deniedSources: [],
+        sources: base.sources ?? [],
+        findings: [],
+        traceId: input.traceId,
+        correlationId: input.correlationId,
+      };
+      const latencyMs = Date.now() - started;
+      const decisionId = await this.evidence.recordDecision({
+        principal: input.principal,
+        traceId: input.traceId,
+        question: input.question || "Executive briefing",
+        engine: "EXECUTIVE",
+        answer: deniedBriefing,
+        policy: {
+          effect: "DENY",
+          obligations: [],
+          denials: [{ policyCode: "MODEL_ROUTE", message: modelExecution.denial ?? "Model execution blocked." }],
+          appliedPolicies: [{ code: "MODEL_ROUTE", version: "2026.09", level: "PLATFORM" }],
+        },
+        target: input.target,
+        latencyMs,
+        requestId: deniedBriefing.requestId,
+        model: deniedBriefing.model ?? undefined,
+        modelVersion: deniedBriefing.modelVersion ?? undefined,
+        provider: deniedBriefing.provider ?? undefined,
+        modelKind: deniedBriefing.modelKind ?? undefined,
+        routingDecisionId: deniedBriefing.routingDecisionId ?? undefined,
+      });
+      return { ...deniedBriefing, decisionId, latencyMs };
+    }
+
     const { policy, findings, sources, outputs, toolsUsed, deniedScopes } = await this.executePlan(input, "EXECUTIVE", ENGINE_TOOLS.EXECUTIVE);
 
     const briefingInputs: BriefingInputs = {
@@ -279,7 +658,15 @@ export class NoeliaRuntime {
     const synthesized = synthesizeExecutiveBriefing(briefingInputs);
     const latencyMs = Date.now() - started;
 
-    const answerWithoutIds: Omit<NoeliaAnswer, "decisionId" | "latencyMs"> = { ...synthesized };
+    const answerWithoutIds: Omit<NoeliaAnswer, "decisionId" | "latencyMs"> = {
+      ...synthesized,
+      requestId: this.opt(modelExecution.route?.requestId),
+      model: this.opt(modelExecution.model),
+      modelVersion: this.opt(modelExecution.modelVersion),
+      provider: this.opt(modelExecution.provider),
+      modelKind: this.opt(modelExecution.modelKind),
+      routingDecisionId: this.opt(modelExecution.routingId),
+    };
     const decisionId = await this.evidence.recordDecision({
       principal: input.principal,
       traceId: input.traceId,
@@ -289,6 +676,12 @@ export class NoeliaRuntime {
       policy,
       target: input.target,
       latencyMs,
+      requestId: answerWithoutIds.requestId,
+      model: answerWithoutIds.model ?? undefined,
+      modelVersion: answerWithoutIds.modelVersion ?? undefined,
+      provider: answerWithoutIds.provider ?? undefined,
+      modelKind: answerWithoutIds.modelKind ?? undefined,
+      routingDecisionId: answerWithoutIds.routingDecisionId ?? undefined,
     });
 
     return {
@@ -297,6 +690,12 @@ export class NoeliaRuntime {
       ...synthesized,
       findings,
       sources,
+      requestId: answerWithoutIds.requestId,
+      model: answerWithoutIds.model,
+      modelVersion: answerWithoutIds.modelVersion,
+      provider: answerWithoutIds.provider,
+      modelKind: answerWithoutIds.modelKind,
+      routingDecisionId: answerWithoutIds.routingDecisionId,
     };
   }
 
@@ -312,6 +711,42 @@ export class NoeliaRuntime {
   }): Promise<NoeliaAnswer> {
     const started = Date.now();
     const policy = await this.policy.evaluate({ principal: input.principal, target: input.target });
+    const modelExecution = await this.routeAndExecuteModel(input, "ANALYTICS", `analytics:${input.analysisType}`);
+    if (!modelExecution.ok) {
+      const base = this.modelDeniedAnswer("ANALYTICS", modelExecution.denial ?? "Model execution blocked.", modelExecution);
+      const denied: NoeliaAnswer = {
+        decisionId: "",
+        latencyMs: Date.now() - started,
+        ...base,
+        analysisType: input.analysisType,
+        analysisId: "",
+        traceId: input.traceId,
+        correlationId: input.correlationId,
+      };
+      denied.decisionId = await this.evidence.recordDecision({
+        principal: input.principal,
+        traceId: input.traceId,
+        question: `analytics:${input.analysisType}`,
+        engine: "ANALYTICS",
+        answer: denied,
+        policy: {
+          effect: "DENY",
+          obligations: [],
+          denials: [{ policyCode: "MODEL_ROUTE", message: modelExecution.denial ?? "Model execution blocked." }],
+          appliedPolicies: [{ code: "MODEL_ROUTE", version: "2026.09", level: "PLATFORM" }],
+        },
+        target: input.target,
+        latencyMs: denied.latencyMs,
+        requestId: denied.requestId,
+        model: denied.model ?? undefined,
+        modelVersion: denied.modelVersion ?? undefined,
+        provider: denied.provider ?? undefined,
+        modelKind: denied.modelKind ?? undefined,
+        routingDecisionId: denied.routingDecisionId ?? undefined,
+      });
+      return denied;
+    }
+
     const findings: NoeliaAnswer["findings"] = [];
     const sources: NoeliaAnswer["sources"] = [];
     const deniedScopes: string[] = [];
@@ -411,6 +846,12 @@ export class NoeliaRuntime {
       scenarios: outputs.flatMap((output) => output.scenarios ?? []),
       traceId: input.traceId,
       correlationId: input.correlationId,
+      requestId: this.opt(modelExecution.route?.requestId),
+      model: this.opt(modelExecution.model),
+      modelVersion: this.opt(modelExecution.modelVersion),
+      provider: this.opt(modelExecution.provider),
+      modelKind: this.opt(modelExecution.modelKind),
+      routingDecisionId: this.opt(modelExecution.routingId),
     };
     const decisionId = await this.evidence.recordDecision({
       principal: input.principal,
@@ -421,6 +862,12 @@ export class NoeliaRuntime {
       policy,
       target: input.target,
       latencyMs,
+      requestId: answerWithoutIds.requestId,
+      model: answerWithoutIds.model ?? undefined,
+      modelVersion: answerWithoutIds.modelVersion ?? undefined,
+      provider: answerWithoutIds.provider ?? undefined,
+      modelKind: answerWithoutIds.modelKind ?? undefined,
+      routingDecisionId: answerWithoutIds.routingDecisionId ?? undefined,
     });
     return { decisionId, latencyMs, ...answerWithoutIds };
   }

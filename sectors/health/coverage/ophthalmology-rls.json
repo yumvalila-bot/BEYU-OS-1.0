@@ -1,0 +1,7 @@
+{
+  "generated": "2026-09-05T23:26:23.038Z",
+  "schema": "ophthalmology-rls-v1",
+  "engine": "real-postgres",
+  "crossTenantInsertDenied": true,
+  "finding": null
+}

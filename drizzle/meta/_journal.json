@@ -162,6 +162,41 @@
       "when": 1788435000000,
       "tag": "0022_chart_of_accounts_tenant_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788436000000,
+      "tag": "0023_noelia_ai_platform",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788436060000,
+      "tag": "0024_noelia_model_runtime",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788436120000,
+      "tag": "0025_noelia_model_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788436180000,
+      "tag": "0026_noelia_ai_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1788436240000,
+      "tag": "0027_noelia_ai_phase5_platform",
+      "breakpoints": true
     }
   ]
 }

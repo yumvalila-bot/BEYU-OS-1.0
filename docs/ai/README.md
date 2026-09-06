@@ -52,6 +52,48 @@ deterministic and inspectable (`routeEngine`). Provider abstraction keeps the ru
 default analyst is deterministic so that behaviour is reproducible and evaluable. External model
 providers are registered as governed integrations with secrets held by reference only.
 
+## Provider-independent AI platform registry (migration 0023)
+
+Phase 1 adds the governed AI platform substrate in `src/db/schema/ai.ts` and
+`src/lib/noelia/ai-platform.ts`:
+
+- `noelia_ai_identity` — canonical enterprise AI identity (`AII_NOELIA`). It is separate from every
+  human `GlobalUserID`, has no role grants, and never grants itself authority.
+- `noelia_providers` — provider registry. `BEYU_OWNED` / `SELF_HOSTED` / `OPEN_WEIGHT` / `EXTERNAL`,
+  default-`active=false`. A registered provider is not an activated one.
+- `model_registry` router metadata — provider, family/type, capabilities, modalities, context
+  window, deployment, residency, risk, approval/evaluation/security status, model card, licence and
+  source. A model is an implementation, not an approver.
+- `noelia_evaluations` — evidence (not certificates): `RECORDED | APPROVED | FAILED |
+  PENDING_REVIEW`.
+- `noelia_risk_register` — AI risk governance record. It never unblocks risk.
+- `noelia_incidents` — AI incident state machine (`OPEN → CONTAINED → RESOLVED → CLOSED`).
+  Containment is state/suspension, never deletion.
+- `noelia_kill_switch` — `ALL | MODEL | PROVIDER | TOOL | OS | TENANT | CAPABILITY | AI_IDENTITY`;
+  stops capability without mutating evidence.
+- `noelia_routing_decisions` — non-sensitive routing ledger (request, capability, model/provider,
+  decision). No prompt or model output is stored here.
+
+Tenant-scoped Noelia tables (`noelia_incidents`, `noelia_routing_decisions`,
+`noelia_kill_switch`) enforce `FORCE ROW LEVEL SECURITY` through the canonical
+`beyu_tenant_ids()` / `beyu_global_scope()` helpers from migration 0001.
+
+Routing (`ai.model.route`) is deterministic and fail-closed: it checks active kill switches first,
+then selects only `ACTIVE` / `APPROVED` / `APPROVED`-evaluated models within the requested
+classification and residency, prefers BEYU-owned/self-hosted implementations, and records a
+non-sensitive routing decision. An empty registry, inactive external provider, disabled capability
+or suspended model all DENY with an honest `FAIL_CLOSED` verdict.
+
+## Phase 2 — governed model execution (`0024`)
+
+`NoeliaRuntime` now runs AI authorization → `ai.model.route` → model gateway → `AIModelProvider`
+→ deterministic BEYU analyst → response → audit before any tool execution in the production facade.
+The deterministic adapter is classified `DETERMINISTIC_ANALYST`, never `FOUNDATION_MODEL` /
+`GENERATIVE_MODEL`. `generate()`, `stream()` and `embed()` return an honest `NOT_SUPPORTED` —
+`REAL_GENERATIVE_INFERENCE` is `BLOCKED` until a real BEYU-owned, self-hosted, open-weight or
+activated external runtime exists. Full evidence is in
+`docs/ai/NOELIA_AI_CERTIFICATION_READINESS.md`.
+
 ## Human accountability (Constitution Art. 6)
 
 AI may analyse, summarise, detect, classify, predict, calculate and automate authorised low-risk

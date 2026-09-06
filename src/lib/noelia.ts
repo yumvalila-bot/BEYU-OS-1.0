@@ -12,7 +12,9 @@ import type { Principal } from "./authz";
 import { withTenantDatabaseContext } from "./tenant-scope";
 import { createDefaultNoeliaToolRegistry } from "./noelia/default-tools";
 import { BeyuNoeliaEvidenceService, BeyuNoeliaPolicyService } from "./noelia/platform-services";
-import { NoeliaRuntime, routeEngine } from "./noelia/runtime";
+import { NoeliaRuntime, routeEngine, type NoeliaModelPorts } from "./noelia/runtime";
+import { BeyuNoeliaAiPlatformService } from "./noelia/ai-platform";
+import { BeyuNoeliaModelGateway } from "./noelia/model-gateway";
 import { requestedNoeliaTarget, resolveNoeliaAuthorizedScope } from "./noelia/scope-service";
 import type { NoeliaAnalysisType, NoeliaAnswer, NoeliaBriefingStructure, NoeliaExecutiveBriefing, NoeliaTargetContext } from "./noelia/types";
 
@@ -23,6 +25,31 @@ export { NoeliaToolRegistry } from "./noelia/tool-registry";
 export { decideMemoryVisibility, retrieveGovernedMemory } from "./noelia/memory";
 export { BeyuNoeliaWorkflowService } from "./noelia/workflows";
 export { BeyuNoeliaSchedulerService } from "./noelia/scheduler-service";
+export {
+  BeyuNoeliaComplianceService,
+  ComplianceAccessError,
+  ComplianceStateError,
+  EvidenceIntegrityError,
+  computeEvidenceHash,
+  isEvidenceCurrent,
+} from "./noelia/compliance-engine";
+export type { CertificationState } from "./noelia/compliance-engine";
+export { BeyuNoeliaObservabilityService } from "./noelia/observability";
+export { HiveRuntimeBoundary, resolveHiveExecutionContext, type HiveExecutionContext, type HiveRunInput } from "./noelia/hive-runtime";
+export { BeyuNoeliaKnowledgeFabric, computeKnowledgeDigest } from "./noelia/knowledge-fabric";
+export { BeyuNoeliaEvaluationEngine } from "./noelia/evaluation-engine";
+export { BeyuNoeliaModelOperations } from "./noelia/model-operations";
+export { BeyuNoeliaProductionResilience, BeyuNoeliaCircuitBreaker, type CircuitState } from "./noelia/resilience";
+export { BeyuNoeliaContinuousAssurance, type ContinuousAssuranceAttestation, type AssuranceStatus } from "./noelia/continuous-assurance";
+export { phase5StatusBlock, type Phase5StatusKey, type Phase5StatusRow } from "./noelia/phase5-status";
+
+/** Phase 2 — production model ports: authoritative routing + governed gateway. */
+function createNoeliaModelPorts(): NoeliaModelPorts {
+  return {
+    router: new BeyuNoeliaAiPlatformService(),
+    gateway: new BeyuNoeliaModelGateway(),
+  };
+}
 
 export async function askNoelia(params: {
   principal: Principal;
@@ -37,6 +64,7 @@ export async function askNoelia(params: {
       createDefaultNoeliaToolRegistry(),
       new BeyuNoeliaPolicyService(),
       new BeyuNoeliaEvidenceService(),
+      createNoeliaModelPorts(),
     );
     return runtime.ask({
       principal: params.principal,
@@ -66,6 +94,7 @@ export async function briefNoelia(params: {
       createDefaultNoeliaToolRegistry(),
       new BeyuNoeliaPolicyService(),
       new BeyuNoeliaEvidenceService(),
+      createNoeliaModelPorts(),
     );
     return runtime.brief({
       principal: params.principal,
@@ -97,6 +126,7 @@ export async function analyzeNoelia(params: {
       createDefaultNoeliaToolRegistry(),
       new BeyuNoeliaPolicyService(),
       new BeyuNoeliaEvidenceService(),
+      createNoeliaModelPorts(),
     );
     return runtime.analyze({
       principal: params.principal,
@@ -142,6 +172,7 @@ export async function runScheduledBriefing(params: {
       createDefaultNoeliaToolRegistry(),
       new BeyuNoeliaPolicyService(),
       new BeyuNoeliaEvidenceService(),
+      createNoeliaModelPorts(),
     );
     const briefing = await runtime.brief({
       principal: params.owner,

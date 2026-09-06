@@ -15,7 +15,10 @@
     "migrate:generate": "drizzle-kit generate",
     "seed": "tsx src/db/seed.ts",
     "certify": "tsx scripts/certify-production.mts",
-    "evidence:gate1": "tsx scripts/evidence/kernel-gate1.ts"
+    "evidence:gate1": "tsx scripts/evidence/kernel-gate1.ts",
+    "pg16:start": "node scripts/infra/pg16-server.mjs start",
+    "pg16:stop": "node scripts/infra/pg16-server.mjs stop",
+    "scan:secrets": "node scripts/scan-secrets.mjs"
   },
   "dependencies": {
     "dotenv": "17.3.1",
@@ -35,6 +38,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "drizzle-kit": "0.31.10",
+    "embedded-postgres": "^16.14.0-beta.17",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.11",
     "postcss": "8.5.23",

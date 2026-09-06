@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-03T11:38:48.901Z",
+  "generated": "2026-09-05T23:40:51.736Z",
   "schema": "phase9-idor-v1",
   "axes": 18,
   "summary": {
@@ -188,8 +188,8 @@
     },
     {
       "resource": "ophthalmology",
-      "covered": false,
-      "notes": "Pending — requires service/decorator wiring"
+      "covered": true,
+      "notes": "HTTP happy path E2E + SQL-level RLS (non-owner role)"
     },
     {
       "resource": "dialysis",

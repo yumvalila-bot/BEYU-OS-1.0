@@ -10,6 +10,7 @@
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 
 export default async function LauncherPage() {
   const principal = await resolvePrincipal();
@@ -29,14 +30,16 @@ export default async function LauncherPage() {
     authorized: boolean;
   }> = [];
 
-  // BEYU OS: Always authorized if user has a valid session
+  // BEYU OS: authorized only when the principal actually holds a
+  // control-plane capability. A valid session alone is NOT authorization.
+  const beyuAuth = checkBeyuOSAuthorization(principal);
   authorizedOSs.push({
     code: "BEYU",
     name: "BEYU OS",
     description: "Control Plane — Governance, Finance, HCM, Noelia AI",
     href: "/os",
     icon: "🏛️",
-    authorized: true,
+    authorized: beyuAuth.authorized,
   });
 
   // Health OS: Check canonical identity link

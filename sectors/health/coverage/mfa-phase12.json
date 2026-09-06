@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-03T11:41:14.201Z",
+  "generated": "2026-09-05T23:38:53.871Z",
   "schema": "mfa-phase12-v1",
   "methodology": "MFA + session security controls verified against source + existing adversarial test coverage; evidence-derived states",
   "summary": {
