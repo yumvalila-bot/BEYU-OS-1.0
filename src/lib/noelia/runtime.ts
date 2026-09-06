@@ -6,6 +6,7 @@ import { NoeliaToolRegistry } from "./tool-registry";
 import { BeyuNoeliaAiPlatformService, type NoeliaRouteVerdict } from "./ai-platform";
 import { type ModelExecutionResult, toGovernedRoute, type NoeliaTargetedRouteRequest } from "./model-provider";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
+import { OutputGovernor, PromptGovernor } from "./governance";
 import type {
   NoeliaAnalysisType,
   NoeliaAnswer,
@@ -299,6 +300,33 @@ export class NoeliaRuntime {
       };
     }
 
+    // Phase 3 prompt governance: non-policy content is untrusted and cannot
+    // alter the control-plane boundary. This runs before routing so an injected
+    // request never reaches a model.
+    const promptGovernance = new PromptGovernor().evaluate({
+      segments: [
+        { kind: "SYSTEM_POLICY", content: "BEYU OS Noelia: governed enterprise intelligence only." },
+        { kind: "USER", content: task },
+      ],
+      classification: this.classificationFor(input.principal),
+      tenantId: input.target.tenantId,
+      countryCode: input.target.countryCode,
+      requestedAction: task.includes("TENANT_CHANGE") || task.includes("PERMISSION_CHANGE") || task.includes("APPROVAL") ? "CONTROL_PLANE_MUTATION" : null,
+    });
+    if (!promptGovernance.allowed) {
+      return {
+        ok: false,
+        route: null,
+        execution: null,
+        denial: `Prompt governance denial: ${promptGovernance.reasons.join(" ")}`,
+        model: null,
+        modelVersion: null,
+        provider: null,
+        modelKind: null,
+        routingId: null,
+      };
+    }
+
     const classification = this.classificationFor(input.principal);
     const routeRequest: NoeliaTargetedRouteRequest = {
       requestId: requestId ?? `REQ_${input.traceId}`,
@@ -347,6 +375,29 @@ export class NoeliaRuntime {
         route,
         execution,
         denial: `Governed model execution ${execution.status}: ${execution.error ?? "unknown runtime failure."}`,
+        model: execution.modelId,
+        modelVersion: execution.modelVersion,
+        provider: execution.providerName,
+        modelKind: execution.modelKind,
+        routingId: execution.routingId,
+      };
+    }
+
+    // Phase 3 output governance: model output is untrusted and any proposed
+    // action is a REQUESTED ACTION, never an AUTHORIZED ACTION.
+    const outputGovernance = new OutputGovernor().validate({
+      output: execution.output,
+      classification,
+      tenantId: input.target.tenantId,
+      countryCode: input.target.countryCode,
+      allowedActionClasses: ["LOW", "MEDIUM"],
+    });
+    if (!outputGovernance.valid) {
+      return {
+        ok: false,
+        route,
+        execution,
+        denial: `Output governance denial: ${outputGovernance.reasons.join(" ")}`,
         model: execution.modelId,
         modelVersion: execution.modelVersion,
         provider: execution.providerName,
