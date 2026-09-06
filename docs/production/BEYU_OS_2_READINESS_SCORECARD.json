@@ -1,0 +1,276 @@
+{
+  "artifact": "BEYU OS 2.0 Production Readiness Scorecard",
+  "phase": "23",
+  "schema": "beyu-os-readiness-scorecard-v1",
+  "program": "BEYU OS 2.0 PRODUCTION READINESS",
+  "repository": "yumvalila-bot/BEYU-OS-1.0",
+  "branch": "main",
+  "head_sha": "0eaa71debb38cb6fc1aa2d9114d5cee0ed85f391",
+  "assessment_branch": "arena/01a076da-beyu-os-1-0",
+  "generated_at": "2026-09-06T14:20:00Z",
+  "environment": {
+    "kind": "DISPOSABLE_CI_EQUIVALENT",
+    "postgres": "16.14 (embedded, fresh cluster)",
+    "node": "22.22.3",
+    "runtime_db_role": "beyu_runtime (NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB)",
+    "production_access": "NOT_AVAILABLE",
+    "verification_pass": "2026-09-06T16:00Z full re-execution: tsc, eslint, build, 125-file vitest suite, migrations, DR drill, Health 93 suites, live cross-OS suites, live self-test + phase5 probes"
+  },
+  "scoping_rule": "VERIFIED means verified by executed evidence in the disposable CI-equivalent environment, re-run in this pass on a freshly initialised PostgreSQL 16.14 cluster and a fresh npm ci. It does NOT mean verified in production.",
+  "status_model": {
+    "domains": [
+      "NOT_READY",
+      "PARTIAL",
+      "VERIFIED",
+      "BLOCKED"
+    ],
+    "external_assurance": [
+      "NOT_STARTED",
+      "PREPARING",
+      "READY_FOR_ASSESSMENT",
+      "IN_PROGRESS",
+      "COMPLETED"
+    ],
+    "certification": [
+      "NOT_CERTIFIED",
+      "CERTIFIED"
+    ],
+    "vocabulary_mapping": "This scorecard uses NOT_READY|PARTIAL|VERIFIED|BLOCKED. The master report uses IMPLEMENTED|VERIFIED|PRODUCTION_READY|BLOCKED|ENVIRONMENT_LIMITED. Mapping: PARTIAL == VERIFIED for the controls tested with named open findings; NOT_READY == BLOCKED with 0% implementation; ENVIRONMENT_LIMITED is used where only production access can resolve the question."
+  },
+  "domains": {
+    "SECURITY": {
+      "status": "PARTIAL",
+      "evidence": "125 root test files / 2466 tests pass with 0 skipped against live PostgreSQL on the runtime role; adversarial RLS suite (13 cases incl. dropped-WHERE defense-in-depth); secret scan clean (1180 files); 0 SECURITY DEFINER functions at root; SQL injection review found no interpolated SQL.",
+      "owner": "Security owner (unassigned in repo)",
+      "risk": "Governance authority tables are writable by the application role (F-01, P1). Ten tables are RLS-enabled without FORCE and 34 tenant-scoped tables have no RLS, so isolation depends on application query filters.",
+      "blocker": "Open P1 (F-01). Launch is blocked while a material P1 is unresolved.",
+      "remediation": "Remediated: CTL-SEC-011 runtime privilege guard added. Remaining: extend RLS to tenant-scoped tables or add automated per-query scope assertions.",
+      "verification": "npm test (125 files pass); targeted probes recorded in evidence matrix EV-004..EV-007."
+    },
+    "IDENTITY": {
+      "status": "VERIFIED",
+      "evidence": "GlobalUserID uniqueness (migration 0011); scrypt+timingSafeEqual; MFA/TOTP with step-up window; session binding; security_version revocation; live cross-OS identity certification 10/10 scenarios over real HTTP between Health OS and BEYU OS root.",
+      "owner": "Platform identity owner",
+      "risk": "Verification is environment-scoped; production IdP/rotation not exercised.",
+      "blocker": "None for the mechanism.",
+      "remediation": "None required at this phase.",
+      "verification": "sectors/health/backend/src/test/e2e/cross-os-identity-certification.spec.ts: 10 passed (A,C,D,E,F,G,H,I,J,K)."
+    },
+    "AUTHORIZATION": {
+      "status": "PARTIAL",
+      "evidence": "RBAC+ABAC two-gate model in src/lib/authz.ts; fail-closed on unknown clearance; 44 RLS policies / 44 RLS-enabled tables; entity scope enforced; 0 authorization test failures.",
+      "owner": "Security owner",
+      "risk": "OS-dimension isolation is not enforced on knowledge retrieval (os_id is audit-only); non-RLS tables depend on per-query filters.",
+      "blocker": "GATE 9 (OS isolation) not satisfied for the RAG surface.",
+      "remediation": "Add os_id/scope predicate to governed retrieval, or record OS as a non-security label by explicit decision.",
+      "verification": "tests/security/rls-isolation.test.ts (13), tests/authorization/*, tests/security/authority-firewall.test.ts (24)."
+    },
+    "DATABASE": {
+      "status": "VERIFIED",
+      "evidence": "Fresh PG16 cluster: 118 tables, 44 RLS-enabled, 34 FORCE, 44 policies; FK/constraint and trigger inventory consistent with migrations; 0 SECURITY DEFINER at root.",
+      "owner": "Data platform owner",
+      "risk": "Production Supabase instance never migrated (see MIGRATIONS, INFRASTRUCTURE).",
+      "blocker": "None locally.",
+      "remediation": "None at this phase.",
+      "verification": "scripts/migrate.ts fingerprint 8a5acf4ba4b69d57737e6f90c90053a5; pg_catalog inspection."
+    },
+    "MIGRATIONS": {
+      "status": "VERIFIED",
+      "evidence": "28/28 root migrations APPLIED from an empty database; re-run applied nothing (beyu_migrations stable at 28 rows, fingerprint unchanged); drizzle-kit generate produced no new migration (no schema drift). Health: 30/30 up.sql applied to real PostgreSQL 16.",
+      "owner": "Data platform owner",
+      "risk": "Root migrations ship NO down/rollback path.",
+      "blocker": "Production migration BLOCKED: repository secret BEYU_ADMIN_DATABASE_URL absent -> db-release fails EXTERNAL_BLOCKED on main (run 34026282327).",
+      "remediation": "Owner must configure the Supabase admin DSN secret; author a root rollback strategy.",
+      "verification": "npm run migrate x2; npx drizzle-kit generate --name=drift_check (0 new); CI job 'Root BEYU OS' success on main."
+    },
+    "FINANCE": {
+      "status": "PARTIAL",
+      "evidence": "Integer minor-unit posting with Number.isSafeInteger guard; numeric(18,2) columns only (no float/real money columns); journal/ledger FORCE RLS; double-entry invariants and audit-trail tests pass; waterfall v1-vs-v2 divergence measured 0/63 cases.",
+      "owner": "Group CFO / Finance OS owner",
+      "risk": "Deterministic BigInt waterfall engine (waterfall-engine-v2) is unreachable from any production call path; live engine is float-based but simulation-only.",
+      "blocker": "CAP_POSTING and the other 59 capabilities remain activation_status=LOCKED with implementation_status=NOT_IMPLEMENTED and journal_entries=0; activation is a human ratification decision (P1/P6/P7/P9) that this program must not take. Separately the lock itself is not DB-enforced (F-01).",
+      "remediation": "This lock is correct and must remain until P1/P5/P6/P7/P9 resolutions are ratified. Do not activate to obtain a green report.",
+      "verification": "tests/finance/* (incl. ledger-integrity 18, capital-governance 26, ledger-write-authority 6); live registry query."
+    },
+    "HEALTH": {
+      "status": "PARTIAL",
+      "evidence": "93/93 Jest suites pass (src/common/security 22/128, database+integrations 13/72, test/e2e 8/55, modules/events 4/36, modules a-m 37+1 skip/216, n-v 8/29); 30 up + 30 down migrations applied to real PG16 with a passing roundtrip spec; tsc exit 0; eslint 0 errors on 271 files; frontend typecheck+Vite build+14 tests pass. Frontend is at sectors/health (not sectors/health/frontend) and defines no lint script by deliberate CI assertion.",
+      "owner": "Health OS owner",
+      "risk": "Frontend has only 14 tests across 20 views and ships as one 1,035.89 kB single-file index.html (gzip 263.75 kB) by deliberate vite-plugin-singlefile design; @apollo/server 4.13.0 is the live GraphQL driver on a superseded major whose advisory is fixed only in >=5.5.0; 13 moderate audit entries reduce to 3 distinct advisories.",
+      "blocker": "Not deployed to production; no clinical-safety external review.",
+      "remediation": "Add frontend view coverage, plan Apollo v5 migration, triage uuid/bull advisories.",
+      "verification": "jest runs recorded as EV-010..EV-012."
+    },
+    "AGRICULTURE": {
+      "status": "BLOCKED",
+      "evidence": "No sector directory exists (sectors/ contains only health). No agriculture tables in 118 root tables. No /api/v1/agriculture/* routes. Flutter maps Agriculture to a 'FUTURE / NOT YET INTEGRATED' placeholder screen.",
+      "owner": "UNASSIGNED",
+      "risk": "os_registry declares AGRICULTURE_OS with dataAuthority [FARM_BLOCK,CROP_CYCLE,HARVEST] and apis ['/api/v1/agriculture/*'], and an ACTIVE service principal exists for it, while zero implementation exists. The control plane asserts authority for a component that does not exist.",
+      "blocker": "All 30 Phase 6 audit categories: MISSING. GATE 12 cannot pass.",
+      "remediation": "Either implement the sector or withdraw the registry declaration and suspend the principal. Do not describe Agriculture as production-ready.",
+      "verification": "Filesystem + pg_catalog + route enumeration (EV-002, EV-003)."
+    },
+    "AI": {
+      "status": "PARTIAL",
+      "evidence": "Kill switch evaluated first in route() (tests/noelia/runtime-governed-model.test.ts:76); model lifecycle, approval quorum, human-review gating and untrusted-output handling pass; live self-test shows all 12 controls passing, including CTL-SEC-011.",
+      "owner": "AI governance owner",
+      "risk": "REAL_GENERATIVE_INFERENCE is structurally unreachable: BeyuNoeliaModelGateway default constructor mounts only the deterministic analyst; OpenAICompatibleAdapter is never instantiated outside tests.",
+      "blocker": "No approved model runtime, no credentials, no provider activation.",
+      "remediation": "Remediated: assurance surfaces no longer report availability from environment variables alone. Remaining: wire a governed generative adapter + provider activation path when an approved model exists.",
+      "verification": "tests/noelia/* (incl. adversarial-ai-security 5, provider-contract 4, new generative-inference-status 9)."
+    },
+    "RAG": {
+      "status": "PARTIAL",
+      "evidence": "knowledge_sources is RLS-scoped (GLOBAL-or-tenant) with a scope_shape CHECK constraint; provenance digest recomputation; retrieval audited into noelia_rag_retrieval_events (FORCE RLS); docs explicitly label semantic/embedding runtime as BLOCKED.",
+      "owner": "Noelia/HIVE owner",
+      "risk": "No vector store exists at all: 0 extensions beyond plpgsql/btree_gist, 0 vector columns, embedding_status defaults to NOT_EMBEDDED. Retrieval is lexical regex over <=8 alnum terms. os_id is recorded in the audit event but never used as a filter.",
+      "blocker": "Cross-OS retrieval denial is not enforced; embedding pipeline not implemented.",
+      "remediation": "Decide whether OS is a security boundary for knowledge; if yes enforce it in the predicate and a policy.",
+      "verification": "pg_extension/pg_attribute inspection; tests/noelia/memory-security.test.ts; tests/noelia/database-security.test.ts."
+    },
+    "PRIVACY": {
+      "status": "PARTIAL",
+      "evidence": "Five-level classification enum enforced in ABAC clearance checks; retention_policies, consents, data_assets, jurisdictions tables exist; retention and consent specs pass in Health.",
+      "owner": "Data protection owner",
+      "risk": "consents has zero read sites in the root application source; no subject export or erasure workflow implemented at the control plane.",
+      "blocker": "No legal review recorded for any jurisdiction.",
+      "remediation": "Implement data-subject export/erasure or declare it out of scope with owner sign-off. LEGAL_REVIEW_REQUIRED.",
+      "verification": "Static read-path census of all 34 non-RLS tenant-scoped tables; schema inspection."
+    },
+    "OBSERVABILITY": {
+      "status": "PARTIAL",
+      "evidence": "x-trace-id/x-correlation-id on governed responses; internal trace ids server-generated; src/lib contains exactly 3 console calls, only src/lib/api.ts:351 structured; Health has a redacting json-logger; no metrics endpoint, no OpenTelemetry, no alerting, no redaction layer at the control plane.",
+      "owner": "Platform operations",
+      "risk": "No metrics endpoint, no OpenTelemetry tracing, no aggregation or alerting at the control plane; error rate/availability/latency not exported.",
+      "blocker": "GATE 21 not satisfied.",
+      "remediation": "Add request/DB/job metrics and trace propagation before Wave 0.",
+      "verification": "Response header inspection on live server; source census (1 console call in src/lib)."
+    },
+    "INCIDENT_RESPONSE": {
+      "status": "NOT_READY",
+      "evidence": "noelia_incidents (AI class only) with FORCE RLS and lifecycle; Health has an incidents module (incidents.service.spec passes).",
+      "owner": "UNASSIGNED",
+      "risk": "8 of the 9 required incident classes (security, privacy, clinical, financial, agriculture operational, infrastructure, data integrity, supplier) have no implementation at the enterprise control plane.",
+      "blocker": "GATE 22 not satisfied.",
+      "remediation": "Generalise the incident lifecycle to an enterprise table with class, severity, containment, corrective action and closure verification.",
+      "verification": "Schema census: only noelia_incidents exists; no enterprise incidents table."
+    },
+    "DR_BCP": {
+      "status": "PARTIAL",
+      "evidence": "scripts/dr-drill.ts PASSED: schema reconstructed from migrations alone into a fresh database, fingerprint parity, 117 tables restored with count parity, RLS set preserved (44 tables), audit + enterprise-event chains intact, 2 audit heads, 5 service principals; scratch DB destroyed.",
+      "owner": "Data platform owner",
+      "risk": "No automated backup exists; managed PITR/retention unverified; RPO/RTO not measured for production and not invented here.",
+      "blocker": "GATE 20 blocked pending production access.",
+      "remediation": "Enable and test managed backups, then measure RPO/RTO against a real restore.",
+      "verification": "npx tsx scripts/dr-drill.ts -> '[dr-drill] PASSED'."
+    },
+    "PERFORMANCE": {
+      "status": "PARTIAL",
+      "evidence": "tests/certification/scale-concurrency.test.ts (Level III-A/B, 3 tests) passes against a live server: 1000 health requests at c=200 all 200 with chains verifiable; 120 concurrent logins all 401 with no 5xx/deadlock/connection exhaustion; 250 concurrent audit writes fork-free. sectors/health/coverage/performance.json remains in-process PGlite with 20 samples (p50 2 / p95 3 / p99 3 ms).",
+      "owner": "Platform operations",
+      "risk": "No throughput capacity model, no p95/p99 under production-shaped load, no bulk/report/search/mobile-sync measurement; the sandbox itself OOM-kills a 93-suite Jest run.",
+      "blocker": "No load test harness in the repository.",
+      "remediation": "Build a load harness against staging before Wave 1; do not claim scale from architecture.",
+      "verification": "Sandbox measurements only; recorded as not representative."
+    },
+    "CI_CD": {
+      "status": "PARTIAL",
+      "evidence": "ci.yml run 34026282329 on main: 7/7 jobs success, reproduced locally. db-release.yml run 34026282327: failure at the fail-closed preflight; the same pattern on the previous head 6c2ec266 (33984502115), so it is a standing condition rather than a one-off.",
+      "owner": "Release engineering",
+      "risk": "Branch protection could not be read (403 with the available integration), so 'protected main + required checks' is unverified; release promotion depends on the blocked db-release pipeline.",
+      "blocker": "db-release fails on main by design (EXTERNAL_BLOCKED) until production secrets exist.",
+      "remediation": "Confirm/enforce main protection and required checks; configure owner secrets.",
+      "verification": "gh api actions/runs/34026282329/jobs; gh api .../branches/main/protection -> 403."
+    },
+    "INFRASTRUCTURE": {
+      "status": "BLOCKED",
+      "evidence": "Environments Preview and Production exist; Production returns no reviewers, no wait timer and deployment_branch_policy=null, i.e. no GitHub-side approval gate or branch restriction on Production deployments. Latest Production deployment sha=0eaa71de state=success 2026-09-06T10:02:43Z. Branch protection and secrets listing return 403 (NOT_VERIFIABLE). Vercel URL unreachable from this sandbox (TLS exit 35) while api.github.com was reachable: recorded as unverified, not as down.",
+      "owner": "Infrastructure owner",
+      "risk": "Production endpoint could not be verified from this sandbox: TLS to beyu-os-1-0.vercel.app was interrupted while api.github.com was reachable, so no claim either way. The Supabase production database has no configured migration DSN.",
+      "blocker": "No production credentials; no production schema verification; no production health evidence.",
+      "remediation": "Owner must run the preflight job with the secret configured and record the result.",
+      "verification": "gh deployments; curl (blocked); workflow annotation EXTERNAL_BLOCKED."
+    },
+    "SUPPLY_CHAIN": {
+      "status": "PARTIAL",
+      "evidence": "package-lock.json committed for all three packages; npm ci reproducible; CI pins actions to immutable commit SHAs and ubuntu-24.04; production audits report 0 critical/0 high (root 0 vulnerabilities).",
+      "owner": "Release engineering",
+      "risk": "No SBOM generation; no artifact/container/build provenance attestation; model checksum/provenance verification exists as tables but no approved model is registered; @apollo/server v4 is EOL in Health production deps.",
+      "blocker": "No container or IaC pipeline exists to scan.",
+      "remediation": "Add SBOM + build provenance; schedule an EOL-major audit distinct from npm audit.",
+      "verification": "npm audit --omit=dev per package; workflow inspection."
+    },
+    "COMPLIANCE": {
+      "status": "PARTIAL",
+      "evidence": "noelia_evidence, controls, corrective_actions, exceptions, certification_readiness, assessor_packages, management_reviews, red_team_results, applicability_assessments tables are present and FORCE-RLS protected; compliance engine and evidence-integrity tests pass.",
+      "owner": "Compliance owner",
+      "risk": "Evidence artifacts under sectors/health/coverage are regenerated with new timestamps by any test run and carry no commit SHA, so they are not assessable provenance; docs/compliance contains only a README.",
+      "blocker": "No assembled external-assurance package.",
+      "remediation": "Bind evidence records to commit SHA + migration fingerprint, or stop committing generated copies.",
+      "verification": "pg_class FORCE-RLS census; test run dirtying 22 tracked coverage files."
+    },
+    "OPERATIONS": {
+      "status": "BLOCKED",
+      "evidence": "docs/runbooks has 2 files against ~20 required; root has 0 down-migrations while Health has 30 up + 30 down and a passing roundtrip spec; no automated backup; no alerting.",
+      "owner": "UNASSIGNED",
+      "risk": "A production incident or bad migration has no defined, tested procedure.",
+      "blocker": "GATE 22 and GATE 23 fail",
+      "remediation": "Wave 0 minimum set: deployment, rollback, incident response, backup/restore, secret rotation.",
+      "verification": "docs/runbooks census; ls drizzle/ | grep -c down = 0"
+    },
+    "EXTERNAL_ASSURANCE": {
+      "status": "PREPARING",
+      "evidence": "Control implementation and evidence tables exist; ISO/IEC 42001 and NIST AI RMF oriented material exists under docs/ai and docs/audit; internal self-test control surface (12 controls) is machine-readable.",
+      "owner": "Compliance owner",
+      "risk": "No assessor-ready package, no scope statement, no applicability decision recorded for EU AI Act obligations.",
+      "blocker": "LEGAL_REVIEW_REQUIRED for jurisdiction-specific obligations.",
+      "remediation": "Assemble the Phase 22 evidence package; engage an independent assessor. Status remains READY_FOR_ASSESSMENT at best, never CERTIFIED.",
+      "verification": "docs census; no external engagement recorded anywhere in the repository."
+    }
+  },
+  "findings": {
+    "P0": 0,
+    "P1": 1,
+    "P2_open": 11,
+    "P3": 8,
+    "p1_summary": "F-01: the runtime DB role can UPDATE/DELETE the governance authority tables (governance_capability_registry, os_registry, users, role_assignments, governance_decision_registry) with no RLS, no trigger, no test and no audit trail; a CAP_POSTING unlock succeeded and was restored.",
+    "remediated_this_program": 2,
+    "remediated_summary": "CTL-SEC-011 runtime privilege guard; Noelia generative availability derived from mounted providers (plus the stale ci.yml lint annotation corrected)"
+  },
+  "launch_gates": {
+    "mandatory_total": 30,
+    "passed": 15,
+    "failed": 7,
+    "blocked": 8,
+    "failed_gates": [
+      2,
+      9,
+      12,
+      21,
+      22,
+      23,
+      25
+    ],
+    "failed_gate_names": "2 P1=0, 9 OS isolation, 12 Agriculture security, 21 observability, 22 incident response, 23 rollback tested, 25 external-assurance package",
+    "blocked_gates": [
+      19,
+      20,
+      24,
+      26,
+      27,
+      28,
+      29,
+      30
+    ],
+    "blocked_gate_names": "19 production migration verification, 20 DR in production, 24 production environment, 26-30 owner approvals"
+  },
+  "real_generative_inference": "ENVIRONMENT_LIMITED",
+  "actual_certification": "NOT_CERTIFIED",
+  "production_launch": "BLOCKED",
+  "overall_status": "PARTIAL",
+  "superseded_by": "BEYU_OS_2_PRODUCTION_READINESS_MASTER_REPORT.md (2026-09-06 evidence-reconciliation pass) \u2014 where the two disagree, the master report governs",
+  "real_generative_inference_note": "Live /api/v1/ai/noelia/phase5 reports REAL_GENERATIVE_INFERENCE=ENVIRONMENT_LIMITED and PRODUCTION_GENERATIVE_RUNTIME=BLOCKED. Unchanged from the historical value, so it is preserved here. ASSURANCE-006 now returns FAIL when the environment is configured but no adapter is mounted, and ENVIRONMENT_LIMITED when nothing is configured.",
+  "test_evidence_reexecuted": "root: 125 files / 2466 tests / 0 failed / 0 skipped in 324.81s with BEYU_TEST_BASE_URL set (HTTP hard-fail mode, so no silent skips); canonical main alone = 123 files / 2451 tests. Health backend: 93 suites, 0 failures (1 env-gated suite skips without BEYU_EVENTS_INTEGRATION=1 and passes 5/5 with it). Health frontend: 3 files / 14 tests. Concurrency: 1000 req @ c=200 all 200; 250 concurrent audit writes fork-free.",
+  "external_assessment": "NOT_ASSESSED",
+  "external_assessment_note": "No assessor engagement exists in the repository and none was created. Internal readiness for assessment is at best PREPARING; actual certification is NOT_CERTIFIED."
+}
