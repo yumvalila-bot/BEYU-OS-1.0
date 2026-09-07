@@ -35,12 +35,12 @@ beforeEach(async () => {
   await cleanup();
 
   await db.execute(sql`
-    insert into tenants (id, name) values (${TENANT}, 'Performance Test Tenant')
+    insert into tenants (id, code, name, type) values (${TENANT}, 'PERF_TEST', 'Performance Test Tenant', 'ENTERPRISE')
   `);
 
   await db.execute(sql`
-    insert into legal_entities (id, tenant_id, name) values
-    (${ENTITY}, ${TENANT}, 'Performance Test Entity')
+    insert into legal_entities (id, tenant_id, code, legal_name, entity_type, country_code, effective_from) values
+    (${ENTITY}, ${TENANT}, 'PERF_ENTITY', 'Performance Test Entity', 'OPERATING_COMPANY', 'TZ', '2026-01-01')
   `);
 });
 
@@ -133,8 +133,8 @@ describe("database operations performance", () => {
   it("SELECT performance - single row by ID", async () => {
     // Insert test data
     await db.execute(sql`
-      insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-      values ('FARM_PERF_1', ${TENANT}, ${ENTITY}, 'Test Farm', 'FARM-PERF-1')
+      insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+      values ('FARM_PERF_1', ${TENANT}, ${ENTITY}, 'FARM-PERF-1', 'Test Farm', 'TZ')
     `);
 
     const result = await benchmark(
@@ -158,8 +158,8 @@ describe("database operations performance", () => {
       async () => {
         counter++;
         await db.execute(sql`
-          insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-          values ('FARM_PERF_INS_${counter}', ${TENANT}, ${ENTITY}, 'Farm ${counter}', 'FARM-INS-${counter}')
+          insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+          values ('FARM_PERF_INS_${counter}', ${TENANT}, ${ENTITY}, 'FARM-INS-${counter}', 'Farm ${counter}', 'TZ')
           on conflict (id) do nothing
         `);
       },
@@ -179,8 +179,8 @@ describe("database operations performance", () => {
     // Insert test data
     for (let i = 0; i < 10; i++) {
       await db.execute(sql`
-        insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-        values ('FARM_PERF_CONC_${i}', ${TENANT}, ${ENTITY}, 'Farm ${i}', 'FARM-CONC-${i}')
+        insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+        values ('FARM_PERF_CONC_${i}', ${TENANT}, ${ENTITY}, 'FARM-CONC-${i}', 'Farm ${i}', 'TZ')
         on conflict (id) do nothing
       `);
     }
@@ -211,8 +211,8 @@ describe("agriculture API domain operations performance", () => {
       async () => {
         counter++;
         await db.execute(sql`
-          insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-          values ('FARM_PERF_THR_${counter}', ${TENANT}, ${ENTITY}, 'Throughput Farm ${counter}', 'FARM-THR-${counter}')
+          insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+          values ('FARM_PERF_THR_${counter}', ${TENANT}, ${ENTITY}, 'FARM-THR-${counter}', 'Throughput Farm ${counter}', 'TZ')
           on conflict (id) do nothing
         `);
       },
@@ -231,8 +231,8 @@ describe("agriculture API domain operations performance", () => {
   it("field creation with farm FK", async () => {
     // Create parent farm
     await db.execute(sql`
-      insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-      values ('FARM_PERF_FK', ${TENANT}, ${ENTITY}, 'FK Test Farm', 'FARM-FK')
+      insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+      values ('FARM_PERF_FK', ${TENANT}, ${ENTITY}, 'FARM-FK', 'FK Test Farm', 'TZ')
       on conflict (id) do nothing
     `);
 
@@ -242,8 +242,8 @@ describe("agriculture API domain operations performance", () => {
       async () => {
         counter++;
         await db.execute(sql`
-          insert into agriculture_fields (id, tenant_id, farm_id, name, field_code, area_hectares)
-          values ('FIELD_PERF_${counter}', ${TENANT}, 'FARM_PERF_FK', 'Field ${counter}', 'FIELD-${counter}', ${counter})
+          insert into agriculture_fields (id, tenant_id, farm_id, code, name, area_ha)
+          values ('FIELD_PERF_${counter}', ${TENANT}, 'FARM_PERF_FK', 'FIELD-${counter}', 'Field ${counter}', ${counter})
           on conflict (id) do nothing
         `);
       },
@@ -265,8 +265,8 @@ describe("authorization check performance", () => {
   it("tenant isolation check throughput", async () => {
     // Insert test data
     await db.execute(sql`
-      insert into agriculture_farms (id, tenant_id, legal_entity_id, name, farm_code)
-      values ('FARM_PERF_AUTH', ${TENANT}, ${ENTITY}, 'Auth Test Farm', 'FARM-AUTH')
+      insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
+      values ('FARM_PERF_AUTH', ${TENANT}, ${ENTITY}, 'FARM-AUTH', 'Auth Test Farm', 'TZ')
       on conflict (id) do nothing
     `);
 
