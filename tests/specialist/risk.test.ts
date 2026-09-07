@@ -1011,6 +1011,10 @@ describe("risk module — leaves governance and financial state untouched", () =
         select table_name from information_schema.tables
         where table_schema = 'public'
           and (table_name like '%risk%' or table_name like '%exposure%' or table_name like '%concentration%')
+          -- Owned by the payments domain (drizzle/0028): a signal ledger per payment
+          -- transaction, written by payments/risk. Excluded by exact name so this
+          -- guard still fails if the risk module itself ever stores a table.
+          and table_name <> 'payment_risk_signals'
         order by table_name
       `)
     ).map((r) => r.table_name);
@@ -1025,12 +1029,18 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0025_noelia_model_lifecycle
     // + 0026_noelia_ai_compliance
     // + 0027_noelia_ai_phase5_platform
+    // + 0028_payment_banking_core
+    // + 0029_payment_posting_rewind_guard
+    // The Universal Banking / Mobile Money / Payment Integration programme adds those
+    // two (14 payment tables and a posting-rewind guard). The count stays an exact
+    // pin: the specialist module under test still adds no migration of its own, and any
+    // further migration must be attributed here before the pin moves.
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(28);
+    expect(n).toBe(30);
   });
 
   it("leaves all triggers enabled", async () => {

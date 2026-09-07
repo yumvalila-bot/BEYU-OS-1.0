@@ -201,6 +201,33 @@ export const FINANCE_DOMAINS: readonly DomainRecord[] = [
     ],
   },
   {
+    domain: "PAYMENTS",
+    serviceName: "finance.payments",
+    module: "src/lib/payments/ingest.ts",
+    criteria: ALL({
+      // No CAP_PAYMENTS_* exists and none was created: ingestion carries no
+      // financial authority, so it needs none, and posting keeps borrowing
+      // CAP_POSTING — which remains LOCKED.
+      capability: false,
+      // The obligation substrate (invoices / receivables / payables) does not
+      // exist in this platform, so payment claims cannot compose to an internal
+      // obligation. Matching works against journals, settlements and own-account
+      // transfers instead, and reports the gap.
+      composes: false,
+    }),
+    blockedBy: [
+      "AUTHORITY: posting a payment to the ledger requires CAP_POSTING, which is LOCKED by unratified accounting policy",
+      "DATA: no AR/AP obligation substrate exists, so invoice and receivable matching is reported as DATA_NOT_AVAILABLE rather than approximated",
+      "EXTERNAL: no provider credential, agreement or verified API documentation exists in this environment, so REAL_PROVIDER_INTEGRATION = BLOCKED_EXTERNAL_DEPENDENCY",
+      "INFRASTRUCTURE: no queue or scheduler exists in the control plane, so provider polling and retry are not implemented",
+    ],
+    limitations: [
+      "Owns claims, matching and settlement records only; it holds no accounting authority and writes no ledger row.",
+      "Trust may rise automatically only on independent corroboration (a settlement batch plus a matching bank credit); anything else is a named human act under separation of duties.",
+      "Every provider entry in the registry reports ten separate status fields; no single 'integrated' flag exists to be misread.",
+    ],
+  },
+  {
     domain: "AR",
     serviceName: "finance.ar",
     module: null,

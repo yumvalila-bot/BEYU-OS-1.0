@@ -1,0 +1,25 @@
+# Local DR drill transcript — payments phase (PASSED run)
+# Command: npx tsx scripts/dr-drill.ts --payments   (exit code 0)
+# Captured 2026-09-06 in the Arena sandbox against the local development PostgreSQL.
+# Redaction: password components of connection strings were replaced with *** before this
+# file was committed. The run itself is unchanged. This is a transcript of a local run, not a
+# CI artifact, and it describes a mock provider against a development database.
+[dr-drill] phase 1b — build payment lifecycle DRMTQ9EVX7 in the source database
+[payments-dr] fixture DRMTQ9EVX7: {"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1} entry=JE_64d5a022-794f-4b37-9903-dbec8ab51630
+[dr-drill] phase 1b — posted: {"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1}
+[dr-drill] phase 1 — snapshot source
+[dr-drill] source: 30 migrations, fingerprint d5ab78be9a4d7c42a64bac57416d7079, 132 tables, 58 RLS tables, chain ok=true
+[dr-drill] phase 2 — reconstruct scratch database beyu_dr_drill_mtq9evx7 from migrations only
+[dr-drill] phase 2b — provision the runtime role in the scratch database
+[dr-drill] phase 2b — runtime grants source=513 scratch=513
+[dr-drill] phase 3 — schema parity
+[dr-drill] fingerprint parity OK
+[dr-drill] phase 4 — restore data (FK-dependency rounds)
+[dr-drill] phase 4 — invariants hold in both databases ({"posted_without_entry":0,"empty_entries":0,"unbalanced_entries":0,"orphan_states":0})
+[dr-drill] phase 5 — post-restore validation
+[dr-drill] phase 5b — verify the payment lifecycle in the restored database
+[dr-drill] phase 5b — {"duplicateRecognised":true,"duplicateAcknowledged":true,"tamperedDeliveryRefused":true,"tamperedDeliveryEscalated":true,"noSecondBooking":true,"amountUnchanged":true,"postedStateIntact":true,"inboxNotDuplicated":true}
+[dr-drill] payments: {"tag":"DRMTQ9EVX7","postedKind":{"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1},"restoreChecks":[{"name":"transactions restored","ok":true},{"name":"inbox rows restored","ok":true},{"name":"state trail length and content","ok":true},{"name":"settlement batch","ok":true},{"name":"journal entry balance and lineage","ok":true},{"name":"audit evidence for the payment","ok":true},{"name":"exceptions carried","ok":true},{"name":"0029 unposting guard active after restore","ok":true},{"name":"posted state unchanged after guard refusal","ok":true}],"grants":{"ran":true,"scratch":513,"source":513,"missingOnScratch":[],"extraOnScratch":[]},"replay":{"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9evx7","amountMinor":250000,"outcome":"DUPLICATE","code":"ALREADY_RECEIVED","tampered":false,"digestMatchesOriginal":true,"transactionId":"PVT_01K1S68PCATG08WRP43G64","transactionsForProviderId":1,"journalEntriesForThisPayment":1,"counterRole":"database admin (counters only)","exceptionsFromThisReplay":[]},"tamperedReplay":{"outcome":"REJECTED","code":"DUPLICATE_CONFLICT","exceptions":[{"code":"DUPLICATE_CONFLICT","severity":"CRITICAL","status":"OPEN"}]},"afterReplay":{"transactions":1,"entries":1,"lines":2,"inbox":1,"gross":"250000","accounting_status":"POSTED"},"verdict":{"duplicateRecognised":true,"duplicateAcknowledged":true,"tamperedDeliveryRefused":true,"tamperedDeliveryEscalated":true,"noSecondBooking":true,"amountUnchanged":true,"postedStateIntact":true,"inboxNotDuplicated":true}}
+[dr-drill] PASSED: 131 tables restored with count parity, RLS set preserved (58 tables), enterprise-event chain intact, audit heads 2, service principals 5
+[dr-drill] payment fixture DRMTQ9EVX7 removed: {"rowsRemoved":{"ok":true,"prefixes":["DRMTQ9EVX7"],"removed":{"journalLines":2,"settlementItems":1,"settlements":1,"corrections":0,"matches":0,"states":6,"riskSignals":0,"exceptions":1,"journalEntries":1,"transactions":1,"webhookEvents":1,"periods":1},"unwindOfDrillPosting":true},"configCleanup":{"mode":"cleanup","refused":false,"removed":{"accountMappings":4,"policies":1,"paymentAccounts":1,"con
+[dr-drill] phase 6 — destroy scratch database beyu_dr_drill_mtq9evx7
