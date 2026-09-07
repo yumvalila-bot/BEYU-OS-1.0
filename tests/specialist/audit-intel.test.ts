@@ -848,7 +848,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(32);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(33);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
