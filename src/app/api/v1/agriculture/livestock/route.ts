@@ -1,40 +1,32 @@
 /**
- * BEYU OS — Agriculture OS: Livestock API
+ * BEYU OS — Agriculture OS: Livestock API (DRAFT domain)
  *
- * GET  /api/v1/agriculture/livestock — List herds for current tenant
- * POST /api/v1/agriculture/livestock/events — Record a livestock event
+ * GET /api/v1/agriculture/livestock — List herds for current tenant
+ *
+ * POST /api/v1/agriculture/livestock/events is served by the nested
+ * livestock/events route (this file previously exported a non-standard
+ * `POST_events` symbol that Next.js route handlers do not support).
+ *
+ * Authorized by RBAC (`agriculture:data.read`). The handler runs inside the
+ * guarded() tenant RLS context.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { guarded } from "@/lib/guard";
-import { listHerds, recordLivestockEvent } from "@/lib/agriculture";
+import { guarded } from "@/lib/api";
+import { listHerds } from "@/lib/agriculture";
 
-const RecordLivestockEventSchema = z.object({
-  herdId: z.string().min(1),
-  eventType: z.enum(["BIRTH", "DEATH", "PURCHASE", "SALE", "VACCINATION", "TREATMENT", "TRANSFER"]),
-  eventDate: z.string().min(1),
-  headCount: z.number().int(),
-  description: z.string().optional(),
-  performedBy: z.string().optional(),
-  cost: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export const GET = guarded(async (req: NextRequest, ctx) => {
-  const farmId = req.nextUrl.searchParams.get("farmId") ?? undefined;
-  const herds = await listHerds(ctx.tenantId, farmId);
-  return NextResponse.json({ herds });
-});
-
-// POST /api/v1/agriculture/livestock/events
-export const POST_events = guarded(async (req: NextRequest, ctx) => {
-  const body = await req.json();
-  const parsed = RecordLivestockEventSchema.parse(body);
-
-  const result = await recordLivestockEvent({
-    tenantId: ctx.tenantId,
-    ...parsed,
-  });
-
-  return NextResponse.json(result, { status: 201 });
-});
+export async function GET(request: NextRequest) {
+  return guarded(
+    request,
+    {
+      permission: "agriculture:data.read",
+      action: "agriculture.livestock.list",
+      rateLimit: { limit: 120, windowMs: 60_000 },
+      audit: { objectType: "AGRICULTURE_LIVESTOCK_HERD" },
+    },
+    async (ctx) => {
+      const farmId = request.nextUrl.searchParams.get("farmId") ?? undefined;
+      const herds = await listHerds(ctx.principal.tenantId, farmId);
+      return NextResponse.json({ herds });
+    },
+  );
+}

@@ -2,34 +2,32 @@
  * BEYU OS — Data Governance: Retention Enforcement Service
  *
  * This service implements governed data lifecycle management with explicit
- * authorization gates. Destructive operations require human approval and
- * are never fully automated.
+ * authorization gates. Destructive operations require human approval and are
+ * never fully automated.
  *
- * RETENTION WORKFLOW:
- *   ELIGIBLE_FOR_REVIEW → REVIEWED → APPROVED → DELETED/ARCHIVED
+ * RETENTION MODEL
+ *   Retention is calculated from the document's `uploaded_at` timestamp (the
+ *   actual creation-date column on `platform.documents`) plus the policy's
+ *   retention years. The `beyu_authority_status` enum does NOT model deletion
+ *   workflow states, so no code in this module writes a workflow status that
+ *   the database cannot represent; eligibility is returned as a decision and
+ *   actual destruction remains a separate governed process.
  *
- * Every state transition is audited. Legal holds block deletion regardless
- * of retention expiry. Classification influences access control.
+ * Every decision is auditable by the caller. Legal holds block deletion
+ * regardless of retention expiry. Classification influences the approval
+ * requirement on the deletion decision.
  */
-import { and, eq, lte, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, retentionPolicies, type InferSelectModel } from "@/db/schema";
-import { newId, ID_PREFIX } from "@/lib/ids";
+import { documents, retentionPolicies } from "@/db/schema";
 
 export const RETENTION_VERSION = "retention-1.0.0";
 
-export type RetentionStatus =
-  | "ACTIVE"
-  | "ELIGIBLE_FOR_REVIEW"
-  | "REVIEWED"
-  | "APPROVED_FOR_DELETION"
-  | "DELETED"
-  | "ARCHIVED";
-
-export type DocumentRecord = InferSelectModel<typeof documents>;
+export type DocumentRecord = typeof documents.$inferSelect;
 
 /**
  * Calculate when a document's retention expires based on its policy.
+ * Retention starts at the document's `uploaded_at` (creation) timestamp.
  */
 export async function calculateRetentionExpiry(
   documentId: string,
@@ -50,10 +48,8 @@ export async function calculateRetentionExpiry(
     return { expiresAt: null, policy: null };
   }
 
-  // Retention is calculated from document creation (or a configured start date).
-  // For simplicity, we use createdAt + retentionYears.
-  const createdAt = doc.createdAt;
-  const expiresAt = new Date(createdAt);
+  const uploadedAt = doc.uploadedAt;
+  const expiresAt = new Date(uploadedAt);
   expiresAt.setFullYear(expiresAt.getFullYear() + policy.retentionYears);
 
   return { expiresAt, policy };
@@ -79,25 +75,26 @@ export async function findRetentionExpiredDocuments(options?: {
   const limit = options?.limit ?? 100;
 
   const now = new Date();
-  const rows = await db.execute<{
+  const result = await db.execute<{
     id: string;
     tenant_id: string;
     retention_code: string;
     legal_hold: boolean;
-    created_at: Date;
+    uploaded_at: Date;
   }>(sql`
-    select d.id, d.tenant_id, d.retention_code, d.legal_hold, d.created_at
+    select d.id, d.tenant_id, d.retention_code, d.legal_hold, d.uploaded_at
     from documents d
     inner join retention_policies rp on rp.code = d.retention_code
     where d.legal_hold = false
       and (${options?.tenantId ? sql`d.tenant_id = ${options.tenantId} and` : sql``} true)
-    order by d.created_at asc
+    order by d.uploaded_at asc
     limit ${limit}
   `);
 
+  const rows = Array.isArray(result) ? result : result.rows ?? [];
   const results = [];
-  for (const row of (rows as any).rows ?? rows) {
-    const createdAt = new Date(row.created_at);
+  for (const row of rows) {
+    const uploadedAt = new Date(row.uploaded_at);
     const [policy] = await db
       .select()
       .from(retentionPolicies)
@@ -106,7 +103,7 @@ export async function findRetentionExpiredDocuments(options?: {
 
     if (!policy) continue;
 
-    const expiresAt = new Date(createdAt);
+    const expiresAt = new Date(uploadedAt);
     expiresAt.setFullYear(expiresAt.getFullYear() + policy.retentionYears);
 
     if (expiresAt <= now) {
@@ -128,7 +125,7 @@ export async function findRetentionExpiredDocuments(options?: {
 
 /**
  * Check whether a document can be deleted.
- * Returns authorization decision with explicit reasons.
+ * Returns an authorization decision with explicit reasons.
  */
 export async function canDeleteDocument(
   documentId: string,
@@ -182,7 +179,12 @@ export async function canDeleteDocument(
 
 /**
  * Mark a document as eligible for review (retention expired, no legal hold).
- * This is the first step in the governed deletion workflow.
+ *
+ * This is a DECISION GATE ONLY. The `beyu_authority_status` enum on
+ * `documents` has no ELIGIBLE_FOR_REVIEW value (it models
+ * AUTHORITATIVE/UNDER_REVIEW/SUPERSEDED/EXPIRED/REJECTED), so no workflow
+ * status is written that the schema cannot represent. Actual destruction is a
+ * governed, human-approved process outside this module.
  */
 export async function markEligibleForReview(
   documentId: string,
@@ -193,15 +195,11 @@ export async function markEligibleForReview(
     return { success: false, reason: auth.reason };
   }
 
-  await db
-    .update(documents)
-    .set({
-      authorityStatus: "ELIGIBLE_FOR_REVIEW",
-      updatedAt: new Date(),
-    })
-    .where(eq(documents.id, documentId));
-
-  return { success: true, reason: "Document marked as eligible for review" };
+  return {
+    success: true,
+    reason:
+      "Document is eligible for review. No workflow status was written: documents.authority_status does not model retention states; deletion requires a governed human approval process.",
+  };
 }
 
 /**
@@ -231,17 +229,16 @@ export async function applyLegalHold(
     .update(documents)
     .set({
       legalHold: true,
-      updatedAt: new Date(),
     })
     .where(eq(documents.id, documentId));
 
-  // Audit log would go here (enterprise_events table)
-  return { success: true, reason: "Legal hold applied" };
+  // Audit log is recorded by the caller through the audit/event layer.
+  return { success: true, reason: `Legal hold applied: ${reason}` };
 }
 
 /**
  * Remove a legal hold from a document.
- * Requires explicit authorization and is audited.
+ * Requires explicit authorization (same-tenant actor) and is audited.
  */
 export async function removeLegalHold(
   documentId: string,
@@ -266,12 +263,10 @@ export async function removeLegalHold(
     .update(documents)
     .set({
       legalHold: false,
-      updatedAt: new Date(),
     })
     .where(eq(documents.id, documentId));
 
-  // Audit log would go here
-  return { success: true, reason: "Legal hold removed" };
+  return { success: true, reason: `Legal hold removed: ${reason}` };
 }
 
 /**
@@ -283,37 +278,33 @@ export async function getDataGovernanceSummary(tenantId: string): Promise<{
   retentionExpired: number;
   byClassification: Record<string, number>;
 }> {
-  const [stats] = await db.execute<{
-    total: number;
-    legal_hold: number;
-  }>(sql`
+  const statsResult = await db.execute<{ total: number; legal_hold: number }>(sql`
     select
       count(*)::int as total,
       count(*) filter (where legal_hold = true)::int as legal_hold
     from documents
     where tenant_id = ${tenantId}
   `);
+  const stats = Array.isArray(statsResult) ? statsResult[0] : statsResult.rows[0];
 
   const expired = await findRetentionExpiredDocuments({ tenantId, limit: 10000 });
 
-  const [byClass] = await db.execute<{
-    classification: string;
-    count: number;
-  }>(sql`
+  const byClassResult = await db.execute<{ classification: string; count: number }>(sql`
     select classification, count(*)::int as count
     from documents
     where tenant_id = ${tenantId}
     group by classification
   `);
+  const classRows = Array.isArray(byClassResult) ? byClassResult : byClassResult.rows ?? [];
 
   const classificationMap: Record<string, number> = {};
-  for (const row of (byClass as any).rows ?? byClass) {
+  for (const row of classRows) {
     classificationMap[row.classification] = row.count;
   }
 
   return {
-    totalDocuments: Number((stats as any)?.total ?? 0),
-    underLegalHold: Number((stats as any)?.legal_hold ?? 0),
+    totalDocuments: Number(stats?.total ?? 0),
+    underLegalHold: Number(stats?.legal_hold ?? 0),
     retentionExpired: expired.length,
     byClassification: classificationMap,
   };

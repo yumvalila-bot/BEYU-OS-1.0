@@ -249,10 +249,24 @@ CREATE POLICY agriculture_livestock_herds_tenant_isolation ON agriculture_livest
 CREATE POLICY agriculture_livestock_events_tenant_isolation ON agriculture_livestock_events
   USING (tenant_id = current_setting('beyu.tenant_id', true));
 
--- Grant DML to runtime role
-GRANT SELECT, INSERT, UPDATE, DELETE ON
-  agriculture_farms, agriculture_fields, agriculture_crop_types,
-  agriculture_crop_cycles, agriculture_inputs, agriculture_input_applications,
-  agriculture_harvests, agriculture_livestock_types, agriculture_livestock_herds,
-  agriculture_livestock_events
-TO beyu_runtime;
+-- Grant DML to runtime role.
+-- The DO block keeps the grant a safe no-op on a fresh database where the role
+-- has not been provisioned yet (the canonical CI flow applies migrations BEFORE
+-- scripts/setup-db-role.ts creates the role). scripts/setup-db-role.ts re-applies
+-- the blanket grant + default privileges after provisioning, so agriculture
+-- tables are always reachable by the runtime role in every environment.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT rolname FROM pg_roles WHERE rolname = 'beyu_runtime'
+  LOOP
+    EXECUTE format(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO %I',
+      'agriculture_farms, agriculture_fields, agriculture_crop_types, agriculture_crop_cycles, agriculture_inputs, agriculture_input_applications, agriculture_harvests, agriculture_livestock_types, agriculture_livestock_herds, agriculture_livestock_events',
+      r.rolname
+    );
+    RAISE NOTICE 'granted agriculture DML to %', r.rolname;
+  END LOOP;
+END
+$$;

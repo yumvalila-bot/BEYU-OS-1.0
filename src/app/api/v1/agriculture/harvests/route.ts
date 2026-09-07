@@ -1,11 +1,15 @@
 /**
- * BEYU OS — Agriculture OS: Harvests API
+ * BEYU OS — Agriculture OS: Harvests API (DRAFT domain)
  *
- * POST /api/v1/agriculture/harvests — Record a harvest
+ * POST /api/v1/agriculture/harvests — Record a harvest for a crop cycle
+ *
+ * Authorized by RBAC (`agriculture:data.manage`). The handler runs inside the
+ * guarded() tenant RLS context; cross-tenant writes are additionally denied by
+ * Row Level Security.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { guarded } from "@/lib/guard";
+import { guarded } from "@/lib/api";
 import { recordHarvest } from "@/lib/agriculture";
 
 const RecordHarvestSchema = z.object({
@@ -20,14 +24,25 @@ const RecordHarvestSchema = z.object({
   notes: z.string().optional(),
 });
 
-export const POST = guarded(async (req: NextRequest, ctx) => {
-  const body = await req.json();
-  const parsed = RecordHarvestSchema.parse(body);
+export async function POST(request: NextRequest) {
+  return guarded(
+    request,
+    {
+      permission: "agriculture:data.manage",
+      action: "agriculture.harvests.record",
+      rateLimit: { limit: 60, windowMs: 60_000 },
+      audit: { objectType: "AGRICULTURE_HARVEST" },
+    },
+    async (ctx) => {
+      const body = await request.json();
+      const parsed = RecordHarvestSchema.parse(body);
 
-  const result = await recordHarvest({
-    tenantId: ctx.tenantId,
-    ...parsed,
-  });
+      const result = await recordHarvest({
+        tenantId: ctx.principal.tenantId,
+        ...parsed,
+      });
 
-  return NextResponse.json(result, { status: 201 });
-});
+      return NextResponse.json(result, { status: 201 });
+    },
+  );
+}
