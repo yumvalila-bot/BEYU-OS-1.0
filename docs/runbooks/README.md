@@ -52,6 +52,7 @@ This runbook program provides production-quality procedures for all critical ope
 ### Deployment
 22. [RB-022: Production Deployment](./RB-022-production-deployment.md)
 23. [RB-023: Emergency Change](./RB-023-emergency-change.md)
+24. [RB-024: Initial Administrator Enrollment](./RB-024-initial-administrator-enrollment.md)
 
 ---
 

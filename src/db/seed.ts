@@ -6,7 +6,7 @@
  * Run:  npx tsx src/db/seed.ts
  */
 import "dotenv/config";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { adminDb, adminPool } from "./admin";
 import * as s from "./schema";
 import { fixedId, ID_PREFIX } from "@/lib/ids";
@@ -245,13 +245,20 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  // Idempotent remediation for users created before Kernel Gate 1 MFA hardening.
+  // Idempotent remediation: unconditionally restore the canonical credential
+  // state for the seed identities on every run. Beyond the original Kernel
+  // Gate 1 MFA hardening backfill, this makes `npm run seed` a reliable
+  // known-good reset — repairing any identity a test may have mutated (e.g. the
+  // administrator-enrollment suite deliberately corrupts admin@beyu.os to an
+  // "enrollable-only" state) so the shared demo/test logins always work again.
   for (const p of people) {
     const totpSecret = generateTotpSecret();
     const recoveryCodes = generateRecoveryCodes();
     await adminDb
       .update(s.users)
       .set({
+        passwordHash: hashPassword(BOOTSTRAP_PASSWORD_VALUE),
+        passwordAlgo: "scrypt",
         passwordMustChange: true,
         mfaEnrolled: true,
         mfaMethod: "TOTP",
@@ -260,9 +267,34 @@ async function main() {
         mfaLastAcceptedStep: null,
         mfaFailedAttempts: 0,
         mfaLockedUntil: null,
+        failedAttempts: 0,
+        lockedUntil: null,
+        status: "ACTIVE",
       })
-      .where(and(eq(s.users.id, fixedId(ID_PREFIX.user, p.key)), isNull(s.users.mfaSecretEncrypted)));
+      .where(eq(s.users.id, fixedId(ID_PREFIX.user, p.key)));
   }
+
+  /* ---------------- secure first-administrator bootstrap ---------------- */
+  //
+  // The canonical PLATFORM_ADMIN identity + party + governed role grant above
+  // are the AUTHORIZATION half of the initial administrator. Their
+  // AUTHENTICATION (the owner's own password + own TOTP) is established through
+  // the one-time enrollment ceremony, NOT here. We only prepare the durable
+  // control record and point it at the canonical PLATFORM_ADMIN user.
+  //
+  // In dev/test the demo identities keep a usable shared-password login so the
+  // regression suite can authenticate; the state is left AVAILABLE (not sealed)
+  // so the enrollment flow itself is exercisable. In production the platform
+  // admin is provisioned enrollable-only (see scripts/prepare-admin-bootstrap.ts):
+  // no usable password/MFA is set until the owner completes enrollment.
+  await adminDb
+    .insert(s.adminBootstrapState)
+    .values({
+      id: "SINGLETON",
+      status: "AVAILABLE",
+      adminUserId: fixedId(ID_PREFIX.user, "PLATFORM_ADMIN"),
+    })
+    .onConflictDoNothing();
 
   /* ---------------- constitution ---------------- */
   const articles = [

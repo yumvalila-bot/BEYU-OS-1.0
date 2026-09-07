@@ -1116,8 +1116,9 @@ describe("compliance module — creates no second truth", () => {
 // two (14 payment tables and a posting-rewind guard). The count stays an exact
 // pin: the specialist module under test still adds no migration of its own, and any
 // further migration must be attributed here before the pin moves.
+    // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(33);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(34);
   });
 
   it("leaves all triggers enabled", async () => {

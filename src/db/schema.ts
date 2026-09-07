@@ -5,6 +5,7 @@
 export * from "./schema/enums";
 export * from "./schema/core";
 export * from "./schema/identity";
+export * from "./schema/bootstrap";
 export * from "./schema/governance";
 export * from "./schema/assurance";
 export * from "./schema/finance";
