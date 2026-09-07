@@ -1035,12 +1035,13 @@ describe("risk module — leaves governance and financial state untouched", () =
     // two (14 payment tables and a posting-rewind guard). The count stays an exact
     // pin: the specialist module under test still adds no migration of its own, and any
     // further migration must be attributed here before the pin moves.
+    // + 0033_admin_bootstrap_state (secure first-administrator enrollment tables; adds no specialist truth).
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(33);
+    expect(n).toBe(34);
   });
 
   it("leaves all triggers enabled", async () => {

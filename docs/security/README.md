@@ -60,6 +60,20 @@ consistency, tenant isolation, classification ceiling, financial determinism, ta
 jurisdiction gating, AI authority boundary, referential integrity). `npx vitest run` executes 21
 deterministic unit/contract tests for the critical business rules.
 
+## Initial administrator bootstrap
+
+BEYU OS ships with **no usable, default, or shared administrator credential**.
+The first human administrator establishes their own password and MFA privately
+through a one-time, owner-controlled enrollment ceremony that is permanently
+sealed after use (replay/CSRF/race resistant, DB-enforced terminality). See:
+
+- [`ADMINISTRATOR_ENROLLMENT.md`](ADMINISTRATOR_ENROLLMENT.md) — the ceremony end to end.
+- [`BOOTSTRAP_SECURITY.md`](BOOTSTRAP_SECURITY.md) — threat model and invariants.
+- [`AUTHENTICATION_AND_MFA.md`](AUTHENTICATION_AND_MFA.md) — credential primitives and policy.
+- [`GOVERNANCE_APPROVAL_AUTHORIZATION.md`](GOVERNANCE_APPROVAL_AUTHORIZATION.md) — how it fits the RBAC/ABAC/governance model.
+- [`PRODUCTION_SECRET_CONFIGURATION.md`](PRODUCTION_SECRET_CONFIGURATION.md) — required secrets.
+- [`../runbooks/RB-024-initial-administrator-enrollment.md`](../runbooks/RB-024-initial-administrator-enrollment.md) — owner runbook.
+
 ## Non-claims
 
 BEYU OS **does not** claim certification against ISO 27001, SOC 2, GDPR or any other framework.

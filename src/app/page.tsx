@@ -150,6 +150,13 @@ export default async function SignInPage() {
               Access is least-privilege and fully audited. High-risk capabilities require step-up
               authentication. Unauthorised access attempts are recorded in the immutable audit ledger.
             </p>
+            <p className="mt-3 text-[10.5px] text-white/40">
+              First-time setup?{" "}
+              <a href="/enroll" className="text-[#d4af37] underline-offset-2 hover:underline">
+                Enroll the initial administrator
+              </a>
+              .
+            </p>
           </div>
         </section>
       </div>

@@ -8,6 +8,8 @@ export const HIVE_RUNTIME = "HIVE";
 export const NOELIA_SCHEDULER_IDENTITY = "NOELIA_SCHEDULER";
 export const NOELIA_PROMPT_VERSION = "noelia-prompt/2.0.0";
 export const SESSION_COOKIE = "beyu_os_session";
+/** httpOnly cookie carrying the one-time administrator enrollment token. */
+export const BOOTSTRAP_ENROLLMENT_COOKIE = "beyu_os_admin_enrollment";
 export const SESSION_TTL_HOURS = 12;
 
 /**
