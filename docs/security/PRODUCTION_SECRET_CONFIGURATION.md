@@ -1,9 +1,27 @@
 # Production Secret Configuration
 
-The secrets below must be provisioned in the deployment platform's secret store
-(e.g. Vercel environment variables) **before** the initial administrator can be
-enrolled. None of them has a default, and none may be committed to source
-control.
+This document states **what** each secret is for and **where it must live**.
+The authoritative per-secret matrix (consumer, runtime vs one-time, Vercel
+requirement, provisioning location, rotation) is
+[`SECRET_PROVISIONING_MATRIX.md`](SECRET_PROVISIONING_MATRIX.md).
+
+Placement rule:
+
+- **Vercel runtime secret store** — ONLY the secrets the Next.js application
+  process itself reads at request time: `DATABASE_URL`, `AUTH_SECRET`,
+  `MFA_ENCRYPTION_KEY`, `BEYU_BOOTSTRAP_SECRET` (until the bootstrap is sealed,
+  then rotate/unset), and `BEYU_INTERNAL_SERVICE_TOKEN` (only if sector
+  service-to-service calls are used).
+- **Privileged environments ONLY (never Vercel)** — `BEYU_ADMIN_DATABASE_URL`,
+  `BEYU_RUNTIME_DB_PASSWORD`, `BEYU_BOOTSTRAP_PASSWORD`, and the one-time
+  consent flag `BEYU_ALLOW_PRODUCTION_SEED`. These live in the GitHub
+  `Production` environment secrets (for the `db-release` pipeline) and/or the
+  owner's local privileged shell. The application runtime never reads them;
+  no route, page, or client bundle references them (verified by the
+  secret-boundary review: sentinel-valued production build contains zero
+  secret values in `.next/static` or `.next/server`).
+
+None of them has a default, and none may be committed to source control.
 
 ---
 
@@ -11,11 +29,11 @@ control.
 
 | Variable | Purpose | Constraints |
 | --- | --- | --- |
-| `BEYU_BOOTSTRAP_SECRET` | Authorizes the one-time administrator enrollment ceremony. | ≥ 32 chars, high entropy. No default. Placeholder-like values rejected in production. Rotate/unset after sealing. |
-| `AUTH_SECRET` | Session token / auth signing. | Random 32+ chars. A dev/placeholder value is refused at runtime. |
-| `MFA_ENCRYPTION_KEY` | AES-256-GCM key for MFA secrets at rest. | Random 32+ chars. A dev/placeholder key throws in production. |
-| `BEYU_ADMIN_DATABASE_URL` | Admin/migration DSN (superuser). Used by migrations and the PREPARE script only. | Never exposed to the runtime app. |
-| `DATABASE_URL` | Runtime DSN (constrained `beyu_runtime` role). | Cannot write governance tables / `role_assignments` (F-01). |
+| `BEYU_BOOTSTRAP_SECRET` | Authorizes the one-time administrator enrollment ceremony. Vercel runtime until sealed. | ≥ 32 chars, high entropy. No default. Placeholder-like values rejected in production. Rotate/unset after sealing. |
+| `AUTH_SECRET` | Server-side key material (MFA encryption fallback when `MFA_ENCRYPTION_KEY` is unset). Vercel runtime. | Random 32+ chars. The dev placeholder throws in production. |
+| `MFA_ENCRYPTION_KEY` | AES-256-GCM key for MFA secrets at rest. Vercel runtime. | Random 32+ chars. The dev placeholder throws in production. |
+| `BEYU_ADMIN_DATABASE_URL` | Admin/migration DSN (superuser). Used by migrations, seed, PREPARE and the `db-release` pipeline ONLY. **Never in Vercel; never read by the runtime app.** | Owner/GitHub-secret storage only. |
+| `DATABASE_URL` | Runtime DSN (constrained `beyu_runtime` role). Vercel runtime. | Cannot write governance tables / `role_assignments` (F-01). |
 
 ### PREPARE-time only
 
