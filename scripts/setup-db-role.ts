@@ -171,6 +171,47 @@ async function main(): Promise<void> {
       console.log(`revoked DML on payment configuration tables for ${runtimeRole}: ${revoked.join(", ")}`);
     }
 
+    // 4c. Pure governance tables are NEVER writable by the runtime role (F-01 remediation).
+    //
+    //     The runtime role must not be able to modify the rules that govern it.
+    //     Governance mutations must go through authorized administrative paths
+    //     (migrations, governed workflows with proper approvals).
+    //
+    //     Identity and organization tables (users, tenants, legal_entities) are
+    //     intentionally left writable because the auth flow legitimately updates
+    //     user state (last_login_at, failed_attempts, MFA fields), and operational
+    //     workflows may need to update tenant/entity metadata.
+    const governanceTables = [
+      "os_registry",
+      "governance_capability_registry",
+      "governance_decision_registry",
+      "role_assignments",
+    ];
+    const governanceRevoked: string[] = [];
+    for (const table of governanceTables) {
+      const present = await client.query(`select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table]);
+      if ((present.rowCount ?? 0) === 0) continue; // table doesn't exist yet
+      await execFormat(`'revoke insert, update, delete on public.%I from %I'`, [table, runtimeRole]);
+      const check = await client.query(
+        `select has_table_privilege($1::text, 'public.' || $2, 'INSERT') as i,
+                has_table_privilege($1::text, 'public.' || $2, 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.' || $2, 'DELETE') as d,
+                has_table_privilege($1::text, 'public.' || $2, 'SELECT') as s`,
+        [runtimeRole, table],
+      );
+      const p = check.rows[0];
+      if (p.i || p.u || p.d) {
+        throw new Error(`governance table ${table} is still writable by ${runtimeRole} after revocation`);
+      }
+      if (!p.s) {
+        throw new Error(`governance table ${table} lost SELECT for ${runtimeRole}; the runtime could no longer enforce governance`);
+      }
+      governanceRevoked.push(table);
+    }
+    if (governanceRevoked.length > 0) {
+      console.log(`revoked DML on governance tables for ${runtimeRole}: ${governanceRevoked.join(", ")}`);
+    }
+
     // 5. Verification of the runtime role's effective privileges.
     const attrs = await client.query(
       `select rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolreplication, rolbypassrls
