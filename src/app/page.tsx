@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
-import { BeyuLogo } from "@/components/beyu-logo";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
@@ -82,7 +82,13 @@ export default async function SignInPage() {
     <main className="beyu-shell min-h-screen text-white">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
         <section className="flex flex-col justify-center">
-          <BeyuLogo variant="light" size={64} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+          {/* Authoritative BEYU OS mark (control-plane identity). The
+              authoritative PNG carries a white studio matte, so on this dark
+              surface it is presented on a light plate — the standard raster
+              logo treatment; the asset itself is untouched. */}
+          <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2">
+            <BeyuOsLogo size={64} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+          </span>
 
           <div className="beyu-gold-rule my-8 max-w-xl" />
 
@@ -119,7 +125,9 @@ export default async function SignInPage() {
         <section className="flex items-center justify-center">
           <div className="w-full max-w-md rounded-2xl border border-white/12 bg-white/[0.06] p-7 backdrop-blur">
             <div className="flex items-center gap-3">
-              <BeyuLogo variant="mark" size={34} ariaLabel="BEYU" />
+              <span className="inline-flex w-fit items-center justify-center rounded-lg bg-white p-1">
+                <BeyuOsLogo size={30} ariaLabel="BEYU OS" />
+              </span>
               <div>
                 <div className="text-[15px] font-semibold">Welcome</div>
                 <div className="text-[11.5px] text-white/60">Sign in to the control plane</div>

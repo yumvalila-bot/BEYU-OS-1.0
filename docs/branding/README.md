@@ -7,14 +7,20 @@ referenced and replaced** — and the rules that keep the identity honest.
 ## 1. The hierarchy (never invert it)
 
 ```
-BEYU            Institution / platform identity
- └─ BEYU OS     Operating and governance environment
-     └─ HIVE    Governed AI runtime
-         └─ NOELIA AI   Unified governed AI identity & interface
+BEYU FAMILY TRUST   Parent institutional / fiduciary identity
+ └─ BEYU            Institution / platform identity (holdings & ecosystem)
+     └─ BEYU OS     Operating and governance environment (control plane)
+         ├─ SECTOR OSs   BEYU Health OS · BEYU Finance OS · BEYU Agriculture OS · future sectors
+         └─ HIVE    Governed AI runtime
+             └─ NOELIA AI   Unified governed AI identity & interface
 ```
 
 - The BEYU mark is the anchor of every surface (shell, sign-in, Noelia panel
   header, footers).
+- **BEYU FAMILY TRUST and BEYU OS are two distinct identities and are never
+  merged or substituted** (see §2b): the Family Trust lockup appears only on
+  genuine Family Trust / institutional surfaces; BEYU OS surfaces carry the
+  BEYU OS identity; sector OSs keep their own identities.
 - Noelia is always presented **inside** BEYU OS context (mark + "BEYU OS"
   kicker + "HIVE · governed AI runtime" + governed-assistant indicator).
 - Noelia never appears above BEYU, as BEYU itself, or as governance authority.
@@ -30,6 +36,8 @@ BEYU            Institution / platform identity
 | `beyu-logo-mark.svg` | Canonical mark only (gold ring · navy "B" · sage tree) |
 | `favicon.svg` | Browser tab / app tile (self-contained navy tile) |
 | `beyu-app-icon.svg` / `-192.png` / `-512.png` | PWA / OS app icon |
+| `beyu-family-trust-logo.png` | **Authoritative** Family Trust lockup — see §2b |
+| `beyu-os-logo.png` | **Authoritative** BEYU OS mark — see §2b |
 
 **Replacing an asset:** overwrite the file in place (keep the path and the
 `viewBox`). Every surface updates without a code change — components resolve
@@ -54,6 +62,46 @@ import { BeyuLogo } from "@/components/beyu-logo";
 Props: `variant` (`full | mark | light | dark`), `size` (height in px),
 `className`, `href` (wraps in a link), `ariaLabel` (defaults to "BEYU OS" /
 "BEYU"), `decorative` (renders `alt=""`).
+
+## 2b. Authoritative institutional assets (PNG) — byte-sacred
+
+Two supplied PNGs are the **canonical institutional artwork**, installed
+byte-for-byte and pinned by SHA-256 in
+`tests/frontend/brand-identity.test.ts`:
+
+| File | Identity | Appears on |
+| --- | --- | --- |
+| `beyu-family-trust-logo.png` (1239×1254) | **BEYU FAMILY TRUST** — parent institutional/fiduciary identity | Genuine Family Trust / institutional surfaces (e.g. Family Office) |
+| `beyu-os-logo.png` (1254×1254) | **BEYU OS** — enterprise control-plane / software identity | BEYU OS application surfaces (e.g. sign-in) |
+
+**Never** regenerate, recompress, recolour, crop, convert or trace these
+files; the only valid replacement is copying a newly supplied authoritative
+file byte-for-byte (SHA-256 must be re-pinned in the test suite). Both carry
+a white studio matte: on dark surfaces present them on a light plate (see
+`<BeyuOsLogo />` usage on the sign-in page); the reversed SVG lockup remains
+the canonical asset for dark chrome without a plate.
+
+### `<BeyuOsLogo />` and `<FamilyTrustLogo />`
+
+```tsx
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { FamilyTrustLogo } from "@/components/family-trust-logo";
+
+<BeyuOsLogo size={64} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+<BeyuOsLogo size={36} href="/os" />                  // wraps in a link
+<FamilyTrustLogo size={64} ariaLabel="BEYU Family Trust" />
+<FamilyTrustLogo size={48} decorative />             // alt="" — purely decorative
+```
+
+Props (both components): `size` (height in px; width follows the source
+aspect ratio — never distorted), `className`, `href`, `ariaLabel` (defaults
+to "BEYU OS" / "BEYU Family Trust"), `decorative` (renders `alt=""`).
+
+The two components resolve separate registry entries
+(`BEYU_OS_ASSETS` / `BEYU_FAMILY_TRUST_ASSETS` in
+`src/components/brand-assets.ts`), so the type system and the identity
+separation tests make confusing the two identities a build/test failure, not
+a styling accident.
 
 ## 3. Noelia AI identity assets — `/public/noelia/`
 
@@ -127,3 +175,8 @@ accountability.
    use `noelia-icon.svg` instead.
 5. **No visual authority.** Noelia is never rendered as BEYU's constitutional
    or governance authority, and never above BEYU in the visual hierarchy.
+6. **Identities never merge.** Family Trust ≠ BEYU OS ≠ sector OS. The
+   authoritative Family Trust asset never appears on OS control-plane chrome,
+   the authoritative BEYU OS asset never appears as the institutional seal on
+   Family Trust governance surfaces, and Health / Finance / Agriculture OSs
+   keep their own branding. (Test-enforced.)

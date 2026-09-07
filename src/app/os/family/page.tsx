@@ -5,6 +5,7 @@ import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
+import { FamilyTrustLogo } from "@/components/family-trust-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +46,20 @@ export default async function FamilyPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <div className="beyu-kicker text-[#b08d1c]">Family office — first-class BEYU OS capability</div>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Family governance, lineage, beneficiaries & vaults</h1>
-        <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
-          Family Office is never a separate OS. All family data is HIGHLY_RESTRICTED, protected by named
-          grants, lineage verification, succession controls and full audit.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="beyu-kicker text-[#b08d1c]">Family office — first-class BEYU OS capability</div>
+          <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Family governance, lineage, beneficiaries & vaults</h1>
+          <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
+            Family Office is never a separate OS. All family data is HIGHLY_RESTRICTED, protected by named
+            grants, lineage verification, succession controls and full audit.
+          </p>
+        </div>
+        {/* Parent institutional identity — the authoritative Family Trust
+            asset on a genuine Family Trust surface. The OS chrome around it
+            intentionally remains BEYU OS; sector and institutional identities
+            are never merged (docs/branding/README.md). */}
+        <FamilyTrustLogo size={64} className="shrink-0" ariaLabel="BEYU Family Trust" />
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
