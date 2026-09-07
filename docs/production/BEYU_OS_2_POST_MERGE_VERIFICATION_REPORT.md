@@ -30,6 +30,26 @@ The last row is what makes CI's green run usable as *post-merge* verification ra
 pre-merge: GitHub's merge introduced no content change, so the checks that passed on `0a51d2c`
 ran against exactly the bytes now on `main`.
 
+### 1.0.1 The documentation follow-up (this report's own landing path)
+
+`FINAL_REPORT.md` §32/§43 and this report were committed as `6539ced`, pushed to
+`arena/01a076da-beyu-os-1-0` as a fast-forward (parent `d626fa4`, so `main` is never written
+directly) and opened as **PR #31 —
+`https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/31`**. Its diff against `main` is exactly the five
+documentation paths listed in §1 of that PR.
+
+CI on head `6539ced`: **10 pass, 6 skipping** — pass: Committed secret scan (36 s), Migration
+validation on scratch PostgreSQL 16 (42 s), Root BEYU OS PostgreSQL security gate (7 m 38 s), the
+three production dependency audits (11–21 s each), both Health OS gates (4 m 30 s and 22 s), Vercel,
+Vercel Preview Comments; skipping (unauthorized production jobs, not verification): production
+database deploy + verify, production drift report, production preflight, runtime verification against
+production `/api/health`, Three-way release record, Supabase Preview. The CI job that matters most for
+these files is the committed secret scan: it ran against the pushed tree **including the three new
+redacted transcripts** and found nothing.
+
+The merge authorization given for this programme covered PR #29 and PR #30 only. PR #31 is therefore
+left open for the maintainer to merge on its green checks; nothing in this document claims it landed.
+
 ### 1.1 Pre-merge gates that were re-checked, not assumed
 
 * `gh pr view 30` → `mergeable=MERGEABLE`, `mergeStateStatus=CLEAN`, no blocking review.

@@ -569,6 +569,11 @@ in `docs/production/BEYU_OS_2_POST_MERGE_VERIFICATION_REPORT.md`.
 * Transcripts committed: `docs/audit/evidence/POST_MERGE_PAYMENTS_DEMO_TRANSCRIPT.txt`,
   `docs/audit/evidence/POST_MERGE_DR_PAYMENTS_DRILL_TRANSCRIPT.txt`,
   `docs/audit/evidence/POST_MERGE_PAYMENT_PERF_PROBE.json`.
+* This documentation set was pushed as `6539ced` on top of `d626fa4` (fast-forward, `main` never
+  written directly) and opened as **PR #31**, whose checks are **10 pass / 6 skipping** — the
+  committed secret scan there is what verifies the redaction of the new transcripts against the pushed
+  tree. Merging PR #31 was not authorized by this programme (authorization covered #29 and #30), so
+  it stays open on green checks rather than being merged on the strength of this paragraph.
 
 Findings after the merge: **F-01 OPEN (P1)** · **F-NEW-1a OPEN (P2)** · **F-NEW-1b OPEN (P3)** ·
 **F-NEW-2 OPEN (P3, new: `src/db/schema/payments.ts:40` provider-code comment drift, comment-only,
