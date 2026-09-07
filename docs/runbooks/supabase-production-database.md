@@ -50,31 +50,55 @@ the pooler for both roles. Never prefix these with `NEXT_PUBLIC_`.
 ```bash
 export BEYU_ADMIN_DATABASE_URL='postgresql://postgres.siyzygezdmlxbvwttrdz:<DB_PASSWORD>@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require'
 npm ci
-npm run migrate                 # applies the 19 migrations 0000..0018 (0005 creates btree_gist)
+npm run migrate                 # applies every migration in drizzle/ (0000..0033)
 export BEYU_RUNTIME_DB_PASSWORD='<strong-runtime-password-14+chars>'
 npx tsx scripts/setup-db-role.ts   # creates beyu_runtime: NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB
-# governed one-time bootstrap:
+# governed one-time bootstrap (SINGLE USE — never re-run after enrollment seals):
 export BEYU_ENV=production
 export BEYU_ALLOW_PRODUCTION_SEED=I_UNDERSTAND_THIS_IS_A_ONE_TIME_GOVERNED_BOOTSTRAP
 export BEYU_BOOTSTRAP_PASSWORD='<bootstrap-password-14+chars>'
 npm run seed
+# then prepare the enrollable-only administrator and enroll via RB-024:
+#   BEYU_ADMIN_EMAIL='<owner-email>' npm run prepare:admin-bootstrap
+#   (see RB-024-initial-administrator-enrollment.md; unset the one-time
+#   BEYU_BOOTSTRAP_PASSWORD / BEYU_ALLOW_PRODUCTION_SEED from the shell after use)
 ```
+
+> **Single-use warning:** `npm run seed` resets demo-identity credentials. It is
+> part of the initial governed bootstrap ONLY. Re-running it after the
+> administrator has enrolled would overwrite the enrolled administrator's
+> credential. The `BEYU_ALLOW_PRODUCTION_SEED` consent value must be treated as
+> single-use: export it only for the initial bootstrap shell session.
 
 ## 3. Vercel production environment variables (secret store)
 
 | Variable | Value |
 |----------|-------|
 | `DATABASE_URL` | runtime transaction pooler string (§1) |
-| `BEYU_RUNTIME_DATABASE_URL` | same runtime transaction pooler string |
-| `BEYU_ADMIN_DATABASE_URL` | admin session pooler string (§1) |
 | `BEYU_RUNTIME_DB_ROLE` | `beyu_runtime` |
 | `AUTH_SECRET` | random 32+ char secret |
 | `MFA_ENCRYPTION_KEY` | random 32+ char secret |
-| `BEYU_BOOTSTRAP_PASSWORD` | governed bootstrap password (seed only) |
+| `BEYU_BOOTSTRAP_SECRET` | random ≥32 char secret (one-time enrollment; rotate/unset after sealing — see RB-024) |
+| `BEYU_INTERNAL_SERVICE_TOKEN` | random 32+ char secret (only if sector service-to-service calls are used) |
 | `BEYU_TRUST_PROXY` | `true` (Vercel is a trusted ingress proxy) |
 
-No `NEXT_PUBLIC_SUPABASE_*`. The app connects lazily, so the Vercel build
-succeeds without runtime secrets (`tests/architecture/build-without-database-url`).
+**MUST NOT be provisioned in Vercel** (privileged environments only — the
+owner's shell and/or GitHub `Production` environment secrets for the
+`db-release` pipeline; the Next.js runtime never reads them):
+
+| Variable | Where it lives instead |
+|----------|------------------------|
+| `BEYU_ADMIN_DATABASE_URL` | owner shell + GitHub secret (migrations, seed, `prepare:admin-bootstrap`, `db-release`) |
+| `BEYU_RUNTIME_DB_PASSWORD` | owner shell + GitHub secret (`setup-db-role.ts` only) |
+| `BEYU_BOOTSTRAP_PASSWORD` | owner shell, single-use (initial `npm run seed` only) |
+| `BEYU_ALLOW_PRODUCTION_SEED` | owner shell, single-use consent flag |
+| `BEYU_RUNTIME_DATABASE_URL` | not read by the application at all (owner-side audit scripts may set it equal to `DATABASE_URL`) |
+
+No `NEXT_PUBLIC_*` secrets of any kind. The app connects lazily, so the Vercel
+build succeeds without runtime secrets
+(`tests/architecture/build-without-database-url`; also proven by a
+sentinel-valued production build containing zero secret values in
+`.next/static` or `.next/server`).
 
 ## 4. Backups / PITR
 
