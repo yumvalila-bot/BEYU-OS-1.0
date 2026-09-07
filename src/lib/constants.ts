@@ -141,6 +141,16 @@ export const PERMISSIONS = {
   "finance:waterfall.commit": "Commit a waterfall run (requires resolution)",
   "finance:tax.read": "Read tax strategy intelligence",
   "finance:tax.assess": "Assess tax strategy eligibility",
+  // Payments & banking integration. Deliberately split read / ingest / review /
+  // authorize / configure: a single "payments" permission would let one grant
+  // carry both ingestion and payout authorisation, which is the separation of
+  // duties this domain exists to enforce.
+  "finance:payments.read": "Read payment transactions, settlements and exceptions",
+  "finance:payments.ingest": "Ingest provider events and settlement batches (no ledger effect)",
+  "finance:payments.review": "Confirm or reject a proposed payment match; resolve an exception",
+  "finance:payments.authorize": "Authorize a payment transaction for accounting and accept residual risk",
+  "finance:payments.configure": "Propose payment configuration; the database write itself requires the admin DSN",
+  "finance:settlement.manage": "Manage settlement batches and clearing reconciliation",
   // Workforce
   "hcm:employee.read": "Read workforce records",
   "hcm:employee.manage": "Manage workforce records",
@@ -192,6 +202,8 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:role.grant",
   "organization:ownership.manage",
   "finance:ledger.post",
+  "finance:payments.authorize",
+  "finance:settlement.manage",
   "finance:waterfall.commit",
   "family:beneficiary.manage",
   "governance:policy.manage",
@@ -329,6 +341,12 @@ export const ROLES: Record<
       "compliance:obligation.read",
       "finance:ledger.read",
       "finance:ledger.post",
+      "finance:payments.read",
+      "finance:payments.ingest",
+      "finance:payments.review",
+      "finance:payments.authorize",
+      "finance:payments.configure",
+      "finance:settlement.manage",
       "finance:treasury.read",
       "finance:capital.read",
       "finance:capital.manage",
@@ -513,6 +531,7 @@ export const ROLES: Record<
       "finance:capital.read",
       "finance:waterfall.read",
       "finance:tax.read",
+      "finance:payments.read",
       "hcm:employee.read",
       "documents:registry.read",
       "audit:log.read",

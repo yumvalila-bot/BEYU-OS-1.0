@@ -197,6 +197,20 @@
       "when": 1788436240000,
       "tag": "0027_noelia_ai_phase5_platform",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788715424034,
+      "tag": "0028_payment_banking_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788720750819,
+      "tag": "0029_payment_posting_rewind_guard",
+      "breakpoints": true
     }
   ]
 }

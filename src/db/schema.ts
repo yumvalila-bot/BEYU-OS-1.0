@@ -8,6 +8,7 @@ export * from "./schema/identity";
 export * from "./schema/governance";
 export * from "./schema/assurance";
 export * from "./schema/finance";
+export * from "./schema/payments";
 export * from "./schema/people";
 export * from "./schema/platform";
 export * from "./schema/ai";

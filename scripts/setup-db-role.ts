@@ -125,6 +125,52 @@ async function main(): Promise<void> {
       [owner, runtimeRole],
     );
 
+    // 4b. Payment configuration authority is NEVER delegated to the runtime role.
+    //
+    //     Step 3 granted blanket DML on every existing table and step 4 grants it
+    //     on every future one, which is why the runtime role can currently rewrite
+    //     governance rows (finding F-01, still open, deliberately NOT remediated
+    //     here). The payment domain was told not to inherit that: provider status,
+    //     connection enablement, ledger account mappings, limits and settlement
+    //     authority must not be silently mutable by the credentials of the very
+    //     runtime those controls govern.
+    //
+    //     This runs here rather than only in 0028 because CI applies migrations
+    //     BEFORE creating the role, so the migration's revocation is a no-op on a
+    //     fresh database. Both paths exist so the control holds whether the role is
+    //     created first or last.
+    const paymentConfigTables = [
+      "payment_providers",
+      "payment_provider_connections",
+      "payment_accounts",
+      "payment_account_mappings",
+      "payment_policies",
+    ];
+    const revoked: string[] = [];
+    for (const table of paymentConfigTables) {
+      const present = await client.query(`select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table]);
+      if ((present.rowCount ?? 0) === 0) continue; // pre-0028 database: nothing to revoke yet
+      await execFormat(`'revoke insert, update, delete on public.%I from %I'`, [table, runtimeRole]);
+      const check = await client.query(
+        `select has_table_privilege($1::text, 'public.' || $2, 'INSERT') as i,
+                has_table_privilege($1::text, 'public.' || $2, 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.' || $2, 'DELETE') as d,
+                has_table_privilege($1::text, 'public.' || $2, 'SELECT') as s`,
+        [runtimeRole, table],
+      );
+      const p = check.rows[0];
+      if (p.i || p.u || p.d) {
+        throw new Error(`payment configuration table ${table} is still writable by ${runtimeRole} after revocation`);
+      }
+      if (!p.s) {
+        throw new Error(`payment configuration table ${table} lost SELECT for ${runtimeRole}; the runtime could no longer read its own limits`);
+      }
+      revoked.push(table);
+    }
+    if (revoked.length > 0) {
+      console.log(`revoked DML on payment configuration tables for ${runtimeRole}: ${revoked.join(", ")}`);
+    }
+
     // 5. Verification of the runtime role's effective privileges.
     const attrs = await client.query(
       `select rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolreplication, rolbypassrls

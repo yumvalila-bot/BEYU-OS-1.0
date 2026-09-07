@@ -1,0 +1,27 @@
+# Local DR drill transcript — payments phase (FAILED run, kept deliberately)
+# Same command, an earlier attempt. Two verdict flags came back false because the counters read
+# the wrong database connection, so the drill reported a restore defect that did not exist in the
+# data. It is retained as counter-evidence: the drill fails loudly and prints the JSON it judged,
+# which is what makes the passing run worth reading.
+# Redaction: password components replaced with ***.
+[dr-drill] phase 1b — build payment lifecycle DRMTQ9DUH0 in the source database
+[payments-dr] fixture DRMTQ9DUH0: {"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1} entry=JE_4e8071ea-856d-4a21-a752-4c1c2d901964
+[dr-drill] phase 1b — posted: {"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1}
+[dr-drill] phase 1 — snapshot source
+[dr-drill] source: 30 migrations, fingerprint d5ab78be9a4d7c42a64bac57416d7079, 132 tables, 58 RLS tables, chain ok=true
+[dr-drill] phase 2 — reconstruct scratch database beyu_dr_drill_mtq9duh1 from migrations only
+[dr-drill] phase 2b — provision the runtime role in the scratch database
+[dr-drill] phase 2b — runtime grants source=513 scratch=513
+[dr-drill] phase 3 — schema parity
+[dr-drill] fingerprint parity OK
+[dr-drill] phase 4 — restore data (FK-dependency rounds)
+[dr-drill] phase 4 — invariants hold in both databases ({"posted_without_entry":0,"empty_entries":0,"unbalanced_entries":0,"orphan_states":0})
+[dr-drill] phase 5 — post-restore validation
+[dr-drill] phase 5b — verify the payment lifecycle in the restored database
+[dr-drill] phase 5b — {"duplicateRecognised":true,"duplicateAcknowledged":false,"tamperedDeliveryRefused":true,"tamperedDeliveryEscalated":false,"noSecondBooking":true,"amountUnchanged":true,"postedStateIntact":true,"inboxNotDuplicated":true}
+[dr-drill] FAILED:
+  - restored payment path check "duplicateAcknowledged" failed: replay={"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9duh1","amountMinor":250000,"outcome":"DUPLICATE","code":"ALREADY_RECEIVED","tampered":false,"digestMatchesOriginal":true,"transactionId":"PVT_01K1S679U1XM984RD824DR","transactionsForProviderId":0,"journalEntriesForThisPayment":0,"exceptionsFromThisReplay":[]} tamper={"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9duh1","amountMinor":250000,"outcome":"REJECTED","code":"DUPLICATE_CONFLICT","tampered":true,"digestMatchesOriginal":false,"transactionId":null,"transactionsForProviderId":0,"journalEntriesForThisPayment":0,"exceptionsFromThisReplay":[]} after={"transactions":1,"entries":1,"lines":2,"inbox":1,"gross":"250000","accounting_status":"POSTED"}
+  - restored payment path check "tamperedDeliveryEscalated" failed: replay={"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9duh1","amountMinor":250000,"outcome":"DUPLICATE","code":"ALREADY_RECEIVED","tampered":false,"digestMatchesOriginal":true,"transactionId":"PVT_01K1S679U1XM984RD824DR","transactionsForProviderId":0,"journalEntriesForThisPayment":0,"exceptionsFromThisReplay":[]} tamper={"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9duh1","amountMinor":250000,"outcome":"REJECTED","code":"DUPLICATE_CONFLICT","tampered":true,"digestMatchesOriginal":false,"transactionId":null,"transactionsForProviderId":0,"journalEntriesForThisPayment":0,"exceptionsFromThisReplay":[]} after={"transactions":1,"entries":1,"lines":2,"inbox":1,"gross":"250000","accounting_status":"POSTED"}
+[dr-drill] payments phase detail: {"tag":"DRMTQ9DUH0","postedKind":{"kind":"POSTED","settlementStatus":"RECONCILED","trustRaised":1},"restoreChecks":[{"name":"transactions restored","ok":true},{"name":"inbox rows restored","ok":true},{"name":"state trail length and content","ok":true},{"name":"settlement batch","ok":true},{"name":"journal entry balance and lineage","ok":true},{"name":"audit evidence for the payment","ok":true},{"name":"exceptions carried","ok":true},{"name":"0029 unposting guard active after restore","ok":true},{"name":"posted state unchanged after guard refusal","ok":true}],"grants":{"ran":true,"scratch":513,"source":513,"missingOnScratch":[],"extraOnScratch":[]},"replay":{"target":"postgresql://beyu_runtime:***@127.0.0.1:5432/beyu_dr_drill_mtq9duh1","amountMinor":250000,"outcome":"DUPLICATE","code":"ALREADY_RECEIVED","tampered":false,"digestMatchesOriginal":true,"transactionId":"PVT_01K1S679U1XM984RD824DR","transactionsForProviderId":0,"journalEntriesForThisPayment":0,"exceptionsFromThisReplay":[]},"tamperedReplay":{"outcome":"REJECTED","code":"DUPLICATE_CONFLICT","exceptions":[]},"afterReplay":{"transactions":1,"entries":1,"lines":2,"inbox":1,"gross":"250000","accounting_status":"POSTED"},"verdict":{"duplicateRecognised":true,"duplicateAcknowledged":false,"tamperedDeliveryRefused":true,"tamperedDeliveryEscalated":false,"noSecondBooking":true,"amountUnchanged":true,"postedStateIntact":true,"inboxNotDuplicated":true}}
+[dr-drill] payment fixture DRMTQ9DUH0 removed: {"rowsRemoved":{"ok":true,"prefixes":["DRMTQ9DUH0"],"removed":{"journalLines":2,"settlementItems":1,"settlements":1,"corrections":0,"matches":0,"states":6,"riskSignals":0,"exceptions":1,"journalEntries":1,"transactions":1,"webhookEvents":1,"periods":1},"unwindOfDrillPosting":true},"configCleanup":{"mode":"cleanup","refused":false,"removed":{"accountMappings":4,"policies":1,"paymentAccounts":1,"con
+[dr-drill] phase 6 — destroy scratch database beyu_dr_drill_mtq9duh1
