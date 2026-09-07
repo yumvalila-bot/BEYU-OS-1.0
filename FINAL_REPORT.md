@@ -336,21 +336,65 @@ After every run in this phase the database was re-measured and left as found: `p
 tables at zero rows. The perf probe and the drill both assert their own teardown in their output;
 a measurement that leaves data behind is a migration nobody asked for.
 
-## 31. Git history and safety
+## 31. Git history, a real incident, and a citation audit
 
-Commits added on top of the prior baseline, all on `arena/01a076da-beyu-os-1-0`:
-`46dc6e2` docs(audit) Phase-0 reality audit + implementation plan · `f9b8bb6` test(payments) the
-five payment suites + specialist migration-count re-pinning · `c3f206b` fix(payments) review and
-accounting scoping, SoD, audit-on-refusal, fixture-reset FK coverage, DR tooling, assurance suite ·
-plus this phase's documentation, DR/probe and evidence artifacts.
-No existing commit was squashed or rewritten, no force-push was attempted, `main` was never pushed
-to directly, and the prior program's uncommitted files (`src/lib/noelia/*`,
-`src/lib/db-privilege-guard.ts`, its tests, `.env.example`, `ci.yml`) were left untouched and
-unstaged.
+**The sandbox re-clone.** Between turns Arena re-cloned the repository. That discarded the
+gitignored `node_modules/`, `.env` and `pgdata/`, and — because the branch's most recent commits
+were unpushed — it discarded those commit objects too (`876f131`, `c3f206b`, `f9b8bb6`, `46dc6e2`
+and this phase's evidence commit). Every file survived on disk as working-tree state, and the
+pushed head was still `25744c8`. The content was therefore re-committed as one commit
+(`7b4692d`) on top of `25744c8`, pushed as a fast-forward. No pushed history was rewritten, no
+force-push, no rebase of shared commits, and `main` was never pushed to. The consequence is
+recorded in the commit message and here rather than hidden: five logical commits became one, so
+the phase-by-phase narrative is not recoverable from `git log`.
+
+**A staging mistake, caught before it left the machine.** While committing this phase, `git add
+-u` staged the *other* workstream's uncommitted files (`src/lib/noelia/*`, `src/db-privilege-guard.ts`,
+its tests, `.env.example`, `ci.yml`, the `system/self-test` route). That commit was local and
+unpushed, so it was undone (`reset --soft` then `restore --staged`) and re-made with an explicit
+path list. Had it been pushed, those files would have entered the payments PR — and a naive
+"revert" would have deleted another program's uncommitted work from the tree. Two rules came out
+of it: stage by named path in a shared working tree, and check `git show --name-only` before any
+push, not after.
+
+**A citation audit of this programme's own documents.** A scripted check extracted every
+`src/…`, `tests/…`, `drizzle/…`, `docs/…` path cited in the payments documents and tested it
+against the filesystem. It found 21 broken citations — and they were not typos, they were
+invented:
+`drizzle/0028_payments_core_and_ledger_bridge.sql` and `drizzle/0029_posting_claim_rewind_guard.sql`
+(real names: `0028_payment_banking_core.sql`, `0029_payment_posting_rewind_guard.sql`);
+six test filenames that never existed (`ingest-idempotency`, `money-and-net`, `webhook-security`,
+`audit-and-immutability`, `accounting-posting-invariant`, `tests/finance/payments-accounting-bridge`)
+where the real coverage lives in `payment-controls-db`, `money-and-precision`,
+`webhook-security-and-provider-honesty`, `state-machines-and-gates` and
+`governed-config-write-path`; a route prefix `src/app/api/v1/finance/payments/` that does not
+exist (it is `src/app/api/v1/payments/`); a file count of 21 where the directory holds 18; and a
+pointer from the Phase-0 audit to `docs/audit/PAYMENT_PROVIDER_ADAPTER_SPEC.md`, a document that
+was planned and never created — the research file written later is what actually carries it.
+All were corrected against measurement, and one claim was replaced with the truth rather than
+rescued: **there are no `tests/api` payment route tests.** HTTP behaviour is exercised by
+`scripts/payments-demo.ts` against a running server and by static route checks, which is a real
+gap in CI coverage, not something to paper over.
 
 ## 32. Pull request and CI posture
 
-__PR_SECTION__
+**PR #30 — `https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/30`** — opened from
+`arena/01a076da-beyu-os-1-0` to `main`, base `25744c8`, one commit (`7b4692d`), 74 files,
++36,659/−27. The other workstream's uncommitted files are deliberately **not** in it.
+
+CI is the authoritative gate for this branch, and it will be a stricter run than anything done
+here: the sandbox lost its gitignored dependencies, `.env` and `pgdata/` in the re-clone, so the
+DB-backed suites cannot currently be re-executed in this environment without rebuilding Postgres
+and the runtime role. Two consequences are accepted rather than argued around: (i) the numbers in
+§29 are the last locally measured run of this exact code, timestamped and reported with the
+failure that preceded them; (ii) if CI reports anything red, this PR stays unmerged and the
+finding goes into the register rather than into a rephrasing of this report.
+
+Merge posture: do not merge on the strength of this document. Merge only when CI is green and the
+maintainer authorizes it; a failing gate is reported as failing, never bypassed, never
+`--no-verify`-ed, and never explained away as environmental unless the environment is itself the
+demonstrated cause. If merged, post-merge verification is limited and named: the self-test route
+and the demo on a rebuilt database, and no claim beyond what those print.
 
 ## 33. Independent verification recipe
 
@@ -440,8 +484,14 @@ BEYU OS 2.0 — PAYMENTS PROGRAMME — FINAL STATUS
   STAGING / PRODUCTION CONFIG: NOT_CONFIGURED — no deployment target exists in this repository
   BASELINE FINDINGS          : P0 0 · P1 1 · P2 11 · P3 8; gates 15 PASSED / 7 FAILED /
                                8 BLOCKED — none closed by payments work
-  FINAL GATE (local)         : __GATE_STATUS_LINE__
-  PR AND CI                  : __PR_LINE__
+  FINAL GATE (local)         : CLEAN — typecheck 0, lint 0, vitest 131 files / 2536 tests all
+                               passed (0 failed, 0 skipped, 357.08 s), npm run build 0,
+                               scan:secrets 0 ("No literal credentials found"),
+                               npm audit --omit=dev --audit-level=critical 0. Run before the
+                               sandbox re-clone on this exact code; CI re-verifies it independently
+  PR AND CI                  : PR #30 OPENED (branch arena/01a076da-beyu-os-1-0, 1 commit
+                               7b4692d, 74 files) — CI OUTCOME NOT YET OBSERVED FROM THIS
+                               SANDBOX; MERGE NOT PERFORMED (awaiting green CI + authorization)
   NOT CLAIMED                : certification, security approval, provider support, production
                                readiness, licence eligibility, measured capacity, or that any
                                prior finding is resolved
