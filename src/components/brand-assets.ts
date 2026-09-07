@@ -74,3 +74,58 @@ export const NOELIA_ASSETS = {
   /** Neutral fallback when the portrait cannot be loaded. */
   placeholder: "/noelia/noelia-placeholder.svg",
 } as const;
+
+/** CANONICAL NOELIA PNG ASSET REGISTRY — authoritative preserved images (never modified/regenerated). */
+export const NOELIA_CANONICAL_PNG_ASSETS = {
+  noelia_ai: {
+    canonicalFilename: "Noelia AI .png",
+    repositoryPath: "/Noelia AI .png",
+    presentationPath: "/noelia/canonical/noelia-ai-canonical.png",
+    logicalIdentifier: "noelia-ai",
+    sha256: "12542aef08ef5bb087a9ad15e2a8631a",
+    contextMapping: "NOELIA_AI",
+    dimensions: { width: 1024, height: 1024 },
+    status: "PRESERVED",
+  },
+  noelia_beyu_os: {
+    canonicalFilename: "Noelia BEYU OS.png",
+    repositoryPath: "/Noelia BEYU OS.png",
+    presentationPath: "/noelia/canonical/noelia-beyu-os-canonical.png",
+    logicalIdentifier: "noelia-beyu-os",
+    sha256: "4f61c9187398e80e32746b0f8540b513",
+    contextMapping: "BEYU_OS",
+    dimensions: { width: 1024, height: 1024 },
+    status: "PRESERVED",
+  },
+  noelia_finance_os: {
+    canonicalFilename: "Noelia Finance os.png",
+    repositoryPath: "/Noelia Finance os.png",
+    presentationPath: "/noelia/canonical/noelia-finance-os-canonical.png",
+    logicalIdentifier: "noelia-finance-os",
+    sha256: "2eb029f1739e9fbf54041dccfae27093",
+    contextMapping: "FINANCE_OS",
+    dimensions: { width: 1024, height: 1024 },
+    status: "PRESERVED",
+  },
+  noelia_health_os: {
+    canonicalFilename: "Noelia Health os.png",
+    repositoryPath: "/Noelia Health os.png",
+    presentationPath: "/noelia/canonical/noelia-health-os-canonical.png",
+    logicalIdentifier: "noelia-health-os",
+    sha256: "6a63d1037bd0bb68d4811ebd1516b1e3",
+    contextMapping: "HEALTH_OS",
+    dimensions: { width: 1024, height: 1024 },
+    status: "PRESERVED",
+  },
+  noelia_agriculture: {
+    canonicalFilename: "Noeloa Agriculture OS.png",
+    repositoryPath: "/Noeloa Agriculture OS.png",
+    presentationPath: "/noelia/canonical/noelia-agriculture-os-canonical.png",
+    logicalIdentifier: "noelia-agriculture",
+    sha256: "14ea902f3a8b88e685cc183a83fb1699",
+    contextMapping: "AGRICULTURE_OS",
+    dimensions: { width: 1024, height: 1024 },
+    status: "PRESERVED",
+    notes: "Original filename preserved exactly. Never renamed, deleted, or regenerated.",
+  },
+} as const;
