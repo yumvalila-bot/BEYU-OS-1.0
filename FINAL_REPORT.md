@@ -382,7 +382,13 @@ gap in CI coverage, not something to paper over.
 `arena/01a076da-beyu-os-1-0` to `main`, base `25744c8`, one commit (`7b4692d`), 74 files,
 +36,659/−27. The other workstream's uncommitted files are deliberately **not** in it.
 
-CI is the authoritative gate for this branch, and it will be a stricter run than anything done
+CI has since run on this branch and is **green**: every non-skipped check passes, including the
+full-suite "Root BEYU OS — PostgreSQL security gate" and "Migration validation (scratch
+PostgreSQL 16)", with the four production jobs skipped because they are not authorized. That
+matters more than the local numbers below, because CI rebuilt dependencies, the database, the
+runtime role and the schema from the repository alone.
+
+CI is the authoritative gate for this branch, and it is a stricter run than anything done
 here: the sandbox lost its gitignored dependencies, `.env` and `pgdata/` in the re-clone, so the
 DB-backed suites cannot currently be re-executed in this environment without rebuilding Postgres
 and the runtime role. Two consequences are accepted rather than argued around: (i) the numbers in
@@ -490,8 +496,13 @@ BEYU OS 2.0 — PAYMENTS PROGRAMME — FINAL STATUS
                                npm audit --omit=dev --audit-level=critical 0. Run before the
                                sandbox re-clone on this exact code; CI re-verifies it independently
   PR AND CI                  : PR #30 OPENED (branch arena/01a076da-beyu-os-1-0, 1 commit
-                               7b4692d, 74 files) — CI OUTCOME NOT YET OBSERVED FROM THIS
-                               SANDBOX; MERGE NOT PERFORMED (awaiting green CI + authorization)
+                               7b4692d, 74 files; then e71bb19) — CI: ALL NON-SKIPPED CHECKS
+                               PASS (Root BEYU OS PostgreSQL security gate, Migration validation
+                               on scratch PostgreSQL 16, committed secret scan, three dependency
+                               audits, both Health OS gates, Vercel); production deploy, drift
+                               report, preflight and runtime-verification jobs are SKIPPED as
+                               unauthorized. MERGE NOT PERFORMED — awaiting maintainer
+                               authorization
   NOT CLAIMED                : certification, security approval, provider support, production
                                readiness, licence eligibility, measured capacity, or that any
                                prior finding is resolved
