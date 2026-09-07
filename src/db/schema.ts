@@ -14,3 +14,4 @@ export * from "./schema/platform";
 export * from "./schema/ai";
 export * from "./schema/ai-compliance";
 export * from "./schema/ai-phase5";
+export * from "./schema/agriculture";

@@ -1117,7 +1117,7 @@ describe("compliance module — creates no second truth", () => {
 // pin: the specialist module under test still adds no migration of its own, and any
 // further migration must be attributed here before the pin moves.
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(30);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(33);
   });
 
   it("leaves all triggers enabled", async () => {
