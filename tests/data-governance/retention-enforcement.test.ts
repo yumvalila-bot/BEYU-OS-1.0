@@ -2,11 +2,15 @@
  * DATA GOVERNANCE — Retention Enforcement Tests
  *
  * Verifies that:
- * 1. Retention policies are correctly calculated
+ * 1. Retention policies are correctly calculated (uploaded_at + retention years)
  * 2. Legal holds block deletion
  * 3. Tenant isolation is enforced
  * 4. Classification influences authorization
- * 5. All state transitions are audited
+ * 5. All state transitions are auditable
+ *
+ * Fixtures target the REAL schema: `tenants` requires `code`+`type`;
+ * `documents` requires file metadata columns and has NO `legal_entity_id` or
+ * `created_at` (the creation timestamp is `uploaded_at`).
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
@@ -24,28 +28,52 @@ const TENANT_B = "TEN_TEST_B";
 const USER_A = "USR_TEST_A";
 const USER_B = "USR_TEST_B";
 
+/** Insert a document fixture with all NOT NULL columns the schema requires. */
+async function insertDocument(
+  id: string,
+  tenantId: string,
+  overrides: {
+    classification?: string;
+    legalHold?: boolean;
+    uploadedAt?: Date;
+    retentionCode?: string;
+  } = {},
+): Promise<void> {
+  await db.execute(sql`
+    insert into documents (
+      id, tenant_id, file_name, file_type, category, description, version,
+      source, uploaded_by, uploaded_at, classification, authority_status,
+      checksum, storage_uri, retention_code, legal_hold
+    ) values (
+      ${id}, ${tenantId}, ${`${id}.pdf`}, 'application/pdf', 'TEST',
+      'Retention enforcement fixture', '1.0.0', 'TEST_RUNNER', 'TEST_ACTOR',
+      ${overrides.uploadedAt ?? new Date()}, ${overrides.classification ?? "INTERNAL"},
+      'AUTHORITATIVE', 'checksum', 's3://test-bucket', ${overrides.retentionCode ?? "DG_1YR"},
+      ${overrides.legalHold ?? false}
+    )
+  `);
+}
+
 async function cleanup() {
   await db.execute(sql`delete from documents where id like 'DOC_DG_%'`);
   await db.execute(sql`delete from retention_policies where code like 'DG_%'`);
-  await db.execute(sql`delete from legal_entities where id like 'LE_DG_%'`);
   await db.execute(sql`delete from tenants where id in (${TENANT_A}, ${TENANT_B})`);
+}
+
+function yearsAgo(years: number): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d;
 }
 
 beforeEach(async () => {
   await cleanup();
 
-  // Create tenants
+  // Create tenants — `code` and `type` are NOT NULL on the real schema.
   await db.execute(sql`
-    insert into tenants (id, name) values
-    (${TENANT_A}, 'Test Tenant A'),
-    (${TENANT_B}, 'Test Tenant B')
-  `);
-
-  // Create legal entities
-  await db.execute(sql`
-    insert into legal_entities (id, tenant_id, name) values
-    ('LE_DG_A', ${TENANT_A}, 'Test Entity A'),
-    ('LE_DG_B', ${TENANT_B}, 'Test Entity B')
+    insert into tenants (id, code, name, type) values
+    (${TENANT_A}, 'DG_TEN_A', 'Test Tenant A', 'ENTERPRISE'),
+    (${TENANT_B}, 'DG_TEN_B', 'Test Tenant B', 'ENTERPRISE')
   `);
 
   // Create retention policies
@@ -62,13 +90,7 @@ afterAll(cleanup);
 
 describe("retention calculation", () => {
   it("calculates expiry from creation date + retention years", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, created_at)
-      values ('DOC_DG_1', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_1", TENANT_A, { uploadedAt: yearsAgo(2) });
 
     const { expiresAt, policy } = await calculateRetentionExpiry("DOC_DG_1");
 
@@ -76,7 +98,7 @@ describe("retention calculation", () => {
     expect(policy?.retentionYears).toBe(1);
     expect(expiresAt).not.toBeNull();
 
-    // Should have expired (created 2 years ago, 1-year retention)
+    // Should have expired (uploaded 2 years ago, 1-year retention)
     expect(expiresAt!.getTime()).toBeLessThan(Date.now());
   });
 
@@ -89,10 +111,7 @@ describe("retention calculation", () => {
 
 describe("legal hold enforcement", () => {
   it("blocks deletion when legal hold is active", async () => {
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, legal_hold)
-      values ('DOC_DG_HOLD', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', true)
-    `);
+    await insertDocument("DOC_DG_HOLD", TENANT_A, { legalHold: true });
 
     const auth = await canDeleteDocument("DOC_DG_HOLD", { userId: USER_A, tenantId: TENANT_A });
 
@@ -101,13 +120,7 @@ describe("legal hold enforcement", () => {
   });
 
   it("allows deletion eligibility when legal hold is removed", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, legal_hold, created_at)
-      values ('DOC_DG_RELEASE', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', true, ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_RELEASE", TENANT_A, { legalHold: true, uploadedAt: yearsAgo(2) });
 
     // Initially blocked
     let auth = await canDeleteDocument("DOC_DG_RELEASE", { userId: USER_A, tenantId: TENANT_A });
@@ -123,10 +136,7 @@ describe("legal hold enforcement", () => {
   });
 
   it("prevents cross-tenant legal hold manipulation", async () => {
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code)
-      values ('DOC_DG_CROSS', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR')
-    `);
+    await insertDocument("DOC_DG_CROSS", TENANT_A, { uploadedAt: yearsAgo(2) });
 
     // Tenant B tries to apply hold to Tenant A's document
     const result = await applyLegalHold("DOC_DG_CROSS", { userId: USER_B, tenantId: TENANT_B }, "Test");
@@ -138,10 +148,7 @@ describe("legal hold enforcement", () => {
 
 describe("tenant isolation", () => {
   it("denies cross-tenant deletion attempts", async () => {
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code)
-      values ('DOC_DG_ISO', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR')
-    `);
+    await insertDocument("DOC_DG_ISO", TENANT_A, { uploadedAt: yearsAgo(2) });
 
     const auth = await canDeleteDocument("DOC_DG_ISO", { userId: USER_B, tenantId: TENANT_B });
 
@@ -152,13 +159,7 @@ describe("tenant isolation", () => {
 
 describe("classification-based authorization", () => {
   it("requires approval for CONFIDENTIAL documents", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, created_at)
-      values ('DOC_DG_CONF', ${TENANT_A}, 'LE_DG_A', 'TEST', 'CONFIDENTIAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_CONF", TENANT_A, { classification: "CONFIDENTIAL", uploadedAt: yearsAgo(2) });
 
     const auth = await canDeleteDocument("DOC_DG_CONF", { userId: USER_A, tenantId: TENANT_A });
 
@@ -168,13 +169,7 @@ describe("classification-based authorization", () => {
   });
 
   it("requires approval for RESTRICTED documents", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, created_at)
-      values ('DOC_DG_REST', ${TENANT_A}, 'LE_DG_A', 'TEST', 'RESTRICTED', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_REST", TENANT_A, { classification: "RESTRICTED", uploadedAt: yearsAgo(2) });
 
     const auth = await canDeleteDocument("DOC_DG_REST", { userId: USER_A, tenantId: TENANT_A });
 
@@ -185,15 +180,8 @@ describe("classification-based authorization", () => {
 
 describe("retention expiry detection", () => {
   it("finds documents with expired retention", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, legal_hold, created_at)
-      values
-      ('DOC_DG_EXP1', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum1', 's3://test1', 'DG_1YR', false, ${twoYearsAgo}),
-      ('DOC_DG_EXP2', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum2', 's3://test2', 'DG_1YR', false, ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_EXP1", TENANT_A, { uploadedAt: yearsAgo(2) });
+    await insertDocument("DOC_DG_EXP2", TENANT_A, { uploadedAt: yearsAgo(2) });
 
     const expired = await findRetentionExpiredDocuments({ tenantId: TENANT_A });
 
@@ -203,40 +191,28 @@ describe("retention expiry detection", () => {
   });
 
   it("excludes documents under legal hold from eligible list", async () => {
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, legal_hold, created_at)
-      values
-      ('DOC_DG_HOLD_EXP', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', true, ${twoYearsAgo})
-    `);
+    await insertDocument("DOC_DG_HOLD_EXP", TENANT_A, { legalHold: true, uploadedAt: yearsAgo(2) });
 
     const expired = await findRetentionExpiredDocuments({ tenantId: TENANT_A });
 
-    // Should find it but mark as not eligible
-    expect(expired.length).toBe(0); // Filtered out by query
+    // Filtered out by the query (legal_hold = false predicate)
+    expect(expired.length).toBe(0);
   });
 });
 
 describe("adversarial tests", () => {
   it("denies unauthorized legal hold removal", async () => {
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, legal_hold)
-      values ('DOC_DG_ADV1', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_1YR', true)
-    `);
+    await insertDocument("DOC_DG_ADV1", TENANT_A, { legalHold: true, uploadedAt: yearsAgo(2) });
 
-    // Tenant B tries to remove hold
+    // Tenant B tries to remove hold from Tenant A's document
     const result = await removeLegalHold("DOC_DG_ADV1", { userId: USER_B, tenantId: TENANT_B }, "Unauthorized");
 
     expect(result.success).toBe(false);
+    expect(result.reason).toMatch(/cross-tenant/i);
   });
 
   it("denies deletion of non-expired retention", async () => {
-    await db.execute(sql`
-      insert into documents (id, tenant_id, legal_entity_id, category, classification, authority_status, checksum, storage_uri, retention_code, created_at)
-      values ('DOC_DG_ADV2', ${TENANT_A}, 'LE_DG_A', 'TEST', 'INTERNAL', 'APPROVED', 'checksum', 's3://test', 'DG_5YR', now())
-    `);
+    await insertDocument("DOC_DG_ADV2", TENANT_A, { retentionCode: "DG_5YR" });
 
     const auth = await canDeleteDocument("DOC_DG_ADV2", { userId: USER_A, tenantId: TENANT_A });
 

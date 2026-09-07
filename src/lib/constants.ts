@@ -163,6 +163,12 @@ export const PERMISSIONS = {
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
+  // Agriculture OS — DRAFT domain (foundational 10-table implementation, 10/34
+  // canonical domains). SECTOR_OPERATOR is the registry owner role; these
+  // permissions deliberately cover only the implemented operations so the
+  // endpoints fail closed (403) for every other role.
+  "agriculture:data.read": "Read Agriculture OS operational records (farms, fields, crop cycles, harvests, livestock)",
+  "agriculture:data.manage": "Create or amend Agriculture OS operational records",
   "audit:log.read": "Read the immutable audit ledger",
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
@@ -505,6 +511,8 @@ export const ROLES: Record<
       "risk:register.read",
       "compliance:obligation.read",
       "documents:registry.read",
+      "agriculture:data.read",
+      "agriculture:data.manage",
       "ai:noelia.query",
       "ai:executive.read",
       "ai:analytics.read",

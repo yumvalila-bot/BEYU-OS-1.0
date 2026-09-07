@@ -157,9 +157,13 @@ describe("database operations performance", () => {
       "INSERT single row",
       async () => {
         counter++;
+        // Values are bound as parameters (never interpolated inside a string
+        // literal) so the statement stays valid SQL.
+        const id = `FARM_PERF_INS_${counter}`;
+        const code = `FARM-INS-${counter}`;
         await db.execute(sql`
           insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
-          values ('FARM_PERF_INS_${counter}', ${TENANT}, ${ENTITY}, 'FARM-INS-${counter}', 'Farm ${counter}', 'TZ')
+          values (${id}, ${TENANT}, ${ENTITY}, ${code}, ${`Farm ${counter}`}, 'TZ')
           on conflict (id) do nothing
         `);
       },
@@ -178,9 +182,11 @@ describe("database operations performance", () => {
   it("concurrent SELECT performance", async () => {
     // Insert test data
     for (let i = 0; i < 10; i++) {
+      const id = `FARM_PERF_CONC_${i}`;
+      const code = `FARM-CONC-${i}`;
       await db.execute(sql`
         insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
-        values ('FARM_PERF_CONC_${i}', ${TENANT}, ${ENTITY}, 'FARM-CONC-${i}', 'Farm ${i}', 'TZ')
+        values (${id}, ${TENANT}, ${ENTITY}, ${code}, ${`Farm ${i}`}, 'TZ')
         on conflict (id) do nothing
       `);
     }
@@ -210,9 +216,11 @@ describe("agriculture API domain operations performance", () => {
       "Farm creation",
       async () => {
         counter++;
+        const id = `FARM_PERF_THR_${counter}`;
+        const code = `FARM-THR-${counter}`;
         await db.execute(sql`
           insert into agriculture_farms (id, tenant_id, legal_entity_id, code, name, country_code)
-          values ('FARM_PERF_THR_${counter}', ${TENANT}, ${ENTITY}, 'FARM-THR-${counter}', 'Throughput Farm ${counter}', 'TZ')
+          values (${id}, ${TENANT}, ${ENTITY}, ${code}, ${`Throughput Farm ${counter}`}, 'TZ')
           on conflict (id) do nothing
         `);
       },
@@ -241,9 +249,11 @@ describe("agriculture API domain operations performance", () => {
       "Field creation with FK",
       async () => {
         counter++;
+        const id = `FIELD_PERF_${counter}`;
+        const code = `FIELD-${counter}`;
         await db.execute(sql`
           insert into agriculture_fields (id, tenant_id, farm_id, code, name, area_ha)
-          values ('FIELD_PERF_${counter}', ${TENANT}, 'FARM_PERF_FK', 'FIELD-${counter}', 'Field ${counter}', ${counter})
+          values (${id}, ${TENANT}, 'FARM_PERF_FK', ${code}, ${`Field ${counter}`}, ${counter})
           on conflict (id) do nothing
         `);
       },

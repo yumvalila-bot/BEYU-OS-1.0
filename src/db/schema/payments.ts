@@ -37,7 +37,7 @@ import { journalEntries, ledgerAccounts } from "./finance";
 export const paymentProviders = pgTable(
   "payment_providers",
   {
-    code: text("code").primaryKey(), // e.g. MPESA_TZ, AIRTELAIRTEL_MONEY_TZ, HALOPESA_TZ, TTCL_PESA_TZ, MIXX_YAS_TZ, NMB_IPP, CRDB_GTTRANSFER, MOCK_SANDBOX
+    code: text("code").primaryKey(), // e.g. MPESA_TZ, AIRTEL_MONEY_TZ, HALOPESA_TZ, TTCL_PESA_TZ, MIXX_YAS_TZ, NMB_BANK_TZ, CRDB_BANK_TZ, MOCK_SANDBOX (canonical registry: src/lib/payments/providers/index.ts REGISTERED_PROVIDER_CODES)
     displayName: text("display_name").notNull(),
     kind: text("kind").notNull(), // MOBILE_MONEY | BANK_TRANSFER | CARD | AGENT | UNIFIED_SWITCH
     countryCode: text("country_code").notNull().references(() => countries.code),

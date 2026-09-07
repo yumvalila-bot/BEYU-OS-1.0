@@ -31,9 +31,15 @@ const ADAPTERS: Readonly<Record<string, PaymentProviderAdapter>> = {
  * The external-reality ledger, one entry per provider the programme was asked to
  * cover. Keys are `payment_providers.code` values; the DB row is authoritative at
  * runtime, this catalogue is the honest starting point it must not exceed.
+ *
+ * Reconciliation F-NEW-1b (2026-09-07): the earlier blanket sentence "no provider
+ * documentation was retrieved" was overtaken by docs/audit/PAYMENT_PROVIDER_RESEARCH_TANZANIA.md,
+ * which indexes the public/secondary material located for each rail. Statuses below
+ * remain UNVERIFIED — secondary documentation is not verification with the operator,
+ * and no request was ever made to a provider endpoint from this environment.
  */
 const NOT_INVESTIGATED_EVIDENCE = {
-  apiAvailability: "NOT VERIFIED IN THIS ENVIRONMENT. No provider documentation was retrieved and no request was made to any provider endpoint.",
+  apiAvailability: "NOT VERIFIED IN THIS ENVIRONMENT. No operator/regulator-confirmed API documentation was retrieved and no request was made to any provider endpoint; secondary public documentation is indexed in docs/audit/PAYMENT_PROVIDER_RESEARCH_TANZANIA.md.",
   webhookModel: "NOT VERIFIED. Provider push vs polling must be confirmed from provider documentation before an adapter is written.",
   settlementModel: "NOT VERIFIED. Settlement cadence, cut-off times and float treatment must be confirmed with the provider and with Bank of Tanzania requirements.",
   contractStatus: "NOT INVESTIGATED. Commercial agreement, pricing and KYC/onboarding obligations are unknown to this repository.",
@@ -99,8 +105,19 @@ const STATUS_LEDGER: Readonly<Record<RegisteredProviderCode, ProviderStatusRepor
     note: "Mobile money; same expected capability set as other wallets. Not verified.",
   }),
   HALOPESA_TZ: notIntegrated("HALOPESA_TZ", ASSESSED_ON, { note: "Mobile money; not verified." }),
-  TIGO_PESA_TZ: notIntegrated("TIGO_PESA_TZ", ASSESSED_ON, { note: "Mobile money; not verified." }),
-  MIXX_YAS_TZ: notIntegrated("MIXX_YAS_TZ", ASSESSED_ON, { note: "Mobile money / mixed rail; not verified." }),
+  // F-NEW-1a reconciliation (2026-09-07): TIGO_PESA_TZ and MIXX_YAS_TZ are the
+  // SAME operator — MIC Tanzania rebranded to Yas (Nov 2024) and Tigo Pesa now
+  // trades as Mixx by Yas (docs/audit/PAYMENT_PROVIDER_RESEARCH_TANZANIA.md §2).
+  // Both codes are deliberately retained: historical rows may reference either,
+  // and silent deletion would break referential integrity. The alias is recorded
+  // here so any adapter work targets the current brand (MIXX_YAS_TZ) and volume/
+  // reconciliation reporting can treat them as one franchise.
+  TIGO_PESA_TZ: notIntegrated("TIGO_PESA_TZ", ASSESSED_ON, {
+    note: "Mobile money; NOT VERIFIED. Legacy brand of Mixx by Yas — MIC Tanzania rebranded to Yas (Nov 2024); see F-NEW-1a reconciliation in docs/audit/PAYMENT_PROVIDER_RESEARCH_TANZANIA.md.",
+  }),
+  MIXX_YAS_TZ: notIntegrated("MIXX_YAS_TZ", ASSESSED_ON, {
+    note: "Mobile money / mixed rail; NOT VERIFIED. Current brand of the former Tigo Pesa franchise (Yas / Mixx by Yas); see F-NEW-1a reconciliation in docs/audit/PAYMENT_PROVIDER_RESEARCH_TANZANIA.md.",
+  }),
   TTCL_PESA_TZ: notIntegrated("TTCL_PESA_TZ", ASSESSED_ON, { note: "Mobile money; not verified." }),
   NMB_BANK_TZ: notIntegrated("NMB_BANK_TZ", ASSESSED_ON, {
     note: "Bank rails (payroll/bulk payment/host-to-host); expected STATEMENT_FILE and BALANCE_QUERY. Not verified.",

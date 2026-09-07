@@ -24,52 +24,51 @@
 --   user state (last_login_at, failed_attempts, MFA fields), and operational
 --   workflows may need to update tenant/entity metadata.
 --
--- TESTING:
---   Verify with: select has_table_privilege('beyu_runtime', 'public.os_registry', 'INSERT')
---   Expected: false for governance tables, true for users/tenants/legal_entities
+-- FRESH-INSTALL SAFETY (revision of the original 0030):
+--   The canonical CI flow applies migrations BEFORE scripts/setup-db-role.ts
+--   provisions the runtime role, so on a fresh database the role does not exist
+--   while this migration runs. The original unconditional `REVOKE ... FROM
+--   beyu_runtime` failed with 42704 ("role does not exist") and its assertion
+--   block failed when the role existed but had not yet been granted SELECT
+--   (migration 0030 always runs before setup-db-role's blanket grant).
+--   Like migration 0028's payment revocation, this revision drives the REVOKE
+--   from pg_roles so it is a safe no-op when the role is absent; the F-01
+--   revocation is re-applied and VERIFIED by scripts/setup-db-role.ts (section
+--   4c), which throws if the runtime role can still write a governance table.
+--   When the role already exists (an upgraded/accumulated database), the
+--   revocation below still takes effect immediately.
 --
 -- ROLLBACK:
 --   This migration is intentionally irreversible for safety. Governance tables
 --   must remain protected. If rollback is required, use the admin role to
 --   explicitly grant DML back to the runtime role (not recommended).
+--
+-- TESTING:
+--   Verify with: select has_table_privilege('beyu_runtime', 'public.os_registry', 'INSERT')
+--   Expected: false for governance tables, true for users/tenants/legal_entities
+--   (after scripts/setup-db-role.ts has provisioned the role and granted DML).
 
--- Revoke INSERT, UPDATE, DELETE on PURE governance tables from runtime role
--- The runtime role retains SELECT (read access) so it can enforce governance rules
-
--- OS Registry: OS declarations and lifecycle state
-REVOKE INSERT, UPDATE, DELETE ON public.os_registry FROM beyu_runtime;
-
--- Governance Capability Registry: Capability activation (CAP_POSTING, etc.)
-REVOKE INSERT, UPDATE, DELETE ON public.governance_capability_registry FROM beyu_runtime;
-
--- Governance Decision Registry: Ratification decisions
-REVOKE INSERT, UPDATE, DELETE ON public.governance_decision_registry FROM beyu_runtime;
-
--- Role Assignments: RBAC grants (should go through governed workflows)
-REVOKE INSERT, UPDATE, DELETE ON public.role_assignments FROM beyu_runtime;
-
--- Verification: Ensure runtime role still has SELECT (read access) on all protected tables
 DO $$
 DECLARE
-  table_name text;
-  has_select boolean;
+  r record;
 BEGIN
-  FOR table_name IN SELECT unnest(ARRAY[
-    'os_registry',
-    'governance_capability_registry',
-    'governance_decision_registry',
-    'role_assignments'
-  ])
+  FOR r IN SELECT rolname FROM pg_roles WHERE rolname = 'beyu_runtime'
   LOOP
-    SELECT has_table_privilege('beyu_runtime', 'public.' || table_name, 'SELECT') INTO has_select;
-    IF NOT has_select THEN
-      RAISE EXCEPTION 'F-01 verification failed: beyu_runtime lost SELECT on %', table_name;
-    END IF;
+    EXECUTE format(
+      'REVOKE INSERT, UPDATE, DELETE ON %s, %s, %s, %s FROM %I',
+      'public.os_registry',
+      'public.governance_capability_registry',
+      'public.governance_decision_registry',
+      'public.role_assignments',
+      r.rolname
+    );
+    RAISE NOTICE 'F-01: revoked INSERT/UPDATE/DELETE on pure governance tables from %', r.rolname;
   END LOOP;
-END $$;
+END
+$$;--> statement-breakpoint
 
 -- Document the remediation
-COMMENT ON TABLE public.os_registry IS 'OS registry - governance protected (F-01): runtime role has SELECT only';
+COMMENT ON TABLE public.os_registry IS 'OS registry - governance protected (F-01): runtime role has SELECT only' ;
 COMMENT ON TABLE public.governance_capability_registry IS 'Capability registry - governance protected (F-01): runtime role has SELECT only';
 COMMENT ON TABLE public.governance_decision_registry IS 'Decision registry - governance protected (F-01): runtime role has SELECT only';
 COMMENT ON TABLE public.role_assignments IS 'Role assignments - governance protected (F-01): runtime role has SELECT only';
