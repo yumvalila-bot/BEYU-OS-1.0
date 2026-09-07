@@ -805,6 +805,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- (drizzle/0028), not an audit ledger; excluded by exact name so this guard
       -- still fails if the audit module itself ever defines a table.
         and table_name <> 'payment_webhook_events'
+      -- Agriculture OS event tables are domain tables for tracking agricultural
+      -- operations, not audit ledgers (drizzle/0031).
+        and table_name not like 'agriculture_%'
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -845,7 +848,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(31);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(32);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
