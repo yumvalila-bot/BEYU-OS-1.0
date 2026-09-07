@@ -32,6 +32,36 @@ export const BEYU_BRAND_ASSETS = {
   appIcon192: "/brand/beyu-app-icon-192.png",
 } as const;
 
+/**
+ * AUTHORITATIVE raster brand assets (PNG) — supplied by the BEYU Family Trust.
+ *
+ * These files are the canonical, byte-exact institutional artwork, pinned by
+ * SHA-256 in tests/frontend/brand-identity.test.ts. They must NEVER be
+ * regenerated, recompressed, recoloured, cropped or converted; replace one
+ * only by copying a newly supplied authoritative file byte-for-byte.
+ *
+ * TWO DISTINCT IDENTITIES — never substitute one for the other, never merge
+ * them into one generic logo (see docs/branding/README.md):
+ *   • BEYU FAMILY TRUST → parent institutional/fiduciary identity
+ *     (genuine Family Trust / institutional surfaces, e.g. Family Office).
+ *   • BEYU OS           → enterprise control-plane / software identity
+ *     (BEYU OS application surfaces, e.g. sign-in).
+ * Sector OSs (Health / Finance / Agriculture) retain their own identities.
+ */
+export const BEYU_FAMILY_TRUST_ASSETS = {
+  /** Official BEYU Family Trust lockup — parent institutional identity. */
+  official: "/brand/beyu-family-trust-logo.png",
+} as const;
+
+export const BEYU_OS_ASSETS = {
+  /** Official BEYU OS mark — enterprise control-plane/software identity. */
+  official: "/brand/beyu-os-logo.png",
+} as const;
+
+/** Intrinsic pixel dimensions of the authoritative assets — aspect is contractual. */
+export const BEYU_FAMILY_TRUST_ASSET_DIMENSIONS = { width: 1239, height: 1254 } as const;
+export const BEYU_OS_ASSET_DIMENSIONS = { width: 1254, height: 1254 } as const;
+
 export const NOELIA_ASSETS = {
   /** Canonical Noelia portrait (SVG — identical at every size). */
   avatar: "/noelia/noelia-avatar.svg",

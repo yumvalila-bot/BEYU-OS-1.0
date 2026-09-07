@@ -19,17 +19,31 @@
  *   6. Governance boundary intact: the Noelia HTTP route and page guard still
  *      bind to the shared authorization boundary (identity work must not have
  *      touched it).
+ *   7. AUTHORITATIVE institutional assets byte-intact: the supplied Family
+ *      Trust and BEYU OS PNGs keep their pinned SHA-256, intrinsic
+ *      dimensions and aspect ratio, and the two identities stay distinct on
+ *      every surface (Family Trust ≠ BEYU OS ≠ sector OSs).
  *
  * Pure node suite — no database, no running server required.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BEYU_BRAND_ASSETS, NOELIA_ASSETS } from "@/components/brand-assets";
+import {
+  BEYU_BRAND_ASSETS,
+  BEYU_FAMILY_TRUST_ASSETS,
+  BEYU_FAMILY_TRUST_ASSET_DIMENSIONS,
+  BEYU_OS_ASSETS,
+  BEYU_OS_ASSET_DIMENSIONS,
+  NOELIA_ASSETS,
+} from "@/components/brand-assets";
 import { BeyuLogo, type BeyuLogoVariant } from "@/components/beyu-logo";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { FamilyTrustLogo } from "@/components/family-trust-logo";
 import {
   NOELIA_SIZE_PX,
   NOELIA_STATE_META,
@@ -75,6 +89,15 @@ describe("brand asset registry", () => {
     }
   });
 
+  it("every registered authoritative institutional asset exists on disk", () => {
+    for (const [name, assetPath] of Object.entries(BEYU_FAMILY_TRUST_ASSETS)) {
+      expect(existsSync(abs(assetPath)), `${name} -> ${assetPath} must exist`).toBe(true);
+    }
+    for (const [name, assetPath] of Object.entries(BEYU_OS_ASSETS)) {
+      expect(existsSync(abs(assetPath)), `${name} -> ${assetPath} must exist`).toBe(true);
+    }
+  });
+
   it("the PWA manifest is valid JSON and all of its icons exist", () => {
     const manifestPath = path.join(ROOT, "public", "manifest.webmanifest");
     expect(existsSync(manifestPath)).toBe(true);
@@ -86,6 +109,138 @@ describe("brand asset registry", () => {
     for (const icon of manifest.icons) {
       expect(existsSync(abs(icon.src)), `manifest icon ${icon.src} must exist`).toBe(true);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 1b. AUTHORITATIVE institutional assets — byte integrity & identity  */
+/* ------------------------------------------------------------------ */
+
+/** The supplied authoritative artwork, pinned byte-for-byte. */
+const AUTHORITATIVE_ASSET_SHA256: Record<string, string> = {
+  [BEYU_FAMILY_TRUST_ASSETS.official]: "b599e2e079e9def8c3161fd6b734d7268f19c480ed85cf16123c4a76125287e8",
+  [BEYU_OS_ASSETS.official]: "9fb216119cc6a80557aa75d73b9704a44f550626cd25a30e2acc2b95c4ba1e1d",
+};
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Parse a PNG's IHDR and assert a valid signature. */
+function pngDimensions(file: string): { width: number; height: number } {
+  const buf = readFileSync(file);
+  expect(buf.subarray(0, 8).equals(PNG_SIGNATURE), `${file} must be a valid PNG`).toBe(true);
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+describe("authoritative institutional assets (Family Trust · BEYU OS)", () => {
+  it("remain byte-for-byte identical to the supplied artwork (SHA-256 pinned)", () => {
+    for (const [assetPath, sha] of Object.entries(AUTHORITATIVE_ASSET_SHA256)) {
+      const file = abs(assetPath);
+      expect(existsSync(file), `${assetPath} must exist`).toBe(true);
+      const digest = createHash("sha256").update(readFileSync(file)).digest("hex");
+      expect(digest, `${assetPath} must remain the authoritative artwork unmodified`).toBe(sha);
+    }
+  });
+
+  it("keep their intrinsic dimensions and aspect ratio (no crop, no re-cut)", () => {
+    const family = pngDimensions(abs(BEYU_FAMILY_TRUST_ASSETS.official));
+    expect(family.width).toBe(BEYU_FAMILY_TRUST_ASSET_DIMENSIONS.width);
+    expect(family.height).toBe(BEYU_FAMILY_TRUST_ASSET_DIMENSIONS.height);
+
+    const os = pngDimensions(abs(BEYU_OS_ASSETS.official));
+    expect(os.width).toBe(BEYU_OS_ASSET_DIMENSIONS.width);
+    expect(os.height).toBe(BEYU_OS_ASSET_DIMENSIONS.height);
+  });
+
+  it("are two distinct identities — never the same file, never swapped", () => {
+    expect(BEYU_FAMILY_TRUST_ASSETS.official).not.toBe(BEYU_OS_ASSETS.official);
+    expect(AUTHORITATIVE_ASSET_SHA256[BEYU_FAMILY_TRUST_ASSETS.official]).not.toBe(
+      AUTHORITATIVE_ASSET_SHA256[BEYU_OS_ASSETS.official],
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* 1c. <BeyuOsLogo /> and <FamilyTrustLogo /> — authoritative identity  */
+/* ------------------------------------------------------------------ */
+
+describe("<BeyuOsLogo />", () => {
+  it("renders the authoritative BEYU OS asset from the central registry", () => {
+    const html = renderToString(React.createElement(BeyuOsLogo, { size: 40 }));
+    expect(html).toContain(`<img`);
+    expect(html).toContain(`src="${BEYU_OS_ASSETS.official}"`);
+  });
+
+  it("sizes by height with the source aspect ratio (1:1)", () => {
+    const html = renderToString(React.createElement(BeyuOsLogo, { size: 40 }));
+    expect(html).toMatch(/height="40"/);
+    expect(html).toMatch(/width="40"/);
+  });
+
+  it("is accessible by default and can be decorative", () => {
+    expect(renderToString(React.createElement(BeyuOsLogo))).toContain('alt="BEYU OS"');
+    expect(renderToString(React.createElement(BeyuOsLogo, { ariaLabel: "BEYU OS home" }))).toContain(
+      'alt="BEYU OS home"',
+    );
+    expect(renderToString(React.createElement(BeyuOsLogo, { decorative: true }))).toContain('alt=""');
+  });
+
+  it("wraps in a link when href is provided", () => {
+    const html = renderToString(React.createElement(BeyuOsLogo, { size: 36, href: "/os" }));
+    expect(html).toContain('<a href="/os"');
+    expect(html).toContain("BEYU OS home");
+    expect(html).toContain(BEYU_OS_ASSETS.official);
+  });
+});
+
+describe("<FamilyTrustLogo />", () => {
+  it("renders the authoritative Family Trust asset from the central registry", () => {
+    const html = renderToString(React.createElement(FamilyTrustLogo, { size: 64 }));
+    expect(html).toContain(`<img`);
+    expect(html).toContain(`src="${BEYU_FAMILY_TRUST_ASSETS.official}"`);
+  });
+
+  it("sizes by height with the source aspect ratio (1239:1254)", () => {
+    const html = renderToString(React.createElement(FamilyTrustLogo, { size: 100 }));
+    expect(html).toMatch(/height="100"/);
+    expect(html).toMatch(/width="99"/); // round(100 × 1239 / 1254)
+  });
+
+  it("is accessible by default and can be decorative", () => {
+    expect(renderToString(React.createElement(FamilyTrustLogo))).toContain('alt="BEYU Family Trust"');
+    expect(renderToString(React.createElement(FamilyTrustLogo, { ariaLabel: "Family Trust" }))).toContain(
+      'alt="Family Trust"',
+    );
+    expect(renderToString(React.createElement(FamilyTrustLogo, { decorative: true }))).toContain('alt=""');
+  });
+
+  it("wraps in a link when href is provided", () => {
+    const html = renderToString(React.createElement(FamilyTrustLogo, { size: 64, href: "/os/family" }));
+    expect(html).toContain('<a href="/os/family"');
+    expect(html).toContain("BEYU Family Trust");
+    expect(html).toContain(BEYU_FAMILY_TRUST_ASSETS.official);
+  });
+});
+
+describe("institutional identity separation across surfaces", () => {
+  it("the sign-in surface presents the authoritative BEYU OS identity", () => {
+    const signIn = readFileSync(path.join(ROOT, "src", "app", "page.tsx"), "utf8");
+    expect(signIn).toContain("BeyuOsLogo");
+    // The Family Trust institutional asset never appears on the OS sign-in.
+    expect(signIn).not.toContain("family-trust-logo");
+    expect(signIn).not.toContain("BEYU_FAMILY_TRUST_ASSETS");
+  });
+
+  it("the OS shell chrome never renders the Family Trust institutional asset", () => {
+    const shell = readFileSync(path.join(ROOT, "src", "app", "os", "layout.tsx"), "utf8");
+    expect(shell).not.toContain("family-trust-logo");
+    expect(shell).not.toContain("BEYU_FAMILY_TRUST_ASSETS");
+  });
+
+  it("the Family Office carries the Family Trust institutional identity, not the OS mark", () => {
+    const family = readFileSync(path.join(ROOT, "src", "app", "os", "family", "page.tsx"), "utf8");
+    expect(family).toContain("FamilyTrustLogo");
+    expect(family).not.toContain("BeyuOsLogo");
+    expect(family).not.toContain("beyu-os-logo");
   });
 });
 
