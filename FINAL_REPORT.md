@@ -379,8 +379,9 @@ gap in CI coverage, not something to paper over.
 ## 32. Pull request and CI posture
 
 **PR #30 — `https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/30`** — opened from
-`arena/01a076da-beyu-os-1-0` to `main`, base `25744c8`, one commit (`7b4692d`), 74 files,
-+36,659/−27. The other workstream's uncommitted files are deliberately **not** in it.
+`arena/01a076da-beyu-os-1-0` to `main`. Final shape at merge time: base `25744c8`, four commits
+(`7b4692d`, `e71bb19`, `0a51d2c` plus the base itself on this branch), 79 files, +38,303/−27, head
+`0a51d2c`. The other workstream's uncommitted files are deliberately **not** in it.
 
 CI has since run on this branch and is **green**: every non-skipped check passes, including the
 full-suite "Root BEYU OS — PostgreSQL security gate" and "Migration validation (scratch
@@ -396,11 +397,17 @@ and the runtime role. Two consequences are accepted rather than argued around: (
 failure that preceded them; (ii) if CI reports anything red, this PR stays unmerged and the
 finding goes into the register rather than into a rephrasing of this report.
 
-Merge posture: do not merge on the strength of this document. Merge only when CI is green and the
-maintainer authorizes it; a failing gate is reported as failing, never bypassed, never
-`--no-verify`-ed, and never explained away as environmental unless the environment is itself the
-demonstrated cause. If merged, post-merge verification is limited and named: the self-test route
-and the demo on a rebuilt database, and no claim beyond what those print.
+Merge posture at the time this was written: do not merge on the strength of this document; merge
+only when CI is green and the maintainer authorizes it, and never bypass, `--no-verify`, or explain
+away a failing gate unless the environment is the demonstrated cause. **That authorization has since
+been given and both merges were performed**, so the paragraph above stands as history and §44
+records what actually happened: PR #29 merged as `0eaa71d`, PR #30 merged as `d626fa4` with the
+merged tree byte-identical to the CI-verified head, and post-merge verification that went past the
+"limited and named" promise — schema rebuilt from migrations on PostgreSQL 16, controls counted from
+the live catalog, 70 payment tests and 615 targeted tests green, the full suite green apart from four
+429 rate-limit assertions isolated to a shared-server artifact, and the demo, DR drill and
+perf probe all re-run with exit 0. One new finding came out of it (F-NEW-2, provider-code comment
+drift in `src/db/schema/payments.ts:40`) and remains open.
 
 ## 33. Independent verification recipe
 
@@ -495,18 +502,76 @@ BEYU OS 2.0 — PAYMENTS PROGRAMME — FINAL STATUS
                                scan:secrets 0 ("No literal credentials found"),
                                npm audit --omit=dev --audit-level=critical 0. Run before the
                                sandbox re-clone on this exact code; CI re-verifies it independently
-  PR AND CI                  : PR #30 OPENED (branch arena/01a076da-beyu-os-1-0, 1 commit
-                               7b4692d, 74 files; then e71bb19) — CI: ALL NON-SKIPPED CHECKS
-                               PASS (Root BEYU OS PostgreSQL security gate, Migration validation
-                               on scratch PostgreSQL 16, committed secret scan, three dependency
+  PR AND CI                  : PR #29 MERGED (0eaa71d) and PR #30 MERGED (merge commit d626fa4,
+                               mergedAt 2026-09-07T03:21:54Z, head 0a51d2c; tree byte-identical to
+                               the CI-verified head). CI on the head: ALL NON-SKIPPED CHECKS PASS
+                               (Root BEYU OS PostgreSQL security gate, Migration validation on
+                               scratch PostgreSQL 16, committed secret scan, three dependency
                                audits, both Health OS gates, Vercel); production deploy, drift
-                               report, preflight and runtime-verification jobs are SKIPPED as
-                               unauthorized. MERGE NOT PERFORMED — awaiting maintainer
-                               authorization
+                               report, preflight, runtime-verification, three-way release record
+                               and Supabase Preview jobs are SKIPPED as unauthorized and are NOT
+                               counted as verification. See §44 and
+                               docs/production/BEYU_OS_2_POST_MERGE_VERIFICATION_REPORT.md
   NOT CLAIMED                : certification, security approval, provider support, production
                                readiness, licence eligibility, measured capacity, or that any
                                prior finding is resolved
 ```
 
-The last line of this report is the last line of the block above. Any summary that reads more
+The last line of §43 is the last line of the block above. Any summary that reads more
  favourably than these lines is a misreading of them.
+
+## 44. Post-merge verification of `main`
+
+Both pull requests are merged. `main` is `d626fa48eb26958fb349853e11b0e55332dc33d9`, whose tree is
+byte-identical to `0a51d2c`, the commit CI ran green on — which is why CI's rollup is usable as
+post-merge evidence rather than only pre-merge evidence. Full detail, including the command,
+environment, file, test, pass, fail, skip, duration and exit-code record for every number below, is
+in `docs/production/BEYU_OS_2_POST_MERGE_VERIFICATION_REPORT.md`.
+
+* Static gates on the merged tree: typecheck 0, lint 0, build 0 (8 s), `scan:secrets` 0 (over the
+  1180 files in this worktree's index; the five doc paths changed here were additionally swept by
+  hand for credential patterns, 0 hits, and CI's committed-secret scan covers the pushed tree),
+  `drizzle-kit generate` printed "No schema changes, nothing to migrate" (30 → 30, the journal blob
+  is identical to `main`'s), `npm audit --omit=dev --audit-level=critical` found 0 vulnerabilities.
+* Which tree: the sandbox was re-cloned mid-programme, so identity with `main` was established by
+  **hash comparison**, not by `git status` — 78 of the 79 files PR #30 touched are byte-identical to
+  `main` on disk, the 79th being `FINAL_REPORT.md`, changed by this §44 patch itself. The remaining
+  worktree deltas belong to a concurrent workstream that was excluded from both PRs (§1.2 of the
+  post-merge report).
+* The database was rebuilt from nothing: PostgreSQL 16.14 through `scripts/infra/pg16-server.mjs`
+  (no system package is installable here), 30 migrations applied, second run applied none,
+  `scripts/setup-db-role.ts` pinned `beyu_runtime` as non-superuser and non-BYPASSRLS.
+* Counted from the live catalog: 132 tables, 14 payment tables, RLS enabled **and** forced on
+  14/14, 14 RLS policies (SELECT-only `*_read_only` on the five configuration tables,
+  USING+WITH CHECK tenant/entity isolation on the nine transactional ones), 70 CHECK constraints,
+  24 unique indexes including all four ingestion identity keys, 0 `real`/`double precision` money
+  columns, 19 `numeric(18,0)`, the 0029 rewind trigger present, and **57/57 registry capabilities
+  LOCKED** including `CAP_POSTING`. On a fresh install `payment_providers` holds **0 rows**: the
+  `MOCK_SANDBOX` row is created through the governed configuration path, never by migration or seed.
+* Runtime-role probes: `42501 permission denied` for every DELETE, TRUNCATE and UPDATE attempted
+  against the five configuration tables, and `42501` for schema DDL. The transactional tables are
+  protected by RLS and triggers, not by grant revocation — stated as measured, because it is the
+  distinction most easily misreported.
+* Tests: `tests/payments` 6 files / 70 tests passed; the four-directory run passed 37 files / 615
+  tests (0 skipped), and 36 files / 609 tests with the concurrent workstream's 6-test suite excluded,
+  which is the `main`-only figure — including
+  `tests/finance/accounting-substrate-boundary.test.ts`, which had been `ECONNREFUSED` and is now
+  genuinely executed; whole suite 130/131 files and 2532/2536 tests, with the 4 failures isolated to
+  `429` rate-limit contention from running three HTTP suites against one shared server (the same
+  file passes 14/14 alone, and CI passes it in its own order).
+* End-to-end on `main`: `npx tsx scripts/payments-demo.ts --mode=sandbox --failures` exit 0 with
+  `selfTest=BLOCKED`, `postingAttempted=false`, `productionActivation=BLOCKED` and zero ledger rows
+  written; `npx tsx scripts/dr-drill.ts --payments` exit 0 (fingerprint parity, 513=513 grants,
+  131 tables at count parity, 9/9 payment restore checks, replay → `DUPLICATE`, tampered replay →
+  `REJECTED`/`DUPLICATE_CONFLICT` with a CRITICAL OPEN exception);
+  `npx tsx scripts/payments-perf-probe.ts --events=400 --concurrency=25` exit 0 with
+  `productionCapacityClaim=false` and results within noise of the pre-merge run.
+* Transcripts committed: `docs/audit/evidence/POST_MERGE_PAYMENTS_DEMO_TRANSCRIPT.txt`,
+  `docs/audit/evidence/POST_MERGE_DR_PAYMENTS_DRILL_TRANSCRIPT.txt`,
+  `docs/audit/evidence/POST_MERGE_PAYMENT_PERF_PROBE.json`.
+
+Findings after the merge: **F-01 OPEN (P1)** · **F-NEW-1a OPEN (P2)** · **F-NEW-1b OPEN (P3)** ·
+**F-NEW-2 OPEN (P3, new: `src/db/schema/payments.ts:40` provider-code comment drift, comment-only,
+zero functional effect)** · the `tests/api` payment-route coverage gap OPEN. `CAP_POSTING` stays
+LOCKED. Nothing here establishes production readiness, certification, provider integration,
+licensing eligibility, or capacity.
