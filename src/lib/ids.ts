@@ -117,6 +117,20 @@ export const ID_PREFIX = {
   evalRun: "AER",
   redTeam: "ART",
   ragEvent: "ARG",
+  paymentProvider: "PVP",
+  paymentConnection: "PVC",
+  paymentAccount: "PVA",
+  paymentAccountMapping: "PAM",
+  paymentPolicy: "PYP",
+  paymentWebhookEvent: "PWE",
+  paymentTransaction: "PVT",
+  paymentStateTransition: "PVS",
+  paymentMatch: "PVM",
+  paymentException: "PVE",
+  paymentSettlement: "PST",
+  paymentSettlementItem: "PSI",
+  paymentCorrection: "PCR",
+  paymentRiskSignal: "PRK",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

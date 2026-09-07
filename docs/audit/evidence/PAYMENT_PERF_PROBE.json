@@ -1,0 +1,356 @@
+{
+  "run": "PERFMTQAJ66H",
+  "generatedAt": "2026-09-06T20:55:09.066Z",
+  "environment": {
+    "node": "v22.22.3",
+    "platform": "linux x64",
+    "database": "the development PostgreSQL in this sandbox",
+    "provider": "MOCK_SANDBOX (in-process, no network)",
+    "appPoolMaxConnections": 10,
+    "poolNote": "src/db/index.ts leaves node-postgres at its default max of 10, and every ingest runs inside one transaction to hold the RLS context, so a burst above 10 is bounded by pool acquisition rather than by the queries. Recorded because it is the difference the concurrency numbers show; changing it is a deployment decision, not this probe's.",
+    "datasetBeforeRun": {
+      "transactions": 0,
+      "inbox": 0,
+      "journal_entries": 0,
+      "audit_rows": 20
+    },
+    "postgres": "server 16.0 (local sandbox volume, partitioned by nothing)",
+    "databaseSize": "23 MB"
+  },
+  "limits": {
+    "productionCapacityClaim": false,
+    "note": "Single node, single pool, no network hop, no concurrent tenants, mock provider parsing, cold cache, development dataset. These numbers describe this machine and this code path only. They are not an SLA, not a capacity plan, and not evidence about any provider.",
+    "notMeasured": [
+      "provider-side latency and retries",
+      "TLS and internet round trips",
+      "multi-tenant contention and vacuum pressure",
+      "connection-pool saturation",
+      "read replica or pooler behaviour",
+      "ledger volume at production scale (the journal here holds a handful of rows)"
+    ]
+  },
+  "ingestSequential": {
+    "n": 400,
+    "minMs": 13.34262999999919,
+    "p50Ms": 15.798,
+    "p95Ms": 21.236,
+    "p99Ms": 26.51,
+    "maxMs": 55.71731600000021,
+    "meanMs": 16.719,
+    "throughputPerSecond": 59.8,
+    "expectedIngested": 400,
+    "actuallyIngested": 400
+  },
+  "ingestConcurrent": {
+    "n": 400,
+    "minMs": 127.34591100000034,
+    "p50Ms": 205.349,
+    "p95Ms": 268.05,
+    "p99Ms": 371.077,
+    "maxMs": 442.1204450000005,
+    "meanMs": 211.441,
+    "throughputPerSecond": 4.7,
+    "concurrency": 25,
+    "wallMs": 3432.2,
+    "throughputPerSecondWholeRun": 116.5
+  },
+  "duplicateReplay": {
+    "n": 100,
+    "minMs": 5.334601999998995,
+    "p50Ms": 6.02,
+    "p95Ms": 6.59,
+    "p99Ms": 7.267,
+    "maxMs": 7.448640999999043,
+    "meanMs": 6.022,
+    "throughputPerSecond": 166,
+    "outcomes": {
+      "DUPLICATE": 100
+    }
+  },
+  "settlementBatch": {
+    "items": 50,
+    "status": "RECONCILED",
+    "raised": 50
+  },
+  "reviewQueue": {
+    "n": 50,
+    "minMs": 4.775321999997686,
+    "p50Ms": 4.956,
+    "p95Ms": 5.463,
+    "p99Ms": 7.003,
+    "maxMs": 7.003210999999283,
+    "meanMs": 5.039,
+    "throughputPerSecond": 198.4,
+    "rowsLastRun": 50
+  },
+  "draftAssembly": {
+    "n": 50,
+    "minMs": 4.417462999997952,
+    "p50Ms": 4.903,
+    "p95Ms": 5.832,
+    "p99Ms": 8.094,
+    "maxMs": 8.09400999999707,
+    "meanMs": 5.015,
+    "throughputPerSecond": 199.4,
+    "note": "load + governed context read + balanced draft build; no ledger write is included",
+    "outcomes": {
+      "DRAFT_READY": 50
+    }
+  },
+  "queryPlans": [
+    {
+      "label": "inbox uniqueness probe (provider retry)",
+      "plan": [
+        "Index Scan using payment_webhook_events_inbox_uidx on payment_webhook_events  (cost=0.28..6.04 rows=1 width=102) (actual time=0.018..0.019 rows=1 loops=1)",
+        "  Index Cond: ((connection_id = 'PVC_01K1S814BVNMBGTMN4Q0KR'::text) AND (provider_event_id = 'PERFMTQAJ66H-E0'::text))",
+        "  Buffers: shared hit=3",
+        "Planning:",
+        "  Buffers: shared hit=145",
+        "Planning Time: 0.393 ms",
+        "Execution Time: 0.026 ms"
+      ],
+      "execMs": 1.007,
+      "nodes": {
+        "indexScans": 1,
+        "bitmapScans": 0,
+        "seqScans": 0,
+        "sorts": 0
+      },
+      "buffers": "Buffers: shared hit=3",
+      "sql": "select id, processing_state, payload_digest from public.payment_webhook_events where connection_id = $1 and provider_event_id = $2"
+    },
+    {
+      "label": "transaction idempotency probe",
+      "plan": [
+        "Index Scan using payment_transactions_idempotency_uidx on payment_transactions  (cost=0.28..6.05 rows=1 width=45) (actual time=0.029..0.800 rows=1 loops=1)",
+        "  Index Cond: (connection_id = 'PVC_01K1S814BVNMBGTMN4Q0KR'::text)",
+        "  Filter: (provider_transaction_id = 'PERFMTQAJ66H-T0'::text)",
+        "  Rows Removed by Filter: 799",
+        "  Buffers: shared hit=609",
+        "Planning:",
+        "  Buffers: shared hit=262",
+        "Planning Time: 0.351 ms",
+        "Execution Time: 0.808 ms"
+      ],
+      "execMs": 1.696,
+      "nodes": {
+        "indexScans": 1,
+        "bitmapScans": 0,
+        "seqScans": 0,
+        "sorts": 0
+      },
+      "buffers": "Buffers: shared hit=609",
+      "sql": "select id, gross_minor, accounting_status from public.payment_transactions where connection_id = $1 and provider_transaction_id = $2"
+    },
+    {
+      "label": "read-model page (newest first)",
+      "plan": [
+        "Limit  (cost=0.28..28.94 rows=50 width=63) (actual time=0.037..0.081 rows=50 loops=1)",
+        "  Buffers: shared hit=22",
+        "  ->  Index Scan Backward using payment_transactions_entity_occurred_idx on payment_transactions  (cost=0.28..306.45 rows=534 width=63) (actual time=0.036..0.076 rows=50 loops=1)",
+        "        Index Cond: (legal_entity_id = 'LEN_BEYU_MINING_LTD'::text)",
+        "        Filter: (tenant_id = 'TEN_BEYU_TZ'::text)",
+        "        Buffers: shared hit=22",
+        "Planning:",
+        "  Buffers: shared hit=16",
+        "Planning Time: 0.085 ms",
+        "Execution Time: 0.092 ms"
+      ],
+      "execMs": 0.605,
+      "nodes": {
+        "indexScans": 1,
+        "bitmapScans": 0,
+        "seqScans": 0,
+        "sorts": 0
+      },
+      "buffers": "Buffers: shared hit=22",
+      "sql": "select id, occurred_at, gross_minor, reconciliation_status from public.payment_transactions where tenant_id = $1 and legal_entity_id = $2 order by occurred_at desc limit 50"
+    },
+    {
+      "label": "open exception queue",
+      "plan": [
+        "Limit  (cost=72.52..72.64 rows=50 width=43) (actual time=0.876..0.882 rows=50 loops=1)",
+        "  Buffers: shared hit=44",
+        "  ->  Sort  (cost=72.52..74.32 rows=720 width=43) (actual time=0.875..0.878 rows=50 loops=1)",
+        "        Sort Key: ((severity = 'CRITICAL'::text)) DESC, created_at DESC",
+        "        Sort Method: top-N heapsort  Memory: 38kB",
+        "        Buffers: shared hit=44",
+        "        ->  Seq Scan on payment_exceptions x  (cost=0.00..48.60 rows=720 width=43) (actual time=0.005..0.342 rows=800 loops=1)",
+        "              Filter: ((tenant_id = 'TEN_BEYU_TZ'::text) AND (status = 'OPEN'::text))",
+        "              Buffers: shared hit=36",
+        "Planning:",
+        "  Buffers: shared hit=110",
+        "Planning Time: 0.177 ms",
+        "Execution Time: 0.896 ms"
+      ],
+      "execMs": 1.472,
+      "nodes": {
+        "indexScans": 0,
+        "bitmapScans": 0,
+        "seqScans": 1,
+        "sorts": 3
+      },
+      "buffers": "Buffers: shared hit=44",
+      "sql": "select x.id, x.severity, x.created_at from public.payment_exceptions x where x.tenant_id = $1 and x.status = 'OPEN' order by (x.severity = 'CRITICAL') desc, x.created_at desc limit 50"
+    },
+    {
+      "label": "unreconciled sweep",
+      "plan": [
+        "Aggregate  (cost=5.92..5.94 rows=1 width=4) (actual time=0.006..0.006 rows=1 loops=1)",
+        "  Buffers: shared hit=1",
+        "  ->  Index Only Scan using payment_transactions_tenant_state_idx on payment_transactions  (cost=0.15..5.92 rows=1 width=0) (actual time=0.004..0.004 rows=0 loops=1)",
+        "        Index Cond: ((tenant_id = 'TEN_BEYU_TZ'::text) AND (reconciliation_status = 'UNRECONCILED'::text))",
+        "        Heap Fetches: 0",
+        "        Buffers: shared hit=1",
+        "Planning:",
+        "  Buffers: shared hit=3",
+        "Planning Time: 0.060 ms",
+        "Execution Time: 0.019 ms"
+      ],
+      "execMs": 0.459,
+      "nodes": {
+        "indexScans": 1,
+        "bitmapScans": 0,
+        "seqScans": 0,
+        "sorts": 0
+      },
+      "buffers": "Buffers: shared hit=1",
+      "sql": "select count(*)::int as n from public.payment_transactions where tenant_id = $1 and reconciliation_status = 'UNRECONCILED'"
+    },
+    {
+      "label": "state trail for one payment",
+      "plan": [
+        "Incremental Sort  (cost=8.28..8.32 rows=2 width=28) (actual time=0.050..0.051 rows=6 loops=1)",
+        "  Sort Key: occurred_at, axis",
+        "  Presorted Key: occurred_at",
+        "  Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB",
+        "  Buffers: shared hit=10 dirtied=1",
+        "  ->  Index Scan using payment_transaction_states_tx_idx on payment_transaction_states  (cost=0.25..8.27 rows=1 width=28) (actual time=0.021..0.029 rows=6 loops=1)",
+        "        Index Cond: (transaction_id = 'PVT_01K1S824JEFGY4JG2W4M9M'::text)",
+        "        Buffers: shared hit=4 dirtied=1",
+        "Planning:",
+        "  Buffers: shared hit=61",
+        "Planning Time: 0.128 ms",
+        "Execution Time: 0.063 ms"
+      ],
+      "execMs": 0.628,
+      "nodes": {
+        "indexScans": 1,
+        "bitmapScans": 0,
+        "seqScans": 0,
+        "sorts": 3
+      },
+      "buffers": "Buffers: shared hit=10 dirtied=1",
+      "sql": "select axis, to_state, occurred_at from public.payment_transaction_states where transaction_id = $1 order by occurred_at, axis"
+    }
+  ],
+  "queryPlanSummary": [
+    {
+      "label": "inbox uniqueness probe (provider retry)",
+      "indexScans": 1,
+      "bitmapScans": 0,
+      "seqScans": 0,
+      "sorts": 0,
+      "execMs": 1.007,
+      "buffers": "Buffers: shared hit=3"
+    },
+    {
+      "label": "transaction idempotency probe",
+      "indexScans": 1,
+      "bitmapScans": 0,
+      "seqScans": 0,
+      "sorts": 0,
+      "execMs": 1.696,
+      "buffers": "Buffers: shared hit=609"
+    },
+    {
+      "label": "read-model page (newest first)",
+      "indexScans": 1,
+      "bitmapScans": 0,
+      "seqScans": 0,
+      "sorts": 0,
+      "execMs": 0.605,
+      "buffers": "Buffers: shared hit=22"
+    },
+    {
+      "label": "open exception queue",
+      "indexScans": 0,
+      "bitmapScans": 0,
+      "seqScans": 1,
+      "sorts": 3,
+      "execMs": 1.472,
+      "buffers": "Buffers: shared hit=44"
+    },
+    {
+      "label": "unreconciled sweep",
+      "indexScans": 1,
+      "bitmapScans": 0,
+      "seqScans": 0,
+      "sorts": 0,
+      "execMs": 0.459,
+      "buffers": "Buffers: shared hit=1"
+    },
+    {
+      "label": "state trail for one payment",
+      "indexScans": 1,
+      "bitmapScans": 0,
+      "seqScans": 0,
+      "sorts": 3,
+      "execMs": 0.628,
+      "buffers": "Buffers: shared hit=10 dirtied=1"
+    }
+  ],
+  "plannerFindings": {
+    "plansWithSequentialScan": [
+      "open exception queue"
+    ],
+    "interpretation": "A Seq Scan on a small development table is not itself a defect; it is what the planner chooses when the table is tiny. It is recorded here so that the same plan on a large table is visible as a change, not as a surprise."
+  },
+  "teardown": {
+    "rowsRemoved": {
+      "journalLines": 0,
+      "settlementItems": 50,
+      "settlements": 1,
+      "corrections": 0,
+      "matches": 0,
+      "states": 1800,
+      "riskSignals": 0,
+      "exceptions": 800,
+      "transactions": 800,
+      "journalEntries": 0,
+      "webhookEvents": 800
+    },
+    "configCleanup": {
+      "mode": "cleanup",
+      "refused": false,
+      "removed": {
+        "accountMappings": 4,
+        "policies": 1,
+        "paymentAccounts": 1,
+        "connections": 1,
+        "ledgerAccounts": 8
+      },
+      "purged": {
+        "skipped": "no --purge-tags given"
+      },
+      "demoAccountsRemovable": 0,
+      "demoAccountsRemoved": 0,
+      "demoAccountsRetained": 0
+    },
+    "residual": {
+      "transactions": 0,
+      "inbox": 0,
+      "pay_entries": 0,
+      "policies": 0
+    }
+  },
+  "configurationUsed": {
+    "policy_version": "SANDBOX-DEMO-1.0.0",
+    "autopostceilingminor": "0"
+  },
+  "classification": {
+    "status": "LOCAL_MEASURED",
+    "productionVerified": false,
+    "statement": "These are the payment path's measured timings and plans on the local development database, with the fixture removed afterwards. They say nothing about production capacity, provider latency or an SLA."
+  }
+}
