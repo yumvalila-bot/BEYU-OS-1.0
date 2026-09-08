@@ -8,10 +8,14 @@
 
 > ## BLOCKED — EXTERNAL EVIDENCE REQUIRED
 
-Engineering quality is high and, at CI tier, comprehensively proven. **No gate
-carries PRODUCTION-tier evidence**, because no governed pipeline run has ever
-reached the production database. The obstacle is a permissions boundary, not a
-product defect.
+**UPDATED 2026-09-08T11:02Z.** The first production-tier evidence now exists:
+`live-preflight` **PASSED** against the real Supabase database in run
+`34218504139`, confirming `BEYU_ADMIN_DATABASE_URL` is correctly
+repository-scoped and that migration metadata is drift-free in production.
+
+The blocker has moved one link down the chain: `deploy` fails because the
+repository secret **`BEYU_RUNTIME_DB_PASSWORD` is not configured**. Secret
+creation requires `secrets: write`, which Arena does not hold.
 
 ## Three-dimensional evidence model
 
@@ -22,8 +26,8 @@ product defect.
 | Repository integrity | PASS | PASS | N/A | `HEAD == origin/main == cc621ab`, clean tree | No |
 | Build | PASS | PASS | PASS | `next build` with all runtime secrets unset → exit 0; Vercel deployment `6320808378` success | No |
 | CI | PASS | PASS | N/A | run `34188069357` success on `cc621ab` | No |
-| Database connectivity | PASS | PASS | **NOT CERTIFIED** | never contacted by any run; sandbox TCP to pooler :5432/:6543 OPEN | **YES — P0** |
-| Migration integrity | PASS | PASS | **NOT CERTIFIED** | 36/36, fingerprint `c07b19e76b286fe9f1a7cb2dfa40fb75`, no drift | **YES — P0** |
+| Database connectivity | PASS | PASS | **PASS ↑** | **run `34218504139` live-preflight SUCCESS — Supabase reached, TLS + auth OK** | No |
+| Migration integrity | PASS | PASS | **PASS ↑** | preflight exit 0 ⇒ no modified migrations, no destructive pending, no drift | No |
 | Runtime role | PASS | PASS | **NOT CERTIFIED** | 5/5 attributes false, `constrained: true`, owns 0 objects | **YES — P0** |
 | RLS | PASS | PASS | **NOT CERTIFIED** | 174 tables / 174 policies / 174 policy tables | **YES — P0** |
 | Tenant isolation | PASS | PASS | **NOT CERTIFIED** | adversarial cross-tenant suites DENY | **YES — P0** |
