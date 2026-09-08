@@ -183,6 +183,9 @@ class RouterProvider extends ChangeNotifier {
       case 'HEALTH':
         targetOS = OSCode.health;
         break;
+      case 'FOUNDATION':
+        targetOS = OSCode.foundation;
+        break;
       // Agriculture remains FUTURE
     }
 

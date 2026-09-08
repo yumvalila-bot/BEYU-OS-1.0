@@ -845,11 +845,13 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // pin: the specialist module under test still adds no migration of its own, and any
     // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
+    // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
+    // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(35);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(36);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

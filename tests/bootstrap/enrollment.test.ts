@@ -2,8 +2,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db, pool } from "../../src/db";
 import { adminBootstrapState, adminEnrollmentSessions, users } from "../../src/db/schema";
-import { decryptSecret } from "../../src/lib/mfa";
-import { verifyPassword as verifyPw } from "../../src/lib/crypto";
+import {
+  decryptSecret,
+  encryptSecret,
+  generateRecoveryCodes,
+  generateTotpSecret,
+  hashRecoveryCode,
+} from "../../src/lib/mfa";
+import { hashPassword, verifyPassword as verifyPw } from "../../src/lib/crypto";
 import {
   beginEnrollment,
   completeEnrollment,
@@ -44,6 +50,34 @@ describe("secure first-administrator enrollment ceremony", () => {
   });
 
   afterAll(async () => {
+    // Leave the shared admin credential in LOGIN-CAPABLE seeded state.
+    // Every test above re-establishes enrollable-only preconditions in
+    // beforeEach, so no test in this file depends on the leftover. Without
+    // this restore, later suites that authenticate as admin@beyu.os fail
+    // depending on file execution order (order-dependent contamination).
+    const password = process.env.BEYU_BOOTSTRAP_PASSWORD;
+    if (password) {
+      const totp = generateTotpSecret();
+      const recovery = generateRecoveryCodes();
+      await db
+        .update(users)
+        .set({
+          passwordHash: hashPassword(password),
+          passwordAlgo: "scrypt",
+          passwordMustChange: true,
+          mfaEnrolled: true,
+          mfaMethod: "TOTP",
+          mfaSecretEncrypted: encryptSecret(totp),
+          mfaRecoveryCodesHash: recovery.map(hashRecoveryCode),
+          mfaLastAcceptedStep: null,
+          mfaFailedAttempts: 0,
+          mfaLockedUntil: null,
+          failedAttempts: 0,
+          lockedUntil: null,
+        })
+        .where(eq(users.id, ADMIN_USER_ID));
+    }
+    await resetBootstrap(ADMIN_USER_ID);
     await pool.end();
   });
 

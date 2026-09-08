@@ -66,7 +66,8 @@ describe("HCM workforce consumption", () => {
     const hcm = await principalFor("ASHA_NDULU");
     const result = await listWorkforce(hcm);
     expect(result.source).toBe("people.employees");
-    expect(result.records.length).toBe(7);
+    // 7 group/country/sector staff + 2 foundation employees (global HCM scope).
+    expect(result.records.length).toBe(9);
     expect(new Set(result.records.map((r) => r.employeeNo)).size).toBe(result.records.length);
     expect(result.records.every((r) => r.partyId.startsWith("PTY_"))).toBe(true);
     expect(result.records.every((r) => r.globalUserId?.startsWith("USR_"))).toBe(true);
@@ -83,7 +84,8 @@ describe("HCM workforce consumption", () => {
     const hcm = await principalFor("ASHA_NDULU");
     const lowered: Principal = { ...hcm, clearance: "CONFIDENTIAL" };
     const result = await listWorkforce(lowered);
-    expect(result.records.length).toBe(7);
+    // Identity stays visible at CONFIDENTIAL; only compensation is stripped.
+    expect(result.records.length).toBe(9);
     expect(result.suppressedCompensation).toBe(true);
     expect(result.records.every((r) => r.baseSalary === null)).toBe(true);
   });

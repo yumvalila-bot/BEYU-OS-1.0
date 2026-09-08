@@ -1,145 +1,115 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
-import { capitalRequests, foundationPrograms, legalEntities, osRegistry, tenants } from "@/db/schema";
+import Link from "next/link";
 import { requireAccess } from "@/lib/guard";
-import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { listFoundations } from "@/lib/foundation/service";
+import { complianceDashboard, deadlinesMissingEvidence, listDeadlines } from "@/lib/foundation/compliance";
+import { listFunds } from "@/lib/foundation/service";
+import { listDonations, listGrants } from "@/lib/foundation/service";
+import { listPrograms } from "@/lib/foundation/service-operations";
+import { deadlineHealth } from "@/lib/foundation/deadlines";
 
 export const dynamic = "force-dynamic";
 
+const SECTIONS = [
+  { href: "/os/foundation/registry", title: "Foundation Registry", desc: "Lifecycle, jurisdiction, tax status" },
+  { href: "/os/foundation/formation", title: "Start a Foundation", desc: "Guided formation workflow" },
+  { href: "/os/foundation/structures", title: "Structure & Simulator", desc: "Design and what-if analysis" },
+  { href: "/os/foundation/governance", title: "Governance", desc: "Meetings, conflicts, fiduciary duties" },
+  { href: "/os/foundation/tax", title: "Tax Intelligence", desc: "Rules, profiles, assessments" },
+  { href: "/os/foundation/compliance", title: "Compliance Center", desc: "Deadlines, tasks, escalation" },
+  { href: "/os/foundation/donors", title: "Donors", desc: "Profiles, donations, pledges" },
+  { href: "/os/foundation/funds", title: "Funds & Finance", desc: "Funds, allocations, capital" },
+  { href: "/os/foundation/grants", title: "Grants", desc: "Grantees, awards, disbursements" },
+  { href: "/os/foundation/programs", title: "Programs & Impact", desc: "Programs, projects, outcomes" },
+  { href: "/os/foundation/operations", title: "Operations", desc: "Procurement, assets, investments" },
+  { href: "/os/foundation/safeguarding", title: "Safeguarding", desc: "Protected casework" },
+];
+
 export default async function FoundationPage() {
-  const access = await requireAccess("platform:dashboard.read");
-  if (!access.allowed) return <Denied reason={access.reason} capability="platform:dashboard.read" />;
+  const access = await requireAccess("foundation:registry.read");
+  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:registry.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const [foundationRows, dashboard, missingEvidence, fundRows, donationRows, grantRows, programRows, deadlineRows] =
+      await Promise.all([
+        listFoundations(access.principal),
+        complianceDashboard(access.principal, today),
+        deadlinesMissingEvidence(access.principal),
+        listFunds(access.principal),
+        listDonations(access.principal),
+        listGrants(access.principal),
+        listPrograms(access.principal),
+        listDeadlines(access.principal),
+      ]);
 
-  /**
-   * H-NEW-2: the Foundation is a distinct tenant, not a global namespace. Its
-   * records are resolved by tenant identity and then intersected with the
-   * principal's canonical tenant scope. The BEYU-FOUNDATION code is used only to
-   * identify the tenant — never to bypass scope. A principal outside the
-   * Foundation subtree is denied rather than shown another tenant's data.
-   */
-  const scope = await tenantScopeIds(access.principal);
-  const [foundationTenant] = await db
-    .select()
-    .from(tenants)
-    .where(and(eq(tenants.code, "BEYU-FOUNDATION"), inArray(tenants.id, scope)))
-    .limit(1);
+    const fundBalance = fundRows.reduce((a, f) => a + Number(f.balance), 0);
+    const donationsTotal = donationRows.reduce((a, d) => a + Number(d.amount), 0);
+    const upcoming = deadlineRows
+      .filter((d) => !["COMPLETED", "VERIFIED", "WAIVED"].includes(d.status))
+      .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
+      .slice(0, 6);
 
-  if (!foundationTenant) {
     return (
-      <Denied
-        reason="Tenant isolation: the BEYU Foundation tenant is outside your authorised scope."
-        capability="platform:dashboard.read"
-      />
-    );
-  }
+      <div className="space-y-6">
+        <header>
+          <div className="beyu-kicker text-[#b08d1c]">Foundation OS — one institutional OS under BEYU OS</div>
+          <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Foundation Executive Dashboard</h1>
+          <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
+            Foundations, formation, governance, tax, timely compliance, donors, funds, grants, programs and
+            impact — consuming canonical BEYU OS identity, HCM, governance, audit and Finance OS, with
+            Noelia on HIVE as the single AI identity.
+          </p>
+        </header>
 
-  const foundationScope = [foundationTenant.id];
-  const programs = await db
-    .select()
-    .from(foundationPrograms)
-    .where(inArray(foundationPrograms.tenantId, foundationScope));
-  const entity = await db
-    .select()
-    .from(legalEntities)
-    .where(and(eq(legalEntities.code, "BEYU-FDN"), inArray(legalEntities.tenantId, foundationScope)))
-    .limit(1);
-  const funding = await db
-    .select()
-    .from(capitalRequests)
-    .where(and(eq(capitalRequests.sectorCode, "FOUNDATION"), inArray(capitalRequests.tenantId, scope)));
-  const charter = await db.select().from(osRegistry).where(eq(osRegistry.code, "FOUNDATION_OS")).limit(1);
-
-  const budget = programs.reduce((a, p) => a + Number(p.budget), 0);
-  const spend = programs.reduce((a, p) => a + Number(p.spendToDate), 0);
-  const reached = programs.reduce((a, p) => a + p.beneficiariesReached, 0);
-
-  return (
-    <div className="space-y-6">
-      <header>
-        <div className="beyu-kicker text-[#b08d1c]">Foundation OS — sector OS under BEYU OS</div>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">BEYU Foundation</h1>
-        <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
-          A separate non-profit sister organisation. It consumes shared BEYU OS capabilities (identity,
-          HCM, governance, audit, documents) while retaining its own legal, governance, financial, data
-          and tenant boundaries.
-        </p>
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Programme budget" value={money(budget, "USD")} sub={`${programs.length} active programmes`} tone="gold" />
-        <Metric label="Spend to date" value={money(spend, "USD")} sub={budget ? `${Math.round((spend / budget) * 100)}% utilised` : "—"} />
-        <Metric label="Beneficiaries reached" value={reached.toLocaleString()} sub="monitoring & evaluation" />
-        <Metric label="Legal boundary" value={entity[0]?.entityType ?? "—"} sub={entity[0] ? `${entity[0].legalName} · ${entity[0].registrationNumber}` : "—"} />
-      </div>
-
-      <Panel kicker="Programmes" title="Grants, projects, impact & monitoring">
-        <div className="overflow-x-auto">
-          <table className="beyu-table">
-            <thead><tr><th>Programme</th><th>Theme</th><th>Country</th><th>Budget</th><th>Spend</th><th>Beneficiaries</th><th>Impact</th><th>Status</th></tr></thead>
-            <tbody>
-              {programs.map((p) => (
-                <tr key={p.id}>
-                  <td><div className="font-medium">{p.name}</div><div className="font-mono text-[10.5px] beyu-muted">{p.code}</div></td>
-                  <td><Badge tone="navy">{p.theme}</Badge></td>
-                  <td className="text-[11.5px]">{p.countryCode}</td>
-                  <td className="tabular-nums">{money(p.budget, p.currency)}</td>
-                  <td className="tabular-nums">{money(p.spendToDate, p.currency)}</td>
-                  <td className="tabular-nums">{p.beneficiariesReached.toLocaleString()}</td>
-                  <td className="text-[11.5px]">{p.impactMetric}: {p.impactValue ? Number(p.impactValue).toLocaleString() : "—"}</td>
-                  <td><Badge tone={stateTone(p.status)}>{p.status}</Badge></td>
-                </tr>
-              ))}
-              {programs.length === 0 && <tr><td colSpan={8}><EmptyState message="No programmes registered." /></td></tr>}
-            </tbody>
-          </table>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Foundations" value={String(foundationRows.length)} sub={`${foundationRows.filter((f) => f.status === "ACTIVE").length} active`} tone="gold" />
+          <Metric label="Fund balance" value={money(fundBalance, "USD")} sub={`${fundRows.length} funds`} />
+          <Metric label="Donations recorded" value={money(donationsTotal, "USD")} sub={`${donationRows.length} donations`} />
+          <Metric label="Compliance health" value={dashboard.overdueCount === 0 ? "On track" : `${dashboard.overdueCount} overdue`} sub={`${dashboard.health.DUE_TODAY} due today · ${dashboard.health.AT_RISK} at risk`} tone={dashboard.overdueCount === 0 ? undefined : "red"} />
         </div>
-      </Panel>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <Panel kicker="Funding interface" title="Capital allocation from the enterprise waterfall">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Grants" value={String(grantRows.length)} sub={`${grantRows.filter((g) => g.status === "APPROVAL").length} awaiting approval`} />
+          <Metric label="Programs" value={String(programRows.length)} sub={`${programRows.reduce((a, p) => a + p.beneficiariesReached, 0).toLocaleString()} beneficiaries reached`} />
+          <Metric label="Open escalations" value={String(dashboard.openEscalations)} sub="acknowledge in Compliance Center" />
+          <Metric label="Evidence missing" value={String(missingEvidence.length)} sub="deadlines blocked on evidence" />
+        </div>
+
+        <Panel kicker="Attention" title="Next deadlines">
           <div className="overflow-x-auto">
             <table className="beyu-table">
-              <thead><tr><th>Request</th><th>Amount</th><th>Status</th><th>Decision</th></tr></thead>
+              <thead><tr><th>Due</th><th>Health</th><th>Status</th><th>Period</th><th>Obligation</th></tr></thead>
               <tbody>
-                {funding.map((f) => (
-                  <tr key={f.id}>
-                    <td><div className="font-medium">{f.title}</div><div className="font-mono text-[10.5px] beyu-muted">{f.code}</div></td>
-                    <td className="tabular-nums">{money(f.amount, f.currency)}</td>
-                    <td><Badge tone={stateTone(f.status)}>{f.status}</Badge></td>
-                    <td className="text-[11.5px] beyu-muted">{f.decisionDate ? new Date(f.decisionDate).toISOString().slice(0, 10) : "pending"}</td>
-                  </tr>
-                ))}
-                {funding.length === 0 && <tr><td colSpan={4}><EmptyState message="No foundation funding requests." /></td></tr>}
+                {upcoming.map((d) => {
+                  const h = d.status === "OVERDUE" ? "OVERDUE" : deadlineHealth(d.dueDate, today);
+                  return (
+                    <tr key={d.id}>
+                      <td className="tabular-nums">{d.dueDate}</td>
+                      <td><Badge tone={stateTone(h)}>{h}</Badge></td>
+                      <td><Badge tone={stateTone(d.status)}>{d.status}</Badge></td>
+                      <td className="text-[11.5px]">{d.periodLabel ?? "—"}</td>
+                      <td className="font-mono text-[10.5px] beyu-muted">{d.obligationId.slice(0, 18)}…</td>
+                    </tr>
+                  );
+                })}
+                {upcoming.length === 0 && <tr><td colSpan={5}><EmptyState message="No open deadlines." /></td></tr>}
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-[11px] beyu-muted">
-            The FOUNDATION tier of the enterprise waterfall funds these programmes. Finance OS remains
-            authoritative for the financial consequence of each transfer.
-          </p>
         </Panel>
 
-        <Panel kicker="Registered charter" title="Foundation OS boundary">
-          {charter[0] ? (
-            <dl className="space-y-2 text-[11.5px]">
-              <div><span className="beyu-kicker beyu-muted">Purpose </span>{charter[0].purpose}</div>
-              <div><span className="beyu-kicker beyu-muted">Authority </span>{charter[0].authorityScope}</div>
-              <div><span className="beyu-kicker beyu-muted">Owner </span>{charter[0].ownerRole}</div>
-              <div><span className="beyu-kicker beyu-muted">Data authority </span>{charter[0].dataAuthority.join(", ")}</div>
-              <div><span className="beyu-kicker beyu-muted">Consumes </span>{charter[0].dependencies.join(", ")}</div>
-              <div><span className="beyu-kicker beyu-muted">Compliance </span>{charter[0].complianceFrameworks.join(", ")}</div>
-              <div className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2">
-                Foundation OS must not duplicate enterprise identity, HCM, governance, security, audit or
-                enterprise finance authority.
-              </div>
-            </dl>
-          ) : (
-            <EmptyState message="Foundation OS charter is not registered." />
-          )}
+        <Panel kicker="Workspace" title="Foundation OS areas">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {SECTIONS.map((s) => (
+              <Link key={s.href} href={s.href} className="rounded-xl border border-[color:var(--beyu-line)] p-4 transition hover:border-[#b08d1c]">
+                <div className="text-[13.5px] font-semibold">{s.title}</div>
+                <div className="mt-0.5 text-[11.5px] beyu-muted">{s.desc}</div>
+              </Link>
+            ))}
+          </div>
         </Panel>
       </div>
-    </div>
-  );  });
+    );
+  });
 }

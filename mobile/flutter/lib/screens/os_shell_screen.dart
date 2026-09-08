@@ -12,6 +12,7 @@ import '../models/authorization_models.dart';
 import 'access_denied_screen.dart';
 import 'os_screens/agriculture_os_screen.dart';
 import 'os_screens/beyu_os_screen.dart';
+import 'os_screens/foundation_os_screen.dart';
 import 'os_screens/health_os_screen.dart';
 
 class OSshellScreen extends StatelessWidget {
@@ -75,6 +76,8 @@ class OSshellScreen extends StatelessWidget {
         return const HealthOSScreen();
       case OSCode.agriculture:
         return const AgricultureOSScreen();
+      case OSCode.foundation:
+        return const FoundationOSScreen();
       case OSCode.unknown:
         return const _FutureOSScreen(osName: 'Unknown OS');
     }
@@ -88,6 +91,8 @@ class OSshellScreen extends StatelessWidget {
         return Icons.local_hospital_outlined;
       case OSCode.agriculture:
         return Icons.agriculture_outlined;
+      case OSCode.foundation:
+        return Icons.account_balance_wallet;
       case OSCode.unknown:
         return Icons.grid_view;
     }
@@ -101,6 +106,8 @@ class OSshellScreen extends StatelessWidget {
         return Colors.blue;
       case OSCode.agriculture:
         return Colors.green;
+      case OSCode.foundation:
+        return const Color(0xFFB08D1C);
       case OSCode.unknown:
         return Colors.grey;
     }

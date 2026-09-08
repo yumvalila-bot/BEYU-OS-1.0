@@ -57,7 +57,7 @@ const NAV: { group: string; items: { href: string; label: string; permission?: P
     group: "Family & Foundation",
     items: [
       { href: "/os/family", label: "Family Office", permission: "family:member.read" },
-      { href: "/os/foundation", label: "Foundation OS", permission: "platform:dashboard.read" },
+      { href: "/os/foundation", label: "Foundation OS", permission: "foundation:registry.read" },
     ],
   },
   {

@@ -179,6 +179,8 @@ async function main() {
     { key: "SARA_LEMA", name: "Sara Lema", given: "Sara", family: "Lema", email: "health.ops@beyu.os", role: "SECTOR_OPERATOR", tenant: T.health },
     { key: "JOSEPH_MWALIMU", name: "Joseph Mwalimu", given: "Joseph", family: "Mwalimu", email: "agri.ops@beyu.os", role: "SECTOR_OPERATOR", tenant: T.agri },
     { key: "PLATFORM_ADMIN", name: "Platform Administrator", given: "Platform", family: "Admin", email: "admin@beyu.os", role: "PLATFORM_ADMIN", tenant: T.group },
+    { key: "FATMA_JUMA", name: "Fatma Juma", given: "Fatma", family: "Juma", email: "foundation.director@beyu.os", role: "FOUNDATION_DIRECTOR", tenant: T.foundation },
+    { key: "YUSUF_MAKAME", name: "Yusuf Makame", given: "Yusuf", family: "Makame", email: "foundation.ops@beyu.os", role: "FOUNDATION_OFFICER", tenant: T.foundation },
   ];
 
   const pwHash = hashPassword(BOOTSTRAP_PASSWORD_VALUE);
@@ -977,6 +979,467 @@ async function main() {
     ])
     .onConflictDoNothing();
 
+  /* ---------------- foundation OS registry & operations ---------------- */
+  const JUR_TZ = fixedId(ID_PREFIX.jurisdiction, "TZ-NAT");
+  await adminDb
+    .insert(s.foundationTypes)
+    .values(
+      [
+        ["PRIVATE", "Private foundation", "Funded and controlled by a single source; primarily grantmaking."],
+        ["PUBLIC_BENEFIT", "Public-benefit foundation", "Serves a defined public benefit with broad accountability."],
+        ["FAMILY", "Family foundation", "Funded by a family; family members participate in governance."],
+        ["CORPORATE", "Corporate foundation", "Established and funded by a company; independence rules apply."],
+        ["COMMUNITY", "Community foundation", "Place-based; pools funds from many donors."],
+        ["OPERATING", "Operating foundation", "Runs its own programs rather than primarily grantmaking."],
+        ["GRANTMAKING", "Grantmaking foundation", "Primarily awards grants to other organisations."],
+      ].map(([code, name, description]) => ({
+        id: fixedId(ID_PREFIX.foundationType, String(code)),
+        tenantId: T.foundation,
+        code: String(code),
+        name: String(name),
+        description: String(description),
+      })),
+    )
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundations)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        tenantId: T.foundation,
+        legalEntityId: E.foundation,
+        code: "BEYU-FDN-01",
+        legalName: "BEYU Foundation",
+        operatingName: "BEYU Foundation",
+        foundationTypeId: fixedId(ID_PREFIX.foundationType, "FAMILY"),
+        legalVehicle: "FOUNDATION",
+        registrationNumber: "TZ-NGO-00891",
+        jurisdictionId: JUR_TZ,
+        countryCode: "TZ",
+        regulator: "NGO Registrar",
+        taxAuthority: "Tanzania Revenue Authority",
+        taxStatus: "UNDER_REVIEW",
+        fiscalYearEnd: "12-31",
+        baseCurrency: "TZS",
+        mission: "Advance health, education and resilience for Tanzanian communities.",
+        purpose: "Grantmaking and operating programs in health, education and agriculture.",
+        foundingDate: "2018-05-22",
+        registrationDate: "2018-05-22",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationTaxRules)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationTaxRule, "TZ_NGO_TAX_001"),
+        tenantId: T.foundation,
+        code: "TZ-NGO-TAX-001",
+        jurisdictionId: JUR_TZ,
+        countryCode: "TZ",
+        authority: "Tanzania Revenue Authority",
+        source: "KN-TZ-ITA (group tax counsel review 2025-07); confirm current statute before reliance",
+        ruleVersion: "1.0",
+        effectiveFrom: "2024-07-01",
+        applicability: "Charitable organisations seeking exemption treatment in Tanzania",
+        ruleBody: { notes: "Seed reference only — professional verification required before any filing position." },
+        verificationDate: "2026-06-30",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationTaxProfiles)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationTaxProfile, "BEYU_FDN"),
+        tenantId: T.foundation,
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        jurisdictionId: JUR_TZ,
+        taxStatus: "UNDER_REVIEW",
+        fiscalYearEnd: "12-31",
+        assumptions: "Exemption claimed historically; current-year position under professional review.",
+        nextReviewAt: "2026-12-31",
+        professionalReviewRequired: true,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationTaxAssessments)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationTaxAssessment, "BEYU_FDN_2026"),
+        tenantId: T.foundation,
+        code: "TAX-2026-001",
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        taxRuleId: fixedId(ID_PREFIX.foundationTaxRule, "TZ_NGO_TAX_001"),
+        activity: "General charitable grantmaking and operating programs",
+        taxStatus: "UNDER_REVIEW",
+        assumptions: "Rule v1.0 applicability presumed; counsel confirmation outstanding.",
+        risks: "Filing on an unconfirmed position risks penalties.",
+        professionalReviewRequired: true,
+        assessedBy: "SEED",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationObligations)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationObligation, "TZ_NGO_ANNUAL_RETURN"),
+        tenantId: T.foundation,
+        code: "TZ-NGO-ANNUAL-RETURN",
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        requirement: "File annual activity return with the NGO Registrar",
+        authority: "NGO Registrar",
+        regulator: "NGO Registrar",
+        jurisdictionId: JUR_TZ,
+        legalEntityId: E.foundation,
+        trigger: "PERIOD",
+        frequency: "ANNUAL",
+        deadlineRule: { basis: "CALENDAR_DAYS", offset: 90 },
+        effectiveFrom: "2024-01-01",
+        ownerRole: "FOUNDATION_OFFICER",
+        approverRole: "FOUNDATION_DIRECTOR",
+        evidenceRequired: true,
+        riskRating: "HIGH",
+        status: "ACTIVE",
+        source: "Internal compliance calendar — verify current filing guide with counsel",
+        verificationDate: "2026-06-30",
+        nextReviewAt: "2026-12-31",
+      },
+      {
+        id: fixedId(ID_PREFIX.foundationObligation, "TZ_NGO_AUDITED_ACCOUNTS"),
+        tenantId: T.foundation,
+        code: "TZ-NGO-AUDITED-ACCOUNTS",
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        requirement: "Submit audited annual accounts",
+        authority: "NGO Registrar",
+        regulator: "NGO Registrar",
+        jurisdictionId: JUR_TZ,
+        legalEntityId: E.foundation,
+        trigger: "FISCAL_YEAR",
+        frequency: "ANNUAL",
+        deadlineRule: { basis: "MONTHS", offset: 6 },
+        effectiveFrom: "2024-01-01",
+        ownerRole: "FOUNDATION_OFFICER",
+        approverRole: "FOUNDATION_DIRECTOR",
+        evidenceRequired: true,
+        riskRating: "HIGH",
+        status: "ACTIVE",
+        source: "Internal compliance calendar — verify current filing guide with counsel",
+        verificationDate: "2026-06-30",
+        nextReviewAt: "2026-12-31",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationDeadlines)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationDeadline, "TZ_NGO_ANNUAL_RETURN_2026"),
+        tenantId: T.foundation,
+        obligationId: fixedId(ID_PREFIX.foundationObligation, "TZ_NGO_ANNUAL_RETURN"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        periodLabel: "FY2026",
+        triggerDate: "2026-07-01",
+        dueDate: "2026-09-29",
+        reminderSchedule: [90, 60, 30, 14, 7, 3, 1, 0],
+        status: "UPCOMING",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationComplianceTasks)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationComplianceTask, "TZ_NGO_ANNUAL_RETURN_2026"),
+        tenantId: T.foundation,
+        deadlineId: fixedId(ID_PREFIX.foundationDeadline, "TZ_NGO_ANNUAL_RETURN_2026"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        code: "TSK-TZ-NGO-ANNUAL-RETURN-FY2026",
+        title: "File annual activity return with the NGO Registrar",
+        ownerRole: "FOUNDATION_OFFICER",
+        status: "OPEN",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.donors)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.donor, "SERENGETI_DEV"),
+        tenantId: T.foundation,
+        code: "DNR-001",
+        displayName: "Serengeti Development Partners Ltd",
+        donorType: "CORPORATE",
+        countryCode: "TZ",
+        dueDiligenceStatus: "CLEARED",
+        dueDiligenceAt: new Date("2026-02-10T00:00:00Z"),
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.funds)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.fund, "GENERAL"),
+        tenantId: T.foundation,
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        code: "FUND-GENERAL",
+        name: "General operating fund",
+        fundType: "UNRESTRICTED",
+        purpose: "Unrestricted operating support",
+        source: "Donations",
+        currency: "USD",
+        balance: "50000",
+        committed: "0",
+        status: "ACTIVE",
+      },
+      {
+        id: fixedId(ID_PREFIX.fund, "STEM_RESTRICTED"),
+        tenantId: T.foundation,
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        code: "FUND-STEM",
+        name: "STEM scholarship restricted fund",
+        fundType: "RESTRICTED",
+        purpose: "STEM scholarships only",
+        source: "Restricted donations",
+        currency: "USD",
+        balance: "0",
+        committed: "0",
+        reportingObligations: "Annual scholar-retention report to donors",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.fundRestrictions)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.fundRestriction, "STEM_PURPOSE"),
+        tenantId: T.foundation,
+        fundId: fixedId(ID_PREFIX.fund, "STEM_RESTRICTED"),
+        restrictionType: "PURPOSE",
+        rule: "Disbursements must fund STEM scholarships under program FDN-EDU-02 only.",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.donations)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.donation, "SERENGETI_2026_Q1"),
+        tenantId: T.foundation,
+        donorId: fixedId(ID_PREFIX.donor, "SERENGETI_DEV"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        fundId: fixedId(ID_PREFIX.fund, "GENERAL"),
+        code: "DNT-2026-001",
+        amount: "50000",
+        currency: "USD",
+        receivedAt: "2026-01-20",
+        channel: "BANK_TRANSFER",
+        status: "ALLOCATED",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.grantees)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.grantee, "ARUSHA_HEALTH_CBO"),
+        tenantId: T.foundation,
+        code: "GTE-001",
+        displayName: "Arusha Community Health Initiative",
+        granteeType: "ORGANIZATION",
+        countryCode: "TZ",
+        registrationRef: "CBO-AR-2019-044",
+        dueDiligenceStatus: "CLEARED",
+        sanctionsCheckedAt: new Date("2026-03-01T00:00:00Z"),
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.grants)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.grant, "ARUSHA_MATERNAL_2026"),
+        tenantId: T.foundation,
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        fundId: fixedId(ID_PREFIX.fund, "GENERAL"),
+        programId: fixedId(ID_PREFIX.program, "PRG1"),
+        granteeId: fixedId(ID_PREFIX.grantee, "ARUSHA_HEALTH_CBO"),
+        code: "GRT-2026-001",
+        title: "Maternal outreach scale-up — Arusha",
+        amount: "25000",
+        currency: "USD",
+        budget: { personnel: 12000, supplies: 8000, transport: 3000, monitoring: 2000 },
+        startDate: "2026-04-01",
+        endDate: "2027-03-31",
+        status: "OPPORTUNITY",
+        riskRating: "MEDIUM",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationProjects)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationProject, "ARUSHA_OUTREACH"),
+        tenantId: T.foundation,
+        programId: fixedId(ID_PREFIX.program, "PRG1"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        code: "PRJ-2026-001",
+        name: "Arusha mobile clinic circuit",
+        objectives: "Deliver antenatal visits across 12 wards.",
+        geography: "Arusha, Tanzania",
+        budget: "25000",
+        currency: "USD",
+        startDate: "2026-04-01",
+        endDate: "2027-03-31",
+        status: "PLANNED",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationImpactMetrics)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationImpactMetric, "ANTENATAL_VISITS"),
+        tenantId: T.foundation,
+        programId: fixedId(ID_PREFIX.program, "PRG1"),
+        code: "IMP-ANTENATAL",
+        name: "Antenatal visits completed",
+        level: "OUTPUT",
+        unit: "VISITS",
+        baseline: "0",
+        target: "12000",
+        geography: "Arusha, Tanzania",
+        beneficiaryScope: "Expectant mothers in 12 wards",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationImpactMeasurements)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationImpactMeasurement, "ANTENATAL_2026_Q2"),
+        tenantId: T.foundation,
+        metricId: fixedId(ID_PREFIX.foundationImpactMetric, "ANTENATAL_VISITS"),
+        period: "2026-Q2",
+        actual: "9640",
+        recordedBy: "SEED",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.structureProposals)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.structureProposal, "BEYU_FDN_CURRENT"),
+        tenantId: T.foundation,
+        code: "STRUCT-CURRENT-001",
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        kind: "CURRENT",
+        title: "BEYU Foundation current structure",
+        graph: {
+          nodes: [
+            { id: "BEYU-FT", kind: "TRUST", label: "BEYU Family Trust", jurisdiction: "MU" },
+            { id: "BEYU-HOLD", kind: "HOLDING", label: "BEYU Holdings Ltd", jurisdiction: "MU" },
+            { id: "BEYU-FDN", kind: "FOUNDATION", label: "BEYU Foundation", jurisdiction: "TZ" },
+          ],
+          edges: [
+            { from: "BEYU-FT", to: "BEYU-HOLD", relation: "OWNS" },
+            { from: "BEYU-HOLD", to: "BEYU-FDN", relation: "FUNDS", detail: "Waterfall foundation allocation tier" },
+          ],
+        },
+        rationale: "Baseline structure snapshot for simulation comparisons.",
+        status: "APPROVED",
+        proposedBy: "SEED",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.employees)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.employee, "FATMA_JUMA"),
+        tenantId: T.foundation,
+        employeeNo: "BEYU-EMP-00101",
+        partyId: fixedId(ID_PREFIX.party, "FATMA_JUMA"),
+        legalEntityId: E.foundation,
+        positionId: fixedId(ID_PREFIX.position, "P3"),
+        workEmail: "foundation.director@beyu.os",
+        countryCode: "TZ",
+        hireDate: "2021-02-01",
+        status: "ACTIVE",
+      },
+      {
+        id: fixedId(ID_PREFIX.employee, "YUSUF_MAKAME"),
+        tenantId: T.foundation,
+        employeeNo: "BEYU-EMP-00102",
+        partyId: fixedId(ID_PREFIX.party, "YUSUF_MAKAME"),
+        legalEntityId: E.foundation,
+        positionId: fixedId(ID_PREFIX.position, "P4"),
+        workEmail: "foundation.ops@beyu.os",
+        countryCode: "TZ",
+        hireDate: "2022-06-15",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.foundationWorkforceAssignments)
+    .values([
+      {
+        id: fixedId(ID_PREFIX.foundationAssignment, "FATMA_DIRECTOR"),
+        tenantId: T.foundation,
+        employeeId: fixedId(ID_PREFIX.employee, "FATMA_JUMA"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        assignmentType: "FOUNDATION",
+        roleTitle: "Foundation Director",
+        responsibilityScope: "Accountable executive for BEYU Foundation operations.",
+        effectiveFrom: "2024-01-01",
+        status: "ACTIVE",
+      },
+      {
+        id: fixedId(ID_PREFIX.foundationAssignment, "YUSUF_COMPLIANCE"),
+        tenantId: T.foundation,
+        employeeId: fixedId(ID_PREFIX.employee, "YUSUF_MAKAME"),
+        foundationId: fixedId(ID_PREFIX.foundation, "BEYU_FOUNDATION"),
+        assignmentType: "COMPLIANCE",
+        roleTitle: "Compliance Officer",
+        responsibilityScope: "Owns the foundation filing calendar and evidence.",
+        effectiveFrom: "2024-01-01",
+        status: "ACTIVE",
+      },
+    ])
+    .onConflictDoNothing();
+
   await adminDb
     .insert(s.sectorMetrics)
     .values([
@@ -1033,7 +1496,7 @@ async function main() {
       { id: fixedId(ID_PREFIX.osRegistry, "FINANCE_OS"), code: "FINANCE_OS", name: "BEYU Finance OS", kind: "SECTOR_OS", purpose: "Authoritative domain for financial consequences, treasury, capital, waterfall and tax strategy intelligence.", ownerRole: "GROUP_CFO", authorityScope: "FINANCIAL_CONSEQUENCE", dataAuthority: ["LEDGER", "TREASURY", "CAPITAL", "WATERFALL", "TAX_POSITION"], dependencies: ["BEYU_OS", "SHARED_HCM"], apis: ["/api/v1/finance/*"], events: ["PAYMENT_POSTED", "WATERFALL_EXECUTED", "TAX_STRATEGY_APPROVED"], complianceFrameworks: ["IFRS", "TRA", "AML_KYC"] },
       { id: fixedId(ID_PREFIX.osRegistry, "HEALTH_OS"), code: "HEALTH_OS", name: "BEYU Health OS", kind: "SECTOR_OS", purpose: "Healthcare operations: EHR, clinical workflows, pharmacy, laboratory, claims and clinical AI.", ownerRole: "SECTOR_OPERATOR", authorityScope: "CLINICAL_OPERATIONS", dataAuthority: ["PATIENT_RECORD", "ENCOUNTER", "CLINICAL_ORDER"], dependencies: ["BEYU_OS", "SHARED_HCM", "FINANCE_OS"], apis: ["/api/v1/health/*"], events: ["ENCOUNTER_CREATED", "CLAIM_SUBMITTED"], complianceFrameworks: ["FHIR", "DICOM", "ICD11", "MTUHA", "DHIS2", "NHIF", "TMDA"], classification: "RESTRICTED" },
       { id: fixedId(ID_PREFIX.osRegistry, "AGRI_OS"), code: "AGRICULTURE_OS", name: "BEYU Agriculture OS", kind: "SECTOR_OS", purpose: "Agricultural operations: land, crop cycles, inputs, yield and supply chain.", ownerRole: "SECTOR_OPERATOR", authorityScope: "AGRICULTURAL_OPERATIONS", dataAuthority: ["FARM_BLOCK", "CROP_CYCLE", "HARVEST"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM"], apis: ["/api/v1/agriculture/*"], events: ["HARVEST_RECORDED"], complianceFrameworks: ["TZ_AGRI"], lifecycle: "ACTIVE" },
-      { id: fixedId(ID_PREFIX.osRegistry, "FOUNDATION_OS"), code: "FOUNDATION_OS", name: "BEYU Foundation OS", kind: "SECTOR_OS", purpose: "Non-profit operations: programmes, grants, donors, impact and monitoring & evaluation, with separate legal and financial boundaries.", ownerRole: "GROUP_CEO", authorityScope: "NONPROFIT_OPERATIONS", dataAuthority: ["PROGRAMME", "GRANT", "IMPACT_MEASURE"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM"], apis: ["/api/v1/foundation/*"], events: ["PROGRAMME_FUNDED"], complianceFrameworks: ["TZ_NGO_ACT"], lifecycle: "DRAFT" },
+      { id: fixedId(ID_PREFIX.osRegistry, "FOUNDATION_OS"), code: "FOUNDATION_OS", name: "BEYU Foundation OS", kind: "SECTOR_OS", purpose: "The single institutional Foundation OS: registry, formation, structure, governance, tax context, timely compliance, donors, funds, grants, programs, projects, beneficiaries, procurement, assets, investments, safeguarding, impact and workforce assignments — under BEYU OS identity, governance, audit and HIVE/Noelia.", ownerRole: "FOUNDATION_DIRECTOR", authorityScope: "NONPROFIT_OPERATIONS", dataAuthority: ["FOUNDATION", "FORMATION_CASE", "STRUCTURE", "FOUNDATION_TAX", "FOUNDATION_COMPLIANCE", "DONOR", "FUND", "GRANT", "PROGRAMME", "PROJECT", "BENEFICIARY", "PROCUREMENT", "FOUNDATION_ASSET", "FOUNDATION_INVESTMENT", "SAFEGUARDING", "IMPACT_MEASURE", "FOUNDATION_ASSIGNMENT"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM", "HIVE_RUNTIME"], apis: ["/api/v1/foundation/*"], events: ["FOUNDATION_REGISTERED", "GRANT_APPROVED", "GRANT_DISBURSED", "DEADLINE_MISSED", "ESCALATION_RAISED", "PROGRAMME_FUNDED"], complianceFrameworks: ["TZ_NGO_ACT"], lifecycle: "ACTIVE" },
       { id: fixedId(ID_PREFIX.osRegistry, "HIVE"), code: "HIVE_RUNTIME", name: "HIVE AI Runtime", kind: "AI_RUNTIME", purpose: "Runtime intelligence: model routing, RAG, tool calling, evaluation and monitoring under BEYU OS governance.", ownerRole: "CHIEF_GOVERNANCE_OFFICER", authorityScope: "AI_EXECUTION", dataAuthority: ["AI_DECISION_RECORD", "PROMPT_VERSION", "MODEL_VERSION"], dependencies: ["BEYU_OS"], apis: ["/api/v1/ai/noelia"], events: ["AI_DECISION_RECORDED", "AI_DECISION_REVIEWED"], complianceFrameworks: ["ISO42001"] },
       { id: fixedId(ID_PREFIX.osRegistry, "MINING_OS"), code: "MINING_OS", name: "BEYU Mining OS (proposed)", kind: "SECTOR_OS", purpose: "Proposed sector OS for mining operations. Registered before build to prevent unnecessary OS proliferation.", ownerRole: "GROUP_CEO", authorityScope: "MINING_OPERATIONS", dataAuthority: [], dependencies: ["BEYU_OS", "FINANCE_OS"], apis: [], events: [], complianceFrameworks: ["TZ_MINING_ACT"], lifecycle: "DRAFT" },
     ])
@@ -1056,7 +1519,7 @@ async function main() {
         ["Tax positions", "FINANCE_OS", "finance.tax_strategies", ["ALL"]],
         ["Healthcare operations", "HEALTH_OS", "health.encounters", ["BEYU_OS"]],
         ["Agricultural operations", "AGRICULTURE_OS", "agriculture.crop_cycles", ["BEYU_OS"]],
-        ["Foundation operations", "FOUNDATION_OS", "people.foundation_programs", ["BEYU_OS"]],
+        ["Foundation operations", "FOUNDATION_OS", "foundation.* (registry, formation, tax, compliance, donors, funds, grants, programs, impact)", ["BEYU_OS"]],
         ["Family governance", "SHARED_FAMILY_OFFICE", "people.family_members / beneficiaries", ["BEYU_OS"]],
         ["AI identity", "BEYU_OS", "Noelia (single AI identity)", ["ALL"]],
         ["AI runtime", "HIVE_RUNTIME", "platform.ai_decisions", ["ALL"]],

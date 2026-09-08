@@ -13,6 +13,7 @@ enum OSCode {
   beyu,
   health,
   agriculture, // Sector OS — BEYU kernel module (not a federated launcher OS)
+  foundation,
   unknown,
 }
 
@@ -57,6 +58,8 @@ class AuthorizedOS {
         return OSCode.health;
       case 'AGRICULTURE':
         return OSCode.agriculture;
+      case 'FOUNDATION':
+        return OSCode.foundation;
       default:
         return OSCode.unknown;
     }
