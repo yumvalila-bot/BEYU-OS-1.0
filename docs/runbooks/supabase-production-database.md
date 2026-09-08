@@ -134,3 +134,26 @@ operational); exit `1` = a check failed; exit `0` = **PRODUCTION CERTIFIED**.
 > `aws-0-eu-west-3.pooler.supabase.com` or `*.vercel.app`) cannot run this — the
 > runner fails at the connection stage. It must run from Vercel/CI with real
 > egress. Do not infer Supabase health from a local PostgreSQL instance.
+
+## Appendix A. `/api/health` failure classifications
+
+On failure the endpoint returns `503 { database: "DOWN", reason: <CLASS> }`
+and logs one structured `db_health_probe` event (trace id, environment,
+classification, safe driver code, elapsed ms — never the driver message, a
+hostname, a username, or any secret). Read `reason`, then act:
+
+| `reason` | Meaning | Owner action (view-only first) |
+|---|---|---|
+| `DATABASE_CONFIG_MISSING` | `DATABASE_URL` absent/empty/unparseable, or wrong database name | Vercel → Env Vars: confirm `DATABASE_URL` exists on Production, is non-empty, ends `/postgres?sslmode=require…` |
+| `DATABASE_DNS_FAILURE` | pooler hostname does not resolve | Confirm the hostname against Supabase Dashboard → Database → Connection string (pooler mode); never paste values |
+| `DATABASE_CONNECTION_REFUSED` | TCP rejected/reset/unreachable | Supabase project Active (not Paused)? Pooler enabled? Network Restrictions? |
+| `DATABASE_CONNECTION_TIMEOUT` | connect/acquire exceeded 10 s | Reachability incident (network, pooler saturation, or firewall); check Vercel log duration ≈10 s |
+| `DATABASE_TLS_FAILURE` | TLS negotiation/certificate failed | Confirm `?sslmode=require` is present in the DSN; check Supabase SSL enforcement |
+| `DATABASE_AUTH_FAILURE` | credential rejected (`28P01`, `Tenant or user not found`) | Confirm user is `beyu_runtime.<project-ref>` AND the password inside `DATABASE_URL` equals current `BEYU_RUNTIME_DB_PASSWORD` (compare without revealing either); percent-encode special characters |
+| `DATABASE_QUERY_FAILURE` | connected, but `select 1` failed | Server-side incident — check Supabase Database → Logs; do not touch grants |
+| `DATABASE_UNKNOWN_FAILURE` | unmodelled driver error | Check Supabase Database → Logs at the failing timestamp; report the timestamp, never the raw message |
+
+Any Vercel value change requires a **Redeploy** before it takes effect. Never
+add `BEYU_ADMIN_DATABASE_URL`, `BEYU_RUNTIME_DB_PASSWORD`, or
+`BEYU_BOOTSTRAP_PASSWORD` to Vercel; never rotate `BEYU_BOOTSTRAP_SECRET`
+until enrollment seals.
