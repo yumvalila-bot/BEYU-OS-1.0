@@ -79,12 +79,25 @@ function runBlockFor(stepName: string): string {
   return body.join("\n");
 }
 
-/** Run a script exactly the way GitHub Actions does: `bash -e {0}`. */
+/**
+ * Run a script exactly the way GitHub Actions does: `bash -e {0}`.
+ *
+ * The child environment starts from process.env (matching the precedent in
+ * build-without-database-url.test.ts and satisfying the repo's ProcessEnv
+ * augmentation), then the two secrets under test are DELETED before the
+ * caller-supplied values are applied. Without that explicit delete, a
+ * developer or CI runner that happens to export BEYU_ADMIN_DATABASE_URL would
+ * silently turn the "missing secret" cases into false passes.
+ */
 function runAsActions(script: string, env: Record<string, string>) {
+  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  delete childEnv.BEYU_ADMIN_DATABASE_URL;
+  delete childEnv.BEYU_RUNTIME_DB_PASSWORD;
+  Object.assign(childEnv, env);
   try {
     const stdout = execFileSync("bash", ["-e", "-c", script], {
       encoding: "utf8",
-      env: { PATH: process.env.PATH ?? "", ...env },
+      env: childEnv,
     });
     return { code: 0, stdout };
   } catch (e) {
