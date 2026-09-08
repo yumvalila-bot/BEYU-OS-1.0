@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { sanitizeError } from "./lib/sanitize-error";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -127,7 +128,7 @@ async function migrate() {
 
 migrate()
   .catch((e) => {
-    console.error(JSON.stringify({ ok: false, error: String(e) }, null, 2));
+    console.error(JSON.stringify({ ok: false, error: sanitizeError(e) }, null, 2));
     process.exit(1);
   })
   .finally(() => pool.end());
