@@ -136,6 +136,14 @@ describe("Iteration 7 ABAC decision lattice", () => {
     const p = principal({ permissions: new Set(["documents:registry.read"]), mfaSatisfied: false });
     expect(can(p, "documents:registry.read").allowed).toBe(true);
   });
+
+  it("agriculture writes require the Agriculture OS tenant even when SECTOR_OPERATOR holds the grant", () => {
+    const health = principal({ tenantCode: "BEYU-HEALTH", tenantType: "SECTOR", tenantId: "TEN_BEYU_HEALTH" });
+    expect(can(health, "agriculture:data.manage").allowed).toBe(false);
+    expect(can(health, "agriculture:data.manage").reason).toMatch(/Agriculture OS tenant/);
+    const agri = principal({ tenantCode: "BEYU-AGRI", tenantType: "SECTOR", tenantId: "TEN_BEYU_AGRI" });
+    expect(can(agri, "agriculture:data.manage").allowed).toBe(true);
+  });
 });
 
 afterAll(async () => undefined);

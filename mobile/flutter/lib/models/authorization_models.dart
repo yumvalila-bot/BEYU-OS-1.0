@@ -12,7 +12,7 @@ part 'authorization_models.g.dart';
 enum OSCode {
   beyu,
   health,
-  agriculture, // Future — NOT YET INTEGRATED
+  agriculture, // Sector OS — BEYU kernel module (not a federated launcher OS)
   unknown,
 }
 

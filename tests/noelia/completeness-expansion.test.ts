@@ -286,9 +286,10 @@ describe("Noelia completeness expansion", () => {
     if (!out.allowed) throw new Error("cross-OS invocation must be allowed");
     const metadata = out.output.metadata as { domains: string[]; denied: string[]; unavailable: string[] };
     expect(metadata.domains).toHaveLength(3);
-    expect(metadata.unavailable).toEqual(expect.arrayContaining(["AGRICULTURE", "FOUNDATION"]));
+    expect(metadata.unavailable).toEqual(expect.arrayContaining(["FOUNDATION"]));
+    expect(metadata.unavailable).not.toContain("AGRICULTURE");
     const unavailableFindings = (out.output.findings ?? []).filter((f) => f.status === "UNAVAILABLE");
-    expect(unavailableFindings.length).toBeGreaterThanOrEqual(2);
+    expect(unavailableFindings.length).toBeGreaterThanOrEqual(1);
     expect(out.output.headline).toContain("unavailable");
   });
 

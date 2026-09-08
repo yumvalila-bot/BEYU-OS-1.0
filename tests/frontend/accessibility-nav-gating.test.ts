@@ -49,6 +49,7 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os/governance", label: "Governance Engine" },
   { href: "/os/assurance", label: "Risk · Compliance · Legal" },
   { href: "/os/hcm", label: "HCM (workforce truth)" },
+  { href: "/os/agriculture", label: "Agriculture OS" },
   { href: "/os/capital", label: "Capital & Treasury" },
   { href: "/os/waterfall", label: "Waterfall Engine" },
   { href: "/os/tax", label: "Tax Strategy Intelligence" },

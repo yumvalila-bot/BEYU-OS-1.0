@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/router_provider.dart';
 import '../models/authorization_models.dart';
 import 'access_denied_screen.dart';
+import 'os_screens/agriculture_os_screen.dart';
 import 'os_screens/beyu_os_screen.dart';
 import 'os_screens/health_os_screen.dart';
 
@@ -73,7 +74,7 @@ class OSshellScreen extends StatelessWidget {
       case OSCode.health:
         return const HealthOSScreen();
       case OSCode.agriculture:
-        return const _FutureOSScreen(osName: 'Agriculture OS');
+        return const AgricultureOSScreen();
       case OSCode.unknown:
         return const _FutureOSScreen(osName: 'Unknown OS');
     }

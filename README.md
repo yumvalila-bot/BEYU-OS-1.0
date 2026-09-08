@@ -66,7 +66,8 @@ Bootstrap identities (password supplied only by `BEYU_BOOTSTRAP_PASSWORD`; valid
 | `risk@beyu.os` | Chief Risk & Compliance | Risk register, compliance engine |
 | `family@beyu.os` | Family Office Principal | Family governance, beneficiaries, vaults |
 | `auditor@beyu.os` | Internal Auditor | Read-only assurance; mutations denied |
-| `health.ops@beyu.os` | Sector OS Operator | Sector-scoped, lower clearance |
+| `health.ops@beyu.os` | Sector OS Operator (Health) | Health tenant only; Agriculture writes denied |
+| `agri.ops@beyu.os` | Sector OS Operator (Agriculture) | Agriculture tenant `BEYU-AGRI` / entity `LEN_BEYU_AGRI_LTD` |
 
 Sign in as the auditor or sector operator to see least-privilege denials, suppressed columns and
 classification ceilings enforced live.

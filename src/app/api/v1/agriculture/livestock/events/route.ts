@@ -1,16 +1,11 @@
 /**
- * BEYU OS — Agriculture OS: Livestock Events API (DRAFT domain)
- *
- * POST /api/v1/agriculture/livestock/events — Record a livestock event
- *
- * Authorized by RBAC (`agriculture:data.manage`). The handler runs inside the
- * guarded() tenant RLS context; cross-tenant writes are additionally denied by
- * Row Level Security.
+ * POST /api/v1/agriculture/livestock/events
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded } from "@/lib/api";
 import { recordLivestockEvent } from "@/lib/agriculture";
+import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
 
 const RecordLivestockEventSchema = z.object({
   herdId: z.string().min(1),
@@ -33,15 +28,13 @@ export async function POST(request: NextRequest) {
       audit: { objectType: "AGRICULTURE_LIVESTOCK_EVENT" },
     },
     async (ctx) => {
-      const body = await request.json();
-      const parsed = RecordLivestockEventSchema.parse(body);
-
-      const result = await recordLivestockEvent({
-        tenantId: ctx.principal.tenantId,
-        ...parsed,
-      });
-
-      return NextResponse.json(result, { status: 201 });
+      try {
+        const parsed = RecordLivestockEventSchema.parse(await request.json());
+        const result = await recordLivestockEvent({ tenantId: ctx.principal.tenantId, ...parsed }, agriActor(ctx));
+        return NextResponse.json(result, { status: 201 });
+      } catch (err) {
+        return agriErrorResponse(err, ctx.traceId);
+      }
     },
   );
 }

@@ -44,6 +44,7 @@ describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () =>
       "/os", "/os/constitution", "/os/registry", "/os/organization", "/os/governance",
       "/os/assurance", "/os/hcm", "/os/capital", "/os/waterfall", "/os/tax",
       "/os/family", "/os/foundation", "/os/noelia", "/os/documents", "/os/audit",
+      "/os/agriculture",
     ];
     for (const r of routes) {
       await REDIRECT_TO_SIGNIN(r);

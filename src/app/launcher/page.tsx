@@ -55,8 +55,9 @@ export default async function LauncherPage() {
     });
   }
 
-  // Agriculture OS: Future
-  // Not implemented yet
+  // Agriculture OS is a sector module inside the BEYU kernel (/os/agriculture),
+  // not a federated OS like Health. Authorization context remains BEYU + Health.
+  // Operators with agriculture:data.read reach it through BEYU OS navigation.
 
   const authorizedCount = authorizedOSs.filter((os) => os.authorized).length;
 
