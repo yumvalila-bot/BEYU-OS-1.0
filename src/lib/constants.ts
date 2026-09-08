@@ -165,11 +165,10 @@ export const PERMISSIONS = {
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
-  // Agriculture OS — DRAFT domain (foundational 10-table implementation, 10/34
-  // canonical domains). SECTOR_OPERATOR is the registry owner role; these
-  // permissions deliberately cover only the implemented operations so the
-  // endpoints fail closed (403) for every other role.
-  "agriculture:data.read": "Read Agriculture OS operational records (farms, fields, crop cycles, harvests, livestock)",
+  // Agriculture OS — sector operational records. SECTOR_OPERATOR is the
+  // registry owner (read + manage). Named enterprise roles receive read only
+  // by explicit grant (A-06-1); they never inherit via Object.keys(PERMISSIONS).
+  "agriculture:data.read": "Read Agriculture OS operational records (farms, fields, crop cycles, harvests, livestock, land, aqua, inventory, work, observations, traceability)",
   "agriculture:data.manage": "Create or amend Agriculture OS operational records",
   "audit:log.read": "Read the immutable audit ledger",
   "audit:event.read": "Read the enterprise event stream",
@@ -204,6 +203,9 @@ export const PERMISSIONS = {
 } as const;
 
 export type PermissionCode = keyof typeof PERMISSIONS;
+
+/** Canonical Agriculture OS tenant code (seed `T.agri`). Agriculture writes require this tenant. */
+export const AGRICULTURE_OS_TENANT_CODE = "BEYU-AGRI";
 
 export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:emergency.activate",
@@ -330,6 +332,7 @@ export const ROLES: Record<
       "ai:compliance.audit",
       "ai:compliance.certification",
       "ai:compliance.metrics",
+      "agriculture:data.read",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -372,6 +375,7 @@ export const ROLES: Record<
       "ai:memory.write",
       "ai:workflow.run",
       "ai:model.registry.read",
+      "agriculture:data.read",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -456,6 +460,7 @@ export const ROLES: Record<
       "ai:compliance.audit",
       "ai:compliance.certification",
       "ai:compliance.metrics",
+      "agriculture:data.read",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {
@@ -556,6 +561,7 @@ export const ROLES: Record<
       "ai:identity.read",
       "ai:evaluation.read",
       "ai:risk.register.read",
+      "agriculture:data.read",
     ],
   },
 };

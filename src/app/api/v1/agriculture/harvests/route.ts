@@ -1,16 +1,14 @@
 /**
- * BEYU OS — Agriculture OS: Harvests API (DRAFT domain)
+ * GET  /api/v1/agriculture/harvests
+ * POST /api/v1/agriculture/harvests
  *
- * POST /api/v1/agriculture/harvests — Record a harvest for a crop cycle
- *
- * Authorized by RBAC (`agriculture:data.manage`). The handler runs inside the
- * guarded() tenant RLS context; cross-tenant writes are additionally denied by
- * Row Level Security.
+ * Recording a harvest emits HARVEST_RECORDED. It never posts a journal.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded } from "@/lib/api";
-import { recordHarvest } from "@/lib/agriculture";
+import { listHarvests, recordHarvest } from "@/lib/agriculture";
+import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
 
 const RecordHarvestSchema = z.object({
   cropCycleId: z.string().min(1),
@@ -22,7 +20,25 @@ const RecordHarvestSchema = z.object({
   harvestedBy: z.string().optional(),
   storageLocation: z.string().optional(),
   notes: z.string().optional(),
+  unit: z.string().optional(),
+  batchCode: z.string().optional(),
 });
+
+export async function GET(request: NextRequest) {
+  return guarded(
+    request,
+    {
+      permission: "agriculture:data.read",
+      action: "agriculture.harvests.list",
+      rateLimit: { limit: 120, windowMs: 60_000 },
+      audit: { objectType: "AGRICULTURE_HARVEST" },
+    },
+    async (ctx) => {
+      const cropCycleId = request.nextUrl.searchParams.get("cropCycleId") ?? undefined;
+      return NextResponse.json({ harvests: await listHarvests(ctx.principal.tenantId, cropCycleId) });
+    },
+  );
+}
 
 export async function POST(request: NextRequest) {
   return guarded(
@@ -34,15 +50,13 @@ export async function POST(request: NextRequest) {
       audit: { objectType: "AGRICULTURE_HARVEST" },
     },
     async (ctx) => {
-      const body = await request.json();
-      const parsed = RecordHarvestSchema.parse(body);
-
-      const result = await recordHarvest({
-        tenantId: ctx.principal.tenantId,
-        ...parsed,
-      });
-
-      return NextResponse.json(result, { status: 201 });
+      try {
+        const parsed = RecordHarvestSchema.parse(await request.json());
+        const result = await recordHarvest({ tenantId: ctx.principal.tenantId, ...parsed }, agriActor(ctx));
+        return NextResponse.json(result, { status: 201 });
+      } catch (err) {
+        return agriErrorResponse(err, ctx.traceId);
+      }
     },
   );
 }

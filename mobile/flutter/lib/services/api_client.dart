@@ -13,7 +13,9 @@
 /// - Network error handling
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
 import '../config/app_config.dart';
@@ -171,6 +173,163 @@ class BeyuApiClient {
       }
       rethrow;
     }
+  }
+
+  // ============================================
+  // AGRICULTURE OS API
+  // Unwrapped JSON — never .data. Harvest is
+  // { id, journalsPosted, financeHandoff }.
+  // ============================================
+
+  static const _agriEnvelopeAlphabet =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+
+  /// Envelope ids: 8–128 chars, /^[A-Za-z0-9_-]{8,128}$/. No uuid package.
+  String newAgricultureEnvelopeId() {
+    final rand = Random();
+    final buf = StringBuffer('AGR');
+    buf.write(DateTime.now().millisecondsSinceEpoch);
+    for (var i = 0; i < 10; i++) {
+      buf.write(
+        _agriEnvelopeAlphabet[rand.nextInt(_agriEnvelopeAlphabet.length)],
+      );
+    }
+    return buf.toString();
+  }
+
+  Map<String, dynamic> _asJsonMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is String) {
+      final decoded = jsonDecode(data);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    }
+    throw AuthError(
+      code: AuthErrorCode.unknown,
+      message: 'Agriculture OS returned a non-object payload',
+    );
+  }
+
+  Future<Map<String, dynamic>> getAgricultureDashboard() async {
+    final response = await _dio.get('/api/v1/agriculture/dashboard');
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> listAgricultureHarvests() async {
+    final response = await _dio.get('/api/v1/agriculture/harvests');
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> recordAgricultureHarvest(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post(
+      '/api/v1/agriculture/harvests',
+      data: body,
+    );
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> listAgricultureCapitalCases() async {
+    final response = await _dio.get('/api/v1/agriculture/capital-cases');
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> submitAgricultureCapitalCase(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post(
+      '/api/v1/agriculture/capital-cases',
+      data: body,
+    );
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> runAgricultureWhatIf(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post(
+      '/api/v1/agriculture/whatif',
+      data: body,
+    );
+    return _asJsonMap(response.data);
+  }
+
+  Future<Map<String, dynamic>> syncAgricultureEnvelope(
+    Map<String, dynamic> envelope,
+  ) async {
+    final response = await _dio.post(
+      '/api/v1/agriculture/sync',
+      data: envelope,
+    );
+    return _asJsonMap(response.data);
+  }
+
+  Future<void> enqueueAgricultureEnvelope({
+    required String operation,
+    required Map<String, dynamic> payload,
+    String? deviceId,
+  }) async {
+    var userId = await _storage.getCachedUserId();
+    var tenantId = await _storage.getCachedTenantId();
+    if (userId == null || tenantId == null) {
+      try {
+        final session = await getSession();
+        userId = session.userId;
+        tenantId = session.tenantId;
+        if (userId != null && tenantId != null) {
+          await _storage.cacheContextMetadata(userId, tenantId);
+        }
+      } catch (_) {}
+    }
+    if (userId == null || tenantId == null) {
+      throw AuthError(
+        code: AuthErrorCode.unauthorized,
+        message:
+            'Agriculture offline queue requires an authenticated Agriculture session',
+      );
+    }
+    await _storage.enqueueAgricultureEnvelope({
+      'envelopeId': newAgricultureEnvelopeId(),
+      if (deviceId != null) 'deviceId': deviceId,
+      'operation': operation,
+      'payload': payload,
+      'clientOccurredAt': DateTime.now().toUtc().toIso8601String(),
+      'userId': userId,
+      'tenantId': tenantId,
+    });
+  }
+
+  Map<String, dynamic> _agricultureSyncBody(Map<String, dynamic> envelope) {
+    final body = Map<String, dynamic>.from(envelope);
+    body.remove('userId');
+    body.remove('tenantId');
+    return body;
+  }
+
+  /// Replay queued envelopes. Successful (and replay) envelopes are dropped.
+  /// Envelopes bound to another user/tenant are dropped, never replayed.
+  Future<void> flushAgricultureEnvelopeQueue() async {
+    final userId = await _storage.getCachedUserId();
+    final tenantId = await _storage.getCachedTenantId();
+    final queue = await _storage.loadAgricultureEnvelopeQueue();
+    final remaining = <Map<String, dynamic>>[];
+    for (final envelope in queue) {
+      final boundUser = envelope['userId']?.toString();
+      final boundTenant = envelope['tenantId']?.toString();
+      if (userId == null ||
+          tenantId == null ||
+          boundUser != userId ||
+          boundTenant != tenantId) {
+        continue;
+      }
+      try {
+        await syncAgricultureEnvelope(_agricultureSyncBody(envelope));
+      } catch (_) {
+        remaining.add(envelope);
+      }
+    }
+    await _storage.replaceAgricultureEnvelopeQueue(remaining);
   }
 
   // ============================================

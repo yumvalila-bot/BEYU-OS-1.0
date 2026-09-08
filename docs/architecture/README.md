@@ -68,6 +68,9 @@ PostgreSQL via Drizzle ORM as the authoritative transactional store. The domain 
 (`src/lib/*.ts`) are pure and portable: they carry no framework dependency and can be lifted into
 NestJS services, workers or Lambda handlers without change, preserving cloud portability.
 
+Sector OS architecture: [`agriculture-os.md`](./agriculture-os.md) (Agriculture OS — operational
+truth under the BEYU kernel; Finance OS remains the only journal writer).
+
 See `docs/adr/` for the recorded architectural decisions and `docs/domain-model/README.md` for the
 entity model. Phase completion records: `PHASE_9_CANONICAL_ARCHITECTURE.md`,
 `PHASE_10_CANONICAL_RECONCILIATION.md`, `PHASE_11_PRODUCTION_READINESS.md`,

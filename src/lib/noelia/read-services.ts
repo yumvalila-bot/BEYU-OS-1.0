@@ -338,6 +338,32 @@ export class BeyuNoeliaReadService {
     };
   }
 
+  async agriculture(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const { agricultureDashboard } = await import("@/lib/agriculture");
+    const dash = await agricultureDashboard(context.target.tenantId);
+    return {
+      headline: `Agriculture OS observation: ${dash.farms} farm(s), ${dash.harvests} harvest(s). Operational truth only.`,
+      findings: [
+        { label: "Farms", value: String(dash.farms), kind: "FACT", status: "OBSERVED" },
+        { label: "Crop cycles", value: String(dash.cropCycles), kind: "FACT", status: "OBSERVED" },
+        { label: "Harvests", value: String(dash.harvests), kind: "FACT", status: "OBSERVED" },
+        { label: "Livestock herds", value: String(dash.herds), kind: "FACT", status: "OBSERVED" },
+        {
+          label: "Finance boundary",
+          value: "FINANCE_OS_ONLY — harvests emit HARVEST_RECORDED and never post journals",
+          kind: "INFERENCE",
+          status: "OBSERVED",
+        },
+      ],
+      narrative:
+        "Agriculture OS is operational truth for land, crops, livestock and harvests. Journals and capital execution remain Finance OS. Noelia cannot post, fund, diagnose or accept risk.",
+      confidence: 0.86,
+      humanReviewRequired: false,
+      metadata: { ...dash },
+    };
+  }
+
   async knowledge(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
     requireCanonicalContext();
     const question = typeof input === "object" && input && "question" in input

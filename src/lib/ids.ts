@@ -131,6 +131,7 @@ export const ID_PREFIX = {
   paymentSettlementItem: "PSI",
   paymentCorrection: "PCR",
   paymentRiskSignal: "PRK",
+  agri: "AGR",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

@@ -1041,7 +1041,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(34);
+    expect(n).toBe(35);
   });
 
   it("leaves all triggers enabled", async () => {

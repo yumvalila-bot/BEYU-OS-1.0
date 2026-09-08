@@ -10,6 +10,7 @@
 /// - Automatic clearing on logout
 /// - Expiration checking
 
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/app_config.dart';
 
@@ -60,6 +61,46 @@ class SecureStorageService {
   /// Clear all session data (logout)
   Future<void> clearSession() async {
     await _storage.deleteAll();
+  }
+
+  // ============================================
+  // AGRICULTURE OFFLINE ENVELOPE QUEUE
+  // Session-scoped. Each envelope is bound to userId+tenantId at enqueue.
+  // Logout wipe (deleteAll) is correct; flush also drops foreign identities.
+  // ============================================
+
+  static const agriOfflineEnvelopeQueueKey = 'agri_offline_envelope_queue';
+
+  Future<List<Map<String, dynamic>>> loadAgricultureEnvelopeQueue() async {
+    final raw = await _storage.read(key: agriOfflineEnvelopeQueueKey);
+    if (raw == null || raw.isEmpty) return [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return [];
+    return decoded
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<void> saveAgricultureEnvelopeQueue(
+    List<Map<String, dynamic>> envelopes,
+  ) async {
+    await _storage.write(
+      key: agriOfflineEnvelopeQueueKey,
+      value: jsonEncode(envelopes),
+    );
+  }
+
+  Future<void> enqueueAgricultureEnvelope(Map<String, dynamic> envelope) async {
+    final queue = await loadAgricultureEnvelopeQueue();
+    queue.add(envelope);
+    await saveAgricultureEnvelopeQueue(queue);
+  }
+
+  Future<void> replaceAgricultureEnvelopeQueue(
+    List<Map<String, dynamic>> envelopes,
+  ) async {
+    await saveAgricultureEnvelopeQueue(envelopes);
   }
 
   // ============================================
