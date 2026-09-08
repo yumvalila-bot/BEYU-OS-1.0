@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] — /api/health diagnostic hardening — 2026-09-08
+
+Production `/api/health` collapsed every database failure into one silent `503
+{database: DOWN}` with no log line, making a red production database
+undiagnosable. The probe now classifies failures into a fixed sanitized
+vocabulary (`src/lib/db-health.ts`) and the endpoint returns only the
+classification token as `reason`, plus one structured `db_health_probe` log
+event (trace id, environment, classification, safe driver code, elapsed ms —
+never the driver message, hostname, username, or any secret).
+
+- Staged probe over the SAME canonical runtime pool: acquire connection
+  (classify A–G) then exactly one table-less `select 1` (QUERY_FAILURE). No
+  application tables, no RLS context, no writes; admin DSN never read.
+- Success body byte-stable (`checks.database: "UP"`); `/api/health/live`
+  untouched and still database-independent.
+- Tests: `tests/api/health-classification.test.ts` (24 deterministic mocked
+  cases incl. secret non-leakage into responses/logs) and
+  `tests/api/health-integration.test.ts` (real-PostgreSQL `select 1` + DNS
+  failure, no schema required).
+- Runbook: `docs/runbooks/supabase-production-database.md` Appendix A maps
+  each `reason` to its owner action.
+- No RLS/RBAC/ABAC/audit/governance/Noelia/CAP_POSTING/bootstrap changes; no
+  migrations; no permission changes.
+
 ## [Unreleased] — Foundation OS sector + Agriculture OS merge — 2026-09-08
 
 Merges `origin/main` (Agriculture OS, PR #38) with the Foundation OS branch and hardens the
