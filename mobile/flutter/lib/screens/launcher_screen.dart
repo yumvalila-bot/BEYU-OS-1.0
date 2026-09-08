@@ -108,6 +108,8 @@ class _OSCard extends StatelessWidget {
         return Icons.local_hospital_outlined;
       case OSCode.agriculture:
         return Icons.agriculture_outlined;
+      case OSCode.foundation:
+        return Icons.account_balance_wallet;
       case OSCode.unknown:
         return Icons.grid_view;
     }

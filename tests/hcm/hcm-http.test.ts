@@ -45,7 +45,8 @@ describe.skipIf(!available)("HCM employees API over HTTP", () => {
     ).data;
     expect(data.source).toBe("people.employees");
     expect(data.suppressedCompensation).toBe(false);
-    expect(data.records.length).toBe(7);
+    // 7 group/country/sector staff + 2 foundation employees (global HCM scope).
+    expect(data.records.length).toBe(9);
     expect(data.records.every((r) => r.globalUserId?.startsWith("USR_"))).toBe(true);
     expect(data.records.some((r) => r.baseSalary !== null)).toBe(true);
   });

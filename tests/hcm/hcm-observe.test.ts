@@ -78,8 +78,9 @@ describe("HCM-1 observation and quality", () => {
     const hcm = await principalFor("ASHA_NDULU");
     const obs = await observeWorkforce(hcm);
     expect(obs.basis).toBe("OBSERVED");
-    expect(obs.headcount).toBe(7);
-    expect(obs.active).toBe(7);
+    // 7 group/country/sector staff + 2 foundation employees (global HCM scope).
+    expect(obs.headcount).toBe(9);
+    expect(obs.active).toBe(9);
     expect(obs.managerSpanBasis).toBe("DATA_NOT_AVAILABLE");
     expect(obs.explanation.join(" ")).toMatch(/No turnover rate/);
   });
@@ -113,7 +114,8 @@ describe("HCM-1 observation and quality", () => {
     const hcm = await principalFor("ASHA_NDULU");
     const q = await assessWorkforceQuality(hcm);
     expect(q.source).toBe("people.employees");
-    expect(q.scanned).toBe(7);
+    // 7 group/country/sector staff + 2 foundation employees (global HCM scope).
+    expect(q.scanned).toBe(9);
     expect(q.findings.every((f) => f.advisoryOnly)).toBe(true);
     expect(q.findings.filter((f) => f.code === "DUPLICATE_EMPLOYEE_NO")).toHaveLength(0);
   });

@@ -13,6 +13,7 @@ enum OSCode {
   beyu,
   health,
   agriculture, // Future — NOT YET INTEGRATED
+  foundation,
   unknown,
 }
 

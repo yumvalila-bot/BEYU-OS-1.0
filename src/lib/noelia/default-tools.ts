@@ -10,6 +10,7 @@ import { BeyuNoeliaHealthBoundary } from "./health-boundary";
 import { BeyuNoeliaMemoryService } from "./enterprise-memory";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { BeyuNoeliaAiPlatformService } from "./ai-platform";
+import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1257,6 +1258,9 @@ export function createDefaultNoeliaToolRegistry(
       };
     },
   });
+
+  /* ---------------- Foundation OS intelligence (read-only + drafts) ---------------- */
+  registerFoundationTools(registry);
 
   return registry;
 }
