@@ -46,6 +46,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
+import { sanitizeError } from "./lib/sanitize-error";
 
 type Mode = "preflight" | "verify" | "drift";
 
@@ -117,7 +118,7 @@ async function main() {
   try {
     await client.connect();
   } catch (e) {
-    console.error(JSON.stringify({ ok: false, mode, error: `database unreachable: ${String(e)}` }, null, 2));
+    console.error(JSON.stringify({ ok: false, mode, error: `database unreachable: ${sanitizeError(e)}` }, null, 2));
     process.exit(2);
   }
 
@@ -278,6 +279,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(JSON.stringify({ ok: false, error: String(e) }, null, 2));
+  console.error(JSON.stringify({ ok: false, error: sanitizeError(e) }, null, 2));
   process.exit(1);
 });

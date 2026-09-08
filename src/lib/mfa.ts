@@ -7,10 +7,41 @@ const DEFAULT_WINDOW = 1; // +/- 30 seconds tolerance
 
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+/**
+ * The 32-byte test-only key hard-coded by the Health OS MFA service
+ * (sectors/health/backend/src/modules/auth/mfa.service.ts). It is a published
+ * fixture value, so it must never be accepted as production key material by
+ * either OS. Compared as a literal; never logged.
+ */
+const HEALTH_TEST_KEY_HEX = "6d6661746573745f746573745f6b65795f33325f62797465735f6e6565646564";
+
+/** Minimum accepted length for production MFA key material. */
+const MIN_PRODUCTION_KEY_LENGTH = 32;
+
 function keyMaterial(): Buffer {
   const raw = process.env.MFA_ENCRYPTION_KEY ?? process.env.AUTH_SECRET ?? "development-only-mfa-key-change-before-production";
-  if ((process.env.NODE_ENV === "production" || process.env.BEYU_ENV === "production") && raw.includes("development-only")) {
-    throw new Error("MFA_ENCRYPTION_KEY or AUTH_SECRET is required in production");
+  if (process.env.NODE_ENV === "production" || process.env.BEYU_ENV === "production") {
+    // Fail closed on weak or fixture key material. Previously only the literal
+    // "development-only" placeholder was rejected, so an empty-ish, all-zero or
+    // published test key silently produced a predictable AES-256 key via
+    // sha256() and encrypted every TOTP secret at rest under it.
+    //
+    // Error messages deliberately describe the RULE that was violated and never
+    // echo the offending value, its prefix or its length.
+    if (raw.includes("development-only")) {
+      throw new Error("MFA_ENCRYPTION_KEY or AUTH_SECRET is required in production");
+    }
+    if (raw.length < MIN_PRODUCTION_KEY_LENGTH) {
+      throw new Error(
+        `MISCONFIGURATION: MFA_ENCRYPTION_KEY must be at least ${MIN_PRODUCTION_KEY_LENGTH} characters in production`,
+      );
+    }
+    if (/^0+$/.test(raw)) {
+      throw new Error("MISCONFIGURATION: MFA_ENCRYPTION_KEY must not be an all-zero key in production");
+    }
+    if (raw.toLowerCase() === HEALTH_TEST_KEY_HEX) {
+      throw new Error("MISCONFIGURATION: MFA_ENCRYPTION_KEY must not be the published test key in production");
+    }
   }
   return Buffer.from(sha256(raw), "hex");
 }
