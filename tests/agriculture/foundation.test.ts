@@ -67,7 +67,7 @@ describe("Agriculture OS — Foundation", () => {
     `);
 
     const rls = Array.isArray(result) ? result : result.rows ?? [];
-    expect(rls.length).toBe(10); // All 10 agriculture tables
+    expect(rls.length).toBe(77); // 0031 foundation (10) + 0034 production (67)
   });
 
   it("can create a farm", async () => {

@@ -238,7 +238,7 @@ export async function registerSupplier(
   const tenantId = ctx.principal.tenantId;
   await assertWithinScope(ctx.principal, tenantId);
   const id = newId(ID_PREFIX.supplier);
-  await db.insert(s.suppliers).values({
+  await db.insert(s.foundationSuppliers).values({
     id,
     tenantId,
     code: input.code.trim(),
@@ -253,7 +253,7 @@ export async function registerSupplier(
 
 export async function listSuppliers(principal: Principal) {
   const scope = await tenantScopeIds(principal);
-  return db.select().from(s.suppliers).where(inArray(s.suppliers.tenantId, scope));
+  return db.select().from(s.foundationSuppliers).where(inArray(s.foundationSuppliers.tenantId, scope));
 }
 
 export async function createProcurement(

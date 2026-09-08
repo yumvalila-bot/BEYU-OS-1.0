@@ -772,6 +772,33 @@ export function createDefaultNoeliaToolRegistry(
     execute: (context) => health.status(context),
   });
 
+  /* ---------------- Agriculture OS observation ---------------- */
+
+  registry.register({
+    name: "agriculture.operations.observe",
+    permission: "agriculture:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe Agriculture OS operational counts. Never posts journals or executes capital.",
+    metadata: {
+      stableId: "cap-agriculture-operations-observe",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "AGRICULTURE",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => services.agriculture(context),
+  });
+
   /* ---------------- Knowledge / RAG / memory ---------------- */
 
   registry.register({
@@ -1197,6 +1224,7 @@ export function createDefaultNoeliaToolRegistry(
         FINANCE: "finance:treasury.read",
         HCM: "hcm:employee.read",
         HEALTH: "ai:noelia.query",
+        AGRICULTURE: "agriculture:data.read",
         RISK: "risk:register.read",
         COMPLIANCE: "compliance:obligation.read",
         GOVERNANCE: "governance:resolution.read",
@@ -1207,6 +1235,7 @@ export function createDefaultNoeliaToolRegistry(
         FINANCE: "finance.treasury.aggregate",
         HCM: "hcm.workforce.observe",
         HEALTH: "health.runtime.status",
+        AGRICULTURE: "agriculture.operations.observe",
         RISK: "risk.register.query",
         COMPLIANCE: "compliance.obligation.query",
         GOVERNANCE: "governance.resolution.query",

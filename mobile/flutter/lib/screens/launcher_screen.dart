@@ -123,6 +123,8 @@ class _OSCard extends StatelessWidget {
         return Colors.blue;
       case OSCode.agriculture:
         return Colors.green;
+      case OSCode.foundation:
+        return const Color(0xFFB08D1C);
       case OSCode.unknown:
         return Colors.grey;
     }

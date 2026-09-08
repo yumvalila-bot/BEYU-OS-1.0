@@ -2,6 +2,7 @@ import { and, eq, isNull, or, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
 import {
+  AGRICULTURE_OS_TENANT_CODE,
   classificationRank,
   isKnownClassification,
   HIGH_RISK_PERMISSIONS,
@@ -155,6 +156,17 @@ export function can(
     return {
       allowed: false,
       reason: "ABAC: legal entity outside the principal's data scope",
+      requiresMfa: false,
+      highRisk,
+    };
+  }
+  // Agriculture writes are tenant-bound to the Agriculture OS tenant.
+  // SECTOR_OPERATOR is a generic role; Health (and other sector) identities
+  // must not inherit Agriculture mutations from the role catalogue.
+  if (permission === "agriculture:data.manage" && principal.tenantCode !== AGRICULTURE_OS_TENANT_CODE) {
+    return {
+      allowed: false,
+      reason: "ABAC: agriculture writes require the Agriculture OS tenant",
       requiresMfa: false,
       highRisk,
     };

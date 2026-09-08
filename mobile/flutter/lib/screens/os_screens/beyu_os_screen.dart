@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'agriculture_os_screen.dart';
 import 'finance_os_screen.dart';
 
 class BeyuOSScreen extends StatelessWidget {
@@ -72,6 +73,27 @@ class BeyuOSScreen extends StatelessWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const FinanceOSScreen(),
+                      ),
+                    );
+                  }
+                : null,
+          ),
+          _ModuleCard(
+            title: 'Agriculture OS',
+            description: 'Farms, harvests, livestock — CAP_POSTING LOCKED',
+            icon: Icons.agriculture,
+            color: Colors.lightGreen,
+            hasAccess: permissions.contains('agriculture:data.read'),
+            onTap: permissions.contains('agriculture:data.read')
+                ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(
+                            title: const Text('Agriculture OS'),
+                          ),
+                          body: const AgricultureOSScreen(),
+                        ),
                       ),
                     );
                   }

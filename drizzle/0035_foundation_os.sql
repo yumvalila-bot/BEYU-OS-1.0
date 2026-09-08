@@ -374,6 +374,19 @@ CREATE TABLE "foundation_projects" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "foundation_suppliers" (
+	"id" text PRIMARY KEY NOT NULL,
+	"tenant_id" text NOT NULL,
+	"code" text NOT NULL,
+	"display_name" text NOT NULL,
+	"country_code" text,
+	"registration_ref" text,
+	"due_diligence_status" text DEFAULT 'PENDING' NOT NULL,
+	"status" text DEFAULT 'ACTIVE' NOT NULL,
+	"classification" "beyu_classification" DEFAULT 'CONFIDENTIAL' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "foundation_tax_assessments" (
 	"id" text PRIMARY KEY NOT NULL,
 	"tenant_id" text NOT NULL,
@@ -675,19 +688,6 @@ CREATE TABLE "structure_scenarios" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "suppliers" (
-	"id" text PRIMARY KEY NOT NULL,
-	"tenant_id" text NOT NULL,
-	"code" text NOT NULL,
-	"display_name" text NOT NULL,
-	"country_code" text,
-	"registration_ref" text,
-	"due_diligence_status" text DEFAULT 'PENDING' NOT NULL,
-	"status" text DEFAULT 'ACTIVE' NOT NULL,
-	"classification" "beyu_classification" DEFAULT 'CONFIDENTIAL' NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 ALTER TABLE "beneficiary_services" ADD CONSTRAINT "beneficiary_services_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "beneficiary_services" ADD CONSTRAINT "beneficiary_services_beneficiary_id_foundation_beneficiaries_id_fk" FOREIGN KEY ("beneficiary_id") REFERENCES "public"."foundation_beneficiaries"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "donation_pledges" ADD CONSTRAINT "donation_pledges_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -761,6 +761,8 @@ ALTER TABLE "foundation_project_tasks" ADD CONSTRAINT "foundation_project_tasks_
 ALTER TABLE "foundation_projects" ADD CONSTRAINT "foundation_projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "foundation_projects" ADD CONSTRAINT "foundation_projects_program_id_foundation_programs_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."foundation_programs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "foundation_projects" ADD CONSTRAINT "foundation_projects_foundation_id_foundations_id_fk" FOREIGN KEY ("foundation_id") REFERENCES "public"."foundations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "foundation_suppliers" ADD CONSTRAINT "foundation_suppliers_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "foundation_suppliers" ADD CONSTRAINT "foundation_suppliers_country_code_countries_code_fk" FOREIGN KEY ("country_code") REFERENCES "public"."countries"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "foundation_tax_assessments" ADD CONSTRAINT "foundation_tax_assessments_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "foundation_tax_assessments" ADD CONSTRAINT "foundation_tax_assessments_foundation_id_foundations_id_fk" FOREIGN KEY ("foundation_id") REFERENCES "public"."foundations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "foundation_tax_assessments" ADD CONSTRAINT "foundation_tax_assessments_tax_rule_id_foundation_tax_rules_id_fk" FOREIGN KEY ("tax_rule_id") REFERENCES "public"."foundation_tax_rules"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -806,7 +808,7 @@ ALTER TABLE "grants" ADD CONSTRAINT "grants_grantee_id_grantees_id_fk" FOREIGN K
 ALTER TABLE "grants" ADD CONSTRAINT "grants_agreement_document_id_documents_id_fk" FOREIGN KEY ("agreement_document_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "procurements" ADD CONSTRAINT "procurements_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "procurements" ADD CONSTRAINT "procurements_foundation_id_foundations_id_fk" FOREIGN KEY ("foundation_id") REFERENCES "public"."foundations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "procurements" ADD CONSTRAINT "procurements_supplier_id_suppliers_id_fk" FOREIGN KEY ("supplier_id") REFERENCES "public"."suppliers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "procurements" ADD CONSTRAINT "procurements_supplier_id_foundation_suppliers_id_fk" FOREIGN KEY ("supplier_id") REFERENCES "public"."foundation_suppliers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "procurements" ADD CONSTRAINT "procurements_contract_document_id_documents_id_fk" FOREIGN KEY ("contract_document_id") REFERENCES "public"."documents"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "safeguarding_cases" ADD CONSTRAINT "safeguarding_cases_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "safeguarding_cases" ADD CONSTRAINT "safeguarding_cases_foundation_id_foundations_id_fk" FOREIGN KEY ("foundation_id") REFERENCES "public"."foundations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -815,8 +817,6 @@ ALTER TABLE "structure_proposals" ADD CONSTRAINT "structure_proposals_foundation
 ALTER TABLE "structure_scenarios" ADD CONSTRAINT "structure_scenarios_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "structure_scenarios" ADD CONSTRAINT "structure_scenarios_baseline_proposal_id_structure_proposals_id_fk" FOREIGN KEY ("baseline_proposal_id") REFERENCES "public"."structure_proposals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "structure_scenarios" ADD CONSTRAINT "structure_scenarios_candidate_proposal_id_structure_proposals_id_fk" FOREIGN KEY ("candidate_proposal_id") REFERENCES "public"."structure_proposals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "suppliers" ADD CONSTRAINT "suppliers_country_code_countries_code_fk" FOREIGN KEY ("country_code") REFERENCES "public"."countries"("code") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "beneficiary_services_tenant_idx" ON "beneficiary_services" USING btree ("tenant_id");--> statement-breakpoint
 CREATE INDEX "beneficiary_services_beneficiary_idx" ON "beneficiary_services" USING btree ("beneficiary_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "donation_pledges_tenant_code_uidx" ON "donation_pledges" USING btree ("tenant_id","code");--> statement-breakpoint
@@ -868,6 +868,8 @@ CREATE UNIQUE INDEX "foundation_project_tasks_project_code_uidx" ON "foundation_
 CREATE INDEX "foundation_project_tasks_tenant_idx" ON "foundation_project_tasks" USING btree ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "foundation_projects_tenant_code_uidx" ON "foundation_projects" USING btree ("tenant_id","code");--> statement-breakpoint
 CREATE INDEX "foundation_projects_program_idx" ON "foundation_projects" USING btree ("program_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "foundation_suppliers_tenant_code_uidx" ON "foundation_suppliers" USING btree ("tenant_id","code");--> statement-breakpoint
+CREATE INDEX "foundation_suppliers_tenant_idx" ON "foundation_suppliers" USING btree ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "foundation_tax_assessments_tenant_code_uidx" ON "foundation_tax_assessments" USING btree ("tenant_id","code");--> statement-breakpoint
 CREATE INDEX "foundation_tax_assessments_foundation_idx" ON "foundation_tax_assessments" USING btree ("foundation_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "foundation_tax_profiles_foundation_uidx" ON "foundation_tax_profiles" USING btree ("foundation_id");--> statement-breakpoint
@@ -906,9 +908,8 @@ CREATE INDEX "safeguarding_cases_foundation_idx" ON "safeguarding_cases" USING b
 CREATE UNIQUE INDEX "structure_proposals_tenant_code_uidx" ON "structure_proposals" USING btree ("tenant_id","code");--> statement-breakpoint
 CREATE INDEX "structure_proposals_tenant_idx" ON "structure_proposals" USING btree ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "structure_scenarios_tenant_code_uidx" ON "structure_scenarios" USING btree ("tenant_id","code");--> statement-breakpoint
-CREATE INDEX "structure_scenarios_tenant_idx" ON "structure_scenarios" USING btree ("tenant_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "suppliers_tenant_code_uidx" ON "suppliers" USING btree ("tenant_id","code");--> statement-breakpoint
-CREATE INDEX "suppliers_tenant_idx" ON "suppliers" USING btree ("tenant_id");
+CREATE INDEX "structure_scenarios_tenant_idx" ON "structure_scenarios" USING btree ("tenant_id");
+--> statement-breakpoint
 -- Foundation OS RLS: canonical tenant isolation via beyu_tenant_ids().
 --> statement-breakpoint
 ALTER TABLE foundation_types ENABLE ROW LEVEL SECURITY;
@@ -1031,9 +1032,9 @@ ALTER TABLE beneficiary_services ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY beneficiary_services_tenant_isolation ON beneficiary_services USING (tenant_id = ANY (beyu_tenant_ids())) WITH CHECK (tenant_id = ANY (beyu_tenant_ids()));
 --> statement-breakpoint
-ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE foundation_suppliers ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-CREATE POLICY suppliers_tenant_isolation ON suppliers USING (tenant_id = ANY (beyu_tenant_ids())) WITH CHECK (tenant_id = ANY (beyu_tenant_ids()));
+CREATE POLICY foundation_suppliers_tenant_isolation ON foundation_suppliers USING (tenant_id = ANY (beyu_tenant_ids())) WITH CHECK (tenant_id = ANY (beyu_tenant_ids()));
 --> statement-breakpoint
 ALTER TABLE procurements ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
@@ -1073,7 +1074,7 @@ DECLARE
 BEGIN
   FOR r IN SELECT rolname FROM pg_roles WHERE rolname = 'beyu_runtime'
   LOOP
-    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO %I', 'foundation_types, foundations, formation_cases, structure_proposals, structure_scenarios, foundation_meetings, foundation_conflicts, foundation_tax_profiles, foundation_tax_rules, foundation_tax_assessments, foundation_obligations, foundation_deadlines, foundation_compliance_tasks, foundation_notification_log, foundation_escalations, foundation_evidence, donors, donations, donation_pledges, funds, fund_restrictions, fund_allocations, grantees, grants, grant_milestones, grant_disbursements, foundation_projects, foundation_project_tasks, foundation_beneficiaries, beneficiary_services, suppliers, procurements, foundation_assets, foundation_investment_policies, foundation_investments, safeguarding_cases, foundation_impact_metrics, foundation_impact_measurements, foundation_workforce_assignments', r.rolname);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %s TO %I', 'foundation_types, foundations, formation_cases, structure_proposals, structure_scenarios, foundation_meetings, foundation_conflicts, foundation_tax_profiles, foundation_tax_rules, foundation_tax_assessments, foundation_obligations, foundation_deadlines, foundation_compliance_tasks, foundation_notification_log, foundation_escalations, foundation_evidence, donors, donations, donation_pledges, funds, fund_restrictions, fund_allocations, grantees, grants, grant_milestones, grant_disbursements, foundation_projects, foundation_project_tasks, foundation_beneficiaries, beneficiary_services, foundation_suppliers, procurements, foundation_assets, foundation_investment_policies, foundation_investments, safeguarding_cases, foundation_impact_metrics, foundation_impact_measurements, foundation_workforce_assignments', r.rolname);
     RAISE NOTICE 'granted foundation DML to %', r.rolname;
   END LOOP;
 END
@@ -1084,7 +1085,7 @@ DECLARE
   table_name text;
   policy_count int;
 BEGIN
-  FOR table_name IN SELECT unnest(ARRAY['foundation_types', 'foundations', 'formation_cases', 'structure_proposals', 'structure_scenarios', 'foundation_meetings', 'foundation_conflicts', 'foundation_tax_profiles', 'foundation_tax_rules', 'foundation_tax_assessments', 'foundation_obligations', 'foundation_deadlines', 'foundation_compliance_tasks', 'foundation_notification_log', 'foundation_escalations', 'foundation_evidence', 'donors', 'donations', 'donation_pledges', 'funds', 'fund_restrictions', 'fund_allocations', 'grantees', 'grants', 'grant_milestones', 'grant_disbursements', 'foundation_projects', 'foundation_project_tasks', 'foundation_beneficiaries', 'beneficiary_services', 'suppliers', 'procurements', 'foundation_assets', 'foundation_investment_policies', 'foundation_investments', 'safeguarding_cases', 'foundation_impact_metrics', 'foundation_impact_measurements', 'foundation_workforce_assignments'])
+  FOR table_name IN SELECT unnest(ARRAY['foundation_types', 'foundations', 'formation_cases', 'structure_proposals', 'structure_scenarios', 'foundation_meetings', 'foundation_conflicts', 'foundation_tax_profiles', 'foundation_tax_rules', 'foundation_tax_assessments', 'foundation_obligations', 'foundation_deadlines', 'foundation_compliance_tasks', 'foundation_notification_log', 'foundation_escalations', 'foundation_evidence', 'donors', 'donations', 'donation_pledges', 'funds', 'fund_restrictions', 'fund_allocations', 'grantees', 'grants', 'grant_milestones', 'grant_disbursements', 'foundation_projects', 'foundation_project_tasks', 'foundation_beneficiaries', 'beneficiary_services', 'foundation_suppliers', 'procurements', 'foundation_assets', 'foundation_investment_policies', 'foundation_investments', 'safeguarding_cases', 'foundation_impact_metrics', 'foundation_impact_measurements', 'foundation_workforce_assignments'])
   LOOP
     SELECT count(*) INTO policy_count
     FROM pg_policies

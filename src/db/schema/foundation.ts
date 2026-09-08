@@ -1007,8 +1007,8 @@ export const beneficiaryServices = pgTable(
  * 9. PROCUREMENT, ASSETS, INVESTMENTS
  * ========================================================================== */
 
-export const suppliers = pgTable(
-  "suppliers",
+export const foundationSuppliers = pgTable(
+  "foundation_suppliers",
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id")
@@ -1024,8 +1024,8 @@ export const suppliers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("suppliers_tenant_code_uidx").on(t.tenantId, t.code),
-    index("suppliers_tenant_idx").on(t.tenantId),
+    uniqueIndex("foundation_suppliers_tenant_code_uidx").on(t.tenantId, t.code),
+    index("foundation_suppliers_tenant_idx").on(t.tenantId),
   ],
 );
 
@@ -1046,7 +1046,7 @@ export const procurements = pgTable(
     needStatement: text("need_statement"),
     budgetAmount: numeric("budget_amount", { precision: 18, scale: 2 }),
     currency: text("currency").notNull().default("USD"),
-    supplierId: text("supplier_id").references(() => suppliers.id),
+    supplierId: text("supplier_id").references(() => foundationSuppliers.id),
     quotes: jsonb("quotes").$type<Array<Record<string, unknown>>>().notNull().default([]),
     conflictCheckStatus: text("conflict_check_status").notNull().default("PENDING"),
     contractDocumentId: text("contract_document_id").references(() => documents.id),
