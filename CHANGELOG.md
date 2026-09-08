@@ -1,5 +1,37 @@
 # Changelog
 
+## [Unreleased] — Foundation OS sector + Agriculture OS merge — 2026-09-08
+
+Merges `origin/main` (Agriculture OS, PR #38) with the Foundation OS branch and hardens the
+combined tree. Full suite **2714 passed / 0 failed** (146 files passed, 1 skipped by design),
+typecheck clean, lint clean, production build clean, DB-level RLS proven for foundation tables
+(tenant isolation + cross-tenant insert rejection `42501`).
+
+### Foundation OS — first-class Sector OS (`drizzle/0035_foundation_os.sql`, 39 tables)
+
+- Registry + lifecycle (IDEA → ARCHIVED), formation engine, jurisdiction engine, governance,
+  endowment/funds/grants/donors/programs/projects, procurement, assets, investments, compliance
+  deadlines, tax, safeguarding, risk, knowledge, structure simulator (SIMULATION, persists nothing).
+- Finance boundary absolute: no journal writes, no `capital_requests` rows, CAP_POSTING LOCKED;
+  disbursements hand off as `SUBMITTED_PENDING_FINANCE`.
+- Merge renames to resolve kernel collisions: `suppliers` → `foundation_suppliers` (index + RLS
+  policy `foundation_suppliers_tenant_isolation`); `src/lib/foundation-os/` alias removed
+  (canonical `src/lib/foundation/`).
+- Seed: `TEN_BEYU_FOUNDATION` tenant + `LEN_BEYU_FOUNDATION` entity (`BEYU-FDN`, NONPROFIT, TZ),
+  demo foundation `BEYU-FDN-01` (ACTIVE), `foundation.director@beyu.os` + `foundation.programs@beyu.os`,
+  OS registry `FOUNDATION` ACTIVE.
+- Web `/os/foundation` + 12 capability-guarded subpages; Flutter `FoundationOSScreen` module
+  (not a federated launcher OS — `OSCode` keeps BEYU+HEALTH only).
+- Docs: `docs/architecture/foundation-os.md`.
+
+### Merge hardening (keeps both OS suites green)
+
+- Bootstrap enrollment suites restore the seeded login-capable admin in `afterAll`
+  (previously poisoned all downstream HTTP suites with 500s after migration count moved 35→36).
+- Specialist suite migration pins moved to 36 with dual attribution (`0034_agriculture_os` +
+  `0035_foundation_os`); compliance table-list pin extends to the 6 foundation-attributed names;
+  forecast suite asserts migration-count stability instead of pinning absolute values.
+
 ## [Unreleased] — Unified brand identity: BEYU logo system + Noelia AI personalization — 2026-08-28
 
 UI/identity work only — zero changes to governance, authorization, policy or audit code paths.

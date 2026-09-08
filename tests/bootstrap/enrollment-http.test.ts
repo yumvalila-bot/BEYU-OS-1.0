@@ -75,6 +75,8 @@ afterAll(async () => {
           mfaLastAcceptedStep: null,
           mfaFailedAttempts: 0,
           mfaLockedUntil: null,
+          failedAttempts: 0,
+          lockedUntil: null,
         })
         .where(eq(users.id, ADMIN_USER_ID));
     }

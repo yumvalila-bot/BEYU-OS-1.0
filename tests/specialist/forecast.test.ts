@@ -406,16 +406,24 @@ describe("forecast engines — reproducible version identity", () => {
   });
 
   it("persists nothing, so no historical forecast can be overwritten", async () => {
-    const before = await count(sql`
+    const MATCHING = sql`
       select count(*)::int as n from information_schema.tables
       where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%' or table_name like '%assumption%')
-    `);
+    `;
+    const before = await count(MATCHING);
     project(baseInput());
-    expect(before).toBe(0);
-    expect(await count(sql`
-      select count(*)::int as n from information_schema.tables
-      where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%' or table_name like '%assumption%')
-    `)).toBe(0);
+    // The engine persists nothing: the matching-table count is STABLE across
+    // projection. The single attributed match is the Foundation OS
+    // structure_scenarios table from 0035_foundation_os (pinned by name below).
+    expect(await count(MATCHING)).toBe(before);
+    const names = (
+      await rowsOf<{ table_name: string }>(sql`
+        select table_name from information_schema.tables
+        where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%' or table_name like '%assumption%')
+        order by table_name
+      `)
+    ).map((r) => r.table_name);
+    expect(names).toEqual(["structure_scenarios"]);
   });
 });
 
@@ -953,12 +961,18 @@ describe("forecast service — hostile inputs", () => {
 // pin: the specialist module under test still adds no migration of its own, and any
 // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
+// + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
+// + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(35);
-    expect(await count(sql`
-      select count(*)::int as n from information_schema.tables
-      where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')
-    `)).toBe(0);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(36);
+    // The only %scenario% match is the attributed Foundation OS table.
+    expect((
+      await rowsOf<{ table_name: string }>(sql`
+        select table_name from information_schema.tables
+        where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')
+        order by table_name
+      `)
+    ).map((r) => r.table_name)).toEqual(["structure_scenarios"]);
   });
 
   it("leaves all triggers enabled", async () => {

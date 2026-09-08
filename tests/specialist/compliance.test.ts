@@ -1096,8 +1096,17 @@ describe("compliance module — creates no second truth", () => {
     ).map((r) => r.table_name);
     // The two pre-existing registers from the 0000 baseline plus the Phase 4
     // tamper-evident Noelia evidence registry (governance evidence, not a
-    // second compliance-truth ledger).
-    expect(names).toEqual(["compliance_assessments", "compliance_obligations", "noelia_evidence"]);
+    // second compliance-truth ledger), plus the three governed Foundation OS
+    // compliance tables from 0035_foundation_os (a Sector OS compliance
+    // registry under BEYU OS governance — attributed here, still exact).
+    expect(names).toEqual([
+      "compliance_assessments",
+      "compliance_obligations",
+      "foundation_compliance_tasks",
+      "foundation_evidence",
+      "foundation_obligations",
+      "noelia_evidence",
+    ]);
   });
 
   it("adds no migration", async () => {
@@ -1117,8 +1126,10 @@ describe("compliance module — creates no second truth", () => {
 // pin: the specialist module under test still adds no migration of its own, and any
 // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
+// + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
+// + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(35);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(36);
   });
 
   it("leaves all triggers enabled", async () => {
