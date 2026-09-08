@@ -160,7 +160,14 @@ jobs:
       - name: Install root dependencies
         run: npm ci
       - name: Read-only production preflight (version · pending · checksums · destructive scan)
-        run: npx tsx scripts/db-release.ts preflight | tee preflight-live.json
+        # `set -o pipefail` so a non-zero db-release.ts exit (e.g. DB unreachable
+        # → exit 2) is NOT masked by `tee`'s success. GitHub runs `run:` blocks
+        # under `bash -e`; without pipefail the pipeline returns tee's status and
+        # a FAILED production preflight would be reported as a green step, letting
+        # the release proceed on a database that never passed preflight.
+        run: |
+          set -o pipefail
+          npx tsx scripts/db-release.ts preflight | tee preflight-live.json
       - name: Upload preflight evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -385,7 +392,11 @@ jobs:
       - name: Install root dependencies
         run: npm ci
       - name: Report drift (repository vs production)
+        # Same pipefail hardening as the live preflight: a db-release.ts failure
+        # (unreachable DB, checksum/drift mismatch → non-zero exit) must surface
+        # as a failed step, not be swallowed by `tee`.
         run: |
+          set -o pipefail
           npx tsx scripts/db-release.ts drift \
             --expected-fingerprint "${{ needs.preflight-repo.outputs.expected-fingerprint }}" \
             | tee drift-report.json
