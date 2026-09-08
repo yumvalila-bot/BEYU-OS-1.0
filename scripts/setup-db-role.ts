@@ -85,7 +85,18 @@ async function main(): Promise<void> {
         `'alter role %I nosuperuser nobypassrls nocreaterole nocreatedb noreplication'`,
         [runtimeRole],
       );
-      console.log(`role ${runtimeRole} exists; attributes re-asserted`);
+      // Also re-assert the LOGIN credential. Without this the password is only
+      // ever set by the CREATE ROLE branch above, so once the role exists the
+      // governed secret can never reach it: rotating BEYU_RUNTIME_DB_PASSWORD
+      // (or provisioning it for the first time after the role was created by
+      // hand) leaves the database holding a credential that no longer matches
+      // the DSN Vercel authenticates with. That surfaces in production as
+      // RUNTIME_AUTH_FAILURE on /api/health while every migration, RLS and
+      // role-attribute check still passes — the deploy looks green and only
+      // the runtime cannot log in. Rendering the literal through format() %L
+      // keeps this injection-safe and the value out of argv.
+      await execFormat(`'alter role %I login password %L'`, [runtimeRole, runtimePassword]);
+      console.log(`role ${runtimeRole} exists; attributes and login credential re-asserted`);
     }
 
     // 2. Ownership stays with the ADMIN role. If a previous run delegated any

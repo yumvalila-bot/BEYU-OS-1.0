@@ -355,6 +355,21 @@ jobs:
             exit 1
           fi
           echo "Runtime role attributes verified: NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB."
+          # Attributes alone cannot see a credential that never converged.
+          # setup-db-role.ts used to set the password only in its CREATE ROLE
+          # branch, so once the role existed a rotated BEYU_RUNTIME_DB_PASSWORD
+          # never reached the database: migrations, RLS and every role-attribute
+          # gate stayed green while the production runtime failed to
+          # authenticate (RUNTIME_AUTH_FAILURE on /api/health). Prove the
+          # governed credential actually logs in. PGPASSWORD rather than a DSN
+          # in argv keeps the value out of the process listing.
+          runtime_user=$(PGPASSWORD="$BEYU_RUNTIME_DB_PASSWORD" \
+            psql -h "$PGHOST" -p "$PGPORT" -U beyu_runtime -d "$PGDATABASE" -Atqc 'select current_user' || true)
+          if [ "$runtime_user" != "beyu_runtime" ]; then
+            echo "::error::runtime role cannot authenticate with the governed BEYU_RUNTIME_DB_PASSWORD — the credential did not converge to the database."
+            exit 1
+          fi
+          echo "Runtime role login verified against the governed credential."
 
       - name: Seed bootstrap data
         run: npm run seed

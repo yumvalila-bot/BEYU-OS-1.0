@@ -195,11 +195,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Fail closed if production secrets are not configured
+        # Written as an explicit if/then/fi (not a trailing `[ ... ] && exit 1`)
+        # because GitHub Actions runs `run:` steps under `bash -e {0}`. A bare
+        # AND-OR list as the final command returns the test's non-zero status,
+        # which `set -e` then treats as a step failure — so the previous form
+        # failed the production deploy even when BOTH secrets were correctly
+        # configured, with no EXTERNAL_BLOCKED annotation to explain why.
+        # The sibling guards in live-preflight / drift-report already use
+        # if/then/fi for exactly this reason.
         run: |
           missing=0
-          [ -z "$BEYU_ADMIN_DATABASE_URL" ] && { echo "::error::EXTERNAL_BLOCKED — secret BEYU_ADMIN_DATABASE_URL is not configured."; missing=1; }
-          [ -z "$BEYU_RUNTIME_DB_PASSWORD" ] && { echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."; missing=1; }
-          [ "$missing" = "1" ] && exit 1
+          if [ -z "$BEYU_ADMIN_DATABASE_URL" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_ADMIN_DATABASE_URL is not configured."
+            missing=1
+          fi
+          if [ -z "$BEYU_RUNTIME_DB_PASSWORD" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "Production secret guard passed: BEYU_ADMIN_DATABASE_URL and BEYU_RUNTIME_DB_PASSWORD are both present (values not printed)."
       - name: Use Node.js 22
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
