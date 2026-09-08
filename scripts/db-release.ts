@@ -46,6 +46,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
+import { annotateError, annotateGateFailures, failSanitized } from "./lib/ci-annotation";
 import { sanitizeError } from "./lib/sanitize-error";
 
 type Mode = "preflight" | "verify" | "drift";
@@ -118,7 +119,9 @@ async function main() {
   try {
     await client.connect();
   } catch (e) {
-    console.error(JSON.stringify({ ok: false, mode, error: `database unreachable: ${sanitizeError(e)}` }, null, 2));
+    const detail = `database unreachable: ${sanitizeError(e)}`;
+    annotateError(`db-release ${mode}`, detail);
+    console.error(JSON.stringify({ ok: false, mode, error: detail }, null, 2));
     process.exit(2);
   }
 
@@ -274,11 +277,11 @@ async function main() {
 
   report.ok = failures.length === 0;
   await client.end();
+  annotateGateFailures(`db-release ${mode}`, failures);
   console.log(JSON.stringify({ ...report, failures }, null, 2));
   process.exit(report.ok ? 0 : 1);
 }
 
 main().catch((e) => {
-  console.error(JSON.stringify({ ok: false, error: sanitizeError(e) }, null, 2));
-  process.exit(1);
+  failSanitized("db-release", e);
 });

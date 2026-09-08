@@ -36,7 +36,7 @@
  *   BEYU_ADMIN_DATABASE_URL=... BEYU_RUNTIME_DB_PASSWORD=... npx tsx scripts/setup-db-role.ts
  */
 import "dotenv/config";
-import { sanitizeError } from "./lib/sanitize-error";
+import { failSanitized } from "./lib/ci-annotation";
 import { Client } from "pg";
 
 const adminUrl = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -242,6 +242,5 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error(JSON.stringify({ ok: false, error: sanitizeError(e) }, null, 2));
-  process.exit(1);
+  failSanitized("runtime role provisioning", e);
 });
