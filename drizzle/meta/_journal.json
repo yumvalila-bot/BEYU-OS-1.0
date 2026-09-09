@@ -253,6 +253,13 @@
       "when": 1788841169436,
       "tag": "0035_foundation_os",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788975978936,
+      "tag": "0036_government_integration_fabric",
+      "breakpoints": true
     }
   ]
 }

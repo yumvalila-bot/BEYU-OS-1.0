@@ -1549,6 +1549,32 @@ async function main() {
     ])
     .onConflictDoNothing();
 
+  /* ---------------- Government Integration Fabric registry ---------------- */
+  // ONE canonical registry (government_agencies). Statuses record the HONEST
+  // current external reality — verified official contracts vs pending ones —
+  // and are runtime-immutable (0036): only this governed admin path writes them.
+  //   TRA_VFD / NHIF / DHIS2: official interface verified (docs recorded);
+  //     credentials are external prerequisites → EXTERNAL_BLOCKED with reason.
+  //   NIDA:  no public contract; requires signed agreement → CONTRACT_PENDING.
+  //   BRELA/TMDA/NSSF/WCF/OSHA/PSSSF: portal only, no published API → CONTRACT_PENDING.
+  //   MOCK_GOV_SANDBOX: pipeline-proving mock, capped at SANDBOX_READY.
+  await adminDb
+    .insert(s.governmentAgencies)
+    .values([
+      { code: "TRA_VFD", name: "Tanzania Revenue Authority — Virtual Fiscal Device (EFDMS)", countryCode: "TZ", category: "TAX_AUTHORITY", consumers: ["FINANCE_OS", "AGRICULTURE_OS"], integrationStatus: "EXTERNAL_BLOCKED", interfaceKind: "HTTP_XML", officialDocsUrl: "https://www.tra.go.tz/index.php/e-fiscal-devices-efd", authModel: "SIGNED_XML", credentialRefs: ["BEYU_TRA_VFD_BASE_URL", "BEYU_TRA_VFD_TIN", "BEYU_TRA_VFD_CERT_KEY", "BEYU_TRA_VFD_CERT_SERIAL", "BEYU_TRA_VFD_PRIVATE_KEY_REF"], blockedReason: "TRA VFD onboarding required: TRA issues the certificate, certkey and TIN binding to the taxpayer entity. No credentials issued to BEYU yet." },
+      { code: "NHIF", name: "National Health Insurance Fund — facility integration", countryCode: "TZ", category: "HEALTH_INSURER", consumers: ["HEALTH_OS"], integrationStatus: "EXTERNAL_BLOCKED", interfaceKind: "REST_JSON", officialDocsUrl: "https://www.nhif.or.tz", authModel: "BASIC_THEN_TOKEN", credentialRefs: ["BEYU_NHIF_BASE_URL", "BEYU_NHIF_FACILITY_CODE", "BEYU_NHIF_USERNAME_REF", "BEYU_NHIF_PASSWORD_REF"], blockedReason: "NHIF issues per-facility credentials during facility onboarding. No facility credentials issued to BEYU yet." },
+      { code: "NIDA", name: "National Identification Authority — NIN verification", countryCode: "TZ", category: "IDENTITY_AUTHORITY", consumers: ["BEYU_OS", "HEALTH_OS", "HCM"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "NONE_PUBLISHED", officialDocsUrl: "https://www.nida.go.tz", authModel: "UNVERIFIED", credentialRefs: ["BEYU_NIDA_GOVESB_URL", "BEYU_NIDA_CLIENT_CERT_REF", "BEYU_NIDA_AGREEMENT_REF"] },
+      { code: "BRELA", name: "Business Registrations and Licensing Agency — company verification", countryCode: "TZ", category: "COMPANY_REGISTRY", consumers: ["BEYU_OS", "FINANCE_OS"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://ors.brela.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "DHIS2", name: "DHIS2 national health reporting (aggregate)", countryCode: "TZ", category: "HEALTH_REPORTING", consumers: ["HEALTH_OS"], integrationStatus: "EXTERNAL_BLOCKED", interfaceKind: "REST_JSON", officialDocsUrl: "https://docs.dhis2.org", authModel: "PAT", credentialRefs: ["BEYU_DHIS2_BASE_URL", "BEYU_DHIS2_USERNAME_REF", "BEYU_DHIS2_PAT_REF", "BEYU_DHIS2_ORG_UNIT"], blockedReason: "DHIS2 Web API contract is public; authorization onto the national instance (URL, credentials, orgUnit/dataSet assignment) is issued by the Ministry of Health. Not issued to BEYU yet." },
+      { code: "TMDA", name: "Tanzania Medicines and Medical Devices Authority", countryCode: "TZ", category: "REGULATOR", consumers: ["HEALTH_OS"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.tmda.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "NSSF", name: "National Social Security Fund", countryCode: "TZ", category: "SOCIAL_SECURITY", consumers: ["HCM", "FINANCE_OS"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.nssf.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "WCF", name: "Workers Compensation Fund", countryCode: "TZ", category: "SOCIAL_SECURITY", consumers: ["HCM", "HEALTH_OS"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.wcf.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "OSHA", name: "Occupational Safety and Health Authority", countryCode: "TZ", category: "SAFETY_AUTHORITY", consumers: ["HCM"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.osha.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "PSSSF", name: "Public Service Social Security Fund", countryCode: "TZ", category: "SOCIAL_SECURITY", consumers: ["HCM"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.psssf.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
+      { code: "MOCK_GOV_SANDBOX", name: "BEYU Government Sandbox (mock — pipeline verification only)", countryCode: "TZ", category: "OTHER_MDA", consumers: ["TESTS"], integrationStatus: "SANDBOX_READY", interfaceKind: "REST_JSON", authModel: "NONE", credentialRefs: [], sandboxEvidence: "tests/government — gateway pipeline suite (policy, idempotency, fail-closed states, RLS, audit) runs against this adapter in CI." },
+    ])
+    .onConflictDoNothing();
+
   await adminDb
     .insert(s.metricDefinitions)
     .values([

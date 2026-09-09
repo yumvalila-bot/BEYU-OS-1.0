@@ -17,3 +17,4 @@ export * from "./schema/ai-compliance";
 export * from "./schema/ai-phase5";
 export * from "./schema/agriculture";
 export * from "./schema/foundation";
+export * from "./schema/government";

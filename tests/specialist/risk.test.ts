@@ -1038,12 +1038,13 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment tables; adds no specialist truth).
     // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
     // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+    // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(36);
+    expect(n).toBe(37);
   });
 
   it("leaves all triggers enabled", async () => {
