@@ -1288,6 +1288,66 @@ export function createDefaultNoeliaToolRegistry(
     },
   });
 
+  /* ---------------- Government Integration Fabric (read-only) ---------------- */
+  // Noelia may READ the government integration registry to analyze compliance
+  // posture and PREPARE submissions. It can NEVER transmit to a government
+  // system: no tool carries government:submission.manage, so autonomous
+  // government action is structurally unreachable (§31 — Noelia cannot claim
+  // "submitted" because it cannot submit).
+  registry.register({
+    name: "government.integration.status",
+    permission: "government:integration.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Read the government integration registry: per-agency verified status, blockers and adapter state. Read-only; submission requires a human with government:submission.manage.",
+    metadata: {
+      stableId: "cap-government-integration-status",
+      version: "1.0.0",
+      ownerRole: "CHIEF_RISK_COMPLIANCE",
+      domain: "COMPLIANCE",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: async () => {
+      const { db } = await import("@/db");
+      const { governmentAgencies } = await import("@/db/schema");
+      const rows = await db.select().from(governmentAgencies);
+      const findings: NoeliaFinding[] = rows.map((row) => ({
+        label: `${row.code} — ${row.name}`,
+        value: `${row.integrationStatus}${row.blockedReason ? ` (${row.blockedReason})` : ""}`,
+        kind: "FACT" as const,
+        status: "OBSERVED" as const,
+        provenance: "government_agencies registry",
+      }));
+      const sources: NoeliaSource[] = rows.map((row) => ({
+        kind: "REGISTRY",
+        ref: `government_agencies/${row.code}`,
+        label: row.name,
+        authority: row.officialDocsUrl ?? "BEYU Government Integration Registry",
+      }));
+      const live = rows.filter((r) => r.integrationStatus === "LIVE").length;
+      const blocked = rows.filter((r) => r.integrationStatus === "EXTERNAL_BLOCKED").length;
+      const pending = rows.filter((r) => r.integrationStatus === "CONTRACT_PENDING").length;
+      return {
+        headline: `Government integrations: ${live} live, ${blocked} externally blocked, ${pending} contract-pending of ${rows.length} registered.`,
+        narrative:
+          "Statuses are read from the governed registry; a status claiming external verification requires recorded evidence and, for production, a recorded human approval (database CHECK constraints).",
+        findings,
+        sources,
+        confidence: 1,
+        humanReviewRequired: false,
+      };
+    },
+  });
+
   /* ---------------- Foundation OS intelligence (read-only + drafts) ---------------- */
   registerFoundationTools(registry);
 

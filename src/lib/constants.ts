@@ -209,6 +209,13 @@ export const PERMISSIONS = {
   "foundation:impact.manage": "Manage impact metrics and record measurements",
   "foundation:assignment.read": "Read foundation workforce assignments",
   "foundation:assignment.manage": "Assign HCM workers to foundation contexts",
+  // Government Integration Fabric — ONE shared gateway inside BEYU OS (not a
+  // Government OS). Read/submit are deliberately split so holding registry
+  // visibility never implies the authority to transmit data to a government
+  // system. Submission is HIGH_RISK (MFA step-up): a fiscal receipt, claim or
+  // report sent to a government authority is a material external act.
+  "government:integration.read": "Read the government integration registry and submission records",
+  "government:submission.manage": "Submit governed operations (fiscal, claims, reports, verifications) to government systems through the canonical gateway",
   "audit:log.read": "Read the immutable audit ledger",
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
@@ -256,6 +263,7 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "finance:waterfall.commit",
   "family:beneficiary.manage",
   "governance:policy.manage",
+  "government:submission.manage",
 ];
 
 /** Canonical role catalogue with constitutional scope. */
@@ -424,6 +432,10 @@ export const ROLES: Record<
       "finance:waterfall.commit",
       "finance:tax.read",
       "finance:tax.assess",
+      // Fiscal/statutory government submissions (TRA VFD, contributions) are a
+      // CFO accountability; HIGH_RISK so MFA step-up applies.
+      "government:integration.read",
+      "government:submission.manage",
       "documents:registry.read",
       "audit:log.read",
       "ai:noelia.query",
@@ -582,6 +594,10 @@ export const ROLES: Record<
       "risk:register.read",
       "compliance:obligation.read",
       "documents:registry.read",
+      // Sector operational government submissions (NHIF folios, DHIS2 reports)
+      // through the canonical gateway; HIGH_RISK so MFA step-up applies.
+      "government:integration.read",
+      "government:submission.manage",
       "agriculture:data.read",
       "agriculture:data.manage",
       "foundation:program.read",
@@ -725,6 +741,7 @@ export const ROLES: Record<
       "finance:waterfall.read",
       "finance:tax.read",
       "finance:payments.read",
+      "government:integration.read",
       "hcm:employee.read",
       "documents:registry.read",
       "audit:log.read",

@@ -224,6 +224,60 @@ async function main(): Promise<void> {
       console.log(`revoked DML on governance tables for ${runtimeRole}: ${governanceRevoked.join(", ")}`);
     }
 
+    // 4d. Government Integration Fabric privileges (mirror of migration 0036).
+    //
+    //     Step 3's blanket grant would otherwise override 0036's revocations,
+    //     exactly as it did for the payment configuration tables. The contract:
+    //       - government_agencies    : registry = runtime-immutable configuration.
+    //         The application must never promote an agency to LIVE, clear an
+    //         EXTERNAL_BLOCKED reason, or edit credential references at runtime.
+    //       - government_submissions : runtime INSERT/UPDATE only — the record of
+    //         a government interaction is never erased by the application (no DELETE).
+    //     Both paths (migration + this script) exist so the control holds whether
+    //     the role is created before or after the migration runs.
+    const govRegistryPresent = await client.query(
+      `select 1 from pg_tables where schemaname = 'public' and tablename = 'government_agencies'`,
+    );
+    if ((govRegistryPresent.rowCount ?? 0) > 0) {
+      await execFormat(`'revoke insert, update, delete on public.government_agencies from %I'`, [runtimeRole]);
+      const reg = await client.query(
+        `select has_table_privilege($1::text, 'public.government_agencies', 'INSERT') as i,
+                has_table_privilege($1::text, 'public.government_agencies', 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.government_agencies', 'DELETE') as d,
+                has_table_privilege($1::text, 'public.government_agencies', 'SELECT') as s`,
+        [runtimeRole],
+      );
+      const rp = reg.rows[0];
+      if (rp.i || rp.u || rp.d) {
+        throw new Error(`government_agencies is still writable by ${runtimeRole} after revocation`);
+      }
+      if (!rp.s) {
+        throw new Error(`government_agencies lost SELECT for ${runtimeRole}; the gateway could no longer read the registry`);
+      }
+      console.log(`revoked DML on government_agencies for ${runtimeRole} (registry is runtime-immutable)`);
+    }
+    const govSubmissionsPresent = await client.query(
+      `select 1 from pg_tables where schemaname = 'public' and tablename = 'government_submissions'`,
+    );
+    if ((govSubmissionsPresent.rowCount ?? 0) > 0) {
+      await execFormat(`'revoke delete on public.government_submissions from %I'`, [runtimeRole]);
+      const sub = await client.query(
+        `select has_table_privilege($1::text, 'public.government_submissions', 'DELETE') as d,
+                has_table_privilege($1::text, 'public.government_submissions', 'INSERT') as i,
+                has_table_privilege($1::text, 'public.government_submissions', 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.government_submissions', 'SELECT') as s`,
+        [runtimeRole],
+      );
+      const sp = sub.rows[0];
+      if (sp.d) {
+        throw new Error(`government_submissions is still deletable by ${runtimeRole} after revocation`);
+      }
+      if (!sp.i || !sp.u || !sp.s) {
+        throw new Error(`government_submissions lost required DML for ${runtimeRole}; the gateway could no longer record submissions`);
+      }
+      console.log(`revoked DELETE on government_submissions for ${runtimeRole} (interaction history is never erased)`);
+    }
+
     // 5. Verification of the runtime role's effective privileges.
     const attrs = await client.query(
       `select rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolreplication, rolbypassrls
