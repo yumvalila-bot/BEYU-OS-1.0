@@ -18,3 +18,13 @@ export * from "./schema/ai-phase5";
 export * from "./schema/agriculture";
 export * from "./schema/foundation";
 export * from "./schema/government";
+
+/*
+ * Family Office CAPITAL & WEALTH domain — materialized.
+ *
+ * `./schema/family-office` (the neutral policy/ratification mechanism) is
+ * deliberately NOT exported here: its materialization is gated on the first
+ * registered ratification, and exporting it would create tables the governance
+ * process has not yet earned. That is unchanged.
+ */
+export * from "./schema/family-office-capital";

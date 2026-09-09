@@ -162,6 +162,44 @@ export const PERMISSIONS = {
   "family:beneficiary.read": "Read beneficiary entitlements",
   "family:beneficiary.manage": "Manage beneficiary entitlements",
   "family:vault.read": "Read family vault index",
+  // Family office — capital & wealth domain.
+  //
+  // These EXTEND the five permissions above; they do not replace them. The
+  // split is read vs manage, and every `manage` is a governed mutation that
+  // still requires a human actor, a recorded authority reference and an audit
+  // append. None of these permissions can approve, transfer money, execute an
+  // investment, change ownership or bypass CAP_POSTING (§24): those remain
+  // `governance:resolution.approve`, `finance:payments.authorize`,
+  // `finance:ledger.post` and `organization:ownership.manage` respectively, so
+  // granting the whole Family Office capital set confers no money-moving
+  // authority whatsoever.
+  "familyoffice:capital.read": "Read the Family Office capital position, allocation cases and doctrine adoption",
+  "familyoffice:capital.manage": "Record Family Office capital allocation cases and ladder positions",
+  "familyoffice:investment.read": "Read Family Office investments, theses, valuations and portfolio aggregation",
+  "familyoffice:investment.manage": "Record Family Office investments, theses and valuation marks",
+  "familyoffice:obligation.read": "Read the obligation register (who owes whom), covenants and covenant tests",
+  "familyoffice:obligation.manage": "Record and transition obligations and covenants",
+  "familyoffice:realestate.read": "Read Family Office real-estate assets and financing models",
+  "familyoffice:realestate.manage": "Record Family Office real-estate assets and financing models",
+  "familyoffice:treasury.read": "Read Family Office treasury and liquidity projections",
+  "familyoffice:cashflow.read": "Read consolidated Family Office cash flow and balance-sheet snapshots",
+  "familyoffice:risk.read": "Read Family Office debt, risk and stress results",
+  "familyoffice:liquidity.read": "Read Family Office liquidity positions and alerts",
+  "familyoffice:scenario.read": "Read Family Office scenario models, results and capital simulations",
+  "familyoffice:scenario.simulate": "Run a Family Office scenario or capital simulation (never executes anything)",
+  "familyoffice:capitalrequest.read": "Read Family Office capital allocation cases against Finance OS capital requests",
+  "familyoffice:capitalrequest.manage": "Raise and progress Family Office capital allocation cases",
+  "familyoffice:committee.read": "Read investment committee decisions, quorum, votes and dissent",
+  "familyoffice:committee.decide": "Record an investment committee decision (human only; requires authority reference)",
+  "familyoffice:decisionjournal.read": "Read the investment decision journal and post-investment reviews",
+  "familyoffice:decisionjournal.manage": "Record decision journal entries and post-investment reviews",
+  "familyoffice:intelligence.read": "Read regulatory, market and tax intelligence",
+  "familyoffice:intelligence.manage": "Record regulatory, market and tax intelligence items",
+  "familyoffice:generational.read": "Read generational wealth plans, succession objectives and interests",
+  "familyoffice:generational.manage": "Record generational plans and succession objectives",
+  "familyoffice:education.read": "Read the family education curriculum and progress",
+  "familyoffice:education.manage": "Publish family education lessons and record progress",
+  "familyoffice:capital.postmortem": "Record a post-investment review outcome attribution",
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
@@ -262,6 +300,9 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "finance:settlement.manage",
   "finance:waterfall.commit",
   "family:beneficiary.manage",
+  // Recording an investment committee decision is the moment capital authority
+  // is created, so it carries the same MFA step-up as a resolution approval.
+  "familyoffice:committee.decide",
   "governance:policy.manage",
   "government:submission.manage",
 ];
@@ -557,11 +598,279 @@ export const ROLES: Record<
       "family:beneficiary.read",
       "family:beneficiary.manage",
       "family:vault.read",
+      // Capital & wealth domain (§38). The Principal sees and records the whole
+      // domain, and decides nothing: every `.manage` here is a governed record,
+      // and committee decisions require `familyoffice:committee.decide` plus an
+      // authority reference, which this role deliberately does NOT hold.
+      "familyoffice:capital.read",
+      "familyoffice:capital.manage",
+      "familyoffice:investment.read",
+      "familyoffice:investment.manage",
+      "familyoffice:obligation.read",
+      "familyoffice:obligation.manage",
+      "familyoffice:realestate.read",
+      "familyoffice:realestate.manage",
+      "familyoffice:treasury.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:capitalrequest.manage",
+      "familyoffice:committee.read",
+      "familyoffice:decisionjournal.read",
+      "familyoffice:decisionjournal.manage",
+      "familyoffice:intelligence.read",
+      "familyoffice:intelligence.manage",
+      "familyoffice:generational.read",
+      "familyoffice:generational.manage",
+      "familyoffice:education.read",
+      "familyoffice:education.manage",
       "documents:registry.read",
       "ai:noelia.query",
       "ai:executive.read",
       "ai:memory.read",
     ],
+  },
+  /**
+   * Family Office Director — runs the office day to day.
+   *
+   * Read across the capital & wealth domain plus the recording permissions, but
+   * NOT `familyoffice:committee.decide` and NOT `familyoffice:capital.postmortem` outcome
+   * attribution: running the office is not deciding for it (§40 segregation of
+   * duties — requester ≠ approver).
+   */
+  FAMILY_OFFICE_DIRECTOR: {
+    name: "Family Office Director",
+    description: "Operates the Family Office capital, wealth and treasury domain. Records and reports; does not approve.",
+    scope: "ENTERPRISE",
+    privileged: false,
+    permissions: [
+      "platform:dashboard.read",
+      "organization:entity.read",
+      "family:member.read",
+      "familyoffice:capital.read",
+      "familyoffice:capital.manage",
+      "familyoffice:investment.read",
+      "familyoffice:investment.manage",
+      "familyoffice:obligation.read",
+      "familyoffice:obligation.manage",
+      "familyoffice:realestate.read",
+      "familyoffice:realestate.manage",
+      "familyoffice:treasury.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:capitalrequest.manage",
+      "familyoffice:committee.read",
+      "familyoffice:decisionjournal.read",
+      "familyoffice:decisionjournal.manage",
+      "familyoffice:intelligence.read",
+      "familyoffice:intelligence.manage",
+      "familyoffice:generational.read",
+      "familyoffice:education.read",
+      "familyoffice:education.manage",
+      "documents:registry.read",
+      "ai:noelia.query",
+    ],
+  },
+  /** Investment Officer — builds the case; never approves it. */
+  INVESTMENT_OFFICER: {
+    name: "Investment Officer",
+    description: "Builds investment cases, theses and models for committee review. Has no approval authority.",
+    scope: "ENTITY",
+    privileged: false,
+    permissions: [
+      "organization:entity.read",
+      "familyoffice:capital.read",
+      "familyoffice:investment.read",
+      "familyoffice:investment.manage",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:realestate.manage",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:capitalrequest.manage",
+      "familyoffice:decisionjournal.read",
+      "familyoffice:decisionjournal.manage",
+      "familyoffice:intelligence.read",
+      "documents:registry.read",
+      "ai:noelia.query",
+    ],
+  },
+  /** Treasury Officer — liquidity, cash and debt service. */
+  TREASURY_OFFICER: {
+    name: "Treasury Officer",
+    description: "Family Office treasury, liquidity and debt-service monitoring. Read and project; never transfer.",
+    scope: "ENTITY",
+    privileged: false,
+    permissions: [
+      "organization:entity.read",
+      "finance:treasury.read",
+      "familyoffice:capital.read",
+      "familyoffice:treasury.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:obligation.read",
+      "familyoffice:obligation.manage",
+      "familyoffice:risk.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:intelligence.read",
+      "ai:noelia.query",
+    ],
+  },
+  /** Risk Officer — stress, concentration and the financial red line. */
+  RISK_OFFICER: {
+    name: "Family Office Risk Officer",
+    description: "Family Office risk, stress testing and financial red-line reporting. Advisory; no approval authority.",
+    scope: "ENTERPRISE",
+    privileged: false,
+    permissions: [
+      "organization:entity.read",
+      "risk:register.read",
+      "familyoffice:capital.read",
+      "familyoffice:investment.read",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:treasury.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:intelligence.read",
+      "familyoffice:intelligence.manage",
+      "ai:noelia.query",
+    ],
+  },
+  /**
+   * Legal Reviewer — clears the LEGAL_REVIEW gate and nothing else.
+   *
+   * Deliberately narrow: a reviewer who could also approve would be able to
+   * clear their own review, which is the collapse of duties §40 forbids.
+   */
+  LEGAL_REVIEWER: {
+    name: "Legal Reviewer",
+    description: "Records legal review against Family Office matters. Review authority only; no approval authority.",
+    scope: "ENTERPRISE",
+    privileged: false,
+    permissions: [
+      "legal:matter.read",
+      "legal:matter.manage",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:investment.read",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:intelligence.read",
+      "documents:registry.read",
+    ],
+  },
+  /**
+   * Tax Reviewer — clears the TAX_REVIEW gate and nothing else.
+   *
+   * May record at PROFESSIONAL_REVIEW level; may NEVER record
+   * FINAL_ACCOUNTING_TREATMENT, which is Finance OS's (§22, §32).
+   */
+  TAX_REVIEWER: {
+    name: "Tax Reviewer",
+    description: "Records tax review and tax positions at ASSUMPTION, ESTIMATE, CURRENT_RULE or PROFESSIONAL_REVIEW level. Never asserts final accounting treatment.",
+    scope: "ENTERPRISE",
+    privileged: false,
+    permissions: [
+      "finance:tax.read",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:investment.read",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:intelligence.read",
+      "familyoffice:intelligence.manage",
+      "documents:registry.read",
+    ],
+  },
+  /**
+   * Investment Committee Member — the approval seat.
+   *
+   * Holds `familyoffice:committee.decide`, which requires an authority reference
+   * (a resolution or approval instrument) on every decision. Deliberately does
+   * NOT hold `familyoffice:capitalrequest.manage`: the committee must not be able to
+   * raise the matter it then approves (§40).
+   */
+  INVESTMENT_COMMITTEE_MEMBER: {
+    name: "Investment Committee Member",
+    description: "Reviews and decides Family Office capital allocations under a recorded authority instrument. Cannot raise the matter it decides.",
+    scope: "ENTERPRISE",
+    privileged: true,
+    permissions: [
+      "organization:entity.read",
+      "governance:body.read",
+      "governance:resolution.read",
+      "governance:resolution.vote",
+      "familyoffice:capital.read",
+      "familyoffice:investment.read",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:scenario.read",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:committee.read",
+      "familyoffice:committee.decide",
+      "familyoffice:decisionjournal.read",
+      "familyoffice:capital.postmortem",
+      "familyoffice:generational.read",
+      "documents:registry.read",
+      "ai:noelia.query",
+    ],
+  },
+  /** Family Analyst — read and model, no recording authority beyond scenarios. */
+  FAMILY_ANALYST: {
+    name: "Family Office Analyst",
+    description: "Analyses and models the Family Office capital position. Read plus simulation; records nothing authoritative.",
+    scope: "ENTITY",
+    privileged: false,
+    permissions: [
+      "organization:entity.read",
+      "familyoffice:capital.read",
+      "familyoffice:investment.read",
+      "familyoffice:obligation.read",
+      "familyoffice:realestate.read",
+      "familyoffice:treasury.read",
+      "familyoffice:cashflow.read",
+      "familyoffice:risk.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:scenario.read",
+      "familyoffice:scenario.simulate",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:committee.read",
+      "familyoffice:decisionjournal.read",
+      "familyoffice:intelligence.read",
+      "familyoffice:generational.read",
+      "familyoffice:education.read",
+      "ai:noelia.query",
+    ],
+  },
+  /**
+   * Family Member (read only) — the least-privilege seat.
+   *
+   * Sees the education curriculum and their own generational position, and
+   * nothing else. No capital, investment, obligation, debt or liquidity data:
+   * a read-only family seat is not a read-only analyst seat.
+   */
+  FAMILY_MEMBER_VIEW: {
+    name: "Family Member (read only)",
+    description: "Read-only access to family education and their own generational position. No capital, investment or debt data.",
+    scope: "ENTITY",
+    privileged: false,
+    permissions: ["family:member.read", "familyoffice:education.read", "familyoffice:generational.read"],
   },
   HCM_DIRECTOR: {
     name: "Group HCM Director",
@@ -769,6 +1078,20 @@ export const ROLE_CLEARANCE: Record<string, Classification> = {
   CHIEF_GOVERNANCE_OFFICER: "HIGHLY_RESTRICTED",
   CHIEF_RISK_COMPLIANCE: "RESTRICTED",
   FAMILY_OFFICE_PRINCIPAL: "HIGHLY_RESTRICTED",
+  // Family Office capital & wealth seats. Clearance is granted on need, not on
+  // seniority: the committee member and the director see the capital domain at
+  // HIGHLY_RESTRICTED because the decision journal and generational plans live
+  // there, while the reviewer seats are capped at RESTRICTED because a reviewer
+  // needs the matter, not the family's private reasoning.
+  FAMILY_OFFICE_DIRECTOR: "HIGHLY_RESTRICTED",
+  INVESTMENT_OFFICER: "RESTRICTED",
+  TREASURY_OFFICER: "RESTRICTED",
+  RISK_OFFICER: "RESTRICTED",
+  LEGAL_REVIEWER: "RESTRICTED",
+  TAX_REVIEWER: "RESTRICTED",
+  INVESTMENT_COMMITTEE_MEMBER: "HIGHLY_RESTRICTED",
+  FAMILY_ANALYST: "RESTRICTED",
+  FAMILY_MEMBER_VIEW: "HIGHLY_RESTRICTED",
   HCM_DIRECTOR: "RESTRICTED",
   SECTOR_OPERATOR: "CONFIDENTIAL",
   AUDITOR: "RESTRICTED",

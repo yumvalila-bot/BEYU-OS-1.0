@@ -11,6 +11,7 @@ import { BeyuNoeliaMemoryService } from "./enterprise-memory";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
+import { registerFamilyOfficeTools } from "@/lib/family/office/noelia-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1350,6 +1351,13 @@ export function createDefaultNoeliaToolRegistry(
 
   /* ---------------- Foundation OS intelligence (read-only + drafts) ---------------- */
   registerFoundationTools(registry);
+  /**
+   * Family Office capital, wealth & generational capabilities. These extend the
+   * canonical Noelia identity with domain tools; they are not a second AI system.
+   * All are sideEffects NONE — approve, transfer, execute and CAP_POSTING have no
+   * tool path here and remain human-governed.
+   */
+  registerFamilyOfficeTools(registry);
 
   return registry;
 }

@@ -864,6 +864,11 @@ describe("treasury module — creates no second truth", () => {
     const names = (await rowsOf<{ table_name: string }>(sql`
       select table_name from information_schema.tables
       where table_schema = 'public' and (table_name like '%treasur%' or table_name like '%cash%' or table_name like '%fx%')
+      -- Family Office cash-flow items are a Family Office domain table recording
+      -- governed cash-flow lines with a Finance OS reference (drizzle/0036), not a
+      -- treasury position register; excluded by exact name so this guard still
+      -- fails if the treasury module itself ever defines a table.
+        and table_name <> 'family_cash_flow_items'
       order by table_name
     `)).map((r) => r.table_name);
     expect(names).toEqual(["treasury_positions"]);
@@ -889,8 +894,9 @@ describe("treasury module — creates no second truth", () => {
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
 // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
+// + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(37);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(38);
   });
 
   it("leaves all triggers enabled", async () => {

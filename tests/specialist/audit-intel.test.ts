@@ -808,6 +808,12 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- Agriculture OS event tables are domain tables for tracking agricultural
       -- operations, not audit ledgers (drizzle/0031).
         and table_name not like 'agriculture_%'
+      -- The Family Office regulatory/market intelligence register records external
+      -- regulatory events with a source, jurisdiction and confidence rating
+      -- (drizzle/0036). It is an intelligence register, not an audit ledger, and it
+      -- writes nothing to audit_log; excluded by exact name so this guard still
+      -- fails if the audit module itself ever defines a table.
+        and table_name <> 'family_regulatory_events'
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -848,11 +854,12 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
     // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
     // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
+    // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
     // (Phase 8 events, Phase 6 service-principal registry, ledger RLS,
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(37);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(38);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

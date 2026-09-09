@@ -1098,10 +1098,19 @@ describe("compliance module — creates no second truth", () => {
     // tamper-evident Noelia evidence registry (governance evidence, not a
     // second compliance-truth ledger), plus the three governed Foundation OS
     // compliance tables from 0035_foundation_os (a Sector OS compliance
-    // registry under BEYU OS governance — attributed here, still exact).
+    // registry under BEYU OS governance — attributed here, still exact), plus
+    // the two Family Office obligation tables from
+    // 0037_family_office_capital_wealth. The Family Office obligation register
+    // answers "who owes whom" between family members, entities and external
+    // counterparties — it is a governed capital register whose authoritative
+    // accounting owner is FINANCE_OS, not a compliance obligation register.
+    // Attributed here by exact name, so this guard still fails if the
+    // compliance module itself ever defines a table.
     expect(names).toEqual([
       "compliance_assessments",
       "compliance_obligations",
+      "family_obligation_covenants",
+      "family_obligations",
       "foundation_compliance_tasks",
       "foundation_evidence",
       "foundation_obligations",
@@ -1129,8 +1138,9 @@ describe("compliance module — creates no second truth", () => {
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
 // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
+// + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(37);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(38);
   });
 
   it("leaves all triggers enabled", async () => {
