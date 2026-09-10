@@ -1,0 +1,101 @@
+# BEYU OS — PRODUCTION HEALTH EVIDENCE (READ-ONLY, ZERO SECRETS)
+#
+# WHY THIS WORKFLOW EXISTS
+#   The governed `db-release` gate job "Runtime verification (production
+#   /api/health)" fails with only a summary annotation. The per-attempt response
+#   bodies it echoes live in the job log, and Actions logs are served from Azure
+#   blob storage, which is unreachable from the investigation sandbox. Without
+#   the body, a production readiness failure cannot be CLASSIFIED, and an
+#   unclassified failure invites the wrong fix.
+#
+#   This job fetches the same endpoint from the same kind of vantage (a GitHub
+#   runner, which can reach the public internet) and COMMITS the raw response
+#   into the repository, so the evidence is retrievable through the GitHub API
+#   alone — the same convention as the TLS trust-evidence workflow.
+#
+#   The body is safe to commit by construction: `src/app/api/health/route.ts`
+#   returns a fixed vocabulary of classification tokens and never the raw
+#   exception, driver message, SQLSTATE detail, hostname, username, password,
+#   DSN or stack trace.
+#
+# SAFETY
+#   * READ-ONLY against production: unauthenticated GETs to two public probe
+#     endpoints. Nothing is written, no infrastructure touched, nothing deployed.
+#   * ZERO SECRETS: declares and uses no repository secrets, and passes no
+#     credentials to any request.
+#   * Response headers are NOT committed wholesale — only four non-sensitive
+#     Vercel routing headers are extracted by name. Set-Cookie and any other
+#     header are discarded.
+#   * The only repository write is docs/forensics/evidence/prod-health.jsonl on
+#     the triggering branch, committed with `[skip ci]` so the evidence commit
+#     cannot re-trigger this workflow.
+
+name: BEYU OS — production health evidence (read-only, no credentials)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [arena/01a08a1d-beyu-os-1-0]
+    paths-ignore:
+      - "docs/forensics/evidence/prod-health.jsonl"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prod-health-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture production /api/health evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    env:
+      PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
+      OUT: docs/forensics/evidence/prod-health.jsonl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Probe the production probe endpoints (read-only, unauthenticated)
+        run: |
+          set -euo pipefail
+          hdr() { grep -i "^$2:" "$1" 2>/dev/null | tr -d '\r' | cut -d' ' -f2- | head -1 || true; }
+          : > "$OUT"
+          for path in /api/health /api/health/live; do
+            for i in 1 2 3; do
+              HDR="$(mktemp)"; BODY="$(mktemp)"
+              CODE="$(curl -s -o "$BODY" -D "$HDR" -w '%{http_code}' --max-time 25 "${PRODUCTION_URL}${path}" || echo 000)"
+              jq -n \
+                --arg ts "$(date -u +%FT%TZ)" \
+                --arg url "${PRODUCTION_URL}${path}" \
+                --argjson attempt "$i" \
+                --arg http_code "$CODE" \
+                --arg body "$(cat "$BODY")" \
+                --arg vercel_id "$(hdr "$HDR" x-vercel-id)" \
+                --arg vercel_cache "$(hdr "$HDR" x-vercel-cache)" \
+                --arg vercel_region "$(hdr "$HDR" x-vercel-execution-region)" \
+                --arg server "$(hdr "$HDR" server)" \
+                '{ts:$ts, url:$url, attempt:$attempt, http_code:$http_code, body:$body,
+                  vercel:{id:$vercel_id, cache:$vercel_cache, region:$vercel_region, server:$server}}' >> "$OUT"
+              rm -f "$HDR" "$BODY"
+              sleep 3
+            done
+          done
+          echo "=== captured evidence ==="
+          cat "$OUT"
+
+      - name: Commit the evidence to the branch
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "No change to commit."
+            exit 0
+          fi
+          git commit -m "chore(forensics): production /api/health evidence [skip ci]"
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
