@@ -29,14 +29,19 @@
  *     committed, never hardcoded).
  *   - The admin connection is read from BEYU_ADMIN_DATABASE_URL (defaults to
  *     DATABASE_URL for environments where they are the same).
- *   - Idempotent: safe to re-run; it also corrects a table owner that was
- *     previously delegated to the runtime role (reverted to the admin role).
+ *   - Idempotent: safe to re-run. On Supabase the admin role is NOT a
+ *     PostgreSQL superuser, so an ALREADY EXISTING runtime role is reconciled
+ *     by CATALOG VERIFICATION (read pg_roles, fail closed on any elevated
+ *     attribute) plus the legal credential re-assert — never by superuser-only
+ *     ALTER ROLE attribute statements (see the role-exists branch below).
+ *   - It also corrects a table owner that was previously delegated to the
+ *     runtime role (reverted to the admin role).
  *
  * USAGE
  *   BEYU_ADMIN_DATABASE_URL=... BEYU_RUNTIME_DB_PASSWORD=... npx tsx scripts/setup-db-role.ts
  */
 import "dotenv/config";
-import { failSanitized } from "./lib/ci-annotation";
+import { annotateError, failSanitized } from "./lib/ci-annotation";
 import { Client } from "pg";
 
 const adminUrl = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -72,31 +77,89 @@ async function main(): Promise<void> {
     };
     // 1. Create the runtime role if it does not exist. Never elevate: it must
     //    remain non-superuser, non-bypassrls, non-createrole, non-createdb.
-    const exists = await client.query(`select 1 from pg_roles where rolname = $1`, [runtimeRole]);
-    if (exists.rowCount === 0) {
+    //    The existence probe also reads the role's catalog attributes so the
+    //    role-exists branch can reconcile by VERIFICATION rather than mutation.
+    const existing = await client.query<{
+      rolsuper: boolean;
+      rolbypassrls: boolean;
+      rolcreaterole: boolean;
+      rolcreatedb: boolean;
+      rolreplication: boolean;
+    }>(
+      `select rolsuper, rolbypassrls, rolcreaterole, rolcreatedb, rolreplication
+         from pg_roles where rolname = $1`,
+      [runtimeRole],
+    );
+    if (existing.rowCount === 0) {
       await execFormat(
         `'create role %I login password %L nosuperuser nobypassrls nocreaterole nocreatedb noreplication'`,
         [runtimeRole, runtimePassword],
       );
       console.log(`created role ${runtimeRole}`);
     } else {
-      // Re-assert the restrictive attributes in case a prior run elevated it.
-      await execFormat(
-        `'alter role %I nosuperuser nobypassrls nocreaterole nocreatedb noreplication'`,
-        [runtimeRole],
-      );
-      // Also re-assert the LOGIN credential. Without this the password is only
-      // ever set by the CREATE ROLE branch above, so once the role exists the
-      // governed secret can never reach it: rotating BEYU_RUNTIME_DB_PASSWORD
-      // (or provisioning it for the first time after the role was created by
-      // hand) leaves the database holding a credential that no longer matches
-      // the DSN Vercel authenticates with. That surfaces in production as
-      // RUNTIME_AUTH_FAILURE on /api/health while every migration, RLS and
-      // role-attribute check still passes — the deploy looks green and only
-      // the runtime cannot log in. Rendering the literal through format() %L
-      // keeps this injection-safe and the value out of argv.
+      // Reconcile the EXISTING role by catalog verification, not by attribute
+      // mutation. Production incident (2026-09-08..10, SQLSTATE 42501 in this
+      // step): on Supabase the customer-facing `postgres` administrative role
+      // is NOT a PostgreSQL superuser, and PostgreSQL requires SUPERUSER
+      // merely to SPECIFY the SUPERUSER attribute in ALTER ROLE — including
+      // its NO-form ("must be superuser to alter superuser roles or change
+      // superuser attribute" on PG <= 15; "permission denied to alter role …
+      // SUPERUSER attribute" on PG >= 16). BYPASSRLS and REPLICATION attribute
+      // changes carry the same boundary. The previous unconditional
+      // `alter role %I nosuperuser nobypassrls nocreaterole nocreatedb
+      // noreplication` therefore failed the entire governed release with
+      // PERMISSION_DENIED the moment the role already existed — even when
+      // every attribute was already correct.
+      //
+      // The attributes are security invariants. An elevated runtime role is an
+      // incident that a human must resolve through an authorized path, never
+      // something this script repairs in place: a repair may itself require
+      // privileges the governed admin connection does not hold (SUPERUSER for
+      // the SUPERUSER/BYPASSRLS/REPLICATION attributes; on PG >= 16,
+      // CREATEROLE plus ADMIN OPTION on the role for CREATEROLE/CREATEDB,
+      // which is only guaranteed when THIS connection created the role). So
+      // the script fails closed BEFORE any credential, grant or ownership
+      // mutation, naming the exact violated invariant. The message is fixed
+      // vocabulary (role name + public PostgreSQL attribute names), matching
+      // the ci-annotation publication contract; no driver text is forwarded.
+      const a = existing.rows[0];
+      const elevated = [
+        ["SUPERUSER", a.rolsuper],
+        ["BYPASSRLS", a.rolbypassrls],
+        ["REPLICATION", a.rolreplication],
+        ["CREATEROLE", a.rolcreaterole],
+        ["CREATEDB", a.rolcreatedb],
+      ]
+        .filter(([, isElevated]) => isElevated)
+        .map(([attribute]) => attribute);
+      if (elevated.length > 0) {
+        const detail =
+          `runtime role ${runtimeRole} is ELEVATED (${elevated.join(", ")}). ` +
+          `The governed runtime role must be NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION. ` +
+          `Elevated attributes are never repaired from the governed admin connection: the Supabase administrative role is not a ` +
+          `PostgreSQL superuser, and changing the SUPERUSER, BYPASSRLS or REPLICATION attributes requires one (CREATEROLE/CREATEDB ` +
+          `additionally require ADMIN OPTION on the role, which this connection may not hold). Resolve the elevated state through an ` +
+          `authorized administrative path, then re-run the release. No password, grant or ownership change was made.`;
+        annotateError("runtime role provisioning", detail);
+        console.error(JSON.stringify({ ok: false, context: "runtime role provisioning", error: detail }, null, 2));
+        process.exit(1);
+      }
+      // Catalog attributes are safe (all five invariants hold). Re-assert the
+      // LOGIN credential. Without this the password is only ever set by the
+      // CREATE ROLE branch above, so once the role exists the governed secret
+      // can never reach it: rotating BEYU_RUNTIME_DB_PASSWORD (or provisioning
+      // it for the first time after the role was created by hand) leaves the
+      // database holding a credential that no longer matches the DSN Vercel
+      // authenticates with. That surfaces in production as RUNTIME_AUTH_FAILURE
+      // on /api/health while every migration, RLS and role-attribute check
+      // still passes — the deploy looks green and only the runtime cannot log
+      // in. `ALTER ROLE … LOGIN PASSWORD` needs only CREATEROLE (plus ADMIN
+      // OPTION on PG >= 16, held by this connection when it created the role),
+      // never SUPERUSER, so it is legal on the Supabase admin connection.
+      // Rendering the literal through format() %L keeps this injection-safe
+      // and the value out of argv.
       await execFormat(`'alter role %I login password %L'`, [runtimeRole, runtimePassword]);
-      console.log(`role ${runtimeRole} exists; attributes and login credential re-asserted`);
+      console.log(`role ${runtimeRole} exists; catalog attributes verified safe; login credential re-asserted`);
     }
 
     // 2. Ownership stays with the ADMIN role. If a previous run delegated any
