@@ -40,9 +40,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preflight = read-only production inspection · deploy = migrate + verify + provenance · drift = scheduled drift report"
+        description: "preflight = read-only production inspection · deploy = migrate + verify + provenance · drift = scheduled drift report · diagnose = read-only runtime DSN/TLS probe"
         type: choice
-        options: [preflight, deploy, drift]
+        options: [preflight, deploy, diagnose, drift]
         default: preflight
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC — production drift detection
@@ -406,3 +406,61 @@ jobs:
         with:
           name: db-drift-report-${{ github.run_id }}
           path: drift-report.json
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # RUNTIME DSN DIAGNOSTIC — read-only forensic probe of the production
+  # runtime connection, used to classify a `DATABASE_*` /api/health token when
+  # the sanitized token alone is not enough to identify the underlying fault.
+  #
+  #   * `workflow_dispatch` with mode=diagnose ONLY. It can never run on push,
+  #     on a schedule, or from a pull request.
+  #   * READ-ONLY: `select 1` is the only statement issued. No migration, no
+  #     DDL, no role change, no write, no deployment, no secret rotation.
+  #   * Output is a fixed allowlisted field set; no credential is printed.
+  #
+  # The same probe also lives as a standalone dispatch-only workflow
+  # (.github/workflows/runtime-dsn-diagnostic.yml) for once the branch is on
+  # the default branch.
+  # ─────────────────────────────────────────────────────────────────────────
+  runtime-dsn-diagnostic:
+    name: Runtime DSN diagnostic (read-only)
+    needs: [preflight-repo]
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'diagnose'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+      BEYU_RUNTIME_DB_PASSWORD: ${{ secrets.BEYU_RUNTIME_DB_PASSWORD }}
+      DIAG_HOST: ${{ inputs.diag_host || 'aws-0-eu-west-3.pooler.supabase.com' }}
+      DIAG_PORT: ${{ inputs.diag_port || '6543' }}
+      DIAG_USER: ${{ inputs.diag_user || 'beyu_runtime.siyzygezdmlxbvwttrdz' }}
+      DIAG_DATABASE: ${{ inputs.diag_database || 'postgres' }}
+      DIAG_SSLMODE: ${{ inputs.diag_sslmode || 'require' }}
+      DIAG_PGBOUNCER: ${{ inputs.diag_pgbouncer || 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Fail closed if the production secrets are not configured
+        run: |
+          missing=0
+          if [ -z "$BEYU_RUNTIME_DB_PASSWORD" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."
+            missing=1
+          fi
+          if [ -z "$BEYU_ADMIN_DATABASE_URL" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_ADMIN_DATABASE_URL is not configured (control probe unavailable)."
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "Secret guard passed: both secrets present (values not printed)."
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Run the read-only runtime DSN diagnostic
+        run: npx tsx scripts/diagnose-runtime-dsn.mts
