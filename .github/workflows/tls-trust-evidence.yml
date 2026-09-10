@@ -1,0 +1,107 @@
+# BEYU OS — TLS TRUST EVIDENCE (READ-ONLY, DISPATCH-ONLY, ZERO SECRETS)
+#
+# WHY THIS WORKFLOW EXISTS
+#   Production (Vercel) fails against the Supabase TRANSACTION pooler with
+#     {"classification":"DATABASE_TLS_FAILURE","code":"SELF_SIGNED_CERT_IN_CHAIN"}
+#   while GitHub Actions migrations against the SESSION pooler SUCCEED with no
+#   explicit CA. Both facts are real and they pull in opposite directions, so
+#   the authoritative CA cannot be chosen from inference. This workflow
+#   measures, from a vantage that can actually reach Supabase:
+#
+#     * the exact served chain on EACH port (leaf → root, with fingerprints)
+#     * which trust set makes a STRICT (rejectUnauthorized:true) handshake
+#       succeed: Node's default store / the pinned Supabase anchors only / both
+#
+#   That decides whether pinning the Supabase roots is correct and sufficient,
+#   or whether it would break a publicly-trusted chain.
+#
+# WHY IT COMMITS ITS OUTPUT
+#   Actions artifacts and job logs are served from Azure blob storage, which is
+#   unreachable from the investigation sandbox. Committing the JSONL into the
+#   repository makes the evidence retrievable through the GitHub API alone.
+#
+# SAFETY
+#   * workflow_dispatch ONLY — never on push/schedule/PR.
+#   * ZERO SECRETS: declares and uses no repository secrets.
+#   * Credential-free by construction: only the 8-byte PostgreSQL SSLRequest is
+#     ever transmitted. No startup packet, no user, no password, no SQL.
+#   * READ-ONLY against Supabase: nothing is written to the database, no
+#     infrastructure is touched, nothing is deployed or rotated.
+#   * Every reported verdict uses rejectUnauthorized:true. The single
+#     rejectUnauthorized:false handshake per port exists only to RECORD a chain
+#     a strict handshake refuses to surface, and is labelled captureOnly.
+#   * The only repository write is the JSONL evidence under
+#     docs/forensics/evidence/, on the dispatching branch.
+
+name: BEYU OS — TLS trust evidence (read-only, no credentials)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Pooler host (SNI/hostname)"
+        required: false
+        default: "aws-0-eu-west-3.pooler.supabase.com"
+      ports:
+        description: "Comma-separated ports to probe"
+        required: false
+        default: "6543,5432"
+
+permissions:
+  contents: write
+
+jobs:
+  evidence:
+    name: Trust matrix (node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 22]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Capture the served certificate chain (no credentials used)
+        run: |
+          node scripts/forensic-tls-chain-capture.mjs \
+            --host "${{ inputs.host || 'aws-0-eu-west-3.pooler.supabase.com' }}" \
+            --port "$(echo "${{ inputs.ports || '6543,5432' }}" | cut -d, -f1)" \
+            --also-port "$(echo "${{ inputs.ports || '6543,5432' }}" | cut -d, -f2- | tr ',' ' ')" \
+            | tee "tls-chain-node${{ matrix.node }}.jsonl"
+
+      - name: Run the TLS trust matrix (strict verification per trust set)
+        run: |
+          node scripts/tls-trust-matrix.mjs \
+            --host "${{ inputs.host || 'aws-0-eu-west-3.pooler.supabase.com' }}" \
+            --ports "${{ inputs.ports || '6543,5432' }}" \
+            | tee "tls-trust-matrix-node${{ matrix.node }}.jsonl"
+
+      - name: Warn loudly if TLS was never reached
+        run: |
+          if ! grep -q '"stage":"tls"' "tls-chain-node${{ matrix.node }}.jsonl"; then
+            echo "::warning::No TLS stage reached from this vantage — network path blocked or SSLRequest unanswered."
+          fi
+
+      - name: Commit the evidence back to this branch
+        run: |
+          set -euo pipefail
+          mkdir -p docs/forensics/evidence
+          cp "tls-chain-node${{ matrix.node }}.jsonl" docs/forensics/evidence/
+          cp "tls-trust-matrix-node${{ matrix.node }}.jsonl" docs/forensics/evidence/
+          git config user.name "beyu-tls-evidence[bot]"
+          git config user.email "beyu-tls-evidence[bot]@users.noreply.github.com"
+          git add docs/forensics/evidence
+          if git diff --cached --quiet; then
+            echo "No evidence change to commit."
+          else
+            git commit -m "chore(forensics): TLS trust-matrix evidence (node ${{ matrix.node }}, read-only)"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

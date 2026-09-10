@@ -25,7 +25,7 @@
 # SECRETS CONTRACT (repository secrets, set by the owner):
 #   BEYU_ADMIN_DATABASE_URL  Supabase Postgres ADMIN/migration DSN
 #                            (postgres.<ref> @ session pooler :5432,
-#                             sslmode=require). DDL authority.
+#                             sslmode=verify-full). DDL authority.
 #   BEYU_RUNTIME_DB_PASSWORD password for the NOSUPERUSER runtime role.
 # REPOSITORY VARIABLE (optional):
 #   BEYU_PRODUCTION_URL      public production URL (defaults to the Vercel

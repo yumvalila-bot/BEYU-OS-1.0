@@ -32,6 +32,10 @@ export const DATABASE_HEALTH_CLASSIFICATIONS = [
   "DATABASE_DNS_FAILURE",
   "DATABASE_CONNECTION_TIMEOUT",
   "DATABASE_TLS_FAILURE",
+  // Distinct from DATABASE_TLS_FAILURE: this is BEYU's OWN trust configuration
+  // being wrong or absent (missing/substituted CA, insecure DSN), detected
+  // before any handshake — not a peer presenting a bad certificate.
+  "DATABASE_TLS_TRUST_MISCONFIGURED",
   "DATABASE_AUTH_FAILURE",
   "DATABASE_CONNECTION_REFUSED",
   "DATABASE_QUERY_FAILURE",
@@ -183,6 +187,14 @@ function classifySingleError(e: unknown): DatabaseHealthClassification {
   // A — the runtime variable is absent or empty (src/db/index.ts throws the
   // canonical message before any network activity).
   if (/DATABASE_URL is required/.test(haystack)) return "DATABASE_CONFIG_MISSING";
+  // A2 — BEYU's own TLS trust configuration is wrong: the pinned Supabase CA is
+  // missing or was substituted, the DSN asks for an insecure mode, or the
+  // process TLS posture has been weakened. Raised by src/db/tls.ts BEFORE any
+  // network activity, so it must be told apart from a peer-side TLS failure.
+  // Matched on the fixed error code/name, never on free text.
+  if (code === "DATABASE_TLS_TRUST_MISCONFIGURED" || /DatabaseTlsTrustError/.test(haystack)) {
+    return "DATABASE_TLS_TRUST_MISCONFIGURED";
+  }
   // B — the value cannot be parsed as a connection string at all.
   if (/invalid url|invalid connection string|malformed/i.test(haystack)) return "DATABASE_CONFIG_MISSING";
   // Host-based access rejection is decided by WHAT the server objected to, not

@@ -69,7 +69,7 @@ describe.skipIf(!available)("api/health real-postgres integration", () => {
     const previous = process.env.DATABASE_URL;
     try {
       process.env.DATABASE_URL =
-        `postgresql://beyu_runtime:${sentinel}@nonexistent-SENTINEL-0010.invalid:6543/postgres?sslmode=require`;
+        `postgresql://beyu_runtime:${sentinel}@nonexistent-SENTINEL-0010.invalid:6543/postgres?sslmode=verify-full`;
       const healthGet = await freshHealthGet();
       const res = await healthGet();
       expect(res.status).toBe(503);
