@@ -70,6 +70,42 @@ npm run seed
 > credential. The `BEYU_ALLOW_PRODUCTION_SEED` consent value must be treated as
 > single-use: export it only for the initial bootstrap shell session.
 
+### 2a. Privilege boundary — re-provisioning an existing runtime role
+
+The customer-facing `postgres` administrative role on Supabase is **not** a
+PostgreSQL superuser (Supabase removed customer superuser access), even though
+it holds CREATEROLE and full DDL authority over the project through the Session
+Pooler. PostgreSQL requires true SUPERUSER merely to *specify* the SUPERUSER
+attribute in `ALTER ROLE` — including its `NO`-form — and the same applies to
+the BYPASSRLS and REPLICATION attributes. (Production incident 2026-09-08..10:
+an unconditional `ALTER ROLE beyu_runtime NOSUPERUSER …` re-assertion failed
+the governed release with SQLSTATE 42501 on every run after the role first
+existed.)
+
+Consequences for `scripts/setup-db-role.ts` (the governed release remains the
+only mutation path):
+
+- **First run** (`beyu_runtime` absent): `CREATE ROLE … NOSUPERUSER NOBYPASSRLS
+  NOCREATEROLE NOCREATEDB NOREPLICATION` is legal for a CREATEROLE
+  administrator and succeeds.
+- **Subsequent runs** (`beyu_runtime` exists): the script reconciles by
+  **catalog verification** — it reads the role's attributes from `pg_roles`
+  and fails closed (GitHub annotation, non-zero exit, no credential, grant or
+  ownership change) if SUPERUSER, BYPASSRLS, REPLICATION, CREATEROLE or
+  CREATEDB is set on the runtime role. It never re-issues superuser-only
+  attribute statements.
+- **Password reconciliation is preserved**: the legal
+  `ALTER ROLE beyu_runtime LOGIN PASSWORD …` is always executed for an
+  existing role, so a rotated `BEYU_RUNTIME_DB_PASSWORD` converges to the
+  database through the governed release alone.
+- **An elevated `beyu_runtime` is an incident**: resolve it through an
+  authorized administrative path (Supabase platform support), then re-run the
+  release. Never by weakening the runtime role's constraints.
+
+Operators must not run attribute `ALTER ROLE` statements manually from the
+SQL editor to "help" the pipeline: manual production DDL bypasses the governed
+release path and the pipeline will still fail closed on any elevated state.
+
 ## 3. Vercel production environment variables (secret store)
 
 | Variable | Value |
