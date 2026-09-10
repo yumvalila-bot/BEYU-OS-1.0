@@ -176,11 +176,11 @@ root cert replaces `checkServerIdentity` with a no-op; `sslmode=disable` sets
 
 | File | Change |
 | --- | --- |
-| `config/tls/supabase/prod-ca-2021.crt`, `prod-ca-2025.crt`, `README.md` | New pinned trust anchors + provenance/rotation procedure |
+| `config/tls/supabase/prod-ca-2021.crt`, `prod-ca-2025.crt`, `README.md` | Canonical provenance artifacts for the pinned trust anchors |
+| `src/db/supabase-ca.ts` | The same anchors **embedded as source**, so the production trust store never depends on the bundler copying an unreferenced directory |
 | `src/db/tls.ts` | New single authoritative TLS decision point |
 | `src/db/index.ts`, `src/db/admin.ts` | Build the pool through that module |
 | `src/lib/db-health.ts` | New `DATABASE_TLS_TRUST_MISCONFIGURED` classification |
-| `next.config.ts` | `outputFileTracingIncludes` so the CA bundle ships to Vercel |
 | `.env.example`, `.github/workflows/db-release.yml`, `scripts/certify-production.mts` | `sslmode=verify-full` |
 | `scripts/tls-preflight.mts` | New fail-closed 12-check production preflight (`npm run preflight:tls`) |
 | `scripts/tls-trust-matrix.mjs`, `.github/workflows/tls-trust-evidence.yml` | Read-only evidence tooling |
@@ -258,15 +258,16 @@ Full suite against the embedded PostgreSQL 16 (migrated, runtime role
 provisioned, seeded), CI-equivalent environment:
 
 ```
-Test Files  157 passed | 15 skipped (173)
-     Tests  3071 passed | 153 skipped (3225)
+Test Files  158 passed | 15 skipped (173)
+     Tests  3077 passed | 153 skipped (3230)
 ```
 
-- New: `tests/security/database-tls-trust.test.ts` — **40 tests, all passing**.
+- New: `tests/security/database-tls-trust.test.ts` — **45 tests, all passing**.
   Covers fingerprint recomputation, the pg `sslmode` merge trap, environment
   scoping, and fail-closed negatives, including a **real TLS handshake** that
   reproduces OpenSSL error #19 against a served chain whose root is not a pinned
   anchor, and accepts the same chain when its root is.
+- **A regression introduced by this change was found and fixed (see below).**
 - One pre-existing test was updated: `tests/api/health-integration.test.ts` used
   `sslmode=require` in a fixture meant to exercise the DNS-failure path; the new
   policy correctly rejects it first, so the fixture now uses `verify-full`.
@@ -277,11 +278,63 @@ Test Files  157 passed | 15 skipped (173)
   Actions instead (section E).
 - `npm run typecheck` and `eslint` on all changed files: clean. **OBSERVED.**
 
-Preflight runs (**OBSERVED**):
+Preflight runs (**OBSERVED**, stable across repeated runs):
 - production-shaped DSN → `PASS 14 / FAIL 0 / BLOCKED 8`, exit **2** (blocked =
   sandbox egress, correctly not upgraded to pass)
 - `sslmode=require` → **FAIL**, exit **1**
 - `NODE_TLS_REJECT_UNAUTHORIZED=0` → **FAIL**, exit **1**
+
+---
+
+## I-bis. Regression found in CI and fixed
+
+The first CI run against this branch **failed** at the *Root BEYU OS —
+PostgreSQL security gate* job, step `Start application for end-to-end tests`
+(`.github/workflows/ci.yml`: `npx next start`, then `curl -sf /api/health`),
+with `application did not become ready`.
+
+**Root cause (REPRODUCED, not inferred):** `next start` forces
+`NODE_ENV=production`. The original policy exempted loopback only when the
+environment was *not* production, so CI's loopback DSN
+(`…@127.0.0.1:5432/beyu_os`, no `sslmode`) was rejected with
+`DATABASE_URL must set sslmode=verify-full explicitly.` The pool threw, health
+returned 503, and the server never became ready. Confirmed directly:
+
+```
+NODE_ENV=production  → THREW: DATABASE_URL must set sslmode=verify-full explicitly.
+NODE_ENV=test        → allowed, localDevelopment=true, ssl=undefined
+```
+
+The server log independently confirms the premise:
+`{"environment":"production", …}` under `next start`.
+
+**Fix:** loopback plaintext now requires an explicit, auditable opt-in
+`BEYU_ALLOW_LOCAL_PLAINTEXT_DB=1`, which CI sets. It cannot weaken a real
+deployment:
+
+- it is **ignored when `BEYU_ENV=production`** — the documented production guard
+  always wins, so production is strict even for loopback;
+- it is only ever consulted for a **loopback** host; any remote host is verified
+  with pinned CA + hostname regardless;
+- a loopback connection has no network path, and the preflight independently
+  fails any production deployment whose endpoint is not the real Supabase pooler.
+
+All three properties are covered by tests.
+
+**Re-verified end-to-end after the fix**, reproducing the exact CI step:
+`npm run build` → `npx next start` → `curl -sf /api/health` →
+`200 {"ok":true,"checks":{"database":"UP"}}`.
+
+**Second hardening from the same investigation:** the anchors are now embedded
+in `src/db/supabase-ca.ts` rather than read from disk at runtime. A local build
+showed the `.crt` files were **not** present in `.next`, so relying on
+`outputFileTracingIncludes` would have shipped a production outage whose failure
+mode is "CA bundle directory not found" — and that assumption cannot be verified
+from a sandbox. After the change the anchor PEM and its fingerprint constant are
+present in the compiled chunk `.next/server/chunks/ssr/_0tf86sq._.js`, so the
+trust material travels with the bundle. `outputFileTracingIncludes` was removed
+as unnecessary. A test asserts the embedded PEMs are byte-identical to the
+committed `.crt` files and match the allowlist, so the two cannot diverge.
 
 ---
 

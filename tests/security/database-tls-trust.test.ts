@@ -42,9 +42,11 @@ import {
   buildPgConnectionConfig,
   certificateFingerprintSha256,
   describeDsnEndpoint,
+  SUPABASE_TRUST_ANCHOR_PEMS,
   describeTrustConfiguration,
   isLoopbackDsn,
   isProductionEnvironment,
+  localPlaintextAllowed,
   loadSupabaseTrustAnchors,
   requiresVerifiedTls,
   resolveDatabaseTls,
@@ -136,6 +138,32 @@ describe("pinned Supabase trust anchors", () => {
     expect(byLabel["prod-ca-2025"].fingerprintSha256).toBe(
       "5f9b77951a7aa1303f9b58eea9bfa89e358cfdc15f9786ff10d4930a722c9ae2",
     );
+  });
+
+  it("the embedded PEMs are byte-identical to the committed .crt provenance files", () => {
+    // The anchors ship embedded in src/db/supabase-ca.ts so production trust
+    // never depends on the bundler copying an unreferenced directory. The .crt
+    // files remain the canonical provenance artifact; this asserts the two can
+    // never silently diverge.
+    for (const anchor of SUPABASE_TRUST_ANCHOR_PEMS) {
+      const onDisk = fs.readFileSync(`config/tls/supabase/${anchor.label}.crt`, "utf8").trim();
+      expect(anchor.pem.trim()).toBe(onDisk);
+      expect(certificateFingerprintSha256(anchor.pem)).toBe(anchor.fingerprintSha256);
+      expect(anchor.fingerprintSha256).toBe(
+        SUPABASE_TRUST_ANCHOR_FINGERPRINTS[
+          anchor.label as keyof typeof SUPABASE_TRUST_ANCHOR_FINGERPRINTS
+        ],
+      );
+    }
+  });
+
+  it("loads the anchors with NO filesystem access to the bundle directory", () => {
+    // Pointing the override at a non-existent directory proves the default path
+    // is the embedded constant, not the disk — but only when the override is
+    // unset, which is the production default.
+    expect(process.env.BEYU_SUPABASE_CA_DIR).toBeUndefined();
+    const anchors = loadSupabaseTrustAnchors();
+    expect(anchors).toHaveLength(SUPABASE_TRUST_ANCHOR_PEMS.length);
   });
 
   it("supplies every anchor as PEM so Node can build the trust store", () => {
@@ -261,6 +289,52 @@ describe("environment scoping", () => {
     expect(built.ssl).toBeUndefined();
     expect(built.connectionString).toBe(LOCAL_DSN);
   });
+
+  // This is the CI end-to-end gate: `next start` forces NODE_ENV=production
+  // against the embedded loopback Postgres, which serves no TLS.
+  it("permits loopback plaintext under NODE_ENV=production only with the explicit flag", () => {
+    const nextStart = { NODE_ENV: "production" } as NodeJS.ProcessEnv;
+    expect(requiresVerifiedTls(LOCAL_DSN, nextStart)).toBe(true);
+    expect(() => buildPgConnectionConfig(LOCAL_DSN, "DATABASE_URL", nextStart)).toThrow(
+      DatabaseTlsTrustError,
+    );
+
+    const flagged = { NODE_ENV: "production", BEYU_ALLOW_LOCAL_PLAINTEXT_DB: "1" } as NodeJS.ProcessEnv;
+    expect(requiresVerifiedTls(LOCAL_DSN, flagged)).toBe(false);
+    const built = buildPgConnectionConfig(LOCAL_DSN, "DATABASE_URL", flagged);
+    expect(built.localDevelopment).toBe(true);
+    expect(built.ssl).toBeUndefined();
+  });
+
+  it("the production guard BEYU_ENV=production overrides the local-plaintext flag", () => {
+    const env = {
+      NODE_ENV: "production",
+      BEYU_ENV: "production",
+      BEYU_ALLOW_LOCAL_PLAINTEXT_DB: "1",
+    } as NodeJS.ProcessEnv;
+    expect(localPlaintextAllowed(env)).toBe(false);
+    expect(requiresVerifiedTls(LOCAL_DSN, env)).toBe(true);
+    expect(() => buildPgConnectionConfig(LOCAL_DSN, "DATABASE_URL", env)).toThrow(
+      DatabaseTlsTrustError,
+    );
+  });
+
+  it("the local-plaintext flag can NEVER weaken a remote connection", () => {
+    const env = {
+      NODE_ENV: "test",
+      BEYU_ALLOW_LOCAL_PLAINTEXT_DB: "1",
+    } as NodeJS.ProcessEnv;
+    // A remote host is verified regardless of the flag: still requires
+    // sslmode=verify-full, a DNS hostname and the pinned CA.
+    expect(requiresVerifiedTls(PRODUCTION_DSN, env)).toBe(true);
+    const noSslmode = "postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres";
+    expect(() => buildPgConnectionConfig(noSslmode, "DATABASE_URL", env)).toThrow(
+      /must set sslmode=verify-full/,
+    );
+    const resolved = resolveDatabaseTls(PRODUCTION_DSN, "DATABASE_URL");
+    expect(resolved.tls.rejectUnauthorized).toBe(true);
+    expect(resolved.anchors).toHaveLength(2);
+  });
 });
 
 /* ====================================================================== */
@@ -366,7 +440,7 @@ describe("fail-closed: CA material integrity", () => {
     const dir = tempDir();
     fs.copyFileSync("config/tls/supabase/prod-ca-2021.crt", path.join(dir, "prod-ca-2021.crt"));
     withCaDir(dir, () => {
-      expect(() => loadSupabaseTrustAnchors()).toThrow(/missing from/);
+      expect(() => loadSupabaseTrustAnchors()).toThrow(/anchor\(s\) missing/);
     });
   });
 

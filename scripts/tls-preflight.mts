@@ -511,13 +511,27 @@ async function checkDatabase(dsn: string | undefined, label: string) {
         : undefined;
     // A transport-level failure means the evidence could not be obtained
     // (BLOCKED); anything else — a rejected credential, a refused role — is a
-    // genuine authentication failure (FAIL).
-    const transport = Boolean(code && /^(ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|EPIPE)$/.test(code));
+    // genuine authentication failure (FAIL). pg-pool and pg wrap the real
+    // driver error in `cause`, so walk the chain before deciding.
+    const chain: unknown[] = [];
+    let current: unknown = e;
+    for (let depth = 0; depth < 4 && typeof current === "object" && current !== null; depth++) {
+      chain.push(current);
+      const next = (current as { cause?: unknown }).cause;
+      if (next === undefined || next === null || next === current) break;
+      current = next;
+    }
+    const codes = chain
+      .map((link) => (link as { code?: unknown }).code)
+      .filter((c): c is string => typeof c === "string" && c.length > 0);
+    const TRANSPORT = /^(ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ESOCKETTIMEDOUT|EHOSTUNREACH|ENETUNREACH|EPIPE)$/;
+    const transport = codes.some((c) => TRANSPORT.test(c)) || /Connection terminated|connection timeout/i.test(message);
     record(
       "11",
       `${label}: PostgreSQL authentication succeeds`,
       transport ? "BLOCKED" : "FAIL",
-      `${transport ? "no network path to the database" : "authentication/connection failed"}${code ? ` (code=${code})` : ""}`,
+      `${transport ? "no network path to the database" : "authentication/connection failed"}` +
+        ` (codes=[${codes.join(",") || "none"}])`,
     );
     record("12", `${label}: runtime DB security invariants`, "BLOCKED", "not connected");
   } finally {

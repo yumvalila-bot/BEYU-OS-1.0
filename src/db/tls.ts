@@ -54,6 +54,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { SUPABASE_TRUST_ANCHOR_PEMS } from "./supabase-ca";
 
 /**
  * The approved Supabase trust anchors, pinned by SHA-256 over the DER encoding.
@@ -66,6 +67,8 @@ import path from "node:path";
  * Provenance, full field listing and the rotation procedure are in
  * config/tls/supabase/README.md. Values are lowercase hex, no separators.
  */
+export { SUPABASE_TRUST_ANCHOR_PEMS } from "./supabase-ca";
+
 export const SUPABASE_TRUST_ANCHOR_FINGERPRINTS = {
   // C=US, ST=Delware, L=New Castle, O=Supabase Inc, CN=Supabase Root 2021 CA
   // serial 6CBC4CA1DEB63F692D0A2024C67289C2D13D54F6 · 2021-04-28 → 2031-04-26
@@ -131,105 +134,83 @@ function pemToDer(pem: string): Buffer {
   return der;
 }
 
-/* --------------------------- CA material source -------------------------- */
-
-const CA_BUNDLE_DIRNAME = path.join("config", "tls", "supabase");
-
-function candidateCaDirs(): string[] {
-  const dirs: string[] = [];
-  const cwd = process.cwd();
-  dirs.push(path.join(cwd, CA_BUNDLE_DIRNAME));
-  // Tolerate being run from a subdirectory (e.g. a nested workspace root).
-  dirs.push(path.join(cwd, "..", CA_BUNDLE_DIRNAME));
-  return dirs;
-}
-
-function locateCaBundleDir(): string {
-  // An explicit override is AUTHORITATIVE: if BEYU_SUPABASE_CA_DIR names a
-  // directory that does not exist we fail closed rather than silently falling
-  // back to the repository bundle. A silent fallback would let a
-  // mis-deployed override quietly change which CA material is in force.
-  const fromEnv = process.env.BEYU_SUPABASE_CA_DIR;
-  if (fromEnv) {
-    try {
-      if (!fs.statSync(fromEnv).isDirectory()) {
-        throw new DatabaseTlsTrustError(
-          `BEYU_SUPABASE_CA_DIR does not point at a directory: refusing to connect.`,
-        );
-      }
-    } catch (e) {
-      if (e instanceof DatabaseTlsTrustError) throw e;
-      throw new DatabaseTlsTrustError(
-        `BEYU_SUPABASE_CA_DIR does not point at a directory: refusing to connect.`,
-      );
-    }
-    return fromEnv;
-  }
-
-  const candidates = candidateCaDirs();
-  for (const dir of candidates) {
-    try {
-      if (fs.statSync(dir).isDirectory()) return dir;
-    } catch {
-      // Not present at this candidate; try the next.
-    }
-  }
-  throw new DatabaseTlsTrustError(
-    `Supabase CA bundle directory not found (looked in ${CA_BUNDLE_DIRNAME} under the working directory; ` +
-      "override with BEYU_SUPABASE_CA_DIR). Refusing to connect without explicit CA trust.",
-  );
-}
-
 /**
  * Load and validate the pinned Supabase trust anchors.
  *
- * FAIL-CLOSED GUARANTEES
- *   - every file in the bundle directory must be an allowlisted anchor
- *     (an unexpected extra certificate — e.g. Supabase's *staging* root —
- *      aborts rather than silently widening trust)
+ * DEFAULT SOURCE is the embedded constant in `./supabase-ca`, so the production
+ * trust store never depends on the deployment bundler copying an unreferenced
+ * directory. `BEYU_SUPABASE_CA_DIR` is an explicit override for operators who
+ * must stage a replacement CA (see the rotation procedure); when set it is
+ * AUTHORITATIVE and a directory that does not exist fails closed rather than
+ * silently falling back — a silent fallback would quietly change which CA
+ * material is in force.
+ *
+ * FAIL-CLOSED GUARANTEES (both sources)
+ *   - every certificate must be an allowlisted anchor: an unexpected extra
+ *     certificate — e.g. Supabase's *staging* root — aborts instead of silently
+ *     widening trust
  *   - every allowlisted anchor must be present
  *   - every certificate's recomputed fingerprint must equal the allowlist value
  */
 export function loadSupabaseTrustAnchors(): TrustedCaCertificate[] {
-  const dir = locateCaBundleDir();
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(dir);
-  } catch {
-    throw new DatabaseTlsTrustError(`Supabase CA bundle directory is not readable: ${CA_BUNDLE_DIRNAME}`);
-  }
-
-  const files = entries.filter((name) => name.endsWith(".crt") || name.endsWith(".pem")).sort();
-  if (files.length === 0) {
-    throw new DatabaseTlsTrustError(`Supabase CA bundle directory contains no certificates: ${CA_BUNDLE_DIRNAME}`);
-  }
-
   const expected = SUPABASE_TRUST_ANCHOR_FINGERPRINTS;
   const loaded = new Map<SupabaseTrustAnchorLabel, TrustedCaCertificate>();
 
-  for (const file of files) {
-    const label = file.replace(/\.(crt|pem)$/, "") as SupabaseTrustAnchorLabel;
+  const candidates: Array<{ label: string; raw: string; origin: string }> = [];
+
+  const fromEnv = process.env.BEYU_SUPABASE_CA_DIR;
+  if (fromEnv) {
+    let entries: string[];
+    try {
+      if (!fs.statSync(fromEnv).isDirectory()) {
+        throw new DatabaseTlsTrustError(
+          "BEYU_SUPABASE_CA_DIR does not point at a directory: refusing to connect.",
+        );
+      }
+      entries = fs.readdirSync(fromEnv);
+    } catch (e) {
+      if (e instanceof DatabaseTlsTrustError) throw e;
+      throw new DatabaseTlsTrustError(
+        "BEYU_SUPABASE_CA_DIR does not point at a directory: refusing to connect.",
+      );
+    }
+    const files = entries.filter((n) => n.endsWith(".crt") || n.endsWith(".pem")).sort();
+    if (files.length === 0) {
+      throw new DatabaseTlsTrustError(
+        `BEYU_SUPABASE_CA_DIR contains no certificates: ${fromEnv}`,
+      );
+    }
+    for (const file of files) {
+      let raw: string;
+      try {
+        raw = fs.readFileSync(path.join(fromEnv, file), "utf8");
+      } catch {
+        throw new DatabaseTlsTrustError(`Could not read CA certificate "${file}" from ${fromEnv}`);
+      }
+      candidates.push({ label: file.replace(/\.(crt|pem)$/, ""), raw, origin: file });
+    }
+  } else {
+    for (const anchor of SUPABASE_TRUST_ANCHOR_PEMS) {
+      candidates.push({ label: anchor.label, raw: anchor.pem, origin: "embedded" });
+    }
+  }
+
+  for (const candidate of candidates) {
+    const label = candidate.label as SupabaseTrustAnchorLabel;
     const approved = Object.prototype.hasOwnProperty.call(expected, label)
       ? expected[label]
       : undefined;
     if (!approved) {
       throw new DatabaseTlsTrustError(
-        `Unexpected certificate "${file}" in ${CA_BUNDLE_DIRNAME}: it is not an approved Supabase trust anchor. ` +
+        `Unexpected certificate "${candidate.origin}": it is not an approved Supabase trust anchor. ` +
           "Refusing to trust unapproved CA material.",
       );
     }
 
-    let raw: string;
-    try {
-      raw = fs.readFileSync(path.join(dir, file), "utf8");
-    } catch {
-      throw new DatabaseTlsTrustError(`Could not read CA certificate "${file}" from ${CA_BUNDLE_DIRNAME}`);
-    }
-
-    const blocks = splitPemBlocks(raw);
+    const blocks = splitPemBlocks(candidate.raw);
     if (blocks.length !== 1) {
       throw new DatabaseTlsTrustError(
-        `CA certificate "${file}" must contain exactly one PEM block (found ${blocks.length}).`,
+        `CA certificate "${candidate.origin}" must contain exactly one PEM block (found ${blocks.length}).`,
       );
     }
 
@@ -238,13 +219,13 @@ export function loadSupabaseTrustAnchors(): TrustedCaCertificate[] {
     try {
       fingerprint = certificateFingerprintSha256(pem);
     } catch {
-      throw new DatabaseTlsTrustError(`CA certificate "${file}" is not valid X.509 PEM.`);
+      throw new DatabaseTlsTrustError(`CA certificate "${candidate.origin}" is not valid X.509 PEM.`);
     }
 
     if (fingerprint !== approved) {
       throw new DatabaseTlsTrustError(
-        `CA certificate "${file}" does not match its approved fingerprint. ` +
-          "The material on disk has changed or been substituted; refusing to connect.",
+        `CA certificate "${candidate.origin}" does not match its approved fingerprint. ` +
+          "The material has changed or been substituted; refusing to connect.",
       );
     }
 
@@ -254,7 +235,7 @@ export function loadSupabaseTrustAnchors(): TrustedCaCertificate[] {
   const missing = (Object.keys(expected) as SupabaseTrustAnchorLabel[]).filter((l) => !loaded.has(l));
   if (missing.length > 0) {
     throw new DatabaseTlsTrustError(
-      `Approved Supabase trust anchor(s) missing from ${CA_BUNDLE_DIRNAME}: ${missing.join(", ")}.`,
+      `Approved Supabase trust anchor(s) missing: ${missing.join(", ")}.`,
     );
   }
 
@@ -306,17 +287,39 @@ export function isLoopbackDsn(dsn: string): boolean {
 }
 
 /**
+ * Whether a LOOPBACK DSN may connect without TLS.
+ *
+ * WHY AN EXPLICIT FLAG IS NEEDED
+ *   The CI end-to-end gate runs the real production build with `next start`,
+ *   which forces NODE_ENV=production, against the embedded loopback Postgres.
+ *   A "not production" test alone therefore rejects that loopback DSN and the
+ *   application never becomes ready. `BEYU_ALLOW_LOCAL_PLAINTEXT_DB=1` makes the
+ *   local intent explicit instead of inferring it from NODE_ENV.
+ *
+ * HARD LIMITS (this can never weaken a real deployment)
+ *   - It is IGNORED when BEYU_ENV=production. The documented production guard
+ *     always wins, so production is strict even for loopback.
+ *   - It is only ever consulted for a LOOPBACK host (see requiresVerifiedTls).
+ *     A remote host — including a developer pointing a local run at the real
+ *     Supabase pooler — is verified with pinned CA + hostname regardless.
+ *   - A loopback connection has no network path, so there is no wire to protect;
+ *     the preflight independently fails any production deployment whose
+ *     endpoint is not the real Supabase pooler.
+ */
+export function localPlaintextAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.BEYU_ENV === "production") return false;
+  return env.BEYU_ALLOW_LOCAL_PLAINTEXT_DB === "1" || !isProductionEnvironment(env);
+}
+
+/**
  * Decide whether a DSN must satisfy the full verified-TLS policy.
  *
- * The DEFAULT is strict. Exactly one exemption exists and it is narrow: a
- * loopback DSN in a NON-production environment (the CI embedded Postgres and
- * the local development database, which serve no TLS). A production environment
- * is ALWAYS strict, including for loopback; any remote host is always strict
- * regardless of environment — so a developer pointing a local run at the real
- * Supabase pooler gets the same pinned-CA verification as production.
+ * The DEFAULT is strict. The single exemption is a LOOPBACK DSN that is
+ * explicitly permitted to be plaintext (see localPlaintextAllowed). Any remote
+ * host is always strict regardless of environment.
  */
 export function requiresVerifiedTls(dsn: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  return !(isLoopbackDsn(dsn) && !isProductionEnvironment(env));
+  return !(isLoopbackDsn(dsn) && localPlaintextAllowed(env));
 }
 
 /** Safe, credential-free DSN metadata for logging: host/port/database/sslmode only. */

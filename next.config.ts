@@ -24,18 +24,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  /**
-   * Ship the pinned Supabase CA bundle with the serverless deployment.
-   *
-   * src/db/tls.ts reads config/tls/supabase/*.crt at runtime. Nothing imports
-   * those files statically, so Next.js output tracing would not otherwise
-   * include them and the production runtime would fail closed with
-   * "Supabase CA bundle directory not found". Failing closed is correct
-   * behaviour, but it would be an outage caused by packaging, not by trust.
-   */
-  outputFileTracingIncludes: {
-    "/**/*": ["./config/tls/supabase/*.crt"],
-  },
   async headers() {
     return [
       {
