@@ -27,8 +27,11 @@
 #     Vercel routing headers are extracted by name. Set-Cookie and any other
 #     header are discarded.
 #   * The only repository write is docs/forensics/evidence/prod-health.jsonl on
-#     the triggering branch, committed with `[skip ci]` so the evidence commit
-#     cannot re-trigger this workflow.
+#     the triggering branch. Loop protection is layered: `paths-ignore` on that
+#     exact path, a no-op guard that skips the commit when nothing changed, and
+#     a bot-authored evidence commit message carrying a CI-skip token. The
+#     trigger's own commit messages must NOT carry that token — it makes GitHub
+#     suppress every workflow for the commit, which silently disables the job.
 
 name: BEYU OS — production health evidence (read-only, no credentials)
 
@@ -51,7 +54,6 @@ jobs:
     name: Capture production /api/health evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     env:
       PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
       OUT: docs/forensics/evidence/prod-health.jsonl
