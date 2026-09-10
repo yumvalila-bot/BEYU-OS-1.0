@@ -1,0 +1,95 @@
+# BEYU OS — CREDENTIAL-FREE TLS CERTIFICATE-CHAIN CAPTURE (READ-ONLY, DISPATCH-ONLY)
+#
+# WHY THIS WORKFLOW EXISTS
+#   Vercel Production (d8de4fc) reports for GET /api/health:
+#     {"classification":"DATABASE_TLS_FAILURE","code":"SELF_SIGNED_CERT_IN_CHAIN"}
+#   This workflow captures the EXACT certificate chain the Supabase pooler
+#   presents from GitHub Actions' network vantage (which can reach Supabase),
+#   so the served chain can be compared byte-for-byte against the public
+#   CT-log chain and against Node's bundled CA store — and so the trust
+#   failure point (leaf / intermediate / root) is identified from evidence
+#   rather than inferred from the error string.
+#
+# SAFETY
+#   * workflow_dispatch ONLY — never runs on push/schedule/PR.
+#   * ZERO SECRETS: this workflow declares and uses no repository secrets.
+#   * Credential-free by construction: the diagnostic sends ONLY the 8-byte
+#     PostgreSQL SSLRequest. No startup packet, no user, no password, no SQL.
+#     The TLS session is destroyed immediately after the handshake.
+#   * READ-ONLY: it writes nothing to the database, touches no infrastructure,
+#     deploys nothing, rotates nothing.
+#   * The capture handshake inside the diagnostic sets rejectUnauthorized:false
+#     ONLY to RECORD a chain that a strict handshake refuses to surface; the
+#     authoritative result is the separate strict (verify) handshake reported
+#     alongside it. No application code path is modified.
+#
+# WHAT TO DO WITH THE OUTPUT
+#   Compare the two JSON artifacts (Node 24 vs Node 22):
+#     - servedChain[].fingerprint256  → identity of every served certificate
+#     - trust.classification + atDepth → where trust fails
+#     - verify phase errorCode        → the exact Node error code
+#   If trust.classification is CHAIN_TRUSTED_BY_NODE_BUNDLED_STORE from
+#   Actions while Vercel still reports SELF_SIGNED_CERT_IN_CHAIN, the chain
+#   reaching Vercel differs from the public chain (path-specific presentation
+#   or interception) and the evidence goes to Supabase/Vercel support.
+
+name: BEYU OS — TLS chain capture (read-only, no credentials)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Pooler host (SNI/hostname)"
+        required: false
+        default: "aws-0-eu-west-3.pooler.supabase.com"
+      port:
+        description: "Primary port (6543 transaction · 5432 session)"
+        required: false
+        default: "6543"
+      also_port:
+        description: "Second port to probe (blank = none)"
+        required: false
+        default: "5432"
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture served chain (node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        # 24 = Vercel's current production runtime line; 22 = prior line whose
+        # bundled CA set still contains roots that Node 24 pruned.
+        node: [24, 22]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Capture the served certificate chain (no credentials used)
+        run: |
+          node scripts/forensic-tls-chain-capture.mjs \
+            --host "${{ inputs.host || 'aws-0-eu-west-3.pooler.supabase.com' }}" \
+            --port "${{ inputs.port || '6543' }}" \
+            --also-port "${{ inputs.also_port || '5432' }}" \
+            | tee "tls-chain-node${{ matrix.node }}.jsonl"
+
+      - name: Fail loudly if the strict handshake did not even reach TLS
+        run: |
+          if ! grep -q '"stage":"tls"' "tls-chain-node${{ matrix.node }}.jsonl"; then
+            echo "::warning::No TLS stage reached from this vantage point — network path blocked or SSLRequest unanswered."
+          fi
+
+      - name: Upload capture artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tls-chain-node${{ matrix.node }}
+          path: tls-chain-node${{ matrix.node }}.jsonl
+          if-no-files-found: error
