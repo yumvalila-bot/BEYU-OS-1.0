@@ -52,7 +52,7 @@ on:
         default: "5432"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   capture:
@@ -85,6 +85,36 @@ jobs:
         run: |
           if ! grep -q '"stage":"tls"' "tls-chain-node${{ matrix.node }}.jsonl"; then
             echo "::warning::No TLS stage reached from this vantage point — network path blocked or SSLRequest unanswered."
+          fi
+
+      # ADDED: which trust set makes a STRICT handshake succeed on each port.
+      # Decides whether pinning the Supabase roots is correct and sufficient,
+      # or would break a publicly-trusted chain.
+      - name: Run the TLS trust matrix (strict verification per trust set)
+        run: |
+          node scripts/tls-trust-matrix.mjs \
+            --host "${{ inputs.host || 'aws-0-eu-west-3.pooler.supabase.com' }}" \
+            --ports "${{ inputs.port || '6543' }},${{ inputs.also_port || '5432' }}" \
+            | tee "tls-trust-matrix-node${{ matrix.node }}.jsonl"
+
+      # ADDED: Actions artifacts/logs live on Azure blob storage, unreachable
+      # from the investigation sandbox. Committing the JSONL makes the evidence
+      # retrievable through the GitHub API alone.
+      - name: Commit the evidence back to this branch
+        run: |
+          set -euo pipefail
+          mkdir -p docs/forensics/evidence
+          cp "tls-chain-node${{ matrix.node }}.jsonl" docs/forensics/evidence/
+          cp "tls-trust-matrix-node${{ matrix.node }}.jsonl" docs/forensics/evidence/
+          git config user.name "beyu-tls-evidence[bot]"
+          git config user.email "beyu-tls-evidence[bot]@users.noreply.github.com"
+          git add docs/forensics/evidence
+          if git diff --cached --quiet; then
+            echo "No evidence change to commit."
+          else
+            git commit -m "chore(forensics): TLS trust-matrix evidence (node ${{ matrix.node }}, read-only)"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
       - name: Upload capture artifact
