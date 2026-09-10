@@ -244,6 +244,118 @@ describe("classifier edge cases", () => {
   });
 });
 
+/**
+ * TLS classification hardening.
+ *
+ * Regression cover for the production incident in which `/api/health` reported
+ * `DATABASE_TLS_FAILURE` with `"code": null` in the log drain: the one field
+ * that identifies the exception was being dropped, and the classification was a
+ * bare case-insensitive `/SSL|TLS|certificate/` substring test over the whole
+ * driver message — so any error that merely *mentioned* SSL was reported as a
+ * certificate failure.
+ */
+describe("TLS classification is driven by the failure, not by the word SSL", () => {
+  const TLS_CODES = [
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "UNABLE_TO_GET_ISSUER_CERT",
+    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "CERT_HAS_EXPIRED",
+    "CERT_NOT_YET_VALID",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+    "ERR_TLS_HANDSHAKE_TIMEOUT",
+    "ERR_SSL_WRONG_VERSION_NUMBER",
+    "ERR_SSL_UNSUPPORTED_PROTOCOL",
+  ];
+
+  it.each(TLS_CODES)("genuine TLS code %s classifies as TLS and is safe to log", (code) => {
+    const e = driverError("handshake failed", code);
+    expect(classifyConnectionError(e)).toBe("DATABASE_TLS_FAILURE");
+    // The whole point: the log drain must carry the code that identifies the
+    // exception, instead of `code: null`.
+    expect(safeDriverCode(e)).toBe(code);
+  });
+
+  it("pg's own SSL-negotiation errors classify as TLS even though they carry no code", () => {
+    for (const message of [
+      "The server does not support SSL connections",
+      "There was an error establishing an SSL connection",
+      "self-signed certificate in certificate chain",
+      "unable to get local issuer certificate",
+      "Hostname/IP does not match certificate's altnames",
+    ]) {
+      expect(classifyConnectionError(driverError(message))).toBe("DATABASE_TLS_FAILURE");
+    }
+  });
+
+  it("a peer that is not a TLS listener is reported as TLS (peer-protocol failure)", () => {
+    const e = driverError("write EPROTO 1:error:1408F10B:SSL routines:ssl3_get_record:wrong version number", "EPROTO");
+    expect(classifyConnectionError(e)).toBe("DATABASE_TLS_FAILURE");
+    expect(safeDriverCode(e)).toBe("EPROTO");
+  });
+
+  it("an error that only MENTIONS SSL is not reported as a TLS failure", () => {
+    // The old bare `/SSL|TLS|certificate/` test classified both of these as
+    // DATABASE_TLS_FAILURE and sent the operator to the certificate.
+    const configShaped = driverError("the pooler requires SSL for this tenant", "55000");
+    expect(classifyConnectionError(configShaped)).not.toBe("DATABASE_TLS_FAILURE");
+
+    const genericShaped = driverError("TLS configuration rejected by the pooler");
+    expect(classifyConnectionError(genericShaped)).not.toBe("DATABASE_TLS_FAILURE");
+  });
+
+  it("a reset before the handshake completes stays a connection failure, not a TLS failure", () => {
+    const e = driverError("Client network socket disconnected before secure TLS connection was established", "ECONNRESET");
+    expect(classifyConnectionError(e)).toBe("DATABASE_CONNECTION_REFUSED");
+  });
+});
+
+describe("pg_hba rejections are classified by what the server objected to", () => {
+  it("PostgreSQL 16 'no encryption' rejection is a TLS fault, not an auth fault", () => {
+    // PostgreSQL 16 reworded this message; the old classifier matched only the
+    // pre-16 wording AND let the SQLSTATE 28000 win first, so a client that
+    // connected in plaintext to an SSL-enforcing server was reported as
+    // DATABASE_AUTH_FAILURE.
+    const e = driverError('pg_hba.conf rejects connection for host "h", user "u", database "d", no encryption', "28000");
+    expect(classifyConnectionError(e)).toBe("DATABASE_TLS_FAILURE");
+  });
+
+  it("an hba rejection without an encryption hint stays an auth fault", () => {
+    expect(
+      classifyConnectionError(driverError('no pg_hba.conf entry for host "h", user "u", database "d"', "28000")),
+    ).toBe("DATABASE_AUTH_FAILURE");
+  });
+});
+
+describe("wrapped failures are classified by their root cause", () => {
+  function wrapped(message: string, cause: Error): Error {
+    return new Error(message, { cause }) as Error;
+  }
+
+  it("an uninformative wrapper resolves through the cause chain", () => {
+    const e = wrapped("Connection terminated unexpectedly", driverError("handshake failed", "CERT_HAS_EXPIRED"));
+    expect(classifyConnectionError(e)).toBe("DATABASE_TLS_FAILURE");
+    expect(safeDriverCode(e)).toBe("CERT_HAS_EXPIRED");
+  });
+
+  it("an informative top-level class is not overwritten by the cause", () => {
+    // pg-pool wraps the real error when the acquisition budget expires; the
+    // timeout is the actionable signal, so it must win.
+    const e = wrapped("Connection terminated due to connection timeout", driverError("Connection terminated unexpectedly"));
+    expect(classifyConnectionError(e)).toBe("DATABASE_CONNECTION_TIMEOUT");
+  });
+
+  it("a cyclic cause graph terminates", () => {
+    const a = driverError("outer") as Error & { cause?: unknown };
+    const b = driverError("inner") as Error & { cause?: unknown };
+    a.cause = b;
+    b.cause = a;
+    expect(classifyConnectionError(a)).toBe("DATABASE_UNKNOWN_FAILURE");
+    expect(safeDriverCode(a)).toBeUndefined();
+  });
+});
+
 describe("request-path secret boundaries", () => {
   it("the admin DSN never enters the health request path", () => {
     const routeSrc = readFileSync(join(__dirname, "..", "..", "src", "app", "api", "health", "route.ts"), "utf8");
