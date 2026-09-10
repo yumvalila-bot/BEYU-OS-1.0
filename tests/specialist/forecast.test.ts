@@ -420,6 +420,12 @@ describe("forecast engines — reproducible version identity", () => {
       await rowsOf<{ table_name: string }>(sql`
         select table_name from information_schema.tables
         where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%' or table_name like '%assumption%')
+        -- Family Office scenario models/results are Family Office capital
+        -- simulations recorded with basis SCENARIO and outcome_guaranteed false
+        -- (drizzle/0036). They are governed scenario records for the capital
+        -- domain, not forecast-engine persistence; excluded by exact name so this
+        -- guard still fails if the forecast engine ever persists anything.
+          and table_name not in ('family_scenario_models', 'family_scenario_results')
         order by table_name
       `)
     ).map((r) => r.table_name);
@@ -964,13 +970,19 @@ describe("forecast service — hostile inputs", () => {
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
 // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
+// + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(37);
-    // The only %scenario% match is the attributed Foundation OS table.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(38);
+    // The only %scenario% match is the attributed Foundation OS table. The two
+    // Family Office scenario tables from 0037_family_office_capital_wealth are
+    // Family Office capital simulations (basis SCENARIO, outcome_guaranteed
+    // false), not forecast-engine persistence; excluded by exact name so this
+    // guard still fails if the forecast engine ever persists anything.
     expect((
       await rowsOf<{ table_name: string }>(sql`
         select table_name from information_schema.tables
         where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')
+          and table_name not in ('family_scenario_models', 'family_scenario_results')
         order by table_name
       `)
     ).map((r) => r.table_name)).toEqual(["structure_scenarios"]);

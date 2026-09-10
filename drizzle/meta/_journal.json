@@ -260,6 +260,13 @@
       "when": 1788975978936,
       "tag": "0036_government_integration_fabric",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788997229624,
+      "tag": "0037_family_office_capital_wealth",
+      "breakpoints": true
     }
   ]
 }
