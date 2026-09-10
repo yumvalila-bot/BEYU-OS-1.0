@@ -52,7 +52,80 @@ const SAFE_NODE_ERRNOS = new Set([
   "ETIMEDOUT",
   "ESOCKETTIMEDOUT",
   "ERR_INVALID_URL",
+  // Raised when the peer is not speaking TLS on this port (e.g. the DSN points
+  // at a non-Postgres listener). The OpenSSL reason text embeds no identity.
+  "EPROTO",
 ]);
+
+/**
+ * TLS/SSL negotiation failure codes.
+ *
+ * WHY THESE ARE ALLOWLISTED
+ *   Every genuine TLS failure — untrusted issuer, expired leaf, hostname
+ *   mismatch, unsupported version — is identified by one of these Node/OpenSSL
+ *   constants, and by nothing else. Without them `safeDriverCode` dropped the
+ *   code of *every* TLS failure, so the log drain carried
+ *   `{"classification":"DATABASE_TLS_FAILURE","code":null}` and the exception
+ *   could not be told apart from a different failure that merely mentions SSL
+ *   in its message. That is exactly why the production incident was
+ *   undiagnosable from the outside.
+ *
+ * SAFETY
+ *   These are fixed transport constants. They describe WHAT the handshake did,
+ *   never WHO the peer is: no hostname, username, database, DSN or address.
+ */
+const SAFE_TLS_CODE_PATTERNS: ReadonlyArray<RegExp> = [
+  /^ERR_TLS_[A-Z0-9_]+$/,
+  /^ERR_SSL_[A-Z0-9_]+$/,
+  /^(?:DEPTH_ZERO_|SELF_SIGNED_|UNABLE_TO_|CERT_|X509_)[A-Z0-9_]+$/,
+];
+
+/** Driver code that can only come from a TLS/SSL negotiation failure. */
+function isTlsCode(code: string | undefined): boolean {
+  return code !== undefined && SAFE_TLS_CODE_PATTERNS.some((pattern) => pattern.test(code));
+}
+
+/**
+ * Message shapes that only a TLS-layer failure produces.
+ *
+ * Deliberately NOT a bare `/SSL|TLS|certificate/` substring test. A substring
+ * test claims every error that merely *mentions* SSL — a PostgreSQL notice, a
+ * pooler configuration message, an operator-written hint — as a certificate
+ * failure, which misdirects the response to an incident. These patterns name
+ * the failure, not the subject.
+ */
+const TLS_MESSAGE_PATTERNS: ReadonlyArray<RegExp> = [
+  /self[- ]?signed certificate/i,
+  /unable to (?:get|verify|find)\s+(?:local\s+)?issuer certificate/i,
+  /unable to verify the first certificate/i,
+  /hostname\/ip does not match certificate/i,
+  /certificate (?:has expired|is not yet valid|has been revoked)/i,
+  /(?:peer|server|leaf) certificate cannot be authenticated/i,
+  // pg raises these two during SSL negotiation; neither carries a driver code.
+  /the server does not support ssl connections/i,
+  /there was an error establishing an ssl connection/i,
+  // OpenSSL reason text: the peer is not a TLS listener on this port.
+  /ssl routines?|ssl3_get_record|tls_process_|wrong version number|unsupported protocol|no shared cipher/i,
+  /secure tls connection/i,
+];
+
+/**
+ * Node and pg-pool wrap the real failure: `Connection terminated due to
+ * connection timeout` carries `{ cause: <the actual driver error> }`. Bounded so
+ * a cyclic or deeply nested cause graph can never spin.
+ */
+function causeChain(e: unknown): unknown[] {
+  const chain: unknown[] = [];
+  let current: unknown = e;
+  for (let depth = 0; depth < 4; depth++) {
+    if (typeof current !== "object" || current === null || !("cause" in current)) break;
+    const next: unknown = (current as { cause?: unknown }).cause;
+    if (next === undefined || next === null || next === current) break;
+    chain.push(next);
+    current = next;
+  }
+  return chain;
+}
 
 function driverCodeOf(e: unknown): string | undefined {
   if (typeof e === "object" && e !== null && "code" in e) {
@@ -68,10 +141,15 @@ function driverCodeOf(e: unknown): string | undefined {
  * errno. Anything else is dropped rather than risk leaking detail.
  */
 export function safeDriverCode(e: unknown): string | undefined {
-  const code = driverCodeOf(e);
-  if (!code) return undefined;
-  if (/^[0-9A-Z]{5}$/.test(code)) return code;
-  if (SAFE_NODE_ERRNOS.has(code)) return code;
+  // Walk the cause chain too: pg-pool wraps the real driver error, and the
+  // wrapper is the object the probe actually receives.
+  for (const link of [e, ...causeChain(e)]) {
+    const code = driverCodeOf(link);
+    if (!code) continue;
+    if (/^[0-9A-Z]{5}$/.test(code)) return code;
+    if (SAFE_NODE_ERRNOS.has(code)) return code;
+    if (SAFE_TLS_CODE_PATTERNS.some((pattern) => pattern.test(code))) return code;
+  }
   return undefined;
 }
 
@@ -87,6 +165,18 @@ function haystackOf(e: unknown): string {
  * First match wins; disjoint patterns keep the mapping deterministic.
  */
 export function classifyConnectionError(e: unknown): DatabaseHealthClassification {
+  const primary = classifySingleError(e);
+  if (primary !== "DATABASE_UNKNOWN_FAILURE") return primary;
+  // The wrapper said nothing useful. Node and pg-pool routinely wrap the real
+  // failure in `cause`, so classify the root instead of reporting UNKNOWN.
+  for (const link of causeChain(e)) {
+    const nested = classifySingleError(link);
+    if (nested !== "DATABASE_UNKNOWN_FAILURE") return nested;
+  }
+  return "DATABASE_UNKNOWN_FAILURE";
+}
+
+function classifySingleError(e: unknown): DatabaseHealthClassification {
   const haystack = haystackOf(e);
   const code = driverCodeOf(e);
 
@@ -95,6 +185,14 @@ export function classifyConnectionError(e: unknown): DatabaseHealthClassificatio
   if (/DATABASE_URL is required/.test(haystack)) return "DATABASE_CONFIG_MISSING";
   // B — the value cannot be parsed as a connection string at all.
   if (/invalid url|invalid connection string|malformed/i.test(haystack)) return "DATABASE_CONFIG_MISSING";
+  // Host-based access rejection is decided by WHAT the server objected to, not
+  // by its SQLSTATE: PostgreSQL reports "no encryption" rejections under
+  // 28000, and classifying those as authentication failures sends the operator
+  // to the credential when the fix is the DSN's TLS setting. PostgreSQL 16
+  // reworded this to "pg_hba.conf rejects connection", so both spellings match.
+  if (/no pg_hba\.conf entry|pg_hba\.conf rejects connection/i.test(haystack)) {
+    return /ssl|encryption/i.test(haystack) ? "DATABASE_TLS_FAILURE" : "DATABASE_AUTH_FAILURE";
+  }
   // SQLSTATE-first: authorization failures are unambiguous regardless of message wording.
   if (code && /^28/.test(code)) return "DATABASE_AUTH_FAILURE";
   // Wrong database name is a value-shape problem: the operator must fix the variable.
@@ -108,8 +206,11 @@ export function classifyConnectionError(e: unknown): DatabaseHealthClassificatio
   if (/ETIMEDOUT|ESOCKETTIMEDOUT|timeout expired|connection timeout|timed out/i.test(haystack)) {
     return "DATABASE_CONNECTION_TIMEOUT";
   }
-  // E — TLS negotiation / certificate verification.
-  if (/self.signed|certificate|SSL|TLS/i.test(haystack)) return "DATABASE_TLS_FAILURE";
+  // E — TLS negotiation / certificate verification. Code first (authoritative),
+  // then the narrow message shapes above. The driver code wins so that a
+  // wrapped or reworded message cannot change the class.
+  if (isTlsCode(code)) return "DATABASE_TLS_FAILURE";
+  if (TLS_MESSAGE_PATTERNS.some((pattern) => pattern.test(haystack))) return "DATABASE_TLS_FAILURE";
   // F — the server rejected the credential identity. Covers SCRAM/SASL
   // password rejection, unknown pooler users (`beyu_runtime` without the
   // Supavisor `.<project-ref>` suffix surfaces as "Tenant or user not
@@ -120,11 +221,6 @@ export function classifyConnectionError(e: unknown): DatabaseHealthClassificatio
     )
   ) {
     return "DATABASE_AUTH_FAILURE";
-  }
-  // Host-based access rejection: without an SSL/encryption hint it is an
-  // authorization-shape problem, otherwise a TLS-shape problem.
-  if (/no pg_hba\.conf entry/i.test(haystack)) {
-    return /ssl|encryption/i.test(haystack) ? "DATABASE_TLS_FAILURE" : "DATABASE_AUTH_FAILURE";
   }
   // Post-authentication privilege errors cannot occur for `select 1`, but if
   // the server ever emits one it means the connection worked and the
