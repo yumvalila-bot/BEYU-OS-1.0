@@ -1,0 +1,78 @@
+{
+  "ts": "2026-09-10T11:27:33Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health",
+  "attempt": 1,
+  "http_code": "503",
+  "body": "{\"ok\":false,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"database\":\"DOWN\"},\"reason\":\"DATABASE_TLS_TRUST_MISCONFIGURED\"}",
+  "vercel": {
+    "id": "cle1::iad1::hcw44-1789039652468-2b46eb5d7532",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
+{
+  "ts": "2026-09-10T11:27:36Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health",
+  "attempt": 2,
+  "http_code": "503",
+  "body": "{\"ok\":false,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"database\":\"DOWN\"},\"reason\":\"DATABASE_TLS_TRUST_MISCONFIGURED\"}",
+  "vercel": {
+    "id": "cle1::iad1::ccvtt-1789039656608-46890d3c75fd",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
+{
+  "ts": "2026-09-10T11:27:39Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health",
+  "attempt": 3,
+  "http_code": "503",
+  "body": "{\"ok\":false,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"database\":\"DOWN\"},\"reason\":\"DATABASE_TLS_TRUST_MISCONFIGURED\"}",
+  "vercel": {
+    "id": "cle1::iad1::5mr8x-1789039659816-1cc4f85e8d8a",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
+{
+  "ts": "2026-09-10T11:27:43Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health/live",
+  "attempt": 1,
+  "http_code": "200",
+  "body": "{\"ok\":true,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"process\":\"ALIVE\"}}",
+  "vercel": {
+    "id": "cle1::iad1::dkhg7-1789039663029-8306c5547a9f",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
+{
+  "ts": "2026-09-10T11:27:46Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health/live",
+  "attempt": 2,
+  "http_code": "200",
+  "body": "{\"ok\":true,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"process\":\"ALIVE\"}}",
+  "vercel": {
+    "id": "cle1::iad1::lxf8c-1789039666218-9fd4b89eb494",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
+{
+  "ts": "2026-09-10T11:27:49Z",
+  "url": "https://beyu-os-1-0.vercel.app/api/health/live",
+  "attempt": 3,
+  "http_code": "200",
+  "body": "{\"ok\":true,\"system\":\"BEYU-OS/1.0.0\",\"checks\":{\"process\":\"ALIVE\"}}",
+  "vercel": {
+    "id": "cle1::iad1::wnv4r-1789039669386-5470d74e1db0",
+    "cache": "MISS",
+    "region": "",
+    "server": "Vercel"
+  }
+}
