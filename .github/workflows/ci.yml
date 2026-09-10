@@ -884,3 +884,76 @@ jobs:
       - name: Audit ${{ matrix.package.name }} production dependencies
         working-directory: ${{ matrix.package.path }}
         run: npm audit --omit=dev --audit-level=critical
+
+  # ---------------------------------------------------------------------------
+  # TLS TRUST EVIDENCE — read-only, CREDENTIAL-FREE, PR-only.
+  #
+  # WHY: production fails against the Supabase transaction pooler with
+  # SELF_SIGNED_CERT_IN_CHAIN while GitHub Actions migrations against the
+  # session pooler SUCCEED with no explicit CA. Both facts are real and pull in
+  # opposite directions, so the authoritative CA cannot be chosen by inference.
+  # This job measures, from a runner that can reach Supabase:
+  #   * the exact served chain on each port (leaf → root, with fingerprints)
+  #   * which trust set makes a STRICT (rejectUnauthorized:true) handshake
+  #     succeed: Node's default store / the pinned Supabase anchors only / both
+  #
+  # SAFETY: declares and uses NO secrets. Only the 8-byte PostgreSQL SSLRequest
+  # is transmitted — no startup packet, no user, no password, no SQL. Nothing is
+  # written to the database. The result is posted as a PR comment because
+  # Actions artifacts and job logs are served from Azure blob storage, which is
+  # unreachable from the investigation sandbox.
+  # ---------------------------------------------------------------------------
+  tls-trust-evidence:
+    name: TLS trust evidence (read-only, no credentials)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 22]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run the TLS trust matrix (no credentials used)
+        run: |
+          node scripts/tls-trust-matrix.mjs \
+            --host aws-0-eu-west-3.pooler.supabase.com \
+            --ports 6543,5432 \
+            | tee "tls-trust-matrix-node${{ matrix.node }}.jsonl"
+
+      - name: Capture the served chain with the forensic capture tool
+        run: |
+          node scripts/forensic-tls-chain-capture.mjs \
+            --host aws-0-eu-west-3.pooler.supabase.com \
+            --port 6543 --also-port 5432 \
+            | tee "tls-chain-node${{ matrix.node }}.jsonl"
+
+      - name: Post the evidence as a PR comment
+        run: |
+          set -euo pipefail
+          {
+            echo "### TLS trust evidence — node ${{ matrix.node }} (read-only, credential-free)"
+            echo
+            echo '```jsonl'
+            cat "tls-trust-matrix-node${{ matrix.node }}.jsonl"
+            echo '```'
+            echo
+            echo '```jsonl'
+            cat "tls-chain-node${{ matrix.node }}.jsonl"
+            echo '```'
+          } > /tmp/tls-evidence.md
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/tls-evidence.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
