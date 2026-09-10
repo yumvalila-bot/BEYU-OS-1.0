@@ -1,0 +1,101 @@
+# BEYU OS — PRODUCTION RUNTIME DSN DIAGNOSTIC (READ-ONLY, DISPATCH-ONLY)
+#
+# WHY THIS WORKFLOW EXISTS
+#   The production readiness probe `GET /api/health` returns only a sanitized
+#   classification token. When it returns `DATABASE_TLS_FAILURE` the token alone
+#   cannot distinguish a genuine certificate/verification failure from a
+#   misclassified authentication, DNS, timeout or protocol error — and the
+#   structured log event drops every TLS driver code (see `safeDriverCode` in
+#   src/lib/db-health.ts), so `code` is always `null` for TLS-shaped failures.
+#
+#   This workflow reproduces the failure from GitHub Actions, which CAN reach
+#   Supabase, using the application's own probe (`probeDatabaseHealth`) against
+#   the production runtime DSN.
+#
+# SAFETY
+#   * `workflow_dispatch` ONLY — it never runs on push or on a schedule, and it
+#     can never run from a pull request.
+#   * READ-ONLY: the only SQL statement issued is `select 1`. No migration, no
+#     DDL, no role change, no write.
+#   * No credential is printed. Output is a fixed allowlisted field set
+#     (scripts/diagnose-runtime-dsn.mts).
+#   * It does not touch Vercel, does not rotate secrets, and does not deploy.
+#
+# SECRETS
+#   BEYU_RUNTIME_DB_PASSWORD  password for the NOSUPERUSER runtime role.
+#   BEYU_ADMIN_DATABASE_URL   admin/migration DSN, used ONLY as a control probe.
+
+name: BEYU OS — runtime DSN diagnostic (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Pooler host"
+        required: false
+        default: "aws-0-eu-west-3.pooler.supabase.com"
+      port:
+        description: "Pooler port (6543 transaction · 5432 session)"
+        required: false
+        default: "6543"
+      user:
+        description: "Runtime role as Supavisor expects it (<role>.<project-ref>)"
+        required: false
+        default: "beyu_runtime.siyzygezdmlxbvwttrdz"
+      database:
+        description: "Database name"
+        required: false
+        default: "postgres"
+      sslmode:
+        description: "sslmode query parameter to reproduce"
+        required: false
+        default: "require"
+      pgbouncer:
+        description: "pgbouncer query parameter to reproduce"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Probe production runtime DSN (read-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+      BEYU_RUNTIME_DB_PASSWORD: ${{ secrets.BEYU_RUNTIME_DB_PASSWORD }}
+      DIAG_HOST: ${{ inputs.host }}
+      DIAG_PORT: ${{ inputs.port }}
+      DIAG_USER: ${{ inputs.user }}
+      DIAG_DATABASE: ${{ inputs.database }}
+      DIAG_SSLMODE: ${{ inputs.sslmode }}
+      DIAG_PGBOUNCER: ${{ inputs.pgbouncer }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Fail closed if the runtime secret is not configured
+        run: |
+          missing=0
+          if [ -z "$BEYU_RUNTIME_DB_PASSWORD" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."
+            missing=1
+          fi
+          if [ -z "$BEYU_ADMIN_DATABASE_URL" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_ADMIN_DATABASE_URL is not configured (control probe unavailable)."
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "Secret guard passed: both secrets present (values not printed)."
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Run the read-only runtime DSN diagnostic
+        run: npx tsx scripts/diagnose-runtime-dsn.mts
