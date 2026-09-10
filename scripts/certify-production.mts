@@ -18,9 +18,9 @@
  * Usage (from a host that can REACH the pooler — the Vercel runtime, CI, or a
  * network with Supabase egress; a sandboxed/egress-firewalled box cannot):
  *
- *   DATABASE_URL="postgresql://beyu_runtime.<ref>:<pw>@aws-0-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true" \
+ *   DATABASE_URL="postgresql://beyu_runtime.<ref>:<pw>@aws-0-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=verify-full&pgbouncer=true" \
  *   BEYU_RUNTIME_DATABASE_URL="(same runtime string)" \
- *   BEYU_ADMIN_DATABASE_URL="postgresql://postgres.<ref>:<pw>@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require" \
+ *   BEYU_ADMIN_DATABASE_URL="postgresql://postgres.<ref>:<pw>@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=verify-full" \
  *   npm run certify
  *
  *   # Full end-to-end against the deployed Vercel app (adds HTTP checks):

@@ -20,6 +20,7 @@
  */
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { buildPgConnectionConfig } from "./tls";
 
 const globalForAdmin = globalThis as typeof globalThis & {
   __beyuAdminPostgresqlPool?: Pool;
@@ -36,8 +37,14 @@ function adminDatabaseUrl(): string {
 function createAdminPool(): Pool {
   const existing = globalForAdmin.__beyuAdminPostgresqlPool;
   if (existing) return existing;
+  // Same pinned-CA, verify-full policy as the runtime pool. The migration path
+  // reaches the SAME Supabase pooler (session pooler, port 5432), so it needs
+  // the same explicit trust; the loopback/non-production exemption keeps the CI
+  // embedded Postgres working. See src/db/tls.ts.
+  const { connectionString, ssl } = buildPgConnectionConfig(adminDatabaseUrl(), "BEYU_ADMIN_DATABASE_URL");
   const created = new Pool({
-    connectionString: adminDatabaseUrl(),
+    connectionString,
+    ssl,
     max: 5,
     connectionTimeoutMillis: 10_000,
   });

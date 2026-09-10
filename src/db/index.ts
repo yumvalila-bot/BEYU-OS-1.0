@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { buildPgConnectionConfig } from "./tls";
 
 const globalForDb = globalThis as typeof globalThis & {
   __arenaNextJsPostgresqlPool?: Pool;
@@ -17,8 +18,20 @@ function databaseUrl(): string {
 function createPool(): Pool {
   const existing = globalForDb.__arenaNextJsPostgresqlPool;
   if (existing) return existing;
+  // Explicit, pinned CA trust + sslmode=verify-full. Supabase's database CA is
+  // a private CA that is absent from every Node bundled trust store (Vercel
+  // included), so relying on the ambient store fails closed with
+  // SELF_SIGNED_CERT_IN_CHAIN. See src/db/tls.ts and
+  // config/tls/supabase/README.md.
+  //
+  // This is evaluated here — not at module load — so a build-time environment
+  // without DATABASE_URL still fails only on first use (see lazyPool below).
+  const { connectionString, ssl } = buildPgConnectionConfig(databaseUrl(), "DATABASE_URL");
   const created = new Pool({
-    connectionString: databaseUrl(),
+    connectionString,
+    // Pinned Supabase roots only; rejectUnauthorized is hard-coded true and
+    // hostname verification is left to Node's default checkServerIdentity.
+    ssl,
     // Bounded acquisition: when the database is unreachable, requests must
     // fail fast (health reports DOWN, APIs return 5xx) instead of hanging
     // forever on an unbounded connection wait. Generous enough that normal

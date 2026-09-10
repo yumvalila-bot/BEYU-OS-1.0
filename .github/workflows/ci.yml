@@ -198,6 +198,14 @@ jobs:
       BEYU_BOOTSTRAP_PASSWORD: ci_bootstrap_password_not_a_secret
       AUTH_SECRET: ci_auth_secret_value_used_only_in_continuous_integration
       MFA_ENCRYPTION_KEY: ci_mfa_encryption_key_used_only_in_integration
+      # Every DSN above is LOOPBACK (127.0.0.1) and the embedded Postgres serves
+      # no TLS. src/db/tls.ts verifies TLS for every remote host
+      # unconditionally; this flag is the explicit, auditable opt-in that lets a
+      # loopback DSN connect in the clear. It is required because the
+      # end-to-end gate runs `next start`, which forces NODE_ENV=production.
+      # The flag is IGNORED when BEYU_ENV=production, and it never affects a
+      # remote host — so it cannot weaken a real deployment.
+      BEYU_ALLOW_LOCAL_PLAINTEXT_DB: "1"
       # Discrete connection parameters for psql, so no DSN ever appears in argv.
       PGHOST: 127.0.0.1
       PGPORT: "5432"
@@ -884,3 +892,4 @@ jobs:
       - name: Audit ${{ matrix.package.name }} production dependencies
         working-directory: ${{ matrix.package.path }}
         run: npm audit --omit=dev --audit-level=critical
+

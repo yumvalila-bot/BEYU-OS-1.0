@@ -163,7 +163,7 @@ describe("/api/health classification", () => {
   });
 
   it("failure responses never contain secrets or connection detail", async () => {
-    process.env.DATABASE_URL = `postgresql://beyu_runtime:${SENTINEL_RUNTIME}@${SENTINEL_HOST}:6543/postgres?sslmode=require`;
+    process.env.DATABASE_URL = `postgresql://beyu_runtime:${SENTINEL_RUNTIME}@${SENTINEL_HOST}:6543/postgres?sslmode=verify-full`;
     process.env.BEYU_ADMIN_DATABASE_URL = `postgresql://postgres:${SENTINEL_ADMIN}@db.invalid:5432/postgres`;
     process.env.AUTH_SECRET = SENTINEL_AUTH;
     process.env.MFA_ENCRYPTION_KEY = SENTINEL_MFA;
