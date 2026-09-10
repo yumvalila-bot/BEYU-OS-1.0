@@ -213,11 +213,44 @@ strict.
 
 ---
 
-## G. Vercel — NOT VERIFIED (blocked)
+## G. Vercel — Preview VERIFIED, Production NOT VERIFIED
 
-**UNKNOWN.** This session has no Vercel CLI or token access, so the production
-deployment, its environment variables and its runtime logs could not be
-inspected. Nothing here may be read as production verification.
+**OBSERVED (from the `vercel[bot]` status comment on PR #51, read through the
+GitHub API):**
+
+| Fact | Value |
+| --- | --- |
+| Vercel project | `beyu-os-1-0` |
+| Project id | `prj_2lwDKNVHO6TUxkLYCA4m7wR5elrj` |
+| Team | `yumvalila-1204s-projects` (`team_RA6qPCDSBllATerF6MZxC0jG`) |
+| Deployment for this branch | **Preview** — `beyu-os-1-0-git-arena-01a08a1d-…-yumvalila-1204s-projects.vercel.app` |
+| Preview build result | **Vercel check: SUCCESS**; *Vercel Preview Comments*: SUCCESS |
+
+So the remediation **builds and deploys successfully on Vercel** — the embedded
+CA compiles into the server bundle and the production build completes without
+runtime secrets.
+
+**Production is NOT verified and cannot be from this environment:**
+
+- no Vercel CLI, no `VERCEL_TOKEN`, no `.vercel` link → environment variables,
+  deployment history and runtime logs are unreadable here;
+- this sandbox cannot reach `*.vercel.app` — **OBSERVED**
+  `curl: (35) OpenSSL SSL_connect: SSL_ERROR_SYSCALL` against
+  `https://beyu-os-1-0.vercel.app`, while `https://api.github.com` returns 200.
+  That is a sandbox egress block, **not** evidence about the site;
+- PR #51 is unmerged, so production still runs `main` (`6a1f25c`), which does not
+  contain the fix.
+
+**Production IS currently failing — VERIFIED from a runner that has egress.** The
+`db-release` job *Runtime verification (production /api/health)* failed on both
+recent `main` commits (`6a1f25c` at 06:29Z, `d8de4fc` at 05:08Z) with:
+
+> Production runtime does not report database UP after 12 minutes.
+
+The annotation's suggested cause ("DATABASE_URL not configured, or the Supabase
+project is unreachable") is the workflow author's guess; the measured cause is
+the TLS trust failure in section E. Note this job is **skipped on
+`pull_request`**, so it gives no signal for this branch until it is merged.
 
 Required, by variable **name** only (never value):
 
@@ -227,16 +260,13 @@ Required, by variable **name** only (never value):
 | `BEYU_RUNTIME_DATABASE_URL` | Production, Preview | Runtime-role DSN for the privilege audit |
 | `BEYU_ADMIN_DATABASE_URL` | migrations only | Admin/migration DSN — must be `sslmode=verify-full` |
 | `AUTH_SECRET`, `MFA_ENCRYPTION_KEY` | Production, Preview | Session / MFA keys (unchanged) |
-| `BEYU_ENV=production` | Production | Production guard |
+| `BEYU_ENV=production` | Production | Production guard; also disables the loopback plaintext opt-in |
 
-No CA material needs to be added to Vercel: the anchors are committed and traced
-into the deployment by `outputFileTracingIncludes`. **`NODE_EXTRA_CA_CERTS` is not
-required and must not be used as a workaround.**
-
-⚠️ **Required deployment step:** every DSN must change `sslmode=require` →
-`sslmode=verify-full`. An un-updated DSN fails closed with an actionable error.
-
----
+No CA material needs to be added to Vercel: the anchors are embedded in
+`src/db/supabase-ca.ts` and compile into the server bundle (verified present in
+`.next/server/chunks/ssr/_0tf86sq._.js`). **`NODE_EXTRA_CA_CERTS` is not required
+and must not be used as a workaround.** `BEYU_ALLOW_LOCAL_PLAINTEXT_DB` must
+**never** be set in any Vercel environment.
 
 ## H. Database — partially verified
 
@@ -359,32 +389,70 @@ Repo-wide search after the change for `rejectUnauthorized=false`,
   a real bypass.
 - Two test fixtures were changed from `sslmode=require` to `verify-full`.
 
+**Definitive executable-code scan (OBSERVED).** All 512 `src/**/*.ts` files were
+scanned with comments stripped, so documentation naming the forbidden constructs
+cannot mask a real bypass:
+
+```
+rejectUnauthorized assignments found: 3   not-true: 0   (all in src/db/tls.ts)
+hard-pattern hits across 512 src files: 0
+RESULT: CLEAN — no verification bypass in any executable production source.
+```
+
+Hard patterns tested: `rejectUnauthorized=false`,
+`NODE_TLS_REJECT_UNAUTHORIZED=0`, `sslmode=disable`, `sslmode=no-verify`,
+`insecureSkipVerify`, `checkServerIdentity =`, `uselibpqcompat=true`.
+
+**PR #51 diff audit (OBSERVED):** 24 files; no `.key`, `.pem`, `.p12`, `.pfx`,
+`id_rsa` or `.env` file; `scripts/scan-secrets.mjs` reports
+"Secret scan clean: scanned 1628 tracked files"; CI's *Committed secret scan*
+job passes. No migration was added or altered, and no unrelated architecture was
+touched.
+
 ---
 
 ## K. Production status
 
-**PRODUCTION BLOCKED — AUTHORITATIVE TLS TRUST EVIDENCE INCOMPLETE**
+**PRODUCTION BLOCKED — HUMAN/GITHUB/VERCEL ACTION REQUIRED**
 
-The authoritative CA **is** established and verified, the exact production
-endpoint **is** established, the served chain **is** captured and matched to the
-pinned anchor, and the trust configuration **is** proven to produce a
-fully-verified, hostname-checked TLSv1.3 session against the exact production
-endpoint from an independent vantage.
+Verified complete:
 
-What remains unverified is **the production deployment itself**: no Vercel access
-and no production database credentials were available, so the deployed commit,
-its environment variables, `GET /api/health` and a real authenticated
-`beyu_runtime` session have not been observed. Declaring recovery without them
-would be fabrication.
+| Item | Result |
+| --- | --- |
+| Branch / head commit | `arena/01a08a1d-beyu-os-1-0` @ `2897839` (pushed; remote tip confirmed) |
+| PR #51 | OPEN, base `main`, `MERGEABLE`, `mergeState=CLEAN`, not a draft, not merged |
+| CI on `2897839` | **All 7 jobs SUCCESS**, run `34456228511` |
+| TLS tests | 45/45 pass (incl. real-handshake error-#19 reproduction) |
+| Full suite | 158 files / **3077 passed, 0 failed**, 153 skipped |
+| Typecheck / lint | clean |
+| Vercel Preview build | **SUCCESS** |
+| Production endpoint | `aws-0-eu-west-3.pooler.supabase.com` 6543 (runtime) / 5432 (admin), db `postgres`, ref `siyzygezdmlxbvwttrdz` |
+| CA fingerprint | served root `807025ad50d4ed219d2c9c7d299c004f824eb00cf7f65afef607d07b72e6cafa` **== pinned `prod-ca-2021`** |
+| TLS validation | TLSv1.3 / `TLS_AES_256_GCM_SHA384`, authorized, hostname `OK (SAN matches SNI)` — from Actions against the exact endpoint |
+| Security regression | CLEAN (executable-code scan, 0 hits) |
+| Merge | **NOT merged** |
+| Production `/api/health` | **NOT verified from here**; production is currently DOWN on `main` (verified via the db-release runtime gate) |
 
-To close it:
+Exactly three human actions remain, and none of them can be performed from this
+session (no merge authority without approval, no Vercel credentials, no egress to
+`*.vercel.app`):
 
-1. Set `sslmode=verify-full` on `DATABASE_URL`, `BEYU_RUNTIME_DATABASE_URL` and
-   `BEYU_ADMIN_DATABASE_URL` (Vercel **and** the GitHub repository secret).
-2. Merge PR #51 and deploy.
-3. Run `npm run preflight:tls` from a host with Supabase egress and production
-   credentials; require exit `0` (all 12 checks PASS, none BLOCKED).
-4. Confirm `GET /api/health` reports `database: UP` with no TLS classification.
+1. **Review and merge PR #51** (`2897839`) into `main`. CI is green, but merging
+   on green CI alone is not this repository's policy — human approval is
+   required, so the gate was stopped here rather than merged.
+2. **Set `sslmode=verify-full`** on `DATABASE_URL`, `BEYU_RUNTIME_DATABASE_URL`
+   (Vercel, Production **and** Preview) and on the `BEYU_ADMIN_DATABASE_URL`
+   repository secret. This is fail-closed by design: an un-updated DSN fails
+   loudly with `DATABASE_TLS_TRUST_MISCONFIGURED` rather than silently
+   under-verifying. Do **not** set `BEYU_ALLOW_LOCAL_PLAINTEXT_DB` anywhere.
+3. **Confirm production** by either watching the post-merge `db-release`
+   *Runtime verification (production /api/health)* job, or running
+   `npm run preflight:tls` from a host with Supabase egress and production
+   credentials and requiring exit `0` (all 12 checks PASS, none BLOCKED).
+
+Only after step 3 reports green may the status become
+`PRODUCTION RECOVERED — TLS TRUST VERIFIED`. Declaring it now would be
+fabrication: the deployed production commit does not yet contain the fix.
 
 No verification was weakened at any point, no insecure fallback was introduced,
 and no private key was committed.
