@@ -100,9 +100,18 @@ const TRUST_SETS = {
   SUPABASE_PLUS_DEFAULT: { ca: [...SUPABASE_ANCHORS.map((a) => a.pem), ...tls.rootCertificates] },
 };
 
+/**
+ * Node reports `fingerprint256` as colon-separated UPPERCASE, while a SHA-256
+ * over the DER is lowercase hex with no separators. Normalise BOTH sides before
+ * comparing, or membership tests silently report false negatives.
+ */
+function normalizeFp(fp) {
+  return String(fp ?? "").replace(/:/g, "").toLowerCase();
+}
+
 function certFacts(cert, depth) {
   const der = cert.raw ? Buffer.from(cert.raw) : Buffer.alloc(0);
-  const fingerprint256 = cert.fingerprint256 ?? sha256Hex(der);
+  const fingerprint256 = normalizeFp(cert.fingerprint256 ?? sha256Hex(der));
   const selfSigned = JSON.stringify(cert.subject) === JSON.stringify(cert.issuer);
   let x509 = null;
   try {
@@ -122,7 +131,7 @@ function certFacts(cert, depth) {
     fingerprint256,
     selfSigned,
     inNodeBundledCAStore: NODE_STORE.has(fingerprint256),
-    inSupabaseAnchors: SUPABASE_ANCHORS.some((a) => a.fingerprint === fingerprint256),
+    inSupabaseAnchors: SUPABASE_ANCHORS.some((a) => normalizeFp(a.fingerprint) === fingerprint256),
     isCa: x509 ? x509.ca : null,
   };
 }
