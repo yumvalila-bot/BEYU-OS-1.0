@@ -38,6 +38,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../src/db/index.ts";
 import { users } from "../src/db/schema/identity.ts";
+import { buildPgConnectionConfig } from "../src/db/tls.ts";
 import { decryptSecret, generateTotpCode } from "../src/lib/mfa.ts";
 
 const RUNTIME_URL = process.env.BEYU_RUNTIME_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -55,7 +56,8 @@ function record(id: string, name: string, ok: boolean, detail: string) {
 
 async function connect(url: string | undefined, label: string): Promise<Client> {
   if (!url) throw new Error(`${label} connection URL is not set in the environment`);
-  const c = new Client({ connectionString: url, connectionTimeoutMillis: 12_000 });
+  const { connectionString, ssl } = buildPgConnectionConfig(url, label);
+  const c = new Client({ connectionString, ssl, connectionTimeoutMillis: 12_000 });
   await c.connect();
   return c;
 }

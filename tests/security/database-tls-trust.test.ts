@@ -630,4 +630,28 @@ describe("shipped TLS path contains no verification bypass", () => {
   it("requires verify-full as the documented sslmode", () => {
     expect(REQUIRED_SSLMODE).toBe("verify-full");
   });
+
+  it("ensures operational DB scripts route connections through buildPgConnectionConfig", () => {
+    const operationalScripts = [
+      "scripts/migrate.ts",
+      "scripts/setup-db-role.ts",
+      "scripts/db-release.ts",
+      "scripts/certify-production.mts",
+    ];
+    for (const script of operationalScripts) {
+      const source = fs.readFileSync(script, "utf8");
+      expect(source, `Expected ${script} to use buildPgConnectionConfig`).toContain(
+        "buildPgConnectionConfig",
+      );
+    }
+  });
+
+  it("normalizes fingerprints with and without colon separators correctly", () => {
+    const withColons =
+      "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA";
+    const noColons = "807025ad50d4ed219d2c9c7d299c004f824eb00cf7f65afef607d07b72e6cafa";
+    const normalized = withColons.replace(/:/g, "").toLowerCase();
+    expect(normalized).toBe(noColons);
+    expect(SUPABASE_TRUST_ANCHOR_FINGERPRINTS["prod-ca-2021"]).toBe(normalized);
+  });
 });

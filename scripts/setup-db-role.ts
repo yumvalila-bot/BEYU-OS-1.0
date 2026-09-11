@@ -43,6 +43,7 @@
 import "dotenv/config";
 import { annotateError, failSanitized } from "./lib/ci-annotation";
 import { Client } from "pg";
+import { buildPgConnectionConfig } from "../src/db/tls";
 
 const adminUrl = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
 const runtimePassword = process.env.BEYU_RUNTIME_DB_PASSWORD;
@@ -57,7 +58,8 @@ if (runtimePassword.length < 14) {
 }
 
 async function main(): Promise<void> {
-  const client = new Client({ connectionString: adminUrl });
+  const { connectionString, ssl } = buildPgConnectionConfig(adminUrl!, "BEYU_ADMIN_DATABASE_URL");
+  const client = new Client({ connectionString, ssl });
   await client.connect();
   try {
     // PostgreSQL does not allow bind parameters in utility statements
