@@ -200,4 +200,60 @@ export function registerFamilyOfficeTools(
     },
     execute: (context, input) => service.simulate(context, SIMULATE_SCHEMA.parse(input ?? {})),
   });
+  /* ---- Protection & insurance: READ/SUMMARIZE ONLY (§27).             */
+  /* No bind, cancel, beneficiary-change, claim-approval or transfer tool */
+  /* exists, is registered, or can be derived from these two: Noelia      */
+  /* prepares review packages and reports what the register says; the    */
+  /* consequential acts stay on governed human routes with their own      */
+  /* permissions (beneficiary.manage additionally requires MFA step-up).  */
+
+  registry.register({
+    name: "family.protection.policies",
+    permission: "familyoffice:protection.read",
+    classification: "HIGHLY_RESTRICTED",
+    risk: "LOW",
+    description: "Summarise the family's life-insurance protection book: counts, per-currency contingent death-benefit totals, review dates. Contingent protection is never merged into wealth.",
+    metadata: {
+      stableId: "cap-family-protection-policies",
+      version: "1.0.0",
+      ownerRole: "FAMILY_OFFICE_DIRECTOR",
+      domain: "FAMILY_OFFICE",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: audit,
+      inputSchema: ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => service.protectionPolicies(context),
+  });
+
+  registry.register({
+    name: "family.protection.review-package",
+    permission: "familyoffice:protection.read",
+    classification: "HIGHLY_RESTRICTED",
+    risk: "LOW",
+    description: "Prepare the protection review package: list missing documents, review dates, payer records and incomplete ownership for in-scope policies. Reports gaps; never fills them.",
+    metadata: {
+      stableId: "cap-family-protection-review-package",
+      version: "1.0.0",
+      ownerRole: "FAMILY_OFFICE_DIRECTOR",
+      domain: "FAMILY_OFFICE",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: audit,
+      inputSchema: ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => service.protectionReviewPackage(context),
+  });
 }

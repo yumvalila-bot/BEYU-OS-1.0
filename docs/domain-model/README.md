@@ -40,6 +40,24 @@ formula, legal basis), `tax_strategies`, `tax_strategy_assessments`.
 (family / member / trust / emergency / credential / legacy); `foundation_programs`,
 `sector_metrics`.
 
+## `family-office-protection.ts` — Family Office · Protection & Insurance
+Life insurance as a governed Family Office capability (never an OS).
+`family_insurance_policies` (the five ownership roles recorded separately: owner · insured · beneficiary ·
+payer · assignee; coverage & death benefit as CONTINGENT protection — never summed into wealth; cash/surrender
+value only where the contract has them; premium posture; review cadence; assignment posture; succession/liquidity/
+risk/HCM references; provenance + epistemic class + `authoritative_owner='FINANCE_OS'` on amounts),
+`family_insurance_beneficiary_designations` (insurance contract designations — distinct from the TRUST
+`beneficiaries` register above; exact integer millionths-of-percent allocation; PRIMARY/CONTINGENT;
+PERCENTAGE/FIXED_AMOUNT/RESIDUARY), `family_insurance_premiums` (schedule rows; OVERDUE is read-time state,
+never a mutation), `family_insurance_assignments`, `family_insurance_policy_loans`, `family_insurance_reviews`
+(human review records with serialized engine exceptions), `family_insurance_claims` (the claim lifecycle +
+monotonic proceeds machine `NONE→EXPECTED→CLAIMED→APPROVED→RECEIVED→ALLOCATED`) and its append-only
+`family_insurance_claim_events`, `family_protection_assessments` (deterministic six-component protection-gap
+runs with per-line provenance, bounds for missing inputs, methodology version and disclaimer stored as data).
+All tables: `tenant_id` + RLS `tenant_id = ANY (beyu_tenant_ids())` (migration 0038, self-verifying),
+`numeric(18,2)` money, no posting paths (CAP_POSTING untouched; Finance OS remains the sole accounting authority).
+Architecture & methodology: `docs/architecture/family-office-protection-insurance.md`.
+
 ## `platform.ts` — platform services
 `documents` (full attachment metadata, checksum, supersession, legal hold, retention),
 `retention_policies`, `enterprise_events` (hash-chained), `audit_log` (hash-chained),

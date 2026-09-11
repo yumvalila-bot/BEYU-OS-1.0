@@ -11,6 +11,7 @@ Art. 11).
 | 002 | Family Office is a first-class BEYU OS capability, not a separate OS | ACCEPTED |
 | 003 | Tax Strategy Intelligence lives inside Finance OS | ACCEPTED |
 | 004 | Hash-chained append-only audit ledger | ACCEPTED |
+| 005 | Life insurance governed inside the Family Office — never an Insurance OS | ACCEPTED |
 
 ## Architectural decision rule
 

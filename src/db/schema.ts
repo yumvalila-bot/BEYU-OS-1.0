@@ -28,3 +28,12 @@ export * from "./schema/government";
  * process has not yet earned. That is unchanged.
  */
 export * from "./schema/family-office-capital";
+
+/*
+ * Family Office PROTECTION & INSURANCE domain — materialized (additive).
+ * Governed records of life-insurance protection, beneficiary designations,
+ * premium obligations, reviews, claims and modeled protection gaps. A Family
+ * Office capability, not an OS; Finance, HCM, Risk, Legal, Documents, Audit
+ * and Noelia remain canonical for what they already own.
+ */
+export * from "./schema/family-office-protection";

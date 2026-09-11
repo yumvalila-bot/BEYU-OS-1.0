@@ -267,6 +267,13 @@
       "when": 1788997229624,
       "tag": "0037_family_office_capital_wealth",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789154761429,
+      "tag": "0038_family_office_protection_insurance",
+      "breakpoints": true
     }
   ]
 }

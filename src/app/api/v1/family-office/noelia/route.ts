@@ -1,11 +1,13 @@
 import { z } from "zod";
-import { apiOk, guarded } from "@/lib/api";
+import { apiError, apiOk, guarded } from "@/lib/api";
 import {
   listInvestments,
   listObligations,
   readCashFlow,
   listCommitteeDecisions,
 } from "@/lib/family-office-capital-service";
+import { protectionSummary } from "@/lib/family-office-protection-service";
+import { can } from "@/lib/authz";
 import { db } from "@/db";
 import * as s from "@/db/schema";
 import { inArray } from "drizzle-orm";
@@ -31,7 +33,7 @@ export const dynamic = "force-dynamic";
  */
 const QuestionSchema = z
   .object({
-    topic: z.enum(["CAPITAL", "DEBT", "LIQUIDITY", "CASH_FLOW", "COMMITTEE"]),
+    topic: z.enum(["CAPITAL", "DEBT", "LIQUIDITY", "CASH_FLOW", "COMMITTEE", "PROTECTION"]),
     asOf: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
   })
@@ -56,6 +58,17 @@ export async function POST(request: Request) {
     async (ctx) => {
       const body = QuestionSchema.parse(await ctx.request.json().catch(() => ({})));
       const asOf = body.asOf ?? todayIso();
+
+      /**
+       * PROTECTION is topic-gated: the endpoint's baseline permission is
+       * `familyoffice:capital.read`, and capital visibility does NOT imply
+       * insurance visibility. The check is a real `can()`, not a URL rule
+       * (§15: routes never constitute authorization).
+       */
+      if (body.topic === "PROTECTION") {
+        const decision = can(ctx.principal, "familyoffice:protection.read");
+        if (!decision.allowed) return apiError("FORBIDDEN", decision.reason, 403, ctx.traceId);
+      }
 
       const scope = await tenantScopeIds(ctx.principal);
       const payload = await (async () => {
@@ -82,6 +95,8 @@ export async function POST(request: Request) {
             return readCashFlow(ctx.principal, asOf);
           case "COMMITTEE":
             return listCommitteeDecisions(ctx.principal);
+          case "PROTECTION":
+            return protectionSummary(ctx.principal, asOf);
         }
       })();
 
@@ -109,6 +124,14 @@ export async function POST(request: Request) {
             "BYPASS_GOVERNANCE",
             "CAP_POSTING",
             "AUDIT_WRITE",
+            // Protection & insurance (§27): Noelia reads, summarizes and flags.
+            // Every consequential act on an insurance record belongs to an
+            // authorized human on a governed route, and no tool path exists.
+            "BIND_COVERAGE",
+            "CANCEL_COVERAGE",
+            "CHANGE_INSURANCE_BENEFICIARY",
+            "APPROVE_CLAIM",
+            "UNDERWRITE",
           ],
           authoritativeAccountingOwner: "FINANCE_OS",
           /**
