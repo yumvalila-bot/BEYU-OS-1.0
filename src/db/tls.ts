@@ -4,17 +4,52 @@
  * WHY THIS EXISTS
  *   Production reported, for `GET /api/health`:
  *     {"classification":"DATABASE_TLS_FAILURE","code":"SELF_SIGNED_CERT_IN_CHAIN"}
+ *   then, after the pinned-CA remediation:
+ *     {"classification":"DATABASE_TLS_TRUST_MISCONFIGURED"}
  *
- *   Supabase's database CA is a PRIVATE CA. It has never been in the
- *   Mozilla/NSS root programme, so it is absent from every Node.js bundled
- *   store (Vercel's runtime included). A client relying on the ambient trust
- *   store therefore cannot verify the Supabase chain and fails closed with
- *   OpenSSL error #19 — exactly the observed incident. Supabase documents this:
- *   `sslmode=verify-full` (the mode Supabase recommends) requires the Supabase
- *   CA certificate to be supplied explicitly.
+ *   Two distinct failures, in order:
  *
- *   This module supplies that CA explicitly, from first-party Supabase material
- *   pinned by SHA-256 fingerprint (see config/tls/supabase/README.md).
+ *   (a) SELF_SIGNED_CERT_IN_CHAIN — Supabase's database CA is a PRIVATE CA. It
+ *       has never been in the Mozilla/NSS root programme, so it is absent from
+ *       every Node.js bundled store (Vercel's runtime included). A client
+ *       relying on the ambient trust store cannot verify the Supabase chain and
+ *       fails closed with OpenSSL error #19. Supabase documents this:
+ *       `sslmode=verify-full` (the mode Supabase recommends) requires the
+ *       Supabase CA certificate to be supplied explicitly. FIXED by pinning the
+ *       first-party Supabase roots (SHA-256 fingerprint allowlist, embedded in
+ *       src/db/supabase-ca.ts).
+ *
+ *   (b) DATABASE_TLS_TRUST_MISCONFIGURED — the first remediation additionally
+ *       required the DSN itself to carry `sslmode=verify-full` as an explicit
+ *       operator declaration. The actually-configured production DSNs do not:
+ *       Vercel's DATABASE_URL carries `sslmode=require` and the GitHub
+ *       BEYU_ADMIN_DATABASE_URL secret carries no query parameters at all, and
+ *       neither could be updated from the engineering environment. The policy
+ *       lint therefore failed the DSN BEFORE any network activity (1 ms) and
+ *       production stayed DOWN for want of a parameter that this module was
+ *       already enforcing in code regardless. FIXED by making verify-full
+ *       semantics the enforced DEFAULT (see DSN POLICY below).
+ *
+ * DSN POLICY (the tls.ts gate, enforced for every REMOTE host)
+ *   The effective TLS mode of a BEYU database connection is verify-full, in
+ *   code, always: pinned CA + chain verification + hostname verification. The
+ *   DSN's sslmode parameter can never lower that; it can only be REJECTED for
+ *   asking for something weaker. Accepted forms for a remote DSN:
+ *     sslmode=verify-full   recommended; says exactly what the runtime does
+ *     sslmode=require       accepted and UPGRADED — the DSN asks for mandatory
+ *                           encryption, BEYU enforces strictly more (pinned CA
+ *                           + chain + hostname). The parameter is stripped
+ *                           before pg sees it, so the pg-connection-string
+ *                           "require ≡ verify-full" aliasing (2.x) and its
+ *                           libpq-semantics reversal (v3/pg 9) are both moot.
+ *     (sslmode absent)      accepted; the DEFAULT is strict verified TLS. This
+ *                           is stronger than pg's own default (no TLS at all)
+ *                           and stronger than libpq's (prefer).
+ *   Rejected outright, in every environment (see assertNoVerificationBypass):
+ *     sslmode=disable|no-verify|allow|prefer|verify-ca, uselibpqcompat, and
+ *     every OTHER ssl* DSN parameter (ssl, sslcert, sslkey, sslrootcert,
+ *     sslpassword, sslnegotiation) — operator TLS material that is not the
+ *     pinned anchors, or a negotiation mode the runtime does not use.
  *
  * SECURITY POSTURE (non-negotiable, enforced here)
  *   1. `rejectUnauthorized` is always `true`. There is no code path, no
@@ -43,7 +78,11 @@
  *     uselibpqcompat=true&sslmode=require  -> rejectUnauthorized=false
  *     uselibpqcompat=true&sslmode=require  -> checkServerIdentity = () => {}
  *        + sslrootcert                        (hostname check deleted)
- *   None of these may appear in a BEYU DSN.
+ *   None of these may appear in a BEYU DSN. Neither may any other ssl* DSN
+ *   parameter: pg-connection-string sets `ssl = {}` for ANY of
+ *   sslcert/sslkey/sslrootcert/sslmode, which would silently clobber the
+ *   pinned ssl object in pg's connection-parameter merge, and `ssl=true|1|0`
+ *   and `sslnegotiation=direct` set `ssl` outright.
  *
  * NO SECRETS
  *   A CA certificate is public material. Only labels and fingerprints are ever
@@ -248,7 +287,12 @@ export function loadSupabaseTrustAnchors(): TrustedCaCertificate[] {
 const FORBIDDEN_SSLMODES = new Set(["disable", "no-verify", "allow", "prefer", "verify-ca"]);
 
 /**
- * The `sslmode` a BEYU DSN must carry.
+ * The EFFECTIVE sslmode of every remote BEYU connection, enforced in code.
+ *
+ * A remote DSN may DECLARE `sslmode=verify-full` (recommended) or
+ * `sslmode=require` (upgraded, see the module header), or omit the parameter
+ * (strict default) — the TLS configuration handed to pg is IDENTICAL in all
+ * three cases and no other value is accepted.
  *
  * NOTE on pg-connection-string@2.14.0: in the default (non-libpq) path,
  * `prefer`, `require` and `verify-ca` are *aliases* of `verify-full` — they only
@@ -256,8 +300,10 @@ const FORBIDDEN_SSLMODES = new Set(["disable", "no-verify", "allow", "prefer", "
  * `rejectUnauthorized: true` applies. `require` is therefore verified TODAY.
  * That aliasing is a documented breaking change scheduled for
  * pg-connection-string v3 / pg v9, where these modes revert to libpq semantics
- * and stop verifying. BEYU writes `verify-full` explicitly so the DSN says what
- * the runtime does and survives the dependency bump.
+ * and stop verifying. BEYU never relies on the aliasing: the sslmode parameter
+ * is STRIPPED from the DSN before pg sees it (see buildPgConnectionConfig) and
+ * the pinned-CA configuration is supplied directly, so the effective mode is
+ * verify-full no matter which pg major version is installed.
  */
 export const REQUIRED_SSLMODE = "verify-full";
 
@@ -383,6 +429,22 @@ export function assertNoVerificationBypass(dsn: string, label: string): void {
     );
   }
 
+  // Every OTHER ssl* parameter is rejected: pg-connection-string sets ssl={}
+  // for sslcert/sslkey/sslrootcert (clobbering the pinned ssl object in pg's
+  // merge), ssl=true/'1'/'0' sets ssl outright, and sslnegotiation selects a
+  // negotiation mode the runtime does not use. TLS trust in BEYU comes from the
+  // pinned anchors in source — operator TLS material in a DSN is not a
+  // supported configuration and fails closed rather than being half-applied.
+  for (const key of [...new Set([...searchParams.keys()])]) {
+    if (key.toLowerCase() === "sslmode") continue;
+    if (key.toLowerCase().startsWith("ssl")) {
+      throw new DatabaseTlsTrustError(
+        `${label} must not set ${key}: TLS trust is pinned in source (src/db/supabase-ca.ts) ` +
+          `and cannot be supplied or altered from the DSN. Use sslmode=${REQUIRED_SSLMODE}.`,
+      );
+    }
+  }
+
   const sslmode = (searchParams.get("sslmode") ?? "").toLowerCase();
   if (FORBIDDEN_SSLMODES.has(sslmode)) {
     throw new DatabaseTlsTrustError(
@@ -393,23 +455,29 @@ export function assertNoVerificationBypass(dsn: string, label: string): void {
 }
 
 /**
- * Assert a DSN preserves full TLS + hostname verification.
+ * Assert a DSN's DECLARED sslmode is compatible with the enforced policy, and
+ * the endpoint shape preserves hostname verification.
  *
- * Throws on anything that would weaken verification, on an IP-literal host
- * (which silently disables hostname verification because pg only sets
- * `servername` for non-IP hosts), and on any insecure mode.
+ * ACCEPTED declarations for a remote DSN (the enforced mode is verify-full in
+ * every case — see the module header):
+ *   sslmode=verify-full  the recommended explicit form
+ *   sslmode=require      upgraded: mandatory encryption requested, verification
+ *                        enforced in code (stronger than the DSN asks for)
+ *   (absent)             strict verified TLS is the DEFAULT for remote hosts
+ *
+ * Everything else was already rejected by assertNoVerificationBypass, and an
+ * IP-literal host is rejected below because pg only sets `servername` (and
+ * hence only enables hostname verification) for non-IP hosts.
  */
 export function assertDatabaseDsnIsVerified(dsn: string, label: string): DsnEndpointFacts {
   assertNoVerificationBypass(dsn, label);
   const facts = describeDsnEndpoint(dsn);
 
   const sslmode = (facts.sslmode ?? "").toLowerCase();
-  if (sslmode === "") {
-    throw new DatabaseTlsTrustError(`${label} must set sslmode=${REQUIRED_SSLMODE} explicitly.`);
-  }
-  if (sslmode !== REQUIRED_SSLMODE) {
+  if (sslmode !== "" && sslmode !== REQUIRED_SSLMODE && sslmode !== "require") {
     throw new DatabaseTlsTrustError(
-      `${label} uses sslmode=${sslmode}. BEYU requires sslmode=${REQUIRED_SSLMODE}.`,
+      `${label} uses sslmode=${sslmode}. BEYU requires sslmode=${REQUIRED_SSLMODE} ` +
+        `(sslmode=require is accepted and upgraded; every weaker mode is rejected).`,
     );
   }
 
@@ -486,25 +554,28 @@ export function resolveDatabaseTls(dsn: string, label = "DATABASE_URL"): Resolve
 /**
  * A pg connection configuration whose TLS trust cannot be silently discarded.
  *
- * WHY `sslmode` IS STRIPPED FROM THE CONNECTION STRING
+ * WHY EVERY `ssl*` PARAMETER IS STRIPPED FROM THE CONNECTION STRING
  *   `pg/lib/connection-parameters.js` merges the DSN OVER the explicit options:
  *
  *     if (config.connectionString) {
  *       config = Object.assign({}, config, parse(config.connectionString))
  *     }
  *
- *   and `pg-connection-string` sets `ssl = {}` for ANY `sslmode` value. So
- *   passing `{ connectionString: "…?sslmode=verify-full", ssl: { ca: […] } }`
- *   makes pg **silently throw the CA away** — the pool ends up with `ssl: {}`
- *   and no explicit trust anchor. Verified empirically against pg 8.20.0 /
+ *   and `pg-connection-string` sets `ssl = {}` for ANY of
+ *   sslmode/sslcert/sslkey/sslrootcert, and `ssl` outright for
+ *   ssl=true/'1'/'0' and sslnegotiation=direct. So passing
+ *   `{ connectionString: "…?sslmode=…", ssl: { ca: […] } }` makes pg
+ *   **silently throw the CA away** — the pool ends up with `ssl: {}` and no
+ *   explicit trust anchor. Verified empirically against pg 8.20.0 /
  *   pg-connection-string 2.14.0: with a DSN carrying `sslmode`, the explicit
  *   `ssl` object is discarded; with `sslmode` removed, it survives intact.
  *
- *   Therefore the DSN is still *required* to declare `sslmode=verify-full`
- *   (so the operator's intent is explicit and audited by
- *   `assertDatabaseDsnIsVerified`), but the value handed to pg omits it, and
- *   the equivalent-or-stronger configuration is supplied directly. All other
- *   DSN parameters are preserved verbatim.
+ *   Therefore the DSN's DECLARED sslmode (verify-full, or require — upgraded,
+ *   or absent — strict default; see assertDatabaseDsnIsVerified) is removed
+ *   before the string is handed to pg, together with every other ssl*
+ *   parameter (which assertNoVerificationBypass has already limited to
+ *   sslmode), and the pinned-CA configuration is supplied directly. All other
+ *   DSN parameters (e.g. pgbouncer=true) are preserved verbatim.
  *
  * NEVER LOG `connectionString` — it carries the password.
  */
@@ -548,8 +619,13 @@ export function buildPgConnectionConfig(
     throw new DatabaseTlsTrustError(`${label} is not a parseable URL`);
   }
   // Removed so that pg's connectionString merge cannot discard the explicit
-  // `ssl` object below. See PgTlsConnectionConfig for the full reasoning.
-  url.searchParams.delete("sslmode");
+  // `ssl` object below. Every ssl* parameter goes, not just sslmode: any of
+  // them makes pg-connection-string emit an `ssl` value that overrides the
+  // pinned trust configuration in pg's Object.assign merge. See
+  // PgTlsConnectionConfig for the full reasoning.
+  for (const key of [...new Set([...url.searchParams.keys()])]) {
+    if (key.toLowerCase().startsWith("ssl")) url.searchParams.delete(key);
+  }
 
   return {
     connectionString: url.toString(),

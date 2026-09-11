@@ -46,6 +46,7 @@ import crypto from "node:crypto";
 import { Client } from "pg";
 
 import {
+  REQUIRED_SSLMODE,
   SUPABASE_TRUST_ANCHOR_FINGERPRINTS,
   buildPgConnectionConfig,
   certificateFingerprintSha256,
@@ -155,8 +156,16 @@ function checkTrustConfiguration(dsn: string | undefined, label: string, expecte
     return undefined;
   }
 
-  // 3 — TLS enabled (sslmode=verify-full is asserted by the builder)
-  record("3", `${prefix}: TLS is enabled`, "PASS", `sslmode=${endpoint.sslmode}`);
+  // 3 — TLS enabled. The builder enforces verify-full semantics in code for
+  // every remote DSN: sslmode=verify-full (explicit), sslmode=require
+  // (upgraded) and an absent sslmode (strict default) all yield the identical
+  // pinned-CA configuration; weaker declarations were rejected above.
+  record(
+    "3",
+    `${prefix}: TLS is enabled`,
+    "PASS",
+    `sslmode=${endpoint.sslmode ?? "absent"} (effective: ${REQUIRED_SSLMODE}, enforced in code)`,
+  );
 
   // 4 — certificate verification enabled
   record(
