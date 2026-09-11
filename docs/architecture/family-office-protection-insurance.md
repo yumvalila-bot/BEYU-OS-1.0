@@ -182,11 +182,18 @@ mutations honor `Idempotency-Key` via the shared durable ledger; all money is in
 
 ## 15. Testing evidence
 
-See `FINAL_REPORT §6` of the implementing session and, in-repo:
+Durable evidence lives in-repo at
 `tests/family/office/protection-insurance/{engine,service-db,http,noelia-boundary}.test.ts` —
-60 pure engine cases, 12 real-database governed-write cases (audit + event assertions), 31 transport cases,
-4 AI-boundary cases; all run twice consecutively with identical results; full repository regression unchanged
-(see the session's final report).
+60 pure engine cases, 12 real-database governed-write cases (audit + event assertions), 34 transport
+cases, 4 AI-boundary cases (110 total; `npx vitest run tests/family/office/protection-insurance`).
+The suite pins, rather than describes, the invariants a reviewer would otherwise have to take on
+trust: contingent death benefit never enters a wealth or liquidity total; a missing gap input yields
+`NOT_QUANTIFIED` instead of zero; insurer decisions and proceeds receipts require an evidence ref;
+AI actors are refused at every lifecycle point; duplicate `policyNumber` returns a governed 409;
+`familyoffice:beneficiary.manage` demands MFA step-up; `GROUP_CEO` receives 403 on every route; and
+`CAP_POSTING` is unreferenced in this domain (source-pinned). Migration 0038 additionally refuses to
+finish applying unless all nine tenant-isolation policies exist, and `npm run migrate` re-run is a
+verified no-op.
 
 ## 16. Explicit non-goals (§36, §37)
 
