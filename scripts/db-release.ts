@@ -48,6 +48,7 @@ import { join } from "node:path";
 import { Client } from "pg";
 import { annotateError, annotateGateFailures, failSanitized } from "./lib/ci-annotation";
 import { sanitizeError } from "./lib/sanitize-error";
+import { buildPgConnectionConfig } from "../src/db/tls";
 
 type Mode = "preflight" | "verify" | "drift";
 
@@ -115,7 +116,8 @@ function scanDestructive(sql: string): string[] {
 }
 
 async function main() {
-  const client = new Client({ connectionString: adminUrl, connectionTimeoutMillis: 15_000 });
+  const { connectionString, ssl } = buildPgConnectionConfig(adminUrl!, "BEYU_ADMIN_DATABASE_URL");
+  const client = new Client({ connectionString, ssl, connectionTimeoutMillis: 15_000 });
   try {
     await client.connect();
   } catch (e) {
