@@ -1,0 +1,62 @@
+# BEYU OS — ADMIN DSN STRUCTURAL DIAGNOSTIC (READ-ONLY, DISPATCH-ONLY)
+#
+# WHY THIS WORKFLOW EXISTS
+#   The `db-release` live preflight fails reproducibly with:
+#       ::error title=db-release::db-release: TLS_FAILURE   (exit code 1)
+#
+#   Exit code 1 with the context `db-release` (not `db-release preflight`, which
+#   is the exit-2/connect-failure context) proves the throw originates in
+#   `buildPgConnectionConfig()` BEFORE any socket is opened — so it is not a
+#   certificate, CA, network or authentication event. But `sanitize-error.ts`
+#   collapses every such failure into the single token `TLS_FAILURE`, because the
+#   string "DatabaseTlsTrustError" itself matches /TLS/i. The specific predicate
+#   that tripped is therefore invisible from the run summary.
+#
+#   This workflow recovers that predicate from an environment that actually
+#   holds the secret, without ever disclosing it.
+#
+# SAFETY
+#   * workflow_dispatch ONLY — never on push, pull_request or schedule.
+#   * READ-ONLY: no database connection is attempted, nothing is written to the
+#     database, no infrastructure is touched, nothing is deployed or rotated.
+#   * The DSN is NEVER printed and NEVER uploaded. `diagnose-admin-dsn.mts`
+#     emits a fixed allowlisted schema: parameter names, the `sslmode` value,
+#     the port, the database name, and PRESENT/ABSENT booleans for the
+#     credentials. The hostname is reduced to comparisons against the canonical
+#     endpoint already published in `.env.example`, so an unknown project
+#     reference cannot leak.
+#   * NO ARTIFACT IS UPLOADED. Results are published as `::warning::`
+#     annotations, which are retrievable through the check-runs annotations API
+#     without the (network-restricted) job log archive.
+#   * No TLS posture is weakened by this workflow.
+
+name: BEYU OS — admin DSN structural diagnostic (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  structural-diagnostic:
+    name: Report admin DSN structure (no values)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Report the DSN's structural configuration (no secret values)
+        run: npx tsx scripts/diagnose-admin-dsn.mts
