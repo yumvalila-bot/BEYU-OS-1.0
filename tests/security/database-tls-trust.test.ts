@@ -264,6 +264,75 @@ describe("pg must actually receive the pinned CA", () => {
 });
 
 /* ====================================================================== */
+/* DSN POLICY — every accepted form yields the SAME strict TLS config      */
+/* ====================================================================== */
+
+describe("DSN policy: verify-full semantics are the enforced default", () => {
+  const HOST = "aws-0-eu-west-3.pooler.supabase.com:6543/postgres";
+
+  const accepted: Array<{ name: string; dsn: string; declared: string | null }> = [
+    {
+      name: "sslmode=verify-full (the recommended explicit form)",
+      dsn: `postgresql://u:p@${HOST}?sslmode=verify-full&pgbouncer=true`,
+      declared: "verify-full",
+    },
+    {
+      // The actually-configured production shape (Vercel DATABASE_URL):
+      // the DSN asks for mandatory encryption; BEYU upgrades to full
+      // verification with the pinned Supabase CA.
+      name: "sslmode=require (the production shape — UPGRADED to verify-full)",
+      dsn: `postgresql://u:p@${HOST}?sslmode=require&pgbouncer=true`,
+      declared: "require",
+    },
+    {
+      // The actually-configured admin shape (GitHub BEYU_ADMIN_DATABASE_URL):
+      // no parameters at all; strict verified TLS is the DEFAULT for a remote
+      // host — stronger than pg's own default of no TLS.
+      name: "sslmode absent (the admin-secret shape — strict DEFAULT)",
+      dsn: `postgresql://u:p@${HOST}`,
+      declared: null,
+    },
+  ];
+
+  for (const { name, dsn, declared } of accepted) {
+    it(`accepts ${name} with the identical pinned-CA configuration`, () => {
+      const built = buildPgConnectionConfig(dsn, "DATABASE_URL", NON_PROD_ENV);
+      expect(built.localDevelopment).toBe(false);
+      // The enforced TLS posture is identical across all accepted forms and
+      // cannot be lowered by the DSN.
+      expect(built.ssl?.rejectUnauthorized).toBe(true);
+      expect(built.ssl).not.toHaveProperty("checkServerIdentity");
+      expect(Object.keys(built.ssl ?? {}).sort()).toEqual(["ca", "rejectUnauthorized"]);
+      expect(built.ssl?.ca).toHaveLength(2);
+      const fingerprints = loadSupabaseTrustAnchors().map((a) => a.fingerprintSha256);
+      expect(built.anchors.map((a) => a.fingerprintSha256)).toEqual(fingerprints);
+      // The declared (or absent) sslmode never reaches pg: every ssl*
+      // parameter is stripped so pg's DSN merge cannot discard the ssl object.
+      expect(built.connectionString).not.toMatch(/ssl/i);
+      // Non-TLS parameters are preserved verbatim.
+      if (declared === "verify-full" || declared === "require") {
+        expect(built.connectionString).toContain("pgbouncer=true");
+      }
+      // pg, given the built config, carries the pinned CA and verifies.
+      const client = new Client({ connectionString: built.connectionString, ssl: built.ssl });
+      const ssl = (client as unknown as { connectionParameters: { ssl: Record<string, unknown> } })
+        .connectionParameters.ssl;
+      expect(ssl.rejectUnauthorized).toBe(true);
+      expect(Array.isArray(ssl.ca)).toBe(true);
+      expect(ssl.checkServerIdentity).toBeUndefined();
+    });
+  }
+
+  it("the three accepted forms are byte-identical in their TLS configuration", () => {
+    const configs = accepted.map(({ dsn }) => buildPgConnectionConfig(dsn, "DATABASE_URL", NON_PROD_ENV));
+    const first = JSON.stringify(configs[0]!.ssl);
+    for (const config of configs.slice(1)) {
+      expect(JSON.stringify(config.ssl)).toBe(first);
+    }
+  });
+});
+
+/* ====================================================================== */
 /* ENVIRONMENT SCOPING                                                     */
 /* ====================================================================== */
 
@@ -324,13 +393,16 @@ describe("environment scoping", () => {
       NODE_ENV: "test",
       BEYU_ALLOW_LOCAL_PLAINTEXT_DB: "1",
     } as NodeJS.ProcessEnv;
-    // A remote host is verified regardless of the flag: still requires
-    // sslmode=verify-full, a DNS hostname and the pinned CA.
+    // A remote host is verified regardless of the flag: a DNS hostname, the
+    // pinned CA, and code-enforced verify-full semantics no matter what the
+    // DSN declares (or omits).
     expect(requiresVerifiedTls(PRODUCTION_DSN, env)).toBe(true);
     const noSslmode = "postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres";
-    expect(() => buildPgConnectionConfig(noSslmode, "DATABASE_URL", env)).toThrow(
-      /must set sslmode=verify-full/,
-    );
+    const built = buildPgConnectionConfig(noSslmode, "DATABASE_URL", env);
+    expect(built.localDevelopment).toBe(false);
+    expect(built.ssl?.rejectUnauthorized).toBe(true);
+    expect(built.ssl).not.toHaveProperty("checkServerIdentity");
+    expect(built.ssl?.ca).toHaveLength(2);
     const resolved = resolveDatabaseTls(PRODUCTION_DSN, "DATABASE_URL");
     expect(resolved.tls.rejectUnauthorized).toBe(true);
     expect(resolved.anchors).toHaveLength(2);
@@ -354,10 +426,10 @@ describe("fail-closed: insecure DSN directives", () => {
     });
   }
 
-  it("rejects a missing sslmode on a remote host", () => {
-    const dsn = "postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres";
+  it("rejects an unrecognised sslmode value on a remote host", () => {
+    const dsn = "postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=verify-identity";
     expect(() => buildPgConnectionConfig(dsn, "DATABASE_URL", NON_PROD_ENV)).toThrow(
-      /must set sslmode=verify-full/,
+      /sslmode=verify-identity/,
     );
   });
 
@@ -368,6 +440,43 @@ describe("fail-closed: insecure DSN directives", () => {
       /uselibpqcompat/,
     );
   });
+
+  it("rejects uselibpqcompat even alongside an upgradable sslmode=require", () => {
+    const dsn =
+      "postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=require&uselibpqcompat=true";
+    expect(() => buildPgConnectionConfig(dsn, "DATABASE_URL", NON_PROD_ENV)).toThrow(
+      /uselibpqcompat/,
+    );
+  });
+
+  /**
+   * pg-connection-string sets ssl={} for sslcert/sslkey/sslrootcert (silently
+   * discarding the pinned ssl object in pg's merge) and ssl=true/'1'/'0' sets
+   * ssl outright; sslnegotiation selects a negotiation mode the runtime does
+   * not use. None may appear in a BEYU DSN — trust is pinned in source.
+   */
+  const forbiddenTlsParams: Array<[string, string]> = [
+    ["ssl", "true"],
+    ["ssl", "false"],
+    ["ssl", "1"],
+    ["ssl", "0"],
+    ["sslcert", "/path/to/client.crt"],
+    ["sslkey", "/path/to/client.key"],
+    ["sslrootcert", "/path/to/ca.crt"],
+    ["sslpassword", "not-a-real-secret"],
+    ["sslnegotiation", "direct"],
+  ];
+  for (const [param, value] of forbiddenTlsParams) {
+    it(`rejects ${param}=${value} — TLS trust cannot be supplied or altered from the DSN`, () => {
+      const dsn =
+        `postgresql://u:p@aws-0-eu-west-3.pooler.supabase.com:6543/postgres` +
+        `?sslmode=verify-full&${param}=${encodeURIComponent(value)}`;
+      expect(() => buildPgConnectionConfig(dsn, "DATABASE_URL", NON_PROD_ENV)).toThrow(
+        new RegExp(`must not set ${param}`),
+      );
+      expect(() => assertNoVerificationBypass(dsn, "DATABASE_URL")).toThrow(DatabaseTlsTrustError);
+    });
+  }
 
   it("rejects an IP-literal host, which would drop hostname verification", () => {
     const dsn = "postgresql://u:p@13.39.246.141:6543/postgres?sslmode=verify-full";
@@ -488,7 +597,7 @@ describe.skipIf(!opensslAvailable())("real TLS handshake against the pinned trus
    * anchors are `caPems`. Returns the outcome without ever disabling
    * verification.
    */
-  async function attempt(caPems: string[], serverCert: string, serverKey: string) {
+  async function attempt(caPems: string[], serverCert: string, serverKey: string, servername = "127.0.0.1") {
     const server = tls.createServer({ cert: serverCert, key: serverKey }, (socket) => socket.end());
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = (server.address() as net.AddressInfo).port;
@@ -500,9 +609,11 @@ describe.skipIf(!opensslAvailable())("real TLS handshake against the pinned trus
             port,
             ca: caPems,
             rejectUnauthorized: true,
-            // Node's default checkServerIdentity runs against this name. The
-            // leaf carries SAN IP:127.0.0.1, so verification is real here.
-            servername: "127.0.0.1",
+            // Node's default checkServerIdentity runs against this name. With
+            // the default the leaf's SAN IP:127.0.0.1 matches, so verification
+            // is real here; passing a different name exercises the identity
+            // check specifically (the verify-full part that verify-ca skips).
+            servername,
           },
           () => {
             socket.end();
@@ -561,6 +672,24 @@ describe.skipIf(!opensslAvailable())("real TLS handshake against the pinned trus
     // differs. Proves the pinning verifies rather than blanket-rejects, and
     // that adding the correct anchor is a sufficient fix.
     expect(result.ok).toBe(true);
+  });
+
+  it("refuses a hostname mismatch even when the chain IS fully trusted (verify-full identity check)", async () => {
+    const dir = tempDir();
+    const chain = issueChainWithRootInServedChain(dir, "aws-0-eu-west-3.pooler.supabase.com");
+    // The leaf's SAN is DNS:localhost,IP:127.0.0.1. Presenting a DIFFERENT
+    // servername must fail the handshake even though the root IS the supplied
+    // trust anchor: this is the identity half of verify-full, exactly the part
+    // that sslmode=verify-ca (rejected above) would drop, and that an
+    // IP-literal DSN would silently lose (pg sets no servername for IPs).
+    const result = await attempt(
+      [chain.caPem],
+      chain.servedChain,
+      chain.leafKey,
+      "wrong-hostname.example",
+    );
+    expect(result.ok).toBe(false);
+    expect(result.code).toBe("ERR_TLS_CERT_ALTNAME_INVALID");
   });
 
   it("the pinned anchors are not in Node's bundled store (why the incident happened)", () => {
