@@ -1,5 +1,50 @@
 # Changelog
 
+## [Unreleased] — production DATABASE_TLS_TRUST_MISCONFIGURED remediation — 2026-09-11
+
+Production `GET /api/health` returned
+`{"ok":false,"checks":{"database":"DOWN"},"reason":"DATABASE_TLS_TRUST_MISCONFIGURED"}`.
+Root cause (established by evidence, not inference): the pinned-CA TLS
+implementation from PR #51 is correct, but its DSN policy gate required the DSN
+itself to carry `sslmode=verify-full`. The actually-configured production DSNs
+do not and cannot be changed from the engineering environment: the Vercel
+production `DATABASE_URL` carries `sslmode=require&pgbouncer=true` (forensic
+record 2026-09-10 §2; reproduced by the runtime DSN diagnostic, failing in
+1 ms — before any network activity) and the GitHub
+`BEYU_ADMIN_DATABASE_URL` secret carries no query parameters at all (admin DSN
+structural diagnostic). The gate therefore failed both DSNs pre-network and
+production stayed DOWN for want of a parameter the module was already
+enforcing in code regardless.
+
+The fix makes verify-full semantics the enforced DEFAULT for every remote DSN
+(`src/db/tls.ts`), with the TLS posture itself unchanged and non-negotiable:
+
+- `rejectUnauthorized` stays hard-coded `true`; hostname verification stays on
+  (no `checkServerIdentity` override, IP-literal hosts still rejected); trust
+  stays narrowed to the fingerprint-pinned Supabase roots.
+- Accepted DSN declarations: `sslmode=verify-full` (recommended),
+  `sslmode=require` (accepted and UPGRADED — the DSN asks for mandatory
+  encryption, BEYU enforces strictly more), and an absent sslmode (strict
+  verified TLS by default — stronger than pg's own no-TLS default). All three
+  yield a byte-identical TLS configuration.
+- Still rejected, in every environment: `sslmode=disable|no-verify|allow|
+  prefer|verify-ca`, `uselibpqcompat`, and every OTHER `ssl*` DSN parameter
+  (`ssl`, `sslcert`, `sslkey`, `sslrootcert`, `sslpassword`, `sslnegotiation`)
+  — pg-connection-string would turn any of them into an `ssl` value that
+  silently discards the pinned `ssl` object in pg's connection-parameter merge.
+- ALL `ssl*` parameters are now stripped from the DSN handed to pg (not just
+  `sslmode`), closing the same merge trap for every parameter shape.
+- No change to: fail-closed classifications, `/api/health` semantics, pool
+  timeouts, RLS, auth, CAP_POSTING, migrations, or the loopback-only local
+  development exemption.
+- Tests (`tests/security/database-tls-trust.test.ts`, 47 → 62): the three
+  accepted forms yield identical pinned-CA configuration with every `ssl*`
+  parameter stripped; unrecognised sslmode, `uselibpqcompat`, all nine
+  forbidden `ssl*` parameter shapes, IP literals and weakened process TLS
+  posture still fail closed; a real-handshake test proves a hostname mismatch
+  is refused even when the chain is fully trusted (the verify-full identity
+  check). Full suite: 3242 passed / 0 failed.
+
 ## [Unreleased] — /api/health diagnostic hardening — 2026-09-08
 
 Production `/api/health` collapsed every database failure into one silent `503
