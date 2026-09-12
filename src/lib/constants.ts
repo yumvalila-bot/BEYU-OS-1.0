@@ -200,6 +200,18 @@ export const PERMISSIONS = {
   "familyoffice:education.read": "Read the family education curriculum and progress",
   "familyoffice:education.manage": "Publish family education lessons and record progress",
   "familyoffice:capital.postmortem": "Record a post-investment review outcome attribution",
+  // Family office — PROTECTION & INSURANCE (life insurance as a governed Family
+  // Office capability: §4–§26 of the protection design). Read is one gate
+  // because the domain's sensitivity is uniform; the three write permissions
+  // are deliberately split: recording a policy, changing an insurance
+  // beneficiary designation, and progressing a claim are different acts with
+  // different consequences. None of them posts money — Finance OS stays the
+  // sole accounting authority and CAP_POSTING is never referenced here.
+  "familyoffice:protection.read": "Read Family Office insurance policies, coverage, premiums, assignments, loans, reviews and protection assessments",
+  "familyoffice:protection.manage": "Record and transition Family Office insurance policies, premium obligations, reviews and modeled protection assessments (never a posting)",
+  "familyoffice:beneficiary.manage": "Record, supersede or revoke insurance beneficiary designations (distinct from trust beneficiary entitlements; consequential legal act — MFA step-up)",
+  "familyoffice:claim.read": "Read the insurance claims ledger and proceeds posture (contingent vs received)",
+  "familyoffice:claim.manage": "Record insurance claims and their lifecycle transitions (records the insurer's reported decision and the receipt; adjudication and money movement belong elsewhere)",
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
@@ -300,6 +312,10 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "finance:settlement.manage",
   "finance:waterfall.commit",
   "family:beneficiary.manage",
+  // Changing an insurance beneficiary designation changes who receives a
+  // contingent death benefit. It is a consequential legal act on the same
+  // footing as a trust beneficiary change, so it carries the same MFA step-up.
+  "familyoffice:beneficiary.manage",
   // Recording an investment committee decision is the moment capital authority
   // is created, so it carries the same MFA step-up as a resolution approval.
   "familyoffice:committee.decide",
@@ -627,6 +643,14 @@ export const ROLES: Record<
       "familyoffice:generational.manage",
       "familyoffice:education.read",
       "familyoffice:education.manage",
+      // Protection & insurance: the Principal records and governs the whole
+      // domain — designations included — and nothing here bypasses the MFA
+      // step-up on `familyoffice:beneficiary.manage` or the finance boundary.
+      "familyoffice:protection.read",
+      "familyoffice:protection.manage",
+      "familyoffice:beneficiary.manage",
+      "familyoffice:claim.read",
+      "familyoffice:claim.manage",
       "documents:registry.read",
       "ai:noelia.query",
       "ai:executive.read",
@@ -674,6 +698,14 @@ export const ROLES: Record<
       "familyoffice:generational.read",
       "familyoffice:education.read",
       "familyoffice:education.manage",
+      // Protection & insurance: records and reports; the domain carries no
+      // approval permission at all (claim transitions record FACTS; the
+      // insurer decides, and designation changes stay under MFA step-up).
+      "familyoffice:protection.read",
+      "familyoffice:protection.manage",
+      "familyoffice:beneficiary.manage",
+      "familyoffice:claim.read",
+      "familyoffice:claim.manage",
       "documents:registry.read",
       "ai:noelia.query",
     ],
@@ -701,6 +733,7 @@ export const ROLES: Record<
       "familyoffice:decisionjournal.read",
       "familyoffice:decisionjournal.manage",
       "familyoffice:intelligence.read",
+      "familyoffice:protection.read",
       "documents:registry.read",
       "ai:noelia.query",
     ],
@@ -724,6 +757,8 @@ export const ROLES: Record<
       "familyoffice:scenario.read",
       "familyoffice:scenario.simulate",
       "familyoffice:intelligence.read",
+      "familyoffice:protection.read",
+      "familyoffice:claim.read",
       "ai:noelia.query",
     ],
   },
@@ -748,6 +783,8 @@ export const ROLES: Record<
       "familyoffice:scenario.simulate",
       "familyoffice:intelligence.read",
       "familyoffice:intelligence.manage",
+      "familyoffice:protection.read",
+      "familyoffice:claim.read",
       "ai:noelia.query",
     ],
   },
@@ -770,6 +807,8 @@ export const ROLES: Record<
       "familyoffice:obligation.read",
       "familyoffice:realestate.read",
       "familyoffice:intelligence.read",
+      "familyoffice:protection.read",
+      "familyoffice:claim.read",
       "documents:registry.read",
     ],
   },
@@ -792,6 +831,7 @@ export const ROLES: Record<
       "familyoffice:realestate.read",
       "familyoffice:intelligence.read",
       "familyoffice:intelligence.manage",
+      "familyoffice:protection.read",
       "documents:registry.read",
     ],
   },
@@ -827,6 +867,7 @@ export const ROLES: Record<
       "familyoffice:decisionjournal.read",
       "familyoffice:capital.postmortem",
       "familyoffice:generational.read",
+      "familyoffice:protection.read",
       "documents:registry.read",
       "ai:noelia.query",
     ],
@@ -855,6 +896,8 @@ export const ROLES: Record<
       "familyoffice:intelligence.read",
       "familyoffice:generational.read",
       "familyoffice:education.read",
+      "familyoffice:protection.read",
+      "familyoffice:claim.read",
       "ai:noelia.query",
     ],
   },

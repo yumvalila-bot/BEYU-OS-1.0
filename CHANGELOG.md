@@ -1,5 +1,60 @@
 # Changelog
 
+## [Unreleased] — Family Office Protection & Insurance (life insurance) — 2026-09-11
+
+Additive, backward-compatible enhancement of the EXISTING Family Office with a governed
+Protection & Insurance capability — life insurance as a first-class protection, succession,
+liquidity and wealth-planning record set. **Insurance is a BEYU OS Family Office capability,
+not a separate OS**; no Family Office, Finance, HCM, Risk, Legal, Documents, Audit or Noelia
+capability was replaced, redesigned or duplicated, and no existing route, table, permission or
+test was modified destructively.
+
+- Migration `0038_family_office_protection_insurance`: 9 new tenant-scoped tables
+  (`family_insurance_policies`, `..._beneficiary_designations`, `..._premiums`, `..._assignments`,
+  `..._policy_loans`, `..._reviews`, `..._claims`, `..._claim_events`, `family_protection_assessments`),
+  drizzle-generated + hand-governed RLS block mirroring 0036/0037 (`tenant_id = ANY (beyu_tenant_ids())`
+  USING+WITH CHECK on every table, `beyu_runtime` DML-only grant, fail-closed verification block that
+  aborts the migration if any table lacks its isolation policy). Money is `numeric(18,2)`; every
+  amount-carrying row records `authoritative_owner='FINANCE_OS'`, `epistemic_class` and a nullable
+  `finance_record_ref`. No existing table/column/route was renamed or dropped.
+- Pure engine `src/lib/family/office/protection-insurance/`: policy ownership model (owner / insured /
+  beneficiary / payer / assignee recorded separately, never derived), dual lifecycle machines
+  (contract status + §15 governance stage — AI actors and unproven skips refused; low-risk fast path
+  requires a cited ratified threshold), insurance beneficiary designations kept DISTINCT from the
+  TRUST register (exact integer millionths-of-percent allocation; impossible resulting states block,
+  incomplete ones record-and-flag), premium obligations (OVERDUE read-time only), claims ledger with a
+  monotonic proceeds machine (NONE→EXPECTED→CLAIMED→APPROVED→RECEIVED→ALLOCATED; insurer decisions
+  and receipts require cited evidence — no fabricated amounts), deterministic protection-gap engine
+  (six provenanced components; missing inputs yield UPPER/LOWER/NOT_QUANTIFIED bounds, never a
+  zero-fill), succession-liquidity buckets (contingent proceeds can NEVER enter a liquidity total;
+  only RECEIVED/ALLOCATED count; no cross-currency aggregation without a ratified FX source).
+- Service `src/lib/family-office-protection-service.ts` + 13 route files under
+  `api/v1/family-office/protection/*` (policies, status, governance, beneficiaries, premiums, reviews,
+  assignments+loans, claims + transitions + event log, assessments, dashboard, family-view) on the
+  existing `guarded()` + `withIdempotency()` + zod-strict + forged-field-rejection conventions.
+- Permissions (constants.ts catalogue; explicit per-role grants, no inheritance):
+  `familyoffice:protection.read/.manage`, `familyoffice:beneficiary.manage` (HIGH_RISK → MFA step-up),
+  `familyoffice:claim.read/.manage`. GROUP_CEO intentionally holds none (regression-proven 403s).
+- Audit/events: every sensitive change appends the hash-chained audit ledger and publishes
+  `INSURANCE_*` events to the existing `enterprise_events` chain in the same transaction
+  (`withAuditTransaction`); no parallel store, no scheduler, no auto-mutation of records.
+- UI: `/os/family/protection` dashboard + `/os/family/protection/[policyId]` detail on the existing
+  design system, one added navigation item, per-panel `can()` gating; nothing else re-skinned.
+- Noelia/HIVE: two READ-ONLY tools (`family.protection.policies`, `family.protection.review-package`,
+  `sideEffects: NONE`) + the family Noelia context endpoint's new PROTECTION topic (in-handler
+  `can()` gate). No tool path exists — or may exist — to bind/cancel coverage, change designations,
+  approve claims or move money; mechanically pinned by tests.
+- Finance safety: CAP_POSTING untouched and unreferenced by the domain (source-level test pins it);
+  no shadow GL/journal/treasury; premium and proceeds rows are governed RECORDS whose accounting
+  truth remains Finance OS's.
+- Docs: `docs/architecture/family-office-protection-insurance.md` (architecture, domain model,
+  authorization, data flow, lifecycles, gap methodology, Finance rules, legal/tax disclaimer,
+  Noelia boundaries, testing evidence) + `docs/domain-model/README.md` section.
+- Tests: 60 engine + 12 real-PostgreSQL service (audit/event/lifecycle/scope assertions) + 34
+  transport + 4 AI-boundary cases (new, `tests/family/office/protection-insurance/`); the full
+  repository regression suite was re-run green with these changes present, and the specialist
+  migration-count pins were updated by their own suites' documented protocol (38 → 39).
+
 ## [Unreleased] — production DATABASE_TLS_TRUST_MISCONFIGURED remediation — 2026-09-11
 
 Production `GET /api/health` returned

@@ -895,8 +895,9 @@ describe("treasury module — creates no second truth", () => {
 // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
+// + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(38);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(39);
   });
 
   it("leaves all triggers enabled", async () => {

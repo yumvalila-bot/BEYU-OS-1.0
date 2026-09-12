@@ -27,6 +27,7 @@ import { db, hasDatabaseTransactionContext } from "@/db";
 import {
   familyCapitalAllocations,
   familyCommitteeDecisions,
+  familyInsurancePolicies,
   familyInvestments,
   familyLiquiditySnapshots,
   familyObligations,
@@ -36,7 +37,7 @@ import {
 import { CLASSIFICATION_ORDER, classificationRank, isKnownClassification } from "@/lib/constants";
 import type { NoeliaToolOutput, ToolInvocationContext } from "@/lib/noelia/types";
 import { projectCapital, validateCommitteeDecision } from "@/lib/family/office/capital-wealth";
-import { minorToNumeric } from "@/lib/family-office-capital-service";
+import { minorToNumeric, numericToMinor } from "@/lib/family-office-capital-service";
 
 function requireCanonicalContext(): void {
   if (!hasDatabaseTransactionContext()) {
@@ -351,6 +352,99 @@ export class BeyuNoeliaFamilyOfficeService {
       limitations: [
         "A liquidity projection is a projection. Alerts are advisory only and never freeze, transfer or approve anything.",
         ACCOUNTING_BOUNDARY,
+      ],
+      humanReviewRequired: true,
+    };
+  }
+  /* ---------------------------------------------------------------- */
+  /* Protection & insurance — governed READ/summarise only (§27).      */
+  /* No tool here may bind, cancel, modify, change a beneficiary,      */
+  /* approve a claim or move money: none of those even have a service   */
+  /* method on this class, and the write paths they would need are      */
+  /* permission-bound routes a tool has no registration against.       */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * §24/§27 — protection book summary: counts, contingent per-currency totals
+   * and review exceptions. Death benefits are reported as CONTINGENT; no
+   * wealth total is produced, because this domain has no authority to make one.
+   */
+  async protectionPolicies(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const classifications = visibleClassifications(context);
+    if (classifications.length === 0) return { findings: [], limitations: ["No classification is visible at your clearance."] };
+
+    const rows = await db
+      .select()
+      .from(familyInsurancePolicies)
+      .where(and(inArray(familyInsurancePolicies.tenantId, context.scope.tenantIds), inArray(familyInsurancePolicies.classification, classifications)));
+
+    const inForce = rows.filter((r) => r.status === "IN_FORCE");
+    const byCurrency = new Map<string, { policies: number; contingentMinor: number }>();
+    for (const r of inForce) {
+      const c = byCurrency.get(r.currency) ?? { policies: 0, contingentMinor: 0 };
+      c.policies += 1;
+      c.contingentMinor += numericToMinor(r.deathBenefit);
+      byCurrency.set(r.currency, c);
+    }
+    const dueForReview = rows.filter((r) => r.nextReviewDate !== null && r.nextReviewDate <= new Date().toISOString().slice(0, 10)).length;
+
+    return {
+      findings: [
+        { label: "Policies in scope", value: String(rows.length), kind: "FACT" },
+        { label: "In force", value: String(inForce.length), kind: "FACT" },
+        { label: "Review due or past", value: String(dueForReview), kind: "FACT" },
+        ...[...byCurrency.entries()].map(([currency, v]) => ({
+          label: `Contingent death-benefit protection (${currency})`,
+          value: `${(v.contingentMinor / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} across ${v.policies} policy(ies)`,
+          kind: "FACT" as const,
+        })),
+      ],
+      sources: [{ kind: "TABLE", ref: "family_insurance_policies", label: "Family Office protection register", authority: "FAMILY_OFFICE" }],
+      headline: `${inForce.length} in-force protection record(s)${byCurrency.size > 0 ? `; per-currency contingent totals attached` : ""}`,
+      assumptions: ["No FX conversion is performed: totals are per currency because no cross-currency rate is ratified in this domain."],
+      limitations: [
+        "Death-benefit amounts are CONTINGENT protection, never liquid wealth; this summary adds nothing to any net-worth figure.",
+        ACCOUNTING_BOUNDARY,
+        APPROVAL_BOUNDARY,
+        "This is a summary of records, not advice, not an insurer quotation, and not an underwriting statement.",
+      ],
+      humanReviewRequired: true,
+    };
+  }
+
+  /**
+   * §27 — flag review dates and missing information for the protection
+   * register: missing beneficiary documents, absent review dates and lapsed
+   * premium cadence on the rows the caller may already read.
+   */
+  async protectionReviewPackage(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const classifications = visibleClassifications(context);
+    if (classifications.length === 0) return { findings: [], limitations: ["No classification is visible at your clearance."] };
+
+    const policies = await db
+      .select()
+      .from(familyInsurancePolicies)
+      .where(and(inArray(familyInsurancePolicies.tenantId, context.scope.tenantIds), inArray(familyInsurancePolicies.classification, classifications)));
+
+    const findings: { label: string; value: string; kind: "FACT" }[] = [];
+    for (const p of policies) {
+      const problems: string[] = [];
+      if ((p.documentRefs ?? []).length === 0) problems.push("no policy document referenced");
+      if (p.nextReviewDate === null) problems.push("no next review date");
+      if (p.premiumPayerRef === null) problems.push("premium payer unrecorded");
+      if (p.status !== "DRAFT" && (p.ownerRef === null || p.insuredRef === null)) problems.push("ownership model incomplete (§9)");
+      if (problems.length > 0) findings.push({ label: `Policy ${p.policyNumber}`, value: problems.join("; "), kind: "FACT" });
+    }
+
+    return {
+      findings: findings.length > 0 ? findings : [{ label: "Review package", value: "No protection record in scope is missing a review date, document reference or ownership detail.", kind: "FACT" }],
+      sources: [{ kind: "TABLE", ref: "family_insurance_policies", label: "Family Office protection register", authority: "FAMILY_OFFICE" }],
+      headline: `${findings.length} protection record(s) need attention before the next review`,
+      limitations: [
+        "Missing information is reported as missing. Nothing here is inferred, completed or corrected — preparing the package is the whole of Noelia's role; the review itself is a governed human act.",
+        APPROVAL_BOUNDARY,
       ],
       humanReviewRequired: true,
     };
