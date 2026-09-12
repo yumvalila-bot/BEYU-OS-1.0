@@ -35,26 +35,40 @@ Also required once per environment:
 
 ---
 
-## 1. Prepare the administrator (enrollable-only)
+## 1. Prepare the minimal constitutional foundation
+
+Migrations create the schema but do not create the enterprise tenant or role
+catalogue rows required by the administrator preparation script. Run the narrow,
+transactional foundation operation with the admin DSN:
+
+```sh
+npm run prepare:constitutional-foundation
+```
+
+This creates or safely recognizes only the canonical enterprise tenant and
+`PLATFORM_ADMIN` role. It creates no user, password, MFA material, role
+assignment, bootstrap state, sector tenant or demo data.
+
+## 2. Prepare the administrator (enrollable-only)
 
 Runs with the admin DSN; provisions the canonical `PLATFORM_ADMIN` identity, its
 governed role grant, and the `AVAILABLE` bootstrap state. **Creates no
-credential and prints no secret.**
+usable credential and prints no secret.**
 
 ```sh
 BEYU_ADMIN_DATABASE_URL="$BEYU_ADMIN_DATABASE_URL" \
-BEYU_ADMIN_EMAIL="owner@example.com" \
-BEYU_ENV=production \
-BEYU_ALLOW_PRODUCTION_SEED=I_UNDERSTAND_THIS_IS_A_ONE_TIME_GOVERNED_BOOTSTRAP \
-  npx tsx scripts/prepare-admin-bootstrap.ts
+BEYU_ADMIN_EMAIL="$BEYU_ADMIN_EMAIL" \
+  npm run prepare:admin-bootstrap
 ```
 
 Expected output ends with: *"Administrator bootstrap prepared (ENROLLABLE-ONLY)."*
-The script is idempotent and refuses to run once the bootstrap is `SEALED`.
+The script is transactional, idempotent for the same canonical enrollable-only
+records, refuses conflicting identity records, and refuses to run once the
+bootstrap is `SEALED` or an enrollment is already `IN_PROGRESS`.
 
 ---
 
-## 2. Confirm readiness
+## 3. Confirm readiness
 
 ```sh
 curl -s https://<deployment>/api/v1/auth/bootstrap/status
@@ -68,7 +82,7 @@ Expect: `{"data":{"state":"AVAILABLE","secretConfigured":true,"enrollable":true}
 
 ---
 
-## 3. Enroll (do this yourself, privately)
+## 4. Enroll (do this yourself, privately)
 
 Open **`https://<deployment>/enroll`** in your own browser.
 
@@ -85,7 +99,7 @@ Open **`https://<deployment>/enroll`** in your own browser.
 
 ---
 
-## 4. Verify you can sign in
+## 5. Verify you can sign in
 
 Completion intentionally creates **no** session. Go to the normal sign-in page
 and log in with **Identity + your password + a 6-digit MFA code**.
@@ -99,7 +113,7 @@ and log in with **Identity + your password + a 6-digit MFA code**.
 
 ---
 
-## 5. Post-enrollment hardening
+## 6. Post-enrollment hardening
 
 - [ ] Rotate or **unset `BEYU_BOOTSTRAP_SECRET`** — it can no longer enroll
       anyone and is not needed for operation.
@@ -108,7 +122,7 @@ and log in with **Identity + your password + a 6-digit MFA code**.
 
 ---
 
-## 6. Failure & recovery
+## 7. Failure & recovery
 
 | Situation | Action |
 | --- | --- |
@@ -120,7 +134,7 @@ and log in with **Identity + your password + a 6-digit MFA code**.
 
 ---
 
-## 7. Related
+## 8. Related
 
 - [`../security/ADMINISTRATOR_ENROLLMENT.md`](../security/ADMINISTRATOR_ENROLLMENT.md)
 - [`../security/BOOTSTRAP_SECURITY.md`](../security/BOOTSTRAP_SECURITY.md)
