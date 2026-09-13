@@ -1473,3 +1473,220 @@ export const iotReadings = pgTable(
   },
   (t) => [index("agriculture_iot_readings_tenant_idx").on(t.tenantId)],
 );
+
+/* ==========================================================================
+ * Food Export capability — additive extension inside Agriculture OS
+ *
+ * Reuses existing:
+ * - buyers (agriculture_buyers)
+ * - products (agriculture_products)
+ * - inventory lots (agriculture_inventory_lots)
+ * - trace batches (agriculture_trace_batches)
+ * - warehouses, shipments, documents, inspections, certificates
+ * - sync envelopes (agriculture_sync_envelopes) for offline
+ *
+ * New tables are minimum delta for export lifecycle, compliance, holds,
+ * document linking and shipment extension. No duplicate stock, no duplicate
+ * buyer/product/country models, no Finance posting.
+ * ========================================================================== */
+
+export const exportOrders = pgTable(
+  "agriculture_export_orders",
+  {
+    ...agriTenant("exp_orders"),
+    legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    code: text("code").notNull(),
+    buyerId: text("buyer_id")
+      .notNull()
+      .references(() => buyers.id),
+    productId: text("product_id").references(() => products.id),
+    quantity: numeric("quantity", { precision: 16, scale: 4 }).notNull(),
+    uom: text("uom").notNull().default("KG"),
+    gradeSpec: text("grade_spec"),
+    destination: text("destination"),
+    destinationCountryCode: text("destination_country_code")
+      .notNull()
+      .references(() => countries.code),
+    requestedShipmentDate: text("requested_shipment_date"),
+    commercialTerms: text("commercial_terms"),
+    currency: text("currency").notNull().default("USD"),
+    status: text("status").notNull().default("DRAFT"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    notes: text("notes"),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("agriculture_export_orders_tenant_code_uidx").on(t.tenantId, t.code),
+    index("agriculture_export_orders_tenant_idx").on(t.tenantId),
+    index("agriculture_export_orders_buyer_idx").on(t.buyerId),
+    index("agriculture_export_orders_product_idx").on(t.productId),
+    index("agriculture_export_orders_status_idx").on(t.status),
+    index("agriculture_export_orders_dest_country_idx").on(t.destinationCountryCode),
+  ],
+);
+
+export const exportLotAllocations = pgTable(
+  "agriculture_export_lot_allocations",
+  {
+    ...agriTenant("exp_alloc"),
+    exportOrderId: text("export_order_id")
+      .notNull()
+      .references(() => exportOrders.id),
+    inventoryLotId: text("inventory_lot_id").references(() => inventoryLots.id),
+    traceBatchId: text("trace_batch_id").references(() => traceBatches.id),
+    qtyAllocated: numeric("qty_allocated", { precision: 16, scale: 4 }).notNull(),
+    status: text("status").notNull().default("ALLOCATED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agriculture_export_lot_allocations_tenant_idx").on(t.tenantId),
+    index("agriculture_export_lot_allocations_order_idx").on(t.exportOrderId),
+    index("agriculture_export_lot_allocations_inv_lot_idx").on(t.inventoryLotId),
+    index("agriculture_export_lot_allocations_batch_idx").on(t.traceBatchId),
+    // Prevent duplicate allocation of same lot/batch to same order
+    uniqueIndex("agriculture_export_alloc_order_inv_lot_uidx").on(t.exportOrderId, t.inventoryLotId),
+    uniqueIndex("agriculture_export_alloc_order_batch_uidx").on(t.exportOrderId, t.traceBatchId),
+  ],
+);
+
+export const exportComplianceRequirements = pgTable(
+  "agriculture_export_compliance_requirements",
+  {
+    ...agriTenant("exp_req"),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    countryCode: text("country_code").references(() => countries.code),
+    productId: text("product_id").references(() => products.id),
+    destinationMarket: text("destination_market"),
+    shipmentType: text("shipment_type"),
+    buyerId: text("buyer_id").references(() => buyers.id),
+    documentType: text("document_type").notNull(),
+    isMandatory: boolean("is_mandatory").notNull().default(true),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("agriculture_export_req_tenant_code_uidx").on(t.tenantId, t.code),
+    index("agriculture_export_req_tenant_idx").on(t.tenantId),
+    index("agriculture_export_req_country_idx").on(t.countryCode),
+    index("agriculture_export_req_product_idx").on(t.productId),
+    index("agriculture_export_req_buyer_idx").on(t.buyerId),
+  ],
+);
+
+export const exportComplianceChecks = pgTable(
+  "agriculture_export_compliance_checks",
+  {
+    ...agriTenant("exp_checks"),
+    exportOrderId: text("export_order_id")
+      .notNull()
+      .references(() => exportOrders.id),
+    requirementId: text("requirement_id")
+      .notNull()
+      .references(() => exportComplianceRequirements.id),
+    status: text("status").notNull().default("MISSING"),
+    evidenceDocumentId: text("evidence_document_id").references(() => agriDocuments.id),
+    verifiedBy: text("verified_by"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    notes: text("notes"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("agriculture_export_checks_order_req_uidx").on(t.exportOrderId, t.requirementId),
+    index("agriculture_export_checks_tenant_idx").on(t.tenantId),
+    index("agriculture_export_checks_order_idx").on(t.exportOrderId),
+    index("agriculture_export_checks_req_idx").on(t.requirementId),
+    index("agriculture_export_checks_status_idx").on(t.status),
+  ],
+);
+
+export const exportShipments = pgTable(
+  "agriculture_export_shipments",
+  {
+    ...agriTenant("exp_ship"),
+    shipmentId: text("shipment_id")
+      .notNull()
+      .references(() => shipments.id),
+    exportOrderId: text("export_order_id")
+      .notNull()
+      .references(() => exportOrders.id),
+    destinationCountryCode: text("destination_country_code")
+      .notNull()
+      .references(() => countries.code),
+    destinationText: text("destination_text"),
+    transportMode: text("transport_mode"),
+    commercialTerms: text("commercial_terms"),
+    status: text("status").notNull().default("DRAFT"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("agriculture_export_shipments_shipment_uidx").on(t.shipmentId),
+    index("agriculture_export_shipments_tenant_idx").on(t.tenantId),
+    index("agriculture_export_shipments_order_idx").on(t.exportOrderId),
+    index("agriculture_export_shipments_dest_country_idx").on(t.destinationCountryCode),
+    index("agriculture_export_shipments_status_idx").on(t.status),
+  ],
+);
+
+export const exportDocumentLinks = pgTable(
+  "agriculture_export_document_links",
+  {
+    ...agriTenant("exp_docs"),
+    exportOrderId: text("export_order_id").references(() => exportOrders.id),
+    shipmentId: text("shipment_id").references(() => shipments.id),
+    exportShipmentId: text("export_shipment_id").references(() => exportShipments.id),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => agriDocuments.id),
+    documentRole: text("document_role").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agriculture_export_doc_links_tenant_idx").on(t.tenantId),
+    index("agriculture_export_doc_links_order_idx").on(t.exportOrderId),
+    index("agriculture_export_doc_links_shipment_idx").on(t.shipmentId),
+    index("agriculture_export_doc_links_exp_ship_idx").on(t.exportShipmentId),
+    index("agriculture_export_doc_links_doc_idx").on(t.documentId),
+  ],
+);
+
+export const exportHolds = pgTable(
+  "agriculture_export_holds",
+  {
+    ...agriTenant("exp_holds"),
+    exportOrderId: text("export_order_id").references(() => exportOrders.id),
+    shipmentId: text("shipment_id").references(() => shipments.id),
+    exportShipmentId: text("export_shipment_id").references(() => exportShipments.id),
+    holdType: text("hold_type").notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("ACTIVE"),
+    createdBy: text("created_by").notNull(),
+    releasedBy: text("released_by"),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agriculture_export_holds_tenant_idx").on(t.tenantId),
+    index("agriculture_export_holds_order_idx").on(t.exportOrderId),
+    index("agriculture_export_holds_shipment_idx").on(t.shipmentId),
+    index("agriculture_export_holds_exp_ship_idx").on(t.exportShipmentId),
+    index("agriculture_export_holds_status_idx").on(t.status),
+    index("agriculture_export_holds_type_idx").on(t.holdType),
+  ],
+);

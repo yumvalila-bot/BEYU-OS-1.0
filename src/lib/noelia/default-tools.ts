@@ -12,6 +12,7 @@ import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
 import { registerFamilyOfficeTools } from "@/lib/family/office/noelia-tools";
+import { registerAgricultureExportTools } from "@/lib/noelia/agriculture-export-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1358,6 +1359,11 @@ export function createDefaultNoeliaToolRegistry(
    * tool path here and remain human-governed.
    */
   registerFamilyOfficeTools(registry);
+  /**
+   * Agriculture OS Food Export intelligence — governed, read-only, no hold release,
+   * no shipment authorization, no Finance posting.
+   */
+  registerAgricultureExportTools(registry);
 
   return registry;
 }

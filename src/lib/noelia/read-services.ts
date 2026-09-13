@@ -340,26 +340,30 @@ export class BeyuNoeliaReadService {
 
   async agriculture(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
     requireCanonicalContext();
-    const { agricultureDashboard } = await import("@/lib/agriculture");
-    const dash = await agricultureDashboard(context.target.tenantId);
+    const { agricultureDashboardWithExport } = await import("@/lib/agriculture");
+    const dash = await agricultureDashboardWithExport(context.target.tenantId);
+    const exp = (dash as any).export ?? { totalOrders: 0, draftOrders: 0, readyForShipment: 0, activeHolds: 0, exportShipments: 0 };
     return {
-      headline: `Agriculture OS observation: ${dash.farms} farm(s), ${dash.harvests} harvest(s). Operational truth only.`,
+      headline: `Agriculture OS observation: ${dash.farms} farm(s), ${dash.harvests} harvest(s), ${exp.totalOrders} export order(s). Operational truth only.`,
       findings: [
         { label: "Farms", value: String(dash.farms), kind: "FACT", status: "OBSERVED" },
         { label: "Crop cycles", value: String(dash.cropCycles), kind: "FACT", status: "OBSERVED" },
         { label: "Harvests", value: String(dash.harvests), kind: "FACT", status: "OBSERVED" },
         { label: "Livestock herds", value: String(dash.herds), kind: "FACT", status: "OBSERVED" },
+        { label: "Export orders", value: String(exp.totalOrders), kind: "FACT", status: "OBSERVED" },
+        { label: "Export ready", value: String(exp.readyForShipment), kind: "FACT", status: "OBSERVED" },
+        { label: "Export holds", value: String(exp.activeHolds), kind: "FACT", status: exp.activeHolds > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
         {
           label: "Finance boundary",
-          value: "FINANCE_OS_ONLY — harvests emit HARVEST_RECORDED and never post journals",
+          value: "FINANCE_OS_ONLY — harvests emit HARVEST_RECORDED and never post journals; export emits EXPORT_* events and never posts journals",
           kind: "INFERENCE",
           status: "OBSERVED",
         },
       ],
       narrative:
-        "Agriculture OS is operational truth for land, crops, livestock and harvests. Journals and capital execution remain Finance OS. Noelia cannot post, fund, diagnose or accept risk.",
+        "Agriculture OS is operational truth for land, crops, livestock, harvests and food export. Journals and capital execution remain Finance OS. Export lifecycle is governed, holds are explicit and auditable, compliance is derived from configurable requirements. Noelia cannot post, fund, diagnose, approve, release holds, authorize shipments or claim legal compliance.",
       confidence: 0.86,
-      humanReviewRequired: false,
+      humanReviewRequired: exp.activeHolds > 0,
       metadata: { ...dash },
     };
   }
