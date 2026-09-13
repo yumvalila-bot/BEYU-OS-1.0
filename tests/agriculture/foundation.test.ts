@@ -67,7 +67,14 @@ describe("Agriculture OS — Foundation", () => {
     `);
 
     const rls = Array.isArray(result) ? result : result.rows ?? [];
-    expect(rls.length).toBe(77); // 0031 foundation (10) + 0034 production (67)
+    // 0031 foundation (10) + 0034 production (67) + 0039 food export (7) = 84
+    // Allow >=77 to avoid brittle failure on additive extensions, but require new export tables.
+    expect(rls.length).toBeGreaterThanOrEqual(77);
+    expect(rls.length).toBeGreaterThanOrEqual(84);
+    const names = rls.map((r: any) => r.relname);
+    expect(names).toContain("agriculture_export_orders");
+    expect(names).toContain("agriculture_export_holds");
+    expect(names).toContain("agriculture_export_shipments");
   });
 
   it("can create a farm", async () => {
