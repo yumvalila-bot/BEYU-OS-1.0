@@ -736,3 +736,21 @@ export async function observeAgriculture(tenantId: string) {
   const dash = await agricultureDashboard(tenantId);
   return dash;
 }
+
+// Food Export capability — re-exported for API and Noelia use
+export * from "./export";
+
+export async function agricultureDashboardWithExport(tenantId: string) {
+  const [base, exp] = await Promise.all([
+    agricultureDashboard(tenantId),
+    (async () => {
+      try {
+        const { exportDashboard } = await import("./export");
+        return await exportDashboard(tenantId);
+      } catch {
+        return { totalOrders: 0, draftOrders: 0, readyForShipment: 0, activeHolds: 0, exportShipments: 0, financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } };
+      }
+    })(),
+  ]);
+  return { ...base, export: exp };
+}

@@ -8,10 +8,13 @@ import {
   hazardRegister,
   livestockHerds,
   workOrders,
+  exportOrders,
+  exportHolds,
+  exportShipments,
 } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { agricultureDashboard } from "@/lib/agriculture";
+import { agricultureDashboard, exportDashboard } from "@/lib/agriculture";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +24,11 @@ export default async function AgriculturePage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="agriculture:data.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const tenantId = access.principal.tenantId;
-    const dash = await agricultureDashboard(tenantId);
-    const [farmRows, cycleRows, harvestRows, herdRows, workRows, hazardRows, caseRows] = await Promise.all([
+    const [dash, expDash] = await Promise.all([
+      agricultureDashboard(tenantId),
+      exportDashboard(tenantId).catch(() => ({ totalOrders: 0, draftOrders: 0, readyForShipment: 0, activeHolds: 0, exportShipments: 0, financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } })),
+    ]);
+    const [farmRows, cycleRows, harvestRows, herdRows, workRows, hazardRows, caseRows, exportOrderRows, exportHoldRows, exportShipmentRows] = await Promise.all([
       db.select().from(farms).where(eq(farms.tenantId, tenantId)).orderBy(desc(farms.createdAt)).limit(20),
       db.select().from(cropCycles).where(eq(cropCycles.tenantId, tenantId)).orderBy(desc(cropCycles.createdAt)).limit(20),
       db.select().from(harvests).where(eq(harvests.tenantId, tenantId)).orderBy(desc(harvests.createdAt)).limit(20),
@@ -30,6 +36,9 @@ export default async function AgriculturePage() {
       db.select().from(workOrders).where(eq(workOrders.tenantId, tenantId)).limit(20),
       db.select().from(hazardRegister).where(eq(hazardRegister.tenantId, tenantId)).limit(20),
       db.select().from(capitalCases).where(eq(capitalCases.tenantId, tenantId)).limit(20),
+      db.select().from(exportOrders).where(eq(exportOrders.tenantId, tenantId)).orderBy(desc(exportOrders.createdAt)).limit(20),
+      db.select().from(exportHolds).where(eq(exportHolds.tenantId, tenantId)).orderBy(desc(exportHolds.createdAt)).limit(20),
+      db.select().from(exportShipments).where(eq(exportShipments.tenantId, tenantId)).orderBy(desc(exportShipments.createdAt)).limit(20),
     ]);
 
     return (
@@ -56,6 +65,20 @@ export default async function AgriculturePage() {
           <Metric label="Hazard register" value={String(dash.hazards)} sub="operational hazards, not enterprise risk" />
           <Metric label="Capital cases" value={String(dash.capitalCases)} sub="handoff pending Finance OS" />
           <Metric label="CAP_POSTING" value="LOCKED" sub="Finance OS remains the only journal writer" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Export orders" value={String(expDash.totalOrders)} sub="food export lifecycle" tone="gold" />
+          <Metric label="Draft export" value={String(expDash.draftOrders)} sub="awaiting confirmation" />
+          <Metric label="Ready for shipment" value={String(expDash.readyForShipment)} sub="compliance cleared" />
+          <Metric label="Active export holds" value={String(expDash.activeHolds)} sub="quality/compliance/document/lot" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="Export shipments" value={String(expDash.exportShipments)} sub="export logistics" />
+          <Metric label="Finance boundary" value="FINANCE_OS_ONLY" sub="export emits events, never journals" />
+          <Metric label="Traceability" value="REUSED" sub="existing batches/links/harvests/farms" />
+          <Metric label="Documents" value="REUSED" sub="canonical agriculture_documents" />
         </div>
 
         <Panel kicker="Farms" title="Land and production units">
@@ -269,6 +292,121 @@ export default async function AgriculturePage() {
                     <tr>
                       <td colSpan={4}>
                         <EmptyState message="No operational hazards recorded." />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel kicker="Food Export" title="Export orders — lifecycle governed">
+            <p className="mb-3 text-[11px] beyu-muted">
+              Export orders reuse buyers, products, countries, inventory lots and trace batches. State transitions are governed, holds are explicit and auditable, compliance is derived from configurable requirements. No Finance posting.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="beyu-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Buyer</th>
+                    <th>Destination</th>
+                    <th>Qty</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportOrderRows.map((o) => (
+                    <tr key={o.id}>
+                      <td className="font-mono text-[11.5px]">{o.code}</td>
+                      <td className="text-[11.5px]">{o.buyerId.slice(0, 8)}</td>
+                      <td className="text-[11.5px]">{o.destinationCountryCode} {o.destination ?? ""}</td>
+                      <td className="tabular-nums text-[11.5px]">{o.quantity} {o.uom}</td>
+                      <td>
+                        <Badge tone={stateTone(o.status)}>{o.status}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                  {exportOrderRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>
+                        <EmptyState message="No export orders yet." />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <Panel kicker="Food Export" title="Export holds — governed, auditable">
+            <p className="mb-3 text-[11px] beyu-muted">
+              Holds are explicit, reasoned, authorization-controlled. Noelia/HIVE cannot release holds. Active holds block transitions.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="beyu-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Order</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportHoldRows.map((h) => (
+                    <tr key={h.id}>
+                      <td className="text-[11.5px]">{h.holdType}</td>
+                      <td className="text-[11.5px]">{h.reason.slice(0, 80)}</td>
+                      <td>
+                        <Badge tone={stateTone(h.status)}>{h.status}</Badge>
+                      </td>
+                      <td className="font-mono text-[11.5px]">{h.exportOrderId?.slice(0, 8) ?? "—"}</td>
+                    </tr>
+                  ))}
+                  {exportHoldRows.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>
+                        <EmptyState message="No export holds." />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <Panel kicker="Food Export" title="Export shipments — reuse logistics">
+            <p className="mb-3 text-[11px] beyu-muted">
+              Export shipments extend existing shipments with destination country, transport mode and commercial terms. Lifecycle is governed, Finance boundary preserved.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="beyu-table">
+                <thead>
+                  <tr>
+                    <th>Shipment</th>
+                    <th>Order</th>
+                    <th>Destination</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exportShipmentRows.map((s) => (
+                    <tr key={s.id}>
+                      <td className="font-mono text-[11.5px]">{s.shipmentId.slice(0, 8)}</td>
+                      <td className="font-mono text-[11.5px]">{s.exportOrderId.slice(0, 8)}</td>
+                      <td className="text-[11.5px]">{s.destinationCountryCode}</td>
+                      <td>
+                        <Badge tone={stateTone(s.status)}>{s.status}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                  {exportShipmentRows.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>
+                        <EmptyState message="No export shipments." />
                       </td>
                     </tr>
                   )}
