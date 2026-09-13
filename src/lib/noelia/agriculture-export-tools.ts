@@ -62,62 +62,71 @@ export function registerAgricultureExportTools(registry: NoeliaToolRegistry): vo
     },
     execute: async (context: ToolInvocationContext) => {
       requireContext();
-      const tenantId = context.target.tenantId;
-      const statusRows = await db
-        .select({ status: s.exportOrders.status, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
-        .from(s.exportOrders)
-        .where(eq(s.exportOrders.tenantId, tenantId))
-        .groupBy(s.exportOrders.status);
+      try {
+        const tenantId = context.target.tenantId;
+        const statusRows = await db
+          .select({ status: s.exportOrders.status, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
+          .from(s.exportOrders)
+          .where(eq(s.exportOrders.tenantId, tenantId))
+          .groupBy(s.exportOrders.status);
 
-      const countryRows = await db
-        .select({ country: s.exportOrders.destinationCountryCode, count: sql<number>`count(*)::int` })
-        .from(s.exportOrders)
-        .where(eq(s.exportOrders.tenantId, tenantId))
-        .groupBy(s.exportOrders.destinationCountryCode);
+        const countryRows = await db
+          .select({ country: s.exportOrders.destinationCountryCode, count: sql<number>`count(*)::int` })
+          .from(s.exportOrders)
+          .where(eq(s.exportOrders.tenantId, tenantId))
+          .groupBy(s.exportOrders.destinationCountryCode);
 
-      const holds = await db
-        .select({ holdType: s.exportHolds.holdType, count: sql<number>`count(*)::int` })
-        .from(s.exportHolds)
-        .where(and(eq(s.exportHolds.tenantId, tenantId), eq(s.exportHolds.status, "ACTIVE")))
-        .groupBy(s.exportHolds.holdType);
+        const holds = await db
+          .select({ holdType: s.exportHolds.holdType, count: sql<number>`count(*)::int` })
+          .from(s.exportHolds)
+          .where(and(eq(s.exportHolds.tenantId, tenantId), eq(s.exportHolds.status, "ACTIVE")))
+          .groupBy(s.exportHolds.holdType);
 
-      const findings: NoeliaFinding[] = [];
-      for (const r of statusRows) {
-        findings.push({
-          label: `Export orders · ${r.status}`,
-          value: `${r.count} order(s), total qty ${Number(r.qty).toLocaleString()}`,
-          kind: "FACT",
-          status: "OBSERVED",
-          provenance: "agriculture_export_orders",
-        });
+        const findings: NoeliaFinding[] = [];
+        for (const r of statusRows) {
+          findings.push({
+            label: `Export orders · ${r.status}`,
+            value: `${r.count} order(s), total qty ${Number(r.qty).toLocaleString()}`,
+            kind: "FACT",
+            status: "OBSERVED",
+            provenance: "agriculture_export_orders",
+          });
+        }
+        for (const r of countryRows) {
+          findings.push({
+            label: `Destination · ${r.country}`,
+            value: `${r.count} order(s)`,
+            kind: "FACT",
+            status: "OBSERVED",
+            provenance: "agriculture_export_orders",
+          });
+        }
+        for (const r of holds) {
+          findings.push({
+            label: `Active hold · ${r.holdType}`,
+            value: `${r.count} hold(s)`,
+            kind: "FACT",
+            status: "REQUIRES_HUMAN_REVIEW",
+            provenance: "agriculture_export_holds",
+          });
+        }
+
+        return {
+          headline: `Export orders: ${statusRows.reduce((a, b) => a + b.count, 0)} total, ${holds.reduce((a, b) => a + b.count, 0)} active hold(s).`,
+          findings,
+          narrative: "Export order summary is operational truth only. Finance OS remains canonical for financial consequences; CAP_POSTING is LOCKED. Noelia cannot approve, release holds or authorize shipments.",
+          confidence: 0.86,
+          humanReviewRequired: holds.length > 0,
+          metadata: { financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } },
+        };
+      } catch {
+        return {
+          headline: "Export orders summary unavailable — migration pending or no data.",
+          findings: [{ label: "Export orders", value: "UNAVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
+          narrative: "Operational truth only; Finance boundary preserved.",
+          confidence: 0.3,
+        };
       }
-      for (const r of countryRows) {
-        findings.push({
-          label: `Destination · ${r.country}`,
-          value: `${r.count} order(s)`,
-          kind: "FACT",
-          status: "OBSERVED",
-          provenance: "agriculture_export_orders",
-        });
-      }
-      for (const r of holds) {
-        findings.push({
-          label: `Active hold · ${r.holdType}`,
-          value: `${r.count} hold(s)`,
-          kind: "FACT",
-          status: "REQUIRES_HUMAN_REVIEW",
-          provenance: "agriculture_export_holds",
-        });
-      }
-
-      return {
-        headline: `Export orders: ${statusRows.reduce((a, b) => a + b.count, 0)} total, ${holds.reduce((a, b) => a + b.count, 0)} active hold(s).`,
-        findings,
-        narrative: "Export order summary is operational truth only. Finance OS remains canonical for financial consequences; CAP_POSTING is LOCKED. Noelia cannot approve, release holds or authorize shipments.",
-        confidence: 0.86,
-        humanReviewRequired: holds.length > 0,
-        metadata: { financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } },
-      };
     },
   });
 
@@ -334,35 +343,43 @@ export function registerAgricultureExportTools(registry: NoeliaToolRegistry): vo
     },
     execute: async (context: ToolInvocationContext) => {
       requireContext();
-      const tenantId = context.target.tenantId;
-      const activeHolds = await db.select().from(s.exportHolds).where(and(eq(s.exportHolds.tenantId, tenantId), eq(s.exportHolds.status, "ACTIVE")));
-      const onHoldOrders = await db.select().from(s.exportOrders).where(and(eq(s.exportOrders.tenantId, tenantId), eq(s.exportOrders.status, "ON_HOLD")));
-      const dispatched = await db
-        .select()
-        .from(s.exportShipments)
-        .where(and(eq(s.exportShipments.tenantId, tenantId), eq(s.exportShipments.status, "DISPATCHED")));
+      try {
+        const tenantId = context.target.tenantId;
+        const activeHolds = await db.select().from(s.exportHolds).where(and(eq(s.exportHolds.tenantId, tenantId), eq(s.exportHolds.status, "ACTIVE")));
+        const onHoldOrders = await db.select().from(s.exportOrders).where(and(eq(s.exportOrders.tenantId, tenantId), eq(s.exportOrders.status, "ON_HOLD")));
+        const dispatched = await db
+          .select()
+          .from(s.exportShipments)
+          .where(and(eq(s.exportShipments.tenantId, tenantId), eq(s.exportShipments.status, "DISPATCHED")));
 
-      const findings: NoeliaFinding[] = [
-        { label: "Active holds", value: `${activeHolds.length}`, kind: "FACT", status: activeHolds.length > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
-        { label: "On-hold orders", value: `${onHoldOrders.length}`, kind: "FACT", status: onHoldOrders.length > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
-        { label: "In-transit shipments", value: `${dispatched.length}`, kind: "FACT", status: "OBSERVED" },
-      ];
-      for (const h of activeHolds.slice(0, 10)) {
-        findings.push({
-          label: `Hold · ${h.holdType}`,
-          value: `${h.reason.slice(0, 80)} — order ${h.exportOrderId?.slice(0, 8) ?? "?"}`,
-          kind: "FACT",
-          status: "REQUIRES_HUMAN_REVIEW",
-        });
+        const findings: NoeliaFinding[] = [
+          { label: "Active holds", value: `${activeHolds.length}`, kind: "FACT", status: activeHolds.length > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
+          { label: "On-hold orders", value: `${onHoldOrders.length}`, kind: "FACT", status: onHoldOrders.length > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
+          { label: "In-transit shipments", value: `${dispatched.length}`, kind: "FACT", status: "OBSERVED" },
+        ];
+        for (const h of activeHolds.slice(0, 10)) {
+          findings.push({
+            label: `Hold · ${h.holdType}`,
+            value: `${h.reason.slice(0, 80)} — order ${h.exportOrderId?.slice(0, 8) ?? "?"}`,
+            kind: "FACT",
+            status: "REQUIRES_HUMAN_REVIEW",
+          });
+        }
+
+        return {
+          headline: activeHolds.length > 0 ? `${activeHolds.length} active hold(s) and ${onHoldOrders.length} on-hold order(s) require attention.` : "No active shipment exceptions detected.",
+          findings,
+          narrative: "Shipment exception analysis reports holds and status; it cannot release holds, authorize shipments or submit to government. All holds require explicit human release with reason.",
+          confidence: 0.85,
+          humanReviewRequired: activeHolds.length > 0 || onHoldOrders.length > 0,
+        };
+      } catch {
+        return {
+          headline: "Shipment exception analysis unavailable.",
+          findings: [{ label: "Shipment exceptions", value: "UNAVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
+          confidence: 0.3,
+        };
       }
-
-      return {
-        headline: activeHolds.length > 0 ? `${activeHolds.length} active hold(s) and ${onHoldOrders.length} on-hold order(s) require attention.` : "No active shipment exceptions detected.",
-        findings,
-        narrative: "Shipment exception analysis reports holds and status; it cannot release holds, authorize shipments or submit to government. All holds require explicit human release with reason.",
-        confidence: 0.85,
-        humanReviewRequired: activeHolds.length > 0 || onHoldOrders.length > 0,
-      };
     },
   });
 
@@ -390,43 +407,51 @@ export function registerAgricultureExportTools(registry: NoeliaToolRegistry): vo
     },
     execute: async (context: ToolInvocationContext) => {
       requireContext();
-      const tenantId = context.target.tenantId;
-      const byDestination = await db
-        .select({ country: s.exportOrders.destinationCountryCode, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
-        .from(s.exportOrders)
-        .where(eq(s.exportOrders.tenantId, tenantId))
-        .groupBy(s.exportOrders.destinationCountryCode);
+      try {
+        const tenantId = context.target.tenantId;
+        const byDestination = await db
+          .select({ country: s.exportOrders.destinationCountryCode, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
+          .from(s.exportOrders)
+          .where(eq(s.exportOrders.tenantId, tenantId))
+          .groupBy(s.exportOrders.destinationCountryCode);
 
-      const byProduct = await db
-        .select({ productId: s.exportOrders.productId, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
-        .from(s.exportOrders)
-        .where(eq(s.exportOrders.tenantId, tenantId))
-        .groupBy(s.exportOrders.productId);
+        const byProduct = await db
+          .select({ productId: s.exportOrders.productId, count: sql<number>`count(*)::int`, qty: sql<string>`coalesce(sum(${s.exportOrders.quantity}),0)` })
+          .from(s.exportOrders)
+          .where(eq(s.exportOrders.tenantId, tenantId))
+          .groupBy(s.exportOrders.productId);
 
-      const findings: NoeliaFinding[] = [];
-      for (const r of byDestination) {
-        findings.push({
-          label: `Volume by destination · ${r.country}`,
-          value: `${r.count} order(s), ${Number(r.qty).toLocaleString()} KG`,
-          kind: "FACT",
-          status: "OBSERVED",
-        });
+        const findings: NoeliaFinding[] = [];
+        for (const r of byDestination) {
+          findings.push({
+            label: `Volume by destination · ${r.country}`,
+            value: `${r.count} order(s), ${Number(r.qty).toLocaleString()} KG`,
+            kind: "FACT",
+            status: "OBSERVED",
+          });
+        }
+        for (const r of byProduct.slice(0, 10)) {
+          findings.push({
+            label: `Volume by product · ${r.productId?.slice(0, 8) ?? "unspecified"}`,
+            value: `${r.count} order(s), ${Number(r.qty).toLocaleString()} KG`,
+            kind: "FACT",
+            status: "OBSERVED",
+          });
+        }
+
+        return {
+          headline: `Export analytics: ${byDestination.length} destination(s), ${byProduct.length} product group(s). Operational volumes only.`,
+          findings,
+          narrative: "Analytics are operational only; Finance OS remains canonical for financial truth. Noelia cannot post journals, execute capital or certify compliance.",
+          confidence: 0.8,
+        };
+      } catch {
+        return {
+          headline: "Export analytics unavailable.",
+          findings: [{ label: "Export analytics", value: "UNAVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
+          confidence: 0.3,
+        };
       }
-      for (const r of byProduct.slice(0, 10)) {
-        findings.push({
-          label: `Volume by product · ${r.productId?.slice(0, 8) ?? "unspecified"}`,
-          value: `${r.count} order(s), ${Number(r.qty).toLocaleString()} KG`,
-          kind: "FACT",
-          status: "OBSERVED",
-        });
-      }
-
-      return {
-        headline: `Export analytics: ${byDestination.length} destination(s), ${byProduct.length} product group(s). Operational volumes only.`,
-        findings,
-        narrative: "Analytics are operational only; Finance OS remains canonical for financial truth. Noelia cannot post journals, execute capital or certify compliance.",
-        confidence: 0.8,
-      };
     },
   });
 }
