@@ -449,6 +449,15 @@ jobs:
           set -euo pipefail
           npm test 2>&1 | tee /tmp/root-tests.log
 
+      - name: Print failing tests on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== FAILED TESTS ==="
+          grep -E "FAIL|×|AssertionError" /tmp/root-tests.log | tail -n 200 || true
+          echo "=== TAIL LOG ==="
+          tail -n 500 /tmp/root-tests.log || true
+
       - name: Assert no test suite was silently skipped for want of a server
         # vitest prints a skip count. With a reachable server and BEYU_TEST_BASE_URL
         # set, the HTTP suites must have run. A large skip count means the
