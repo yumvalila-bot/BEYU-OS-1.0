@@ -118,9 +118,12 @@ cannot recover or brute-force the secret.
   restores the canonical credential state for the seed identities on every run,
   so a suite that intentionally mutates an identity (e.g. the enrollment E2E
   test) can be reset with a single `npm run seed`.
-- **Production:** run `scripts/prepare-admin-bootstrap.ts` to provision the
-  administrator **enrollable-only** (no shared password), then have the owner
-  complete the ceremony. No credential is ever created or printed by the script.
+- **Production:** run the narrow transactional constitutional foundation
+  (`npm run prepare:constitutional-foundation`) so the canonical enterprise
+  tenant and `PLATFORM_ADMIN` role exist, then run
+  `scripts/prepare-admin-bootstrap.ts` to provision the administrator
+  **enrollable-only** (no shared password). Finally have the owner complete the
+  ceremony. No usable credential is ever created or printed by either operation.
 
 ---
 
