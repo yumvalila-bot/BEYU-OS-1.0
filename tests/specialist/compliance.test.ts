@@ -1106,7 +1106,13 @@ describe("compliance module — creates no second truth", () => {
     // accounting owner is FINANCE_OS, not a compliance obligation register.
     // Attributed here by exact name, so this guard still fails if the
     // compliance module itself ever defines a table.
+    // 0039_agriculture_food_export adds agriculture_export_compliance_* tables — these are
+    // Agriculture OS Food Export compliance requirements/checks, not compliance module tables.
+    // They contain 'compliance' in name, so they appear in the like '%compliance%' scan.
+    // Attributed here by exact name, so this guard still fails if the compliance module itself ever defines a table.
     expect(names).toEqual([
+      "agriculture_export_compliance_checks",
+      "agriculture_export_compliance_requirements",
       "compliance_assessments",
       "compliance_obligations",
       "family_obligation_covenants",
