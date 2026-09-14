@@ -85,8 +85,14 @@ Software governance ≠ legal enforceability. The system records, computes and r
 - Solidity smart contracts & Terraform infrastructure (no on-chain/cloud authorization; unjustified without it).
 - Real-money settlement of repurchases/distributions/exercise proceeds (Finance OS + banking credentials + human authorization).
 
-## GIT FLOW
+## GIT FLOW — EXECUTED TRAIL
 
-audit → implement → migrate (0040, 0041 via `npm run migrate`) → test (full suite green) → fix (3 real defects found by tests and fixed: drizzle-wrapped unique-violation mapping, leaver condition vocabulary enforcement at initiation, posture findings type) → commit → PR (see below) → CI → merge → post-merge verify. No force-push, no admin bypass, no weakened control.
+audit → implement → migrate (0040, 0041 via `npm run migrate`) → test (full suite green) → fix (3 real defects found by tests and fixed: drizzle-wrapped unique-violation mapping, leaver condition vocabulary enforcement at initiation, posture findings type) → commit → PR → CI → merge → post-merge verify. No force-push, no admin bypass, no weakened control.
 
-**PR:** see `https://github.com/yumvalila-bot/BEYU-OS-1.0/pulls` — created from `arena/01a0a1b7-beyu-os-1-0` (number recorded in the PR commit trail below).
+- **Commits (branch `arena/01a0a1b7-beyu-os-1-0`):**
+  - `41e7b63` feat(equity+trust+command) — engine, services, routes, migrations, posture, deploy & SBOM governance
+  - `7f3a545` test(equity+trust+posture) — 134 new tests + attributed specialist pin updates
+  - `0cac698` docs — Phase 0 audit + this completion report
+- **PR:** [#58](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/58) — all CI gates passed pre-merge (Committed secret scan ✓, Migration validation ✓, Root BEYU OS PostgreSQL security gate ✓ 10m09s, Health OS backend real-PostgreSQL gate ✓, dependency audits ✓, Vercel build ✓).
+- **Merge commit on `main`:** `730adc6` (Merge pull request #58). Post-merge CI on `main` re-runs the same gates against the merge commit.
+- This report's PR/commit-number update ships as the follow-up PR from the same session branch (recorded in its own merge trail).
