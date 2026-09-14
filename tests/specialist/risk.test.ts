@@ -1046,8 +1046,13 @@ describe("risk module — leaves governance and financial state untouched", () =
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
+    // + 0040_founder_equity_cap_table_esop (X10THINK Phase 2 founder equity capability: share classes, positions,
+    // vesting/change-of-control/leaver/ESOP ledgers, cap-table snapshots, execution-prohibited dilution scenarios;
+    // Finance OS remains the money authority; adds no specialist truth).
+    // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: instruments, INERT provisions,
+    // trustee decisions, distribution decision records; adds no specialist truth).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(40);
+    expect(n).toBe(42);
   });
 
   it("leaves all triggers enabled", async () => {
