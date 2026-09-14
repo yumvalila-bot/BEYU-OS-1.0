@@ -205,6 +205,24 @@ export const ID_PREFIX = {
   foundationImpactMetric: "FIM",
   foundationImpactMeasurement: "FMM",
   foundationAssignment: "FWA",
+  /* Founder equity / capitalization domain (X10THINK Phase 2). */
+  founderProfile: "FDR",
+  shareClass: "SHC",
+  equityPosition: "EQP",
+  vestingSchedule: "VSC",
+  vestingEvent: "VSE",
+  leaverCase: "LVR",
+  changeOfControl: "COC",
+  esopPlan: "ESP",
+  esopGrant: "ESG",
+  esopGrantEvent: "ESV",
+  capTableSnapshot: "CTS",
+  dilutionScenario: "DSC",
+  /* Family Trust governance persistence (X10THINK Phase 3). */
+  trustInstrument: "TRI",
+  trustProvision: "TRP",
+  trustDecision: "TRD",
+  trustDistribution: "TDS",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
