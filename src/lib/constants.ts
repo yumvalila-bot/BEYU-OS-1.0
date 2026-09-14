@@ -212,6 +212,34 @@ export const PERMISSIONS = {
   "familyoffice:beneficiary.manage": "Record, supersede or revoke insurance beneficiary designations (distinct from trust beneficiary entitlements; consequential legal act — MFA step-up)",
   "familyoffice:claim.read": "Read the insurance claims ledger and proceeds posture (contingent vs received)",
   "familyoffice:claim.manage": "Record insurance claims and their lifecycle transitions (records the insurer's reported decision and the receipt; adjudication and money movement belong elsewhere)",
+  // Founder equity / capitalization / ESOP domain (X10THINK Phase 2, §9–§15).
+  //
+  // Instrument-level capitalization INSIDE BEYU OS — NOT a Capital OS and NOT a
+  // second ownership registry: entity-level ownership truth remains
+  // `organization:ownership.*` over `ownership_records`. The `manage` verbs are
+  // governed mutations that still require a human actor, authority/approval
+  // references and audit+event appends. NONE of them moves money, posts a
+  // journal entry, pays a repurchase or bypasses CAP_POSTING (§24): repurchase
+  // and exercise proceeds remain `finance:payments.authorize` / Finance OS
+  // authority, and vesting/leaver/ESOP terms remain REQUIRES_LEGAL_REVIEW until
+  // a human lawyer closes them — the software records state, never legal effect.
+  "equity:cap-table.read": "Read share classes, equity positions and reconstructable cap-table snapshots",
+  "equity:cap-table.manage": "Record share classes, equity issuances/transfers and compute cap-table snapshots (governed; never an ownership-registry mutation)",
+  "equity:vesting.read": "Read vesting schedules and the append-only vesting ledger",
+  "equity:vesting.manage": "Create, activate and run vesting schedules; apply acceleration (governed; approval + legal-review state required)",
+  "equity:leaver.read": "Read good/bad leaver cases and repurchase treatment records",
+  "equity:leaver.manage": "Initiate and progress leaver cases (classification requires legal review + governance approval; payment stays Finance OS authority)",
+  "equity:esop.read": "Read ESOP plans, grants and the append-only grant ledger",
+  "equity:esop.manage": "Record ESOP plans and grants; exercise, cancel or forfeit grants (governed; HCM remains employee truth)",
+  "equity:dilution.read": "Read dilution scenarios (analysis only)",
+  "equity:dilution.simulate": "Create dilution scenarios — pre/transaction/post analysis that NEVER executes and never alters actuals",
+  // Family Trust governance persistence (X10THINK Phase 3, §8/§11/§48).
+  // Persists the existing trust rails; beneficiaries, entity appointments,
+  // documents and the governance engine remain canonical. `manage` on trust
+  // instruments/provisions/decisions/distributions is a consequential legal act
+  // on family entitlement — MFA step-up, human only, REQUIRES_LEGAL_REVIEW.
+  "familyoffice:trust.read": "Read trust instruments, provisions, trustee decisions and distribution records",
+  "familyoffice:trust.manage": "Record trust instruments, jurisdiction-aware provisions (INERT without ratified legal effect), trustee decisions and distribution decision records (never a payment; consequential legal act — MFA step-up)",
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
@@ -319,6 +347,19 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   // Recording an investment committee decision is the moment capital authority
   // is created, so it carries the same MFA step-up as a resolution approval.
   "familyoffice:committee.decide",
+  // Capitalization mutations change who owns what: issuance, vesting (which
+  // moves shares from unvested to vested), leaver treatment (repurchase /
+  // forfeiture) and ESOP grants/exercises are consequential ownership acts on
+  // the same footing as an ownership-registry change — MFA step-up. They still
+  // never post money and never replace `organization:ownership.manage`.
+  "equity:cap-table.manage",
+  "equity:vesting.manage",
+  "equity:leaver.manage",
+  "equity:esop.manage",
+  // Trust instruments, provisions, trustee decisions and distributions alter
+  // family entitlement and trustee authority — consequential legal acts, same
+  // footing as a trust beneficiary change (MFA step-up).
+  "familyoffice:trust.manage",
   "governance:policy.manage",
   "government:submission.manage",
 ];
@@ -456,6 +497,18 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      // Founder equity visibility + leaver initiation (X10THINK Phase 2). The
+      // CEO may see capitalization and initiate leaver treatment; classifying
+      // and approving a leaver case still requires legal review and a
+      // governance resolution, and trust instruments remain Family Office
+      // authority (read-only here).
+      "equity:cap-table.read",
+      "equity:vesting.read",
+      "equity:leaver.read",
+      "equity:leaver.manage",
+      "equity:esop.read",
+      "equity:dilution.read",
+      "familyoffice:trust.read",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -489,6 +542,19 @@ export const ROLES: Record<
       "finance:waterfall.commit",
       "finance:tax.read",
       "finance:tax.assess",
+      // Founder equity / cap table / ESOP (X10THINK Phase 2). The CFO operates
+      // the capitalization machinery; every manage verb remains a governed
+      // mutation (authority/approval references, audit, events) and none of
+      // them posts money — CAP_POSTING and payments authority are unchanged.
+      "equity:cap-table.read",
+      "equity:cap-table.manage",
+      "equity:vesting.read",
+      "equity:vesting.manage",
+      "equity:leaver.read",
+      "equity:esop.read",
+      "equity:esop.manage",
+      "equity:dilution.read",
+      "equity:dilution.simulate",
       // Fiscal/statutory government submissions (TRA VFD, contributions) are a
       // CFO accountability; HIGH_RISK so MFA step-up applies.
       "government:integration.read",
@@ -526,6 +592,23 @@ export const ROLES: Record<
       "compliance:obligation.read",
       "compliance:assessment.manage",
       "legal:matter.read",
+      // Capitalization & trust governance custody (X10THINK Phase 2/3). The CGO
+      // is custodian of the governed mutation machinery (authority, approvals,
+      // reservations), so holds the equity/trust manage verbs; each is still a
+      // governed mutation requiring authority + legal-review state, never a
+      // money movement or an ownership-registry override.
+      "equity:cap-table.read",
+      "equity:cap-table.manage",
+      "equity:vesting.read",
+      "equity:vesting.manage",
+      "equity:leaver.read",
+      "equity:leaver.manage",
+      "equity:esop.read",
+      "equity:esop.manage",
+      "equity:dilution.read",
+      "equity:dilution.simulate",
+      "familyoffice:trust.read",
+      "familyoffice:trust.manage",
       "foundation:registry.read",
       "foundation:structure.read",
       "foundation:governance.read",
@@ -651,6 +734,17 @@ export const ROLES: Record<
       "familyoffice:beneficiary.manage",
       "familyoffice:claim.read",
       "familyoffice:claim.manage",
+      // Family Trust governance (X10THINK Phase 3). The Principal records trust
+      // instruments, jurisdiction-aware provisions (INERT without a ratified
+      // legal-effect reference), trustee decisions and distribution decision
+      // records. `trust.manage` is HIGH_RISK (MFA step-up); a distribution is a
+      // decision record only — payment/accounting stays Finance OS authority,
+      // and legal enforceability stays REQUIRES_LEGAL_REVIEW.
+      "familyoffice:trust.read",
+      "familyoffice:trust.manage",
+      // Cap-table visibility for succession/liquidity planning (read-only).
+      "equity:cap-table.read",
+      "equity:vesting.read",
       "documents:registry.read",
       "ai:noelia.query",
       "ai:executive.read",
@@ -809,6 +903,12 @@ export const ROLES: Record<
       "familyoffice:intelligence.read",
       "familyoffice:protection.read",
       "familyoffice:claim.read",
+      // Leaver conditions, vesting terms and ESOP provisions require legal
+      // review before they may leave REQUIRES_LEGAL_REVIEW (X10THINK §48).
+      // Review visibility only — no approval, no manage verb.
+      "equity:leaver.read",
+      "equity:vesting.read",
+      "equity:esop.read",
       "documents:registry.read",
     ],
   },
@@ -1109,6 +1209,14 @@ export const ROLES: Record<
       "ai:evaluation.read",
       "ai:risk.register.read",
       "agriculture:data.read",
+      // Read-only capitalization oversight (X10THINK Phase 2). AUDITOR clearance
+      // is RESTRICTED, matching the equity tables' default classification; no
+      // manage verb and no trust access (HIGHLY_RESTRICTED) is granted.
+      "equity:cap-table.read",
+      "equity:vesting.read",
+      "equity:leaver.read",
+      "equity:esop.read",
+      "equity:dilution.read",
     ],
   },
 };

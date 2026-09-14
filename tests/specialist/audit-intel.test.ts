@@ -819,6 +819,14 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- claims table, not an audit ledger, and it writes nothing to audit_log. Excluded by
       -- exact name so the guard still fails if the audit module ever defines a table.
         and table_name <> 'family_insurance_claim_events'
+      -- vesting_events, change_of_control_events and esop_grant_events
+      -- (drizzle/0040, X10THINK Phase 2 founder equity capability) are the equity
+      -- domain's append-only operational ledgers (milestone/acceleration/forfeiture
+      -- entries, CoC declarations, ESOP grant lifecycle). They are domain evidence
+      -- keyed to their registers, not audit ledgers, and they write nothing to
+      -- audit_log; excluded by exact name so this guard still fails if the audit
+      -- module itself ever defines a table.
+        and table_name not in ('vesting_events', 'change_of_control_events', 'esop_grant_events')
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -866,7 +874,12 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // chart-of-accounts tenant hardening, Phase 1 Noelia AI platform,
     // Phase 4 global AI compliance and Phase 5 production runtime fabric:
     // all additive/hardening).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(40);
+    // + 0040_founder_equity_cap_table_esop (X10THINK Phase 2 founder equity capability: share classes, positions,
+    // vesting/change-of-control/leaver/ESOP ledgers, cap-table snapshots, execution-prohibited dilution scenarios;
+    // Finance OS remains the money authority; adds no specialist truth).
+    // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: instruments, INERT provisions,
+    // trustee decisions, distribution decision records; adds no specialist truth).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

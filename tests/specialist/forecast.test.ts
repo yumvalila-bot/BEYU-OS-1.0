@@ -426,6 +426,12 @@ describe("forecast engines — reproducible version identity", () => {
         -- domain, not forecast-engine persistence; excluded by exact name so this
         -- guard still fails if the forecast engine ever persists anything.
           and table_name not in ('family_scenario_models', 'family_scenario_results')
+        -- dilution_scenarios (drizzle/0040, X10THINK Phase 2) stores pre/transaction/post
+        -- capitalization ANALYSIS with execution_prohibited = true: a governed scenario
+        -- record for the equity domain computed by the deterministic dilution engine,
+        -- not forecast-engine persistence; excluded by exact name so this guard still
+        -- fails if the forecast engine ever persists anything.
+          and table_name <> 'dilution_scenarios'
         order by table_name
       `)
     ).map((r) => r.table_name);
@@ -973,8 +979,13 @@ describe("forecast service — hostile inputs", () => {
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
 // + 0039_agriculture_food_export (Agriculture OS Food Export capability: export orders, lot allocations, compliance requirements/checks, shipments, document links, holds; reuses existing buyers/products/inventory/trace/shipments/documents; adds no specialist truth).
+// + 0040_founder_equity_cap_table_esop (X10THINK Phase 2 founder equity capability: share classes, equity positions,
+// vesting schedules + append-only vesting ledger, change-of-control events, leaver cases, ESOP plans/grants/grant ledger,
+// reconstructable cap-table snapshots and execution-prohibited dilution scenarios; Finance OS remains the money authority; adds no specialist truth).
+// + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: trust instruments, jurisdiction-aware INERT provisions,
+// trustee decisions and distribution DECISION RECORDS (payment stays Finance OS authority, legal effect stays REQUIRES_LEGAL_REVIEW); adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(40);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed
@@ -985,6 +996,9 @@ describe("forecast service — hostile inputs", () => {
         select table_name from information_schema.tables
         where table_schema = 'public' and (table_name like '%forecast%' or table_name like '%scenario%')
           and table_name not in ('family_scenario_models', 'family_scenario_results')
+        -- dilution_scenarios (drizzle/0040, X10THINK Phase 2) is the equity domain's
+        -- execution-prohibited scenario analysis, not forecast-engine persistence.
+          and table_name <> 'dilution_scenarios'
         order by table_name
       `)
     ).map((r) => r.table_name)).toEqual(["structure_scenarios"]);

@@ -1147,8 +1147,13 @@ describe("compliance module — creates no second truth", () => {
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
 // + 0039_agriculture_food_export (Agriculture OS Food Export capability: export orders, lot allocations, compliance requirements/checks, shipments, document links, holds; reuses existing buyers/products/inventory/trace/shipments/documents; adds no specialist truth).
+// + 0040_founder_equity_cap_table_esop (X10THINK Phase 2 founder equity capability: share classes, equity positions,
+// vesting schedules + append-only vesting ledger, change-of-control events, leaver cases, ESOP plans/grants/grant ledger,
+// reconstructable cap-table snapshots and execution-prohibited dilution scenarios; Finance OS remains the money authority; adds no specialist truth).
+// + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: trust instruments, jurisdiction-aware INERT provisions,
+// trustee decisions and distribution DECISION RECORDS (payment stays Finance OS authority, legal effect stays REQUIRES_LEGAL_REVIEW); adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(40);
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
   });
 
   it("leaves all triggers enabled", async () => {
