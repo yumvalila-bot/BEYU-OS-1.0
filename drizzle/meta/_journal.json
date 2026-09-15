@@ -323,6 +323,13 @@
       "when": 1789440002000,
       "tag": "0045_ujenzi_field_spatial",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789440003000,
+      "tag": "0046_ujenzi_bim_hse_boq",
+      "breakpoints": true
     }
   ]
 }

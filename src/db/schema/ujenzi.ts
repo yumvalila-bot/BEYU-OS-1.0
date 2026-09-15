@@ -217,6 +217,9 @@ export const ujenziBoqItems = pgTable(
     amount: numeric("amount", { precision: 18, scale: 2 }),
     workPackage: text("work_package"),
     revision: integer("revision").notNull().default(1),
+    sourceKind: text("source_kind").notNull().default("MANUAL"),
+    sourceId: text("source_id"),
+    journalsPosted: boolean("journals_posted").notNull().default(false),
     classification: text("classification").notNull().default("RESTRICTED"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -887,4 +890,92 @@ export const ujenziScheduleActivities = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("ujenzi_sched_uidx").on(t.projectId, t.code), index("ujenzi_sched_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziBimArtifacts = pgTable(
+  "ujenzi_bim_artifacts",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    discipline: text("discipline").notNull().default("ARCHITECTURE"),
+    format: text("format").notNull(),
+    checksum: text("checksum").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    headerHint: text("header_hint"),
+    ingestStatus: text("ingest_status").notNull().default("REGISTERED"),
+    geometryParsed: boolean("geometry_parsed").notNull().default(false),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_bim_art_checksum_uidx").on(t.tenantId, t.checksum), index("ujenzi_bim_art_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziHazards = pgTable(
+  "ujenzi_hazards",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    residualRisk: text("residual_risk").notNull().default("UNASSESSED"),
+    status: text("status").notNull().default("OPEN"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_hazards_uidx").on(t.tenantId, t.code), index("ujenzi_hazards_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziNearMisses = pgTable(
+  "ujenzi_near_misses",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("RECORDED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_near_miss_uidx").on(t.tenantId, t.code), index("ujenzi_near_miss_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziPermitsToWork = pgTable(
+  "ujenzi_permits_to_work",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    permitKind: text("permit_kind").notNull(),
+    status: text("status").notNull().default("REQUESTED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_ptw_uidx").on(t.tenantId, t.code), index("ujenzi_ptw_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziCommissioningTests = pgTable(
+  "ujenzi_commissioning_tests",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    systemName: text("system_name").notNull(),
+    result: text("result").notNull().default("PENDING"),
+    workflowState: text("workflow_state").notNull().default("PREPARED"),
+    professionalCertification: text("professional_certification").notNull().default("NOT_CERTIFIED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_comm_uidx").on(t.tenantId, t.code), index("ujenzi_comm_tenant_idx").on(t.tenantId)],
 );

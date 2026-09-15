@@ -332,7 +332,7 @@ export async function listLandSites(tenantId: string) {
 export { registerBuilding, registerLevel, queryDigitalTwin, recordProfessional } from "./twin";
 export { UJENZI_CAPABILITY_REGISTRY } from "./capability-registry";
 export { traverseTwin, detectOrphans } from "./graph";
-export { runSimpleUdlBeamMoment } from "./calculations";
+export { runSimpleUdlBeamMoment, runManningFlow, runTerzaghiBearing } from "./calculations";
 export { isKnownCrs } from "./crs";
 export {
   recordSurveyObservation,
@@ -341,6 +341,11 @@ export {
   recordRfi,
   recordScheduleActivity,
 } from "./field";
+export { registerBimArtifact, verifyBimChecksum, detectBimFormat } from "./bim";
+export { recordBoqItem } from "./boq";
+export { recordHseIncident, recordHazard, recordNearMiss, recordPermitToWork } from "./hse";
+export { recordCommissioningTest, advanceCommissioning } from "./commissioning";
+export { certifyCalculation } from "./authority";
 
 export async function acceptSyncEnvelope(
   input: {

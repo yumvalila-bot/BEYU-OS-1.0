@@ -4,4 +4,6 @@
 
 Open standards intended: IFC, BCF, COBie — **adapters not connected**.
 
-**NOT IMPLEMENTED:** production BIM viewer, proprietary Revit/Tekla APIs, model comparison engine.
+**IMPLEMENTED:** artifact register with SHA-256, duplicate detection, IFC STEP header sniff (`ISO-10303-21`), unsupported-format flag. Geometry is **not** parsed (`geometryParsed: false`).
+
+**NOT IMPLEMENTED:** production BIM viewer, object extraction, federation, proprietary Revit/Tekla APIs, model comparison engine.
