@@ -337,6 +337,13 @@
       "when": 1789440004000,
       "tag": "0047_ujenzi_ops_gis_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789440005000,
+      "tag": "0048_ujenzi_execution",
+      "breakpoints": true
     }
   ]
 }

@@ -772,6 +772,8 @@ export const ujenziProfessionals = pgTable(
     registrationNumber: text("registration_number"),
     jurisdiction: text("jurisdiction").notNull().default("TZ"),
     verificationStatus: text("verification_status").notNull().default("USER_ENTERED"),
+    evidenceUri: text("evidence_uri"),
+    verifiedByUserId: text("verified_by_user_id"),
     expiresOn: text("expires_on"),
     classification: text("classification").notNull().default("CONFIDENTIAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1136,4 +1138,126 @@ export const ujenziComplianceEvaluations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("ujenzi_ceval_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziWorkPackages = pgTable(
+  "ujenzi_work_packages",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    scheduleActivityId: text("schedule_activity_id").references(() => ujenziScheduleActivities.id),
+    status: text("status").notNull().default("PLANNED"),
+    plannedQty: numeric("planned_qty", { precision: 16, scale: 4 }),
+    actualQty: numeric("actual_qty", { precision: 16, scale: 4 }),
+    unit: text("unit"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_wp_uidx").on(t.tenantId, t.code), index("ujenzi_wp_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziWorkPackageDeps = pgTable(
+  "ujenzi_work_package_deps",
+  {
+    ...ujzTenant(),
+    predecessorId: text("predecessor_id")
+      .notNull()
+      .references(() => ujenziWorkPackages.id),
+    successorId: text("successor_id")
+      .notNull()
+      .references(() => ujenziWorkPackages.id),
+    relation: text("relation").notNull().default("FS"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_wpdep_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziSubmittals = pgTable(
+  "ujenzi_submittals",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("OPEN"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_sub_uidx").on(t.tenantId, t.code), index("ujenzi_sub_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziItps = pgTable(
+  "ujenzi_itps",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    acceptanceCriteria: text("acceptance_criteria").notNull(),
+    status: text("status").notNull().default("OPEN"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_itp_uidx").on(t.tenantId, t.code), index("ujenzi_itp_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziItpResults = pgTable(
+  "ujenzi_itp_results",
+  {
+    ...ujzTenant(),
+    itpId: text("itp_id")
+      .notNull()
+      .references(() => ujenziItps.id),
+    outcome: text("outcome").notNull(),
+    measuredValue: text("measured_value"),
+    professionalCertification: text("professional_certification").notNull().default("NOT_CERTIFIED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_itpr_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziMaterialMovements = pgTable(
+  "ujenzi_material_movements",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    movementKind: text("movement_kind").notNull(),
+    materialCode: text("material_code").notNull(),
+    quantity: numeric("quantity", { precision: 16, scale: 4 }).notNull(),
+    unit: text("unit").notNull(),
+    workPackageId: text("work_package_id").references(() => ujenziWorkPackages.id),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_mmov_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziSustainabilityMetrics = pgTable(
+  "ujenzi_sustainability_metrics",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    metricKind: text("metric_kind").notNull(),
+    value: numeric("value", { precision: 18, scale: 6 }).notNull(),
+    unit: text("unit").notNull(),
+    methodology: text("methodology").notNull(),
+    source: text("source").notNull(),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_sust_tenant_idx").on(t.tenantId)],
 );

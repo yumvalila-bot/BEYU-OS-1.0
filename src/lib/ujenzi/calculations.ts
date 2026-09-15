@@ -2,7 +2,13 @@
  * Governed calculation families. Only defensible, unit-checked methods.
  * Results are NEVER professionally certified.
  */
-export type CalcFamily = "SIMPLE_UDL_BEAM_MOMENT" | "MANNING_FLOW" | "TERZAGHI_BEARING" | "ELECTRICAL_POWER" | "DARCY_HEADLOSS";
+export type CalcFamily =
+  | "SIMPLE_UDL_BEAM_MOMENT"
+  | "MANNING_FLOW"
+  | "TERZAGHI_BEARING"
+  | "ELECTRICAL_POWER"
+  | "DARCY_HEADLOSS"
+  | "HVAC_AIR_CHANGE";
 
 export type CalcRun = {
   family: CalcFamily;
@@ -107,6 +113,19 @@ export function runDarcyHeadloss(input: { f: number; L: number; D: number; v: nu
     units: { f: "1", L: "m", D: "m", v: "m/s", hf: "m" },
     result: { hf_m: hf },
     warnings: ["Friction factor f is an input, not derived."],
+    professionalCertification: "NOT_CERTIFIED",
+  };
+}
+
+/** Q = ACH * V / 3600 (m³/s). Volume m³. */
+export function runHvacAirChange(input: { ACH: number; V: number }): CalcRun {
+  if (!(input.ACH > 0) || !(input.V > 0)) throw new Error("INVALID_INPUT:positive_required");
+  return {
+    family: "HVAC_AIR_CHANGE",
+    inputs: input,
+    units: { ACH: "1/h", V: "m3", Q: "m3/s" },
+    result: { Q_m3s: (input.ACH * input.V) / 3600 },
+    warnings: [],
     professionalCertification: "NOT_CERTIFIED",
   };
 }

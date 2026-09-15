@@ -338,6 +338,7 @@ export {
   runTerzaghiBearing,
   runElectricalPower,
   runDarcyHeadloss,
+  runHvacAirChange,
 } from "./calculations";
 export { isKnownCrs } from "./crs";
 export {
@@ -366,6 +367,18 @@ export {
   evaluateCompliance,
   refuseGisProtocol,
 } from "./ops";
+export {
+  createWorkPackage,
+  addWorkPackageDependency,
+  recordWorkPackageProgress,
+  recordSiteReport,
+  recordSubmittal,
+  recordItp,
+  recordItpResult,
+  closeNcr,
+  recordMaterialMovement,
+  recordSustainabilityMetric,
+} from "./execution";
 
 export async function acceptSyncEnvelope(
   input: {
@@ -375,6 +388,8 @@ export async function acceptSyncEnvelope(
     operation: string;
     payload: Record<string, unknown>;
     clientOccurredAt: string;
+    clientSequence?: number;
+    schemaVersion?: string;
   },
   actor?: UjenziActor,
 ) {
@@ -384,7 +399,15 @@ export async function acceptSyncEnvelope(
     .where(and(eq(s.ujenziSyncEnvelopes.tenantId, input.tenantId), eq(s.ujenziSyncEnvelopes.envelopeId, input.envelopeId)))
     .limit(1);
   if (existing) {
-    return { id: existing.id, status: existing.status, replay: true as const };
+    const same = JSON.stringify(existing.payload) === JSON.stringify(input.payload);
+    if (!same) {
+      await db
+        .update(s.ujenziSyncEnvelopes)
+        .set({ conflictState: "PAYLOAD_MISMATCH", status: "CONFLICT" })
+        .where(eq(s.ujenziSyncEnvelopes.id, existing.id));
+      throw new UjenziDomainError("SYNC_CONFLICT", "Offline envelope payload does not match stored idempotent copy");
+    }
+    return { id: existing.id, status: existing.status, replay: true as const, conflictState: existing.conflictState };
   }
   const id = ujzId();
   await db.insert(s.ujenziSyncEnvelopes).values({
@@ -397,8 +420,11 @@ export async function acceptSyncEnvelope(
     clientOccurredAt: new Date(input.clientOccurredAt),
     status: "ACCEPTED",
     actorUserId: actor?.userId,
+    clientSequence: input.clientSequence,
+    schemaVersion: input.schemaVersion ?? "1",
+    conflictState: "NONE",
   });
-  return { id, status: "ACCEPTED" as const, replay: false as const };
+  return { id, status: "ACCEPTED" as const, replay: false as const, conflictState: "NONE" as const };
 }
 
 export async function certifyProgress(
