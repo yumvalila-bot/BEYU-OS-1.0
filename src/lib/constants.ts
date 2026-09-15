@@ -741,16 +741,13 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
-<<<<<<< HEAD
+      "ujenzi:data.read",
       // Risk & compliance review of the contracting register and of governed oracle and
       // evidence inputs (read side). Compliance findings can block execution through the
       // authority engine; they can never authorise a payment or an ownership change.
       "contracts:read",
       "contracts:manage",
       "blockchain:read",
-=======
-      "ujenzi:data.read",
->>>>>>> eb6d5e1 (Add BEYU Ujenzi Sector OS with Digital Twin identifier graph.)
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {

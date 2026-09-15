@@ -793,3 +793,98 @@ export const ujenziEngineeringStandards = pgTable(
   },
   (t) => [uniqueIndex("ujenzi_eng_std_uidx").on(t.tenantId, t.code), index("ujenzi_eng_std_tenant_idx").on(t.tenantId)],
 );
+
+export const ujenziSurveyObservations = pgTable(
+  "ujenzi_survey_observations",
+  {
+    ...ujzTenant(),
+    siteId: text("site_id")
+      .notNull()
+      .references(() => ujenziLandSites.id),
+    method: text("method").notNull(),
+    crs: text("crs").notNull(),
+    eastingOrLon: numeric("easting_or_lon", { precision: 18, scale: 8 }),
+    northingOrLat: numeric("northing_or_lat", { precision: 18, scale: 8 }),
+    elevationM: numeric("elevation_m", { precision: 12, scale: 4 }),
+    accuracyM: numeric("accuracy_m", { precision: 10, scale: 4 }),
+    source: text("source").notNull().default("USER_ENTERED"),
+    observedOn: text("observed_on"),
+    dataStatus: text("data_status").notNull().default("RECORDED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_survey_obs_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziGisDatasets = pgTable(
+  "ujenzi_gis_datasets",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id").references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    format: text("format").notNull(),
+    crs: text("crs").notNull(),
+    featureCount: integer("feature_count").notNull().default(0),
+    source: text("source").notNull(),
+    license: text("license"),
+    ingestStatus: text("ingest_status").notNull().default("REGISTERED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_gis_uidx").on(t.tenantId, t.code), index("ujenzi_gis_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziDefects = pgTable(
+  "ujenzi_defects",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    inspectionId: text("inspection_id").references(() => ujenziInspections.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    severity: text("severity").notNull().default("MINOR"),
+    status: text("status").notNull().default("OPEN"),
+    locationNote: text("location_note"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_defects_uidx").on(t.tenantId, t.code), index("ujenzi_defects_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziRfis = pgTable(
+  "ujenzi_rfis",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    question: text("question").notNull(),
+    status: text("status").notNull().default("OPEN"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_rfis_uidx").on(t.tenantId, t.code), index("ujenzi_rfis_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziScheduleActivities = pgTable(
+  "ujenzi_schedule_activities",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    wbs: text("wbs"),
+    durationDays: integer("duration_days"),
+    predecessorCode: text("predecessor_code"),
+    status: text("status").notNull().default("PLANNED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_sched_uidx").on(t.projectId, t.code), index("ujenzi_sched_tenant_idx").on(t.tenantId)],
+);

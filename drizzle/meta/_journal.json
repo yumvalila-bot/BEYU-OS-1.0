@@ -300,14 +300,28 @@
       "idx": 42,
       "version": "7",
       "when": 1789440000000,
-      "tag": "0042_ujenzi_os",
+      "tag": "0042_governed_contracting_and_blockchain",
       "breakpoints": true
     },
     {
       "idx": 43,
       "version": "7",
+      "when": 1789440000500,
+      "tag": "0043_ujenzi_os",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
       "when": 1789440001000,
-      "tag": "0043_ujenzi_digital_twin",
+      "tag": "0044_ujenzi_digital_twin",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789440002000,
+      "tag": "0045_ujenzi_field_spatial",
       "breakpoints": true
     }
   ]

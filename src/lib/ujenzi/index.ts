@@ -331,6 +331,16 @@ export async function listLandSites(tenantId: string) {
 
 export { registerBuilding, registerLevel, queryDigitalTwin, recordProfessional } from "./twin";
 export { UJENZI_CAPABILITY_REGISTRY } from "./capability-registry";
+export { traverseTwin, detectOrphans } from "./graph";
+export { runSimpleUdlBeamMoment } from "./calculations";
+export { isKnownCrs } from "./crs";
+export {
+  recordSurveyObservation,
+  ingestGeoJsonDataset,
+  recordDefect,
+  recordRfi,
+  recordScheduleActivity,
+} from "./field";
 
 export async function acceptSyncEnvelope(
   input: {
