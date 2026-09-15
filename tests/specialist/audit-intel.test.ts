@@ -827,6 +827,14 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- audit_log; excluded by exact name so this guard still fails if the audit
       -- module itself ever defines a table.
         and table_name not in ('vesting_events', 'change_of_control_events', 'esop_grant_events')
+      -- contract_lifecycle_events, contract_obligation_events, blockchain_events,
+      -- blockchain_oracle_readings and smart_contract_registry (drizzle/0042) are the
+      -- governed contracting/blockchain domains' own append-only ledgers and evidence
+      -- registers: domain records keyed to their contract/anchor registers, written
+      -- THROUGH recordAudit (which owns the audit chain), never audit ledgers
+      -- themselves. Excluded by exact name so this guard still fails if the audit
+      -- module ever defines a table.
+        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry')
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -879,7 +887,12 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // Finance OS remains the money authority; adds no specialist truth).
     // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: instruments, INERT provisions,
     // trustee decisions, distribution decision records; adds no specialist truth).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
+    // + 0042_governed_contracting_and_blockchain (governed contracting domain + blockchain
+    // capability: contract records, authority checks, obligations, execution links, signature
+    // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
+    // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
+    // deliberately no key material or on-chain write path in a specialist module).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
   });
 
   it("leaves the decision registry entirely PENDING", async () => {

@@ -240,6 +240,32 @@ export const PERMISSIONS = {
   // on family entitlement — MFA step-up, human only, REQUIRES_LEGAL_REVIEW.
   "familyoffice:trust.read": "Read trust instruments, provisions, trustee decisions and distribution records",
   "familyoffice:trust.manage": "Record trust instruments, jurisdiction-aware provisions (INERT without ratified legal effect), trustee decisions and distribution decision records (never a payment; consequential legal act — MFA step-up)",
+  // Governed contracting domain (X10THINK master program, §13–§22, §37–§39).
+  //
+  // ONE governed contract lifecycle capability inside BEYU OS — deliberately
+  // NOT a Contract OS and never a second document store, party registry,
+  // accounting system or ownership registry. The three permissions split
+  // visibility (read), lifecycle progression (manage) and the consequential
+  // authority acts (authority: commercial approval, authority verification,
+  // execution, termination, dispute disposition). NONE of them moves money,
+  // posts a journal entry, alters the cap table or touches CAP_POSTING (§44,
+  // §45): payment obligations are governed Finance OS references. Execution
+  // additionally fails closed unless the authority engine records every
+  // mandatory check as satisfied by canonical rows — a client-supplied status
+  // is never authority (§17).
+  "contracts:read": "Read the contract register, lifecycle history, obligations, counterparty posture and signature/anchor evidence",
+  "contracts:manage": "Request, draft, review-gate, execute, amend, renew, complete, expire or archive governed contract records",
+  "contracts:authority": "Close approval gates, record authority determinations, terminate for cause, dispose disputes and manage legal-hold on the register (MFA step-up; human only)",
+  // Governed blockchain capability (§23–§40). Blockchain is an execution and
+  // evidence technology UNDER BEYU governance; it never becomes a source of
+  // truth for identity, ownership, accounting or authorization. These
+  // permissions read and maintain the smart-contract registry, evidence
+  // anchors, oracle sources and reconciliation findings — they cannot deploy,
+  // upgrade, transfer or execute anything by themselves, and no on-chain state
+  // can override a BEYU record (reconciliation records discrepancies, it never
+  // silently overwrites).
+  "blockchain:read": "Read the smart-contract registry, anchored commitments, oracle sources/readings, indexed events and reconciliation findings",
+  "blockchain:manage": "Register smart contracts, record anchor/execution evidence and maintain governed oracle sources (governed references only; never chain key custody, never a posting route)",
   // Documents / audit / AI
   "documents:registry.read": "Read the document & attachment registry",
   "documents:registry.manage": "Register or supersede documents",
@@ -360,6 +386,13 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   // family entitlement and trustee authority — consequential legal acts, same
   // footing as a trust beneficiary change (MFA step-up).
   "familyoffice:trust.manage",
+  // Executing, terminating or disposing a contract is the moment legal
+  // consequence is created; closing the commercial/authority gates is the
+  // moment BEYU commits. Both are consequential acts and carry MFA step-up.
+  "contracts:authority",
+  // Registering a smart contract or mutating the governed oracle source list
+  // changes what BEYU will trust as evidence/execution input. Step-up required.
+  "blockchain:manage",
   "governance:policy.manage",
   "government:submission.manage",
 ];
@@ -509,6 +542,13 @@ export const ROLES: Record<
       "equity:esop.read",
       "equity:dilution.read",
       "familyoffice:trust.read",
+      // Governed contracting oversight (explicit grant, A-06-1): the CEO progresses the
+      // lifecycle and reads the evidence ledger. No money movement is granted here —
+      // CAP_POSTING, the Finance posting engine, the ownership registry and HCM remain
+      // canonical for what they own, exactly as before.
+      "contracts:read",
+      "contracts:manage",
+      "blockchain:read",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -569,6 +609,14 @@ export const ROLES: Record<
       "ai:workflow.run",
       "ai:model.registry.read",
       "agriculture:data.read",
+      // Contracting capability for financing/commercial agreements plus the governed
+      // smart-contract registry and evidence anchors. No money movement: CAP_POSTING and
+      // the Finance posting engine remain the only Finance write path (fail-closed).
+      "contracts:read",
+      "contracts:manage",
+      "contracts:authority",
+      "blockchain:read",
+      "blockchain:manage",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -639,6 +687,14 @@ export const ROLES: Record<
       "ai:compliance.audit",
       "ai:compliance.certification",
       "ai:compliance.metrics",
+      // Governance owner of the authority gate: verification, approval closure, dispute
+      // disposition and legal hold. Registering chain evidence is a governance act, not a
+      // money act: no permission here reaches the Finance posting engine or CAP_POSTING.
+      "contracts:read",
+      "contracts:manage",
+      "contracts:authority",
+      "blockchain:read",
+      "blockchain:manage",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -677,6 +733,12 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      // Risk & compliance review of the contracting register and of governed oracle and
+      // evidence inputs (read side). Compliance findings can block execution through the
+      // authority engine; they can never authorise a payment or an ownership change.
+      "contracts:read",
+      "contracts:manage",
+      "blockchain:read",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {
@@ -910,6 +972,11 @@ export const ROLES: Record<
       "equity:vesting.read",
       "equity:esop.read",
       "documents:registry.read",
+      // Legal review of the contracting register: counsel reads records and progresses
+      // the review gates that carry REQUIRES_LEGAL_REVIEW. Enforceability remains a human
+      // legal act; the software records closure, it never assumes it.
+      "contracts:read",
+      "contracts:manage",
     ],
   },
   /**
@@ -1031,6 +1098,11 @@ export const ROLES: Record<
       "ai:executive.read",
       "ai:analytics.read",
       "ai:memory.read",
+      // Workforce contracting: offer letters, employment agreements, contractor and
+      // amendment records. HCM stays the employee master — a contract record updates HCM
+      // only through governed HCM workflows, never directly.
+      "contracts:read",
+      "contracts:manage",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1058,6 +1130,10 @@ export const ROLES: Record<
       "ai:noelia.query",
       "ai:executive.read",
       "ai:analytics.read",
+      // Sector operators read contract records inside their own tenant scope: visibility
+      // only. Lifecycle progression, execution and counterparty screening stay with the
+      // group functions that own them; RLS still bounds every read.
+      "contracts:read",
     ],
   },
   FOUNDATION_DIRECTOR: {
@@ -1122,6 +1198,11 @@ export const ROLES: Record<
       "ai:executive.read",
       "ai:analytics.read",
       "ai:memory.read",
+      // Foundation contracting: donor, grant, government, NGO-implementation and
+      //   development-partner agreements, with tranche and reporting obligations. BEYU
+      //   records authorized commitments; it never assumes government or donor authority.
+      "contracts:read",
+      "contracts:manage",
     ],
   },
   FOUNDATION_OFFICER: {
@@ -1169,6 +1250,11 @@ export const ROLES: Record<
       "ai:noelia.query",
       "ai:executive.read",
       "ai:analytics.read",
+      // Foundation officer operates the day-to-day contracting register for their own
+      //   foundation tenant: drafting, obligation tracking and evidence capture. Approval and
+      //   execution gates still require the accountable authority above this role.
+      "contracts:read",
+      "contracts:manage",
     ],
   },
   AUDITOR: {
@@ -1217,6 +1303,10 @@ export const ROLES: Record<
       "equity:leaver.read",
       "equity:esop.read",
       "equity:dilution.read",
+      // Read-only contracting and blockchain-evidence visibility for independent audit
+      //   of the register, its determinations and its anchors. No manage or authority verbs.
+      "contracts:read",
+      "blockchain:read",
     ],
   },
 };

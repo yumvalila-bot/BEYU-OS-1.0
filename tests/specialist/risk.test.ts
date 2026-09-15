@@ -1052,7 +1052,12 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: instruments, INERT provisions,
     // trustee decisions, distribution decision records; adds no specialist truth).
     const n = await count(sql`select count(*)::int as n from public.beyu_migrations`);
-    expect(n).toBe(42);
+    // + 0042_governed_contracting_and_blockchain (governed contracting domain + blockchain
+    // capability: contract records, authority checks, obligations, execution links, signature
+    // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
+    // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
+    // deliberately no key material or on-chain write path in a specialist module).
+    expect(n).toBe(43);
   });
 
   it("leaves all triggers enabled", async () => {
