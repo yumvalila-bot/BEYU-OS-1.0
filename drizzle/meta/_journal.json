@@ -281,6 +281,34 @@
       "when": 1789154761430,
       "tag": "0039_agriculture_food_export",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789154761431,
+      "tag": "0040_founder_equity_cap_table_esop",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789154761432,
+      "tag": "0041_family_trust_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789440000000,
+      "tag": "0042_ujenzi_os",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789440001000,
+      "tag": "0043_ujenzi_digital_twin",
+      "breakpoints": true
     }
   ]
 }

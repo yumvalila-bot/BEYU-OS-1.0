@@ -166,6 +166,7 @@ export const ID_PREFIX = {
   paymentCorrection: "PCR",
   paymentRiskSignal: "PRK",
   agri: "AGR",
+  ujenzi: "UJZ",
   foundation: "FDN",
   foundationType: "FTY",
   formation: "FMC",
