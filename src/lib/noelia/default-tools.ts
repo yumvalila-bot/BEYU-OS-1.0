@@ -801,6 +801,140 @@ export function createDefaultNoeliaToolRegistry(
     execute: (context) => services.agriculture(context),
   });
 
+  registry.register({
+    name: "ujenzi.operations.observe",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe Ujenzi OS operational counts. Never posts journals, certifies engineering, or claims government approval.",
+    metadata: {
+      stableId: "cap-ujenzi-operations-observe",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => services.ujenzi(context),
+  });
+
+  registry.register({
+    name: "ujenzi.project.observe",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe Ujenzi project counts. Never certifies engineering or posts journals.",
+    metadata: {
+      stableId: "cap-ujenzi-project-observe",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => services.ujenzi(context),
+  });
+
+  registry.register({
+    name: "ujenzi.digital_twin.query",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Query Ujenzi Digital Twin identifier counts. Refuses geometry payloads. Not a BIM viewer.",
+    metadata: {
+      stableId: "cap-ujenzi-digital-twin-query",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: async (context) => {
+      const { queryDigitalTwin } = await import("@/lib/ujenzi/twin");
+      const twin = await queryDigitalTwin(context.target.tenantId);
+      return {
+        headline: `Ujenzi Digital Twin graph: ${twin.buildings} buildings, ${twin.edges} edges. Viewer ${twin.viewer}.`,
+        findings: [
+          { label: "Buildings", value: String(twin.buildings), kind: "FACT" as const, status: "OBSERVED" as const },
+          { label: "Viewer", value: twin.viewer, kind: "FACT" as const, status: "OBSERVED" as const },
+          { label: "Geometry payload", value: twin.geometryPayload, kind: "FACT" as const, status: "OBSERVED" as const },
+        ],
+        narrative: twin.note,
+        confidence: 0.9,
+        humanReviewRequired: false,
+      };
+    },
+  });
+
+  registry.register({
+    name: "ujenzi.handover.check",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe handover blockers. Never certifies, never posts journals, never hands over.",
+    metadata: {
+      stableId: "cap-ujenzi-handover-check",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({ projectId: z.string().min(1) }).strict(),
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: async (context, input) => {
+      const { projectId } = z.object({ projectId: z.string().min(1) }).parse(input ?? {});
+      const { evaluateHandoverReadiness } = await import("@/lib/ujenzi/integration");
+      const check = await evaluateHandoverReadiness(context.target.tenantId, projectId);
+      return {
+        headline: check.blocked ? "Handover is BLOCKED pending human evidence." : "Handover readiness for human review only.",
+        findings: [
+          { label: "blocked", value: String(check.blocked), kind: "FACT" as const, status: "OBSERVED" as const },
+          { label: "openNcrs", value: String(check.openNcrs), kind: "FACT" as const, status: "OBSERVED" as const },
+          {
+            label: "professionalCertificationInferred",
+            value: String(check.professionalCertificationInferred),
+            kind: "FACT" as const,
+            status: "OBSERVED" as const,
+          },
+        ],
+        narrative: "Noelia cannot certify, handover, or post journals.",
+        confidence: 0.9,
+        humanReviewRequired: true,
+      };
+    },
+  });
+
   /* ---------------- Knowledge / RAG / memory ---------------- */
 
   registry.register({
@@ -1205,7 +1339,7 @@ export function createDefaultNoeliaToolRegistry(
       outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         domains: z.array(z.enum([
-          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
+          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "UJENZI", "TAX", "LEGAL",
           "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
         ])).min(2).max(10),
         focus: z.string().max(300).optional(),
@@ -1214,7 +1348,7 @@ export function createDefaultNoeliaToolRegistry(
     execute: async (context, input) => {
       const { domains } = z.object({
         domains: z.array(z.enum([
-          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
+          "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "UJENZI", "TAX", "LEGAL",
           "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
         ])).min(2).max(10),
         focus: z.string().max(300).optional(),
@@ -1227,6 +1361,7 @@ export function createDefaultNoeliaToolRegistry(
         HCM: "hcm:employee.read",
         HEALTH: "ai:noelia.query",
         AGRICULTURE: "agriculture:data.read",
+        UJENZI: "ujenzi:data.read",
         RISK: "risk:register.read",
         COMPLIANCE: "compliance:obligation.read",
         GOVERNANCE: "governance:resolution.read",
@@ -1238,6 +1373,7 @@ export function createDefaultNoeliaToolRegistry(
         HCM: "hcm.workforce.observe",
         HEALTH: "health.runtime.status",
         AGRICULTURE: "agriculture.operations.observe",
+        UJENZI: "ujenzi.operations.observe",
         RISK: "risk.register.query",
         COMPLIANCE: "compliance.obligation.query",
         GOVERNANCE: "governance.resolution.query",

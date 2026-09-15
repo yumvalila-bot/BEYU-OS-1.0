@@ -42,6 +42,7 @@ const NAV: { group: string; items: { href: string; label: string; permission?: P
       { href: "/os/assurance", label: "Risk · Compliance · Legal", permission: "risk:register.read" },
       { href: "/os/hcm", label: "HCM (workforce truth)", permission: "hcm:employee.read" },
       { href: "/os/agriculture", label: "Agriculture OS", permission: "agriculture:data.read" },
+      { href: "/os/ujenzi", label: "Ujenzi OS", permission: "ujenzi:data.read" },
     ],
   },
   {

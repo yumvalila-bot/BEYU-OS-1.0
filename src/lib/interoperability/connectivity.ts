@@ -169,6 +169,18 @@ export const CONNECTIVITY_GRAPH: readonly ConnectivityEdge[] = [
     continuityRequirement: "Sector OS must not create a workforce fallback master",
   },
   {
+    source: "UJENZI",
+    destination: "FINANCE",
+    contract: "PROJECT_CREATED / payment-certificate handoff; cost tracker is not a journal",
+    authority: "BEYU OS authority/capability gate; CAP_POSTING remains LOCKED",
+    dataClass: "RESTRICTED",
+    direction: "OUTBOUND",
+    interaction: "EVENT",
+    trace: "project/progress-certificate trace → Finance OS (no posting)",
+    failureMode: "DATA_NOT_AVAILABLE",
+    continuityRequirement: "no sector-side financial truth, funding or replayable journal mutation",
+  },
+  {
     source: "AGRICULTURE",
     destination: "FINANCE",
     contract: "HARVEST_RECORDED event and capital-case handoff; no sector-side journal",

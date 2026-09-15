@@ -8,6 +8,7 @@ execute domain operations.
 | Sector | Path | Stack | Boundary doc |
 | --- | --- | --- | --- |
 | Health | `sectors/health/` | NestJS backend + React/Vite SPA + PostgreSQL (`beyu_identity` schema) | [`sectors/health/INTEGRATION.md`](health/INTEGRATION.md) |
+| Ujenzi (construction) | kernel module `src/lib/ujenzi` + `/os/ujenzi` | Next.js inside BEYU OS — **one Sector OS**, not inner OSs | [`docs/architecture/UJENZI_OS.md`](../docs/architecture/UJENZI_OS.md) |
 
 ## Rules for sector code
 

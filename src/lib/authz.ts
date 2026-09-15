@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
 import {
   AGRICULTURE_OS_TENANT_CODE,
+  UJENZI_OS_TENANT_CODE,
   classificationRank,
   isKnownClassification,
   HIGH_RISK_PERMISSIONS,
@@ -167,6 +168,14 @@ export function can(
     return {
       allowed: false,
       reason: "ABAC: agriculture writes require the Agriculture OS tenant",
+      requiresMfa: false,
+      highRisk,
+    };
+  }
+  if (permission === "ujenzi:data.manage" && principal.tenantCode !== UJENZI_OS_TENANT_CODE) {
+    return {
+      allowed: false,
+      reason: "ABAC: ujenzi writes require the Ujenzi OS tenant",
       requiresMfa: false,
       highRisk,
     };

@@ -49,6 +49,7 @@ export const CLOCK_SKEW_S = 60;
 export const INTERNAL_SERVICE_ISSUERS = [
   "HEALTH_OS",
   "AGRICULTURE_OS",
+  "UJENZI_OS",
   "FINANCE_OS",
   "FOUNDATION_OS",
   "BEYU_OS",

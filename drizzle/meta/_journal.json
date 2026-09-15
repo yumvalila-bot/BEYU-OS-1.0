@@ -281,6 +281,69 @@
       "when": 1789154761430,
       "tag": "0039_agriculture_food_export",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789154761431,
+      "tag": "0040_founder_equity_cap_table_esop",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789154761432,
+      "tag": "0041_family_trust_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789440000000,
+      "tag": "0042_governed_contracting_and_blockchain",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789440000500,
+      "tag": "0043_ujenzi_os",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789440001000,
+      "tag": "0044_ujenzi_digital_twin",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789440002000,
+      "tag": "0045_ujenzi_field_spatial",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789440003000,
+      "tag": "0046_ujenzi_bim_hse_boq",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789440004000,
+      "tag": "0047_ujenzi_ops_gis_quality",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789440005000,
+      "tag": "0048_ujenzi_execution",
+      "breakpoints": true
     }
   ]
 }

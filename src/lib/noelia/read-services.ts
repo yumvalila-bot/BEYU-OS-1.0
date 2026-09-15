@@ -368,6 +368,28 @@ export class BeyuNoeliaReadService {
     };
   }
 
+  async ujenzi(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const { ujenziDashboard } = await import("@/lib/ujenzi");
+    const dash = await ujenziDashboard(context.target.tenantId);
+    return {
+      headline: `Ujenzi OS observation: ${dash.projects} project(s). Operational truth only. Not certification.`,
+      findings: [
+        { label: "Projects", value: String(dash.projects), kind: "FACT", status: "OBSERVED" },
+        { label: "Calculations", value: String(dash.calculations), kind: "FACT", status: "OBSERVED" },
+        { label: "Soil tests", value: String(dash.soilTests), kind: "FACT", status: "OBSERVED" },
+        { label: "Finance boundary", value: "FINANCE_OS_ONLY — CAP_POSTING LOCKED", kind: "INFERENCE", status: "OBSERVED" },
+        { label: "Engineering boundary", value: dash.engineeringBoundary, kind: "INFERENCE", status: "OBSERVED" },
+        { label: "Architecture", value: dash.architecture, kind: "FACT", status: "OBSERVED" },
+      ],
+      narrative:
+        "Ujenzi OS is ONE construction-sector OS. Calculations are not professional certification. Soil records never fabricate field results. Government remains authoritative. Learning never grants Noelia authority.",
+      confidence: 0.84,
+      humanReviewRequired: true,
+      metadata: { ...dash },
+    };
+  }
+
   async knowledge(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
     requireCanonicalContext();
     const question = typeof input === "object" && input && "question" in input
