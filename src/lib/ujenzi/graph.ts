@@ -35,3 +35,30 @@ export async function detectOrphans(tenantId: string, projectId: string) {
   const orphanBuildings = buildings.filter((b) => !linked.has(b.id) && !b.siteId);
   return { orphanBuildings: orphanBuildings.map((b) => b.id) };
 }
+
+/** Directed cycle detection on CONTAINS-style twin edges. */
+export async function detectTwinCycles(tenantId: string, projectId: string) {
+  const edges = await db
+    .select()
+    .from(s.ujenziTwinEdges)
+    .where(and(eq(s.ujenziTwinEdges.tenantId, tenantId), eq(s.ujenziTwinEdges.projectId, projectId)));
+  const adj = new Map<string, string[]>();
+  for (const e of edges) {
+    const a = `${e.fromKind}:${e.fromId}`;
+    const b = `${e.toKind}:${e.toId}`;
+    adj.set(a, [...(adj.get(a) ?? []), b]);
+  }
+  const vis = new Map<string, number>();
+  let cyclic = false;
+  function dfs(n: string) {
+    vis.set(n, 1);
+    for (const m of adj.get(n) ?? []) {
+      const st = vis.get(m) ?? 0;
+      if (st === 1) cyclic = true;
+      else if (st === 0) dfs(m);
+    }
+    vis.set(n, 2);
+  }
+  for (const k of adj.keys()) if ((vis.get(k) ?? 0) === 0) dfs(k);
+  return { cyclic, edgeCount: edges.length };
+}

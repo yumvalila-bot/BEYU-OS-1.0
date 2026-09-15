@@ -330,6 +330,13 @@
       "when": 1789440003000,
       "tag": "0046_ujenzi_bim_hse_boq",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789440004000,
+      "tag": "0047_ujenzi_ops_gis_quality",
+      "breakpoints": true
     }
   ]
 }

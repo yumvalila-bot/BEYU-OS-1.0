@@ -3,6 +3,30 @@ import { db } from "@/db";
 import * as s from "@/db/schema";
 import { UjenziDomainError } from "./errors";
 
+/** Evidence URI is recorded. Government/board VERIFIED is never inferred. */
+export async function attachProfessionalEvidence(input: {
+  tenantId: string;
+  professionalId: string;
+  evidenceUri: string;
+  actorUserId: string;
+}) {
+  if (!input.evidenceUri.trim()) throw new UjenziDomainError("DATA_REQUIRED", "Evidence URI required");
+  const [pro] = await db
+    .select()
+    .from(s.ujenziProfessionals)
+    .where(and(eq(s.ujenziProfessionals.id, input.professionalId), eq(s.ujenziProfessionals.tenantId, input.tenantId)));
+  if (!pro) throw new UjenziDomainError("NOT_FOUND", "Professional not found");
+  await db
+    .update(s.ujenziProfessionals)
+    .set({
+      evidenceUri: input.evidenceUri,
+      verifiedByUserId: input.actorUserId,
+      verificationStatus: "EVIDENCE_RECORDED",
+    })
+    .where(eq(s.ujenziProfessionals.id, input.professionalId));
+  return { verificationStatus: "EVIDENCE_RECORDED" as const, government: "NOT_CONNECTED" as const };
+}
+
 /** Certification is LEVEL 5 — never autonomous. VERIFIED professionals do not exist without human evidence. */
 export async function certifyCalculation(input: {
   tenantId: string;

@@ -97,7 +97,24 @@ export async function ingestGeoJsonDataset(input: {
     source: input.source,
     ingestStatus: "INGESTED",
   });
-  return { id: rowId, ingestStatus: "INGESTED" as const, featureCount: gj.features.length, renderer: "NOT_IMPLEMENTED" as const };
+  for (let i = 0; i < gj.features.length; i++) {
+    const f = gj.features[i] as { geometry?: { type?: string }; properties?: Record<string, unknown> };
+    await db.insert(s.ujenziGisFeatures).values({
+      id: id(),
+      tenantId: input.tenantId,
+      datasetId: rowId,
+      featureIndex: i,
+      geometryType: f?.geometry?.type ?? null,
+      properties: f?.properties ?? {},
+    });
+  }
+  return {
+    id: rowId,
+    ingestStatus: "INGESTED" as const,
+    featureCount: gj.features.length,
+    renderer: "NOT_IMPLEMENTED" as const,
+    wms: "NOT_IMPLEMENTED" as const,
+  };
 }
 
 export async function recordDefect(input: {
@@ -143,8 +160,7 @@ export async function recordScheduleActivity(input: {
   durationDays?: number;
   predecessorCode?: string;
 }) {
-  const project = await getProject(input.projectId, input.tenantId);
-  if (!project) throw new UjenziDomainError("NOT_FOUND", "Project not found");
+  await requireProject(input.projectId, input.tenantId);
   const rowId = id();
   await db.insert(s.ujenziScheduleActivities).values({
     id: rowId,

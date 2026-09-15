@@ -331,8 +331,14 @@ export async function listLandSites(tenantId: string) {
 
 export { registerBuilding, registerLevel, queryDigitalTwin, recordProfessional } from "./twin";
 export { UJENZI_CAPABILITY_REGISTRY } from "./capability-registry";
-export { traverseTwin, detectOrphans } from "./graph";
-export { runSimpleUdlBeamMoment, runManningFlow, runTerzaghiBearing } from "./calculations";
+export { traverseTwin, detectOrphans, detectTwinCycles } from "./graph";
+export {
+  runSimpleUdlBeamMoment,
+  runManningFlow,
+  runTerzaghiBearing,
+  runElectricalPower,
+  runDarcyHeadloss,
+} from "./calculations";
 export { isKnownCrs } from "./crs";
 export {
   recordSurveyObservation,
@@ -345,7 +351,21 @@ export { registerBimArtifact, verifyBimChecksum, detectBimFormat } from "./bim";
 export { recordBoqItem } from "./boq";
 export { recordHseIncident, recordHazard, recordNearMiss, recordPermitToWork } from "./hse";
 export { recordCommissioningTest, advanceCommissioning } from "./commissioning";
-export { certifyCalculation } from "./authority";
+export { certifyCalculation, attachProfessionalEvidence } from "./authority";
+export {
+  linkTwinEdge,
+  recordNcr,
+  recordWorkOrder,
+  registerRealityCapture,
+  linkKnowledge,
+  createRfq,
+  recordQuotation,
+  refuseAutonomousAward,
+  recordDesignAlternative,
+  recordComplianceRequirement,
+  evaluateCompliance,
+  refuseGisProtocol,
+} from "./ops";
 
 export async function acceptSyncEnvelope(
   input: {

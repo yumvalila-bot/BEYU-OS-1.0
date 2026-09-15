@@ -979,3 +979,161 @@ export const ujenziCommissioningTests = pgTable(
   },
   (t) => [uniqueIndex("ujenzi_comm_uidx").on(t.tenantId, t.code), index("ujenzi_comm_tenant_idx").on(t.tenantId)],
 );
+
+export const ujenziGisFeatures = pgTable(
+  "ujenzi_gis_features",
+  {
+    ...ujzTenant(),
+    datasetId: text("dataset_id")
+      .notNull()
+      .references(() => ujenziGisDatasets.id),
+    featureIndex: integer("feature_index").notNull(),
+    geometryType: text("geometry_type"),
+    properties: jsonb("properties").$type<Record<string, unknown>>().notNull().default({}),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_gis_feat_tenant_idx").on(t.tenantId), index("ujenzi_gis_feat_ds_idx").on(t.datasetId)],
+);
+
+export const ujenziQualityNcrs = pgTable(
+  "ujenzi_quality_ncrs",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    twinObjectKind: text("twin_object_kind"),
+    twinObjectId: text("twin_object_id"),
+    status: text("status").notNull().default("OPEN"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_ncr_uidx").on(t.tenantId, t.code), index("ujenzi_ncr_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziWorkOrders = pgTable(
+  "ujenzi_work_orders",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    assetId: text("asset_id").references(() => ujenziAssets.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    workKind: text("work_kind").notNull().default("CORRECTIVE"),
+    status: text("status").notNull().default("OPEN"),
+    journalsPosted: boolean("journals_posted").notNull().default(false),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_wo_uidx").on(t.tenantId, t.code), index("ujenzi_wo_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziRealityCaptures = pgTable(
+  "ujenzi_reality_captures",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    captureKind: text("capture_kind").notNull(),
+    checksum: text("checksum").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    computerVision: text("computer_vision").notNull().default("NOT_IMPLEMENTED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_rc_uidx").on(t.tenantId, t.code), index("ujenzi_rc_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziKnowledgeEdges = pgTable(
+  "ujenzi_knowledge_edges",
+  {
+    ...ujzTenant(),
+    knowledgeId: text("knowledge_id")
+      .notNull()
+      .references(() => ujenziKnowledge.id),
+    relatedKind: text("related_kind").notNull(),
+    relatedId: text("related_id").notNull(),
+    relation: text("relation").notNull(),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_kedge_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziRfqs = pgTable(
+  "ujenzi_rfqs",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull().default("OPEN"),
+    awardStatus: text("award_status").notNull().default("NOT_AWARDED"),
+    journalsPosted: boolean("journals_posted").notNull().default(false),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_rfq_uidx").on(t.tenantId, t.code), index("ujenzi_rfq_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziQuotations = pgTable(
+  "ujenzi_quotations",
+  {
+    ...ujzTenant(),
+    rfqId: text("rfq_id")
+      .notNull()
+      .references(() => ujenziRfqs.id),
+    supplierName: text("supplier_name").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("TZS"),
+    status: text("status").notNull().default("RECEIVED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_quote_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziDesignAlternatives = pgTable(
+  "ujenzi_design_alternatives",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    scores: jsonb("scores").$type<Record<string, number>>().notNull().default({}),
+    weightedScore: numeric("weighted_score", { precision: 12, scale: 4 }),
+    approvalState: text("approval_state").notNull().default("UNAPPROVED"),
+    classification: text("classification").notNull().default("INTERNAL"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ujenzi_dalt_uidx").on(t.tenantId, t.code), index("ujenzi_dalt_tenant_idx").on(t.tenantId)],
+);
+
+export const ujenziComplianceEvaluations = pgTable(
+  "ujenzi_compliance_evaluations",
+  {
+    ...ujzTenant(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => ujenziProjects.id),
+    requirementId: text("requirement_id")
+      .notNull()
+      .references(() => ujenziComplianceRequirements.id),
+    result: text("result").notNull().default("USER_ASSESSED"),
+    officialStatus: text("official_status").notNull().default("NOT_CONNECTED"),
+    classification: text("classification").notNull().default("RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ujenzi_ceval_tenant_idx").on(t.tenantId)],
+);

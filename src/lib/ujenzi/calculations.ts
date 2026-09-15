@@ -2,7 +2,7 @@
  * Governed calculation families. Only defensible, unit-checked methods.
  * Results are NEVER professionally certified.
  */
-export type CalcFamily = "SIMPLE_UDL_BEAM_MOMENT" | "MANNING_FLOW" | "TERZAGHI_BEARING";
+export type CalcFamily = "SIMPLE_UDL_BEAM_MOMENT" | "MANNING_FLOW" | "TERZAGHI_BEARING" | "ELECTRICAL_POWER" | "DARCY_HEADLOSS";
 
 export type CalcRun = {
   family: CalcFamily;
@@ -79,6 +79,34 @@ export function runTerzaghiBearing(input: {
     units: { c: "kPa", q: "kPa", gamma: "kN/m3", B: "m", q_ult: "kPa" },
     result: { q_ult_kPa: qUlt },
     warnings: ["Bearing factors must come from a cited chart/standard; not derived here."],
+    professionalCertification: "NOT_CERTIFIED",
+  };
+}
+
+/** P = V I (SI). */
+export function runElectricalPower(input: { V: number; I: number }): CalcRun {
+  if (!(input.V > 0) || !(input.I > 0)) throw new Error("INVALID_INPUT:positive_required");
+  return {
+    family: "ELECTRICAL_POWER",
+    inputs: input,
+    units: { V: "V", I: "A", P: "W" },
+    result: { P_W: input.V * input.I },
+    warnings: [],
+    professionalCertification: "NOT_CERTIFIED",
+  };
+}
+
+/** hf = f (L/D) (v^2 / 2g). SI. f must be supplied. */
+export function runDarcyHeadloss(input: { f: number; L: number; D: number; v: number }): CalcRun {
+  if (Object.values(input).some((x) => !(x > 0))) throw new Error("INVALID_INPUT:positive_required");
+  const g = 9.80665;
+  const hf = input.f * (input.L / input.D) * ((input.v * input.v) / (2 * g));
+  return {
+    family: "DARCY_HEADLOSS",
+    inputs: input,
+    units: { f: "1", L: "m", D: "m", v: "m/s", hf: "m" },
+    result: { hf_m: hf },
+    warnings: ["Friction factor f is an input, not derived."],
     professionalCertification: "NOT_CERTIFIED",
   };
 }
