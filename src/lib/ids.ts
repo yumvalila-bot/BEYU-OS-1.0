@@ -223,6 +223,26 @@ export const ID_PREFIX = {
   trustProvision: "TRP",
   trustDecision: "TRD",
   trustDistribution: "TDS",
+  /* Governed contracting domain (X10THINK master program, contracting phases). */
+  contractParty: "CTY",
+  contractRecord: "CTR",
+  contractLifecycleEvent: "CLC",
+  contractAuthorityCheck: "CTA",
+  contractObligation: "CTQ", /* CTQ: CTO is taken by compliance obligations */
+  contractObligationEvent: "CTV",
+  contractSlaMeasurement: "CTM",
+  contractAnchorLink: "CAL",
+  contractSignature: "CSG",
+  contractDispute: "CTD",
+  legalDocumentLifecycle: "LDL",
+  /* Governed blockchain capability (execution/evidence technology under BEYU governance). */
+  blockchainAnchor: "BCA",
+  blockchainOracleSource: "BCO",
+  blockchainOracleReading: "BCR",
+  blockchainEvent: "BCE",
+  smartContractRegistry: "BCS",
+  blockchainTokenPosition: "BCT",
+  blockchainReconciliation: "BCX",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

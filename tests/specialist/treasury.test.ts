@@ -903,7 +903,12 @@ describe("treasury module — creates no second truth", () => {
 // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: trust instruments, jurisdiction-aware INERT provisions,
 // trustee decisions and distribution DECISION RECORDS (payment stays Finance OS authority, legal effect stays REQUIRES_LEGAL_REVIEW); adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
+    // + 0042_governed_contracting_and_blockchain (governed contracting domain + blockchain
+    // capability: contract records, authority checks, obligations, execution links, signature
+    // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
+    // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
+    // deliberately no key material or on-chain write path in a specialist module).
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
   });
 
   it("leaves all triggers enabled", async () => {

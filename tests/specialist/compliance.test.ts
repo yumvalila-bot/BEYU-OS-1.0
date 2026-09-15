@@ -1110,11 +1110,20 @@ describe("compliance module — creates no second truth", () => {
     // Agriculture OS Food Export compliance requirements/checks, not compliance module tables.
     // They contain 'compliance' in name, so they appear in the like '%compliance%' scan.
     // Attributed here by exact name, so this guard still fails if the compliance module itself ever defines a table.
+    // contract_obligations / contract_obligation_events (drizzle/0042) are the
+    // governed contracting domain's due-dating ledger for what each party owes
+    // under a contract. They are contract-performance records: the authoritative
+    // owner of any amount is FINANCE_OS, verification requires evidence, and they
+    // neither read nor write compliance_assessments/compliance_obligations. Attributed
+    // here by exact name so this guard still fails if the compliance module itself
+    // ever defines a table.
     expect(names).toEqual([
       "agriculture_export_compliance_checks",
       "agriculture_export_compliance_requirements",
       "compliance_assessments",
       "compliance_obligations",
+      "contract_obligation_events",
+      "contract_obligations",
       "family_obligation_covenants",
       "family_obligations",
       "foundation_compliance_tasks",
@@ -1153,7 +1162,12 @@ describe("compliance module — creates no second truth", () => {
 // + 0041_family_trust_governance (X10THINK Phase 3 Family Trust capability: trust instruments, jurisdiction-aware INERT provisions,
 // trustee decisions and distribution DECISION RECORDS (payment stays Finance OS authority, legal effect stays REQUIRES_LEGAL_REVIEW); adds no specialist truth).
 // (all additive/hardening; specialist modules add no migration).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(42);
+    // + 0042_governed_contracting_and_blockchain (governed contracting domain + blockchain
+    // capability: contract records, authority checks, obligations, execution links, signature
+    // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
+    // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
+    // deliberately no key material or on-chain write path in a specialist module).
+expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
   });
 
   it("leaves all triggers enabled", async () => {

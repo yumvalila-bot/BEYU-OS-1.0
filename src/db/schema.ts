@@ -20,6 +20,31 @@ export * from "./schema/foundation";
 export * from "./schema/government";
 
 /*
+ * Governed CONTRACTING domain — materialized (additive).
+ *
+ * Contract records, party posture, authority checks, deterministic obligations
+ * and their ledgers, SLA measurements, execution links, signature evidence,
+ * disputes and legal-document lifecycle. Money truth stays in Finance OS
+ * (`authoritative_owner`/`finance_record_ref`), documents stay canonical in
+ * `documents`, identity stays canonical in `parties`, approvals stay canonical
+ * in Governance. The pure engines in `src/lib/contracts/*` decide every state
+ * transition; these tables store the governed result, never an inference.
+ */
+export * from "./schema/contracts";
+
+/*
+ * Governed BLOCKCHAIN capability — materialized (additive).
+ *
+ * Anchored commitments (EIP-712), smart-contract registry with testnet-first
+ * progression, indexed events, governed oracles, non-authoritative token
+ * positions and read-only reconciliation. There is deliberately no key
+ * material, no wallet, and no write path that lets on-chain state overwrite a
+ * canonical registry: BEYU computes and verifies evidence; an external,
+ * governed signer executes.
+ */
+export * from "./schema/blockchain";
+
+/*
  * Family Office CAPITAL & WEALTH domain — materialized.
  *
  * `./schema/family-office` (the neutral policy/ratification mechanism) is
