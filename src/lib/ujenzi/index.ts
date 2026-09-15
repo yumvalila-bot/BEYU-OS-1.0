@@ -379,6 +379,14 @@ export {
   recordMaterialMovement,
   recordSustainabilityMetric,
 } from "./execution";
+export {
+  workPackageProgress,
+  detectWorkPackageCycles,
+  recordItpResultWithNcr,
+  evaluateHandoverReadiness,
+  createAssetFromApprovedCommissioning,
+  attachBoqToWorkPackage,
+} from "./integration";
 
 export async function acceptSyncEnvelope(
   input: {

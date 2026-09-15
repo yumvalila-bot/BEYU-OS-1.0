@@ -59,6 +59,7 @@ export async function addWorkPackageDependency(input: {
     .from(s.ujenziWorkPackages)
     .where(and(eq(s.ujenziWorkPackages.id, input.successorId), eq(s.ujenziWorkPackages.tenantId, input.tenantId)));
   if (!a || !b) throw new UjenziDomainError("NOT_FOUND", "Work package not found");
+  const { detectWorkPackageCycles } = await import("./integration");
   const rowId = id();
   await db.insert(s.ujenziWorkPackageDeps).values({
     id: rowId,
@@ -67,6 +68,11 @@ export async function addWorkPackageDependency(input: {
     successorId: input.successorId,
     relation: input.relation ?? "FS",
   });
+  const cycles = await detectWorkPackageCycles(input.tenantId, a.projectId);
+  if (cycles.cyclic) {
+    await db.delete(s.ujenziWorkPackageDeps).where(eq(s.ujenziWorkPackageDeps.id, rowId));
+    throw new UjenziDomainError("INVALID_STATE", "Work package dependency cycle refused");
+  }
   return { id: rowId };
 }
 
@@ -74,6 +80,7 @@ export async function recordWorkPackageProgress(input: {
   tenantId: string;
   workPackageId: string;
   actualQty: string;
+  unit?: string;
 }) {
   const qty = Number(input.actualQty);
   if (!(qty >= 0) || !Number.isFinite(qty)) throw new UjenziDomainError("INVALID_STATE", "Invalid actualQty");
@@ -82,6 +89,9 @@ export async function recordWorkPackageProgress(input: {
     .from(s.ujenziWorkPackages)
     .where(and(eq(s.ujenziWorkPackages.id, input.workPackageId), eq(s.ujenziWorkPackages.tenantId, input.tenantId)));
   if (!wp) throw new UjenziDomainError("NOT_FOUND", "Work package not found");
+  if (input.unit && wp.unit && input.unit !== wp.unit) {
+    throw new UjenziDomainError("INVALID_STATE", "Progress unit does not match work package unit");
+  }
   await db
     .update(s.ujenziWorkPackages)
     .set({ actualQty: input.actualQty, status: "IN_PROGRESS" })

@@ -890,6 +890,51 @@ export function createDefaultNoeliaToolRegistry(
     },
   });
 
+  registry.register({
+    name: "ujenzi.handover.check",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe handover blockers. Never certifies, never posts journals, never hands over.",
+    metadata: {
+      stableId: "cap-ujenzi-handover-check",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({ projectId: z.string().min(1) }).strict(),
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: async (context, input) => {
+      const { projectId } = z.object({ projectId: z.string().min(1) }).parse(input ?? {});
+      const { evaluateHandoverReadiness } = await import("@/lib/ujenzi/integration");
+      const check = await evaluateHandoverReadiness(context.target.tenantId, projectId);
+      return {
+        headline: check.blocked ? "Handover is BLOCKED pending human evidence." : "Handover readiness for human review only.",
+        findings: [
+          { label: "blocked", value: String(check.blocked), kind: "FACT" as const, status: "OBSERVED" as const },
+          { label: "openNcrs", value: String(check.openNcrs), kind: "FACT" as const, status: "OBSERVED" as const },
+          {
+            label: "professionalCertificationInferred",
+            value: String(check.professionalCertificationInferred),
+            kind: "FACT" as const,
+            status: "OBSERVED" as const,
+          },
+        ],
+        narrative: "Noelia cannot certify, handover, or post journals.",
+        confidence: 0.9,
+        humanReviewRequired: true,
+      };
+    },
+  });
+
   /* ---------------- Knowledge / RAG / memory ---------------- */
 
   registry.register({

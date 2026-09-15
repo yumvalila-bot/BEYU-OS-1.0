@@ -32,6 +32,12 @@ const EDGE_KINDS = new Set([
   "SCHEDULE",
   "DEFECT",
   "NCR",
+  "WORK_PACKAGE",
+  "SITE_REPORT",
+  "SUBMITTAL",
+  "ITP",
+  "COMMISSIONING",
+  "MATERIAL_MOVEMENT",
 ]);
 
 export async function linkTwinEdge(input: {
