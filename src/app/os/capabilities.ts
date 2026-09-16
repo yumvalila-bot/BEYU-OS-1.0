@@ -98,7 +98,7 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
       {
         href: "/os/registry",
         label: "OS & Source-of-Truth Registry",
-        description: "Registered operating systems, authoritative data owners, architecture decisions, integrations and data assets.",
+        description: "Registered operating systems, authoritative data owners, architecture decisions, integrations, data assets and feature flags.",
         icon: "registry",
         visibility: {
           kind: "permission",
