@@ -59,7 +59,12 @@ import { can, type Principal } from "../authz";
 import { evaluatePolicy, type PolicyEvaluation } from "../policy";
 import { withAuditTransaction } from "../audit";
 import { assertWithinScope, tenantScopeIds, TenantIsolationError } from "../tenant-scope";
-import { classificationRank, type Classification, type PermissionCode } from "../constants";
+import {
+  classificationRank,
+  classificationsAtOrBelow,
+  type Classification,
+  type PermissionCode,
+} from "../constants";
 import { ID_PREFIX, newId } from "../ids";
 import { ContractError, type ContractErrorCode } from "./errors";
 import {
@@ -223,11 +228,23 @@ function isUniqueViolation(err: unknown): boolean {
 
 /** Locate a contract strictly inside the principal's scope. Non-enumerating: a
  *  foreign id and a missing id are the same 404. */
-async function contractInScope(contractId: string, scope: string[]) {
+async function contractInScope(principal: Principal, contractId: string, scope: string[]) {
   const [row] = await db
     .select()
     .from(contractRecords)
-    .where(and(eq(contractRecords.id, contractId), inArray(contractRecords.tenantId, scope)))
+    .where(
+      and(
+        eq(contractRecords.id, contractId),
+        inArray(contractRecords.tenantId, scope),
+        inArray(
+          contractRecords.classification,
+          classificationsAtOrBelow(principal.clearance),
+        ),
+        ...(principal.entityScope.length > 0
+          ? [inArray(contractRecords.beyuEntityId, principal.entityScope)]
+          : []),
+      ),
+    )
     .limit(1);
   if (!row) throw new ContractError("NOT_FOUND", "Contract not found within your authorised scope.");
   return row;
@@ -630,7 +647,7 @@ export async function transitionContract(
   context: MutationContext,
 ) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const classification = contract.classification as Classification;
   const permission: PermissionCode =
     input.action === "GRANT_COMMERCIAL_APPROVAL" ||
@@ -839,7 +856,7 @@ export async function evaluateContractAuthority(
   context: MutationContext,
 ) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const policy = await authorizeMutation(principal, "contracts:authority", {
     classification: contract.classification as Classification,
     tenantId: contract.tenantId,
@@ -1011,7 +1028,7 @@ export async function createObligation(
   context: MutationContext,
 ) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const classification = contract.classification as Classification;
   const policy = await authorizeMutation(principal, "contracts:manage", {
     classification,
@@ -1191,7 +1208,7 @@ export async function transitionObligation(
     .where(and(eq(contractObligations.id, input.obligationId), inArray(contractObligations.tenantId, scope)))
     .limit(1);
   if (!obligation) throw new ContractError("NOT_FOUND", "Obligation not found within your authorised scope.");
-  const contract = await contractInScope(obligation.contractId, scope);
+  const contract = await contractInScope(principal, obligation.contractId, scope);
   const policy = await authorizeMutation(principal, "contracts:manage", {
     classification: obligation.classification as Classification,
     tenantId: obligation.tenantId,
@@ -1337,7 +1354,7 @@ export async function recordSignatureEvidence(
   context: MutationContext,
 ) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const policy = await authorizeMutation(principal, "contracts:manage", {
     classification: contract.classification as Classification,
     tenantId: contract.tenantId,
@@ -1497,7 +1514,7 @@ export type OpenDisputeInput = {
  */
 export async function openDispute(principal: Principal, input: OpenDisputeInput, context: MutationContext) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const policy = await authorizeMutation(principal, "contracts:manage", {
     classification: contract.classification as Classification,
     tenantId: contract.tenantId,
@@ -1660,7 +1677,7 @@ export async function attachAnchorEvidence(
   context: MutationContext,
 ) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(input.contractId, scope);
+  const contract = await contractInScope(principal, input.contractId, scope);
   const policy = await authorizeMutation(principal, "contracts:manage", {
     classification: contract.classification as Classification,
     tenantId: contract.tenantId,
@@ -1768,7 +1785,7 @@ export async function attachAnchorEvidence(
 /** Obligation register for one contract, with overdue/escalation flags computed. */
 export async function readObligations(principal: Principal, contractId: string, asOfDate: string) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(contractId, scope);
+  const contract = await contractInScope(principal, contractId, scope);
   const rows = await db
     .select()
     .from(contractObligations)
@@ -1801,7 +1818,7 @@ export async function readObligations(principal: Principal, contractId: string, 
 /** Lifecycle history for one contract (append-only ledger, oldest first). */
 export async function readLifecycleHistory(principal: Principal, contractId: string) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(contractId, scope);
+  const contract = await contractInScope(principal, contractId, scope);
   return db
     .select({
       id: contractLifecycleEvents.id,
@@ -1822,7 +1839,7 @@ export async function readLifecycleHistory(principal: Principal, contractId: str
 /** Signing readiness view: slot sequence + hash agreement over recorded rows. */
 export async function readSigningStatus(principal: Principal, contractId: string) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(contractId, scope);
+  const contract = await contractInScope(principal, contractId, scope);
   const rows = await db
     .select()
     .from(contractSignatures)
@@ -1842,7 +1859,7 @@ export async function readSigningStatus(principal: Principal, contractId: string
 /** Disputes open against a contract, with their pause posture (advisory view). */
 export async function readDisputes(principal: Principal, contractId: string) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(contractId, scope);
+  const contract = await contractInScope(principal, contractId, scope);
   const rows = await db
     .select()
     .from(contractDisputes)
@@ -1865,7 +1882,7 @@ export async function readDisputes(principal: Principal, contractId: string) {
  */
 export async function readContractHealth(principal: Principal, contractId: string, asOfDate: string) {
   const scope = await tenantScopeIds(principal);
-  const contract = await contractInScope(contractId, scope);
+  const contract = await contractInScope(principal, contractId, scope);
   const obligations = await db
     .select({
       state: contractObligations.state,

@@ -25,6 +25,19 @@ export const dynamic = "force-dynamic";
 export default async function FamilyProtectionPage() {
   const access = await requireAccess("familyoffice:protection.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="familyoffice:protection.read" />;
+  const sensitiveDecision = can(access.principal, "familyoffice:protection.read", {
+    classification: "HIGHLY_RESTRICTED",
+  });
+  if (!sensitiveDecision.allowed || access.principal.entityScope.length > 0) {
+    return (
+      <Denied
+        reason={sensitiveDecision.allowed
+          ? "Family protection aggregates include rows without a legal-entity key; tenant-wide reads are refused under an entity-scoped grant."
+          : sensitiveDecision.reason}
+        capability="familyoffice:protection.read"
+      />
+    );
+  }
 
   return withTenantDatabaseContext(access.principal, async () => {
     await tenantScopeIds(access.principal); // pins the request scope; reads re-scope themselves

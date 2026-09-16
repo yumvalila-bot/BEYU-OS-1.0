@@ -17,9 +17,9 @@
  *     recorded in the registry (credential_refs) at call time.
  *   - It never deletes a submission record (the runtime role cannot).
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { governmentAgencies, governmentSubmissions } from "@/db/schema";
+import { governmentAgencies, governmentSubmissions, legalEntities } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { can, type Principal } from "@/lib/authz";
 import { evaluatePolicy } from "@/lib/policy";
@@ -31,7 +31,8 @@ import type {
   GovernmentAdapter,
   GovernmentSubmissionStatus,
 } from "./adapter";
-import type { PermissionCode } from "@/lib/constants";
+import { classificationsAtOrBelow, type PermissionCode } from "@/lib/constants";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 
 export class GovernmentGatewayError extends Error {
   constructor(
@@ -104,7 +105,7 @@ export class GovernmentGateway {
     agencyCode: string,
     permission: PermissionCode,
     action: string,
-  ): Promise<{ adapter: GovernmentAdapter; agencyStatus: string }> {
+  ): Promise<{ adapter: GovernmentAdapter; agencyStatus: string; agencyCountryCode: string }> {
     const decision = can(actor.principal, permission);
     if (!decision.allowed) {
       await recordAudit({
@@ -166,7 +167,11 @@ export class GovernmentGateway {
     if (!adapter) {
       throw new GovernmentGatewayError("AGENCY_NOT_CALLABLE", `No adapter is mounted for ${agencyCode}.`, 409);
     }
-    return { adapter, agencyStatus: agency.integrationStatus };
+    return {
+      adapter,
+      agencyStatus: agency.integrationStatus,
+      agencyCountryCode: agency.countryCode,
+    };
   }
 
   /**
@@ -188,7 +193,48 @@ export class GovernmentGateway {
     duplicate: boolean;
   }> {
     const action = `government.${input.agencyCode.toLowerCase()}.submit`;
-    const { adapter } = await this.authorize(input.actor, input.agencyCode, input.permission, action);
+    const { adapter, agencyCountryCode } = await this.authorize(
+      input.actor,
+      input.agencyCode,
+      input.permission,
+      action,
+    );
+    const tenantIds = await tenantScopeIds(input.actor.principal);
+    const [entity] = await db
+      .select({
+        id: legalEntities.id,
+        tenantId: legalEntities.tenantId,
+        countryCode: legalEntities.countryCode,
+      })
+      .from(legalEntities)
+      .where(
+        and(
+          eq(legalEntities.id, input.legalEntityId),
+          inArray(legalEntities.tenantId, tenantIds),
+          inArray(
+            legalEntities.classification,
+            classificationsAtOrBelow(input.actor.principal.clearance),
+          ),
+          ...(input.actor.principal.entityScope.length > 0
+            ? [inArray(legalEntities.id, input.actor.principal.entityScope)]
+            : []),
+        ),
+      )
+      .limit(1);
+    if (!entity) {
+      throw new GovernmentGatewayError(
+        "FORBIDDEN",
+        "The submission legal entity is not available within the caller's tenant, entity and classification scope.",
+        403,
+      );
+    }
+    if (entity.countryCode !== agencyCountryCode) {
+      throw new GovernmentGatewayError(
+        "FORBIDDEN",
+        "The submission legal entity jurisdiction does not match the government agency jurisdiction.",
+        403,
+      );
+    }
     if (!adapter.submit) {
       throw new GovernmentGatewayError(
         "UNSUPPORTED_CAPABILITY",
@@ -202,7 +248,7 @@ export class GovernmentGateway {
       }
     }
 
-    const tenantId = input.actor.principal.tenantId;
+    const tenantId = entity.tenantId;
     const payloadDigest = sha256(stableStringify(input.payload));
 
     // Idempotency: an existing submission for (tenant, agency, key) is the

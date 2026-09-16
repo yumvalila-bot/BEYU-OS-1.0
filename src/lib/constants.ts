@@ -98,6 +98,16 @@ export function isKnownClassification(c: string): c is Classification {
 }
 
 /**
+ * Enumerate the data classifications visible at a known principal clearance.
+ * Unknown clearances deliberately produce an empty SQL allow-list rather than
+ * inheriting classificationRank()'s high sentinel value.
+ */
+export function classificationsAtOrBelow(clearance: string): Classification[] {
+  if (!isKnownClassification(clearance)) return [];
+  return CLASSIFICATION_ORDER.slice(0, classificationRank(clearance) + 1);
+}
+
+/**
  * Canonical permission catalogue (domain:object.action).
  * A capability that is not listed here does not exist constitutionally.
  */
@@ -1335,5 +1345,10 @@ export const ROLE_CLEARANCE: Record<string, Classification> = {
   FAMILY_MEMBER_VIEW: "HIGHLY_RESTRICTED",
   HCM_DIRECTOR: "RESTRICTED",
   SECTOR_OPERATOR: "CONFIDENTIAL",
+  // Foundation safeguarding records are HIGHLY_RESTRICTED. These roles carry
+  // explicit safeguarding grants above, so their clearance must be explicit
+  // rather than silently falling back to INTERNAL.
+  FOUNDATION_DIRECTOR: "HIGHLY_RESTRICTED",
+  FOUNDATION_OFFICER: "HIGHLY_RESTRICTED",
   AUDITOR: "RESTRICTED",
 };

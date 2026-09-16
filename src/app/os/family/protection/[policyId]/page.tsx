@@ -21,6 +21,19 @@ export default async function PolicyDetailPage({ params }: { params: Promise<{ p
   const { policyId } = await params;
   const access = await requireAccess("familyoffice:protection.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="familyoffice:protection.read" />;
+  const sensitiveDecision = can(access.principal, "familyoffice:protection.read", {
+    classification: "HIGHLY_RESTRICTED",
+  });
+  if (!sensitiveDecision.allowed || access.principal.entityScope.length > 0) {
+    return (
+      <Denied
+        reason={sensitiveDecision.allowed
+          ? "Policy detail contains related records without a legal-entity key; tenant-wide reads are refused under an entity-scoped grant."
+          : sensitiveDecision.reason}
+        capability="familyoffice:protection.read"
+      />
+    );
+  }
 
   return withTenantDatabaseContext(access.principal, async () => {
     let detail: Awaited<ReturnType<typeof getPolicyDetail>> | null = null;

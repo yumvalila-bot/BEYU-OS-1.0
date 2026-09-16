@@ -23,7 +23,9 @@ export type IconName =
   | "registry"
   | "hierarchy"
   | "identity"
+  | "accessibility"
   | "org"
+  | "ownership"
   | "governance"
   | "constitution"
   | "compliance"
@@ -34,8 +36,13 @@ export type IconName =
   | "bell"
   | "events"
   | "security"
+  | "settings"
   | "legal"
   | "tax"
+  | "contracts"
+  | "blockchain"
+  | "government"
+  | "payments"
   | "hcm"
   | "hive"
   | "assurance"
@@ -83,6 +90,13 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M6.4 16.4c.5-1.7 1.5-2.6 2.8-2.6s2.3.9 2.8 2.6M15 9.6h3.4M15 13.2h3.4" />
     </>
   ),
+  /* Accessibility — person with inclusive reach */
+  accessibility: (
+    <>
+      <circle cx="12" cy="4.5" r="2" />
+      <path d="M4.5 8.5c4.6 1.6 10.4 1.6 15 0M12 9.8v5.1M8.6 21l3.4-6.1 3.4 6.1M8.2 11.2l-2.5 4.2M15.8 11.2l2.5 4.2" />
+    </>
+  ),
   /* Organisation (shared capability) — institution building */
   org: (
     <>
@@ -90,6 +104,16 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M2.8 20.5h18.4" />
       <path d="M9 20.5v-6h6v6" />
       <path d="M12 8.2v.1" />
+    </>
+  ),
+  /* Ownership — linked share certificate / controlled interest */
+  ownership: (
+    <>
+      <rect x="3.5" y="5" width="11" height="14" rx="2" />
+      <path d="M7 9h4M7 12.4h4M7 15.8h2.4" />
+      <circle cx="18" cy="9" r="2.6" />
+      <circle cx="18" cy="17" r="2.6" />
+      <path d="M14.5 10.4l1.2-.6M14.5 15.6l1.2.6" />
     </>
   ),
   /* Governance — scales of accountable decision */
@@ -171,6 +195,13 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M12 12.2v3" />
     </>
   ),
+  /* Settings — governed system and device preferences */
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+    </>
+  ),
   /* Legal & Liability — sealed instrument */
   legal: (
     <>
@@ -186,6 +217,35 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M6 3.5h12v16.2l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3V3.5Z" />
       <path d="M9.4 8.2h5.2M9.4 11.4h5.2" />
       <path d="M10.2 15.6l3.6-3.6M10.3 12.2v.1M13.7 15.5v.1" />
+    </>
+  ),
+  /* Governed contracts — signed lifecycle record */
+  contracts: (
+    <>
+      <path d="M6 3.5h8l4 4v13H6z" />
+      <path d="M14 3.5v4h4M8.7 12h6.6M8.7 15h4.4" />
+      <path d="M9 18.2c1.1-1.2 2.2 1 3.3-.2 1-.9 1.7.3 2.7-.2" />
+    </>
+  ),
+  /* Governed blockchain — evidence links, never an authority symbol */
+  blockchain: (
+    <>
+      <path d="M9.2 14.8 7 17a3 3 0 0 1-4.2-4.2l3.1-3.1A3 3 0 0 1 10 9.6" />
+      <path d="m14.8 9.2 2.2-2.2a3 3 0 1 1 4.2 4.2l-3.1 3.1a3 3 0 0 1-4.1.1" />
+      <path d="m8.5 15.5 7-7" />
+    </>
+  ),
+  /* Government integration gateway — public institution */
+  government: (
+    <>
+      <path d="M3.5 9 12 3.8 20.5 9M5 9h14M6.2 9.5v7M10 9.5v7M14 9.5v7M17.8 9.5v7M4 19.5h16M5 16.5h14" />
+    </>
+  ),
+  /* Payments — governed transaction and settlement rail */
+  payments: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2.2" />
+      <path d="M3 9.5h18M7 15h3.5M16.5 13.2v3.6M14.7 15h3.6" />
     </>
   ),
   /* HCM — governed workforce */

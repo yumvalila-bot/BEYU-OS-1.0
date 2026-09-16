@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
@@ -10,7 +10,7 @@ import {
   canTableResolutions,
   votingSnapshots,
 } from "@/lib/governance-vote-service";
-import { CLASSIFICATION_ORDER, classificationRank } from "@/lib/constants";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { ProposeResolution } from "./propose";
 import { VotePanel } from "./vote-panel";
@@ -23,25 +23,56 @@ export default async function GovernancePage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
   const scope = await tenantScopeIds(access.principal);
-  const [bodies, members, resolutionRows, policyRows] = await Promise.all([
-    db.select().from(governanceBodies).where(inArray(governanceBodies.tenantId, scope)),
-    db
-      .select({
-        id: governanceMembers.id,
-        bodyId: governanceMembers.bodyId,
-        seatRole: governanceMembers.seatRole,
-        votingRights: governanceMembers.votingRights,
-        name: parties.displayName,
-      })
-      .from(governanceMembers)
-      .innerJoin(parties, eq(parties.id, governanceMembers.partyId)),
-    db.select().from(resolutions).where(inArray(resolutions.tenantId, scope)).orderBy(resolutions.createdAt),
-    db.select().from(policies),
-  ]);
-
-  const visible = resolutionRows.filter(
-    (r) => classificationRank(r.classification) <= classificationRank(access.principal.clearance),
-  );
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const bodyPredicate =
+    access.principal.entityScope.length > 0
+      ? and(
+          inArray(governanceBodies.tenantId, scope),
+          inArray(governanceBodies.legalEntityId, access.principal.entityScope),
+        )
+      : inArray(governanceBodies.tenantId, scope);
+  const bodies = await db.select().from(governanceBodies).where(bodyPredicate);
+  const bodyIds = bodies.map((body) => body.id);
+  const members =
+    bodyIds.length > 0
+      ? await db
+          .select({
+            id: governanceMembers.id,
+            bodyId: governanceMembers.bodyId,
+            seatRole: governanceMembers.seatRole,
+            votingRights: governanceMembers.votingRights,
+            name: parties.displayName,
+          })
+          .from(governanceMembers)
+          .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
+          .where(inArray(governanceMembers.bodyId, bodyIds))
+      : [];
+  const visible =
+    bodyIds.length > 0
+      ? await db
+          .select()
+          .from(resolutions)
+          .where(
+            and(
+              inArray(resolutions.tenantId, scope),
+              inArray(resolutions.bodyId, bodyIds),
+              inArray(resolutions.classification, allowedClassifications),
+            ),
+          )
+          .orderBy(resolutions.createdAt)
+      : [];
+  const canReadPolicies = can(access.principal, "governance:policy.read").allowed;
+  const policyIds = [
+    ...new Set(
+      visible.flatMap((resolution) =>
+        resolution.authorityPolicyId ? [resolution.authorityPolicyId] : [],
+      ),
+    ),
+  ];
+  const policyRows =
+    canReadPolicies && policyIds.length > 0
+      ? await db.select().from(policies).where(inArray(policies.id, policyIds))
+      : [];
 
   /**
    * Provenance from the immutable ledger. This is what distinguishes a resolution
@@ -60,9 +91,7 @@ export default async function GovernancePage() {
 
   // A principal may only propose at or below their own clearance ceiling.
   const canPropose = can(access.principal, "governance:resolution.propose").allowed;
-  const proposableClassifications = CLASSIFICATION_ORDER.filter(
-    (c) => classificationRank(c) <= classificationRank(access.principal.clearance),
-  );
+  const proposableClassifications = allowedClassifications;
 
   return (
     <div className="space-y-6">
@@ -150,7 +179,15 @@ export default async function GovernancePage() {
                   <dl className="mt-3 grid gap-2 text-[11.5px] lg:grid-cols-2">
                     <div><span className="beyu-kicker beyu-muted">Why </span>{r.rationale}</div>
                     <div><span className="beyu-kicker beyu-muted">Data basis </span>{r.dataBasis}</div>
-                    <div><span className="beyu-kicker beyu-muted">Authority </span>{body?.name}{policy ? ` under ${policy.code}@${policy.version}` : ""}</div>
+                    <div>
+                      <span className="beyu-kicker beyu-muted">Authority </span>
+                      {body?.name}
+                      {policy
+                        ? ` under ${policy.code}@${policy.version}`
+                        : r.authorityPolicyId && !canReadPolicies
+                          ? " · policy details restricted"
+                          : ""}
+                    </div>
                     <div><span className="beyu-kicker beyu-muted">Consequences </span>{r.consequences}</div>
                   </dl>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-[11.5px] beyu-muted">

@@ -1,4 +1,5 @@
-import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, osRegistry } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
@@ -8,6 +9,9 @@ import { resolveNoeliaAuthorizedScope } from "@/lib/noelia/scope-service";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { NoeliaPanel } from "@/components/noelia-panel";
 import { NoeliaConsole } from "./console";
+import { can } from "@/lib/authz";
+import { Icon } from "@/components/icons";
+import type { PermissionCode } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +25,39 @@ export default async function NoeliaPage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="ai:noelia.query" />;
   return withTenantDatabaseContext(access.principal, async () => {
 
+  const canReadGovernance = ([
+    "ai:model.registry.read",
+    "ai:provider.registry.read",
+    "ai:identity.read",
+    "ai:evaluation.read",
+    "ai:risk.register.read",
+    "ai:compliance.read",
+    "ai:compliance.metrics",
+    "ai:incident.manage",
+    "ai:killswitch.manage",
+  ] satisfies PermissionCode[]).some((permission) => can(access.principal, permission).allowed);
   const scope = await resolveNoeliaAuthorizedScope(access.principal);
   const [recent, knowledge, hive] = await Promise.all([
-    db.select().from(aiDecisions).where(eq(aiDecisions.tenantId, access.principal.tenantId)).orderBy(desc(aiDecisions.occurredAt)).limit(8),
+    db
+      .select({
+        id: aiDecisions.id,
+        question: aiDecisions.question,
+        engine: aiDecisions.engine,
+        outputClass: aiDecisions.outputClass,
+        confidence: aiDecisions.confidence,
+        policyDecision: aiDecisions.policyDecision,
+        latencyMs: aiDecisions.latencyMs,
+        occurredAt: aiDecisions.occurredAt,
+      })
+      .from(aiDecisions)
+      .where(
+        and(
+          eq(aiDecisions.tenantId, access.principal.tenantId),
+          eq(aiDecisions.userId, access.principal.userId),
+        ),
+      )
+      .orderBy(desc(aiDecisions.occurredAt))
+      .limit(8),
     listGovernedMemoryCatalog({ principal: access.principal, scope }),
     db.select().from(osRegistry).where(eq(osRegistry.code, "HIVE_RUNTIME")).limit(1),
   ]);
@@ -39,6 +73,19 @@ export default async function NoeliaPage() {
           uncertainty, cites its sources, and is written to the AI decision register.
         </p>
       </header>
+
+      {canReadGovernance && (
+        <Link
+          href="/os/noelia/governance"
+          className="beyu-panel flex items-start gap-3 p-4 transition hover:border-[#D4A017]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
+        >
+          <Icon name="hive" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" />
+          <span>
+            <span className="block text-[13.5px] font-semibold">AI Governance & Assurance</span>
+            <span className="mt-0.5 block text-[11.5px] beyu-muted">Model, provider, identity, evaluation, risk, incident, kill-switch and compliance evidence within your grants.</span>
+          </span>
+        </Link>
+      )}
 
       <NoeliaPanel state="idle" href="#noelia-console" ctaLabel="Ask Noelia" />
 
@@ -60,7 +107,7 @@ export default async function NoeliaPage() {
       />
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <Panel kicker="AI decision register" title="Recent Noelia interactions (audited)">
+        <Panel kicker="AI decision register" title="Your recent Noelia interactions (audited)">
           <div className="space-y-2">
             {recent.map((a) => (
               <div key={a.id} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2">

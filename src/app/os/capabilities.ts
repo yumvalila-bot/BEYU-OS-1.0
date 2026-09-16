@@ -1,52 +1,37 @@
 import type { PermissionCode } from "@/lib/constants";
 import type { IconName } from "@/components/icons";
 import { can, type Principal } from "@/lib/authz";
+import {
+  FINANCE_OS_READ_PERMISSIONS,
+  FOUNDATION_OS_READ_PERMISSIONS,
+} from "@/lib/operating-systems";
 
 /**
  * Canonical BEYU OS frontend information architecture — ONE catalogue.
  *
- * WHY THIS MODULE EXISTS
- *   The sidebar navigation (app/os/layout.tsx), the mobile module bar and the
- *   Executive Control Centre capability map must present the SAME architecture.
- *   Before this module existed, the nav catalogue was private to the layout,
- *   which meant any second discovery surface would have had to duplicate it —
- *   and two copies of an authority-adjacent catalogue inevitably drift. This
- *   module is the single definition both surfaces derive from.
+ * The responsive navigation and the Executive Control Centre capability map
+ * both derive from this module. It is intentionally a discovery catalogue, not
+ * an authorization layer: each destination still resolves the principal and
+ * re-runs RBAC, ABAC, tenant/entity scope and RLS on the server.
  *
- * WHAT IT IS NOT
- *   It is NOT an authorization layer. `visible(principal, item)` is the same
- *   presentation-only computation the layout always performed: it runs the
- *   kernel's `can()` primitive against the SAME permission the destination
- *   page passes to `requireAccess()`, so the UI can never advertise what the
- *   backend would deny — and it grants nothing. Every destination re-verifies
- *   the principal, tenant, entity scope, clearance and permission server-side
- *   (requireAccess / requirePrincipal + RLS); a hidden URL typed by hand still
- *   receives the real governed decision.
+ * The first three groups express the constitutional hierarchy directly:
+ *   EXECUTIVE            — control surfaces of the one BEYU control plane;
+ *   SHARED CAPABILITIES  — implemented once in BEYU OS, never separate OSs;
+ *   SECTOR OS            — Finance, Health, Agriculture and Foundation below it.
  *
- * STRUCTURE (canonical IA)
- *   EXECUTIVE            — control-centre surfaces of the one control plane
- *   SHARED CAPABILITIES  — capabilities implemented ONCE inside BEYU OS and
- *                          consumed by every Sector OS through governed
- *                          APIs/events. They are NOT "OSs" (Constitution
- *                          Art. 2 — no Identity OS, no Risk OS…).
- *   SECTOR OS            — the specialized operating systems BEYU OS governs:
- *                          Health (federated), Finance, Agriculture, and the
- *                          Foundation OS (nonprofit sister architecture —
- *                          never a Sector LLC).
- *   FAMILY OFFICE        — the registered SHARED_FAMILY_OFFICE capability set
- *                          (HIGHLY_RESTRICTED) kept as its own group because
- *                          of its classification tier.
+ * The remaining workspace groups preserve useful, already-implemented focused
+ * views without promoting those views into duplicate operating systems.
  */
 
-/** How a destination's VISIBILITY (not authority) is decided. */
+/** How a destination's VISIBILITY (never its authority) is decided. */
 export type CapabilityVisibility =
-  /** Any authenticated principal (e.g. the control centre, own notifications). */
+  /** Any authenticated BEYU principal (for example the control centre). */
   | { kind: "open" }
   /** Exact permission the destination page passes to requireAccess(). */
   | { kind: "permission"; permission: PermissionCode }
-  /** Any of the listed permissions (the page applies the same union). */
+  /** Any listed permission; the destination applies the identical union. */
   | { kind: "any"; permissions: PermissionCode[] }
-  /** Health OS federation: resolved via the canonical identity link check. */
+  /** Health OS federation, resolved from its canonical identity link. */
   | { kind: "health-federation" };
 
 export type CapabilityItem = {
@@ -63,6 +48,41 @@ export type CapabilityGroup = {
   items: CapabilityItem[];
 };
 
+const OWNERSHIP_READ: PermissionCode[] = [
+  "organization:ownership.read",
+  "equity:cap-table.read",
+];
+
+const ORGANISATION_OWNERSHIP_READ: PermissionCode[] = [
+  "organization:entity.read",
+  ...OWNERSHIP_READ,
+];
+
+const RISK_COMPLIANCE_READ: PermissionCode[] = [
+  "risk:register.read",
+  "compliance:obligation.read",
+];
+
+const AUDIT_EVENTS_READ: PermissionCode[] = ["audit:log.read", "audit:event.read"];
+
+const REGISTRY_READ: PermissionCode[] = [
+  "platform:registry.read",
+  "identity:user.read",
+  "organization:entity.read",
+  "organization:ownership.read",
+  "equity:cap-table.read",
+  "governance:resolution.read",
+  "governance:policy.read",
+  "documents:registry.read",
+  "audit:log.read",
+  "audit:event.read",
+  "foundation:registry.read",
+  "contracts:read",
+  "government:integration.read",
+  "blockchain:read",
+  "finance:payments.read",
+];
+
 export const CAPABILITY_IA: CapabilityGroup[] = [
   {
     id: "executive",
@@ -71,23 +91,26 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
       {
         href: "/os",
         label: "Executive Control Centre",
-        description: "The main command surface: governed enterprise status, filtered to the principal's granted capabilities.",
+        description: "The main command surface: governed enterprise status filtered to the principal's granted capabilities.",
         icon: "command",
         visibility: { kind: "open" },
       },
       {
         href: "/os/registry",
         label: "OS & Source-of-Truth Registry",
-        description: "Which system owns which domain of truth: registered OSs, source-of-truth matrix, ADRs, integrations and data assets.",
+        description: "Registered operating systems, authoritative data owners, architecture decisions, integrations and data assets.",
         icon: "registry",
-        visibility: { kind: "permission", permission: "platform:registry.read" },
+        visibility: {
+          kind: "permission",
+          permission: "platform:registry.read",
+        },
       },
       {
-        href: "/os/organization",
+        href: "/os/organization-ownership",
         label: "Organisation & Ownership",
-        description: "Trust → holding → country holdings → sector companies: legal entities, ownership records and jurisdictions.",
+        description: "The governed route into the trust, holding, country, operating-company and ownership structure.",
         icon: "hierarchy",
-        visibility: { kind: "permission", permission: "organization:entity.read" },
+        visibility: { kind: "any", permissions: ORGANISATION_OWNERSHIP_READ },
       },
     ],
   },
@@ -97,120 +120,87 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
     items: [
       {
         href: "/os/identity",
-        label: "Identity",
-        description: "One canonical GlobalUserID per party: users, roles, role assignments, sessions and break-glass grants.",
+        label: "Identity & Access",
+        description: "Canonical GlobalUserID, users, roles, assignments, sessions, MFA posture and governed break-glass access.",
         icon: "identity",
         visibility: { kind: "permission", permission: "identity:user.read" },
       },
       {
         href: "/os/organization",
         label: "Organisation",
-        description: "The shared organisation capability: entities, org units, countries and ownership truth consumed by every OS.",
+        description: "Legal entities, organisation topology, countries and jurisdictions consumed by every operating system.",
         icon: "org",
-        visibility: { kind: "permission", permission: "organization:entity.read" },
+        visibility: {
+          kind: "permission",
+          permission: "organization:entity.read",
+        },
+      },
+      {
+        href: "/os/ownership",
+        label: "Ownership",
+        description: "Authoritative ownership records and the governed, instrument-level capitalization view — never a second cap table.",
+        icon: "ownership",
+        visibility: { kind: "any", permissions: OWNERSHIP_READ },
       },
       {
         href: "/os/governance",
         label: "Governance",
-        description: "Governance bodies, resolutions and voting — every material decision records its authority.",
+        description: "Governance bodies, authority, resolutions, votes and decision records with human accountability.",
         icon: "governance",
-        visibility: { kind: "permission", permission: "governance:resolution.read" },
-      },
-      {
-        href: "/os/constitution",
-        label: "Constitution & Policy",
-        description: "The constitutional articles, policies and amendments that bound every capability and OS.",
-        icon: "constitution",
-        visibility: { kind: "permission", permission: "governance:policy.read" },
-      },
-      {
-        href: "/os/compliance",
-        label: "Compliance",
-        description: "Compliance obligations and assessments — explicit states, never inferred, never claimed as certification.",
-        icon: "compliance",
-        visibility: { kind: "permission", permission: "compliance:obligation.read" },
-      },
-      {
-        href: "/os/risk",
-        label: "Risk",
-        description: "The enterprise risk register and control library: identification → assessment → treatment → monitoring.",
-        icon: "risk",
-        visibility: { kind: "permission", permission: "risk:register.read" },
-      },
-      {
-        href: "/os/audit",
-        label: "Audit",
-        description: "The append-only, hash-chained audit ledger with integrity self-test and the AI decision register.",
-        icon: "audit",
-        visibility: { kind: "permission", permission: "audit:log.read" },
-      },
-      {
-        href: "/os/documents",
-        label: "Documents",
-        description: "Document & knowledge registry: provenance, checksums, effective dating, retention and legal hold.",
-        icon: "documents",
-        visibility: { kind: "permission", permission: "documents:registry.read" },
-      },
-      {
-        href: "/os/workflow",
-        label: "Workflow",
-        description: "Governed workflow definitions, live instances, approvals & tasks, and HIVE agentic workflows with human approval.",
-        icon: "workflow",
-        visibility: { kind: "any", permissions: ["platform:dashboard.read", "ai:workflow.run", "ai:workflow.approve"] },
-      },
-      {
-        href: "/os/notifications",
-        label: "Notifications",
-        description: "IN_APP/system alert stream for the tenant: subjects, urgency, channels and delivery state.",
-        icon: "bell",
-        visibility: { kind: "open" },
-      },
-      {
-        href: "/os/events",
-        label: "Events",
-        description: "The immutable enterprise event stream: CloudEvents-aligned, versioned, hash-chained domain events.",
-        icon: "events",
-        visibility: { kind: "permission", permission: "audit:event.read" },
-      },
-      {
-        href: "/os/security",
-        label: "Security",
-        description: "Security posture: session risk, MFA coverage, lockouts, service principals and the high-risk permission catalogue.",
-        icon: "security",
-        visibility: { kind: "permission", permission: "identity:user.read" },
-      },
-      {
-        href: "/os/legal",
-        label: "Legal & Liability",
-        description: "Legal matters, obligations and exposure — no AI-generated legal conclusion is binding without human legal governance.",
-        icon: "legal",
-        visibility: { kind: "permission", permission: "legal:matter.read" },
+        visibility: {
+          kind: "permission",
+          permission: "governance:resolution.read",
+        },
       },
       {
         href: "/os/assurance",
-        label: "Assurance Overview",
-        description: "Risk, compliance and legal in one assurance view, plus anomaly intelligence and continuity/DR evidence.",
+        label: "Risk & Compliance",
+        description: "Permission-partitioned risk, controls, obligations, evidence, exceptions and remediation assurance.",
         icon: "assurance",
-        visibility: { kind: "permission", permission: "risk:register.read" },
-      },
-      {
-        href: "/os/tax",
-        label: "Tax Governance",
-        description: "Tax strategy intelligence inside Finance OS: positions from lawful planning to prohibited evasion, jurisdiction-gated.",
-        icon: "tax",
-        visibility: { kind: "permission", permission: "finance:tax.read" },
+        visibility: { kind: "any", permissions: RISK_COMPLIANCE_READ },
       },
       {
         href: "/os/hcm",
         label: "HCM",
-        description: "One employee master, one workforce lifecycle — the single source of truth sector OSs consume; never duplicated.",
+        description: "One employee master and one workforce lifecycle, consumed by Sector OSs through governed contracts.",
         icon: "hcm",
         visibility: { kind: "permission", permission: "hcm:employee.read" },
       },
       {
+        href: "/os/documents",
+        label: "Documents & Knowledge",
+        description: "Controlled documents, metadata, evidence, authoritative knowledge, retention and legal holds.",
+        icon: "documents",
+        visibility: {
+          kind: "permission",
+          permission: "documents:registry.read",
+        },
+      },
+      {
+        href: "/os/audit-events",
+        label: "Audit & Events",
+        description: "Governed access to the append-only audit ledger and immutable enterprise event stream.",
+        icon: "audit",
+        visibility: { kind: "any", permissions: AUDIT_EVENTS_READ },
+      },
+      {
+        href: "/os/registries",
+        label: "Registries",
+        description: "A permission-aware directory of the existing OS, identity, organisation, ownership, governance and document registries.",
+        icon: "registry",
+        visibility: { kind: "any", permissions: REGISTRY_READ },
+      },
+      {
+        href: "/os/family",
+        label: "Family Office",
+        description: "Family governance, lineage, beneficiaries, wealth and protection inside BEYU OS under highly restricted grants.",
+        icon: "family",
+        visibility: { kind: "permission", permission: "family:member.read" },
+      },
+      {
         href: "/os/noelia",
         label: "Noelia / HIVE",
-        description: "The single governed AI identity on the HIVE runtime: advisory, source-citing, human-reviewed, fully audited.",
+        description: "The single governed BEYU AI identity and its policy-bound tool and workflow runtime; advisory, never self-authorizing.",
         icon: "hive",
         visibility: { kind: "permission", permission: "ai:noelia.query" },
       },
@@ -218,95 +208,263 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
   },
   {
     id: "sector",
-    title: "Sector OS",
+    title: "Sector operating systems",
     items: [
+      {
+        href: "/os/finance",
+        label: "Finance OS",
+        description: "The authoritative domain for financial consequences: ledger, periods, treasury, tax and reconciliation.",
+        icon: "finance",
+        visibility: { kind: "any", permissions: FINANCE_OS_READ_PERMISSIONS },
+      },
       {
         href: "/health",
         label: "Health OS",
-        description: "Federated healthcare operations (EHR, clinical workflows, pharmacy, laboratory, claims) under canonical BEYU identity.",
+        description: "Federated healthcare operations under canonical BEYU identity and a separately re-verified Health authorization boundary.",
         icon: "health",
         visibility: { kind: "health-federation" },
       },
       {
-        href: "/os/finance",
-        label: "Finance OS",
-        description: "The authoritative domain for financial consequences: general ledger, chart of accounts and period control.",
-        icon: "finance",
-        visibility: { kind: "permission", permission: "finance:ledger.read" },
-      },
-      {
-        href: "/os/capital",
-        label: "Capital & Treasury",
-        description: "Finance OS capital pipeline and consolidated treasury positions across entities and currencies.",
-        icon: "capital",
-        visibility: { kind: "permission", permission: "finance:capital.read" },
-      },
-      {
-        href: "/os/waterfall",
-        label: "Waterfall Engine",
-        description: "Governed distribution waterfall: tiered application of cash with checksums and board authority.",
-        icon: "waterfall",
-        visibility: { kind: "permission", permission: "finance:waterfall.read" },
-      },
-      {
         href: "/os/agriculture",
         label: "Agriculture OS",
-        description: "Agricultural operations: farms, fields, crop cycles, harvests, livestock, traceability and export compliance.",
+        description: "Farms, crops, livestock, traceability and export operations under BEYU governance and Finance boundaries.",
         icon: "agriculture",
         visibility: { kind: "permission", permission: "agriculture:data.read" },
       },
       {
         href: "/os/foundation",
         label: "Foundation OS",
-        description: "The nonprofit sister architecture: registry, formation, grants, programs, safeguarding and impact under BEYU governance.",
+        description: "Foundation formation, grants, programs, safeguarding and impact under shared BEYU controls.",
         icon: "foundation",
-        visibility: { kind: "permission", permission: "foundation:registry.read" },
+        visibility: {
+          kind: "any",
+          permissions: FOUNDATION_OS_READ_PERMISSIONS,
+        },
       },
     ],
   },
   {
-    id: "family-office",
-    title: "Family office",
+    id: "system",
+    title: "System",
     items: [
       {
-        href: "/os/family",
-        label: "Family Office",
-        description: "Family governance, lineage, beneficiaries and vault — HIGHLY_RESTRICTED, named grants and MFA.",
-        icon: "family",
-        visibility: { kind: "permission", permission: "family:member.read" },
+        href: "/os/settings",
+        label: "Settings",
+        description: "Account context, security and notification destinations, device appearance, accessibility and permission-gated administration.",
+        icon: "settings",
+        visibility: { kind: "open" },
       },
+    ],
+  },
+  {
+    id: "shared-workspaces",
+    title: "Shared capability workspaces",
+    items: [
+      {
+        href: "/os/constitution",
+        label: "Constitution & Policy",
+        description: "Constitutional articles, policies and amendments that bind every capability and OS.",
+        icon: "constitution",
+        visibility: {
+          kind: "permission",
+          permission: "governance:policy.read",
+        },
+      },
+      {
+        href: "/os/risk",
+        label: "Risk Register",
+        description: "Focused enterprise risk and control-library workspace.",
+        icon: "risk",
+        visibility: { kind: "permission", permission: "risk:register.read" },
+      },
+      {
+        href: "/os/compliance",
+        label: "Compliance Obligations",
+        description: "Focused obligations, assessment evidence and remediation workspace.",
+        icon: "compliance",
+        visibility: {
+          kind: "permission",
+          permission: "compliance:obligation.read",
+        },
+      },
+      {
+        href: "/os/audit",
+        label: "Audit Ledger",
+        description: "Hash-chained audit records, integrity verification and accountable AI decisions.",
+        icon: "audit",
+        visibility: { kind: "permission", permission: "audit:log.read" },
+      },
+      {
+        href: "/os/events",
+        label: "Event Stream",
+        description: "CloudEvents-aligned, versioned and hash-chained operational and governance events.",
+        icon: "events",
+        visibility: { kind: "permission", permission: "audit:event.read" },
+      },
+      {
+        href: "/os/workflow",
+        label: "Workflows & Approvals",
+        description: "Governed definitions, instances, approvals, tasks and human-gated HIVE workflows.",
+        icon: "workflow",
+        visibility: {
+          kind: "any",
+          permissions: ["platform:dashboard.read", "ai:workflow.run", "ai:workflow.approve"],
+        },
+      },
+      {
+        href: "/os/notifications",
+        label: "Notifications",
+        description: "The current tenant's governed in-application alert and delivery stream.",
+        icon: "bell",
+        visibility: { kind: "open" },
+      },
+      {
+        href: "/os/security",
+        label: "Security Posture",
+        description: "Session risk, MFA coverage, lockouts, service principals and high-risk permissions.",
+        icon: "security",
+        visibility: { kind: "permission", permission: "identity:user.read" },
+      },
+      {
+        href: "/os/noelia/governance",
+        label: "AI Governance & Assurance",
+        description: "Noelia identity, model, provider, evaluation, risk, incident, kill-switch and compliance evidence.",
+        icon: "hive",
+        visibility: {
+          kind: "any",
+          permissions: [
+            "ai:model.registry.read",
+            "ai:provider.registry.read",
+            "ai:identity.read",
+            "ai:evaluation.read",
+            "ai:risk.register.read",
+            "ai:compliance.read",
+            "ai:compliance.metrics",
+            "ai:incident.manage",
+            "ai:killswitch.manage",
+          ],
+        },
+      },
+      {
+        href: "/os/legal",
+        label: "Legal & Liability",
+        description: "Legal matters, obligations and exposure with human legal authority preserved.",
+        icon: "legal",
+        visibility: { kind: "permission", permission: "legal:matter.read" },
+      },
+      {
+        href: "/os/contracts",
+        label: "Contract Lifecycle",
+        description: "Governed contract register, review gates, obligations, disputes, execution evidence and amendments.",
+        icon: "contracts",
+        visibility: { kind: "permission", permission: "contracts:read" },
+      },
+      {
+        href: "/os/government-integrations",
+        label: "Government Integrations",
+        description: "Canonical government-agency registry and governed submission gateway shared by Sector OSs.",
+        icon: "government",
+        visibility: { kind: "permission", permission: "government:integration.read" },
+      },
+      {
+        href: "/os/blockchain",
+        label: "Blockchain Registry & Evidence",
+        description: "Governed smart-contract provenance, evidence anchors and non-authoritative reconciliation.",
+        icon: "blockchain",
+        visibility: { kind: "permission", permission: "blockchain:read" },
+      },
+    ],
+  },
+  {
+    id: "agriculture-domains",
+    title: "Agriculture OS domains",
+    items: [
+      {
+        href: "/os/agriculture/capabilities",
+        label: "Agriculture Capability Surface",
+        description: "Implemented land, crop, livestock, aquaculture, environment, work, inventory, quality, project, commercial, traceability and export domains.",
+        icon: "agriculture",
+        visibility: { kind: "permission", permission: "agriculture:data.read" },
+      },
+    ],
+  },
+  {
+    id: "finance-domains",
+    title: "Finance OS domains",
+    items: [
+      {
+        href: "/os/capital",
+        label: "Capital & Treasury",
+        description: "Finance OS capital pipeline and consolidated treasury positions.",
+        icon: "capital",
+        visibility: { kind: "permission", permission: "finance:capital.read" },
+      },
+      {
+        href: "/os/waterfall",
+        label: "Waterfall Engine",
+        description: "Governed, deterministic distribution waterfall with board authority checks.",
+        icon: "waterfall",
+        visibility: {
+          kind: "permission",
+          permission: "finance:waterfall.read",
+        },
+      },
+      {
+        href: "/os/tax",
+        label: "Tax Governance",
+        description: "Jurisdiction-gated tax strategy intelligence inside Finance OS.",
+        icon: "tax",
+        visibility: { kind: "permission", permission: "finance:tax.read" },
+      },
+      {
+        href: "/os/finance/payments",
+        label: "Payments & Settlements",
+        description: "Payment-provider evidence, transaction verification, matching, exceptions, settlement and accounting handoff.",
+        icon: "payments",
+        visibility: { kind: "permission", permission: "finance:payments.read" },
+      },
+    ],
+  },
+  {
+    id: "family-office-domains",
+    title: "Family Office domains",
+    items: [
       {
         href: "/os/family/capital",
         label: "Family Capital & Wealth",
-        description: "Family Office capital position, investment theses, obligations and generational planning.",
+        description: "Family capital position, investment theses, obligations and generational planning.",
         icon: "capital",
-        visibility: { kind: "permission", permission: "familyoffice:capital.read" },
+        visibility: {
+          kind: "permission",
+          permission: "familyoffice:capital.read",
+        },
       },
       {
         href: "/os/family/protection",
         label: "Family Protection & Insurance",
-        description: "Governed life-insurance protection: policies, premium obligations, beneficiary designations and claims ledger.",
+        description: "Policies, premium obligations, beneficiary designations and the claims ledger.",
         icon: "protection",
-        visibility: { kind: "permission", permission: "familyoffice:protection.read" },
+        visibility: {
+          kind: "permission",
+          permission: "familyoffice:protection.read",
+        },
       },
     ],
   },
 ];
 
 /**
- * Presentation-only visibility for the synchronous permission kinds.
- * `health-federation` items return false here; callers that support them
- * resolve the canonical identity link asynchronously and re-include the item.
+ * Presentation-only visibility for synchronous permission kinds.
+ * Health federation is asynchronous and therefore resolved by each caller.
  */
 export function visible(principal: Principal, item: CapabilityItem): boolean {
-  const v = item.visibility;
-  switch (v.kind) {
+  switch (item.visibility.kind) {
     case "open":
       return true;
     case "permission":
-      return can(principal, v.permission).allowed;
+      return can(principal, item.visibility.permission).allowed;
     case "any":
-      return v.permissions.some((p) => can(principal, p).allowed);
+      return item.visibility.permissions.some((permission) => can(principal, permission).allowed);
     case "health-federation":
       return false;
   }

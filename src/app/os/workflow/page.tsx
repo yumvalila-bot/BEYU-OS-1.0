@@ -28,9 +28,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function WorkflowPage() {
   const principal = await requirePrincipal();
+  const canRunHive = can(principal, "ai:workflow.run").allowed;
+  const canApproveHive = can(principal, "ai:workflow.approve").allowed;
   const caps = {
     enterprise: can(principal, "platform:dashboard.read").allowed,
-    hive: can(principal, "ai:workflow.run").allowed || can(principal, "ai:workflow.approve").allowed,
+    hive: canRunHive || canApproveHive,
   };
   if (!caps.enterprise && !caps.hive) {
     return (
@@ -43,12 +45,19 @@ export default async function WorkflowPage() {
   return withTenantDatabaseContext(principal, async () => {
 
     const scope = await tenantScopeIds(principal);
+    const entityScoped = principal.entityScope.length > 0;
+    const hivePredicate = canApproveHive
+      ? inArray(noeliaWorkflows.tenantId, scope)
+      : and(
+          inArray(noeliaWorkflows.tenantId, scope),
+          eq(noeliaWorkflows.requestedBy, principal.userId),
+        );
 
     const [definitions, instances, openTasks, hiveRows] = await Promise.all([
       caps.enterprise
         ? db.select().from(workflows).orderBy(workflows.code)
         : Promise.resolve([] as (typeof workflows.$inferSelect)[]),
-      caps.enterprise
+      caps.enterprise && !entityScoped
         ? db
             .select({
               id: workflowInstances.id,
@@ -68,7 +77,7 @@ export default async function WorkflowPage() {
             .orderBy(desc(workflowInstances.startedAt))
             .limit(30)
         : Promise.resolve([]),
-      caps.enterprise
+      caps.enterprise && !entityScoped
         ? db
             .select()
             .from(tasks)
@@ -76,11 +85,11 @@ export default async function WorkflowPage() {
             .orderBy(tasks.dueAt)
             .limit(30)
         : Promise.resolve([] as (typeof tasks.$inferSelect)[]),
-      caps.hive
+      caps.hive && !entityScoped
         ? db
             .select()
             .from(noeliaWorkflows)
-            .where(inArray(noeliaWorkflows.tenantId, scope))
+            .where(hivePredicate)
             .orderBy(desc(noeliaWorkflows.createdAt))
             .limit(20)
         : Promise.resolve([] as (typeof noeliaWorkflows.$inferSelect)[]),
@@ -104,9 +113,9 @@ export default async function WorkflowPage() {
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="Workflow definitions" value={caps.enterprise ? String(definitions.length) : "Restricted"} sub={caps.enterprise ? "active governed processes" : "platform:dashboard.read not granted"} />
-          <Metric label="Live instances" value={caps.enterprise ? String(running.length) : "Restricted"} sub={caps.enterprise ? `${instances.length} recent in scope` : "platform:dashboard.read not granted"} />
-          <Metric label="Open tasks" value={caps.enterprise ? String(openTasks.length) : "Restricted"} sub={caps.enterprise ? `${openTasks.filter((t) => t.priority === "HIGH").length} high priority` : "platform:dashboard.read not granted"} tone={caps.enterprise && openTasks.some((t) => t.priority === "HIGH") ? "gold" : "navy"} />
-          <Metric label="HIVE workflows" value={caps.hive ? String(hiveRows.length) : "Restricted"} sub={caps.hive ? `${awaitingApproval.length} awaiting human authorization` : "ai:workflow.run / ai:workflow.approve not granted"} tone={caps.hive && awaitingApproval.length > 0 ? "gold" : "navy"} />
+          <Metric label="Live instances" value={caps.enterprise && !entityScoped ? String(running.length) : "Restricted"} sub={!caps.enterprise ? "platform:dashboard.read not granted" : entityScoped ? "rows have no legal-entity key; tenant-wide read refused" : `${instances.length} recent in scope`} />
+          <Metric label="Open tasks" value={caps.enterprise && !entityScoped ? String(openTasks.length) : "Restricted"} sub={!caps.enterprise ? "platform:dashboard.read not granted" : entityScoped ? "rows have no legal-entity key; tenant-wide read refused" : `${openTasks.filter((t) => t.priority === "HIGH").length} high priority`} tone={caps.enterprise && !entityScoped && openTasks.some((t) => t.priority === "HIGH") ? "gold" : "navy"} />
+          <Metric label="HIVE workflows" value={caps.hive && !entityScoped ? String(hiveRows.length) : "Restricted"} sub={!caps.hive ? "ai:workflow.run / ai:workflow.approve not granted" : entityScoped ? "rows have no legal-entity key; tenant-wide read refused" : `${awaitingApproval.length} awaiting human authorization`} tone={caps.hive && !entityScoped && awaitingApproval.length > 0 ? "gold" : "navy"} />
         </div>
 
         {caps.enterprise && (
@@ -153,7 +162,7 @@ export default async function WorkflowPage() {
                       </div>
                     </div>
                   ))}
-                  {running.length === 0 && <EmptyState message="No instances currently running or waiting." />}
+                  {running.length === 0 && <EmptyState message={entityScoped ? "Workflow-instance rows have no legal-entity key, so tenant-wide execution history was refused." : "No instances are currently running or waiting in scope."} />}
                 </div>
                 {instances.some((i) => i.completedAt) && (
                   <p className="mt-3 text-[11px] beyu-muted">
@@ -178,7 +187,7 @@ export default async function WorkflowPage() {
                         <td><Badge tone={t.status === "ESCALATED" ? "red" : "slate"}>{t.status}</Badge></td>
                       </tr>
                     ))}
-                    {openTasks.length === 0 && <tr><td colSpan={6}><EmptyState message="No open approvals or tasks in your scope." /></td></tr>}
+                    {openTasks.length === 0 && <tr><td colSpan={6}><EmptyState message={entityScoped ? "Task rows have no legal-entity key, so the tenant-wide queue was refused." : "No open approvals or tasks are visible in scope."} /></td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -227,7 +236,7 @@ export default async function WorkflowPage() {
                 </div>
               ))}
               {hiveRows.length === 0 && (
-                <EmptyState message="No HIVE workflows recorded for this scope. Governed runs appear here with their plans, gates and human authorization." />
+                <EmptyState message={entityScoped ? "HIVE workflow rows have no legal-entity key, so tenant-wide plans and goals were refused." : "No HIVE workflows are visible in scope. Run-only principals see their own requests; approvers see the governed tenant queue."} />
               )}
             </div>
             <p className="mt-3 text-[11px] beyu-muted">

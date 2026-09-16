@@ -6,7 +6,7 @@ import { listFormationCases } from "@/lib/foundation/service";
 export const dynamic = "force-dynamic";
 
 export default async function FormationPage() {
-  const access = await requireAccess("foundation:formation.read");
+  const access = await requireAccess("foundation:formation.read", { classification: "CONFIDENTIAL" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:formation.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const rows = await listFormationCases(access.principal);

@@ -7,7 +7,7 @@ import { fundReconciliationView, listFoundationCapitalRequests } from "@/lib/fou
 export const dynamic = "force-dynamic";
 
 export default async function FoundationFundsPage() {
-  const access = await requireAccess("foundation:fund.read");
+  const access = await requireAccess("foundation:fund.read", { classification: "RESTRICTED" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:fund.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const [funds, recon, capital] = await Promise.all([

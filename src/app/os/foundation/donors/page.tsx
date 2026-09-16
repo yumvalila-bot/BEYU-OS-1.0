@@ -6,7 +6,7 @@ import { listDonations, listDonors } from "@/lib/foundation/service";
 export const dynamic = "force-dynamic";
 
 export default async function FoundationDonorsPage() {
-  const access = await requireAccess("foundation:donor.read");
+  const access = await requireAccess("foundation:donor.read", { classification: "RESTRICTED" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:donor.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const [donors, donations] = await Promise.all([

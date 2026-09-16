@@ -7,6 +7,7 @@ import { assessTaxStrategy } from "@/lib/tax";
 import { evaluatePolicy } from "@/lib/policy";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { withAuditTransaction } from "@/lib/audit";
+import { classificationsAtOrBelow } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,16 @@ export async function POST(request: Request) {
       const [entity] = await db
         .select()
         .from(legalEntities)
-        .where(and(eq(legalEntities.id, body.legalEntityId), inArray(legalEntities.tenantId, scope)))
+        .where(
+          and(
+            eq(legalEntities.id, body.legalEntityId),
+            inArray(legalEntities.tenantId, scope),
+            inArray(
+              legalEntities.classification,
+              classificationsAtOrBelow(ctx.principal.clearance),
+            ),
+          ),
+        )
         .limit(1);
       if (!entity || (ctx.principal.entityScope.length > 0 && !ctx.principal.entityScope.includes(entity.id))) {
         return apiError("NOT_FOUND", "Legal entity not found.", 404, ctx.traceId);

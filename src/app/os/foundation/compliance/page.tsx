@@ -14,7 +14,7 @@ import { deadlineHealth } from "@/lib/foundation/deadlines";
 export const dynamic = "force-dynamic";
 
 export default async function FoundationCompliancePage() {
-  const access = await requireAccess("foundation:compliance.read");
+  const access = await requireAccess("foundation:compliance.read", { classification: "CONFIDENTIAL" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:compliance.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const today = new Date().toISOString().slice(0, 10);

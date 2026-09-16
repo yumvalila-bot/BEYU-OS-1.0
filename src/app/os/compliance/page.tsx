@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { complianceAssessments, complianceObligations } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
@@ -23,10 +23,27 @@ export default async function CompliancePage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
     const scope = await tenantScopeIds(access.principal);
-    const [obligationRows, assessmentRows] = await Promise.all([
-      db.select().from(complianceObligations).where(inArray(complianceObligations.tenantId, scope)),
-      db.select().from(complianceAssessments).where(inArray(complianceAssessments.tenantId, scope)),
-    ]);
+    const obligationPredicate =
+      access.principal.entityScope.length > 0
+        ? and(
+            inArray(complianceObligations.tenantId, scope),
+            inArray(complianceObligations.legalEntityId, access.principal.entityScope),
+          )
+        : inArray(complianceObligations.tenantId, scope);
+    const obligationRows = await db.select().from(complianceObligations).where(obligationPredicate);
+    const obligationIds = obligationRows.map((obligation) => obligation.id);
+    const assessmentRows =
+      obligationIds.length > 0
+        ? await db
+            .select()
+            .from(complianceAssessments)
+            .where(
+              and(
+                inArray(complianceAssessments.tenantId, scope),
+                inArray(complianceAssessments.obligationId, obligationIds),
+              ),
+            )
+        : [];
 
     const stateCount = (s: string) => assessmentRows.filter((a) => a.state === s).length;
     const assessed = assessmentRows.length;

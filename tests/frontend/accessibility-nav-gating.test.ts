@@ -43,26 +43,26 @@ const available = await serverAvailable();
 /** Every module route and the capability its page guard enforces. */
 const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os", label: "Executive Control Centre" },
-  { href: "/os/constitution", label: "Constitution & Policy" },
   { href: "/os/registry", label: "OS & Source-of-Truth Registry" },
-  { href: "/os/organization", label: "Organisation & Ownership" },
-  { href: "/os/governance", label: "Governance Engine" },
-  { href: "/os/assurance", label: "Risk · Compliance · Legal" },
-  { href: "/os/hcm", label: "HCM (workforce truth)" },
-  { href: "/os/agriculture", label: "Agriculture OS" },
-  { href: "/os/capital", label: "Capital & Treasury" },
-  { href: "/os/waterfall", label: "Waterfall Engine" },
-  { href: "/os/tax", label: "Tax Strategy Intelligence" },
-  { href: "/os/family", label: "Family Office" },
-  { href: "/os/foundation", label: "Foundation OS" },
-  { href: "/os/noelia", label: "Noelia AI · HIVE" },
+  { href: "/os/organization-ownership", label: "Organisation & Ownership" },
+  { href: "/os/identity", label: "Identity & Access" },
+  { href: "/os/organization", label: "Organisation" },
+  { href: "/os/ownership", label: "Ownership" },
+  { href: "/os/governance", label: "Governance" },
+  { href: "/os/assurance", label: "Risk & Compliance" },
+  { href: "/os/hcm", label: "HCM" },
   { href: "/os/documents", label: "Documents & Knowledge" },
-  { href: "/os/audit", label: "Audit, Events & Assurance" },
-  // Capabilities newly surfaced as first-class destinations (feature
-  // discovery integration). Each is guarded by the SAME capability its nav
-  // catalogue entry requires, so the honesty invariant below automatically
-  // covers them.
-  { href: "/os/identity", label: "Identity" },
+  { href: "/os/audit-events", label: "Audit & Events" },
+  { href: "/os/registries", label: "Registries" },
+  { href: "/os/family", label: "Family Office" },
+  { href: "/os/noelia", label: "Noelia / HIVE" },
+  { href: "/os/finance", label: "Finance OS" },
+  { href: "/os/agriculture", label: "Agriculture OS" },
+  { href: "/os/foundation", label: "Foundation OS" },
+  { href: "/os/settings", label: "Settings" },
+  // Existing focused workspaces remain protected and discoverable beneath
+  // their canonical capabilities.
+  { href: "/os/constitution", label: "Constitution & Policy" },
   { href: "/os/security", label: "Security" },
   { href: "/os/notifications", label: "Notifications" },
   { href: "/os/events", label: "Events" },
@@ -70,7 +70,10 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os/risk", label: "Risk" },
   { href: "/os/compliance", label: "Compliance" },
   { href: "/os/legal", label: "Legal & Liability" },
-  { href: "/os/finance", label: "Finance OS" },
+  { href: "/os/audit", label: "Audit trail" },
+  { href: "/os/capital", label: "Capital & Treasury" },
+  { href: "/os/waterfall", label: "Waterfall Engine" },
+  { href: "/os/tax", label: "Tax Strategy Intelligence" },
 ];
 
 let ceo = "";
@@ -187,11 +190,12 @@ describe("OS shell accessibility (authenticated)", () => {
     expect(html).toMatch(/Skip to main content/);
   });
 
-  it.skipIf(!available)("labels its landmarks so a screen reader can tell them apart", async () => {
+  it.skipIf(!available)("labels desktop and responsive navigation landmarks distinctly", async () => {
     const { html } = await apiGet("/os", ceo);
     expect(html).toContain('aria-label="BEYU OS module navigation"');
-    expect(html).toContain('aria-label="Primary"');
-    expect(html).toContain('aria-label="Modules"');
+    expect(html).toContain('aria-label="Responsive BEYU OS navigation"');
+    expect(html).toContain('aria-label="Open BEYU OS navigation"');
+    expect(html).toContain('aria-controls="beyu-responsive-navigation"');
   });
 
   it.skipIf(!available)("marks the current page with aria-current in BOTH desktop and mobile navigation", async () => {
@@ -205,6 +209,41 @@ describe("OS shell accessibility (authenticated)", () => {
   it.skipIf(!available)("announces the active module on a deep route", async () => {
     const { html } = await apiGet("/os/constitution", ceo);
     expect(html).toContain('aria-current="page"');
+  });
+
+  it.skipIf(!available)("renders the constitutional hierarchy, sector OSs and brand motto without hover", async () => {
+    const { html } = await apiGet("/os", ceo);
+    for (const label of [
+      "Executive",
+      "Shared capabilities",
+      "Sector operating systems",
+      "System",
+      "Settings",
+      "Finance OS",
+      "Agriculture OS",
+      "Foundation OS",
+      "Bridging Care. Building Trust.",
+    ]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("One control plane — capabilities once, sector OSs below it");
+  });
+
+  it.skipIf(!available)("keeps Gear-labelled Settings reachable and sectioned for every authenticated role", async () => {
+    for (const cookie of [ceo, hcm, auditor]) {
+      const shell = await apiGet("/os", cookie);
+      expect(navHrefs(shell.html)).toContain("/os/settings");
+
+      const settings = await apiGet("/os/settings", cookie);
+      expect(settings.status).toBe(200);
+      expect(isDeniedPage(settings.html)).toBe(false);
+      expect(settings.html).toContain('aria-label="Settings sections"');
+      for (const id of ["general", "appearance", "account", "security", "notifications", "accessibility"]) {
+        expect(settings.html).toContain(`id="${id}"`);
+      }
+      expect(settings.html).toContain("Use device setting");
+      expect(settings.html).toContain("stored only in this browser");
+    }
   });
 });
 
@@ -260,7 +299,11 @@ describe("Navigation honesty — gating is presentation, never authority", () =>
     expect(denied.length).toBeGreaterThan(0);
     const shell = await apiGet("/os", auditor);
     const links = navHrefs(shell.html);
-    expect(links.length).toBeLessThan(MODULE_ROUTES.length);
+    const visibleCataloguedRoutes = MODULE_ROUTES.filter((route) => links.includes(route.href));
+    // Navigation also contains newly exposed, permission-gated workspaces that
+    // are outside this historical route sample. Compare the sample's
+    // intersection, not the total navigation size.
+    expect(visibleCataloguedRoutes.length).toBeLessThan(MODULE_ROUTES.length);
   });
 });
 

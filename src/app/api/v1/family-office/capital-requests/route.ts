@@ -1,7 +1,7 @@
 import { apiOk, guarded } from "@/lib/api";
 import { db } from "@/db";
 import * as s from "@/db/schema";
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { listAllocations } from "@/lib/family-office-capital-service";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +24,17 @@ export async function GET(request: Request) {
     async (ctx) => {
       const { allocations, total } = await listAllocations(ctx.principal);
       const requestIds = allocations.map((a) => a.capitalRequestRef).filter((id): id is string => Boolean(id));
-      const requests = requestIds.length
-        ? await db.select().from(s.capitalRequests).where(inArray(s.capitalRequests.id, requestIds))
+      const allocationTenantIds = [...new Set(allocations.map((allocation) => allocation.tenantId))];
+      const requests = requestIds.length > 0 && allocationTenantIds.length > 0
+        ? await db
+            .select()
+            .from(s.capitalRequests)
+            .where(
+              and(
+                inArray(s.capitalRequests.id, requestIds),
+                inArray(s.capitalRequests.tenantId, allocationTenantIds),
+              ),
+            )
         : [];
       const requestById = new Map(requests.map((r) => [r.id, r]));
 

@@ -134,6 +134,14 @@ export function can(
       highRisk,
     };
   }
+  if (!isKnownClassification(principal.clearance)) {
+    return {
+      allowed: false,
+      reason: "ABAC: principal clearance is not recognized",
+      requiresMfa: false,
+      highRisk,
+    };
+  }
   if (context?.classification) {
     if (classificationRank(context.classification) > classificationRank(principal.clearance)) {
       return {

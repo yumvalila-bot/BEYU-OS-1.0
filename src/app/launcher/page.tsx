@@ -1,186 +1,164 @@
 /**
- * BEYU OS Launcher
+ * Governed operating-system launcher.
  *
- * Smart routing component that displays authorized OSs for the current user.
- * - 1 authorized OS → direct routing (handled by root page)
- * - Multiple authorized OSs → this launcher
- * - No authorization → deny/fail-closed
+ * BEYU OS is the one constitutional control plane. Finance, Health,
+ * Agriculture and Foundation are Sector OSs beneath it — never peer control
+ * planes and never capabilities renamed as operating systems.
  */
-
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { Icon } from "@/components/icons";
 import { resolvePrincipal } from "@/lib/session";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
-import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
+import { SignOutButton } from "../os/sign-out-button";
+import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
+
+function DestinationCard({ destination, authorized }: { destination: OperatingSystemDestination; authorized: boolean }) {
+  const content = (
+    <>
+      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${authorized ? "bg-[#0b1f4d] text-[#e7c45c]" : "bg-slate-100 text-slate-400"}`}>
+        <Icon name={destination.icon} className="h-6 w-6" />
+      </span>
+      <span className="mt-5 flex flex-wrap items-start justify-between gap-3">
+        <span>
+          <span className="block text-[11px] font-semibold tracking-[0.16em] text-slate-500">
+            {destination.code} · {destination.level === "CONTROL_PLANE" ? "CONSTITUTIONAL CONTROL PLANE" : "SECTOR OS"}
+          </span>
+          <span className={`mt-1 block text-xl font-semibold tracking-tight ${authorized ? "text-[#0b1f4d]" : "text-slate-500"}`}>{destination.name}</span>
+        </span>
+        <span
+          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${authorized ? "border-emerald-600/25 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-500"}`}
+        >
+          {authorized ? "AUTHORISED" : "NOT IN CURRENT GRANT"}
+        </span>
+      </span>
+      <span className="mt-3 block text-[13px] leading-relaxed text-slate-600">{destination.description}</span>
+      <span className={`mt-5 flex items-center justify-between text-[12px] font-semibold ${authorized ? "text-[#9b7410]" : "text-slate-500"}`}>
+        {authorized ? "Open governed destination" : "Access unavailable for this identity"}
+        {authorized && (
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 transition group-hover:translate-x-1">
+            <path d="m9 5 7 7-7 7" />
+          </svg>
+        )}
+      </span>
+    </>
+  );
+
+  if (!authorized) {
+    return <article className="relative overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white/60 p-6">{content}</article>;
+  }
+
+  return (
+    <Link
+      href={destination.href}
+      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d4a017]/60 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017]"
+    >
+      {content}
+    </Link>
+  );
+}
 
 export default async function LauncherPage() {
   const principal = await resolvePrincipal();
+  if (!principal) redirect("/");
 
-  // Unauthenticated → redirect to sign-in
-  if (!principal) {
-    redirect("/");
-  }
+  const destinations = await authorizedOperatingSystems(principal);
+  if (destinations.length === 1) redirect(destinations[0].href);
 
-  // Resolve authorized OSs
-  const authorizedOSs: Array<{
-    code: string;
-    name: string;
-    description: string;
-    href: string;
-    icon: string;
-    authorized: boolean;
-  }> = [];
-
-  // BEYU OS: authorized only when the principal actually holds a
-  // control-plane capability. A valid session alone is NOT authorization.
-  const beyuAuth = checkBeyuOSAuthorization(principal);
-  authorizedOSs.push({
-    code: "BEYU",
-    name: "BEYU OS",
-    description: "Control Plane — Governance, Finance, HCM, Noelia AI",
-    href: "/os",
-    icon: "🏛️",
-    authorized: beyuAuth.authorized,
-  });
-
-  // Health OS: Check canonical identity link
-  const healthAuth = await checkHealthOSAuthorization(principal.userId);
-  if (healthAuth.authorized) {
-    authorizedOSs.push({
-      code: "HEALTH",
-      name: "Health OS",
-      description: "Healthcare Sector — Clinical, Patient Care, Operations",
-      href: "/health",
-      icon: "🏥",
-      authorized: true,
-    });
-  }
-
-  // Agriculture OS is a sector module inside the BEYU kernel (/os/agriculture),
-  // not a federated OS like Health. Authorization context remains BEYU + Health.
-  // Operators with agriculture:data.read reach it through BEYU OS navigation.
-
-  const authorizedCount = authorizedOSs.filter((os) => os.authorized).length;
-
-  // If only one OS is authorized, redirect directly
-  if (authorizedCount === 1) {
-    const singleOS = authorizedOSs.find((os) => os.authorized);
-    if (singleOS) {
-      redirect(singleOS.href);
-    }
-  }
-
-  // If no OSs are authorized, show access denied
-  if (authorizedCount === 0) {
+  if (destinations.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="max-w-md mx-auto text-center p-8">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Access Denied</h1>
-          <p className="text-slate-600 mb-6">
-            You are not authorized to access any operating system.
-          </p>
-          <a
-            href="/api/v1/auth/logout"
-            className="inline-block px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            Sign Out
-          </a>
-        </div>
-      </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+        <section aria-labelledby="launcher-denied-title" className="mx-auto max-w-md text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e7c45c]">
+            <Icon name="security" className="h-7 w-7" />
+          </span>
+          <h1 id="launcher-denied-title" className="mt-5 text-3xl font-semibold tracking-tight text-[#0b1f4d]">
+            No operating-system access
+          </h1>
+          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no active grant or Health federation link authorises an operating-system destination.</p>
+          <SignOutButton
+            className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0b1f4d] px-6 text-[13px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017] disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </section>
+      </main>
     );
   }
 
-  // Multiple OSs authorized → show launcher
+  const controlPlane = destinations.filter((destination) => destination.level === "CONTROL_PLANE");
+  const authorizedCodes = new Set(destinations.map((destination) => destination.code));
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">
-            Welcome, {principal.displayName}
-          </h1>
-          <p className="text-lg text-slate-600">
-            Select an operating system to continue
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-200 rounded-full">
-            <span className="text-sm font-medium text-slate-700">
-              {principal.email}
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="bg-[#0b1f4d] text-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex rounded-xl bg-white p-1.5">
+              <BeyuOsLogo size={46} ariaLabel="BEYU OS" />
             </span>
+            <div>
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#e7c45c]">OPERATING-SYSTEM LAUNCHER</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">Select a governed destination</h1>
+              <p className="mt-1 text-[12px] text-white/60">Bridging Care. Building Trust.</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-start gap-3 sm:items-end sm:text-right">
+            <div>
+              <p className="text-[13px] font-semibold">{principal.displayName}</p>
+              <p className="mt-0.5 text-[11px] text-white/55">{principal.email}</p>
+              <p className="mt-1 text-[10px] tracking-[0.12em] text-white/40">
+                {principal.tenantCode} · {principal.clearance}
+              </p>
+            </div>
+            <SignOutButton className="inline-flex min-h-9 items-center justify-center rounded-md border border-white/25 px-3 text-[11px] font-semibold text-white/80 transition hover:border-[#d4a017] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a017] disabled:cursor-not-allowed disabled:opacity-60" />
           </div>
         </div>
+      </header>
 
-        {/* OS Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {authorizedOSs.filter(os => os.authorized).map((os) => (
-            <a
-              key={os.code}
-              href={os.href}
-              className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-200 hover:border-slate-300"
-            >
-              {/* Icon */}
-              <div className="absolute top-6 right-6 text-5xl opacity-10 group-hover:opacity-20 transition-opacity">
-                {os.icon}
-              </div>
+      <div className="mx-auto max-w-7xl space-y-10 px-6 py-10">
+        {controlPlane.length > 0 && (
+          <section aria-labelledby="control-plane-heading">
+            <div className="mb-4">
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">ONE GLOBAL KERNEL</p>
+              <h2 id="control-plane-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
+                Constitutional control plane
+              </h2>
+              <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
+                Shared identity, organisation, ownership, governance, risk, compliance, HCM, documents,
+                audit, registries and intelligence are governed here once.
+              </p>
+            </div>
+            <div className="grid gap-5 lg:grid-cols-2">
+              {controlPlane.map((destination) => (
+                <DestinationCard key={destination.code} destination={destination} authorized />
+              ))}
+            </div>
+          </section>
+        )}
 
-              {/* Content */}
-              <div className="p-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="text-4xl">{os.icon}</div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 group-hover:text-slate-700">
-                      {os.name}
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        {os.code}
-                      </span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                      <span className="text-xs text-slate-500">
-                        Operating System
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        <section aria-labelledby="sector-os-heading" className="border-t border-slate-200 pt-8">
+          <div className="mb-4">
+            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">BENEATH BEYU OS</p>
+            <h2 id="sector-os-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
+              Sector operating systems
+            </h2>
+            <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
+              Only Sector OSs covered by your current grants or canonical federation link are launchable.
+              Every destination rechecks authority on entry.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {SECTOR_OPERATING_SYSTEMS.map((destination) => (
+              <DestinationCard key={destination.code} destination={destination} authorized={authorizedCodes.has(destination.code)} />
+            ))}
+          </div>
+        </section>
 
-                <p className="text-slate-600 mb-6">{os.description}</p>
-
-                {/* CTA */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-900 group-hover:text-slate-700">
-                    Launch OS
-                  </span>
-                  <svg
-                    className="w-5 h-5 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Hover gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-            </a>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-slate-500">
-          <p>
-            Tenant: <span className="font-medium">{principal.tenantCode}</span>
-          </p>
-          <p className="mt-1">
-            Authorization resolved at {new Date().toLocaleString()}
-          </p>
-        </div>
+        <footer className="border-t border-slate-200 pt-5 text-[11px] leading-relaxed text-slate-500">
+          Launcher visibility is not authority. Tenant, entity, country, role, permission, clearance and
+          operating-system boundaries are re-evaluated by each destination. Finance OS remains the
+          financial source of truth.
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }

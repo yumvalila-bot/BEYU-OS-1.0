@@ -7,7 +7,7 @@ import { z } from "zod";
 import { guarded, apiError } from "@/lib/api";
 import { NextRequest, NextResponse } from "next/server";
 import { createComplianceRequirement, listComplianceRequirements, AgriDomainError } from "@/lib/agriculture";
-import { agriActor } from "@/lib/agriculture/http";
+import { visibleAgricultureItems, agriActor } from "@/lib/agriculture/http";
 
 const CreateSchema = z.object({
   code: z.string().min(1),
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       const productId = url.searchParams.get("productId") ?? undefined;
       const buyerId = url.searchParams.get("buyerId") ?? undefined;
       const rows = await listComplianceRequirements(ctx.principal.tenantId, { countryCode, productId, buyerId });
-      return NextResponse.json({ items: rows });
+      return NextResponse.json({ items: visibleAgricultureItems(rows, ctx.principal.clearance) });
     },
   );
 }

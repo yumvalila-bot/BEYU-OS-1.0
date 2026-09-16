@@ -34,7 +34,38 @@ export default async function IdentityPage() {
     const scope = await tenantScopeIds(access.principal);
     const now = new Date();
 
-    const [userRows, roleRows, permCount, grantCountRows, assignmentRows, activeSessions, breakGlass] =
+    const entityScoped = access.principal.entityScope.length > 0;
+    const assignmentPredicate = entityScoped
+      ? and(
+          inArray(roleAssignments.tenantId, scope),
+          inArray(roleAssignments.legalEntityId, access.principal.entityScope),
+        )
+      : inArray(roleAssignments.tenantId, scope);
+    const assignmentRows = await db
+      .select()
+      .from(roleAssignments)
+      .where(assignmentPredicate);
+    const scopedUserIds = [...new Set(assignmentRows.map((assignment) => assignment.userId))];
+    const userPredicate = entityScoped
+      ? and(
+          inArray(users.primaryTenantId, scope),
+          inArray(users.id, scopedUserIds),
+        )
+      : inArray(users.primaryTenantId, scope);
+    const sessionPredicate = entityScoped
+      ? and(
+          inArray(sessions.tenantId, scope),
+          inArray(sessions.userId, scopedUserIds),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, now),
+        )
+      : and(
+          inArray(sessions.tenantId, scope),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, now),
+        );
+
+    const [userRows, roleRows, permCount, grantCountRows, activeSessions, breakGlass] =
       await Promise.all([
         db
           .select({
@@ -45,14 +76,13 @@ export default async function IdentityPage() {
             isServiceAccount: users.isServiceAccount,
             lastLoginAt: users.lastLoginAt,
             lockedUntil: users.lockedUntil,
-            createdAt: users.createdAt,
             displayName: parties.displayName,
             tenantCode: tenants.code,
           })
           .from(users)
           .leftJoin(parties, eq(parties.id, users.partyId))
           .leftJoin(tenants, eq(tenants.id, users.primaryTenantId))
-          .where(inArray(users.primaryTenantId, scope))
+          .where(userPredicate)
           .orderBy(users.email),
         db.select().from(roles).orderBy(roles.code),
         db.select({ n: sql<number>`count(*)` }).from(permissions),
@@ -61,25 +91,17 @@ export default async function IdentityPage() {
           .from(rolePermissions)
           .groupBy(rolePermissions.roleId),
         db
-          .select()
-          .from(roleAssignments)
-          .where(inArray(roleAssignments.tenantId, scope)),
-        db
           .select({ userId: sessions.userId, n: sql<number>`count(*)` })
           .from(sessions)
-          .where(
-            and(
-              inArray(sessions.tenantId, scope),
-              isNull(sessions.revokedAt),
-              gt(sessions.expiresAt, now),
-            ),
-          )
+          .where(sessionPredicate)
           .groupBy(sessions.userId),
-        db
-          .select()
-          .from(emergencyAccessGrants)
-          .where(inArray(emergencyAccessGrants.tenantId, scope))
-          .orderBy(desc(emergencyAccessGrants.activatedAt)),
+        entityScoped
+          ? Promise.resolve([])
+          : db
+              .select()
+              .from(emergencyAccessGrants)
+              .where(inArray(emergencyAccessGrants.tenantId, scope))
+              .orderBy(desc(emergencyAccessGrants.activatedAt)),
       ]);
 
     const today = now.toISOString().slice(0, 10);
@@ -116,7 +138,7 @@ export default async function IdentityPage() {
           <Metric label="Identities" value={String(userRows.length)} sub={`${userRows.filter((u) => u.status === "ACTIVE").length} active`} />
           <Metric label="MFA enrolled" value={String(userRows.filter((u) => u.mfaEnrolled).length)} sub={`${userRows.filter((u) => !u.mfaEnrolled).length} not enrolled`} />
           <Metric label="Active sessions" value={String(activeSessions.reduce((a, s) => a + Number(s.n), 0))} sub="unrevoked · unexpired" />
-          <Metric label="Break-glass grants" value={String(activeBreakGlass.length)} sub={`${breakGlass.length} recorded in scope`} tone={activeBreakGlass.length > 0 ? "gold" : "navy"} />
+          <Metric label="Break-glass grants" value={entityScoped ? "Restricted" : String(activeBreakGlass.length)} sub={entityScoped ? "rows have no entity key; tenant-wide read refused" : `${breakGlass.length} recorded in scope`} tone={activeBreakGlass.length > 0 ? "gold" : "navy"} />
         </div>
 
         <Panel kicker="Canonical identity registry" title="Users · roles · sessions">
@@ -205,7 +227,7 @@ export default async function IdentityPage() {
                 );
               })}
               {breakGlass.length === 0 && (
-                <EmptyState message="No break-glass grants recorded. Emergency access activates only with a recorded reason, an approver and a review trail." />
+                <EmptyState message={entityScoped ? "Emergency-access rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide register." : "No break-glass grants are recorded in scope. Emergency access activates only with a recorded reason, an approver and a review trail."} />
               )}
             </div>
             <p className="mt-3 text-[11px] beyu-muted">

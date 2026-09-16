@@ -29,6 +29,7 @@ import { newId, ID_PREFIX } from "@/lib/ids";
 import { withAuditTransaction } from "@/lib/audit";
 import { assertWithinScope } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import {
   AUTHORITATIVE_ACCOUNTING_OWNER,
   consolidateCashFlow,
@@ -793,7 +794,21 @@ export async function listGenerationalPlans(principal: Principal) {
 /** Read capital allocation cases inside scope. */
 export async function listAllocations(principal: Principal) {
   const scope = await tenantScope(principal);
-  const rows = await db.select().from(s.familyCapitalAllocations).where(inArray(s.familyCapitalAllocations.tenantId, scope));
+  const rows = await db
+    .select()
+    .from(s.familyCapitalAllocations)
+    .where(
+      and(
+        inArray(s.familyCapitalAllocations.tenantId, scope),
+        inArray(
+          s.familyCapitalAllocations.classification,
+          classificationsAtOrBelow(principal.clearance),
+        ),
+        ...(principal.entityScope.length > 0
+          ? [inArray(s.familyCapitalAllocations.legalEntityId, principal.entityScope)]
+          : []),
+      ),
+    );
   return { allocations: rows, total: rows.length };
 }
 

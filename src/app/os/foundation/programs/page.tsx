@@ -1,4 +1,5 @@
-import { requireAccess } from "@/lib/guard";
+import { requirePrincipal } from "@/lib/guard";
+import { can } from "@/lib/authz";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { listImpactMetrics, listProjects, listPrograms } from "@/lib/foundation/service-operations";
@@ -6,13 +7,17 @@ import { listImpactMetrics, listProjects, listPrograms } from "@/lib/foundation/
 export const dynamic = "force-dynamic";
 
 export default async function FoundationProgramsPage() {
-  const access = await requireAccess("foundation:program.read");
-  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:program.read" />;
-  return withTenantDatabaseContext(access.principal, async () => {
+  const principal = await requirePrincipal();
+  const mayReadPrograms = can(principal, "foundation:program.read", { classification: "CONFIDENTIAL" }).allowed;
+  const mayReadImpact = can(principal, "foundation:impact.read", { classification: "CONFIDENTIAL" }).allowed;
+  if (!mayReadPrograms && !mayReadImpact) {
+    return <Denied reason="Missing Program or Impact read permission" capability="foundation:program.read" />;
+  }
+  return withTenantDatabaseContext(principal, async () => {
     const [programs, projects, metrics] = await Promise.all([
-      listPrograms(access.principal),
-      listProjects(access.principal),
-      listImpactMetrics(access.principal),
+      mayReadPrograms ? listPrograms(principal) : Promise.resolve([]),
+      mayReadPrograms ? listProjects(principal) : Promise.resolve([]),
+      mayReadImpact ? listImpactMetrics(principal) : Promise.resolve([]),
     ]);
     const budget = programs.reduce((a, p) => a + Number(p.budget), 0);
     const spend = programs.reduce((a, p) => a + Number(p.spendToDate), 0);
@@ -27,12 +32,12 @@ export default async function FoundationProgramsPage() {
           </p>
         </header>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Programs" value={String(programs.length)} sub="in scope" tone="gold" />
-          <Metric label="Budget" value={money(budget, "USD")} sub={`${money(spend, "USD")} spent`} />
-          <Metric label="Projects" value={String(projects.length)} sub="under programs" />
-          <Metric label="Impact metrics" value={String(metrics.length)} sub="tracked" />
+          {mayReadPrograms && <Metric label="Programs" value={String(programs.length)} sub="in scope" tone="gold" />}
+          {mayReadPrograms && <Metric label="Budget" value={money(budget, "USD")} sub={`${money(spend, "USD")} spent`} />}
+          {mayReadPrograms && <Metric label="Projects" value={String(projects.length)} sub="under programs" />}
+          {mayReadImpact && <Metric label="Impact metrics" value={String(metrics.length)} sub="tracked" />}
         </div>
-        <Panel kicker="Delivery" title="Programs">
+        {mayReadPrograms && <Panel kicker="Delivery" title="Programs">
           <div className="overflow-x-auto">
             <table className="beyu-table">
               <thead><tr><th>Program</th><th>Theme</th><th>Budget</th><th>Spend</th><th>Beneficiaries</th><th>Status</th></tr></thead>
@@ -51,9 +56,9 @@ export default async function FoundationProgramsPage() {
               </tbody>
             </table>
           </div>
-        </Panel>
+        </Panel>}
         <div className="grid gap-5 xl:grid-cols-2">
-          <Panel kicker="Execution" title="Projects">
+          {mayReadPrograms && <Panel kicker="Execution" title="Projects">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Project</th><th>Budget</th><th>Status</th></tr></thead>
@@ -69,8 +74,8 @@ export default async function FoundationProgramsPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
-          <Panel kicker="Evidence" title="Impact metrics">
+          </Panel>}
+          {mayReadImpact && <Panel kicker="Evidence" title="Impact metrics">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Metric</th><th>Level</th><th>Target</th></tr></thead>
@@ -86,7 +91,7 @@ export default async function FoundationProgramsPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
+          </Panel>}
         </div>
       </div>
     );

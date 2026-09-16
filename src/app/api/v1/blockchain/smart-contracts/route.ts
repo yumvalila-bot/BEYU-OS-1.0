@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { smartContractRegistry } from "@/db/schema";
 import { apiError, apiOk, guarded, withIdempotency } from "@/lib/api";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { upsertRegistryRecord, transitionRegistryRecord } from "@/lib/blockchain/service";
 import { CONTRACT_OPERATIONAL_STATUSES, ORACLE_FEEDS } from "@/lib/blockchain/model";
 import { ADDRESS20, HASH32, NETWORK_KEYS, contractApiError } from "../_common";
@@ -126,7 +127,13 @@ export async function GET(request: Request) {
       const networkKey = q.get("networkKey");
       const status = q.get("status");
       const scope = await tenantScopeIds(ctx.principal);
-      const clauses = [inArray(smartContractRegistry.tenantId, scope)];
+      const clauses = [
+        inArray(smartContractRegistry.tenantId, scope),
+        inArray(
+          smartContractRegistry.classification,
+          classificationsAtOrBelow(ctx.principal.clearance),
+        ),
+      ];
       if (networkKey) clauses.push(eq(smartContractRegistry.networkKey, networkKey));
       if (status) clauses.push(eq(smartContractRegistry.status, status));
       const items = await db

@@ -659,12 +659,10 @@ describe("audit service — permission and clearance", () => {
       .rejects.toThrow(/audit:event.read/i);
   });
 
-  it("CRITICAL: an unrecognised clearance grants NO event visibility (fails closed)", async () => {
+  it("CRITICAL: an unrecognised clearance denies the specialist before any event read", async () => {
     const forged = principal({ roles: ["AUDITOR"], clearance: "SUPER_ADMIN" as never });
-    const r = await correlateEvents(ctx({ principal: forged }), { window: WINDOW });
-    // Every event is withheld; no correlation can be completed from event data.
-    expect(r.data.withheldEventCount).toBeGreaterThan(0);
-    expect(r.data.correlations.every((c) => c.eventIds.length === 0)).toBe(true);
+    await expect(correlateEvents(ctx({ principal: forged }), { window: WINDOW }))
+      .rejects.toMatchObject({ code: "DENIED" });
   });
 
   it("POSITIVE: a recognised clearance sees events and reports zero withheld", async () => {
@@ -673,9 +671,10 @@ describe("audit service — permission and clearance", () => {
     expect(r.data.correlations.some((c) => c.eventIds.length > 0)).toBe(true);
   });
 
-  it("states that a clearance-limited result is PARTIAL", async () => {
-    const forged = principal({ roles: ["AUDITOR"], clearance: "NONSENSE" as never });
-    const r = await correlateEvents(ctx({ principal: forged }), { window: WINDOW });
+  it("states that a recognised but clearance-limited result is PARTIAL", async () => {
+    const limited = principal({ roles: ["AUDITOR"], clearance: "PUBLIC" });
+    const r = await correlateEvents(ctx({ principal: limited }), { window: WINDOW });
+    expect(r.data.withheldEventCount).toBeGreaterThan(0);
     expect(r.explanation.join(" ")).toMatch(/PARTIAL/);
   });
 });

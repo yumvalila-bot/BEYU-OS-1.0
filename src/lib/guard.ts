@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { can, type Principal } from "./authz";
 import { resolvePrincipal } from "./session";
 
-import type { PermissionCode } from "./constants";
+import type { Classification, PermissionCode } from "./constants";
 
 export type PageAccess =
   | { principal: Principal; allowed: true }
@@ -15,9 +15,12 @@ export async function requirePrincipal(): Promise<Principal> {
   return principal;
 }
 
-export async function requireAccess(permission: PermissionCode): Promise<PageAccess> {
+export async function requireAccess(
+  permission: PermissionCode,
+  context?: { classification?: Classification; tenantId?: string; entityId?: string },
+): Promise<PageAccess> {
   const principal = await requirePrincipal();
-  const decision = can(principal, permission);
+  const decision = can(principal, permission, context);
   return decision.allowed
     ? { principal, allowed: true }
     : { principal, allowed: false, reason: decision.reason };

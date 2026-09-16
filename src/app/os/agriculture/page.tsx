@@ -1,4 +1,5 @@
-import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   capitalCases,
@@ -15,31 +16,81 @@ import {
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { agricultureDashboard, exportDashboard } from "@/lib/agriculture";
+import {
+  classificationRank,
+  classificationsAtOrBelow,
+} from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
+import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
 export default async function AgriculturePage() {
   const access = await requireAccess("agriculture:data.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="agriculture:data.read" />;
+  if (access.principal.entityScope.length > 0) {
+    return (
+      <Denied
+        reason="Agriculture OS includes relational operational rows without a canonical legal-entity key; tenant-wide reads are refused under an entity-scoped grant."
+        capability="agriculture:data.read"
+      />
+    );
+  }
   return withTenantDatabaseContext(access.principal, async () => {
     const tenantId = access.principal.tenantId;
-    const [dash, expDash] = await Promise.all([
-      agricultureDashboard(tenantId),
-      exportDashboard(tenantId).catch(() => ({ totalOrders: 0, draftOrders: 0, readyForShipment: 0, activeHolds: 0, exportShipments: 0, financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } })),
+    const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+    const fullClearance =
+      classificationRank(access.principal.clearance) >=
+      classificationRank("HIGHLY_RESTRICTED");
+    const farmRows = await db
+      .select()
+      .from(farms)
+      .where(
+        and(
+          eq(farms.tenantId, tenantId),
+          inArray(farms.classification, allowedClassifications),
+        ),
+      )
+      .orderBy(desc(farms.createdAt))
+      .limit(20);
+    const farmIds = farmRows.map((farm) => farm.id);
+    const [cycleRows, harvestRows, herdRows, workRows, hazardRows, caseRows, exportOrderRows, exportHoldRows, exportShipmentRows] = await Promise.all([
+      db.select().from(cropCycles).where(and(eq(cropCycles.tenantId, tenantId), inArray(cropCycles.classification, allowedClassifications))).orderBy(desc(cropCycles.createdAt)).limit(20),
+      db.select().from(harvests).where(and(eq(harvests.tenantId, tenantId), inArray(harvests.classification, allowedClassifications))).orderBy(desc(harvests.createdAt)).limit(20),
+      farmIds.length > 0
+        ? db.select().from(livestockHerds).where(and(eq(livestockHerds.tenantId, tenantId), inArray(livestockHerds.farmId, farmIds))).limit(20)
+        : Promise.resolve([]),
+      db.select().from(workOrders).where(and(eq(workOrders.tenantId, tenantId), inArray(workOrders.classification, allowedClassifications))).limit(20),
+      db.select().from(hazardRegister).where(and(eq(hazardRegister.tenantId, tenantId), inArray(hazardRegister.classification, allowedClassifications))).limit(20),
+      db.select().from(capitalCases).where(and(eq(capitalCases.tenantId, tenantId), inArray(capitalCases.classification, allowedClassifications))).limit(20),
+      db.select().from(exportOrders).where(and(eq(exportOrders.tenantId, tenantId), inArray(exportOrders.classification, allowedClassifications))).orderBy(desc(exportOrders.createdAt)).limit(20),
+      db.select().from(exportHolds).where(and(eq(exportHolds.tenantId, tenantId), inArray(exportHolds.classification, allowedClassifications))).orderBy(desc(exportHolds.createdAt)).limit(20),
+      db.select().from(exportShipments).where(and(eq(exportShipments.tenantId, tenantId), inArray(exportShipments.classification, allowedClassifications))).orderBy(desc(exportShipments.createdAt)).limit(20),
     ]);
-    const [farmRows, cycleRows, harvestRows, herdRows, workRows, hazardRows, caseRows, exportOrderRows, exportHoldRows, exportShipmentRows] = await Promise.all([
-      db.select().from(farms).where(eq(farms.tenantId, tenantId)).orderBy(desc(farms.createdAt)).limit(20),
-      db.select().from(cropCycles).where(eq(cropCycles.tenantId, tenantId)).orderBy(desc(cropCycles.createdAt)).limit(20),
-      db.select().from(harvests).where(eq(harvests.tenantId, tenantId)).orderBy(desc(harvests.createdAt)).limit(20),
-      db.select().from(livestockHerds).where(eq(livestockHerds.tenantId, tenantId)).limit(20),
-      db.select().from(workOrders).where(eq(workOrders.tenantId, tenantId)).limit(20),
-      db.select().from(hazardRegister).where(eq(hazardRegister.tenantId, tenantId)).limit(20),
-      db.select().from(capitalCases).where(eq(capitalCases.tenantId, tenantId)).limit(20),
-      db.select().from(exportOrders).where(eq(exportOrders.tenantId, tenantId)).orderBy(desc(exportOrders.createdAt)).limit(20),
-      db.select().from(exportHolds).where(eq(exportHolds.tenantId, tenantId)).orderBy(desc(exportHolds.createdAt)).limit(20),
-      db.select().from(exportShipments).where(eq(exportShipments.tenantId, tenantId)).orderBy(desc(exportShipments.createdAt)).limit(20),
-    ]);
+    const [dash, expDash] = fullClearance
+      ? await Promise.all([
+          agricultureDashboard(tenantId),
+          exportDashboard(tenantId).catch(() => ({ totalOrders: 0, draftOrders: 0, readyForShipment: 0, activeHolds: 0, exportShipments: 0, financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" } })),
+        ])
+      : [
+          {
+            farms: farmRows.length,
+            cropCycles: cycleRows.length,
+            harvests: harvestRows.length,
+            herds: herdRows.length,
+            workOrders: workRows.length,
+            hazards: hazardRows.length,
+            capitalCases: caseRows.length,
+          },
+          {
+            totalOrders: exportOrderRows.length,
+            draftOrders: exportOrderRows.filter((order) => order.status === "DRAFT").length,
+            readyForShipment: exportOrderRows.filter((order) => order.status === "READY_FOR_SHIPMENT").length,
+            activeHolds: exportHoldRows.filter((hold) => hold.status === "ACTIVE").length,
+            exportShipments: exportShipmentRows.length,
+            financeBoundary: { journals: "FINANCE_OS_ONLY", capPosting: "LOCKED" },
+          },
+        ];
 
     return (
       <div className="space-y-6">
@@ -52,6 +103,17 @@ export default async function AgriculturePage() {
             CAP_POSTING is LOCKED. Harvests emit HARVEST_RECORDED; they never post journals.
           </p>
         </header>
+
+        <Link
+          href="/os/agriculture/capabilities"
+          className="beyu-panel flex items-start gap-3 p-4 transition hover:border-[#D4A017]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
+        >
+          <Icon name="agriculture" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" />
+          <span>
+            <span className="block text-[13.5px] font-semibold">Complete Agriculture capability surface</span>
+            <span className="mt-0.5 block text-[11.5px] beyu-muted">Land, crop, livestock, aquaculture, environment, work, inventory, quality, projects, commerce, traceability, export and offline interfaces.</span>
+          </span>
+        </Link>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="Farms" value={String(dash.farms)} sub="tenant-isolated operational records" tone="gold" />

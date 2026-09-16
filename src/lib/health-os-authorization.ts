@@ -38,20 +38,32 @@ const beyuIdentityLinks = beyuIdentitySchema.table(
  * - The table doesn't exist (Health backend not deployed)
  * - Query fails (database error)
  */
+let warnedAuthorizationUnavailable = false;
+
 export async function checkHealthOSAuthorization(beyuUserId: string): Promise<{
   authorized: boolean;
   sectorUserId?: string;
   linkedAt?: string;
+  reason?: "NOT_LINKED" | "AUTHORIZATION_SERVICE_UNAVAILABLE";
 }> {
   try {
-    const [link] = await db
-      .select()
-      .from(beyuIdentityLinks)
-      .where(eq(beyuIdentityLinks.beyuUserId, beyuUserId))
-      .limit(1);
+    // Isolate the optional Health-schema lookup behind its own transaction.
+    // When called inside a BEYU request transaction, Drizzle implements this as
+    // a savepoint. A missing Health schema can then be rolled back locally
+    // before we return the fail-closed result; merely catching PostgreSQL's
+    // undefined-table error without a savepoint would leave the parent request
+    // transaction aborted and turn otherwise valid BEYU pages into HTTP 500s.
+    const link = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(beyuIdentityLinks)
+        .where(eq(beyuIdentityLinks.beyuUserId, beyuUserId))
+        .limit(1);
+      return row;
+    });
 
     if (!link) {
-      return { authorized: false };
+      return { authorized: false, reason: "NOT_LINKED" };
     }
 
     return {
@@ -59,10 +71,15 @@ export async function checkHealthOSAuthorization(beyuUserId: string): Promise<{
       sectorUserId: link.globalUserId,
       linkedAt: link.linkedAt?.toISOString(),
     };
-  } catch (error) {
-    // If schema/table doesn't exist or query fails, assume no Health authorization
-    // This can happen if Health backend is not deployed or migrations haven't run
-    console.warn("Health OS authorization check failed:", error);
-    return { authorized: false };
+  } catch {
+    // Missing Health infrastructure is an availability fact, never evidence
+    // that the identity is unlinked. Fail closed without logging query text,
+    // identifiers or driver internals; one sanitized process-level warning is
+    // enough for operators and avoids flooding logs on every navigation render.
+    if (!warnedAuthorizationUnavailable) {
+      console.warn("Health OS authorization service unavailable; access is failing closed.");
+      warnedAuthorizationUnavailable = true;
+    }
+    return { authorized: false, reason: "AUTHORIZATION_SERVICE_UNAVAILABLE" };
   }
 }

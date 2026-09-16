@@ -9,7 +9,7 @@ import { db } from "@/db";
 import * as s from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { releaseHold, AgriDomainError } from "@/lib/agriculture";
-import { agriActor } from "@/lib/agriculture/http";
+import { visibleAgricultureItems, agriActor } from "@/lib/agriculture/http";
 
 const ReleaseSchema = z.object({
   holdId: z.string().min(1),
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       if (exportOrderId) conditions.push(eq(s.exportHolds.exportOrderId, exportOrderId));
       if (status) conditions.push(eq(s.exportHolds.status, status));
       const rows = await db.select().from(s.exportHolds).where(and(...conditions));
-      return NextResponse.json({ items: rows });
+      return NextResponse.json({ items: visibleAgricultureItems(rows, ctx.principal.clearance) });
     },
   );
 }

@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     {
       permission: "agriculture:data.read",
       action: "agriculture.dashboard.read",
+      classification: "RESTRICTED",
       rateLimit: { limit: 120, windowMs: 60_000 },
       audit: { objectType: "AGRICULTURE_DASHBOARD" },
     },

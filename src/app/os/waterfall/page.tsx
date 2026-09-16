@@ -1,9 +1,18 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { legalEntities, resolutions, waterfallConfigs, waterfallRunLines, waterfallRuns, waterfallTiers } from "@/db/schema";
+import {
+  governanceBodies,
+  legalEntities,
+  resolutions,
+  waterfallConfigs,
+  waterfallRunLines,
+  waterfallRuns,
+  waterfallTiers,
+} from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, money, stateTone } from "@/components/brand";
 import { WaterfallWorkbench } from "./workbench";
 
@@ -13,14 +22,95 @@ export default async function WaterfallPage() {
   const access = await requireAccess("finance:waterfall.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:waterfall.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
-  const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
-
-  const configs = await db.select().from(waterfallConfigs).where(inArray(waterfallConfigs.tenantId, scope));
-  const tiers = await db.select().from(waterfallTiers).orderBy(waterfallTiers.sequence);
-  const runs = await db.select().from(waterfallRuns).where(inArray(waterfallRuns.tenantId, scope)).orderBy(desc(waterfallRuns.executedAt)).limit(10);
-  const lines = runs[0] ? await db.select().from(waterfallRunLines).where(eq(waterfallRunLines.runId, runs[0].id)).orderBy(waterfallRunLines.sequence) : [];
-  const entities = await db.select().from(legalEntities);
-  const resolutionRows = await db.select().from(resolutions).where(inArray(resolutions.tenantId, scope));
+  const scope = await tenantScopeIds(access.principal);
+  const entityScoped = access.principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const entities = await db
+    .select()
+    .from(legalEntities)
+    .where(
+      entityScoped
+        ? and(
+            inArray(legalEntities.tenantId, scope),
+            inArray(legalEntities.id, access.principal.entityScope),
+            inArray(legalEntities.classification, allowedClassifications),
+          )
+        : and(
+            inArray(legalEntities.tenantId, scope),
+            inArray(legalEntities.classification, allowedClassifications),
+          ),
+    );
+  const entityIds = entities.map((entity) => entity.id);
+  // Waterfall configurations have no independent classification field; the
+  // referenced legal entity is therefore the mandatory clearance boundary.
+  const configs = await db
+    .select()
+    .from(waterfallConfigs)
+    .where(
+      and(
+        inArray(waterfallConfigs.tenantId, scope),
+        inArray(waterfallConfigs.legalEntityId, entityIds),
+      ),
+    );
+  const configIds = configs.map((config) => config.id);
+  const [tiers, runs, bodyRows] = await Promise.all([
+    configIds.length > 0
+      ? db
+          .select()
+          .from(waterfallTiers)
+          .where(inArray(waterfallTiers.configId, configIds))
+          .orderBy(waterfallTiers.sequence)
+      : Promise.resolve([]),
+    configIds.length > 0
+      ? db
+          .select()
+          .from(waterfallRuns)
+          .where(
+            and(
+              inArray(waterfallRuns.tenantId, scope),
+              inArray(waterfallRuns.configId, configIds),
+            ),
+          )
+          .orderBy(desc(waterfallRuns.executedAt))
+          .limit(10)
+      : Promise.resolve([]),
+    db
+      .select({ id: governanceBodies.id })
+      .from(governanceBodies)
+      .where(
+        entityScoped
+          ? and(
+              inArray(governanceBodies.tenantId, scope),
+              inArray(governanceBodies.legalEntityId, access.principal.entityScope),
+            )
+          : inArray(governanceBodies.tenantId, scope),
+      ),
+  ]);
+  const lines = runs[0]
+    ? await db
+        .select()
+        .from(waterfallRunLines)
+        .where(eq(waterfallRunLines.runId, runs[0].id))
+        .orderBy(waterfallRunLines.sequence)
+    : [];
+  const resolutionIds = configs.flatMap((config) =>
+    config.approvedByResolutionId ? [config.approvedByResolutionId] : [],
+  );
+  const bodyIds = bodyRows.map((body) => body.id);
+  const resolutionRows =
+    resolutionIds.length > 0 && bodyIds.length > 0
+      ? await db
+          .select()
+          .from(resolutions)
+          .where(
+            and(
+              inArray(resolutions.tenantId, scope),
+              inArray(resolutions.id, resolutionIds),
+              inArray(resolutions.bodyId, bodyIds),
+              inArray(resolutions.classification, allowedClassifications),
+            ),
+          )
+      : [];
 
   const canSimulate = can(access.principal, "finance:waterfall.simulate").allowed;
   const canCommit = can(access.principal, "finance:waterfall.commit").allowed;

@@ -1,8 +1,9 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import Link from "next/link";
 
@@ -11,23 +12,35 @@ export const dynamic = "force-dynamic";
 /**
  * Notifications — the tenant's governed alert stream, full view.
  *
- * The OS shell header already surfaces the five most recent notifications to
- * EVERY authenticated principal of the tenant (no permission grant governs
- * the tenant's own IN_APP alert stream). This page is the full stream behind
- * that strip: same table, same tenant isolation, no new data exposure — which
- * is exactly why it carries session-level (not permission-level) gating. It
- * is read-only: read/dismiss semantics remain governed mutations elsewhere.
+ * The OS shell header surfaces the five most recent notifications addressed
+ * directly to the principal, to one of their active roles, or tenant-wide.
+ * This page applies the same recipient, tenant and classification predicates.
+ * It carries session-level gating because the alert record itself defines its
+ * audience; linked destinations still enforce their own permissions. This
+ * surface is read-only: acknowledgement remains a governed mutation elsewhere.
  */
 export default async function NotificationsPage() {
   const principal = await requirePrincipal();
   return withTenantDatabaseContext(principal, async () => {
 
-    // Same visibility as the OS shell header: the principal's own tenant,
-    // never widened. RLS enforces the same boundary at the database layer.
+    const allowedClassifications = classificationsAtOrBelow(principal.clearance);
+    const roleRecipient =
+      principal.roles.length > 0
+        ? or(isNull(notifications.role), inArray(notifications.role, principal.roles))
+        : isNull(notifications.role);
     const rows = await db
       .select()
       .from(notifications)
-      .where(eq(notifications.tenantId, principal.tenantId))
+      .where(
+        and(
+          eq(notifications.tenantId, principal.tenantId),
+          inArray(notifications.classification, allowedClassifications),
+          or(
+            eq(notifications.userId, principal.userId),
+            and(isNull(notifications.userId), roleRecipient),
+          ),
+        ),
+      )
       .orderBy(desc(notifications.createdAt))
       .limit(100);
 

@@ -847,12 +847,11 @@ describe("forecast service — entity isolation and clearance", () => {
     })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("CRITICAL: an unrecognised clearance withholds all classified treasury data", async () => {
+  it("CRITICAL: an unrecognised clearance denies the composed view before any read", async () => {
     const forged = principal({ roles: ["GROUP_CFO"], clearance: "SUPER_ADMIN" as never });
-    const r = await composeCrossSpecialistView(ctx({ principal: forged }), { asOf: ASOF, sources: ["TREASURY"] });
-    const treasury = r.data.contributions.find((c) => c.source === "TREASURY")!;
-    expect(treasury.summary.positionCount).toBe(0);
-    expect(r.data.withheldRecordCount).toBe(5);
+    await expect(
+      composeCrossSpecialistView(ctx({ principal: forged }), { asOf: ASOF, sources: ["TREASURY"] }),
+    ).rejects.toMatchObject({ code: "DENIED" });
   });
 
   it("POSITIVE: HIGHLY_RESTRICTED clearance sees all five positions and withholds none", async () => {

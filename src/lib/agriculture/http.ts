@@ -3,6 +3,7 @@ import type { ZodType } from "zod";
 import { guarded, apiError, type HandlerContext } from "@/lib/api";
 import { AgriDomainError } from "./errors";
 import type { AgriActor } from "./index";
+import { classificationsAtOrBelow, isKnownClassification } from "@/lib/constants";
 
 export function agriActor(ctx: HandlerContext): AgriActor {
   return {
@@ -23,10 +24,28 @@ export function agriErrorResponse(err: unknown, traceId: string) {
   throw err;
 }
 
+type AgricultureListPayload = { items: unknown[] };
+
+export function agricultureRowVisible(item: unknown, clearance: string): boolean {
+  if (!item || typeof item !== "object") return false;
+  const classification = (item as { classification?: unknown }).classification;
+  // Every Agriculture table carries a classification column. A malformed or
+  // missing value is not silently treated as low sensitivity.
+  return (
+    typeof classification === "string" &&
+    isKnownClassification(classification) &&
+    classificationsAtOrBelow(clearance).includes(classification)
+  );
+}
+
+export function visibleAgricultureItems(items: unknown[], clearance: string): unknown[] {
+  return items.filter((item) => agricultureRowVisible(item, clearance));
+}
+
 export function agriListRoute(opts: {
   action: string;
   objectType: string;
-  load: (ctx: HandlerContext, request: NextRequest) => Promise<unknown>;
+  load: (ctx: HandlerContext, request: NextRequest) => Promise<AgricultureListPayload>;
 }) {
   return async function GET(request: NextRequest) {
     return guarded(
@@ -37,7 +56,13 @@ export function agriListRoute(opts: {
         rateLimit: { limit: 120, windowMs: 60_000 },
         audit: { objectType: opts.objectType },
       },
-      async (ctx) => NextResponse.json(await opts.load(ctx, request)),
+      async (ctx) => {
+        const payload = await opts.load(ctx, request);
+        return NextResponse.json({
+          ...payload,
+          items: visibleAgricultureItems(payload.items, ctx.principal.clearance),
+        });
+      },
     );
   };
 }

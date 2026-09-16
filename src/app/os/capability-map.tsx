@@ -3,7 +3,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { osRegistry } from "@/db/schema";
 import { type Principal } from "@/lib/authz";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { Badge } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
@@ -49,17 +49,22 @@ function Card({ item, lifecycle }: { item: CapabilityItem; lifecycle?: string })
  * grants cover.
  *
  * AUTHORIZATION HONESTY (same invariant as the sidebar):
- *   An item is rendered only when the destination's own guard would allow it
- *   (`visible()` runs the SAME `can()` primitive against the SAME permission
- *   the page passes to `requireAccess()`; Health OS uses its federated
- *   identity-link check). Cards therefore never advertise what the backend
- *   would deny, and they grant nothing — every destination re-verifies
- *   server-side. Restricted items are not rendered; the per-group authority
+ *   An item is rendered only when the destination's own guard would allow it.
+ *   Shared capabilities use `visible()` and the same `can()` primitive as the
+ *   destination. Sector entries use the launcher resolver, including Health
+ *   federation and Agriculture/Foundation tenant scope. Cards therefore never
+ *   advertise what the backend would deny, and they grant nothing — every
+ *   destination re-verifies server-side. Restricted items are not rendered;
+ *   the per-group authority
  *   count states how much of the architecture is within reach without
  *   exposing anything about the restricted surfaces themselves.
  */
 export async function CapabilityMap({ principal }: { principal: Principal }) {
-  const health = await checkHealthOSAuthorization(principal.userId);
+  const operatingSystemHrefs = new Set(
+    (await authorizedOperatingSystems(principal)).map((destination) =>
+      destination.href,
+    ),
+  );
   const registryRows = await db
     .select({ code: osRegistry.code, lifecycle: osRegistry.lifecycle })
     .from(osRegistry)
@@ -68,7 +73,9 @@ export async function CapabilityMap({ principal }: { principal: Principal }) {
 
   const groups = CAPABILITY_IA.map((group) => {
     const items = group.items.filter((item) =>
-      item.visibility.kind === "health-federation" ? health.authorized : visible(principal, item),
+      group.id === "sector"
+        ? operatingSystemHrefs.has(item.href)
+        : visible(principal, item),
     );
     return { ...group, items };
   });

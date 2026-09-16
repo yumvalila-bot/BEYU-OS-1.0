@@ -1,6 +1,12 @@
-import { and, desc, gt, inArray, isNull, or, sql, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
-import { permissions, servicePrincipals, sessions, users } from "@/db/schema";
+import {
+  permissions,
+  roleAssignments,
+  servicePrincipals,
+  sessions,
+  users,
+} from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { CLASSIFICATION_ORDER, HIGH_RISK_PERMISSIONS, PERMISSIONS } from "@/lib/constants";
@@ -25,11 +31,50 @@ export default async function SecurityPage() {
     const scope = await tenantScopeIds(access.principal);
     const now = new Date();
 
+    const entityScoped = access.principal.entityScope.length > 0;
+    const scopedAssignments = entityScoped
+      ? await db
+          .select({ userId: roleAssignments.userId })
+          .from(roleAssignments)
+          .where(
+            and(
+              inArray(roleAssignments.tenantId, scope),
+              inArray(roleAssignments.legalEntityId, access.principal.entityScope),
+            ),
+          )
+      : [];
+    const scopedUserIds = [
+      ...new Set(scopedAssignments.map((assignment) => assignment.userId)),
+    ];
+    const sessionPredicate = entityScoped
+      ? and(
+          inArray(sessions.tenantId, scope),
+          inArray(sessions.userId, scopedUserIds),
+        )
+      : inArray(sessions.tenantId, scope);
+    const userPredicate = entityScoped
+      ? and(
+          inArray(users.primaryTenantId, scope),
+          inArray(users.id, scopedUserIds),
+        )
+      : inArray(users.primaryTenantId, scope);
+
     const [sessionRows, userRows, principalRows, highRiskRows] = await Promise.all([
+      // Select posture fields only. Session token hashes, IP addresses and user
+      // agents never enter this rendering process.
       db
-        .select()
+        .select({
+          id: sessions.id,
+          userId: sessions.userId,
+          issuedAt: sessions.issuedAt,
+          expiresAt: sessions.expiresAt,
+          revokedAt: sessions.revokedAt,
+          deviceTrust: sessions.deviceTrust,
+          riskScore: sessions.riskScore,
+          mfaSatisfied: sessions.mfaSatisfied,
+        })
         .from(sessions)
-        .where(inArray(sessions.tenantId, scope))
+        .where(sessionPredicate)
         .orderBy(desc(sessions.issuedAt))
         .limit(200),
       db
@@ -38,14 +83,13 @@ export default async function SecurityPage() {
           email: users.email,
           status: users.status,
           mfaEnrolled: users.mfaEnrolled,
-          isServiceAccount: users.isServiceAccount,
           failedAttempts: users.failedAttempts,
           lockedUntil: users.lockedUntil,
           mfaLockedUntil: users.mfaLockedUntil,
         })
         .from(users)
-        .where(inArray(users.primaryTenantId, scope)),
-      db.select().from(servicePrincipals),
+        .where(userPredicate),
+      entityScoped ? Promise.resolve([]) : db.select().from(servicePrincipals),
       db
         .select()
         .from(permissions)
@@ -87,7 +131,7 @@ export default async function SecurityPage() {
           <Metric label="Active sessions" value={String(active.length)} sub={`${activeNoMfa.length} without satisfied MFA`} tone={activeNoMfa.length > 0 ? "gold" : "navy"} />
           <Metric label="MFA coverage" value={`${mfaEnrolled}/${userRows.length}`} sub="identities enrolled" />
           <Metric label="Locked identities" value={String(lockedUsers.length)} sub="credential or MFA lockout active" tone={lockedUsers.length > 0 ? "gold" : "navy"} />
-          <Metric label="Service principals" value={String(principalRows.length)} sub={`${principalRows.filter((p) => p.status !== "ACTIVE").length} suspended or revoked`} />
+          <Metric label="Service principals" value={entityScoped ? "Restricted" : String(principalRows.length)} sub={entityScoped ? "global rows have no entity key; read refused" : `${principalRows.filter((p) => p.status !== "ACTIVE").length} suspended or revoked`} />
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
@@ -147,7 +191,7 @@ export default async function SecurityPage() {
                   </div>
                 ))}
                 {principalRows.length === 0 && (
-                  <EmptyState message="No explicit service-principal rows; issuers remain governed by the static allowlist." />
+                  <EmptyState message={entityScoped ? "Service-principal rows have no legal-entity key, so this entity-scoped grant cannot read the global registry." : "No explicit service-principal rows; issuers remain governed by the static allowlist."} />
                 )}
               </div>
               <p className="mt-3 text-[11px] beyu-muted">

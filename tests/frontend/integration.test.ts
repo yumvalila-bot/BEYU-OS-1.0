@@ -41,13 +41,15 @@ const REDIRECT_TO_SIGNIN = async (path: string) => {
 describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () => {
   it.skipIf(!available)("direct URL to every protected /os route redirects to sign-in when unauthenticated", async () => {
     const routes = [
-      "/os", "/os/constitution", "/os/registry", "/os/organization", "/os/governance",
-      "/os/assurance", "/os/hcm", "/os/capital", "/os/waterfall", "/os/tax",
-      "/os/family", "/os/foundation", "/os/noelia", "/os/documents", "/os/audit",
-      "/os/agriculture",
-      // Newly surfaced capability destinations (feature discovery integration).
-      "/os/identity", "/os/security", "/os/notifications", "/os/events",
-      "/os/workflow", "/os/risk", "/os/compliance", "/os/legal", "/os/finance",
+      "/os", "/os/registry", "/os/organization-ownership", "/os/identity",
+      "/os/organization", "/os/ownership", "/os/governance", "/os/assurance",
+      "/os/hcm", "/os/documents", "/os/audit-events", "/os/registries",
+      "/os/family", "/os/noelia", "/os/finance", "/os/agriculture", "/os/foundation",
+      "/os/settings",
+      // Existing focused capability destinations remain independently protected.
+      "/os/constitution", "/os/security", "/os/notifications", "/os/events",
+      "/os/workflow", "/os/risk", "/os/compliance", "/os/legal", "/os/audit",
+      "/os/capital", "/os/waterfall", "/os/tax",
     ];
     for (const r of routes) {
       await REDIRECT_TO_SIGNIN(r);
@@ -147,13 +149,109 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(partial.html).toMatch(/ai:workflow\.run or ai:workflow\.approve/);
   });
 
-  it.skipIf(!available)("Notifications page: any authenticated principal reads their own tenant stream", async () => {
+  it.skipIf(!available)("Notifications page: authenticated principals can open their recipient-scoped stream", async () => {
     for (const cookie of [ceo, hcm, auditor]) {
       const res = await apiGet("/os/notifications", cookie);
       expect(res.status).toBe(200);
       expect(isDeniedPage(res.html)).toBe(false);
       expect(res.html).toMatch(/Notification|alert/i);
     }
+  });
+
+  it.skipIf(!available)("Settings is protected, self-service, and permission-gates administration destinations", async () => {
+    for (const cookie of [ceo, cfo, hcm, auditor, family]) {
+      const settings = await apiGet("/os/settings", cookie);
+      expect(settings.status).toBe(200);
+      expect(isDeniedPage(settings.html)).toBe(false);
+      expect(settings.html).toContain("Active governed context");
+      expect(settings.html).toContain("Canonical identity");
+      expect(settings.html).toContain("Current session posture");
+      expect(settings.html).toContain("/brand/beyu-os-logo.png");
+    }
+
+    const ceoSettings = await apiGet("/os/settings", ceo);
+    const ceoAdministration = ceoSettings.html.match(/<section id="administration"[\s\S]*?<\/section>/)?.[0] ?? "";
+    expect(ceoAdministration).toContain('href="/os/registry"');
+    expect(ceoAdministration).toContain('href="/os/identity"');
+    expect(ceoAdministration).toContain('href="/os/constitution"');
+    expect(ceoAdministration).toContain('href="/os/audit"');
+
+    const hcmSettings = await apiGet("/os/settings", hcm);
+    const hcmAdministration = hcmSettings.html.match(/<section id="administration"[\s\S]*?<\/section>/)?.[0] ?? "";
+    expect(hcmAdministration).toContain('href="/os/constitution"');
+    expect(hcmAdministration).not.toContain('href="/os/registry"');
+    expect(hcmAdministration).not.toContain('href="/os/identity"');
+    expect(hcmAdministration).not.toContain('href="/os/audit"');
+    expect(hcmSettings.html).not.toContain('href="/os/security"');
+  });
+
+  it.skipIf(!available)("Risk & Compliance uses any-of entry with independently protected sections", async () => {
+    // The CFO holds risk + compliance but not legal:matter.read. The aggregate
+    // route must render the two authorised domains and refuse the third rather
+    // than querying it under the risk grant.
+    const partial = await apiGet("/os/assurance", cfo);
+    expect(partial.status).toBe(200);
+    expect(isDeniedPage(partial.html)).toBe(false);
+    expect(partial.html).toContain("Enterprise risk register");
+    expect(partial.html).toContain("Compliance engine");
+    expect(partial.html).toContain("legal:matter.read is not granted; legal matters were not queried");
+
+    const denied = await apiGet("/os/assurance", hcm);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/risk:register\.read OR compliance:obligation\.read/);
+  });
+
+  it.skipIf(!available)("audit log access cannot implicitly query enterprise events", async () => {
+    // CFO has audit:log.read but not audit:event.read.
+    const audit = await apiGet("/os/audit", cfo);
+    expect(audit.status).toBe(200);
+    expect(isDeniedPage(audit.html)).toBe(false);
+    expect(audit.html).toContain("audit:event.read is not granted; enterprise events were not queried");
+    expect(audit.html).toContain("audit:event.read not granted");
+  });
+
+  it.skipIf(!available)("aggregate directories expose only destinations covered by active grants", async () => {
+    const organization = await apiGet("/os/organization-ownership", hcm);
+    expect(organization.status).toBe(200);
+    expect(isDeniedPage(organization.html)).toBe(false);
+    expect(organization.html).toContain('href="/os/organization"');
+    expect(organization.html).not.toContain('href="/os/ownership"');
+
+    const registries = await apiGet("/os/registries", hcm);
+    expect(registries.status).toBe(200);
+    expect(isDeniedPage(registries.html)).toBe(false);
+    expect(registries.html).toContain('href="/os/organization"');
+    expect(registries.html).not.toContain('href="/os/registry"');
+  });
+
+  it.skipIf(!available)("the source-of-truth page exposes the read-only activation registry", async () => {
+    const registry = await apiGet("/os/registry", ceo);
+    expect(registry.status).toBe(200);
+    expect(isDeniedPage(registry.html)).toBe(false);
+    expect(registry.html).toContain("Capability activation registry");
+    expect(registry.html).toContain("CAP_POSTING");
+    expect(registry.html).toContain("LOCKED");
+    expect(registry.html).toContain("This surface cannot change");
+  });
+});
+
+describe("Operating-system launcher hierarchy", () => {
+  it.skipIf(!available)("shows one BEYU control plane above all four Sector OS cards", async () => {
+    const launcher = await apiGet("/launcher", ceo);
+    expect(launcher.status).toBe(200);
+    expect(launcher.html).toContain("Constitutional control plane");
+    expect(launcher.html).toContain("Sector operating systems");
+    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Foundation OS"]) {
+      expect(launcher.html).toContain(os);
+    }
+    expect(launcher.html).toContain('href="/os/finance"');
+    expect(launcher.html).toContain('href="/os/agriculture"');
+    expect(launcher.html).toContain('href="/os/foundation"');
+    // A missing Health federation link is presented truthfully as unavailable,
+    // never as a launchable URL. In an environment with a real link it may be
+    // authorised instead, and /health will recheck that link on entry.
+    expect(launcher.html).toMatch(/href="\/health"|NOT IN CURRENT GRANT/);
+    expect(launcher.html).toContain("Finance OS remains the financial source of truth");
   });
 });
 

@@ -1,9 +1,16 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { capitalRequests, legalEntities, resolutions, treasuryPositions } from "@/db/schema";
+import {
+  capitalRequests,
+  governanceBodies,
+  legalEntities,
+  resolutions,
+  treasuryPositions,
+} from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { evaluatePolicy } from "@/lib/policy";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { capitalGovernanceAuthorizations } from "@/lib/governance-authorization";
@@ -17,13 +24,68 @@ export default async function CapitalPage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="finance:capital.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
   const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
+  const entityScoped = access.principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const canTreasury = can(access.principal, "finance:treasury.read").allowed;
+  const entityPredicate = entityScoped
+    ? and(
+        inArray(legalEntities.tenantId, scope),
+        inArray(legalEntities.id, access.principal.entityScope),
+        inArray(legalEntities.classification, allowedClassifications),
+      )
+    : and(
+        inArray(legalEntities.tenantId, scope),
+        inArray(legalEntities.classification, allowedClassifications),
+      );
+  const entities = await db.select().from(legalEntities).where(entityPredicate);
+  const entityIds = entities.map((entity) => entity.id);
+  // Capital requests carry no classification column, so their legal entity is
+  // the clearance boundary for both tenant-wide and named-entity grants.
+  const requestPredicate = and(
+    inArray(capitalRequests.tenantId, scope),
+    inArray(capitalRequests.legalEntityId, entityIds),
+  );
+  const treasuryPredicate = and(
+    inArray(treasuryPositions.tenantId, scope),
+    inArray(treasuryPositions.legalEntityId, entityIds),
+    inArray(treasuryPositions.classification, allowedClassifications),
+  );
 
-  const [requests, treasury, entities, resolutionRows] = await Promise.all([
-    db.select().from(capitalRequests).where(inArray(capitalRequests.tenantId, scope)).orderBy(capitalRequests.code),
-    db.select().from(treasuryPositions).where(inArray(treasuryPositions.tenantId, scope)),
-    db.select().from(legalEntities),
-    db.select().from(resolutions).where(inArray(resolutions.tenantId, scope)),
+  const [requests, treasury, bodyRows] = await Promise.all([
+    db.select().from(capitalRequests).where(requestPredicate).orderBy(capitalRequests.code),
+    canTreasury
+      ? db.select().from(treasuryPositions).where(treasuryPredicate)
+      : Promise.resolve([]),
+    db
+      .select({ id: governanceBodies.id })
+      .from(governanceBodies)
+      .where(
+        entityScoped
+          ? and(
+              inArray(governanceBodies.tenantId, scope),
+              inArray(governanceBodies.legalEntityId, access.principal.entityScope),
+            )
+          : inArray(governanceBodies.tenantId, scope),
+      ),
   ]);
+  const resolutionIds = requests.flatMap((request) =>
+    request.resolutionId ? [request.resolutionId] : [],
+  );
+  const bodyIds = bodyRows.map((body) => body.id);
+  const resolutionRows =
+    resolutionIds.length > 0 && bodyIds.length > 0
+      ? await db
+          .select()
+          .from(resolutions)
+          .where(
+            and(
+              inArray(resolutions.tenantId, scope),
+              inArray(resolutions.id, resolutionIds),
+              inArray(resolutions.bodyId, bodyIds),
+              inArray(resolutions.classification, allowedClassifications),
+            ),
+          )
+      : [];
 
   /**
    * Read-only governance authorization signal, resolved server-side from the
@@ -45,7 +107,6 @@ export default async function CapitalPage() {
     requests.map((r) => r.id),
   );
 
-  const canTreasury = can(access.principal, "finance:treasury.read").allowed;
   const entityName = (id: string) => entities.find((e) => e.id === id)?.legalName ?? id;
 
   // Governance requirement per request, resolved live from the policy engine.

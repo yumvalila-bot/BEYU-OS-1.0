@@ -1,9 +1,20 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, knowledgeSources, regulatoryChanges, retentionPolicies } from "@/db/schema";
+import {
+  documents,
+  knowledgeSources,
+  legalEntities,
+  regulatoryChanges,
+  retentionPolicies,
+  tenants,
+} from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { classificationRank } from "@/lib/constants";
+import {
+  hasGlobalGovernanceScope,
+  tenantScopeIds,
+  withTenantDatabaseContext,
+} from "@/lib/tenant-scope";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -13,17 +24,123 @@ export default async function DocumentsPage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="documents:registry.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
 
-  const [docs, knowledge, retention, changes] = await Promise.all([
-    db.select().from(documents).where(eq(documents.tenantId, access.principal.tenantId)),
-    db.select().from(knowledgeSources),
-    db.select().from(retentionPolicies),
-    db.select().from(regulatoryChanges),
+  const scope = await tenantScopeIds(access.principal);
+  const entityScoped = access.principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const entityPredicate = entityScoped
+    ? and(
+        inArray(legalEntities.tenantId, scope),
+        inArray(legalEntities.id, access.principal.entityScope),
+        inArray(legalEntities.classification, allowedClassifications),
+      )
+    : and(
+        inArray(legalEntities.tenantId, scope),
+        inArray(legalEntities.classification, allowedClassifications),
+      );
+  const entityRows = await db
+    .select({
+      id: legalEntities.id,
+      code: legalEntities.code,
+      countryCode: legalEntities.countryCode,
+    })
+    .from(legalEntities)
+    .where(entityPredicate);
+  const tenantRows = !entityScoped
+    ? await db
+        .select({ countryCode: tenants.countryCode })
+        .from(tenants)
+        .where(
+          and(
+            inArray(tenants.id, scope),
+            inArray(tenants.classification, allowedClassifications),
+          ),
+        )
+    : [];
+  const entityIds = entityRows.map((entity) => entity.id);
+  const entityCodes = entityRows.map((entity) => entity.code);
+  const countryCodes = [
+    ...new Set([
+      ...entityRows.map((entity) => entity.countryCode),
+      ...tenantRows
+        .map((tenant) => tenant.countryCode)
+        .filter((code): code is string => Boolean(code)),
+    ]),
+  ];
+
+  // The legacy document registry stores an entity code in `entity_scope`.
+  // Resolve only codes for entities already inside the principal's canonical
+  // ID scope, then constrain document payloads in SQL.
+  const documentPredicate = entityScoped
+    ? and(
+        inArray(documents.tenantId, scope),
+        inArray(documents.entityScope, entityCodes),
+        inArray(documents.classification, allowedClassifications),
+      )
+    : and(
+        inArray(documents.tenantId, scope),
+        inArray(documents.classification, allowedClassifications),
+      );
+  const knowledgeScopes: SQL[] = [eq(knowledgeSources.scopeType, "GLOBAL")];
+  if (!entityScoped) {
+    knowledgeScopes.push(
+      and(
+        eq(knowledgeSources.scopeType, "TENANT"),
+        inArray(knowledgeSources.tenantId, scope),
+      )!,
+    );
+    if (hasGlobalGovernanceScope(access.principal)) {
+      knowledgeScopes.push(
+        and(
+          eq(knowledgeSources.scopeType, "ENTERPRISE"),
+          inArray(knowledgeSources.tenantId, scope),
+        )!,
+      );
+    }
+  }
+  if (entityIds.length > 0) {
+    knowledgeScopes.push(
+      and(
+        eq(knowledgeSources.scopeType, "ENTITY"),
+        inArray(knowledgeSources.tenantId, scope),
+        inArray(knowledgeSources.legalEntityId, entityIds),
+      )!,
+    );
+  }
+  if (countryCodes.length > 0) {
+    knowledgeScopes.push(
+      and(
+        eq(knowledgeSources.scopeType, "COUNTRY"),
+        inArray(knowledgeSources.tenantId, scope),
+        inArray(knowledgeSources.countryCode, countryCodes),
+      )!,
+    );
+  }
+
+  const [visible, knowledge, retention, changes] = await Promise.all([
+    db.select().from(documents).where(documentPredicate),
+    db
+      .select()
+      .from(knowledgeSources)
+      .where(
+        and(
+          inArray(knowledgeSources.classification, allowedClassifications),
+          or(...knowledgeScopes),
+        ),
+      ),
+    countryCodes.length > 0
+      ? db
+          .select()
+          .from(retentionPolicies)
+          .where(inArray(retentionPolicies.jurisdictionCode, countryCodes))
+      : Promise.resolve([]),
+    countryCodes.length > 0
+      ? db
+          .select()
+          .from(regulatoryChanges)
+          .where(inArray(regulatoryChanges.jurisdictionCode, countryCodes))
+      : Promise.resolve([]),
   ]);
 
-  const visible = docs.filter(
-    (d) => classificationRank(d.classification) <= classificationRank(access.principal.clearance),
-  );
-  const suppressed = docs.length - visible.length;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -38,7 +155,7 @@ export default async function DocumentsPage() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Registered documents" value={String(visible.length)} sub={suppressed ? `${suppressed} suppressed by clearance` : "all visible at your clearance"} />
+        <Metric label="Documents visible" value={String(visible.length)} sub="tenant, entity and clearance scoped at query time" />
         <Metric label="Authoritative" value={String(visible.filter((d) => d.authorityStatus === "AUTHORITATIVE").length)} sub="approved & in force" />
         <Metric label="Legal holds" value={String(visible.filter((d) => d.legalHold).length)} sub="disposal suspended" tone="gold" />
         <Metric label="Knowledge sources" value={String(knowledge.length)} sub={`${knowledge.filter((k) => k.reviewDate < today).length} past review date`} />
