@@ -8,7 +8,7 @@ import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { type Principal } from "@/lib/authz";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge } from "@/components/brand";
 import { BeyuLogo } from "@/components/beyu-logo";
@@ -24,17 +24,25 @@ export const dynamic = "force-dynamic";
 
 /**
  * Navigation is derived from the same canonical capability catalogue rendered
- * by the Executive Control Centre. Visibility uses the same `can()` primitive
- * and permission as each target route; Health uses its federated identity link.
- * This is presentation only — every deep link repeats its server-side guard.
+ * by the Executive Control Centre. Shared capabilities use the same `can()`
+ * primitive as their target route. Sector OS entries use the canonical launcher
+ * resolver so federation and tenant-backed OS scope cannot drift between
+ * navigation and deep-link authority. This remains presentation only — every
+ * destination repeats its server-side guard.
  */
 async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
-  const health = await checkHealthOSAuthorization(principal.userId);
+  const operatingSystemHrefs = new Set(
+    (await authorizedOperatingSystems(principal)).map((destination) =>
+      destination.href,
+    ),
+  );
   return CAPABILITY_IA.map((section) => ({
     group: section.title,
     items: section.items
       .filter((item) =>
-        item.visibility.kind === "health-federation" ? health.authorized : visible(principal, item),
+        section.id === "sector"
+          ? operatingSystemHrefs.has(item.href)
+          : visible(principal, item),
       )
       .map((item: CapabilityItem) => ({
         href: item.href,

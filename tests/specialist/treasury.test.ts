@@ -779,11 +779,10 @@ describe("treasury service — hostile inputs", () => {
       .rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("a forged clearance string cannot exceed the real classification ordering", async () => {
-    // Even a nonsense clearance value must not unlock HIGHLY_RESTRICTED rows: rank() returns -1.
+  it("a forged clearance string is denied before any treasury read", async () => {
     const forged = principal({ roles: ["GROUP_CFO"], clearance: "SUPER_ADMIN" as never });
-    const r = await readPositions(ctx({ principal: forged }), { asOf: ASOF });
-    expect(r.data.positions.map((p) => p.id)).not.toContain("TRS_T4");
+    await expect(readPositions(ctx({ principal: forged }), { asOf: ASOF }))
+      .rejects.toMatchObject({ code: "DENIED" });
   });
 
   it("rejects malformed trace ids", async () => {

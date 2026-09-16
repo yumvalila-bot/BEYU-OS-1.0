@@ -299,7 +299,11 @@ describe("Navigation honesty — gating is presentation, never authority", () =>
     expect(denied.length).toBeGreaterThan(0);
     const shell = await apiGet("/os", auditor);
     const links = navHrefs(shell.html);
-    expect(links.length).toBeLessThan(MODULE_ROUTES.length);
+    const visibleCataloguedRoutes = MODULE_ROUTES.filter((route) => links.includes(route.href));
+    // Navigation also contains newly exposed, permission-gated workspaces that
+    // are outside this historical route sample. Compare the sample's
+    // intersection, not the total navigation size.
+    expect(visibleCataloguedRoutes.length).toBeLessThan(MODULE_ROUTES.length);
   });
 });
 

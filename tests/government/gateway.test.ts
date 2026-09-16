@@ -10,10 +10,12 @@
  *   - every operation writes an audit record.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { auditLog, governmentAgencies, governmentSubmissions, legalEntities } from "@/db/schema";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 import {
   createDefaultGovernmentGateway,
   GovernmentGatewayError,
@@ -36,11 +38,39 @@ let entityId: string;
 beforeAll(async () => {
   gateway = createDefaultGovernmentGateway();
   cfoActor = await actorFor("cfo@beyu.os");
+
+  // A valid submission target is more than “the first row in the actor's
+  // primary tenant”: it must be in the actor's resolved tenant/entity and
+  // classification scope and in the agency's jurisdiction. The first seeded
+  // group entity is the HIGHLY_RESTRICTED Mauritius trust, which is
+  // intentionally outside the Group CFO's RESTRICTED clearance and the mock
+  // Tanzania agency's jurisdiction.
+  const [agency] = await db
+    .select({ countryCode: governmentAgencies.countryCode })
+    .from(governmentAgencies)
+    .where(eq(governmentAgencies.code, MOCK_AGENCY_CODE))
+    .limit(1);
+  if (!agency) throw new Error(`Missing seeded agency ${MOCK_AGENCY_CODE}`);
+
+  const tenantIds = await tenantScopeIds(cfoActor.principal);
   const [entity] = await db
     .select({ id: legalEntities.id })
     .from(legalEntities)
-    .where(eq(legalEntities.tenantId, cfoActor.principal.tenantId))
+    .where(
+      and(
+        inArray(legalEntities.tenantId, tenantIds),
+        eq(legalEntities.countryCode, agency.countryCode),
+        inArray(
+          legalEntities.classification,
+          classificationsAtOrBelow(cfoActor.principal.clearance),
+        ),
+        ...(cfoActor.principal.entityScope.length > 0
+          ? [inArray(legalEntities.id, cfoActor.principal.entityScope)]
+          : []),
+      ),
+    )
     .limit(1);
+  if (!entity) throw new Error("Missing a government submission entity inside the CFO's authorized scope");
   entityId = entity.id;
 });
 

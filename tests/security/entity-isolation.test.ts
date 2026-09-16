@@ -11,12 +11,14 @@
  * entity A of ANOTHER tenant.
  */
 import { describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, withDatabaseTransactionContext } from "../../src/db";
 import { legalEntities } from "../../src/db/schema";
 import { can, type Principal } from "../../src/lib/authz";
+import { classificationsAtOrBelow } from "../../src/lib/constants";
 import { resolveNoeliaAuthorizedScope, requestedNoeliaTarget } from "../../src/lib/noelia/scope-service";
 import { createDefaultNoeliaToolRegistry } from "../../src/lib/noelia/default-tools";
+import { tenantScopeIds } from "../../src/lib/tenant-scope";
 import { seededPrincipal } from "../noelia/db-fixtures";
 
 describe("C-02 legal-entity isolation (application layer)", () => {
@@ -47,21 +49,46 @@ describe("C-02 legal-entity isolation (application layer)", () => {
 
   it("Noelia tool registry denies a target legal entity outside the principal's scope", async () => {
     const p = await seededPrincipal("cfo@beyu.os");
-    const entities = await withDatabaseTransactionContext(() =>
-      db
+    const [entityA, entityB] = await withDatabaseTransactionContext(async () => {
+      const authorizedTenantIds = await tenantScopeIds(p);
+      const entities = await db
         .select({ id: legalEntities.id, tenantId: legalEntities.tenantId })
         .from(legalEntities)
-        .where(eq(legalEntities.tenantId, p.tenantId))
-        .limit(2),
-    );
-    const [entityA, entityB] = entities;
+        .where(
+          and(
+            inArray(legalEntities.tenantId, authorizedTenantIds),
+            inArray(
+              legalEntities.classification,
+              classificationsAtOrBelow(p.clearance),
+            ),
+          ),
+        )
+        .orderBy(legalEntities.tenantId, legalEntities.id);
+
+      // Choose two clearance-visible entities in one tenant. The Group CFO's
+      // primary tenant also contains the HIGHLY_RESTRICTED family trust, so
+      // blindly taking its first two rows would make the supposed positive
+      // control a classification denial rather than an entity-scope test.
+      const byTenant = new Map<string, typeof entities>();
+      for (const entity of entities) {
+        const group = byTenant.get(entity.tenantId) ?? [];
+        group.push(entity);
+        byTenant.set(entity.tenantId, group);
+      }
+      const pair = [...byTenant.values()].find((group) => group.length >= 2);
+      if (!pair) throw new Error("Missing two clearance-visible legal entities in one authorized tenant");
+      return [pair[0], pair[1]] as const;
+    });
     const scoped: Principal = { ...p, entityScope: [entityA.id] };
 
     const registry = createDefaultNoeliaToolRegistry();
     const scope = await withDatabaseTransactionContext(() => resolveNoeliaAuthorizedScope(scoped));
 
     // Target entity A (in scope) → allowed.
-    const targetA = requestedNoeliaTarget(scoped, { legalEntityId: entityA.id });
+    const targetA = requestedNoeliaTarget(scoped, {
+      tenantId: entityA.tenantId,
+      legalEntityId: entityA.id,
+    });
     const decisionA = registry.authorize("finance.cash.position", {
       principal: scoped,
       traceId: "ENTITY_TEST_A",
@@ -72,7 +99,10 @@ describe("C-02 legal-entity isolation (application layer)", () => {
     expect(decisionA.allowed).toBe(true);
 
     // Target entity B (same tenant, out of scope) → ENTITY_DENIED.
-    const targetB = requestedNoeliaTarget(scoped, { legalEntityId: entityB.id });
+    const targetB = requestedNoeliaTarget(scoped, {
+      tenantId: entityB.tenantId,
+      legalEntityId: entityB.id,
+    });
     const decisionB = registry.authorize("finance.cash.position", {
       principal: scoped,
       traceId: "ENTITY_TEST_B",

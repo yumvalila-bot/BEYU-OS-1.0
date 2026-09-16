@@ -1,8 +1,12 @@
+import { and, eq, inArray } from "drizzle-orm";
 import type { IconName } from "@/components/icons";
+import { db } from "@/db";
+import { tenants } from "@/db/schema";
 import { can, type Principal } from "@/lib/authz";
-import type { PermissionCode } from "@/lib/constants";
+import { classificationsAtOrBelow, type PermissionCode } from "@/lib/constants";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 
 export type OperatingSystemDestination = {
   code: "BEYU" | "FINANCE" | "HEALTH" | "AGRICULTURE" | "FOUNDATION";
@@ -88,6 +92,34 @@ export const FOUNDATION_OS_READ_PERMISSIONS: PermissionCode[] = [
 ];
 
 /**
+ * Prove that a tenant-backed Sector OS belongs to the principal's resolved
+ * tenant subtree and classification ceiling. A generic sector permission is
+ * not enough to make another sector's OS reachable.
+ */
+export async function operatingSystemTenantInScope(
+  principal: Principal,
+  tenantCode: "BEYU-AGRI" | "BEYU-FOUNDATION",
+): Promise<boolean> {
+  const tenantIds = await tenantScopeIds(principal);
+  const classifications = classificationsAtOrBelow(principal.clearance);
+  if (tenantIds.length === 0 || classifications.length === 0) return false;
+
+  const [target] = await db
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(
+      and(
+        eq(tenants.code, tenantCode),
+        eq(tenants.status, "ACTIVE"),
+        inArray(tenants.id, tenantIds),
+        inArray(tenants.classification, classifications),
+      ),
+    )
+    .limit(1);
+  return Boolean(target);
+}
+
+/**
  * Resolve launchable operating systems from governed authorization facts.
  *
  * BEYU is the one constitutional control plane. Finance, Health, Agriculture
@@ -99,7 +131,11 @@ export const FOUNDATION_OS_READ_PERMISSIONS: PermissionCode[] = [
 export async function authorizedOperatingSystems(
   principal: Principal,
 ): Promise<OperatingSystemDestination[]> {
-  const health = await checkHealthOSAuthorization(principal.userId);
+  const [health, agricultureInScope, foundationInScope] = await Promise.all([
+    checkHealthOSAuthorization(principal.userId),
+    operatingSystemTenantInScope(principal, "BEYU-AGRI"),
+    operatingSystemTenantInScope(principal, "BEYU-FOUNDATION"),
+  ]);
   const allowed = new Set<OperatingSystemDestination["code"]>();
 
   if (checkBeyuOSAuthorization(principal).authorized) allowed.add("BEYU");
@@ -107,8 +143,13 @@ export async function authorizedOperatingSystems(
     allowed.add("FINANCE");
   }
   if (health.authorized) allowed.add("HEALTH");
-  if (can(principal, "agriculture:data.read").allowed) allowed.add("AGRICULTURE");
-  if (FOUNDATION_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)) {
+  if (agricultureInScope && can(principal, "agriculture:data.read").allowed) {
+    allowed.add("AGRICULTURE");
+  }
+  if (
+    foundationInScope &&
+    FOUNDATION_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)
+  ) {
     allowed.add("FOUNDATION");
   }
 

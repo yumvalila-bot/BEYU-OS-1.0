@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
+import { operatingSystemTenantInScope } from "@/lib/operating-systems";
 
 /**
  * Foundation records currently mix legal-entity-keyed and foundation-keyed
- * substrates. Until every nested read can prove an entity join, a named-entity
+ * substrates. Every Foundation deep link first proves that the canonical
+ * Foundation tenant is inside the principal's resolved tenant/classification
+ * scope. Until every nested read can also prove an entity join, a named-entity
  * grant must not fall back to a tenant-wide Foundation query.
  */
 export default async function FoundationLayout({
@@ -13,6 +16,19 @@ export default async function FoundationLayout({
   children: ReactNode;
 }) {
   const principal = await requirePrincipal();
+  const foundationInScope = await operatingSystemTenantInScope(
+    principal,
+    "BEYU-FOUNDATION",
+  );
+
+  if (!foundationInScope) {
+    return (
+      <Denied
+        reason="Foundation OS is outside the current tenant and classification scope."
+        capability="foundation:registry.read"
+      />
+    );
+  }
   if (principal.entityScope.length > 0) {
     return (
       <Denied
