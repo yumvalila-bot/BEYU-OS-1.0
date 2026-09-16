@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   architectureDecisions,
   dataAssets,
+  featureFlags,
   governanceCapabilityRegistry,
   integrations,
   metricDefinitions,
@@ -29,15 +30,19 @@ export default async function RegistryPage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
   const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
-  const [osRows, sotRows, adrRows, integrationRows, metricRows, assetRows, capabilityRows] = await Promise.all([
-    db.select().from(osRegistry).orderBy(osRegistry.kind),
-    db.select().from(sourceOfTruth).orderBy(sourceOfTruth.capability),
-    db.select().from(architectureDecisions).orderBy(architectureDecisions.adrNumber),
-    db.select().from(integrations),
-    db.select().from(metricDefinitions),
-    db.select().from(dataAssets).where(inArray(dataAssets.classification, allowedClassifications)),
-    db.select().from(governanceCapabilityRegistry).orderBy(governanceCapabilityRegistry.capabilityCode),
-  ]);
+  const [osRows, sotRows, adrRows, integrationRows, metricRows, assetRows, capabilityRows, flagRows] =
+    await Promise.all([
+      db.select().from(osRegistry).orderBy(osRegistry.kind),
+      db.select().from(sourceOfTruth).orderBy(sourceOfTruth.capability),
+      db.select().from(architectureDecisions).orderBy(architectureDecisions.adrNumber),
+      db.select().from(integrations),
+      db.select().from(metricDefinitions),
+      db.select().from(dataAssets).where(inArray(dataAssets.classification, allowedClassifications)),
+      db.select().from(governanceCapabilityRegistry).orderBy(governanceCapabilityRegistry.capabilityCode),
+      // Global reference registry (no tenant/classification columns), read the
+      // same way as the other global registries on this page.
+      db.select().from(featureFlags).orderBy(featureFlags.key),
+    ]);
 
   /**
    * A-02: registry read access is not a classification override. Assets above
@@ -111,6 +116,40 @@ export default async function RegistryPage() {
               ))}
               {capabilityRows.length === 0 && (
                 <tr><td colSpan={5}><EmptyState message="No capability activation records are registered." /></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <Panel kicker="Runtime controls" title="Feature flags — read-only effective state">
+        <p className="mb-4 max-w-4xl text-[11.5px] beyu-muted">
+          Effective server-side feature flags are shown exactly as configured. This surface cannot change,
+          approve or bypass them; flag changes remain a governed provisioning operation recorded outside
+          this interface.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="beyu-table">
+            <thead>
+              <tr><th>Flag</th><th>State</th><th>Scope</th><th>Owner</th><th>Last updated</th></tr>
+            </thead>
+            <tbody>
+              {flagRows.map((flag) => (
+                <tr key={flag.key}>
+                  <td>
+                    <div className="font-mono text-[11px] font-semibold">{flag.key}</div>
+                    <div className="max-w-lg text-[11px] beyu-muted">{flag.description}</div>
+                  </td>
+                  <td><Badge tone={flag.enabled ? "green" : "slate"}>{flag.enabled ? "ENABLED" : "DISABLED"}</Badge></td>
+                  <td className="font-mono text-[10.5px] beyu-muted">{flag.scope}</td>
+                  <td className="font-mono text-[10.5px] beyu-muted">{flag.ownerRole}</td>
+                  <td className="text-[11px] beyu-muted">
+                    {flag.updatedBy} · {flag.updatedAt ? new Date(flag.updatedAt).toISOString().slice(0, 10) : "—"}
+                  </td>
+                </tr>
+              ))}
+              {flagRows.length === 0 && (
+                <tr><td colSpan={5}><EmptyState message="No feature flags are registered in this deployment." /></td></tr>
               )}
             </tbody>
           </table>
