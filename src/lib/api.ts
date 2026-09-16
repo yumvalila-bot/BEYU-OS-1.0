@@ -3,6 +3,7 @@ import { hasDatabaseTransactionContext } from "@/db";
 import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
+import { foundationTargetScopeDenial } from "./foundation/target-scope";
 import {
   claimIdempotencyKey,
   completeIdempotencyKey,
@@ -249,7 +250,13 @@ export type HandlerContext = {
   request: Request;
 };
 
-function permissionClassificationFloor(permission: PermissionCode): Classification | undefined {
+/**
+ * Minimum clearance a route's declared capability implies for its response.
+ * Exported so the boundary contract is directly verifiable: every Foundation
+ * capability has an explicit floor, and the floor can never be lowered by a
+ * route forgetting to declare one.
+ */
+export function permissionClassificationFloor(permission: PermissionCode): Classification | undefined {
   if (permission.startsWith("finance:") || permission.startsWith("contracts:") || permission.startsWith("blockchain:")) {
     return "RESTRICTED";
   }
@@ -350,9 +357,32 @@ export async function guarded(
         options.permission,
         classification ? { classification } : undefined,
       );
-      if (scopeReason || !decision.allowed) {
-        const reason = scopeReason ?? decision.reason;
-        const requiresMfa = !scopeReason && decision.requiresMfa;
+
+      /**
+       * Foundation OS target-scope boundary (API side).
+       *
+       * The Foundation deep-link layer proves the canonical Foundation
+       * target-tenant/classification boundary before it renders anything. A
+       * protected API request must prove the SAME boundary independently:
+       * holding `foundation:*` in one tenant is NOT access to Foundation data in
+       * another. The scope is resolved from the authenticated principal through
+       * the canonical Sector OS resolver — never from the URL, a query
+       * parameter, navigation state or any client-supplied tenant — and a
+       * principal the boundary cannot place is DENIED here, before the handler
+       * runs and therefore before any Foundation row is loaded.
+       *
+       * This runs for every `foundation:*` route, including future ones, so an
+       * endpoint cannot forget the check. Domain services re-resolve the same
+       * scope for their own queries (defence in depth).
+       */
+      const sectorTargetReason =
+        decision.allowed && options.permission.startsWith("foundation:")
+          ? await foundationTargetScopeDenial(principal)
+          : null;
+
+      if (scopeReason || sectorTargetReason || !decision.allowed) {
+        const reason = scopeReason ?? sectorTargetReason ?? decision.reason;
+        const requiresMfa = !scopeReason && !sectorTargetReason && decision.requiresMfa;
         await recordAudit({
           tenantId: principal.tenantId,
           actorUserId: principal.userId,

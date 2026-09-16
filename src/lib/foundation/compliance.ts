@@ -16,14 +16,14 @@ import { db } from "@/db";
 import * as s from "@/db/schema";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { withAuditTransaction } from "@/lib/audit";
-import { assertWithinScope, tenantScopeIds } from "@/lib/tenant-scope";
+import { assertWithinScope } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
 import { computeDueDate, daysBetweenUtc, deadlineHealth, type DeadlineRule } from "./deadlines";
 import { dueReminders, escalationKey, reminderContent, reminderKey, type DueReminder } from "./notifications";
 import { evaluateEscalation, type RiskRating } from "./escalation";
 import { DEFAULT_REMINDER_SCHEDULE, type NotificationChannel } from "./types";
 import { FOUNDATION_EVENTS } from "./events";
-import { FoundationError, getFoundation, type ServiceContext } from "./service";
+import { FoundationError, foundationScopeIds, getFoundation, type ServiceContext } from "./service";
 
 /* ==========================================================================
  * OBLIGATION REGISTRY
@@ -118,7 +118,7 @@ export async function createObligation(ctx: ServiceContext, input: CreateObligat
 }
 
 export async function listObligations(principal: Principal, foundationId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = foundationId
     ? and(eq(s.foundationObligations.foundationId, foundationId), inArray(s.foundationObligations.tenantId, scope))
     : inArray(s.foundationObligations.tenantId, scope);
@@ -126,7 +126,7 @@ export async function listObligations(principal: Principal, foundationId?: strin
 }
 
 export async function getObligation(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundationObligations)
@@ -209,7 +209,7 @@ export async function computeDeadline(
 }
 
 export async function listDeadlines(principal: Principal, foundationId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = foundationId
     ? and(eq(s.foundationDeadlines.foundationId, foundationId), inArray(s.foundationDeadlines.tenantId, scope))
     : inArray(s.foundationDeadlines.tenantId, scope);
@@ -217,7 +217,7 @@ export async function listDeadlines(principal: Principal, foundationId?: string)
 }
 
 export async function getDeadline(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundationDeadlines)
@@ -228,7 +228,7 @@ export async function getDeadline(principal: Principal, id: string) {
 }
 
 export async function listComplianceTasks(principal: Principal, deadlineId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = deadlineId
     ? and(eq(s.foundationComplianceTasks.deadlineId, deadlineId), inArray(s.foundationComplianceTasks.tenantId, scope))
     : inArray(s.foundationComplianceTasks.tenantId, scope);
@@ -271,7 +271,7 @@ export async function advanceComplianceTask(
     VERIFIED: ["COMPLETED"],
     OVERDUE: ["IN_PROGRESS", "SUBMITTED"],
   };
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [task] = await db
     .select()
     .from(s.foundationComplianceTasks)
@@ -327,7 +327,7 @@ export async function submitEvidence(
 }
 
 export async function verifyEvidence(ctx: ServiceContext, id: string, approved: boolean) {
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [row] = await db
     .select()
     .from(s.foundationEvidence)
@@ -356,7 +356,7 @@ export async function completeDeadline(ctx: ServiceContext, id: string) {
     throw new FoundationError("INVALID_TRANSITION", `Deadline is already ${deadline.status}`);
   }
   if (obligation.evidenceRequired) {
-    const scope = await tenantScopeIds(ctx.principal);
+    const scope = await foundationScopeIds(ctx.principal);
     const verified = await db
       .select()
       .from(s.foundationEvidence)
@@ -405,8 +405,8 @@ export async function runComplianceSweep(
   input: { todayIso: string; channels?: NotificationChannel[] },
 ): Promise<SweepResult> {
   const channels = input.channels ?? ["IN_APP"];
-  const scope = await tenantScopeIds(ctx.principal);
-  await assertWithinScope(ctx.principal, ctx.principal.tenantId);
+  const scope = await foundationScopeIds(ctx.principal);
+  await assertWithinScope(ctx.principal, scope[0]);
   const open = await db
     .select()
     .from(s.foundationDeadlines)
@@ -614,12 +614,12 @@ export async function runComplianceSweep(
 }
 
 export async function listEscalations(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationEscalations).where(inArray(s.foundationEscalations.tenantId, scope));
 }
 
 export async function acknowledgeEscalation(ctx: ServiceContext, id: string) {
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [row] = await db
     .select()
     .from(s.foundationEscalations)
@@ -661,7 +661,7 @@ export async function complianceDashboard(principal: Principal, todayIso: string
 
 /** Deadlines whose obligation requires evidence but has none verified. */
 export async function deadlinesMissingEvidence(principal: Principal): Promise<string[]> {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const obligations = await listObligations(principal);
   const mandatory = new Set(obligations.filter((o) => o.evidenceRequired).map((o) => o.id));
   const deadlines = await listDeadlines(principal);

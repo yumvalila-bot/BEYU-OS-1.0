@@ -9,8 +9,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import * as s from "@/db/schema";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import { filterByClearance, type Principal } from "@/lib/authz";
+import { foundationScopeIds } from "./service";
 
 export type GraphNode = {
   kind: string;
@@ -32,7 +32,7 @@ function nodeKey(kind: string, id: string): string {
 }
 
 export async function buildFoundationGraph(principal: Principal, foundationId: string): Promise<FoundationGraph> {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [foundation] = await db
     .select()
     .from(s.foundations)

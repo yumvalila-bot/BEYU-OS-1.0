@@ -2,8 +2,11 @@
  * BEYU Foundation OS — governed domain services (registry → grants).
  *
  * Every mutation runs VALIDATE → SCOPE → TRANSITION → PERSIST → AUDIT → EVENT
- * in one transaction. Reads are tenant-scoped through the canonical
- * tenant-scope primitive. Cross-tenant, cross-foundation and cross-entity
+ * in one transaction. Reads AND writes are constrained to the canonical
+ * resolved Foundation target tenant (`foundationScopeIds` /
+ * `foundationTargetTenantId` → `./target-scope`), so a query is narrowed before
+ * any child/related row is loaded and a mutation can never be stamped with a
+ * caller-supplied tenant. Cross-tenant, cross-foundation and cross-entity
  * violations fail closed with FoundationError (mapped to 403/409/422).
  */
 import { and, eq, inArray } from "drizzle-orm";
@@ -11,8 +14,9 @@ import { db } from "@/db";
 import * as s from "@/db/schema";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { withAuditTransaction, type AuditInput, type EventInput } from "@/lib/audit";
-import { assertWithinScope, tenantScopeIds } from "@/lib/tenant-scope";
+import { assertWithinScope } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
+import { resolveFoundationTargetScope } from "./target-scope";
 import { validateFoundationTransition, validateFormationTransition, validateGrantTransition } from "./lifecycle";
 import { assessFormation, type FormationIntake } from "./formation";
 import { diffStructures, simulateStructureChange, type StructureGraph } from "./structure";
@@ -91,6 +95,39 @@ export function assertMoney(value: string, field: string): void {
 }
 
 /* ==========================================================================
+ * CANONICAL FOUNDATION TARGET SCOPE
+ * ========================================================================== */
+
+/**
+ * Authoritative Foundation tenant for every domain read and mutation.
+ *
+ * Foundation rows are read and written against the RESOLVED Foundation target
+ * tenant — never against the principal's own tenant and never against a
+ * caller-supplied tenant. A principal whose resolved scope does not include the
+ * canonical Foundation tenant (for example a Health-tenant operator holding a
+ * generic `foundation:program.read`) is DENIED rather than silently served an
+ * empty result, which is what the Foundation deep-link layer already does.
+ *
+ * Throws `FoundationError("FORBIDDEN")`, so the canonical API error envelope
+ * maps it to 403 and it can never surface as a 500 or a partial read.
+ */
+export async function foundationTargetTenantId(principal: Principal): Promise<string> {
+  const resolution = await resolveFoundationTargetScope(principal);
+  if (!resolution.ok) throw new FoundationError("FORBIDDEN", resolution.reason);
+  return resolution.scope.tenantId;
+}
+
+/**
+ * Finite tenant predicate for Foundation-owned tables: exactly the resolved
+ * Foundation target tenant. Deliberately a single-element list rather than the
+ * principal's broader tenant subtree, so a query is constrained BEFORE any
+ * child/related row is loaded instead of being filtered afterwards.
+ */
+export async function foundationScopeIds(principal: Principal): Promise<string[]> {
+  return [await foundationTargetTenantId(principal)];
+}
+
+/* ==========================================================================
  * FOUNDATION REGISTRY
  * ========================================================================== */
 
@@ -112,7 +149,7 @@ export type CreateFoundationInput = {
 };
 
 export async function createFoundation(ctx: ServiceContext, input: CreateFoundationInput) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   if (!input.code.trim() || !input.legalName.trim() || !input.legalVehicle.trim() || !input.countryCode.trim()) {
     throw new FoundationError("VALIDATION_FAILED", "code, legalName, legalVehicle and countryCode are required");
@@ -164,12 +201,12 @@ export async function createFoundation(ctx: ServiceContext, input: CreateFoundat
 }
 
 export async function listFoundations(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundations).where(inArray(s.foundations.tenantId, scope));
 }
 
 export async function getFoundation(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundations)
@@ -241,7 +278,7 @@ export type OpenFormationInput = {
 };
 
 export async function openFormationCase(ctx: ServiceContext, input: OpenFormationInput) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   const assessment = assessFormation(input.intake);
   const id = newId(ID_PREFIX.formation);
@@ -288,12 +325,12 @@ export async function openFormationCase(ctx: ServiceContext, input: OpenFormatio
 }
 
 export async function listFormationCases(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.formationCases).where(inArray(s.formationCases.tenantId, scope));
 }
 
 export async function getFormationCase(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.formationCases)
@@ -352,7 +389,7 @@ export async function createStructureProposal(
   ctx: ServiceContext,
   input: { code: string; title: string; kind?: string; foundationId?: string; graph: StructureGraph; rationale?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   if (!input.graph || !Array.isArray(input.graph.nodes) || !Array.isArray(input.graph.edges)) {
     throw new FoundationError("VALIDATION_FAILED", "graph must contain nodes[] and edges[]");
@@ -397,12 +434,12 @@ export async function createStructureProposal(
 }
 
 export async function listStructureProposals(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.structureProposals).where(inArray(s.structureProposals.tenantId, scope));
 }
 
 export async function getStructureProposal(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.structureProposals)
@@ -416,7 +453,7 @@ export async function runStructureSimulation(
   ctx: ServiceContext,
   input: { code: string; question: string; baselineProposalId: string; candidateProposalId: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   const baseline = await getStructureProposal(ctx.principal, input.baselineProposalId);
   const candidate = await getStructureProposal(ctx.principal, input.candidateProposalId);
   const result = simulateStructureChange(
@@ -469,7 +506,7 @@ export async function runStructureSimulation(
 }
 
 export async function listStructureScenarios(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.structureScenarios).where(inArray(s.structureScenarios.tenantId, scope));
 }
 
@@ -532,7 +569,7 @@ export async function scheduleMeeting(
 }
 
 export async function listMeetings(principal: Principal, foundationId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = foundationId
     ? and(eq(s.foundationMeetings.foundationId, foundationId), inArray(s.foundationMeetings.tenantId, scope))
     : inArray(s.foundationMeetings.tenantId, scope);
@@ -596,7 +633,7 @@ export async function declareConflict(
 }
 
 export async function listConflicts(principal: Principal, foundationId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = foundationId
     ? and(eq(s.foundationConflicts.foundationId, foundationId), inArray(s.foundationConflicts.tenantId, scope))
     : inArray(s.foundationConflicts.tenantId, scope);
@@ -623,7 +660,7 @@ export async function publishTaxRule(
     verificationDate?: string;
   },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   const id = newId(ID_PREFIX.foundationTaxRule);
   return withAuditTransaction(
@@ -669,7 +706,7 @@ export async function publishTaxRule(
 }
 
 export async function listTaxRules(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationTaxRules).where(inArray(s.foundationTaxRules.tenantId, scope));
 }
 
@@ -693,7 +730,7 @@ export async function recordTaxAssessment(
   const foundation = await getFoundation(ctx.principal, input.foundationId);
   let rule: TaxEvaluationInput["rule"] = null;
   if (input.taxRuleId) {
-    const scope = await tenantScopeIds(ctx.principal);
+    const scope = await foundationScopeIds(ctx.principal);
     const [row] = await db
       .select()
       .from(s.foundationTaxRules)
@@ -763,7 +800,7 @@ export async function recordTaxAssessment(
 }
 
 export async function listTaxAssessments(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationTaxAssessments).where(inArray(s.foundationTaxAssessments.tenantId, scope));
 }
 
@@ -775,7 +812,7 @@ export async function registerDonor(
   ctx: ServiceContext,
   input: { code: string; displayName: string; donorType: string; partyId?: string; countryCode?: string; contactRef?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   const id = newId(ID_PREFIX.donor);
   return withAuditTransaction(
@@ -817,12 +854,12 @@ export async function registerDonor(
 }
 
 export async function listDonors(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.donors).where(inArray(s.donors.tenantId, scope));
 }
 
 export async function getDonor(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.donors)
@@ -915,7 +952,7 @@ export async function recordDonation(
 }
 
 export async function listDonations(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.donations).where(inArray(s.donations.tenantId, scope));
 }
 
@@ -972,12 +1009,12 @@ export async function createFund(
 }
 
 export async function listFunds(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.funds).where(inArray(s.funds.tenantId, scope));
 }
 
 export async function getFund(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.funds)
@@ -1081,7 +1118,7 @@ export async function registerGrantee(
   ctx: ServiceContext,
   input: { code: string; displayName: string; granteeType: string; countryCode?: string; registrationRef?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   const id = newId(ID_PREFIX.grantee);
   await db.insert(s.grantees).values({
@@ -1099,12 +1136,12 @@ export async function registerGrantee(
 }
 
 export async function listGrantees(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.grantees).where(inArray(s.grantees.tenantId, scope));
 }
 
 export async function getGrantee(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.grantees)
@@ -1180,12 +1217,12 @@ export async function createGrant(
 }
 
 export async function listGrants(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.grants).where(inArray(s.grants.tenantId, scope));
 }
 
 export async function getGrant(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.grants)
@@ -1278,7 +1315,7 @@ export async function addGrantMilestone(
 
 export async function listGrantMilestones(principal: Principal, grantId: string) {
   await getGrant(principal, grantId);
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db
     .select()
     .from(s.grantMilestones)

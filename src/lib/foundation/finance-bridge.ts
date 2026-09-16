@@ -22,7 +22,14 @@ import { newId, ID_PREFIX } from "@/lib/ids";
 import { withAuditTransaction } from "@/lib/audit";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
-import { FoundationError, assertMoney, getFoundation, type ServiceContext } from "./service";
+import {
+  FoundationError,
+  assertMoney,
+  foundationScopeIds,
+  foundationTargetTenantId,
+  getFoundation,
+  type ServiceContext,
+} from "./service";
 
 export async function requestFoundationCapital(
   ctx: ServiceContext,
@@ -79,6 +86,13 @@ export async function requestFoundationCapital(
 }
 
 export async function listFoundationCapitalRequests(principal: Principal) {
+  // Cross-domain read: `capital_requests` is a FINANCE-owned artefact that
+  // Foundation OS surfaces. The canonical Foundation target gate is applied
+  // first (a principal outside the Foundation target scope is denied outright);
+  // the rows are then constrained by the principal's resolved tenant scope,
+  // because an enterprise-scope capital request for a Foundation programme is
+  // legitimately tenant-owned by the group and must not be re-homed here.
+  await foundationTargetTenantId(principal);
   const scope = await tenantScopeIds(principal);
   return db
     .select()
@@ -94,6 +108,10 @@ export async function linkJournalEntry(
   ctx: ServiceContext,
   input: { kind: "DONATION" | "DISBURSEMENT"; recordId: string; journalEntryId: string },
 ) {
+  // Journal entries are FINANCE-owned rows, so the linkage lookup stays inside
+  // the principal's resolved tenant scope; the Foundation side of the linkage is
+  // pinned to the resolved Foundation target tenant below.
+  const targetTenantId = await foundationTargetTenantId(ctx.principal);
   const scope = await tenantScopeIds(ctx.principal);
   const [entry] = await db
     .select({ id: s.journalEntries.id })
@@ -105,7 +123,13 @@ export async function linkJournalEntry(
     const [row] = await db
       .select()
       .from(s.donations)
-      .where(and(eq(s.donations.id, input.recordId), inArray(s.donations.tenantId, scope)))
+      .where(
+        and(
+          eq(s.donations.id, input.recordId),
+          eq(s.donations.tenantId, targetTenantId),
+          inArray(s.donations.tenantId, scope),
+        ),
+      )
       .limit(1);
     if (!row) throw new FoundationError("NOT_FOUND", "Donation not found in your authorised scope");
     await db.update(s.donations).set({ journalEntryId: entry.id }).where(eq(s.donations.id, row.id));
@@ -113,7 +137,13 @@ export async function linkJournalEntry(
     const [row] = await db
       .select()
       .from(s.grantDisbursements)
-      .where(and(eq(s.grantDisbursements.id, input.recordId), inArray(s.grantDisbursements.tenantId, scope)))
+      .where(
+        and(
+          eq(s.grantDisbursements.id, input.recordId),
+          eq(s.grantDisbursements.tenantId, targetTenantId),
+          inArray(s.grantDisbursements.tenantId, scope),
+        ),
+      )
       .limit(1);
     if (!row) throw new FoundationError("NOT_FOUND", "Disbursement not found in your authorised scope");
     await db.update(s.grantDisbursements).set({ journalEntryId: entry.id, status: "RECONCILED" }).where(eq(s.grantDisbursements.id, row.id));
@@ -127,7 +157,7 @@ export async function linkJournalEntry(
  * surfaced, never auto-corrected here.
  */
 export async function fundReconciliationView(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const fundRows = await db.select().from(s.funds).where(inArray(s.funds.tenantId, scope));
   const allocationRows = await db.select().from(s.fundAllocations).where(inArray(s.fundAllocations.tenantId, scope));
   return fundRows.map((f) => {

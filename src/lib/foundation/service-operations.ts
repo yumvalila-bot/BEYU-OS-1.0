@@ -4,19 +4,25 @@
  * Companion to service.ts. Programs themselves reuse the canonical
  * `foundation_programs` table; projects, beneficiaries, procurement, assets,
  * investments, safeguarding, impact and workforce assignments live here.
+ *
+ * Every read and write is constrained to the canonical resolved Foundation
+ * target tenant (`foundationScopeIds` / `foundationTargetTenantId`) — never to a
+ * client-supplied tenant and never by filtering a broad result afterwards.
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import * as s from "@/db/schema";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { withAuditTransaction } from "@/lib/audit";
-import { assertWithinScope, tenantScopeIds } from "@/lib/tenant-scope";
+import { assertWithinScope } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
 import { validateAssetTransition, validateProcurementTransition, validateSafeguardingTransition } from "./lifecycle";
 import { FOUNDATION_EVENTS } from "./events";
 import {
   FoundationError,
   assertMoney,
+  foundationScopeIds,
+  foundationTargetTenantId,
   getFoundation,
   getGrant,
   type ServiceContext,
@@ -50,12 +56,12 @@ function eventBase(ctx: ServiceContext, tenantId: string) {
  * ========================================================================== */
 
 export async function listPrograms(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationPrograms).where(inArray(s.foundationPrograms.tenantId, scope));
 }
 
 export async function getProgram(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundationPrograms)
@@ -69,7 +75,7 @@ export async function createProgram(
   ctx: ServiceContext,
   input: { code: string; name: string; theme: string; countryCode: string; budget: string; currency?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   assertMoney(input.budget, "budget");
   const id = newId(ID_PREFIX.program);
@@ -153,7 +159,7 @@ export async function createProject(
 }
 
 export async function listProjects(principal: Principal, programId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const where = programId
     ? and(eq(s.foundationProjects.programId, programId), inArray(s.foundationProjects.tenantId, scope))
     : inArray(s.foundationProjects.tenantId, scope);
@@ -161,7 +167,7 @@ export async function listProjects(principal: Principal, programId?: string) {
 }
 
 export async function getProject(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundationProjects)
@@ -179,7 +185,7 @@ export async function registerBeneficiary(
   ctx: ServiceContext,
   input: { code: string; programId?: string; projectId?: string; cohort?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   if (input.programId) await getProgram(ctx.principal, input.programId);
   if (input.projectId) await getProject(ctx.principal, input.projectId);
@@ -199,7 +205,7 @@ export async function registerBeneficiary(
 }
 
 export async function listBeneficiaries(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationBeneficiaries).where(inArray(s.foundationBeneficiaries.tenantId, scope));
 }
 
@@ -207,7 +213,7 @@ export async function recordBeneficiaryService(
   ctx: ServiceContext,
   input: { beneficiaryId: string; serviceType: string; providedAt: string; outcome?: string; providerRef?: string },
 ) {
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [beneficiary] = await db
     .select()
     .from(s.foundationBeneficiaries)
@@ -235,7 +241,7 @@ export async function registerSupplier(
   ctx: ServiceContext,
   input: { code: string; displayName: string; countryCode?: string; registrationRef?: string },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   const id = newId(ID_PREFIX.supplier);
   await db.insert(s.foundationSuppliers).values({
@@ -252,7 +258,7 @@ export async function registerSupplier(
 }
 
 export async function listSuppliers(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationSuppliers).where(inArray(s.foundationSuppliers.tenantId, scope));
 }
 
@@ -278,12 +284,12 @@ export async function createProcurement(
 }
 
 export async function listProcurements(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.procurements).where(inArray(s.procurements.tenantId, scope));
 }
 
 export async function getProcurement(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.procurements)
@@ -350,12 +356,12 @@ export async function registerAsset(
 }
 
 export async function listAssets(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationAssets).where(inArray(s.foundationAssets.tenantId, scope));
 }
 
 export async function getAsset(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.foundationAssets)
@@ -421,7 +427,7 @@ export async function createInvestmentPolicy(
 }
 
 export async function listInvestmentPolicies(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationInvestmentPolicies).where(inArray(s.foundationInvestmentPolicies.tenantId, scope));
 }
 
@@ -462,7 +468,7 @@ export async function proposeInvestment(
 }
 
 export async function approveInvestment(ctx: ServiceContext, id: string, approvalRef: string) {
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [row] = await db
     .select()
     .from(s.foundationInvestments)
@@ -481,7 +487,7 @@ export async function approveInvestment(ctx: ServiceContext, id: string, approva
 }
 
 export async function listInvestments(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationInvestments).where(inArray(s.foundationInvestments.tenantId, scope));
 }
 
@@ -532,12 +538,12 @@ export async function reportSafeguardingCase(
 }
 
 export async function listSafeguardingCases(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.safeguardingCases).where(inArray(s.safeguardingCases.tenantId, scope));
 }
 
 export async function getSafeguardingCase(principal: Principal, id: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [row] = await db
     .select()
     .from(s.safeguardingCases)
@@ -593,7 +599,7 @@ export async function createImpactMetric(
     beneficiaryScope?: string;
   },
 ) {
-  const tenantId = ctx.principal.tenantId;
+  const tenantId = await foundationTargetTenantId(ctx.principal);
   await assertWithinScope(ctx.principal, tenantId);
   if (!["INPUT", "ACTIVITY", "OUTPUT", "OUTCOME", "IMPACT"].includes(input.level)) {
     throw new FoundationError("VALIDATION_FAILED", `Unknown impact level ${input.level}`);
@@ -622,7 +628,7 @@ export async function createImpactMetric(
 }
 
 export async function listImpactMetrics(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationImpactMetrics).where(inArray(s.foundationImpactMetrics.tenantId, scope));
 }
 
@@ -630,7 +636,7 @@ export async function recordImpactMeasurement(
   ctx: ServiceContext,
   input: { metricId: string; period: string; actual: string; evidenceDocumentId?: string },
 ) {
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [metric] = await db
     .select()
     .from(s.foundationImpactMetrics)
@@ -673,7 +679,7 @@ export async function createWorkforceAssignment(
   },
 ) {
   const foundation = await getFoundation(ctx.principal, input.foundationId);
-  const scope = await tenantScopeIds(ctx.principal);
+  const scope = await foundationScopeIds(ctx.principal);
   const [employee] = await db
     .select()
     .from(s.employees)
@@ -729,6 +735,6 @@ export async function createWorkforceAssignment(
 }
 
 export async function listWorkforceAssignments(principal: Principal) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   return db.select().from(s.foundationWorkforceAssignments).where(inArray(s.foundationWorkforceAssignments.tenantId, scope));
 }

@@ -150,15 +150,31 @@ describe("seed integrity", () => {
 });
 
 describe("tenant-scope isolation", () => {
-  it("a health-sector principal sees zero foundations and gets NOT_FOUND by id", async () => {
+  /**
+   * TIGHTENED AFTER PR #63 (Foundation API target-scope remediation).
+   *
+   * The Foundation API/deep-link boundary is "canonical Foundation target
+   * tenant, resolved from the principal". A health-sector operator who holds a
+   * Foundation capability (`foundation:program.read`) is therefore DENIED the
+   * Foundation target outright — the same outcome the Foundation layout already
+   * renders — instead of being served a silently-empty result that could be
+   * mistaken for "no data exists in scope".
+   */
+  it("a health-sector principal is denied the Foundation target (fail closed, never silently empty)", async () => {
     const sector = await principalFor("SARA_LEMA");
-    expect(await listFoundations(sector)).toEqual([]);
-    expect(await listFunds(sector)).toEqual([]);
+    await expect(listFoundations(sector)).rejects.toMatchObject({
+      name: "FoundationError",
+      code: "FORBIDDEN",
+    });
+    await expect(listFunds(sector)).rejects.toMatchObject({
+      name: "FoundationError",
+      code: "FORBIDDEN",
+    });
     const director = await principalFor("FATMA_JUMA");
     const demo = (await listFoundations(director)).find((f) => f.code === "BEYU-FDN-01");
     await expect(getFoundation(sector, demo!.id)).rejects.toMatchObject({
       name: "FoundationError",
-      code: "NOT_FOUND",
+      code: "FORBIDDEN",
     });
   });
 
