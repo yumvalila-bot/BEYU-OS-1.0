@@ -2,20 +2,21 @@
  * BEYU Foundation OS — governed reporting (read-only aggregations).
  *
  * Executive, board, donor, grant, program, impact, compliance and tax report
- * payloads. Every figure traces to authoritative rows in the caller's tenant
- * scope; nothing is sampled, nothing is estimated, nothing crosses tenants.
+ * payloads. Every figure traces to authoritative rows inside the canonical
+ * resolved Foundation target tenant; nothing is sampled, nothing is estimated,
+ * nothing crosses tenants, and a report requested for a foundation outside that
+ * scope fails closed with FoundationError rather than returning partial data.
  */
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import * as s from "@/db/schema";
-import { tenantScopeIds } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
 import { deadlineHealth } from "./deadlines";
-import { getFoundation } from "./service";
+import { foundationScopeIds, getFoundation } from "./service";
 
 export async function executiveSummary(principal: Principal, foundationId: string, todayIso: string) {
   const foundation = await getFoundation(principal, foundationId);
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [funds, donations, grants, programs, deadlines, obligations, investments, assets] = await Promise.all([
     db.select().from(s.funds).where(and(eq(s.funds.foundationId, foundation.id), inArray(s.funds.tenantId, scope))),
     db.select().from(s.donations).where(and(eq(s.donations.foundationId, foundation.id), inArray(s.donations.tenantId, scope))),
@@ -51,7 +52,7 @@ export async function executiveSummary(principal: Principal, foundationId: strin
 }
 
 export async function donorReport(principal: Principal, donorId: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [donor] = await db
     .select()
     .from(s.donors)
@@ -89,7 +90,7 @@ export async function donorReport(principal: Principal, donorId: string) {
 }
 
 export async function grantReport(principal: Principal, grantId: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [grant] = await db
     .select()
     .from(s.grants)
@@ -112,7 +113,7 @@ export async function grantReport(principal: Principal, grantId: string) {
 }
 
 export async function impactReport(principal: Principal, programId?: string) {
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const metrics = await db.select().from(s.foundationImpactMetrics).where(inArray(s.foundationImpactMetrics.tenantId, scope));
   const scoped = programId ? metrics.filter((m) => m.programId === programId) : metrics;
   const rows = [];
@@ -143,7 +144,7 @@ export async function impactReport(principal: Principal, programId?: string) {
 
 export async function taxPositionReport(principal: Principal, foundationId: string) {
   const foundation = await getFoundation(principal, foundationId);
-  const scope = await tenantScopeIds(principal);
+  const scope = await foundationScopeIds(principal);
   const [profile] = await db
     .select()
     .from(s.foundationTaxProfiles)

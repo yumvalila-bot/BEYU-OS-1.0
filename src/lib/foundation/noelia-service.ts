@@ -6,7 +6,11 @@
  *
  *   - inherits the invoking principal's RBAC/ABAC, tenant, entity and
  *     classification scope (nothing is re-derived from input),
- *   - reads authorised rows only (finite tenant predicates + classification
+ *   - resolves the CANONICAL Foundation target scope (`./target-scope`) before
+ *     reading a single row, and refuses outright when the boundary cannot place
+ *     the principal: the same boundary the Foundation deep-link layer and the
+ *     Foundation API enforce, never a tenant-wide AI view,
+ *   - reads authorised rows only (resolved target tenant + classification
  *     ceilings), and
  *   - NEVER persists, approves, transfers, posts or restructures anything.
  *
@@ -29,6 +33,7 @@ import { deadlineHealth } from "./deadlines";
 import { assessFormation, type FormationIntake } from "./formation";
 import { simulateStructureChange, type StructureGraph } from "./structure";
 import { FORMATION_DISCLAIMER } from "./formation";
+import { resolveFoundationTargetScope } from "./target-scope";
 
 function requireCanonicalContext(): void {
   if (!hasDatabaseTransactionContext()) {
@@ -43,9 +48,29 @@ function visibleClassifications(context: ToolInvocationContext) {
   );
 }
 
+/**
+ * Authoritative Foundation tenant for every AI read, or `null` when the
+ * canonical boundary cannot place the principal.
+ *
+ * The AI path is a Foundation data surface like any other, so it is held to the
+ * same boundary as the Foundation API and the deep-link layer: a principal whose
+ * resolved scope does not contain the canonical Foundation tenant (or whose
+ * grant is limited to named legal entities, where tenant-wide containment cannot
+ * be proven) reads NOTHING here. Returning `null` — rather than a wider tenant
+ * set, the caller's own tenant, a default tenant or public data — is the same
+ * fail-closed idiom already used for an unknown clearance (`visibleClassifications`
+ * yields no rows). No row is queried before this resolves.
+ */
+async function authorizedFoundationTenant(context: ToolInvocationContext): Promise<string | null> {
+  requireCanonicalContext();
+  const resolution = await resolveFoundationTargetScope(context.principal);
+  return resolution.ok ? resolution.scope.tenantId : null;
+}
+
 export class BeyuNoeliaFoundationService {
   async registry(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
-    requireCanonicalContext();
+    const tenantId = await authorizedFoundationTenant(context);
+    if (!tenantId) return { findings: [] };
     const classifications = visibleClassifications(context);
     if (classifications.length === 0) return { findings: [] };
     const rows = await db
@@ -53,7 +78,7 @@ export class BeyuNoeliaFoundationService {
       .from(foundations)
       .where(
         and(
-          inArray(foundations.tenantId, context.scope.tenantIds),
+          eq(foundations.tenantId, tenantId),
           inArray(foundations.classification, classifications),
         ),
       );
@@ -73,10 +98,11 @@ export class BeyuNoeliaFoundationService {
   }
 
   async compliancePosture(context: ToolInvocationContext, todayIso = new Date().toISOString().slice(0, 10)): Promise<NoeliaToolOutput> {
-    requireCanonicalContext();
+    const tenantId = await authorizedFoundationTenant(context);
+    if (!tenantId) return { findings: [] };
     const [obligations, deadlines] = await Promise.all([
-      db.select().from(foundationObligations).where(inArray(foundationObligations.tenantId, context.scope.tenantIds)),
-      db.select().from(foundationDeadlines).where(inArray(foundationDeadlines.tenantId, context.scope.tenantIds)),
+      db.select().from(foundationObligations).where(eq(foundationObligations.tenantId, tenantId)),
+      db.select().from(foundationDeadlines).where(eq(foundationDeadlines.tenantId, tenantId)),
     ]);
     const open = deadlines.filter((d) => !["COMPLETED", "VERIFIED", "WAIVED"].includes(d.status));
     const overdue = open.filter((d) => d.status === "OVERDUE" || deadlineHealth(d.dueDate, todayIso) === "OVERDUE");
@@ -103,11 +129,12 @@ export class BeyuNoeliaFoundationService {
   }
 
   async grantPipeline(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
-    requireCanonicalContext();
+    const tenantId = await authorizedFoundationTenant(context);
+    if (!tenantId) return { findings: [] };
     const rows = await db
       .select()
       .from(grants)
-      .where(inArray(grants.tenantId, context.scope.tenantIds));
+      .where(eq(grants.tenantId, tenantId));
     const byStatus = new Map<string, { count: number; amount: number }>();
     for (const g of rows) {
       const slot = byStatus.get(g.status) ?? { count: 0, amount: 0 };
@@ -129,13 +156,14 @@ export class BeyuNoeliaFoundationService {
   }
 
   async fundPosition(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
-    requireCanonicalContext();
+    const tenantId = await authorizedFoundationTenant(context);
+    if (!tenantId) return { findings: [] };
     const [fundRows, donationRows] = await Promise.all([
-      db.select().from(funds).where(inArray(funds.tenantId, context.scope.tenantIds)),
+      db.select().from(funds).where(eq(funds.tenantId, tenantId)),
       db
         .select({ total: sql<string>`coalesce(sum(${donations.amount}), 0)`, count: sql<number>`count(*)::int` })
         .from(donations)
-        .where(inArray(donations.tenantId, context.scope.tenantIds)),
+        .where(eq(donations.tenantId, tenantId)),
     ]);
     const balance = fundRows.reduce((a, f) => a + Number(f.balance), 0);
     const committed = fundRows.reduce((a, f) => a + Number(f.committed), 0);
@@ -154,7 +182,12 @@ export class BeyuNoeliaFoundationService {
     };
   }
 
-  /** Draft formation assessment. Pure analysis — persists nothing. */
+  /**
+   * Draft formation assessment. Pure analysis of caller-supplied intake —
+   * persists nothing and reads no authoritative Foundation row, so there is no
+   * scope to constrain; the registry still enforces the tool's permission,
+   * declared classification and resolved target before this runs.
+   */
   async draftFormationAssessment(
     context: ToolInvocationContext,
     intake: FormationIntake,
@@ -175,7 +208,7 @@ export class BeyuNoeliaFoundationService {
     };
   }
 
-  /** Draft structure simulation. Pure analysis — executes nothing. */
+  /** Draft structure simulation. Pure analysis of caller-supplied graphs — executes nothing. */
   async draftStructureSimulation(
     context: ToolInvocationContext,
     input: { question: string; before: StructureGraph; after: StructureGraph },

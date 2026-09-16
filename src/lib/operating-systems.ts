@@ -3,7 +3,7 @@ import type { IconName } from "@/components/icons";
 import { db } from "@/db";
 import { tenants } from "@/db/schema";
 import { can, type Principal } from "@/lib/authz";
-import { classificationsAtOrBelow, type PermissionCode } from "@/lib/constants";
+import { classificationsAtOrBelow, type Classification, type PermissionCode } from "@/lib/constants";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { tenantScopeIds } from "@/lib/tenant-scope";
@@ -91,21 +91,37 @@ export const FOUNDATION_OS_READ_PERMISSIONS: PermissionCode[] = [
   "foundation:assignment.read",
 ];
 
+export type OperatingSystemTenantCode = "BEYU-AGRI" | "BEYU-FOUNDATION";
+
+export type ResolvedOperatingSystemTenant = {
+  id: string;
+  code: string;
+  classification: Classification;
+};
+
 /**
- * Prove that a tenant-backed Sector OS belongs to the principal's resolved
- * tenant subtree and classification ceiling. A generic sector permission is
- * not enough to make another sector's OS reachable.
+ * Canonical Sector OS target resolution.
+ *
+ * Resolves the one tenant-backed Sector OS tenant that the principal may act
+ * on, from governed facts only: the tenant must be ACTIVE, inside the
+ * principal's resolved tenant subtree (`tenantScopeIds`) and no higher than the
+ * principal's classification ceiling. Unknown/malformed principal clearance
+ * yields an empty allow-list and therefore resolves nothing (fail closed).
+ *
+ * This is the single resolver. The deep-link layouts use the boolean wrapper
+ * below; the Foundation API boundary and Foundation services call it directly so
+ * the UI boundary and the API boundary cannot diverge.
  */
-export async function operatingSystemTenantInScope(
+export async function resolveOperatingSystemTenant(
   principal: Principal,
-  tenantCode: "BEYU-AGRI" | "BEYU-FOUNDATION",
-): Promise<boolean> {
+  tenantCode: OperatingSystemTenantCode,
+): Promise<ResolvedOperatingSystemTenant | null> {
   const tenantIds = await tenantScopeIds(principal);
   const classifications = classificationsAtOrBelow(principal.clearance);
-  if (tenantIds.length === 0 || classifications.length === 0) return false;
+  if (tenantIds.length === 0 || classifications.length === 0) return null;
 
   const [target] = await db
-    .select({ id: tenants.id })
+    .select({ id: tenants.id, code: tenants.code, classification: tenants.classification })
     .from(tenants)
     .where(
       and(
@@ -116,7 +132,19 @@ export async function operatingSystemTenantInScope(
       ),
     )
     .limit(1);
-  return Boolean(target);
+  return (target as ResolvedOperatingSystemTenant | undefined) ?? null;
+}
+
+/**
+ * Prove that a tenant-backed Sector OS belongs to the principal's resolved
+ * tenant subtree and classification ceiling. A generic sector permission is
+ * not enough to make another sector's OS reachable.
+ */
+export async function operatingSystemTenantInScope(
+  principal: Principal,
+  tenantCode: OperatingSystemTenantCode,
+): Promise<boolean> {
+  return (await resolveOperatingSystemTenant(principal, tenantCode)) !== null;
 }
 
 /**
