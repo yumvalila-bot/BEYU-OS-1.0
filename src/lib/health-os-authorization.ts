@@ -47,11 +47,20 @@ export async function checkHealthOSAuthorization(beyuUserId: string): Promise<{
   reason?: "NOT_LINKED" | "AUTHORIZATION_SERVICE_UNAVAILABLE";
 }> {
   try {
-    const [link] = await db
-      .select()
-      .from(beyuIdentityLinks)
-      .where(eq(beyuIdentityLinks.beyuUserId, beyuUserId))
-      .limit(1);
+    // Isolate the optional Health-schema lookup behind its own transaction.
+    // When called inside a BEYU request transaction, Drizzle implements this as
+    // a savepoint. A missing Health schema can then be rolled back locally
+    // before we return the fail-closed result; merely catching PostgreSQL's
+    // undefined-table error without a savepoint would leave the parent request
+    // transaction aborted and turn otherwise valid BEYU pages into HTTP 500s.
+    const link = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(beyuIdentityLinks)
+        .where(eq(beyuIdentityLinks.beyuUserId, beyuUserId))
+        .limit(1);
+      return row;
+    });
 
     if (!link) {
       return { authorized: false, reason: "NOT_LINKED" };

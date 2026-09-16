@@ -131,11 +131,20 @@ export async function operatingSystemTenantInScope(
 export async function authorizedOperatingSystems(
   principal: Principal,
 ): Promise<OperatingSystemDestination[]> {
-  const [health, agricultureInScope, foundationInScope] = await Promise.all([
-    checkHealthOSAuthorization(principal.userId),
-    operatingSystemTenantInScope(principal, "BEYU-AGRI"),
-    operatingSystemTenantInScope(principal, "BEYU-FOUNDATION"),
-  ]);
+  // Keep these lookups ordered. This resolver is also called inside the
+  // connection-pinned BEYU request transaction; concurrent optional-schema and
+  // tenant queries on that one PostgreSQL connection can let an expected Health
+  // lookup failure poison an unrelated in-flight query before its savepoint is
+  // rolled back.
+  const agricultureInScope = await operatingSystemTenantInScope(
+    principal,
+    "BEYU-AGRI",
+  );
+  const foundationInScope = await operatingSystemTenantInScope(
+    principal,
+    "BEYU-FOUNDATION",
+  );
+  const health = await checkHealthOSAuthorization(principal.userId);
   const allowed = new Set<OperatingSystemDestination["code"]>();
 
   if (checkBeyuOSAuthorization(principal).authorized) allowed.add("BEYU");
