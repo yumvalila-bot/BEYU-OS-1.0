@@ -6,7 +6,7 @@ import { listTaxAssessments, listTaxRules } from "@/lib/foundation/service";
 export const dynamic = "force-dynamic";
 
 export default async function FoundationTaxPage() {
-  const access = await requireAccess("foundation:tax.read");
+  const access = await requireAccess("foundation:tax.read", { classification: "RESTRICTED" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:tax.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const [rules, assessments] = await Promise.all([

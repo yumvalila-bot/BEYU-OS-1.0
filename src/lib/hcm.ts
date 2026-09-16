@@ -14,7 +14,7 @@
  * GlobalUserID is attached from the identity graph (users.id). Finance may
  * consume that id; it does not receive pay data through the identity graph.
  */
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { employees, employmentEvents, legalEntities, orgUnits, parties, positions } from "@/db/schema";
 import { can, type Principal } from "./authz";
@@ -369,15 +369,37 @@ export async function listWorkforce(
   source: "people.employees";
   asOf: string;
 }> {
+  const asOf = options.asOf ?? new Date().toISOString().slice(0, 10);
+  requireIsoDate(asOf, "asOf");
   const decision = can(principal, "hcm:employee.read");
   if (!decision.allowed) {
+    // Preserve the read contract for a malformed clearance: RBAC was present,
+    // but ABAC fails closed to an empty payload rather than querying or
+    // surfacing workforce data. Ordinary missing grants still raise DENIED.
+    if (decision.reason === "ABAC: principal clearance is not recognized") {
+      return {
+        records: [],
+        suppressedCompensation: true,
+        source: "people.employees",
+        asOf,
+      };
+    }
     throw new HcmError("DENIED", decision.reason);
   }
 
-  const asOf = options.asOf ?? new Date().toISOString().slice(0, 10);
-  requireIsoDate(asOf, "asOf");
-
   const scope = await tenantScopeIds(principal);
+  const showPay = compensationVisible(principal);
+  const rowPredicate = and(
+    inArray(legalEntities.tenantId, scope),
+    ...(principal.entityScope.length > 0
+      ? [inArray(employees.legalEntityId, principal.entityScope)]
+      : []),
+    ...(isKnownClassification(principal.clearance)
+      ? classificationRank(principal.clearance) >= classificationRank("HIGHLY_RESTRICTED")
+        ? []
+        : [ne(employees.classification, "HIGHLY_RESTRICTED")]
+      : [sql`false`]),
+  );
   const rows = await db
     .select({
       employeeId: employees.id,
@@ -401,20 +423,25 @@ export async function listWorkforce(
       employmentType: employees.employmentType,
       countryCode: employees.countryCode,
       classification: employees.classification,
-      baseSalary: employees.baseSalary,
-      salaryCurrency: employees.salaryCurrency,
+      baseSalary: showPay
+        ? employees.baseSalary
+        : sql<string | null>`null`.as("base_salary"),
+      salaryCurrency: showPay
+        ? employees.salaryCurrency
+        : sql<string | null>`null`.as("salary_currency"),
     })
     .from(employees)
     .innerJoin(parties, eq(parties.id, employees.partyId))
     .innerJoin(legalEntities, eq(legalEntities.id, employees.legalEntityId))
     .leftJoin(positions, eq(positions.id, employees.positionId))
     .leftJoin(orgUnits, eq(orgUnits.id, positions.orgUnitId))
-    .where(inArray(legalEntities.tenantId, scope))
+    .where(rowPredicate)
     .orderBy(employees.employeeNo);
 
+  // Retain the pure checks as defence in depth; SQL has already bounded rows
+  // before pay or identity payloads can enter this process.
   const scoped = rows.filter((r) => inEntityScope(principal, r.legalEntityId));
   const visible = scoped.filter((r) => workforceIdentityVisible(principal, r.classification));
-  const showPay = compensationVisible(principal);
   const logins = await globalUserIdsForParties(visible.map((r) => r.partyId));
 
   return {
@@ -498,7 +525,30 @@ export async function listEstablishment(principal: Principal): Promise<PositionR
     throw new HcmError("DENIED", decision.reason);
   }
   const scope = await tenantScopeIds(principal);
-  const rows = await db.select().from(positions).where(inArray(positions.tenantId, scope)).orderBy(positions.code);
+  const rows = await db
+    .select({
+      id: positions.id,
+      code: positions.code,
+      title: positions.title,
+      grade: positions.grade,
+      jobFamily: positions.jobFamily,
+      tenantId: positions.tenantId,
+      orgUnitId: positions.orgUnitId,
+      reportsToPositionId: positions.reportsToPositionId,
+      headcountBudget: positions.headcountBudget,
+      status: positions.status,
+    })
+    .from(positions)
+    .leftJoin(orgUnits, eq(orgUnits.id, positions.orgUnitId))
+    .where(
+      principal.entityScope.length > 0
+        ? and(
+            inArray(positions.tenantId, scope),
+            inArray(orgUnits.legalEntityId, principal.entityScope),
+          )
+        : inArray(positions.tenantId, scope),
+    )
+    .orderBy(positions.code);
   return rows.map((p) => ({
     positionId: p.id,
     code: p.code,

@@ -148,3 +148,25 @@ table.beyu-table td {
 table.beyu-table tr:last-child td {
   border-bottom: none;
 }
+
+/* Accessibility: honour the operating system by default and allow a stricter
+   browser-local preference without changing any governed application state. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html.beyu-reduce-motion *,
+html.beyu-reduce-motion *::before,
+html.beyu-reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

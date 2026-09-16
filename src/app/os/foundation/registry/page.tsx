@@ -6,7 +6,7 @@ import { listFoundations } from "@/lib/foundation/service";
 export const dynamic = "force-dynamic";
 
 export default async function FoundationRegistryPage() {
-  const access = await requireAccess("foundation:registry.read");
+  const access = await requireAccess("foundation:registry.read", { classification: "CONFIDENTIAL" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:registry.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const rows = await listFoundations(access.principal);

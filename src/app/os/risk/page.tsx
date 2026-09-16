@@ -1,9 +1,9 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { controls, risks } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
-import { classificationRank } from "@/lib/constants";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import Link from "next/link";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
@@ -28,16 +28,32 @@ export default async function RiskPage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
     const scope = await tenantScopeIds(access.principal);
-    const [riskRows, controlRows] = await Promise.all([
-      db.select().from(risks).where(inArray(risks.tenantId, scope)),
-      db.select().from(controls).where(inArray(controls.tenantId, scope)),
-    ]);
+    const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+    const riskPredicate =
+      access.principal.entityScope.length > 0
+        ? and(
+            inArray(risks.tenantId, scope),
+            inArray(risks.legalEntityId, access.principal.entityScope),
+            inArray(risks.classification, allowedClassifications),
+          )
+        : and(
+            inArray(risks.tenantId, scope),
+            inArray(risks.classification, allowedClassifications),
+          );
+    const riskRows = await db.select().from(risks).where(riskPredicate);
+    const riskIds = riskRows.map((risk) => risk.id);
+    const controlRows =
+      access.principal.entityScope.length > 0
+        ? riskIds.length > 0
+          ? await db
+              .select()
+              .from(controls)
+              .where(and(inArray(controls.tenantId, scope), inArray(controls.riskId, riskIds)))
+          : []
+        : await db.select().from(controls).where(inArray(controls.tenantId, scope));
 
-    const visibleRisks = riskRows.filter(
-      (r) => classificationRank(r.classification) <= classificationRank(access.principal.clearance),
-    );
+    const visibleRisks = riskRows;
     const breaches = visibleRisks.filter((r) => r.residualLikelihood * r.residualImpact > r.appetiteThreshold);
-    const suppressed = riskRows.length - visibleRisks.length;
     const byCategory = new Map<string, number>();
     for (const r of visibleRisks) byCategory.set(r.category, (byCategory.get(r.category) ?? 0) + 1);
 
@@ -54,7 +70,7 @@ export default async function RiskPage() {
         </header>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Risks in register" value={String(visibleRisks.length)} sub={suppressed > 0 ? `${suppressed} suppressed above your clearance` : "in your clearance"} />
+          <Metric label="Risks in register" value={String(visibleRisks.length)} sub="within entity and clearance scope" />
           <Metric label="Above appetite" value={String(breaches.length)} sub="residual score over threshold" tone={breaches.length > 0 ? "gold" : "navy"} />
           <Metric label="Controls" value={String(controlRows.length)} sub={`${controlRows.filter((c) => c.effectiveness === "EFFECTIVE").length} assessed effective`} />
           <Metric label="Categories" value={String(byCategory.size)} sub={[...byCategory.entries()].slice(0, 3).map(([c, n]) => `${c}:${n}`).join(" · ") || "—"} />

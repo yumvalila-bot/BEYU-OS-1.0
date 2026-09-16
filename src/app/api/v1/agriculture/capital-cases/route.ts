@@ -11,7 +11,7 @@ import { db } from "@/db";
 import { capitalCases } from "@/db/schema";
 import { guarded } from "@/lib/api";
 import { createCapitalCase } from "@/lib/agriculture";
-import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
+import { visibleAgricultureItems, agriActor, agriErrorResponse } from "@/lib/agriculture/http";
 
 const CreateSchema = z.object({
   legalEntityId: z.string().optional(),
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     },
     async (ctx) => {
       const rows = await db.select().from(capitalCases).where(eq(capitalCases.tenantId, ctx.principal.tenantId));
-      return NextResponse.json({ items: rows, capPosting: "LOCKED" });
+      return NextResponse.json({ items: visibleAgricultureItems(rows, ctx.principal.clearance), capPosting: "LOCKED" });
     },
   );
 }

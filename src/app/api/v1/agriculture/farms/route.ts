@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded } from "@/lib/api";
 import { createFarm, listFarms } from "@/lib/agriculture";
-import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
+import { agriActor, agriErrorResponse, visibleAgricultureItems } from "@/lib/agriculture/http";
 
 const CreateFarmSchema = z.object({
   legalEntityId: z.string().min(1),
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       rateLimit: { limit: 120, windowMs: 60_000 },
       audit: { objectType: "AGRICULTURE_FARM" },
     },
-    async (ctx) => NextResponse.json({ farms: await listFarms(ctx.principal.tenantId) }),
+    async (ctx) => NextResponse.json({ farms: visibleAgricultureItems(await listFarms(ctx.principal.tenantId), ctx.principal.clearance) }),
   );
 }
 

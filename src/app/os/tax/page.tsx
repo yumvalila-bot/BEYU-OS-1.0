@@ -1,9 +1,10 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { legalEntities, taxStrategies } from "@/db/schema";
+import { legalEntities, taxStrategies, tenants } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
 
@@ -25,14 +26,48 @@ export default async function TaxPage() {
   // globally. Scope is derived from the authenticated principal via the canonical
   // tenant-scope helper, then narrowed further by the principal's ABAC entity scope.
   const scope = await tenantScopeIds(access.principal);
-  const [strategies, scopedEntities] = await Promise.all([
-    db.select().from(taxStrategies).orderBy(taxStrategies.jurisdictionCode),
-    db.select().from(legalEntities).where(inArray(legalEntities.tenantId, scope)),
-  ]);
-  const entities =
-    access.principal.entityScope.length > 0
-      ? scopedEntities.filter((e) => access.principal.entityScope.includes(e.id))
-      : scopedEntities;
+  const entityScoped = access.principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const entities = await db
+    .select()
+    .from(legalEntities)
+    .where(
+      entityScoped
+        ? and(
+            inArray(legalEntities.tenantId, scope),
+            inArray(legalEntities.id, access.principal.entityScope),
+            inArray(legalEntities.classification, allowedClassifications),
+          )
+        : and(
+            inArray(legalEntities.tenantId, scope),
+            inArray(legalEntities.classification, allowedClassifications),
+          ),
+    );
+  const tenantCountries = entityScoped
+    ? []
+    : await db
+        .select({ countryCode: tenants.countryCode })
+        .from(tenants)
+        .where(
+          and(
+            inArray(tenants.id, scope),
+            inArray(tenants.classification, allowedClassifications),
+          ),
+        );
+  const countryCodes = [
+    ...new Set(
+      [...entities.map((entity) => entity.countryCode), ...tenantCountries.map((tenant) => tenant.countryCode)]
+        .filter((code): code is string => Boolean(code)),
+    ),
+  ];
+  const strategies =
+    countryCodes.length > 0
+      ? await db
+          .select()
+          .from(taxStrategies)
+          .where(inArray(taxStrategies.jurisdictionCode, countryCodes))
+          .orderBy(taxStrategies.jurisdictionCode)
+      : [];
   const canAssess = can(access.principal, "finance:tax.assess").allowed;
   const assessable = strategies.filter((s) => s.position !== "PROHIBITED_EVASION");
 

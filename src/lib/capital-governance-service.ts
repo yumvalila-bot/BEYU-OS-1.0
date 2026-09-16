@@ -116,13 +116,15 @@ export type CapitalGovernanceResult = {
 async function entityWithinGovernanceReach(
   governingEntityId: string | null,
   capitalEntityId: string,
+  tenantIds: string[],
 ): Promise<boolean> {
   if (!governingEntityId) return true;
   if (governingEntityId === capitalEntityId) return true;
 
   const rows = await db
     .select({ id: legalEntities.id, parent: legalEntities.parentEntityId })
-    .from(legalEntities);
+    .from(legalEntities)
+    .where(inArray(legalEntities.tenantId, tenantIds));
 
   const parentOf = new Map(rows.map((r) => [r.id, r.parent]));
   let cursor: string | null | undefined = parentOf.get(capitalEntityId);
@@ -174,7 +176,12 @@ export async function authorizeCapitalRequestGovernance(
   const [entity] = await db
     .select()
     .from(legalEntities)
-    .where(eq(legalEntities.id, request.legalEntityId))
+    .where(
+      and(
+        eq(legalEntities.id, request.legalEntityId),
+        eq(legalEntities.tenantId, request.tenantId),
+      ),
+    )
     .limit(1);
 
   const policy = await evaluatePolicy({
@@ -269,12 +276,25 @@ export async function authorizeCapitalRequestGovernance(
   const [governingBody] = await db
     .select({ legalEntityId: governanceBodies.legalEntityId })
     .from(governanceBodies)
-    .where(eq(governanceBodies.id, authorization.governanceBodyId!))
+    .where(
+      and(
+        eq(governanceBodies.id, authorization.governanceBodyId!),
+        eq(governanceBodies.tenantId, request.tenantId),
+      ),
+    )
     .limit(1);
 
+  if (!governingBody) {
+    throw new GovernanceError(
+      "GOVERNANCE_NOT_SATISFIED",
+      "The governing body is not available within the capital request tenant.",
+    );
+  }
+
   const reachable = await entityWithinGovernanceReach(
-    governingBody?.legalEntityId ?? null,
+    governingBody.legalEntityId,
     request.legalEntityId,
+    scope,
   );
   if (!reachable) {
     throw new GovernanceError(

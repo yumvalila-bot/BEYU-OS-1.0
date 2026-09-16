@@ -10,11 +10,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { governmentSubmissions } from "@/db/schema";
+import { governmentSubmissions, legalEntities } from "@/db/schema";
 import { apiError, guarded, parseBody } from "@/lib/api";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { createDefaultGovernmentGateway, GovernmentGatewayError } from "@/lib/government";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 
 const SubmitSchema = z.object({
   agencyCode: z.string().min(2).max(32),
@@ -36,9 +38,18 @@ export async function GET(request: NextRequest) {
     async (ctx) => {
       const url = new URL(request.url);
       const agency = url.searchParams.get("agencyCode");
-      const where = agency
-        ? and(eq(governmentSubmissions.tenantId, ctx.principal.tenantId), eq(governmentSubmissions.agencyCode, agency))
-        : eq(governmentSubmissions.tenantId, ctx.principal.tenantId);
+      const tenantIds = await tenantScopeIds(ctx.principal);
+      const where = and(
+        inArray(governmentSubmissions.tenantId, tenantIds),
+        inArray(
+          legalEntities.classification,
+          classificationsAtOrBelow(ctx.principal.clearance),
+        ),
+        ...(ctx.principal.entityScope.length > 0
+          ? [inArray(governmentSubmissions.legalEntityId, ctx.principal.entityScope)]
+          : []),
+        ...(agency ? [eq(governmentSubmissions.agencyCode, agency)] : []),
+      );
       const rows = await db
         .select({
           id: governmentSubmissions.id,
@@ -52,6 +63,13 @@ export async function GET(request: NextRequest) {
           updatedAt: governmentSubmissions.updatedAt,
         })
         .from(governmentSubmissions)
+        .innerJoin(
+          legalEntities,
+          and(
+            eq(legalEntities.id, governmentSubmissions.legalEntityId),
+            eq(legalEntities.tenantId, governmentSubmissions.tenantId),
+          ),
+        )
         .where(where)
         .orderBy(desc(governmentSubmissions.createdAt))
         .limit(200);

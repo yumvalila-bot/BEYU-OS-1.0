@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded } from "@/lib/api";
 import { listHarvests, recordHarvest } from "@/lib/agriculture";
-import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
+import { agriActor, agriErrorResponse, visibleAgricultureItems } from "@/lib/agriculture/http";
 
 const RecordHarvestSchema = z.object({
   cropCycleId: z.string().min(1),
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     },
     async (ctx) => {
       const cropCycleId = request.nextUrl.searchParams.get("cropCycleId") ?? undefined;
-      return NextResponse.json({ harvests: await listHarvests(ctx.principal.tenantId, cropCycleId) });
+      return NextResponse.json({ harvests: visibleAgricultureItems(await listHarvests(ctx.principal.tenantId, cropCycleId), ctx.principal.clearance) });
     },
   );
 }

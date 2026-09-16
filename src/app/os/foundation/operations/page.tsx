@@ -1,4 +1,6 @@
-import { requireAccess } from "@/lib/guard";
+import { requirePrincipal } from "@/lib/guard";
+import { can } from "@/lib/authz";
+import type { PermissionCode } from "@/lib/constants";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import {
@@ -11,14 +13,25 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function FoundationOperationsPage() {
-  const access = await requireAccess("foundation:procurement.read");
-  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:procurement.read" />;
-  return withTenantDatabaseContext(access.principal, async () => {
+  const principal = await requirePrincipal();
+  const permitted = (permission: PermissionCode, classification: "CONFIDENTIAL" | "RESTRICTED") =>
+    can(principal, permission, { classification }).allowed;
+  const capabilities = {
+    procurement: permitted("foundation:procurement.read", "CONFIDENTIAL"),
+    asset: permitted("foundation:asset.read", "CONFIDENTIAL"),
+    investment: permitted("foundation:investment.read", "RESTRICTED"),
+    assignment: permitted("foundation:assignment.read", "CONFIDENTIAL"),
+  };
+  if (!Object.values(capabilities).some(Boolean)) {
+    return <Denied reason="Missing an Operations read permission" capability="foundation:procurement.read" />;
+  }
+
+  return withTenantDatabaseContext(principal, async () => {
     const [procurements, assets, investments, assignments] = await Promise.all([
-      listProcurements(access.principal),
-      listAssets(access.principal),
-      listInvestments(access.principal),
-      listWorkforceAssignments(access.principal),
+      capabilities.procurement ? listProcurements(principal) : Promise.resolve([]),
+      capabilities.asset ? listAssets(principal) : Promise.resolve([]),
+      capabilities.investment ? listInvestments(principal) : Promise.resolve([]),
+      capabilities.assignment ? listWorkforceAssignments(principal) : Promise.resolve([]),
     ]);
     return (
       <div className="space-y-6">
@@ -31,13 +44,13 @@ export default async function FoundationOperationsPage() {
           </p>
         </header>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Procurements" value={String(procurements.length)} sub="in pipeline" tone="gold" />
-          <Metric label="Assets" value={String(assets.length)} sub="registered" />
-          <Metric label="Investments" value={String(investments.length)} sub="positions" />
-          <Metric label="Assignments" value={String(assignments.length)} sub="HCM workers in context" />
+          {capabilities.procurement && <Metric label="Procurements" value={String(procurements.length)} sub="in pipeline" tone="gold" />}
+          {capabilities.asset && <Metric label="Assets" value={String(assets.length)} sub="registered" />}
+          {capabilities.investment && <Metric label="Investments" value={String(investments.length)} sub="positions" />}
+          {capabilities.assignment && <Metric label="Assignments" value={String(assignments.length)} sub="HCM workers in context" />}
         </div>
         <div className="grid gap-5 xl:grid-cols-2">
-          <Panel kicker="Supply" title="Procurements">
+          {capabilities.procurement && <Panel kicker="Supply" title="Procurements">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Procurement</th><th>Budget</th><th>Status</th></tr></thead>
@@ -53,8 +66,8 @@ export default async function FoundationOperationsPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
-          <Panel kicker="Register" title="Assets">
+          </Panel>}
+          {capabilities.asset && <Panel kicker="Register" title="Assets">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Asset</th><th>Type</th><th>Status</th></tr></thead>
@@ -70,10 +83,10 @@ export default async function FoundationOperationsPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
+          </Panel>}
         </div>
         <div className="grid gap-5 xl:grid-cols-2">
-          <Panel kicker="Treasury" title="Investments">
+          {capabilities.investment && <Panel kicker="Treasury" title="Investments">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Instrument</th><th>Principal</th><th>Status</th></tr></thead>
@@ -89,8 +102,8 @@ export default async function FoundationOperationsPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
-          <Panel kicker="HCM context" title="Workforce assignments">
+          </Panel>}
+          {capabilities.assignment && <Panel kicker="HCM context" title="Workforce assignments">
             <div className="overflow-x-auto">
               <table className="beyu-table">
                 <thead><tr><th>Role</th><th>Type</th><th>Status</th></tr></thead>
@@ -109,7 +122,7 @@ export default async function FoundationOperationsPage() {
             <p className="mt-3 text-[11px] beyu-muted">
               Assignments are contextual. The worker master record stays in canonical HCM.
             </p>
-          </Panel>
+          </Panel>}
         </div>
       </div>
     );

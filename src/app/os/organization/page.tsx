@@ -4,6 +4,7 @@ import { countries, jurisdictions, legalEntities, ownershipRecords, tenants } fr
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ function EntityNode({ entity, all, depth }: { entity: EntityRow; all: EntityRow[
         </span>
       </div>
       {children.map((c) => (
-        <EntityNode key={c.id} entity={c} all={all} depth={1} />
+        <EntityNode key={c.id} entity={c} all={all} depth={depth + 1} />
       ))}
     </div>
   );
@@ -36,26 +37,76 @@ export default async function OrganizationPage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
   const scope = await tenantScopeIds(access.principal);
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
   const ownershipAllowed = can(access.principal, "organization:ownership.read").allowed;
-  const [entities, tenantRows, ownership, jurisdictionRows, countryRows] = await Promise.all([
-    db.select().from(legalEntities).where(inArray(legalEntities.tenantId, scope)).orderBy(legalEntities.effectiveFrom),
-    db.select().from(tenants).where(inArray(tenants.id, scope)),
-    ownershipAllowed
-      ? db.select().from(ownershipRecords).where(inArray(ownershipRecords.tenantId, scope))
+  const entityPredicate =
+    access.principal.entityScope.length > 0
+      ? and(
+          inArray(legalEntities.tenantId, scope),
+          inArray(legalEntities.id, access.principal.entityScope),
+          inArray(legalEntities.classification, allowedClassifications),
+        )
+      : and(
+          inArray(legalEntities.tenantId, scope),
+          inArray(legalEntities.classification, allowedClassifications),
+        );
+
+  // Entity-scoped grants constrain the SQL query itself; filtering only after a
+  // broad tenant read would still cross the principal's ABAC boundary.
+  const entities = await db
+    .select()
+    .from(legalEntities)
+    .where(entityPredicate)
+    .orderBy(legalEntities.effectiveFrom);
+  const visibleTenantIds =
+    access.principal.entityScope.length > 0
+      ? [...new Set([access.principal.tenantId, ...entities.map((entity) => entity.tenantId)])]
+      : scope;
+  const tenantRows = await db
+    .select()
+    .from(tenants)
+    .where(
+      and(
+        inArray(tenants.id, visibleTenantIds),
+        inArray(tenants.classification, allowedClassifications),
+      ),
+    );
+  const entityIds = entities.map((entity) => entity.id);
+  const countryCodes = [
+    ...new Set([
+      ...entities.map((entity) => entity.countryCode),
+      ...tenantRows.map((tenant) => tenant.countryCode).filter((code): code is string => Boolean(code)),
+    ]),
+  ];
+  const [ownership, jurisdictionRows, countryRows] = await Promise.all([
+    ownershipAllowed && entityIds.length > 0
+      ? db
+          .select()
+          .from(ownershipRecords)
+          .where(
+            and(
+              inArray(ownershipRecords.tenantId, scope),
+              inArray(ownershipRecords.ownedEntityId, entityIds),
+            ),
+          )
       : Promise.resolve([]),
-    db.select().from(jurisdictions),
-    db.select().from(countries),
+    countryCodes.length > 0
+      ? db.select().from(jurisdictions).where(inArray(jurisdictions.countryCode, countryCodes))
+      : Promise.resolve([]),
+    countryCodes.length > 0
+      ? db.select().from(countries).where(inArray(countries.code, countryCodes))
+      : Promise.resolve([]),
   ]);
 
   const canOwnership = ownershipAllowed;
-  const roots = entities.filter((e) => !e.parentEntityId);
-  const byId = new Map(entities.map((e) => [e.id, e]));
+  const byId = new Map(entities.map((entity) => [entity.id, entity]));
+  const roots = entities.filter((entity) => !entity.parentEntityId || !byId.has(entity.parentEntityId));
 
   return (
     <div className="space-y-6">
       <header>
-        <div className="beyu-kicker text-[#b08d1c]">Organisation · corporate structure · ownership</div>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Enterprise structure</h1>
+        <div className="beyu-kicker text-[#b08d1c]">Shared capability · organisation</div>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Enterprise organisation structure</h1>
         <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
           Trust → holdings → country holdings → operating companies → tenants → users. The model supports
           alternative legal structures, effective dating and historical versions without assuming a fixed shape.
@@ -68,6 +119,7 @@ export default async function OrganizationPage() {
             {roots.map((r) => (
               <EntityNode key={r.id} entity={r} all={entities} depth={0} />
             ))}
+            {roots.length === 0 && <EmptyState message="No legal entities exist in your governed entity scope." />}
           </div>
         </Panel>
 
@@ -106,7 +158,11 @@ export default async function OrganizationPage() {
                 {ownership.map((o) => (
                   <tr key={o.id}>
                     <td className="font-medium">{byId.get(o.ownedEntityId)?.legalName ?? o.ownedEntityId}</td>
-                    <td>{o.ownerEntityId ? byId.get(o.ownerEntityId)?.legalName : o.ownerPartyId ?? "—"}</td>
+                    <td>
+                      {o.ownerEntityId
+                        ? (byId.get(o.ownerEntityId)?.legalName ?? "Restricted entity")
+                        : (o.ownerPartyId ?? "—")}
+                    </td>
                     <td><Badge tone={o.ownershipType === "BENEFICIAL" ? "gold" : "navy"}>{o.ownershipType}</Badge></td>
                     <td className="tabular-nums">{Number(o.economicPct).toFixed(2)}%</td>
                     <td className="tabular-nums">{Number(o.votingPct).toFixed(2)}%</td>

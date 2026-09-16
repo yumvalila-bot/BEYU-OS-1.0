@@ -2722,11 +2722,106 @@ type CapTableSourceRows = {
   ledgerCancelled: number;
 };
 
+async function requiredCapTableClassification(
+  entityId: string,
+  tenantId: string,
+): Promise<Classification> {
+  // Classification labels are read first as authorization metadata. No holder,
+  // instrument, plan or leaver payload is loaded until the principal clears the
+  // highest classification participating in this aggregate computation.
+  const [classes, positions, plans, grants, leavers] = await Promise.all([
+    db
+      .select({ classification: shareClasses.classification })
+      .from(shareClasses)
+      .where(
+        and(
+          eq(shareClasses.legalEntityId, entityId),
+          eq(shareClasses.tenantId, tenantId),
+        ),
+      ),
+    db
+      .select({ classification: equityPositions.classification })
+      .from(equityPositions)
+      .where(
+        and(
+          eq(equityPositions.legalEntityId, entityId),
+          eq(equityPositions.tenantId, tenantId),
+        ),
+      ),
+    db
+      .select({ classification: esopPlans.classification })
+      .from(esopPlans)
+      .where(
+        and(eq(esopPlans.legalEntityId, entityId), eq(esopPlans.tenantId, tenantId)),
+      ),
+    db
+      .select({ classification: esopGrants.classification })
+      .from(esopGrants)
+      .where(
+        and(
+          eq(esopGrants.legalEntityId, entityId),
+          eq(esopGrants.tenantId, tenantId),
+        ),
+      ),
+    db
+      .select({ classification: leaverCases.classification })
+      .from(leaverCases)
+      .where(
+        and(
+          eq(leaverCases.legalEntityId, entityId),
+          eq(leaverCases.tenantId, tenantId),
+          eq(leaverCases.status, "EXECUTED"),
+        ),
+      ),
+  ]);
+  return [
+    "RESTRICTED" as Classification,
+    ...classes.map((row) => row.classification),
+    ...positions.map((row) => row.classification),
+    ...plans.map((row) => row.classification),
+    ...grants.map((row) => row.classification),
+    ...leavers.map((row) => row.classification),
+  ].reduce((highest, classification) =>
+    classificationRank(classification) > classificationRank(highest)
+      ? classification
+      : highest,
+  );
+}
+
 async function loadCapTableSources(entityId: string, tenantId: string): Promise<CapTableSourceRows> {
-  const classes = await db.select().from(shareClasses).where(eq(shareClasses.legalEntityId, entityId));
-  const positions = await db.select().from(equityPositions).where(eq(equityPositions.legalEntityId, entityId));
-  const plans = await db.select().from(esopPlans).where(eq(esopPlans.legalEntityId, entityId));
-  const grants = await db.select().from(esopGrants).where(eq(esopGrants.legalEntityId, entityId));
+  const classes = await db
+    .select()
+    .from(shareClasses)
+    .where(
+      and(
+        eq(shareClasses.legalEntityId, entityId),
+        eq(shareClasses.tenantId, tenantId),
+      ),
+    );
+  const positions = await db
+    .select()
+    .from(equityPositions)
+    .where(
+      and(
+        eq(equityPositions.legalEntityId, entityId),
+        eq(equityPositions.tenantId, tenantId),
+      ),
+    );
+  const plans = await db
+    .select()
+    .from(esopPlans)
+    .where(
+      and(eq(esopPlans.legalEntityId, entityId), eq(esopPlans.tenantId, tenantId)),
+    );
+  const grants = await db
+    .select()
+    .from(esopGrants)
+    .where(
+      and(
+        eq(esopGrants.legalEntityId, entityId),
+        eq(esopGrants.tenantId, tenantId),
+      ),
+    );
   const [cancelled] = await db
     .select({ total: sql<number>`coalesce(sum(forfeited_shares), 0)::bigint`.as("total") })
     .from(leaverCases)
@@ -2783,14 +2878,20 @@ function toEngineInput(rows: CapTableSourceRows) {
 export async function readCapTable(principal: Principal, input: { legalEntityId: string }) {
   const scope = await tenantScopeIds(principal);
   const entity = await entityInScope(input.legalEntityId, scope);
+  const classification = await requiredCapTableClassification(
+    entity.id,
+    entity.tenantId,
+  );
   const decision = can(principal, "equity:cap-table.read", {
-    classification: "RESTRICTED",
+    classification,
     tenantId: entity.tenantId,
     entityId: entity.id,
   });
   if (!decision.allowed) {
     throw new EquityError(
-      classificationRank("RESTRICTED") > classificationRank(principal.clearance) ? "CLASSIFICATION_DENIED" : "FORBIDDEN",
+      classificationRank(classification) > classificationRank(principal.clearance)
+        ? "CLASSIFICATION_DENIED"
+        : "FORBIDDEN",
       decision.reason,
     );
   }
@@ -2811,7 +2912,15 @@ export async function computeCapTableSnapshot(
 ) {
   const scope = await tenantScopeIds(principal);
   const entity = await entityInScope(input.legalEntityId, scope);
-  const classification = input.classification ?? "RESTRICTED";
+  const requestedClassification = input.classification ?? "RESTRICTED";
+  const sourceClassification = await requiredCapTableClassification(
+    entity.id,
+    entity.tenantId,
+  );
+  const classification =
+    classificationRank(sourceClassification) > classificationRank(requestedClassification)
+      ? sourceClassification
+      : requestedClassification;
   const policy = await authorizeMutation(principal, "equity:cap-table.manage", {
     classification,
     tenantId: entity.tenantId,
@@ -2924,7 +3033,15 @@ export async function createDilutionScenario(
 ) {
   const scope = await tenantScopeIds(principal);
   const entity = await entityInScope(input.legalEntityId, scope);
-  const classification = input.classification ?? "RESTRICTED";
+  const requestedClassification = input.classification ?? "RESTRICTED";
+  const sourceClassification = await requiredCapTableClassification(
+    entity.id,
+    entity.tenantId,
+  );
+  const classification =
+    classificationRank(sourceClassification) > classificationRank(requestedClassification)
+      ? sourceClassification
+      : requestedClassification;
   const policy = await authorizeMutation(principal, "equity:dilution.simulate", {
     classification,
     tenantId: entity.tenantId,

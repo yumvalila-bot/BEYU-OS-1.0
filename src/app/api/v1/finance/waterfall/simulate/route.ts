@@ -61,6 +61,17 @@ export async function POST(request: Request) {
               ctx.traceId,
             );
           }
+          if (
+            ctx.principal.entityScope.length > 0 &&
+            !ctx.principal.entityScope.includes(config.legalEntityId)
+          ) {
+            return apiError(
+              "NOT_FOUND",
+              "Waterfall configuration not found within your authorised entity scope.",
+              404,
+              ctx.traceId,
+            );
+          }
 
           const policy = await evaluatePolicy({
             action: "finance:waterfall.simulate",

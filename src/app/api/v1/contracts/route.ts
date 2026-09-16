@@ -5,6 +5,7 @@ import { contractRecords } from "@/db/schema";
 import { apiError, apiOk, guarded, withIdempotency } from "@/lib/api";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { CONTRACT_LIFECYCLE_STATES } from "@/lib/contracts/vocabulary";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import {
   createContractRecord,
   transitionContract,
@@ -126,7 +127,16 @@ export async function GET(request: Request) {
         return apiError("VALIDATION_FAILED", "state is not a governed lifecycle state.", 422, ctx.traceId);
       }
       const scope = await tenantScopeIds(ctx.principal);
-      const clauses = [inArray(contractRecords.tenantId, scope)];
+      const clauses = [
+        inArray(contractRecords.tenantId, scope),
+        inArray(
+          contractRecords.classification,
+          classificationsAtOrBelow(ctx.principal.clearance),
+        ),
+      ];
+      if (ctx.principal.entityScope.length > 0) {
+        clauses.push(inArray(contractRecords.beyuEntityId, ctx.principal.entityScope));
+      }
       if (state) clauses.push(eq(contractRecords.state, state));
       if (typeFamily) clauses.push(eq(contractRecords.typeFamily, typeFamily));
       if (counterpartyPartyId) clauses.push(eq(contractRecords.counterpartyPartyId, counterpartyPartyId));

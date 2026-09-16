@@ -1,7 +1,8 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { legalMatters } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import Link from "next/link";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
@@ -23,7 +24,19 @@ export default async function LegalPage() {
   return withTenantDatabaseContext(access.principal, async () => {
 
     const scope = await tenantScopeIds(access.principal);
-    const legalRows = await db.select().from(legalMatters).where(inArray(legalMatters.tenantId, scope));
+    const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+    const matterPredicate =
+      access.principal.entityScope.length > 0
+        ? and(
+            inArray(legalMatters.tenantId, scope),
+            inArray(legalMatters.legalEntityId, access.principal.entityScope),
+            inArray(legalMatters.classification, allowedClassifications),
+          )
+        : and(
+            inArray(legalMatters.tenantId, scope),
+            inArray(legalMatters.classification, allowedClassifications),
+          );
+    const legalRows = await db.select().from(legalMatters).where(matterPredicate);
 
     const open = legalRows.filter((l) => l.status === "OPEN" || l.status === "IN_REVIEW");
     const withDeadline = legalRows.filter((l) => l.keyDeadline && l.keyDeadline < new Date().toISOString().slice(0, 10));

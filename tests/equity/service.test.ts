@@ -730,6 +730,26 @@ describe("§13/§14 — deterministic snapshots and dilution analysis that never
     expect(ceoCap.outstandingShares).toBe(cap.outstandingShares);
   });
 
+  it("DENIES the whole aggregate before loading payload when a source row exceeds clearance", async () => {
+    await db
+      .update(shareClasses)
+      .set({ classification: "HIGHLY_RESTRICTED" })
+      .where(eq(shareClasses.id, shareClassId));
+    try {
+      await expectEquityError("CLASSIFICATION_DENIED", () =>
+        readCapTable(cfo, { legalEntityId: HOLDINGS }),
+      );
+      await expect(readCapTable(ceo, { legalEntityId: HOLDINGS })).resolves.toMatchObject({
+        legalEntityId: HOLDINGS,
+      });
+    } finally {
+      await db
+        .update(shareClasses)
+        .set({ classification: "RESTRICTED" })
+        .where(eq(shareClasses.id, shareClassId));
+    }
+  });
+
   it("computes a snapshot that is deterministic and REPLACES (never diverges) on recompute", async () => {
     const one = await computeCapTableSnapshot(cfo, { legalEntityId: HOLDINGS, asOfDate: "2026-06-01" }, ctx);
     const two = await computeCapTableSnapshot(cfo, { legalEntityId: HOLDINGS, asOfDate: "2026-06-01" }, ctx);

@@ -1,9 +1,10 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { beneficiaries, familyMembers, familyVaultItems, governanceBodies, legalEntities, parties, resolutions } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { FamilyTrustLogo } from "@/components/family-trust-logo";
 
@@ -13,36 +14,107 @@ export default async function FamilyPage() {
   const access = await requireAccess("family:member.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="family:member.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
-  const scope = await tenantScopeIds(access.principal); const tenantId = access.principal.tenantId;
-
-  const [members, beneficiaryRows, vault, entities, councils, resolutionRows] = await Promise.all([
-    db
-      .select({
-        id: familyMembers.id,
-        name: parties.displayName,
-        branch: familyMembers.branch,
-        generation: familyMembers.generation,
-        line: familyMembers.familyLine,
-        direct: familyMembers.directDescendant,
-        verification: familyMembers.verificationStatus,
-        method: familyMembers.verificationMethod,
-        verifiedBy: familyMembers.verifiedBy,
-        kyc: parties.kycStatus,
-        classification: familyMembers.classification,
-      })
-      .from(familyMembers)
-      .innerJoin(parties, eq(parties.id, familyMembers.partyId))
-      .where(inArray(familyMembers.tenantId, scope)),
-    db.select().from(beneficiaries).where(inArray(beneficiaries.tenantId, scope)),
-    db.select().from(familyVaultItems).where(inArray(familyVaultItems.tenantId, scope)),
-    db.select().from(legalEntities),
-    db.select().from(governanceBodies).where(inArray(governanceBodies.tenantId, scope)),
-    db.select().from(resolutions).where(inArray(resolutions.tenantId, scope)),
-  ]);
-
+  const scope = await tenantScopeIds(access.principal);
+  const entityScoped = access.principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
   const canVault = can(access.principal, "family:vault.read").allowed;
   const canBeneficiary = can(access.principal, "family:beneficiary.read").allowed;
-  const familyBodies = councils.filter((c) => ["FAMILY_COUNCIL", "TRUSTEES"].includes(c.bodyType));
+  const canGovernance = can(access.principal, "governance:resolution.read").allowed;
+
+  // Family-member and vault rows do not carry a legal-entity key. Under a
+  // named entity grant, containment cannot be proven, so those reads fail
+  // closed. Beneficiary and governance records do have entity relationships
+  // and are constrained in SQL before any sensitive payload is loaded.
+  const members = !entityScoped
+    ? await db
+        .select({
+          id: familyMembers.id,
+          name: parties.displayName,
+          branch: familyMembers.branch,
+          generation: familyMembers.generation,
+          line: familyMembers.familyLine,
+          direct: familyMembers.directDescendant,
+          verification: familyMembers.verificationStatus,
+          method: familyMembers.verificationMethod,
+          verifiedBy: familyMembers.verifiedBy,
+          kyc: parties.kycStatus,
+          classification: familyMembers.classification,
+        })
+        .from(familyMembers)
+        .innerJoin(parties, eq(parties.id, familyMembers.partyId))
+        .where(
+          and(
+            inArray(familyMembers.tenantId, scope),
+            inArray(familyMembers.classification, allowedClassifications),
+          ),
+        )
+    : [];
+  const beneficiaryPredicate = entityScoped
+    ? and(
+        inArray(beneficiaries.tenantId, scope),
+        inArray(beneficiaries.trustEntityId, access.principal.entityScope),
+        inArray(beneficiaries.classification, allowedClassifications),
+      )
+    : and(
+        inArray(beneficiaries.tenantId, scope),
+        inArray(beneficiaries.classification, allowedClassifications),
+      );
+  const beneficiaryRows = canBeneficiary
+    ? await db.select().from(beneficiaries).where(beneficiaryPredicate)
+    : [];
+  const vault = canVault && !entityScoped
+    ? await db
+        .select()
+        .from(familyVaultItems)
+        .where(
+          and(
+            inArray(familyVaultItems.tenantId, scope),
+            inArray(familyVaultItems.classification, allowedClassifications),
+          ),
+        )
+    : [];
+  const bodyPredicate = entityScoped
+    ? and(
+        inArray(governanceBodies.tenantId, scope),
+        inArray(governanceBodies.legalEntityId, access.principal.entityScope),
+      )
+    : inArray(governanceBodies.tenantId, scope);
+  const councils = canGovernance
+    ? await db.select().from(governanceBodies).where(bodyPredicate)
+    : [];
+  const familyBodies = councils.filter((body) =>
+    ["FAMILY_COUNCIL", "TRUSTEES"].includes(body.bodyType),
+  );
+  const familyBodyIds = familyBodies.map((body) => body.id);
+  const resolutionRows =
+    canGovernance && familyBodyIds.length > 0
+      ? await db
+          .select()
+          .from(resolutions)
+          .where(
+            and(
+              inArray(resolutions.tenantId, scope),
+              inArray(resolutions.bodyId, familyBodyIds),
+              inArray(resolutions.classification, allowedClassifications),
+            ),
+          )
+      : [];
+  const trustEntityIds = [...new Set(beneficiaryRows.map((row) => row.trustEntityId))];
+  const entities =
+    trustEntityIds.length > 0
+      ? await db
+          .select({ id: legalEntities.id, legalName: legalEntities.legalName })
+          .from(legalEntities)
+          .where(
+            and(
+              inArray(legalEntities.tenantId, scope),
+              inArray(legalEntities.id, trustEntityIds),
+              ...(entityScoped
+                ? [inArray(legalEntities.id, access.principal.entityScope)]
+                : []),
+            ),
+          )
+      : [];
 
   return (
     <div className="space-y-6">
@@ -63,10 +135,10 @@ export default async function FamilyPage() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Registered family members" value={String(members.length)} sub={`${members.filter((m) => m.verification === "VERIFIED").length} verified`} />
-        <Metric label="Verified direct descendants" value={String(members.filter((m) => m.direct && m.verification === "VERIFIED").length)} sub="eligibility precondition" tone="gold" />
+        <Metric label="Family members visible" value={entityScoped ? "Restricted" : String(members.length)} sub={entityScoped ? "rows have no entity key; tenant-wide read refused" : `${members.filter((m) => m.verification === "VERIFIED").length} verified`} />
+        <Metric label="Verified descendants visible" value={entityScoped ? "Restricted" : String(members.filter((m) => m.direct && m.verification === "VERIFIED").length)} sub={entityScoped ? "not queried" : "eligibility precondition"} tone="gold" />
         <Metric label="Beneficiary entitlements" value={canBeneficiary ? String(beneficiaryRows.length) : "Restricted"} sub={canBeneficiary ? `${beneficiaryRows.filter((b) => b.eligibility === "ELIGIBLE").length} eligible` : "grant required"} />
-        <Metric label="Vault items" value={canVault ? String(vault.length) : "Restricted"} sub={canVault ? `${new Set(vault.map((v) => v.vaultType)).size} vault types` : "family:vault.read required"} />
+        <Metric label="Vault items" value={canVault && !entityScoped ? String(vault.length) : "Restricted"} sub={entityScoped ? "rows have no entity key; tenant-wide read refused" : canVault ? `${new Set(vault.map((v) => v.vaultType)).size} vault types` : "family:vault.read required"} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
@@ -86,7 +158,7 @@ export default async function FamilyPage() {
                     <td><Badge tone="gold">{m.classification}</Badge></td>
                   </tr>
                 ))}
-                {members.length === 0 && <tr><td colSpan={7}><EmptyState message="No family members registered." /></td></tr>}
+                {members.length === 0 && <tr><td colSpan={7}><EmptyState message={entityScoped ? "Family-member rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide registry." : "No family members are visible within your tenant and clearance scope."} /></td></tr>}
               </tbody>
             </table>
           </div>
@@ -96,6 +168,7 @@ export default async function FamilyPage() {
         </Panel>
 
         <Panel kicker="Family governance" title="Council, trustees & reserved matters">
+          {canGovernance ? (
           <div className="space-y-3">
             {familyBodies.map((b) => (
               <div key={b.id} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2">
@@ -109,6 +182,9 @@ export default async function FamilyPage() {
                 </div>
               </div>
             ))}
+            {familyBodies.length === 0 && (
+              <EmptyState message="No family governance bodies are visible in your entity scope." />
+            )}
             <div>
               <div className="beyu-kicker beyu-muted">Family resolutions</div>
               <div className="mt-1 space-y-1">
@@ -119,9 +195,15 @@ export default async function FamilyPage() {
                       <span className="font-mono">{r.reference}</span> — {r.title} <Badge tone={stateTone(r.status)}>{r.status}</Badge>
                     </div>
                   ))}
+                {resolutionRows.length === 0 && (
+                  <div className="text-[11.5px] beyu-muted">No family resolutions are visible in scope.</div>
+                )}
               </div>
             </div>
           </div>
+          ) : (
+            <EmptyState message="governance:resolution.read is not granted; family governance bodies and resolutions were not queried." />
+          )}
         </Panel>
       </div>
 
@@ -138,7 +220,7 @@ export default async function FamilyPage() {
                     return (
                       <tr key={b.id}>
                         <td className="font-medium">{member?.name ?? b.familyMemberId}</td>
-                        <td className="text-[11.5px]">{entities.find((e) => e.id === b.trustEntityId)?.legalName}</td>
+                        <td className="text-[11.5px]">{entities.find((e) => e.id === b.trustEntityId)?.legalName ?? "Restricted entity"}</td>
                         <td><Badge tone="navy">{b.beneficiaryClass}</Badge></td>
                         <td><Badge tone={stateTone(b.eligibility)}>{b.eligibility}</Badge><div className="mt-0.5 max-w-xs text-[10.5px] beyu-muted">{b.eligibilityRationale}</div></td>
                         <td className="tabular-nums">{b.entitlementPct ? `${Number(b.entitlementPct).toFixed(2)}%` : "discretionary"}</td>
@@ -146,6 +228,9 @@ export default async function FamilyPage() {
                       </tr>
                     );
                   })}
+                  {beneficiaryRows.length === 0 && (
+                    <tr><td colSpan={6}><EmptyState message="No beneficiary entitlements are visible within your tenant, entity and clearance scope." /></td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -155,7 +240,7 @@ export default async function FamilyPage() {
         </Panel>
 
         <Panel kicker="Vaults" title="Family · member · trust · emergency · credential · legacy">
-          {canVault ? (
+          {canVault && !entityScoped ? (
             <div className="space-y-2">
               {vault.map((v) => (
                 <div key={v.id} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2">
@@ -174,9 +259,12 @@ export default async function FamilyPage() {
                   </div>
                 </div>
               ))}
+              {vault.length === 0 && (
+                <EmptyState message="No vault items are visible within your tenant and clearance scope." />
+              )}
             </div>
           ) : (
-            <EmptyState message="family:vault.read is not granted to your roles." />
+            <EmptyState message={entityScoped ? "Vault rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide index." : "family:vault.read is not granted to your roles; vault items were not queried."} />
           )}
           <p className="mt-3 text-[11px] beyu-muted">
             The credential vault stores custody assignments only — never secrets. Secrets live in the key

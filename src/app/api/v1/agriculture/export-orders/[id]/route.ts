@@ -16,6 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     {
       permission: "agriculture:data.read",
       action: "agriculture.exportOrders.get",
+      classification: "RESTRICTED",
       rateLimit: { limit: 120, windowMs: 60_000 },
       audit: { objectType: "AGRICULTURE_EXPORT_ORDER", objectId: id },
     },

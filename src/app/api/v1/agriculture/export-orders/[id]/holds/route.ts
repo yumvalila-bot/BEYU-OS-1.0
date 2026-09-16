@@ -6,7 +6,7 @@ import { z } from "zod";
 import { guarded, apiError } from "@/lib/api";
 import { NextRequest, NextResponse } from "next/server";
 import { createHold, listHolds, AgriDomainError } from "@/lib/agriculture";
-import { agriActor } from "@/lib/agriculture/http";
+import { visibleAgricultureItems, agriActor } from "@/lib/agriculture/http";
 
 const CreateSchema = z.object({
   holdType: z.string().min(1),
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     },
     async (ctx) => {
       const rows = await listHolds(ctx.principal.tenantId, { exportOrderId: id });
-      return NextResponse.json({ items: rows });
+      return NextResponse.json({ items: visibleAgricultureItems(rows, ctx.principal.clearance) });
     },
   );
 }

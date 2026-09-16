@@ -6,7 +6,7 @@ import { listStructureProposals, listStructureScenarios } from "@/lib/foundation
 export const dynamic = "force-dynamic";
 
 export default async function StructuresPage() {
-  const access = await requireAccess("foundation:structure.read");
+  const access = await requireAccess("foundation:structure.read", { classification: "CONFIDENTIAL" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:structure.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const [proposals, scenarios] = await Promise.all([

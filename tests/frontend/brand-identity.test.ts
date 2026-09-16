@@ -236,6 +236,26 @@ describe("institutional identity separation across surfaces", () => {
     expect(shell).not.toContain("BEYU_FAMILY_TRUST_ASSETS");
   });
 
+  it("uses centralized canonical logo presenters across shell, mobile, launcher, enrollment and Settings", () => {
+    const navigation = readFileSync(path.join(ROOT, "src", "app", "os", "os-navigation.tsx"), "utf8");
+    const shell = readFileSync(path.join(ROOT, "src", "app", "os", "layout.tsx"), "utf8");
+    const launcher = readFileSync(path.join(ROOT, "src", "app", "launcher", "page.tsx"), "utf8");
+    const signIn = readFileSync(path.join(ROOT, "src", "app", "page.tsx"), "utf8");
+    const enrollment = readFileSync(path.join(ROOT, "src", "app", "enroll", "page.tsx"), "utf8");
+    const settings = readFileSync(path.join(ROOT, "src", "app", "os", "settings", "page.tsx"), "utf8");
+
+    expect(navigation).toContain("BeyuLogo");
+    expect(shell).toContain("BeyuLogo");
+    expect(launcher).toContain("BeyuOsLogo");
+    expect(signIn).toContain("BeyuOsLogo");
+    expect(enrollment).toContain("BeyuOsLogo");
+    expect(settings).toContain("BeyuOsLogo");
+    for (const surface of [navigation, shell, launcher, signIn, enrollment, settings]) {
+      expect(surface).not.toContain("family-trust-logo");
+      expect(surface).not.toContain("BEYU_FAMILY_TRUST_ASSETS");
+    }
+  });
+
   it("the Family Office carries the Family Trust institutional identity, not the OS mark", () => {
     const family = readFileSync(path.join(ROOT, "src", "app", "os", "family", "page.tsx"), "utf8");
     expect(family).toContain("FamilyTrustLogo");

@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import {
@@ -12,9 +12,15 @@ import {
   treasuryPositions,
 } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
-import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
+import {
+  hasGlobalGovernanceScope,
+  withTenantDatabaseContext,
+  tenantScopeIds,
+} from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { Icon } from "@/components/icons";
 import { reconcileTreasuryToLedger, scanDataQuality, summarizeDataQuality } from "@/lib/finance/reconciliation";
 import { trialBalance, statement } from "@/lib/finance/reporting";
 
@@ -27,12 +33,76 @@ export default async function FinanceOSPage() {
   return withTenantDatabaseContext(access.principal, async () => {
     const scope = await tenantScopeIds(access.principal);
     const tenantId = access.principal.tenantId;
+    const entityScoped = access.principal.entityScope.length > 0;
+    const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+    const globalGovernanceScope = hasGlobalGovernanceScope(access.principal);
+    const canPost = can(access.principal, "finance:ledger.post").allowed;
+    const canTreasury = can(access.principal, "finance:treasury.read").allowed;
+    const canCapital = can(access.principal, "finance:capital.read").allowed;
+    const canWaterfall = can(access.principal, "finance:waterfall.read").allowed;
+    const canTax = can(access.principal, "finance:tax.read").allowed;
+    const canPayments = can(access.principal, "finance:payments.read").allowed;
+
+    const entityPredicate = entityScoped
+      ? and(
+          inArray(legalEntities.tenantId, scope),
+          inArray(legalEntities.id, access.principal.entityScope),
+          inArray(legalEntities.classification, allowedClassifications),
+        )
+      : and(
+          inArray(legalEntities.tenantId, scope),
+          inArray(legalEntities.classification, allowedClassifications),
+        );
+    const entities = await db
+      .select({ id: legalEntities.id, code: legalEntities.code, legalName: legalEntities.legalName })
+      .from(legalEntities)
+      .where(entityPredicate);
+    const entityIds = entities.map((entity) => entity.id);
+    const currentTenantClassifications = !entityScoped
+      ? await db
+          .select({ classification: legalEntities.classification })
+          .from(legalEntities)
+          .where(eq(legalEntities.tenantId, tenantId))
+      : [];
+    const completeCurrentTenantEntityClearance =
+      !entityScoped &&
+      currentTenantClassifications.every((entity) =>
+        allowedClassifications.includes(entity.classification),
+      );
+    // Journals have no independent classification field; the owning legal
+    // entity is their classification boundary. Always constrain both journal
+    // and treasury rows to entities already cleared above, even for a
+    // tenant-wide role whose clearance is lower than one entity in the tenant.
+    const entryPredicate = and(
+      inArray(journalEntries.tenantId, scope),
+      inArray(journalEntries.legalEntityId, entityIds),
+    );
+    const treasuryPredicate = and(
+      inArray(treasuryPositions.tenantId, scope),
+      inArray(treasuryPositions.legalEntityId, entityIds),
+      inArray(treasuryPositions.classification, allowedClassifications),
+    );
+    const unavailableReconciliation = {
+      subledger: "treasury_positions",
+      controlAccount: null,
+      itemsCompared: 0,
+      adjustmentPosted: false as const,
+      subledgerTotal: null,
+      ledgerTotal: null,
+      difference: null,
+      status: "DATA_NOT_AVAILABLE" as const,
+      epistemicClass: "DATA_NOT_AVAILABLE" as const,
+      reason: entityScoped
+        ? "Entity-scoped reconciliation is unavailable because the existing reconciliation engine accepts tenant scope only. No broader query was run."
+        : !completeCurrentTenantEntityClearance
+          ? "Tenant-wide reconciliation was refused because the principal cannot clear every legal entity in the current tenant."
+          : "finance:treasury.read is not granted, so treasury reconciliation was not run.",
+    };
 
     const [
       entries,
       accounts,
       periods,
-      entities,
       treasury,
       capabilities,
       decisions,
@@ -42,53 +112,61 @@ export default async function FinanceOSPage() {
       db
         .select()
         .from(journalEntries)
-        .where(inArray(journalEntries.tenantId, scope))
+        .where(entryPredicate)
         .orderBy(desc(journalEntries.postedAt))
         .limit(20),
-      db
-        .select()
-        .from(ledgerAccounts)
-        .where(inArray(ledgerAccounts.tenantId, scope))
-        .orderBy(ledgerAccounts.code),
-      db
-        .select()
-        .from(financialPeriods)
-        .orderBy(desc(financialPeriods.startsOn)),
-      db.select().from(legalEntities),
-      db
-        .select()
-        .from(treasuryPositions)
-        .where(inArray(treasuryPositions.tenantId, scope)),
+      entityScoped
+        ? Promise.resolve([])
+        : db
+            .select()
+            .from(ledgerAccounts)
+            .where(inArray(ledgerAccounts.tenantId, scope))
+            .orderBy(ledgerAccounts.code),
+      entityIds.length > 0
+        ? db
+            .select()
+            .from(financialPeriods)
+            .where(inArray(financialPeriods.legalEntityId, entityIds))
+            .orderBy(desc(financialPeriods.startsOn))
+        : Promise.resolve([]),
+      canTreasury
+        ? db.select().from(treasuryPositions).where(treasuryPredicate)
+        : Promise.resolve([]),
       db
         .select()
         .from(governanceCapabilityRegistry)
         .where(eq(governanceCapabilityRegistry.capabilityCode, "CAP_POSTING")),
-      db.select().from(governanceDecisionRegistry),
-      reconcileTreasuryToLedger(tenantId),
-      scanDataQuality(),
+      globalGovernanceScope && !entityScoped
+        ? db.select().from(governanceDecisionRegistry)
+        : Promise.resolve([]),
+      canTreasury && completeCurrentTenantEntityClearance
+        ? reconcileTreasuryToLedger(tenantId)
+        : Promise.resolve(unavailableReconciliation),
+      globalGovernanceScope && !entityScoped
+        ? scanDataQuality()
+        : Promise.resolve([]),
     ]);
 
     const entityMap = new Map(entities.map((e) => [e.id, e]));
     const capPosting = capabilities[0];
     const qualitySummary = summarizeDataQuality(dataQualityFindings);
 
-    const canPost = can(access.principal, "finance:ledger.post").allowed;
-    const canTreasury = can(access.principal, "finance:treasury.read").allowed;
-    const canWaterfall = can(access.principal, "finance:waterfall.read").allowed;
-    const canTax = can(access.principal, "finance:tax.read").allowed;
-
     const totalTreasuryUSD = treasury.reduce((acc, t) => acc + Number(t.baseCurrencyBalance), 0);
 
     const todayStr = new Date().toISOString().slice(0, 10);
-    const tbReport = await trialBalance({
-      tenantId,
-      asOf: todayStr,
-    });
-    const bsReport = await statement({
-      kind: "BALANCE_SHEET",
-      tenantId,
-      asOf: todayStr,
-    });
+    const tbReport = !completeCurrentTenantEntityClearance
+      ? null
+      : await trialBalance({
+          tenantId,
+          asOf: todayStr,
+        });
+    const bsReport = !completeCurrentTenantEntityClearance
+      ? null
+      : await statement({
+          kind: "BALANCE_SHEET",
+          tenantId,
+          asOf: todayStr,
+        });
 
     return (
       <div className="space-y-6">
@@ -151,38 +229,51 @@ export default async function FinanceOSPage() {
           />
         </div>
 
-        {/* Quick Navigation / Hub Links */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Link
+        {/* Permission-filtered Finance OS capability routes. */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {canCapital && <Link
             href="/os/capital"
-            className="beyu-panel p-4 transition hover:border-[#d4af37]/60 block"
+            className="beyu-panel block p-4 transition hover:border-[#d4af37]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
           >
-            <div className="beyu-kicker text-[#b08d1c]">Capital & Treasury</div>
-            <div className="text-[14px] font-semibold mt-1">Allocation & Liquidity</div>
-            <div className="text-[11.5px] beyu-muted mt-0.5">
-              {canTreasury ? `${treasury.length} positions · ${money(totalTreasuryUSD, "USD")}` : "Protected scope"}
+            <div className="flex items-start gap-3">
+              <Icon name="capital" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" />
+              <div><div className="beyu-kicker text-[#b08d1c]">Capital & Treasury</div>
+              <div className="mt-1 text-[14px] font-semibold">Allocation & Liquidity</div>
+              <div className="mt-0.5 text-[11.5px] beyu-muted">
+                {canTreasury ? `${treasury.length} positions · ${money(totalTreasuryUSD, "USD")}` : "Governed capital pipeline"}
+              </div></div>
             </div>
-          </Link>
-          <Link
+          </Link>}
+          {canWaterfall && <Link
             href="/os/waterfall"
-            className="beyu-panel p-4 transition hover:border-[#d4af37]/60 block"
+            className="beyu-panel block p-4 transition hover:border-[#d4af37]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
           >
-            <div className="beyu-kicker text-[#b08d1c]">Waterfall Engine</div>
-            <div className="text-[14px] font-semibold mt-1">Cashflow Distribution</div>
-            <div className="text-[11.5px] beyu-muted mt-0.5">
-              Deterministic tiered allocations with resolution governance
-            </div>
-          </Link>
-          <Link
+            <div className="flex items-start gap-3"><Icon name="waterfall" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" /><div>
+              <div className="beyu-kicker text-[#b08d1c]">Waterfall Engine</div>
+              <div className="mt-1 text-[14px] font-semibold">Cashflow Distribution</div>
+              <div className="mt-0.5 text-[11.5px] beyu-muted">Deterministic tiered allocations with resolution governance</div>
+            </div></div>
+          </Link>}
+          {canTax && <Link
             href="/os/tax"
-            className="beyu-panel p-4 transition hover:border-[#d4af37]/60 block"
+            className="beyu-panel block p-4 transition hover:border-[#d4af37]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
           >
-            <div className="beyu-kicker text-[#b08d1c]">Tax Intelligence</div>
-            <div className="text-[14px] font-semibold mt-1">Strategy & Assessments</div>
-            <div className="text-[11.5px] beyu-muted mt-0.5">
-              Jurisdiction-gated analysis & statutory evidence
-            </div>
-          </Link>
+            <div className="flex items-start gap-3"><Icon name="tax" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" /><div>
+              <div className="beyu-kicker text-[#b08d1c]">Tax Intelligence</div>
+              <div className="mt-1 text-[14px] font-semibold">Strategy & Assessments</div>
+              <div className="mt-0.5 text-[11.5px] beyu-muted">Jurisdiction-gated analysis and statutory evidence</div>
+            </div></div>
+          </Link>}
+          {canPayments && <Link
+            href="/os/finance/payments"
+            className="beyu-panel block p-4 transition hover:border-[#d4af37]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
+          >
+            <div className="flex items-start gap-3"><Icon name="payments" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" /><div>
+              <div className="beyu-kicker text-[#b08d1c]">Payments</div>
+              <div className="mt-1 text-[14px] font-semibold">Transactions & Settlements</div>
+              <div className="mt-0.5 text-[11.5px] beyu-muted">Provider evidence, reconciliation and governed accounting handoff</div>
+            </div></div>
+          </Link>}
         </div>
 
         {/* General Ledger Section */}
@@ -272,7 +363,7 @@ export default async function FinanceOSPage() {
                 </table>
               </div>
             ) : (
-              <EmptyState message="No chart of accounts defined in database. Account structure requires P6/P1 policy ratification." />
+              <EmptyState message={entityScoped ? "Chart-of-account rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide catalogue." : "No chart of accounts is defined in scope. Account structure requires P6/P1 policy ratification."} />
             )}
           </Panel>
 
@@ -347,7 +438,9 @@ export default async function FinanceOSPage() {
               <span className="beyu-muted">{reconciliation.reason}</span>
             </div>
 
-            {dataQualityFindings.length > 0 && (
+            {!globalGovernanceScope || entityScoped ? (
+              <EmptyState message="Cross-tenant data-quality scanning requires unrestricted entity scope and global governance; the scan was not run." />
+            ) : dataQualityFindings.length > 0 ? (
               <div className="mt-4">
                 <div className="text-[12px] font-semibold mb-2">
                   Data Quality Findings ({qualitySummary.total} detected · {qualitySummary.critical} critical)
@@ -363,11 +456,14 @@ export default async function FinanceOSPage() {
                   ))}
                 </div>
               </div>
+            ) : (
+              <EmptyState message="No data-quality findings were detected by the governed scan." />
             )}
           </div>
         </Panel>
 
         {/* Governed Reporting Statements (Skeleton with Epistemic Classification) */}
+        {tbReport && bsReport ? (
         <div className="grid gap-6 xl:grid-cols-2">
           {/* Trial Balance */}
           <Panel
@@ -429,6 +525,11 @@ export default async function FinanceOSPage() {
             </div>
           </Panel>
         </div>
+        ) : (
+          <Panel kicker="Reporting Engine" title="Financial statements">
+            <EmptyState message={entityScoped ? "The reporting engine accepts one tenant or one legal entity, not an arbitrary entity grant. Tenant-wide reporting was refused for this entity-scoped principal." : "Tenant-wide reporting was refused because the current clearance does not cover every legal entity in this tenant."} />
+          </Panel>
+        )}
 
         {/* Governance Ratification & Blocker Tracking */}
         <Panel
@@ -436,6 +537,7 @@ export default async function FinanceOSPage() {
           title="Accounting Policy Decisions & Ratification Dependency Register"
           action={<Badge tone="amber">Pending CFO / ARB Ratification</Badge>}
         >
+          {decisions.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="beyu-table">
               <thead>
@@ -463,6 +565,9 @@ export default async function FinanceOSPage() {
               </tbody>
             </table>
           </div>
+          ) : (
+            <EmptyState message={globalGovernanceScope && !entityScoped ? "No accounting-policy decisions are registered in scope." : "The decision register has no legal-entity key and requires unrestricted entity scope plus global governance."} />
+          )}
         </Panel>
       </div>
     );

@@ -6,7 +6,7 @@ import { listSafeguardingCases } from "@/lib/foundation/service-operations";
 export const dynamic = "force-dynamic";
 
 export default async function SafeguardingPage() {
-  const access = await requireAccess("foundation:safeguarding.read");
+  const access = await requireAccess("foundation:safeguarding.read", { classification: "HIGHLY_RESTRICTED" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:safeguarding.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
     const rows = await listSafeguardingCases(access.principal);

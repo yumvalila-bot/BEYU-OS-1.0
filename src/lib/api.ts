@@ -10,7 +10,7 @@ import {
 } from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
 import { withTenantDatabaseContext } from "./tenant-scope";
-import { SYSTEM_VERSION, type PermissionCode } from "./constants";
+import { SYSTEM_VERSION, type Classification, type PermissionCode } from "./constants";
 
 /**
  * Governed API surface.
@@ -249,9 +249,46 @@ export type HandlerContext = {
   request: Request;
 };
 
+function permissionClassificationFloor(permission: PermissionCode): Classification | undefined {
+  if (permission.startsWith("finance:") || permission.startsWith("contracts:") || permission.startsWith("blockchain:")) {
+    return "RESTRICTED";
+  }
+  if (permission.startsWith("government:")) return "CONFIDENTIAL";
+  if (permission.startsWith("familyoffice:")) {
+    if (
+      permission.startsWith("familyoffice:capital.") ||
+      permission.startsWith("familyoffice:committee.") ||
+      permission.startsWith("familyoffice:decisionjournal.") ||
+      permission.startsWith("familyoffice:generational.") ||
+      permission.startsWith("familyoffice:protection.") ||
+      permission.startsWith("familyoffice:claim.") ||
+      permission.startsWith("familyoffice:trust.")
+    ) {
+      return "HIGHLY_RESTRICTED";
+    }
+    return "RESTRICTED";
+  }
+  if (!permission.startsWith("foundation:")) return undefined;
+  if (permission.startsWith("foundation:safeguarding.")) return "HIGHLY_RESTRICTED";
+  if (
+    permission.startsWith("foundation:governance.") ||
+    permission.startsWith("foundation:tax.") ||
+    permission.startsWith("foundation:donor.") ||
+    permission.startsWith("foundation:fund.") ||
+    permission.startsWith("foundation:grant.") ||
+    permission.startsWith("foundation:beneficiary.") ||
+    permission.startsWith("foundation:investment.")
+  ) {
+    return "RESTRICTED";
+  }
+  return "CONFIDENTIAL";
+}
+
 export type GuardOptions = {
   permission: PermissionCode;
   action: string;
+  /** Minimum clearance for a route whose response cannot be row-filtered safely. */
+  classification?: Classification;
   rateLimit?: { limit: number; windowMs: number };
   audit?: { objectType: string; objectId?: string };
   /**
@@ -296,8 +333,26 @@ export async function guarded(
         return apiError("RATE_LIMITED", "Request rate exceeded for this capability.", 429, traceId);
       }
 
-      const decision = can(principal, options.permission);
-      if (!decision.allowed) {
+      const scopeShapeUnsupported =
+        (options.permission.startsWith("agriculture:") ||
+          options.permission.startsWith("foundation:") ||
+          options.permission.startsWith("familyoffice:") ||
+          options.permission.startsWith("blockchain:") ||
+          options.permission.startsWith("finance:payments.") ||
+          options.permission === "finance:settlement.manage") &&
+        principal.entityScope.length > 0;
+      const scopeReason = scopeShapeUnsupported
+        ? "This sector capability contains relational rows without complete legal-entity keys; entity-scoped access is refused rather than widened to tenant level."
+        : null;
+      const classification = options.classification ?? permissionClassificationFloor(options.permission);
+      const decision = can(
+        principal,
+        options.permission,
+        classification ? { classification } : undefined,
+      );
+      if (scopeReason || !decision.allowed) {
+        const reason = scopeReason ?? decision.reason;
+        const requiresMfa = !scopeReason && decision.requiresMfa;
         await recordAudit({
           tenantId: principal.tenantId,
           actorUserId: principal.userId,
@@ -305,15 +360,15 @@ export async function guarded(
           objectType: options.audit?.objectType ?? "API",
           objectId: options.audit?.objectId ?? options.permission,
           outcome: "DENIED",
-          reason: decision.reason,
+          reason,
           ipAddress: meta.ip,
           userAgent: meta.userAgent,
           traceId,
         });
         return apiError(
-          decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-          decision.reason,
-          decision.requiresMfa ? 428 : 403,
+          requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
+          reason,
+          requiresMfa ? 428 : 403,
           traceId,
         );
       }

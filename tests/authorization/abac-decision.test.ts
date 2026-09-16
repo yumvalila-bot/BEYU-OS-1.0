@@ -6,7 +6,10 @@ import {
   permissionsForRoles,
   type Principal,
 } from "../../src/lib/authz";
-import { classificationRank } from "../../src/lib/constants";
+import {
+  classificationRank,
+  classificationsAtOrBelow,
+} from "../../src/lib/constants";
 
 /**
  * Iteration 7 — ABAC decision-unit depth.
@@ -68,6 +71,24 @@ describe("Iteration 7 ABAC decision lattice", () => {
   it("filterByClearance fails closed for an unknown principal clearance", () => {
     const p = principal({ clearance: "MEGA-SECRET" as never });
     expect(filterByClearance(p, [{ id: 1, classification: "PUBLIC" }])).toEqual([]);
+  });
+
+  it("SQL allow-lists and the authorization primitive fail closed for unknown clearances", () => {
+    expect(classificationsAtOrBelow("CONFIDENTIAL")).toEqual([
+      "PUBLIC",
+      "INTERNAL",
+      "CONFIDENTIAL",
+    ]);
+    expect(classificationsAtOrBelow("MEGA-SECRET")).toEqual([]);
+
+    const forged = principal({
+      clearance: "MEGA-SECRET" as never,
+      permissions: new Set(["documents:registry.read"]),
+    });
+    expect(can(forged, "documents:registry.read")).toMatchObject({
+      allowed: false,
+      reason: "ABAC: principal clearance is not recognized",
+    });
   });
 
   it("a missing grant is denied first, even under a benign context", () => {

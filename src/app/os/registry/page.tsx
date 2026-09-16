@@ -1,8 +1,17 @@
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { architectureDecisions, dataAssets, integrations, metricDefinitions, osRegistry, sourceOfTruth } from "@/db/schema";
+import {
+  architectureDecisions,
+  dataAssets,
+  governanceCapabilityRegistry,
+  integrations,
+  metricDefinitions,
+  osRegistry,
+  sourceOfTruth,
+} from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { filterByClearance } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -19,23 +28,22 @@ export default async function RegistryPage() {
   if (!access.allowed) return <Denied reason={access.reason} capability="platform:registry.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
 
-  const [osRows, sotRows, adrRows, integrationRows, metricRows, allAssetRows] = await Promise.all([
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const [osRows, sotRows, adrRows, integrationRows, metricRows, assetRows, capabilityRows] = await Promise.all([
     db.select().from(osRegistry).orderBy(osRegistry.kind),
     db.select().from(sourceOfTruth).orderBy(sourceOfTruth.capability),
     db.select().from(architectureDecisions).orderBy(architectureDecisions.adrNumber),
     db.select().from(integrations),
     db.select().from(metricDefinitions),
-    db.select().from(dataAssets),
+    db.select().from(dataAssets).where(inArray(dataAssets.classification, allowedClassifications)),
+    db.select().from(governanceCapabilityRegistry).orderBy(governanceCapabilityRegistry.capabilityCode),
   ]);
 
   /**
-   * A-02: the data-asset catalogue is enterprise reference metadata, but individual
-   * entries carry their own classification (the family & beneficiary registry is
-   * HIGHLY_RESTRICTED). Registry read access is not a clearance override, so the
-   * catalogue is filtered through the kernel's classification ceiling.
+   * A-02: registry read access is not a classification override. Assets above
+   * the principal's ceiling are excluded by SQL rather than loaded and then
+   * hidden in the UI.
    */
-  const assetRows = filterByClearance(access.principal, allAssetRows);
-  const suppressedAssets = allAssetRows.length - assetRows.length;
 
   return (
     <div className="space-y-6">
@@ -73,6 +81,39 @@ export default async function RegistryPage() {
               </dl>
             </div>
           ))}
+        </div>
+      </Panel>
+
+      <Panel kicker="Capability activation registry" title="Runtime controls · read-only effective state">
+        <p className="mb-4 max-w-4xl text-[11.5px] beyu-muted">
+          Effective server-side feature controls are shown exactly as configured. This surface cannot change,
+          approve or bypass them. In particular, Finance posting remains locked unless CAP_POSTING is
+          explicitly enabled by authorised operators outside this interface.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="beyu-table">
+            <thead>
+              <tr><th>Capability</th><th>Activation</th><th>Implementation</th><th>Required decisions</th><th>Execution permission</th></tr>
+            </thead>
+            <tbody>
+              {capabilityRows.map((capability) => (
+                <tr key={capability.capabilityCode}>
+                  <td>
+                    <div className="font-mono text-[11px] font-semibold">{capability.capabilityCode}</div>
+                    <div className="text-[11.5px] font-medium">{capability.name}</div>
+                    <div className="max-w-lg text-[11px] beyu-muted">{capability.description}</div>
+                  </td>
+                  <td><Badge tone={stateTone(capability.activationStatus)}>{capability.activationStatus}</Badge></td>
+                  <td><Badge tone={stateTone(capability.implementationStatus)}>{capability.implementationStatus}</Badge></td>
+                  <td className="font-mono text-[10.5px] beyu-muted">{capability.requiredDecisions.join(", ") || "none declared"}</td>
+                  <td className="font-mono text-[10.5px] beyu-muted">{capability.executionPermission ?? "none declared"}</td>
+                </tr>
+              ))}
+              {capabilityRows.length === 0 && (
+                <tr><td colSpan={5}><EmptyState message="No capability activation records are registered." /></td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </Panel>
 
@@ -161,12 +202,9 @@ export default async function RegistryPage() {
                   )}
                 </tbody>
               </table>
-              {suppressedAssets > 0 && (
-                <p className="mt-2 text-[11px] beyu-muted">
-                  {suppressedAssets} data asset{suppressedAssets === 1 ? "" : "s"} suppressed: classification
-                  exceeds your {access.principal.clearance} clearance ceiling.
-                </p>
-              )}
+              <p className="mt-2 text-[11px] beyu-muted">
+                Data assets above your {access.principal.clearance} clearance ceiling are suppressed at query time and are not queried.
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="beyu-table">

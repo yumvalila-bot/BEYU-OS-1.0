@@ -1,185 +1,155 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { type Principal } from "@/lib/authz";
+import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge } from "@/components/brand";
 import { BeyuLogo } from "@/components/beyu-logo";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
-import { NavLink } from "./nav-link";
-import { SignOutButton } from "./sign-out-button";
+import {
+  DesktopNavigation,
+  ResponsiveNavigation,
+  type OsNavigationGroup,
+  type OsNavigationPrincipal,
+} from "./os-navigation";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Navigation is DERIVED from the canonical capability catalogue
- * (app/os/capabilities.ts) — the same definition the Executive Control Centre
- * capability map renders from, so the two discovery surfaces can never drift.
- *
- * Each item's `visibility` names the SAME capability the target page passes
- * to `requireAccess()`, and visibility is computed with the SAME `can()`
- * primitive the guard uses. Navigation is therefore derived from server
- * authority, never from a client-side copy of the policy — and it grants
- * nothing: hiding a link is a presentation decision, while the page guard and
- * the API remain the only authority. A principal who types a hidden URL still
- * gets the real governed decision (200 or the recorded "Authorisation denied"
- * page), exactly as before.
- *
- * Health OS is a FEDERATED sector OS: its gate is not a BEYU permission but
- * the canonical identity link (`checkHealthOSAuthorization`), resolved
- * asynchronously here exactly as the /launcher page already does. The link is
- * hidden when no identity link exists; /health itself re-verifies server-side.
+ * Navigation is derived from the same canonical capability catalogue rendered
+ * by the Executive Control Centre. Visibility uses the same `can()` primitive
+ * and permission as each target route; Health uses its federated identity link.
+ * This is presentation only — every deep link repeats its server-side guard.
  */
-async function visibleNav(
-  principal: Principal,
-): Promise<{ group: string; items: CapabilityItem[] }[]> {
-  // Resolve the federated Health OS identity link once per render.
+async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
   const health = await checkHealthOSAuthorization(principal.userId);
   return CAPABILITY_IA.map((section) => ({
     group: section.title,
-    items: section.items.filter((item) =>
-      item.visibility.kind === "health-federation" ? health.authorized : visible(principal, item),
-    ),
+    items: section.items
+      .filter((item) =>
+        item.visibility.kind === "health-federation" ? health.authorized : visible(principal, item),
+      )
+      .map((item: CapabilityItem) => ({
+        href: item.href,
+        label: item.label,
+        icon: item.icon,
+      })),
   })).filter((section) => section.items.length > 0);
 }
 
 export default async function OsLayout({ children }: { children: ReactNode }) {
   const principal = await requirePrincipal();
-  return withTenantDatabaseContext(principal, async () => {
-  const alerts = await db
-    .select()
-    .from(notifications)
-    .where(eq(notifications.tenantId, principal.tenantId))
-    .orderBy(desc(notifications.createdAt))
-    .limit(5);
-  const nav = await visibleNav(principal);
 
-  return (
-    <div className="min-h-screen lg:flex">
-      <a
-        href="#beyu-main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-[#d4af37] focus:px-3 focus:py-2 focus:text-[12px] focus:font-semibold focus:text-[#0b1d3a]"
-      >
-        Skip to main content
-      </a>
-      <aside
-        aria-label="BEYU OS module navigation"
-        className="beyu-shell hidden w-[268px] shrink-0 flex-col border-r border-white/10 lg:flex"
-      >
-        <div className="px-5 pt-5 pb-4">
-          <BeyuLogo variant="light" size={40} href="/os" />
-        </div>
-        <div className="beyu-gold-rule mx-5" />
-        <nav aria-label="Primary" className="beyu-scroll flex-1 overflow-y-auto px-3 py-4">
-          {nav.map((section) => (
-            <div key={section.group} className="mb-5">
-              <div className="beyu-kicker px-3 pb-2 text-white/35">{section.group}</div>
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink key={`${item.href}:${item.label}`} href={item.href} label={item.label} icon={item.icon} />
+  // A session is identity, not OS authorization. Health-only principals and
+  // principals with no control-plane grant are routed through the launcher;
+  // typing /os (or any nested deep link) cannot bypass this check.
+  if (!checkBeyuOSAuthorization(principal).authorized) {
+    redirect("/launcher");
+  }
+
+  return withTenantDatabaseContext(principal, async () => {
+    const allowedClassifications = classificationsAtOrBelow(principal.clearance);
+    const roleRecipient =
+      principal.roles.length > 0
+        ? or(isNull(notifications.role), inArray(notifications.role, principal.roles))
+        : isNull(notifications.role);
+    const alerts = await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.tenantId, principal.tenantId),
+          inArray(notifications.classification, allowedClassifications),
+          or(
+            eq(notifications.userId, principal.userId),
+            and(isNull(notifications.userId), roleRecipient),
+          ),
+        ),
+      )
+      .orderBy(desc(notifications.createdAt))
+      .limit(5);
+    const nav = await visibleNav(principal);
+    const navigationPrincipal: OsNavigationPrincipal = {
+      displayName: principal.displayName,
+      email: principal.email,
+      roles: principal.roles,
+      tenantCode: principal.tenantCode,
+      clearance: principal.clearance,
+      canSwitchOperatingSystem: nav.some(
+        (group) => group.group === "Sector operating systems" && group.items.length > 0,
+      ),
+    };
+
+    return (
+      <div className="flex min-h-screen">
+        <a
+          href="#beyu-main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-[#d4af37] focus:px-3 focus:py-2 focus:text-[12px] focus:font-semibold focus:text-[#0b1d3a]"
+        >
+          Skip to main content
+        </a>
+
+        <DesktopNavigation groups={nav} principal={navigationPrincipal} />
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="beyu-shell sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white sm:px-5 xl:px-8">
+            <div className="flex items-center gap-3 xl:hidden">
+              <ResponsiveNavigation groups={nav} principal={navigationPrincipal} />
+              <BeyuLogo variant="light" size={32} href="/os" />
+            </div>
+            <div className="hidden items-center gap-3 xl:flex">
+              <span className="beyu-kicker text-white/45">Tenant context</span>
+              <span className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px]">
+                {principal.tenantCode} · {principal.tenantType}
+              </span>
+              <span className="beyu-kicker text-white/45">Session risk</span>
+              <span className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px]">
+                {principal.riskScore} · MFA {principal.mfaSatisfied ? "satisfied" : "not satisfied"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="beyu-kicker text-white/45">Alerts</span>
+              <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/15 px-2 py-[3px] text-[11px] font-semibold text-[#efd98f]">
+                {alerts.length}
+              </span>
+            </div>
+          </header>
+
+          <main id="beyu-main" className="beyu-scroll min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-5 xl:px-8">
+            {alerts.length > 0 && (
+              <div className="mb-5 flex flex-wrap gap-2">
+                {alerts.slice(0, 3).map((alert) => (
+                  <Link
+                    key={alert.id}
+                    href={alert.linkHref ?? "/os"}
+                    className="beyu-panel flex items-center gap-2 px-3 py-2 text-[11.5px] transition hover:border-[#d4af37]/50"
+                  >
+                    <Badge tone={alert.urgency === "HIGH" ? "red" : "gold"}>{alert.urgency}</Badge>
+                    <span className="font-medium">{alert.subject}</span>
+                    <span className="beyu-muted hidden sm:inline">{alert.body}</span>
+                  </Link>
                 ))}
               </div>
-            </div>
-          ))}
-        </nav>
-        <div className="border-t border-white/10 px-5 py-4">
-          <div className="text-[12px] font-semibold text-white">{principal.displayName}</div>
-          <div className="mt-0.5 text-[10.5px] text-white/50">{principal.email}</div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {principal.roles.map((r) => (
-              <span key={r} className="rounded border border-[#d4af37]/40 px-1.5 py-[2px] text-[9.5px] tracking-wide text-[#efd98f]">
-                {r}
+            )}
+            {children}
+            <footer className="mt-10 flex items-start gap-2.5 border-t border-[color:var(--beyu-line)] pt-4 text-[10.5px] beyu-muted">
+              <BeyuLogo variant="mark" size={18} decorative className="mt-[1px] shrink-0" />
+              <span>
+                BEYU OS · Bridging Care. Building Trust. Every view is permission-scoped, tenant-isolated
+                and audited. Metrics resolve to a declared source of truth. AI output is advisory; material
+                decisions require human accountability.
               </span>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-[9.5px] tracking-[0.14em] text-white/40">
-              {principal.tenantCode} · {principal.clearance}
-            </span>
-            <SignOutButton />
-          </div>
-          <div className="mt-3 pt-3 border-t border-white/10">
-            <Link
-              href="/launcher"
-              className="flex items-center gap-2 text-[11px] text-white/70 hover:text-white transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-              <span>Switch Operating System</span>
-            </Link>
-          </div>
+            </footer>
+          </main>
         </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="beyu-shell flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3 text-white lg:px-8">
-          <div className="flex items-center gap-3 lg:hidden">
-            <BeyuLogo variant="light" size={32} href="/os" />
-          </div>
-          <div className="hidden items-center gap-3 lg:flex">
-            <span className="beyu-kicker text-white/45">Tenant context</span>
-            <span className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px]">
-              {principal.tenantCode} · {principal.tenantType}
-            </span>
-            <span className="beyu-kicker text-white/45">Session risk</span>
-            <span className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px]">
-              {principal.riskScore} · MFA {principal.mfaSatisfied ? "satisfied" : "not satisfied"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="beyu-kicker text-white/45">Alerts</span>
-            <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/15 px-2 py-[3px] text-[11px] font-semibold text-[#efd98f]">
-              {alerts.length}
-            </span>
-            <div className="lg:hidden">
-              <SignOutButton />
-            </div>
-          </div>
-        </header>
-
-        <div className="lg:hidden">
-          <nav
-            aria-label="Modules"
-            className="beyu-scroll flex gap-2 overflow-x-auto border-b border-[color:var(--beyu-line)] bg-[color:var(--beyu-card)] px-4 py-2"
-          >
-            {[...new Map(nav.flatMap((s) => s.items).map((item) => [item.href, item])).values()].map((item) => (
-              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} variant="chip" />
-            ))}
-          </nav>
-        </div>
-
-        <main id="beyu-main" className="beyu-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 lg:px-8">
-          {alerts.length > 0 && (
-            <div className="mb-5 flex flex-wrap gap-2">
-              {alerts.slice(0, 3).map((a) => (
-                <Link
-                  key={a.id}
-                  href={a.linkHref ?? "/os"}
-                  className="beyu-panel flex items-center gap-2 px-3 py-2 text-[11.5px] transition hover:border-[#d4af37]/50"
-                >
-                  <Badge tone={a.urgency === "HIGH" ? "red" : "gold"}>{a.urgency}</Badge>
-                  <span className="font-medium">{a.subject}</span>
-                  <span className="beyu-muted hidden sm:inline">{a.body}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-          {children}
-          <footer className="mt-10 flex items-start gap-2.5 border-t border-[color:var(--beyu-line)] pt-4 text-[10.5px] beyu-muted">
-            <BeyuLogo variant="mark" size={18} decorative className="mt-[1px] shrink-0" />
-            <span>
-              BEYU OS · every view is permission-scoped, tenant-isolated and audited. Metrics resolve to a
-              declared source of truth. AI output is advisory; material decisions require human accountability.
-            </span>
-          </footer>
-        </main>
       </div>
-    </div>
-  );
+    );
   });
 }

@@ -1,7 +1,9 @@
-import { desc, inArray, or, isNull, eq } from "drizzle-orm";
+import { and, desc, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, auditLog, enterpriseEvents } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
+import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { withTenantDatabaseContext, tenantScopeIds, hasGlobalGovernanceScope } from "@/lib/tenant-scope";
 import { verifyAuditChain } from "@/lib/audit";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
@@ -16,21 +18,41 @@ export default async function AuditPage() {
 
   const scope = await tenantScopeIds(access.principal);
   const global = hasGlobalGovernanceScope(access.principal);
+  const entityScoped = access.principal.entityScope.length > 0;
+  const canRunGlobalAssurance = global && !entityScoped;
+  const canReadEvents = can(access.principal, "audit:event.read").allowed;
+  const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+  const eventTenantPredicate = global
+    ? or(inArray(enterpriseEvents.tenantId, scope), isNull(enterpriseEvents.tenantId))
+    : inArray(enterpriseEvents.tenantId, scope);
+  const eventPredicate = entityScoped
+    ? and(
+        eventTenantPredicate,
+        inArray(enterpriseEvents.legalEntityId, access.principal.entityScope),
+        inArray(enterpriseEvents.classification, allowedClassifications),
+      )
+    : and(eventTenantPredicate, inArray(enterpriseEvents.classification, allowedClassifications));
   const [entries, events, ai, chain] = await Promise.all([
-    db
-      .select()
-      .from(auditLog)
-      .where(global ? or(inArray(auditLog.tenantId, scope), isNull(auditLog.tenantId)) : inArray(auditLog.tenantId, scope))
-      .orderBy(desc(auditLog.sequence))
-      .limit(60),
-    db
-      .select()
-      .from(enterpriseEvents)
-      .where(global ? or(inArray(enterpriseEvents.tenantId, scope), isNull(enterpriseEvents.tenantId)) : inArray(enterpriseEvents.tenantId, scope))
-      .orderBy(desc(enterpriseEvents.sequence))
-      .limit(40),
-    db.select().from(aiDecisions).where(inArray(aiDecisions.tenantId, scope)).orderBy(desc(aiDecisions.occurredAt)).limit(20),
-    verifyAuditChain(),
+    entityScoped
+      ? Promise.resolve([])
+      : db
+          .select()
+          .from(auditLog)
+          .where(global ? or(inArray(auditLog.tenantId, scope), isNull(auditLog.tenantId)) : inArray(auditLog.tenantId, scope))
+          .orderBy(desc(auditLog.sequence))
+          .limit(60),
+    canReadEvents
+      ? db
+          .select()
+          .from(enterpriseEvents)
+          .where(eventPredicate)
+          .orderBy(desc(enterpriseEvents.sequence))
+          .limit(40)
+      : Promise.resolve([]),
+    entityScoped
+      ? Promise.resolve([])
+      : db.select().from(aiDecisions).where(inArray(aiDecisions.tenantId, scope)).orderBy(desc(aiDecisions.occurredAt)).limit(20),
+    canRunGlobalAssurance ? verifyAuditChain() : Promise.resolve(null),
   ]);
 
   return (
@@ -45,15 +67,41 @@ export default async function AuditPage() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Chain integrity" value={chain.verified ? "VERIFIED" : "BROKEN"} sub={`${chain.records} records re-hashed`} tone={chain.verified ? "navy" : "gold"} />
-        <Metric label="Audit entries (recent)" value={String(entries.length)} sub="who · what · when · authority" />
-        <Metric label="Enterprise events" value={String(events.length)} sub="CloudEvents-aligned, versioned" />
-        <Metric label="AI decisions recorded" value={String(ai.length)} sub={`${ai.filter((a) => a.humanReviewRequired && !a.reviewedBy).length} awaiting human review`} />
+        <Metric
+          label="Chain integrity"
+          value={chain ? (chain.verified ? "VERIFIED" : "BROKEN") : "Restricted"}
+          sub={chain ? `${chain.records} records re-hashed` : entityScoped ? "audit rows have no entity key; global verification not run" : "global governance scope required; verification not run"}
+          tone={chain?.verified ? "navy" : "gold"}
+        />
+        <Metric
+          label="Audit entries (recent)"
+          value={entityScoped ? "Restricted" : String(entries.length)}
+          sub={entityScoped ? "audit rows have no entity key; tenant-wide read refused" : "who · what · when · authority"}
+        />
+        <Metric
+          label="Enterprise events"
+          value={canReadEvents ? String(events.length) : "Restricted"}
+          sub={canReadEvents ? "CloudEvents-aligned, versioned" : "audit:event.read not granted"}
+        />
+        <Metric
+          label="AI decisions recorded"
+          value={entityScoped ? "Restricted" : String(ai.length)}
+          sub={entityScoped ? "AI decision rows have no entity key; tenant-wide read refused" : `${ai.filter((a) => a.humanReviewRequired && !a.reviewedBy).length} awaiting human review`}
+        />
       </div>
 
-      <SelfTestPanel />
+      {canRunGlobalAssurance ? (
+        <SelfTestPanel />
+      ) : (
+        <Panel kicker="Continuous control assurance" title="Quality gate self-test">
+          <EmptyState message={entityScoped ? "The self-test evaluates global control substrates and is not offered under an entity-scoped grant." : "The self-test evaluates global control substrates and requires global governance scope."} />
+        </Panel>
+      )}
 
       <Panel kicker="Audit ledger" title="Append-only record of material actions">
+        {entityScoped ? (
+          <EmptyState message="Audit records have no legal-entity key, so a tenant-wide read is refused for this entity-scoped grant." />
+        ) : (
         <div className="overflow-x-auto">
           <table className="beyu-table">
             <thead>
@@ -76,10 +124,12 @@ export default async function AuditPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Panel>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel kicker="Enterprise event stream" title="Immutable, versioned, authorised">
+          {canReadEvents ? (
           <div className="overflow-x-auto">
             <table className="beyu-table">
               <thead><tr><th>#</th><th>Type</th><th>Subject</th><th>Class</th><th>When</th></tr></thead>
@@ -97,9 +147,15 @@ export default async function AuditPage() {
               </tbody>
             </table>
           </div>
+          ) : (
+            <EmptyState message="audit:event.read is not granted; enterprise events were not queried." />
+          )}
         </Panel>
 
         <Panel kicker="Auditable AI" title="Noelia decision register (HIVE runtime)">
+          {entityScoped ? (
+            <EmptyState message="AI decision rows have no legal-entity key, so a tenant-wide read is refused for this entity-scoped grant." />
+          ) : (
           <div className="space-y-2">
             {ai.map((a) => (
               <div key={a.id} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2">
@@ -127,8 +183,10 @@ export default async function AuditPage() {
             ))}
             {ai.length === 0 && <EmptyState message="No AI decisions recorded for this tenant." />}
           </div>
+          )}
         </Panel>
       </div>
     </div>
-  );  });
+    );
+  });
 }

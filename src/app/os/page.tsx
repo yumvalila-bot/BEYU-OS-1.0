@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiDecisions,
   capitalRequests,
   complianceAssessments,
+  complianceObligations,
   employees,
+  governanceBodies,
   legalEntities,
   resolutions,
   risks,
@@ -13,12 +15,14 @@ import {
   strategicObjectives,
   tasks,
   treasuryPositions,
+  waterfallConfigs,
   waterfallRunLines,
   waterfallRuns,
 } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { NoeliaAvatar } from "@/components/noelia-avatar";
 import { CapabilityMap } from "./capability-map";
@@ -69,6 +73,84 @@ export default async function ControlCentre() {
   const gated = <T,>(allowed: boolean, query: Promise<T>, fallback: T): Promise<T> =>
     allowed ? query : Promise.resolve(fallback);
 
+  const entityScoped = principal.entityScope.length > 0;
+  const allowedClassifications = classificationsAtOrBelow(principal.clearance);
+  // Several aggregate rows inherit classification from their legal entity.
+  // Resolve that finite authorization set before loading any dashboard payload.
+  const visibleEntityIds = await db
+    .select({ id: legalEntities.id })
+    .from(legalEntities)
+    .where(
+      and(
+        inArray(legalEntities.tenantId, scope),
+        inArray(legalEntities.classification, allowedClassifications),
+        ...(entityScoped
+          ? [inArray(legalEntities.id, principal.entityScope)]
+          : []),
+      ),
+    )
+    .then((rows) => rows.map((row) => row.id));
+  const treasuryPredicate = and(
+    inArray(treasuryPositions.tenantId, scope),
+    inArray(treasuryPositions.legalEntityId, visibleEntityIds),
+    inArray(treasuryPositions.classification, allowedClassifications),
+  );
+  const capitalPredicate = and(
+    inArray(capitalRequests.tenantId, scope),
+    inArray(capitalRequests.legalEntityId, visibleEntityIds),
+  );
+  const riskPredicate = and(
+    inArray(risks.tenantId, scope),
+    inArray(risks.legalEntityId, visibleEntityIds),
+    inArray(risks.classification, allowedClassifications),
+  );
+  const employeePredicate = and(
+    inArray(employees.tenantId, scope),
+    inArray(employees.legalEntityId, visibleEntityIds),
+    inArray(employees.classification, allowedClassifications),
+  );
+  const complianceObligationIds = caps.compliance
+    ? await db
+        .select({ id: complianceObligations.id })
+        .from(complianceObligations)
+        .where(
+          and(
+            inArray(complianceObligations.tenantId, scope),
+            inArray(complianceObligations.legalEntityId, visibleEntityIds),
+          ),
+        )
+        .then((rows) => rows.map((row) => row.id))
+    : [];
+  const governanceBodyIds = caps.governance
+    ? await db
+        .select({ id: governanceBodies.id })
+        .from(governanceBodies)
+        .where(
+          and(
+            inArray(governanceBodies.tenantId, scope),
+            entityScoped
+              ? inArray(governanceBodies.legalEntityId, visibleEntityIds)
+              : or(
+                  isNull(governanceBodies.legalEntityId),
+                  inArray(governanceBodies.legalEntityId, visibleEntityIds),
+                ),
+          ),
+        )
+        .then((rows) => rows.map((row) => row.id))
+    : [];
+  const waterfallConfigIds = caps.waterfall
+    ? await db
+        .select({ id: waterfallConfigs.id })
+        .from(waterfallConfigs)
+        .where(
+          and(
+            inArray(waterfallConfigs.tenantId, scope),
+            inArray(waterfallConfigs.legalEntityId, visibleEntityIds),
+          ),
+        )
+        .then((rows) => rows.map((row) => row.id))
+    : [];
+
   const [[liquidity], pipeline, riskRows, complianceRows, [headcount], sectorRows, objectives, pendingResolutions, openTasks, [aiPending], lastRun] =
     await Promise.all([
       gated(
@@ -76,7 +158,7 @@ export default async function ControlCentre() {
         db
           .select({ total: sql<string>`coalesce(sum(${treasuryPositions.baseCurrencyBalance}),0)`, n: sql<number>`count(*)` })
           .from(treasuryPositions)
-          .where(inArray(treasuryPositions.tenantId, scope)),
+          .where(treasuryPredicate),
         [{ total: "0", n: 0 }],
       ),
       gated(
@@ -84,17 +166,25 @@ export default async function ControlCentre() {
         db
           .select({ status: capitalRequests.status, total: sql<string>`coalesce(sum(${capitalRequests.amount}),0)`, n: sql<number>`count(*)` })
           .from(capitalRequests)
-          .where(inArray(capitalRequests.tenantId, scope))
+          .where(capitalPredicate)
           .groupBy(capitalRequests.status),
         [],
       ),
-      gated(caps.risk, db.select().from(risks).where(inArray(risks.tenantId, scope)), []),
+      gated(caps.risk, db.select().from(risks).where(riskPredicate), []),
       gated(
         caps.compliance,
         db
           .select({ state: complianceAssessments.state, n: sql<number>`count(*)` })
           .from(complianceAssessments)
-          .where(inArray(complianceAssessments.tenantId, scope))
+          .where(
+            and(
+              inArray(complianceAssessments.tenantId, scope),
+              inArray(
+                complianceAssessments.obligationId,
+                complianceObligationIds,
+              ),
+            ),
+          )
           .groupBy(complianceAssessments.state),
         [],
       ),
@@ -103,27 +193,42 @@ export default async function ControlCentre() {
         db
           .select({ n: sql<number>`count(*)`, active: sql<number>`count(*) filter (where ${employees.status} = 'ACTIVE')` })
           .from(employees)
-          .where(inArray(employees.tenantId, scope)),
+          .where(employeePredicate),
         [{ n: 0, active: 0 }],
       ),
       gated(
-        caps.dashboard,
+        caps.dashboard && !entityScoped,
         db.select().from(sectorMetrics).where(and(inArray(sectorMetrics.tenantId, scope), eq(sectorMetrics.metricCode, "REVENUE_YTD_USD"))),
         [],
       ),
-      gated(caps.dashboard, db.select().from(strategicObjectives).where(inArray(strategicObjectives.tenantId, scope)), []),
       gated(
-        caps.governance,
-        db.select().from(resolutions).where(inArray(resolutions.tenantId, scope)).orderBy(desc(resolutions.createdAt)).limit(5),
+        caps.dashboard && !entityScoped,
+        db.select().from(strategicObjectives).where(inArray(strategicObjectives.tenantId, scope)),
         [],
       ),
       gated(
-        caps.dashboard,
+        caps.governance,
+        db
+          .select()
+          .from(resolutions)
+          .where(
+            and(
+              inArray(resolutions.tenantId, scope),
+              inArray(resolutions.bodyId, governanceBodyIds),
+              inArray(resolutions.classification, allowedClassifications),
+            ),
+          )
+          .orderBy(desc(resolutions.createdAt))
+          .limit(5),
+        [],
+      ),
+      gated(
+        caps.dashboard && !entityScoped,
         db.select().from(tasks).where(and(inArray(tasks.tenantId, scope), sql`${tasks.status} <> 'DONE'`)).orderBy(tasks.dueAt).limit(6),
         [],
       ),
       gated(
-        caps.aiReview,
+        caps.aiReview && !entityScoped,
         db
           .select({ n: sql<number>`count(*)` })
           .from(aiDecisions)
@@ -132,7 +237,17 @@ export default async function ControlCentre() {
       ),
       gated(
         caps.waterfall,
-        db.select().from(waterfallRuns).where(inArray(waterfallRuns.tenantId, scope)).orderBy(desc(waterfallRuns.executedAt)).limit(1),
+        db
+          .select()
+          .from(waterfallRuns)
+          .where(
+            and(
+              inArray(waterfallRuns.tenantId, scope),
+              inArray(waterfallRuns.configId, waterfallConfigIds),
+            ),
+          )
+          .orderBy(desc(waterfallRuns.executedAt))
+          .limit(1),
         [],
       ),
     ]);
@@ -145,7 +260,18 @@ export default async function ControlCentre() {
     ? await db
         .select({ n: sql<number>`count(*)` })
         .from(legalEntities)
-        .where(inArray(legalEntities.tenantId, scope))
+        .where(
+          entityScoped
+            ? and(
+                inArray(legalEntities.tenantId, scope),
+                inArray(legalEntities.id, principal.entityScope),
+                inArray(legalEntities.classification, allowedClassifications),
+              )
+            : and(
+                inArray(legalEntities.tenantId, scope),
+                inArray(legalEntities.classification, allowedClassifications),
+              ),
+        )
         .then((r) => Number(r[0]?.n ?? 0))
     : 0;
 
@@ -160,6 +286,10 @@ export default async function ControlCentre() {
 
   /** Shown in place of a figure the principal's grants do not cover. */
   const restricted = (capability: string) => ({ value: "Restricted", sub: `${capability} not granted` });
+  const unkeyedInEntityScope = {
+    value: "Restricted",
+    sub: "source rows have no legal-entity key; tenant-wide read refused",
+  };
 
   return (
     <div className="space-y-6">
@@ -182,9 +312,11 @@ export default async function ControlCentre() {
         />
         <Metric
           label="Sector revenue YTD · Sector OSs"
-          {...(caps.dashboard
-            ? { value: money(revenue, "USD"), sub: `${sectorRows.length} sectors reporting` }
-            : restricted("platform:dashboard.read"))}
+          {...(!caps.dashboard
+            ? restricted("platform:dashboard.read")
+            : entityScoped
+              ? unkeyedInEntityScope
+              : { value: money(revenue, "USD"), sub: `${sectorRows.length} sectors reporting` })}
         />
         <Metric
           label="Risks above appetite · Risk engine"
@@ -229,9 +361,11 @@ export default async function ControlCentre() {
               AI awaiting human review · HIVE
             </span>
           }
-          {...(caps.aiReview
-            ? { value: String(aiPending?.n ?? 0), sub: "Noelia never self-approves" }
-            : restricted("ai:decision.review"))}
+          {...(!caps.aiReview
+            ? restricted("ai:decision.review")
+            : entityScoped
+              ? unkeyedInEntityScope
+              : { value: String(aiPending?.n ?? 0), sub: "Noelia never self-approves" })}
         />
       </div>
 
@@ -313,7 +447,7 @@ export default async function ControlCentre() {
                 </div>
               );
             })}
-            {objectives.length === 0 && <EmptyState message="No strategic objectives registered." />}
+            {objectives.length === 0 && <EmptyState message={entityScoped ? "Strategic-objective rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide register." : "No strategic objectives are registered in scope."} />}
           </div>
         </Panel>
         )}
@@ -372,7 +506,7 @@ export default async function ControlCentre() {
                 </div>
               </div>
             ))}
-            {openTasks.length === 0 && <EmptyState message="No open tasks." />}
+            {openTasks.length === 0 && <EmptyState message={entityScoped ? "Task rows have no legal-entity key, so this entity-scoped grant cannot read the tenant-wide queue." : "No open tasks are visible in scope."} />}
           </div>
         </Panel>
         )}
@@ -388,7 +522,7 @@ export default async function ControlCentre() {
               <div className="mt-0.5 text-[11px] beyu-muted">source: {sm.sourceSystem} · period {sm.period}</div>
             </div>
           ))}
-          {sectorRows.length === 0 && <EmptyState message="No sector metrics ingested." />}
+          {sectorRows.length === 0 && <EmptyState message={entityScoped ? "Sector snapshot rows have no legal-entity key, so this entity-scoped grant cannot read tenant-wide metrics." : "No sector metrics are ingested in scope."} />}
         </div>
       </Panel>
       )}

@@ -1,8 +1,9 @@
-import { desc, inArray, or, isNull } from "drizzle-orm";
+import { and, desc, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { enterpriseEvents } from "@/db/schema";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds, hasGlobalGovernanceScope } from "@/lib/tenant-scope";
+import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +21,29 @@ export default async function EventsPage() {
   const access = await requireAccess("audit:event.read");
   if (!access.allowed) return <Denied reason={access.reason} capability="audit:event.read" />;
   return withTenantDatabaseContext(access.principal, async () => {
-
     const scope = await tenantScopeIds(access.principal);
     const global = hasGlobalGovernanceScope(access.principal);
-    const scopeFilter = global
-      ? or(inArray(enterpriseEvents.tenantId, scope), isNull(enterpriseEvents.tenantId))
+    const tenantFilter = global
+      ? or(
+          inArray(enterpriseEvents.tenantId, scope),
+          isNull(enterpriseEvents.tenantId),
+        )
       : inArray(enterpriseEvents.tenantId, scope);
+    const allowedClassifications = classificationsAtOrBelow(access.principal.clearance);
+    const scopeFilter =
+      access.principal.entityScope.length > 0
+        ? and(
+            tenantFilter,
+            inArray(
+              enterpriseEvents.legalEntityId,
+              access.principal.entityScope,
+            ),
+            inArray(enterpriseEvents.classification, allowedClassifications),
+          )
+        : and(
+            tenantFilter,
+            inArray(enterpriseEvents.classification, allowedClassifications),
+          );
 
     const events = await db
       .select()

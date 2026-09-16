@@ -10,7 +10,7 @@ import { db } from "@/db";
 import * as s from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { verifyComplianceCheck, AgriDomainError } from "@/lib/agriculture";
-import { agriActor } from "@/lib/agriculture/http";
+import { visibleAgricultureItems, agriActor } from "@/lib/agriculture/http";
 
 const VerifySchema = z.object({
   checkId: z.string().min(1),
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       const conditions = [eq(s.exportComplianceChecks.tenantId, ctx.principal.tenantId)];
       if (exportOrderId) conditions.push(eq(s.exportComplianceChecks.exportOrderId, exportOrderId));
       const rows = await db.select().from(s.exportComplianceChecks).where(and(...conditions));
-      return NextResponse.json({ items: rows });
+      return NextResponse.json({ items: visibleAgricultureItems(rows, ctx.principal.clearance) });
     },
   );
 }

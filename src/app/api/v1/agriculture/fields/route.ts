@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded } from "@/lib/api";
 import { createField, listFields } from "@/lib/agriculture";
-import { agriActor, agriErrorResponse } from "@/lib/agriculture/http";
+import { agriActor, agriErrorResponse, visibleAgricultureItems } from "@/lib/agriculture/http";
 
 const CreateFieldSchema = z.object({
   farmId: z.string().min(1),
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     },
     async (ctx) => {
       const farmId = request.nextUrl.searchParams.get("farmId") ?? undefined;
-      return NextResponse.json({ fields: await listFields(ctx.principal.tenantId, farmId) });
+      return NextResponse.json({ fields: visibleAgricultureItems(await listFields(ctx.principal.tenantId, farmId), ctx.principal.clearance) });
     },
   );
 }
