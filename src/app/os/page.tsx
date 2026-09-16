@@ -21,6 +21,7 @@ import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { NoeliaAvatar } from "@/components/noelia-avatar";
+import { CapabilityMap } from "./capability-map";
 
 export const dynamic = "force-dynamic";
 
@@ -391,6 +392,15 @@ export default async function ControlCentre() {
         </div>
       </Panel>
       )}
+
+      {/*
+        Discovery surface: the canonical capability map. Rendered LAST because
+        it is navigation, not data — the governed figures above remain primary.
+        It runs the SAME visibility computation as the sidebar (identical
+        `can()` permissions, identical Health federation check), so what the
+        sidebar hides cannot reappear here.
+      */}
+      <CapabilityMap principal={principal} />
     </div>
   );  });
 }

@@ -45,6 +45,9 @@ describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () =>
       "/os/assurance", "/os/hcm", "/os/capital", "/os/waterfall", "/os/tax",
       "/os/family", "/os/foundation", "/os/noelia", "/os/documents", "/os/audit",
       "/os/agriculture",
+      // Newly surfaced capability destinations (feature discovery integration).
+      "/os/identity", "/os/security", "/os/notifications", "/os/events",
+      "/os/workflow", "/os/risk", "/os/compliance", "/os/legal", "/os/finance",
     ];
     for (const r of routes) {
       await REDIRECT_TO_SIGNIN(r);
@@ -87,6 +90,70 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(ok.html).toMatch(/Noelia|HIVE/i);
     const denied = await apiGet("/os/noelia", auditor);
     expect(isDeniedPage(denied.html)).toBe(true);
+  });
+
+  // Newly surfaced capability destinations (feature discovery integration):
+  // each must re-verify its OWN canonical capability server-side and show the
+  // governed denial with the capability code when the grant is absent.
+  it.skipIf(!available)("Identity page: CEO renders identity records; HCM director is denied with identity:user.read", async () => {
+    const ok = await apiGet("/os/identity", ceo);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/Identity|GlobalUserID/i);
+    expect(isDeniedPage(ok.html)).toBe(false);
+    const denied = await apiGet("/os/identity", hcm);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/identity:user\.read/);
+  });
+
+  it.skipIf(!available)("Security page: CEO renders posture; auditor (no identity:user.read) is denied", async () => {
+    const ok = await apiGet("/os/security", ceo);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/Security|Session risk|service-principal/i);
+    const denied = await apiGet("/os/security", auditor);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/identity:user\.read/);
+  });
+
+  it.skipIf(!available)("Events page: CEO renders the enterprise stream; HCM director is denied with audit:event.read", async () => {
+    const ok = await apiGet("/os/events", ceo);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/enterprise event|CloudEvents|event stream/i);
+    const denied = await apiGet("/os/events", hcm);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/audit:event\.read/);
+  });
+
+  it.skipIf(!available)("Compliance page: auditor renders; HCM director is denied with compliance:obligation.read", async () => {
+    const ok = await apiGet("/os/compliance", auditor);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/Compliance|obligation/i);
+    const denied = await apiGet("/os/compliance", hcm);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/compliance:obligation\.read/);
+  });
+
+  it.skipIf(!available)("Workflow page: per-section capability gating without page-level bypass", async () => {
+    // CEO (dashboard + HIVE) sees both planes; HCM director (dashboard only)
+    // sees enterprise workflows while the HIVE section reports its grant
+    // boundary — never the workflow data itself.
+    const full = await apiGet("/os/workflow", ceo);
+    expect(full.status).toBe(200);
+    expect(full.html).toMatch(/Workflow|governed execution/i);
+    expect(full.html).toMatch(/HIVE/i);
+    const partial = await apiGet("/os/workflow", hcm);
+    expect(partial.status).toBe(200);
+    expect(isDeniedPage(partial.html)).toBe(false);
+    expect(partial.html).toMatch(/Approvals, tasks|Workflow/i);
+    expect(partial.html).toMatch(/ai:workflow\.run or ai:workflow\.approve/);
+  });
+
+  it.skipIf(!available)("Notifications page: any authenticated principal reads their own tenant stream", async () => {
+    for (const cookie of [ceo, hcm, auditor]) {
+      const res = await apiGet("/os/notifications", cookie);
+      expect(res.status).toBe(200);
+      expect(isDeniedPage(res.html)).toBe(false);
+      expect(res.html).toMatch(/Notification|alert/i);
+    }
   });
 });
 

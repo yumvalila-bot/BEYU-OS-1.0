@@ -5,79 +5,44 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { can, type Principal } from "@/lib/authz";
-import type { PermissionCode } from "@/lib/constants";
+import { type Principal } from "@/lib/authz";
+import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { Badge } from "@/components/brand";
 import { BeyuLogo } from "@/components/beyu-logo";
+import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Navigation catalogue.
+ * Navigation is DERIVED from the canonical capability catalogue
+ * (app/os/capabilities.ts) — the same definition the Executive Control Centre
+ * capability map renders from, so the two discovery surfaces can never drift.
  *
- * `permission` is the SAME capability the target page passes to
- * `requireAccess()`, and visibility is computed with the SAME `can()` primitive
- * the guard uses. Navigation is therefore derived from server authority, never
- * from a client-side copy of the policy — and it grants nothing: hiding a link
- * is a presentation decision, while the page guard and the API remain the only
- * authority. A principal who types a hidden URL still gets the real governed
- * decision (200 or the recorded "Authorisation denied" page), exactly as before.
+ * Each item's `visibility` names the SAME capability the target page passes
+ * to `requireAccess()`, and visibility is computed with the SAME `can()`
+ * primitive the guard uses. Navigation is therefore derived from server
+ * authority, never from a client-side copy of the policy — and it grants
+ * nothing: hiding a link is a presentation decision, while the page guard and
+ * the API remain the only authority. A principal who types a hidden URL still
+ * gets the real governed decision (200 or the recorded "Authorisation denied"
+ * page), exactly as before.
+ *
+ * Health OS is a FEDERATED sector OS: its gate is not a BEYU permission but
+ * the canonical identity link (`checkHealthOSAuthorization`), resolved
+ * asynchronously here exactly as the /launcher page already does. The link is
+ * hidden when no identity link exists; /health itself re-verifies server-side.
  */
-const NAV: { group: string; items: { href: string; label: string; permission?: PermissionCode }[] }[] = [
-  {
-    group: "Control plane",
-    items: [
-      { href: "/os", label: "Executive Control Centre" },
-      { href: "/os/constitution", label: "Constitution & Policy", permission: "governance:policy.read" },
-      { href: "/os/registry", label: "OS & Source-of-Truth Registry", permission: "platform:registry.read" },
-    ],
-  },
-  {
-    group: "Enterprise",
-    items: [
-      { href: "/os/organization", label: "Organisation & Ownership", permission: "organization:entity.read" },
-      { href: "/os/governance", label: "Governance Engine", permission: "governance:resolution.read" },
-      { href: "/os/assurance", label: "Risk · Compliance · Legal", permission: "risk:register.read" },
-      { href: "/os/hcm", label: "HCM (workforce truth)", permission: "hcm:employee.read" },
-      { href: "/os/agriculture", label: "Agriculture OS", permission: "agriculture:data.read" },
-    ],
-  },
-  {
-    group: "Finance OS",
-    items: [
-      { href: "/os/finance", label: "General Ledger & CoA", permission: "finance:ledger.read" },
-      { href: "/os/capital", label: "Capital & Treasury", permission: "finance:capital.read" },
-      { href: "/os/waterfall", label: "Waterfall Engine", permission: "finance:waterfall.read" },
-      { href: "/os/tax", label: "Tax Strategy Intelligence", permission: "finance:tax.read" },
-    ],
-  },
-  {
-    group: "Family & Foundation",
-    items: [
-      { href: "/os/family", label: "Family Office", permission: "family:member.read" },
-      { href: "/os/family/capital", label: "Family Capital & Wealth", permission: "familyoffice:capital.read" },
-      { href: "/os/family/protection", label: "Family Protection & Insurance", permission: "familyoffice:protection.read" },
-      { href: "/os/foundation", label: "Foundation OS", permission: "foundation:registry.read" },
-    ],
-  },
-  {
-    group: "Platform",
-    items: [
-      { href: "/os/noelia", label: "Noelia AI · HIVE", permission: "ai:noelia.query" },
-      { href: "/os/documents", label: "Documents & Knowledge", permission: "documents:registry.read" },
-      { href: "/os/audit", label: "Audit, Events & Assurance", permission: "audit:log.read" },
-    ],
-  },
-];
-
-/** Presentation-only filter: derived from `can()`, grants no authority. */
-function visibleNav(principal: Principal) {
-  return NAV.map((section) => ({
-    ...section,
-    items: section.items.filter(
-      (item) => !item.permission || can(principal, item.permission).allowed,
+async function visibleNav(
+  principal: Principal,
+): Promise<{ group: string; items: CapabilityItem[] }[]> {
+  // Resolve the federated Health OS identity link once per render.
+  const health = await checkHealthOSAuthorization(principal.userId);
+  return CAPABILITY_IA.map((section) => ({
+    group: section.title,
+    items: section.items.filter((item) =>
+      item.visibility.kind === "health-federation" ? health.authorized : visible(principal, item),
     ),
   })).filter((section) => section.items.length > 0);
 }
@@ -91,7 +56,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
     .where(eq(notifications.tenantId, principal.tenantId))
     .orderBy(desc(notifications.createdAt))
     .limit(5);
-  const nav = visibleNav(principal);
+  const nav = await visibleNav(principal);
 
   return (
     <div className="min-h-screen lg:flex">
@@ -115,7 +80,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
               <div className="beyu-kicker px-3 pb-2 text-white/35">{section.group}</div>
               <div className="space-y-0.5">
                 {section.items.map((item) => (
-                  <NavLink key={item.href} href={item.href} label={item.label} />
+                  <NavLink key={`${item.href}:${item.label}`} href={item.href} label={item.label} icon={item.icon} />
                 ))}
               </div>
             </div>
@@ -182,8 +147,8 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
             aria-label="Modules"
             className="beyu-scroll flex gap-2 overflow-x-auto border-b border-[color:var(--beyu-line)] bg-[color:var(--beyu-card)] px-4 py-2"
           >
-            {nav.flatMap((s) => s.items).map((item) => (
-              <NavLink key={item.href} href={item.href} label={item.label} variant="chip" />
+            {[...new Map(nav.flatMap((s) => s.items).map((item) => [item.href, item])).values()].map((item) => (
+              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} variant="chip" />
             ))}
           </nav>
         </div>

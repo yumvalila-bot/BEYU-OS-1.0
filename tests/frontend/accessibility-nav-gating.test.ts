@@ -58,6 +58,19 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os/noelia", label: "Noelia AI · HIVE" },
   { href: "/os/documents", label: "Documents & Knowledge" },
   { href: "/os/audit", label: "Audit, Events & Assurance" },
+  // Capabilities newly surfaced as first-class destinations (feature
+  // discovery integration). Each is guarded by the SAME capability its nav
+  // catalogue entry requires, so the honesty invariant below automatically
+  // covers them.
+  { href: "/os/identity", label: "Identity" },
+  { href: "/os/security", label: "Security" },
+  { href: "/os/notifications", label: "Notifications" },
+  { href: "/os/events", label: "Events" },
+  { href: "/os/workflow", label: "Workflow" },
+  { href: "/os/risk", label: "Risk" },
+  { href: "/os/compliance", label: "Compliance" },
+  { href: "/os/legal", label: "Legal & Liability" },
+  { href: "/os/finance", label: "Finance OS" },
 ];
 
 let ceo = "";
