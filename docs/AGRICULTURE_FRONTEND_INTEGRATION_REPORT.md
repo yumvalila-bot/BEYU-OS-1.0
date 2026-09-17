@@ -116,6 +116,12 @@ No source, permission, seed, migration, data, deployment or secret file changed.
 - Export/Noelia tests verify canonical read-only Agriculture export tools; Noelia/HIVE cannot release holds or post Finance truth.
 - No second ledger, Noelia identity or HIVE runtime was added.
 
+## Git and pull request
+
+- Audit/report commit: `46923ac docs(frontend): audit Ujenzi and Agriculture integration`.
+- Pull request: [#68 — docs(frontend): audit Ujenzi and Agriculture sector integration](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/68), base `main`, head `arena/01a0adfa-beyu-os-1-0`.
+- PR is explicitly marked **DO NOT MERGE** because the complete merge gate is not green.
+
 ## Vercel / production verification
 
 No deployment was triggered. Public retrieval against `https://beyu-os-1-0.vercel.app/` on 2026-09-17 established:

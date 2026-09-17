@@ -60,6 +60,12 @@ Current canonical application verification performed after the audit documentati
 
 No Ujenzi capability was exposed, so this change cannot introduce a Ujenzi URL authorization bypass. No RBAC, ABAC, MFA, classification, RLS, audit, policy, Noelia/HIVE or CAP_POSTING code changed. The merge gate is nevertheless **not satisfied** because Ujenzi-specific implementation/security/RLS tests do not exist at canonical HEAD and the dependency audit has a high finding.
 
+## Git and pull request
+
+- Audit/report commit: `46923ac docs(frontend): audit Ujenzi and Agriculture integration`.
+- Pull request: [#68 — docs(frontend): audit Ujenzi and Agriculture sector integration](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/68), base `main`, head `arena/01a0adfa-beyu-os-1-0`.
+- PR is explicitly marked **DO NOT MERGE** because the Ujenzi and dependency-security gates are not green.
+
 ## Deployment and production verification
 
 No deployment was triggered. Public unauthenticated retrieval on 2026-09-17 showed the BEYU sign-in page at `/` and 404 for Ujenzi page/API routes. No authenticated Ujenzi production principal or database evidence was available; authenticated production behavior is unverified.
