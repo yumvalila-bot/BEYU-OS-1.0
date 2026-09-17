@@ -801,6 +801,33 @@ export function createDefaultNoeliaToolRegistry(
     execute: (context) => services.agriculture(context),
   });
 
+  /* ---------------- Ujenzi OS observation ---------------- */
+
+  registry.register({
+    name: "ujenzi.operations.observe",
+    permission: "ujenzi:data.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Observe Ujenzi OS construction operational counts. Never posts journals, certifies payments or approves changes.",
+    metadata: {
+      stableId: "cap-ujenzi-operations-observe",
+      version: "1.0.0",
+      ownerRole: "SECTOR_OPERATOR",
+      domain: "UJENZI",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: NOELIA_TOOL_ENVELOPE,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context) => services.ujenzi(context),
+  });
+
   /* ---------------- Knowledge / RAG / memory ---------------- */
 
   registry.register({
@@ -1238,6 +1265,7 @@ export function createDefaultNoeliaToolRegistry(
         HCM: "hcm.workforce.observe",
         HEALTH: "health.runtime.status",
         AGRICULTURE: "agriculture.operations.observe",
+        UJENZI: "ujenzi.operations.observe",
         RISK: "risk.register.query",
         COMPLIANCE: "compliance.obligation.query",
         GOVERNANCE: "governance.resolution.query",

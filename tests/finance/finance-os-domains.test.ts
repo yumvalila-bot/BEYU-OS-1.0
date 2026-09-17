@@ -317,9 +317,11 @@ describe("intercompany ownership", () => {
     expect(o.owningTenantId).toBeNull();
   });
 
-  it("all 8 entities have a recorded owner", async () => {
+  it("all 9 entities have a recorded owner", async () => {
+    // 8 = main baseline; +1 = LEN_BEYU_UJZ (BEYU Construction Ltd, owned by the
+    // BEYU-UJENZI sector tenant) added by the Ujenzi OS seed expansion.
     const rows = await scanEntityOwnershipConsistency();
-    expect(rows.length).toBe(8);
+    expect(rows.length).toBe(9);
     expect(rows.every((r) => r.consistent)).toBe(true);
   });
 });
@@ -441,7 +443,9 @@ describe("consolidation scope", () => {
   it("includes only entities the tenant owns", async () => {
     const s = await determineConsolidationScope("TEN_BEYU_GROUP");
     expect(s.includedEntities).toEqual(["LEN_BEYU_FAMILY_TRUST", "LEN_BEYU_HOLDINGS"]);
-    expect(s.excludedEntities.length).toBe(6);
+    // 6 = main baseline; +1 = LEN_BEYU_UJZ (owned by TEN_BEYU_UJENZI, not the group
+    // tenant, so correctly excluded from group consolidation scope).
+    expect(s.excludedEntities.length).toBe(7);
   });
 
   it("is REQUIRES_AUTHORITY, never a usable consolidation", async () => {
@@ -640,8 +644,10 @@ describe("no financial mutation", () => {
 
   it("the substrate is unchanged after every operation above", async () => {
     expect(await count(sql`select count(*)::int as n from journal_entries`)).toBe(0);
-    expect(await count(sql`select count(*)::int as n from legal_entities`)).toBe(8);
-    expect(await count(sql`select count(*)::int as n from tenants`)).toBe(6);
+    // 8/6 = main baseline; +1 each = the Ujenzi OS seed expansion (BEYU-UJENZI sector
+    // tenant + LEN_BEYU_UJZ operating company). No journal entries are ever created here.
+    expect(await count(sql`select count(*)::int as n from legal_entities`)).toBe(9);
+    expect(await count(sql`select count(*)::int as n from tenants`)).toBe(7);
     expect(await count(sql`select count(*)::int as n from governance_capability_registry where activation_status <> 'LOCKED'`)).toBe(0);
   });
 

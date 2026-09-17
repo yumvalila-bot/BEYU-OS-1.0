@@ -284,6 +284,13 @@ export const PERMISSIONS = {
   // by explicit grant (A-06-1); they never inherit via Object.keys(PERMISSIONS).
   "agriculture:data.read": "Read Agriculture OS operational records (farms, fields, crop cycles, harvests, livestock, land, aqua, inventory, work, observations, traceability)",
   "agriculture:data.manage": "Create or amend Agriculture OS operational records",
+  // Ujenzi OS — construction sector operational records. SECTOR_OPERATOR is the
+  // registry owner (read + manage); named enterprise roles receive read only by
+  // explicit grant, mirroring the Agriculture grant model (A-06-1). Ujenzi
+  // never owns identity, HCM, journals, documents, approvals or AI: those stay
+  // canonical in BEYU shared capabilities.
+  "ujenzi:data.read": "Read Ujenzi OS operational records (projects, sites, phases, milestones, BOQ, cost records, procurement, materials, equipment, site diaries, quality, HSE, variations, claims, payment certificates, handover)",
+  "ujenzi:data.manage": "Create or amend Ujenzi OS operational records",
   // Foundation OS — ONE institutional OS; these are domain capabilities inside
   // it, not sub-OS products. Approval permissions are HIGH_RISK (MFA step-up).
   "foundation:registry.read": "Read the Foundation Registry",
@@ -366,6 +373,9 @@ export type PermissionCode = keyof typeof PERMISSIONS;
 
 /** Canonical Agriculture OS tenant code (seed `T.agri`). Agriculture writes require this tenant. */
 export const AGRICULTURE_OS_TENANT_CODE = "BEYU-AGRI";
+
+/** Canonical Ujenzi OS tenant code (seed `T.ujenzi`). Construction writes require this tenant. */
+export const UJENZI_OS_TENANT_CODE = "BEYU-UJENZI";
 
 export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:emergency.activate",
@@ -540,6 +550,7 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Founder equity visibility + leaver initiation (X10THINK Phase 2). The
       // CEO may see capitalization and initiate leaver treatment; classifying
       // and approving a leaver case still requires legal review and a
@@ -619,6 +630,7 @@ export const ROLES: Record<
       "ai:workflow.run",
       "ai:model.registry.read",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Contracting capability for financing/commercial agreements plus the governed
       // smart-contract registry and evidence anchors. No money movement: CAP_POSTING and
       // the Finance posting engine remain the only Finance write path (fail-closed).
@@ -743,6 +755,7 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Risk & compliance review of the contracting register and of governed oracle and
       // evidence inputs (read side). Compliance findings can block execution through the
       // authority engine; they can never authorise a payment or an ownership change.
@@ -1133,7 +1146,9 @@ export const ROLES: Record<
       "government:integration.read",
       "government:submission.manage",
       "agriculture:data.read",
+      "ujenzi:data.read",
       "agriculture:data.manage",
+      "ujenzi:data.manage",
       "foundation:program.read",
       "foundation:compliance.read",
       "foundation:impact.read",
@@ -1305,6 +1320,7 @@ export const ROLES: Record<
       "ai:evaluation.read",
       "ai:risk.register.read",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Read-only capitalization oversight (X10THINK Phase 2). AUDITOR clearance
       // is RESTRICTED, matching the equity tables' default classification; no
       // manage verb and no trust access (HIGHLY_RESTRICTED) is granted.

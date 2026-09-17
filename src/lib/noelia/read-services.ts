@@ -368,6 +368,35 @@ export class BeyuNoeliaReadService {
     };
   }
 
+  async ujenzi(context: ToolInvocationContext): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const { ujenziDashboard } = await import("@/lib/ujenzi");
+    const dash = await ujenziDashboard(context.target.tenantId);
+    return {
+      headline: `Ujenzi OS observation: ${dash.projects} project(s), ${dash.activeProjects} active, ${dash.openNcrs} open NCR(s), ${dash.pendingVariations} pending variation(s). Operational truth only.`,
+      findings: [
+        { label: "Projects", value: String(dash.projects), kind: "FACT", status: "OBSERVED" },
+        { label: "Active projects", value: String(dash.activeProjects), kind: "FACT", status: "OBSERVED" },
+        { label: "Open NCRs", value: String(dash.openNcrs), kind: "FACT", status: dash.openNcrs > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
+        { label: "Open claims", value: String(dash.openClaims), kind: "FACT", status: "OBSERVED" },
+        { label: "Pending variations", value: String(dash.pendingVariations), kind: "FACT", status: dash.pendingVariations > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
+        { label: "Safety incidents", value: String(dash.incidents), kind: "FACT", status: dash.incidents > 0 ? "REQUIRES_HUMAN_REVIEW" : "OBSERVED" },
+        { label: "Open punch items", value: String(dash.openPunchItems), kind: "FACT", status: "OBSERVED" },
+        {
+          label: "Finance boundary",
+          value: "FINANCE_OS_ONLY — payment certificates emit PAYMENT_CERTIFIED and never post journals; CAP_POSTING LOCKED",
+          kind: "INFERENCE",
+          status: "OBSERVED",
+        },
+      ],
+      narrative:
+        "Ujenzi OS is operational truth for construction projects, BOQ, cost control, procurement, materials, equipment, site operations, quality, HSE, variations, claims, payment certificates and handover. Journals, treasury and capital execution remain Finance OS. Noelia cannot post, approve, certify on its own authority, alter contracts or bypass policy/RLS.",
+      confidence: 0.86,
+      humanReviewRequired: dash.openNcrs > 0 || dash.incidents > 0 || dash.pendingVariations > 0,
+      metadata: { ...dash },
+    };
+  }
+
   async knowledge(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
     requireCanonicalContext();
     const question = typeof input === "object" && input && "question" in input

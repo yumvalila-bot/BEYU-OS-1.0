@@ -9,7 +9,7 @@ import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 
 export type OperatingSystemDestination = {
-  code: "BEYU" | "FINANCE" | "HEALTH" | "AGRICULTURE" | "FOUNDATION";
+  code: "BEYU" | "FINANCE" | "HEALTH" | "AGRICULTURE" | "FOUNDATION" | "UJENZI";
   name: string;
   level: "CONTROL_PLANE" | "SECTOR_OS";
   description: string;
@@ -60,6 +60,14 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/foundation",
     icon: "foundation",
   },
+  {
+    code: "UJENZI",
+    name: "Ujenzi OS",
+    level: "SECTOR_OS",
+    description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, site operations, quality, HSE, variations, claims, payment certificates and handover.",
+    href: "/os/ujenzi",
+    icon: "ujenzi",
+  },
 ];
 
 export const FINANCE_OS_READ_PERMISSIONS: PermissionCode[] = [
@@ -91,7 +99,11 @@ export const FOUNDATION_OS_READ_PERMISSIONS: PermissionCode[] = [
   "foundation:assignment.read",
 ];
 
-export type OperatingSystemTenantCode = "BEYU-AGRI" | "BEYU-FOUNDATION";
+export const UJENZI_OS_READ_PERMISSIONS: PermissionCode[] = [
+  "ujenzi:data.read",
+];
+
+export type OperatingSystemTenantCode = "BEYU-AGRI" | "BEYU-FOUNDATION" | "BEYU-UJENZI";
 
 export type ResolvedOperatingSystemTenant = {
   id: string;
@@ -172,6 +184,10 @@ export async function authorizedOperatingSystems(
     principal,
     "BEYU-FOUNDATION",
   );
+  const ujenziInScope = await operatingSystemTenantInScope(
+    principal,
+    "BEYU-UJENZI",
+  );
   const health = await checkHealthOSAuthorization(principal.userId);
   const allowed = new Set<OperatingSystemDestination["code"]>();
 
@@ -188,6 +204,9 @@ export async function authorizedOperatingSystems(
     FOUNDATION_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)
   ) {
     allowed.add("FOUNDATION");
+  }
+  if (ujenziInScope && UJENZI_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)) {
+    allowed.add("UJENZI");
   }
 
   return [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS].filter((destination) =>
