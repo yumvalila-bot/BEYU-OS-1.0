@@ -85,7 +85,7 @@ Audited at commit `8d2e3a23cb0918709e121004cabd5f34aed5071e` (branch point from
   and the Settings administration directory gains a governed destination.
 - **Seed parity:** the seed derives `permissions` / `roles` /
   `role_permissions` rows from `constants.ts`, so the catalogue extension is
-  seeded automatically; migration 0043 also inserts the mirror rows for
+  seeded automatically; migration 0044 also inserts the mirror rows for
   existing databases so `assertPermissionCatalogParity()` stays truthful.
 
 ### 1.4 Baseline validation (before any change)
@@ -151,7 +151,7 @@ sub-delegations, structurally preventing recursive privilege amplification.
 
 ### 2.4 Delegation model
 
-New table `admin_authority_delegations` (migration 0043): delegator, delegatee,
+New table `admin_authority_delegations` (migration 0044): delegator, delegatee,
 permission list (⊆ delegable set), tenant/entity/country scope, effective
 window, status, reason, revocation fields, audit reference — with CHECK
 constraints (non-empty permission and tenant scope, delegator ≠ delegatee,
@@ -209,7 +209,7 @@ reachable by an AI actor. New tests pin this.
 ## 3. Components delivered
 
 - **Schema/migration:** `src/db/schema/admin-governance.ts`,
-  `drizzle/0043_admin_user_tenant_governance.sql` (table + checks + grants +
+  `drizzle/0044_admin_user_tenant_governance.sql` (table + checks + grants +
   catalogue mirror + verification).
 - **Authorization integration:** `src/lib/authz.ts` (`delegatedPermissions`,
   `activeDelegatedPermissions`), `src/lib/session.ts`.
@@ -239,7 +239,7 @@ pipeline order (migrate → seed → setup-db-role → build → start → test)
 | --- | --- |
 | `npx tsc --noEmit` | clean |
 | `npm run lint` | 0 errors (1 pre-existing unrelated `<img>` warning) |
-| Migration chain | 44/44 applied on a FRESH database in CI order (0043's role-permission mirror is INSERT…SELECT-guarded so a pre-seed database cannot hit the roles FK) |
+| Migration chain | 45/45 applied on a FRESH database in CI order (0044's role-permission mirror is INSERT…SELECT-guarded so a pre-seed database cannot hit the roles FK) |
 | Runtime role | non-superuser, non-bypassrls; DML on `admin_authority_delegations`; **SELECT-only on `role_assignments` (F-01 preserved and re-verified)** |
 | Unit (delegation engine) | 11/11 |
 | Service integration (real PostgreSQL) | 15/15 |
@@ -247,7 +247,7 @@ pipeline order (migrate → seed → setup-db-role → build → start → test)
 | Adversarial security matrix | 10/10 |
 | Architectural invariant pins | 13/13 |
 | Navigation pin suites (control-plane-ia, capability-completeness, brand-identity, registry-feature-flags) | all green |
-| Specialist no-second-truth suites | green after deliberate migration-count pin bump 43→44 |
+| Specialist no-second-truth suites | green after deliberate migration-count pin bump 43→44→45 (0043 ujenzi from main, 0044 this program) |
 | **Full suite (`npm test`)** | **197 files / 3758 tests passed, 0 failed, 11 skipped (CI budget ≤ 15)** |
 | Runtime page verification | all six `/os/administration/*` pages render with live data for the platform administrator; auditor/sector-operator deep links correctly render the governed denial panel; unauthenticated `/os/administration` is redirected by the layout gate; Settings shows the Administration destinations only to authorized principals; the executive dashboard's Governance panel surfaces real pending resolutions (pre-existing, capability-gated) |
 

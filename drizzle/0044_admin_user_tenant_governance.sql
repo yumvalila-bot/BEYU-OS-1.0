@@ -184,7 +184,7 @@ BEGIN
       'admin_delegations_revocation_evidence'
     );
   IF constraint_count <> 6 THEN
-    RAISE EXCEPTION 'Migration 0043 verification failed: admin_authority_delegations is missing its governed-instrument CHECK constraints (found %)', constraint_count;
+    RAISE EXCEPTION 'Migration 0044 verification failed: admin_authority_delegations is missing its governed-instrument CHECK constraints (found %)', constraint_count;
   END IF;
 
   SELECT count(*) INTO catalogue_count
@@ -195,14 +195,14 @@ BEGIN
     'organization:tenant.register', 'organization:tenant.manage', 'organization:tenant.remove'
   );
   IF catalogue_count <> 8 THEN
-    RAISE EXCEPTION 'Migration 0043 verification failed: %/8 administrative permissions present in the catalogue mirror', catalogue_count;
+    RAISE EXCEPTION 'Migration 0044 verification failed: %/8 administrative permissions present in the catalogue mirror', catalogue_count;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime')
      OR has_table_privilege('beyu_runtime', 'public.admin_authority_delegations', 'INSERT') THEN
-    RAISE NOTICE 'Migration 0043 verification passed.';
+    RAISE NOTICE 'Migration 0044 verification passed.';
   ELSE
-    RAISE EXCEPTION 'Migration 0043 verification failed: beyu_runtime lacks DML on admin_authority_delegations';
+    RAISE EXCEPTION 'Migration 0044 verification failed: beyu_runtime lacks DML on admin_authority_delegations';
   END IF;
 END
 $$;

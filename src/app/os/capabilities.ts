@@ -17,7 +17,7 @@ import {
  * The first three groups express the constitutional hierarchy directly:
  *   EXECUTIVE            — control surfaces of the one BEYU control plane;
  *   SHARED CAPABILITIES  — implemented once in BEYU OS, never separate OSs;
- *   SECTOR OS            — Finance, Health, Agriculture and Foundation below it.
+ *   SECTOR OS            — Finance, Health, Agriculture, Foundation and Ujenzi below it.
  *
  * The remaining workspace groups preserve useful, already-implemented focused
  * views without promoting those views into duplicate operating systems.
@@ -240,6 +240,13 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
           kind: "any",
           permissions: FOUNDATION_OS_READ_PERMISSIONS,
         },
+      },
+      {
+        href: "/os/ujenzi",
+        label: "Ujenzi OS",
+        description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, quality, HSE, variations, claims, payment certificates and handover under BEYU governance and Finance boundaries.",
+        icon: "ujenzi",
+        visibility: { kind: "permission", permission: "ujenzi:data.read" },
       },
     ],
   },
