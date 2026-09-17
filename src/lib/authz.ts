@@ -1,8 +1,9 @@
 import { and, eq, isNull, or, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
+import { adminAuthorityDelegations, emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
 import {
   AGRICULTURE_OS_TENANT_CODE,
+  ADMIN_DELEGATABLE_PERMISSIONS,
   UJENZI_OS_TENANT_CODE,
   classificationRank,
   isKnownClassification,
@@ -18,6 +19,16 @@ import {
  * Zero-trust authorization.
  * Every request resolves: IDENTITY → TENANT → ENTITY → ROLE → PERMISSION → DATA SCOPE.
  * RBAC (role grants) and ABAC (classification, tenant, entity, risk) must BOTH pass.
+ *
+ * A permission may be held three ways, all evaluated by the SAME `can()`:
+ *   1. ROLE-derived        — role_assignments → ROLES catalogue (the default).
+ *   2. EMERGENCY-derived   — an active break-glass grant (A-06-2: unactivatable today).
+ *   3. DELEGATION-derived  — an active administrative delegation instrument
+ *                            (governed admin program): bounded capability +
+ *                            tenant/entity/country scope + time window, loaded
+ *                            per request so revocation and expiry are immediate.
+ * Delegation NEVER bypasses the ABAC chain: classification, tenant isolation,
+ * entity scope and the high-risk MFA step-up all still apply.
  */
 
 export type Principal = {
@@ -36,6 +47,13 @@ export type Principal = {
   sessionId: string;
   riskScore: number;
   emergencyPermissions: PermissionCode[];
+  /**
+   * Permission codes held through ACTIVE administrative delegations. Optional
+   * so existing Principal constructions (tests, fixtures) remain valid; absent
+   * means "none". Never a fourth authorization path — `can()` treats it exactly
+   * like emergency grants, and every ABAC rule still applies.
+   */
+  delegatedPermissions?: PermissionCode[];
 };
 
 export type AccessDecision = {
@@ -100,6 +118,44 @@ export async function activeEmergencyPermissions(
   return rows.flatMap((r) => r.permissionCodes as PermissionCode[]);
 }
 
+/**
+ * Permission codes held through ACTIVE administrative delegation instruments:
+ * status ACTIVE (never revoked — REVOKED is terminal and outranks the window),
+ * inside the effective window, and still inside the closed delegable set. The
+ * closed-set intersection is defense in depth: even a tampered row granting a
+ * non-delegable permission contributes nothing here.
+ *
+ * Like `activeEmergencyPermissions`, this reads the non-RLS control-plane
+ * authorization tables (see src/db/schema/admin-governance.ts for why), so it
+ * can be evaluated inside resolvePrincipal() before any tenant context exists.
+ */
+export async function activeDelegatedPermissions(userId: string): Promise<PermissionCode[]> {
+  const now = new Date();
+  const rows = await db
+    .select({ permissions: adminAuthorityDelegations.permissions })
+    .from(adminAuthorityDelegations)
+    .where(
+      and(
+        eq(adminAuthorityDelegations.delegateeUserId, userId),
+        eq(adminAuthorityDelegations.status, "ACTIVE"),
+        isNull(adminAuthorityDelegations.revokedAt),
+        lte(adminAuthorityDelegations.effectiveFrom, now),
+        gte(adminAuthorityDelegations.effectiveTo, now),
+      ),
+    );
+  const held = new Set<PermissionCode>();
+  for (const row of rows) {
+    for (const code of row.permissions ?? []) {
+      // Closed-set intersection (defense in depth): even a tampered row naming a
+      // non-delegable permission contributes nothing here.
+      if ((ADMIN_DELEGATABLE_PERMISSIONS as readonly string[]).includes(code)) {
+        held.add(code as PermissionCode);
+      }
+    }
+  }
+  return [...held];
+}
+
 export function permissionsForRoles(roleCodes: string[]): Set<PermissionCode> {
   const set = new Set<PermissionCode>();
   for (const code of roleCodes) {
@@ -124,8 +180,11 @@ export function can(
   context?: { classification?: Classification; tenantId?: string; entityId?: string },
 ): AccessDecision {
   const highRisk = HIGH_RISK_PERMISSIONS.includes(permission);
+  const delegated = principal.delegatedPermissions ?? [];
   const hasRbac =
-    principal.permissions.has(permission) || principal.emergencyPermissions.includes(permission);
+    principal.permissions.has(permission) ||
+    principal.emergencyPermissions.includes(permission) ||
+    delegated.includes(permission);
 
   if (!hasRbac) {
     return {

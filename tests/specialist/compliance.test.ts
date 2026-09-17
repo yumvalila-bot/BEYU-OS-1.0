@@ -1173,8 +1173,10 @@ describe("compliance module — creates no second truth", () => {
 // handover protocol - every tenant-owned table RLS-forced via beyu_tenant_ids(); money stays
 // Finance OS (certificates are CERTIFIED_PENDING_FINANCE_INTEGRATION under a LOCKED
 // CAP_POSTING capability; no second GL); adds no specialist truth).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(44);
-  });
+    // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
+    // tenant governance — one delegation-instrument table, catalogue mirror, runtime
+    // DML grant; no specialist truth).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(45);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

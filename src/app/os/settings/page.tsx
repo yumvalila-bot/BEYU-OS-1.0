@@ -36,6 +36,30 @@ const ADMINISTRATION_DESTINATIONS: GovernedDestination[] = [
     permission: "identity:user.read",
   },
   {
+    href: "/os/administration",
+    label: "Administration — users",
+    description:
+      "Governed registration and lifecycle of user identities: register, activate, suspend, deactivate, remove.",
+    icon: "identity",
+    permission: "identity:user.read",
+  },
+  {
+    href: "/os/administration/tenants",
+    label: "Administration — tenants",
+    description:
+      "Canonical tenant registry under governance: register, transition, archive, dependency-checked removal.",
+    icon: "org",
+    permission: "organization:entity.read",
+  },
+  {
+    href: "/os/administration/delegations",
+    label: "Administration — delegations",
+    description:
+      "Bounded, time-limited, revocable delegations of administrative authority.",
+    icon: "command",
+    permission: "identity:delegation.manage",
+  },
+  {
     href: "/os/constitution",
     label: "Constitution & policy",
     description: "Open the governed constitutional and policy register.",
