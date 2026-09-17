@@ -72,6 +72,7 @@ async function main() {
     finance: fixedId(ID_PREFIX.tenant, "BEYU_FINTECH"),
     agri: fixedId(ID_PREFIX.tenant, "BEYU_AGRI"),
     foundation: fixedId(ID_PREFIX.tenant, "BEYU_FOUNDATION"),
+    ujenzi: fixedId(ID_PREFIX.tenant, "BEYU_UJENZI"),
   };
   await adminDb
     .insert(s.tenants)
@@ -82,6 +83,7 @@ async function main() {
       { id: T.finance, code: "BEYU-FINTECH", name: "BEYU FinTech OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
       { id: T.agri, code: "BEYU-AGRI", name: "BEYU Agriculture OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
       { id: T.foundation, code: "BEYU-FOUNDATION", name: "BEYU Foundation Tenant", type: "SECTOR", parentTenantId: T.group, countryCode: "TZ", classification: "CONFIDENTIAL" },
+      { id: T.ujenzi, code: "BEYU-UJENZI", name: "BEYU Ujenzi OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
     ])
     .onConflictDoNothing();
 
@@ -95,6 +97,7 @@ async function main() {
     agri: fixedId(ID_PREFIX.legalEntity, "BEYU_AGRI_LTD"),
     mining: fixedId(ID_PREFIX.legalEntity, "BEYU_MINING_LTD"),
     foundation: fixedId(ID_PREFIX.legalEntity, "BEYU_FOUNDATION_ORG"),
+    ujenzi: fixedId(ID_PREFIX.legalEntity, "BEYU_UJENZI_LTD"),
   };
   await adminDb
     .insert(s.legalEntities)
@@ -105,6 +108,7 @@ async function main() {
       { id: E.health, tenantId: T.health, code: "BEYU-HEA", legalName: "BEYU Health Ltd", entityType: "OPERATING_COMPANY", parentEntityId: E.tzHold, countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-142117744", taxIdentifier: "TIN-121-441-002", incorporationDate: "2017-04-05", functionalCurrency: "TZS", sectorCode: "HEALTH", effectiveFrom: "2017-04-05" },
       { id: E.fintech, tenantId: T.finance, code: "BEYU-FIN", legalName: "BEYU FinTech Ltd", entityType: "OPERATING_COMPANY", parentEntityId: E.tzHold, countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-155390021", incorporationDate: "2019-09-16", functionalCurrency: "TZS", sectorCode: "FINANCE", effectiveFrom: "2019-09-16" },
       { id: E.agri, tenantId: T.agri, code: "BEYU-AGR", legalName: "BEYU Agriculture Ltd", entityType: "OPERATING_COMPANY", parentEntityId: E.tzHold, countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-161220884", incorporationDate: "2020-02-11", functionalCurrency: "TZS", sectorCode: "AGRICULTURE", effectiveFrom: "2020-02-11" },
+      { id: E.ujenzi, tenantId: T.ujenzi, code: "BEYU-UJZ", legalName: "BEYU Construction Ltd", entityType: "OPERATING_COMPANY", parentEntityId: E.tzHold, countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-172335501", incorporationDate: "2022-03-14", functionalCurrency: "TZS", sectorCode: "CONSTRUCTION", effectiveFrom: "2022-03-14" },
       { id: E.mining, tenantId: T.tz, code: "BEYU-MIN", legalName: "BEYU Mining Ltd", entityType: "SUBSIDIARY", parentEntityId: E.tzHold, countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-170998112", incorporationDate: "2021-07-30", functionalCurrency: "TZS", sectorCode: "MINING", effectiveFrom: "2021-07-30" },
       { id: E.foundation, tenantId: T.foundation, code: "BEYU-FDN", legalName: "BEYU Foundation", entityType: "FOUNDATION", countryCode: "TZ", jurisdictionId: fixedId(ID_PREFIX.jurisdiction, "TZ-NAT"), registrationNumber: "TZ-NGO-00891", incorporationDate: "2018-05-22", functionalCurrency: "TZS", effectiveFrom: "2018-05-22" },
     ])
@@ -181,6 +185,7 @@ async function main() {
     { key: "PLATFORM_ADMIN", name: "Platform Administrator", given: "Platform", family: "Admin", email: "admin@beyu.os", role: "PLATFORM_ADMIN", tenant: T.group },
     { key: "FATMA_JUMA", name: "Fatma Juma", given: "Fatma", family: "Juma", email: "foundation.director@beyu.os", role: "FOUNDATION_DIRECTOR", tenant: T.foundation },
     { key: "YUSUF_MAKAME", name: "Yusuf Makame", given: "Yusuf", family: "Makame", email: "foundation.ops@beyu.os", role: "FOUNDATION_OFFICER", tenant: T.foundation },
+    { key: "JOSEPHINE_KIMARO", name: "Josephine Kimaro", given: "Josephine", family: "Kimaro", email: "ujenzi.ops@beyu.os", role: "SECTOR_OPERATOR", tenant: T.ujenzi },
   ];
 
   const pwHash = hashPassword(BOOTSTRAP_PASSWORD_VALUE);
@@ -1499,6 +1504,7 @@ async function main() {
       { id: fixedId(ID_PREFIX.osRegistry, "FOUNDATION_OS"), code: "FOUNDATION_OS", name: "BEYU Foundation OS", kind: "SECTOR_OS", purpose: "The single institutional Foundation OS: registry, formation, structure, governance, tax context, timely compliance, donors, funds, grants, programs, projects, beneficiaries, procurement, assets, investments, safeguarding, impact and workforce assignments — under BEYU OS identity, governance, audit and HIVE/Noelia.", ownerRole: "FOUNDATION_DIRECTOR", authorityScope: "NONPROFIT_OPERATIONS", dataAuthority: ["FOUNDATION", "FORMATION_CASE", "STRUCTURE", "FOUNDATION_TAX", "FOUNDATION_COMPLIANCE", "DONOR", "FUND", "GRANT", "PROGRAMME", "PROJECT", "BENEFICIARY", "PROCUREMENT", "FOUNDATION_ASSET", "FOUNDATION_INVESTMENT", "SAFEGUARDING", "IMPACT_MEASURE", "FOUNDATION_ASSIGNMENT"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM", "HIVE_RUNTIME"], apis: ["/api/v1/foundation/*"], events: ["FOUNDATION_REGISTERED", "GRANT_APPROVED", "GRANT_DISBURSED", "DEADLINE_MISSED", "ESCALATION_RAISED", "PROGRAMME_FUNDED"], complianceFrameworks: ["TZ_NGO_ACT"], lifecycle: "ACTIVE" },
       { id: fixedId(ID_PREFIX.osRegistry, "HIVE"), code: "HIVE_RUNTIME", name: "HIVE AI Runtime", kind: "AI_RUNTIME", purpose: "Runtime intelligence: model routing, RAG, tool calling, evaluation and monitoring under BEYU OS governance.", ownerRole: "CHIEF_GOVERNANCE_OFFICER", authorityScope: "AI_EXECUTION", dataAuthority: ["AI_DECISION_RECORD", "PROMPT_VERSION", "MODEL_VERSION"], dependencies: ["BEYU_OS"], apis: ["/api/v1/ai/noelia"], events: ["AI_DECISION_RECORDED", "AI_DECISION_REVIEWED"], complianceFrameworks: ["ISO42001"] },
       { id: fixedId(ID_PREFIX.osRegistry, "MINING_OS"), code: "MINING_OS", name: "BEYU Mining OS (proposed)", kind: "SECTOR_OS", purpose: "Proposed sector OS for mining operations. Registered before build to prevent unnecessary OS proliferation.", ownerRole: "GROUP_CEO", authorityScope: "MINING_OPERATIONS", dataAuthority: [], dependencies: ["BEYU_OS", "FINANCE_OS"], apis: [], events: [], complianceFrameworks: ["TZ_MINING_ACT"], lifecycle: "DRAFT" },
+      { id: fixedId(ID_PREFIX.osRegistry, "UJENZI_OS"), code: "UJENZI_OS", name: "BEYU Ujenzi OS", kind: "SECTOR_OS", purpose: "Construction operations: projects, sites, phases, milestones, governed BOQ versions, cost control (estimate/budget/committed/actual/forecast), procurement, materials, equipment, site diaries, quality, HSE, variations, claims, payment certificates and handover. Finance OS remains the only journal writer; CAP_POSTING LOCKED.", ownerRole: "SECTOR_OPERATOR", authorityScope: "CONSTRUCTION_OPERATIONS", dataAuthority: ["CONSTRUCTION_PROJECT", "PROJECT_SITE", "BOQ", "COST_RECORD", "PURCHASE_ORDER", "CONSTRUCTION_NCR", "HSE_INCIDENT", "VARIATION", "CONSTRUCTION_CLAIM", "PAYMENT_CERTIFICATE", "PUNCH_ITEM"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM"], apis: ["/api/v1/ujenzi/*"], events: ["PROJECT_CREATED", "PROJECT_HANDED_OVER", "BOQ_APPROVED", "PURCHASE_ORDER_APPROVED", "MATERIAL_RECEIVED", "NCR_CREATED", "NCR_CLOSED", "HSE_INCIDENT_RECORDED", "VARIATION_REQUESTED", "VARIATION_APPROVED", "CLAIM_SUBMITTED", "PAYMENT_CERTIFIED"], complianceFrameworks: ["TZ_OSHA", "TZ_CONTRACT_ACT"], lifecycle: "ACTIVE" },
     ])
     .onConflictDoNothing();
 
@@ -1507,7 +1513,7 @@ async function main() {
     .values(
       [
         ["Identity", "BEYU_OS", "identity.users / identity.parties", ["ALL"]],
-        ["Employees", "SHARED_HCM", "people.employees", ["FINANCE_OS", "HEALTH_OS", "AGRICULTURE_OS", "FOUNDATION_OS"]],
+        ["Employees", "SHARED_HCM", "people.employees", ["FINANCE_OS", "HEALTH_OS", "AGRICULTURE_OS", "FOUNDATION_OS", "UJENZI_OS"]],
         ["Organizations", "BEYU_OS", "core.org_units", ["ALL"]],
         ["Legal Entities", "BEYU_OS", "core.legal_entities", ["ALL"]],
         ["Ownership", "BEYU_OS", "core.ownership_records", ["FINANCE_OS"]],
@@ -1520,6 +1526,7 @@ async function main() {
         ["Healthcare operations", "HEALTH_OS", "health.encounters", ["BEYU_OS"]],
         ["Agricultural operations", "AGRICULTURE_OS", "agriculture.crop_cycles", ["BEYU_OS"]],
         ["Foundation operations", "FOUNDATION_OS", "foundation.* (registry, formation, tax, compliance, donors, funds, grants, programs, impact)", ["BEYU_OS"]],
+        ["Construction operations", "UJENZI_OS", "ujenzi_projects, ujenzi_boqs, ujenzi_cost_records, ujenzi_ncrs, ujenzi_payment_certificates", ["BEYU_OS"]],
         ["Family governance", "SHARED_FAMILY_OFFICE", "people.family_members / beneficiaries", ["BEYU_OS"]],
         ["AI identity", "BEYU_OS", "Noelia (single AI identity)", ["ALL"]],
         ["AI runtime", "HIVE_RUNTIME", "platform.ai_decisions", ["ALL"]],
