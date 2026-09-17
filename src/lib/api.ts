@@ -345,6 +345,7 @@ export async function guarded(
           options.permission.startsWith("foundation:") ||
           options.permission.startsWith("familyoffice:") ||
           options.permission.startsWith("blockchain:") ||
+          options.permission.startsWith("ujenzi:") ||
           options.permission.startsWith("finance:payments.") ||
           options.permission === "finance:settlement.manage") &&
         principal.entityScope.length > 0;

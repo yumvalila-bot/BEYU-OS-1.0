@@ -236,17 +236,18 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
 });
 
 describe("Operating-system launcher hierarchy", () => {
-  it.skipIf(!available)("shows one BEYU control plane above all four Sector OS cards", async () => {
+  it.skipIf(!available)("shows one BEYU control plane above all five Sector OS cards", async () => {
     const launcher = await apiGet("/launcher", ceo);
     expect(launcher.status).toBe(200);
     expect(launcher.html).toContain("Constitutional control plane");
     expect(launcher.html).toContain("Sector operating systems");
-    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Foundation OS"]) {
+    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Foundation OS", "Ujenzi OS"]) {
       expect(launcher.html).toContain(os);
     }
     expect(launcher.html).toContain('href="/os/finance"');
     expect(launcher.html).toContain('href="/os/agriculture"');
     expect(launcher.html).toContain('href="/os/foundation"');
+    expect(launcher.html).toContain('href="/os/ujenzi"');
     // A missing Health federation link is presented truthfully as unavailable,
     // never as a launchable URL. In an environment with a real link it may be
     // authorised instead, and /health will recheck that link on entry.

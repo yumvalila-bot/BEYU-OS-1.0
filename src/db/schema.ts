@@ -20,6 +20,21 @@ export * from "./schema/foundation";
 export * from "./schema/government";
 
 /*
+ * UJENZI OS — construction Sector OS (additive).
+ *
+ * Projects, sites, phases, milestones, governed BOQ versions, cost records
+ * (ESTIMATE / BUDGET / COMMITTED / ACTUAL / FORECAST), procurement,
+ * materials, equipment, site diaries, quality (inspection requests, NCRs),
+ * HSE, variations, claims, payment certificates and handover punch lists.
+ * Identity, HCM, documents, approvals, workflow and notifications stay
+ * canonical in BEYU shared capabilities; Finance OS remains the only journal
+ * writer (a Ujenzi payment certificate emits PAYMENT_CERTIFIED and never
+ * posts; CAP_POSTING stays LOCKED). RLS tenant isolation mirrors migration
+ * 0031/0034/0035: FORCE ROW LEVEL SECURITY with beyu_tenant_ids() policies.
+ */
+export * from "./schema/ujenzi";
+
+/*
  * Governed CONTRACTING domain — materialized (additive).
  *
  * Contract records, party posture, authority checks, deterministic obligations
