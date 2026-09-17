@@ -1,7 +1,7 @@
 # Agriculture Frontend Integration Reconciliation Report
 
 **Date:** 2026-09-18 (Africa/Nairobi)
-**Current-main baseline:** `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Current-main baseline:** `88054c3a72a4adaf9e01674e17688bf56ade19c7`
 **Branch:** `arena/01a0adfa-beyu-os-1-0`
 
 ## Result
@@ -28,15 +28,15 @@ Current-main replay found that a generic `SECTOR_OPERATOR` permission could reac
 
 | Gate | Result |
 |---|---|
-| Fresh migration replay and seed | PASS; migrations `0000`–`0043` |
+| Fresh migration replay and seed | PASS; migrations `0000`–`0044` |
 | Migration idempotence | PASS; second fingerprint unchanged |
 | Agriculture directory | 57 passed, 0 failed |
 | Agriculture live HTTP | 15 passed, 0 failed |
 | Frontend integration | 24 passed, 0 failed |
-| Full root suite | 3,732 passed, 28 repository-defined skips, 0 failed |
+| Full root suite | 3,789 passed, 28 repository-defined skips, 0 failed |
 | Root typecheck/lint | PASS; one pre-existing image optimization warning |
 | Build without runtime secrets | PASS; 146 generated pages |
-| Secret scan | PASS; 1,859 tracked files |
+| Secret scan | PASS; 1,892 tracked files |
 | Root HIGH dependency audit | PASS after lock-only `js-yaml` 4.3.2 remediation |
 | Health frontend | Typecheck/build PASS; 14 tests passed |
 | Flutter | BLOCKED; SDK absent and no `mobile/flutter/test` suite |

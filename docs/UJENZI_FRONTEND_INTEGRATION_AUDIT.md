@@ -1,7 +1,7 @@
 # Ujenzi Frontend Integration Reality Audit
 
 **Reconciliation date:** 2026-09-18 (Africa/Nairobi)
-**Authoritative baseline:** `origin/main` at `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Authoritative baseline:** `origin/main` at `88054c3a72a4adaf9e01674e17688bf56ade19c7`
 **Reconciliation branch:** `arena/01a0adfa-beyu-os-1-0`
 
 ## Corrected executive finding
@@ -75,16 +75,16 @@ Executed negative paths include unauthenticated page/API denial, missing permiss
 
 ## Database and test evidence
 
-A fresh disposable PostgreSQL 16.14 cluster replayed migrations `0000`–`0043`; the second migration run produced the same schema fingerprint. Runtime-role catalogue evidence found **23/23 Ujenzi tables RLS-enabled, 23/23 FORCE RLS, and 23/23 canonical `beyu_tenant_ids()` policies**.
+A fresh disposable PostgreSQL 16.14 cluster replayed migrations `0000`–`0044`; the second migration run produced the same schema fingerprint. Runtime-role catalogue evidence found **23/23 Ujenzi tables RLS-enabled, 23/23 FORCE RLS, and 23/23 canonical `beyu_tenant_ids()` policies**.
 
 Executed focused gates:
 
 - Ujenzi domain + runtime RLS + ABAC: **48 passed**.
 - Ujenzi live production-server HTTP: **11 passed**.
-- Full root suite against PostgreSQL and `next start`: **3,732 passed, 28 skipped, 0 failed** across 198 files.
+- Full root suite against PostgreSQL and `next start`: **3,789 passed, 28 skipped, 0 failed**; 198 files passed and five repository-defined files skipped.
 - Deployment-parity production build without runtime secrets: PASS; 146 pages and all Ujenzi routes emitted.
 - Typecheck: PASS. Lint: PASS with one pre-existing `<img>` optimization warning.
-- Root secret scan: PASS (1,859 tracked files).
+- Root secret scan: PASS (1,892 tracked files).
 - Root `npm audit --audit-level=high`: PASS after lock-only `js-yaml` `4.3.1 → 4.3.2`; six moderate development-tool findings remain and require breaking upgrades.
 
 The 28 skips are repository-defined environment/owner-gated cases, not missing-server skips: `BEYU_TEST_BASE_URL` was explicitly set and the health probe was UP.

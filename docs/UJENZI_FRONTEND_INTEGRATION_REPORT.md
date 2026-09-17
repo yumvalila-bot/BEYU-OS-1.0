@@ -1,7 +1,7 @@
 # Ujenzi Frontend Integration Reconciliation Report
 
 **Date:** 2026-09-18 (Africa/Nairobi)
-**Current-main baseline:** `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Current-main baseline:** `88054c3a72a4adaf9e01674e17688bf56ade19c7`
 **Branch:** `arena/01a0adfa-beyu-os-1-0`
 
 ## Result
@@ -39,7 +39,7 @@ No Ujenzi schema, migration, product page, alternate launcher, alternate auth, s
 
 | Gate | Outcome |
 |---|---|
-| Fresh PostgreSQL migration replay `0000`–`0043` | PASS |
+| Fresh PostgreSQL migration replay `0000`–`0044` | PASS |
 | Migration idempotence | PASS; fingerprint unchanged on second run |
 | Ujenzi RLS catalogue/runtime adversarial suite | PASS; 23/23 enabled, forced, and policy-covered |
 | Ujenzi domain/RBAC/ABAC/tenant/entity/country/project/events/Finance/Noelia | PASS; focused group 48/48 |
@@ -47,11 +47,11 @@ No Ujenzi schema, migration, product page, alternate launcher, alternate auth, s
 | Agriculture focused regression | PASS; 57/57 |
 | Agriculture HTTP regression | PASS; 15/15 |
 | Frontend server-rendered integration | PASS; 24/24 |
-| Full root regression | PASS; 3,732 passed, 28 repository-defined skips, 0 failed |
+| Full root regression | PASS; 3,789 passed, 28 repository-defined skips, 0 failed |
 | Root typecheck | PASS |
 | Root lint | PASS; one pre-existing non-blocking image warning |
 | Build with runtime secrets unset | PASS; 146 pages |
-| Secret scan | PASS; 1,859 tracked files |
+| Secret scan | PASS; 1,892 tracked files |
 | Root dependency HIGH gate | PASS; no HIGH findings after `js-yaml` 4.3.2 |
 | Health frontend typecheck/test/build | PASS; 14/14 tests |
 | Flutter execution | BLOCKED; SDK absent and no test suite |

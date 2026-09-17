@@ -1,7 +1,7 @@
 # Agriculture Frontend Integration Reality Audit
 
 **Reconciliation date:** 2026-09-18 (Africa/Nairobi)
-**Authoritative baseline:** `origin/main` at `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Authoritative baseline:** `origin/main` at `88054c3a72a4adaf9e01674e17688bf56ade19c7`
 **Framework:** Next.js 16.3.3 App Router, React 19.2.6, TypeScript 5.9.3, PostgreSQL/Drizzle; Flutter under `mobile/flutter`
 
 ## Executive finding
@@ -72,7 +72,7 @@ The production runtime role is non-owner, NOSUPERUSER, and NOBYPASSRLS, so those
 - Agriculture complete focused directory: **57 passed, 0 failed**.
 - Agriculture live HTTP: **15 passed**, including 401, cross-sector 403, entity/country denial, valid harvest, event/no-journal, CAP_POSTING lock, simulation, sync replay, and no capital-request creation.
 - Frontend integration: **24 passed**, including unauthenticated `/os/agriculture` and Agriculture↔Ujenzi page isolation.
-- Full root suite: **3,732 passed, 28 repository-defined skips, 0 failed** with PostgreSQL and explicit production server.
+- Full root suite: **3,789 passed, 28 repository-defined skips, 0 failed** with PostgreSQL and explicit production server.
 - Typecheck/build/secret scan/root HIGH audit gates: PASS.
 - Health frontend regression: typecheck/build PASS, 14/14 tests.
 - Flutter execution: BLOCKED because the SDK is unavailable and no Flutter test suite exists.
