@@ -13,5 +13,10 @@ export default defineConfig([
     // (e.g. sectors/health uses ESLint 8 — see
     // docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md).
     "sectors/**",
+    // Generated build artifact: overwritten by scripts/build-health-spa.mjs
+    // with the compiled Health OS single-file SPA (a ~1 MB data string). The
+    // checked-in state is a small placeholder; generated content is never
+    // committed. Excluded like other build output — it is data, not source.
+    "src/app/health/os/spa-content.ts",
   ]),
 ]);

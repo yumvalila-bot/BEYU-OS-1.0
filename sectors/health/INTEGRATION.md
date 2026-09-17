@@ -62,11 +62,29 @@ cd sectors/health/backend && npm ci && npx tsc --noEmit
 TEST_DATABASE_URL=postgresql://<role>@<host>:5432/<db> npm test   # real PG (or PGlite fallback)
 ```
 
+## Frontend mount in BEYU OS (done 2026-09-17, BEYU-OS-1.0)
+
+- The single-file SPA is compiled by the BEYU root build
+  (`scripts/build-health-spa.mjs`, this package's own lockfile/toolchain,
+  `VITE_API_BASE_URL=/health-os` — the package's existing documented knob) and
+  served at `/health/os` by `src/app/health/os/route.ts`, which re-runs the
+  existing BEYU gate (canonical session + `beyu_identity.beyu_identity_links`
+  federation check, fail-closed). The `/health` page now redirects authorized
+  users to the mount; its denial/availability pages are unchanged.
+- When `HEALTH_API_URL` is configured at BEYU build time, same-origin
+  `/health-os/auth/*` is proxied to this backend via `next.config.ts`
+  rewrites; without it the SPA sign-in fails closed. No BEYU route is
+  occupied by the `/health-os/*` namespace and no credential reaches the
+  browser.
+
 ## Deliberately NOT done (requires architectural decision / approval)
 
 - Runtime auth-flow integration (sector accepting BEYU-asserted identity vs.
   bridged JWT) — architectural decision.
-- Sector API exposure through BEYU governed APIs — architectural decision.
+- Wrapping sector capabilities in BEYU governed APIs (`/api/v1/health/…`) —
+  architectural decision. (The same-origin `/health-os/auth/*` proxy above is
+  a configuration-level exposure of the sector's OWN API, not a governed-API
+  reimplementation.)
 - Supabase/Redis/Vercel deployment wiring — BLOCKED (no real credentials).
 - Removing constitutional roles from the sector's *reference catalog* — the
   catalog is preserved (no destructive change); the grants path refuses them.
