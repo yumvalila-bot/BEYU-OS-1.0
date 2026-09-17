@@ -1057,7 +1057,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
     // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
     // deliberately no key material or on-chain write path in a specialist module).
-    expect(n).toBe(43);
+    expect(n).toBe(44); // 0043: administrative user & tenant governance (governed admin program)
   });
 
   it("leaves all triggers enabled", async () => {

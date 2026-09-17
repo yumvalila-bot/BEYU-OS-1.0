@@ -32,6 +32,8 @@ export const ID_PREFIX = {
   roleAssignment: "RAS",
   emergency: "EMG",
   delegation: "DLG",
+  /** Administrative authority delegation instrument (governed admin program). */
+  adminDelegation: "ADL",
   consent: "CNS",
   article: "ART",
   policy: "POL",

@@ -80,3 +80,13 @@ export * from "./schema/equity";
  * appointments, documents and the governance engine remain canonical. Not an OS.
  */
 export * from "./schema/family-trust";
+
+/*
+ * ADMINISTRATIVE USER & TENANT GOVERNANCE (X10THINK administrative program) —
+ * additive. ONE shared BEYU OS capability: the delegation instruments for
+ * bounded administrative authority. Identity, tenants, roles, assignments,
+ * audit and the authorization engine remain canonical; this table holds no
+ * authority of its own — active delegations feed the SAME `can()` primitive
+ * through resolvePrincipal(). Not an OS, not a second authorization model.
+ */
+export * from "./schema/admin-governance";

@@ -989,7 +989,7 @@ describe("forecast service — hostile inputs", () => {
     // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
     // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
     // deliberately no key material or on-chain write path in a specialist module).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(44); // 0043: administrative user & tenant governance (governed admin program)
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

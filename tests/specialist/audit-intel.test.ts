@@ -891,7 +891,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
     // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
     // deliberately no key material or on-chain write path in a specialist module).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(44); // 0043: administrative user & tenant governance (governed admin program)
   });
 
   it("leaves the decision registry entirely PENDING", async () => {
