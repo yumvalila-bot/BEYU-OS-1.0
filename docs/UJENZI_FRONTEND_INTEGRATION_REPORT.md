@@ -1,83 +1,67 @@
-# Ujenzi Frontend Integration Report
+# Ujenzi Frontend Integration Reconciliation Report
 
-**Date:** 2026-09-17  
-**Branch:** `arena/01a0adfa-beyu-os-1-0` (Arena-pinned)  
-**Baseline HEAD:** `51f50b82ec236fa638dd2af619fa563a6a81903b`
+**Date:** 2026-09-18 (Africa/Nairobi)
+**Current-main baseline:** `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Branch:** `arena/01a0adfa-beyu-os-1-0`
 
-## Baseline
+## Result
 
-The audited canonical tree contains the merged BEYU shared-feature frontend but no Ujenzi source. See `docs/UJENZI_FRONTEND_INTEGRATION_AUDIT.md` for the forensic inventory and capability matrix.
+PR #69 is the canonical Ujenzi implementation. It merged commits `eccfd17`–`152f71f` as `498d4b1` and provides the `/os/ujenzi` workspace, 32 guarded APIs, 23 FORCE-RLS tables, Ujenzi tests, governed Noelia observation, and explicit Finance handoff boundaries. PR #61 (`94abed5`) is superseded and was not imported.
 
-## Feature matrix and integration result
+PR #68 had no product implementation to preserve for Ujenzi; its old absence finding was historical. This reconciliation rewrites that documentation, remediates the root HIGH advisory, and hardens the cross-sector API target boundary discovered during current-main verification.
 
-| Surface | Baseline | Result |
-|---|---|---|
-| Ujenzi route/page/layout | absent | BLOCKED; none fabricated |
-| Ujenzi component/client | absent | BLOCKED; none fabricated |
-| Ujenzi API/service | absent | BLOCKED; none fabricated |
-| Ujenzi schema/migration/RLS | absent | BLOCKED; none fabricated |
-| Ujenzi permissions/tenant target | absent | BLOCKED; none fabricated |
-| Ujenzi tests/mobile | absent | BLOCKED; none fabricated |
-| Shared BEYU identity/governance/HCM/Finance/Documents/Audit/Noelia/HIVE | present | preserved unchanged |
-| CAP_POSTING | locked canonical Finance capability | preserved unchanged |
+## Route → guard → API → data
 
-GitHub PR #61 is an open, unmerged candidate containing Ujenzi code. It was inventoried as upstream evidence but was not copied or cherry-picked because it is not canonical HEAD, this checkout reports no merge base to its history, and its complete compatibility/security gates have not been rerun against current main.
+| Surface | Implementation |
+|---|---|
+| Launcher | Existing `/launcher` via `authorizedOperatingSystems`; Ujenzi appears only when target scope + read grant pass |
+| Workspace | `/os/ujenzi` and 13 nested pages under the existing authenticated shell |
+| Page guard | `src/app/os/ujenzi/layout.tsx` rechecks principal, `BEYU-UJENZI` target, classification, and safe entity-scope shape; pages require `ujenzi:data.read` |
+| API guard | `src/lib/api.ts` independently rechecks RBAC/ABAC, canonical Ujenzi target, entity-scope shape, rate limit, tenant DB context, and audit |
+| Write guard | `ujenzi:data.manage` plus Ujenzi-tenant ABAC in `src/lib/authz.ts` |
+| Domain/data | `src/lib/ujenzi/*` → `src/db/schema/ujenzi.ts` → 23 tables from migration `0043` |
+| Database policy | Runtime role is NOSUPERUSER/NOBYPASSRLS; all Ujenzi tables use ENABLE + FORCE RLS and canonical tenant policies |
 
-## Routes, components, APIs and database
+## Files changed by reconciliation
 
-No Ujenzi route→component→API→database chain exists at canonical HEAD. The production requests retrieved during this task showed 404 pages for:
+- `package-lock.json` — `js-yaml` 4.3.1 to 4.3.2, no `package.json` range change and no force update.
+- `src/lib/api.ts` — target-OS API recheck for Agriculture and Ujenzi permissions.
+- `src/lib/authz.ts` — Ujenzi mutations bound to the Ujenzi tenant.
+- `tests/ujenzi/http.test.ts`, `tests/ujenzi/os.test.ts` — cross-sector denial expectation.
+- `tests/agriculture/http.test.ts` — cross-sector read denial.
+- `tests/authorization/abac-decision.test.ts` — Ujenzi write ABAC proof.
+- `tests/frontend/integration.test.ts` — Ujenzi unauthenticated deep link and Agriculture↔Ujenzi page isolation; bounded route-loop timeout.
+- Four PR #68 audit/report documents — current-main reconciliation.
 
-- `/ujenzi`
-- `/os/ujenzi`
-- `/api/v1/ujenzi/dashboard`
+No Ujenzi schema, migration, product page, alternate launcher, alternate auth, sector ledger, Noelia identity, HIVE runtime, or production data was created.
 
-These are absence findings, not successful authorization tests.
+## Verification outcomes
 
-## Authorization and RLS
+| Gate | Outcome |
+|---|---|
+| Fresh PostgreSQL migration replay `0000`–`0043` | PASS |
+| Migration idempotence | PASS; fingerprint unchanged on second run |
+| Ujenzi RLS catalogue/runtime adversarial suite | PASS; 23/23 enabled, forced, and policy-covered |
+| Ujenzi domain/RBAC/ABAC/tenant/entity/country/project/events/Finance/Noelia | PASS; focused group 48/48 |
+| Ujenzi HTTP 401/403/422/201/cross-sector/Finance | PASS; 11/11 |
+| Agriculture focused regression | PASS; 57/57 |
+| Agriculture HTTP regression | PASS; 15/15 |
+| Frontend server-rendered integration | PASS; 24/24 |
+| Full root regression | PASS; 3,732 passed, 28 repository-defined skips, 0 failed |
+| Root typecheck | PASS |
+| Root lint | PASS; one pre-existing non-blocking image warning |
+| Build with runtime secrets unset | PASS; 146 pages |
+| Secret scan | PASS; 1,859 tracked files |
+| Root dependency HIGH gate | PASS; no HIGH findings after `js-yaml` 4.3.2 |
+| Health frontend typecheck/test/build | PASS; 14/14 tests |
+| Flutter execution | BLOCKED; SDK absent and no test suite |
 
-The canonical BEYU authorization chain was not modified. Ujenzi-specific authorization, tenant/entity/country/project isolation, RLS, audit and cross-sector tests remain `BLOCKED` because no canonical Ujenzi implementation exists. A 404 is not represented as a substitute for Ujenzi authorization.
+## Finance, Noelia, and HIVE
 
-## Files reused / changed
+Ujenzi transitions emit governed events; they do not write journal entries. Tests verify zero journals and `CAP_POSTING: LOCKED`. Finance remains the only posting truth behind `requireCapability('CAP_POSTING')`. Ujenzi's Noelia tool is observation-only and canonical Noelia/HIVE cannot self-authorize.
 
-- Reused as audit evidence: canonical shell, guard, authorization, tenant-scope, Noelia/HIVE and Finance boundaries.
-- Changed: this report and `docs/UJENZI_FRONTEND_INTEGRATION_AUDIT.md` only.
-- No application, database, migration, seed, permission, role, navigation or deployment file changed.
+## Deployment boundary
 
-## Tests and build
+The production build contains `/os/ujenzi`, its 13 nested routes, and all 32 Ujenzi APIs. Unauthenticated behavior is fail closed in executed local production-server tests. No authenticated production credentials were used, so authenticated production rendering, writes, RLS rows, and audit records remain unverified until deployment checks provide that evidence.
 
-Current canonical application verification performed after the audit documentation:
-
-- `npm run typecheck`: PASS.
-- `npm run lint`: PASS with one pre-existing `@next/next/no-img-element` warning in `src/components/noelia-cross-os-visual.tsx`.
-- `npm run build`: PASS; 123 pages generated. Route manifest confirms no Ujenzi route.
-- `npm run scan:secrets`: PASS, 1,785 tracked files scanned.
-- `npm audit --audit-level=high`: FAIL gate due 7 dependency advisories (6 moderate, 1 high; high advisory in `js-yaml`). No unsafe force upgrade was applied.
-- Full `npm test` without a database did not finish within the 30-minute execution limit because many DB-dependent tests fail/hang when `DATABASE_URL` is absent. This is not reported green.
-- No canonical Ujenzi tests exist, so “Ujenzi tests green” cannot be claimed.
-- Flutter execution is BLOCKED because the Flutter executable is absent.
-
-## Security
-
-No Ujenzi capability was exposed, so this change cannot introduce a Ujenzi URL authorization bypass. No RBAC, ABAC, MFA, classification, RLS, audit, policy, Noelia/HIVE or CAP_POSTING code changed. The merge gate is nevertheless **not satisfied** because Ujenzi-specific implementation/security/RLS tests do not exist at canonical HEAD and the dependency audit has a high finding.
-
-## Git and pull request
-
-- Audit/report commit: `46923ac docs(frontend): audit Ujenzi and Agriculture integration`.
-- Pull request: [#68 — docs(frontend): audit Ujenzi and Agriculture sector integration](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/68), base `main`, head `arena/01a0adfa-beyu-os-1-0`.
-- PR is explicitly marked **DO NOT MERGE** because the Ujenzi and dependency-security gates are not green.
-
-## Deployment and production verification
-
-No deployment was triggered. Public unauthenticated retrieval on 2026-09-17 showed the BEYU sign-in page at `/` and 404 for Ujenzi page/API routes. No authenticated Ujenzi production principal or database evidence was available; authenticated production behavior is unverified.
-
-## Remaining gaps / required upstream action
-
-1. Rebase and review PR #61 (or equivalent complete source) against current main without migration/history conflicts.
-2. Verify one Ujenzi Sector OS boundary and reject inner OS proliferation.
-3. Add the Ujenzi destination only after its target resolver and per-route/API authorization exist.
-4. Prove tenant/entity/country/project RLS with positive and negative database tests.
-5. Prove Agriculture↔Ujenzi cross-sector denial with separately granted principals.
-6. Verify canonical audit, Noelia/HIVE context inheritance and Finance handoff; keep CAP_POSTING unchanged.
-7. Run all current CI/security/dependency gates and controlled production verification.
-
-**Implementation status: BLOCKED / STOPPED SAFELY.** No duplicate OS, control plane, authentication, ledger, Noelia or HIVE was created.
+**Status:** implementation and local mandatory gates are green. Merge still depends on fresh GitHub CI and Vercel checks against the pushed reconciliation head.

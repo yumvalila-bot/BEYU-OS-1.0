@@ -95,7 +95,7 @@ describe("Ujenzi OS — named grants", () => {
     expect(can(hcm, "ujenzi:data.read").allowed).toBe(false);
     expect(ujenziOps.tenantCode).toBe(UJENZI_OS_TENANT_CODE);
     expect(can(ujenziOps, "ujenzi:data.manage").allowed).toBe(true);
-    expect(can(agriOps, "ujenzi:data.manage").allowed).toBe(true); // sector operator within its own tenant
+    expect(can(agriOps, "ujenzi:data.manage").allowed).toBe(false); // generic role is not cross-sector authority
     expect(can(agriOps, "ujenzi:data.manage", { tenantId: ujenziOps.tenantId }).allowed).toBe(false);
     expect(can(family, "ujenzi:data.read").allowed).toBe(false);
     expect(can(ceo, "ujenzi:data.read", { tenantId: "TEN_DOES_NOT_EXIST" }).allowed).toBe(false);

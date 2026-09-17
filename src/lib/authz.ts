@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { emergencyAccessGrants, roleAssignments, roles, tenants } from "@/db/schema";
 import {
   AGRICULTURE_OS_TENANT_CODE,
+  UJENZI_OS_TENANT_CODE,
   classificationRank,
   isKnownClassification,
   HIGH_RISK_PERMISSIONS,
@@ -175,6 +176,17 @@ export function can(
     return {
       allowed: false,
       reason: "ABAC: agriculture writes require the Agriculture OS tenant",
+      requiresMfa: false,
+      highRisk,
+    };
+  }
+  // Ujenzi mutations have the same Sector OS binding. The generic
+  // SECTOR_OPERATOR catalogue grant is necessary but never sufficient to write
+  // construction records from Agriculture, Health, or another sector tenant.
+  if (permission === "ujenzi:data.manage" && principal.tenantCode !== UJENZI_OS_TENANT_CODE) {
+    return {
+      allowed: false,
+      reason: "ABAC: Ujenzi writes require the Ujenzi OS tenant",
       requiresMfa: false,
       highRisk,
     };

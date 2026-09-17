@@ -62,6 +62,11 @@ describe.skipIf(!available)("Agriculture OS API over HTTP", () => {
     expect(res.status).toBe(403);
   });
 
+  it("Health identity cannot read Agriculture by changing the API URL", async () => {
+    const res = await apiGetJson("/api/v1/agriculture/dashboard", { cookie: healthCookie });
+    expect(res.status).toBe(403);
+  });
+
   it("Agriculture identity cannot bind a Health legal entity", async () => {
     const res = await apiPost(
       "/api/v1/agriculture/farms",

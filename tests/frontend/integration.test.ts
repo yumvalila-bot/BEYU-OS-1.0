@@ -21,6 +21,8 @@ let cfo = "";
 let hcm = "";
 let auditor = "";
 let family = "";
+let agriOps = "";
+let ujenziOps = "";
 
 beforeAll(async () => {
   if (!available) return;
@@ -29,6 +31,8 @@ beforeAll(async () => {
   hcm = await login("hcm@beyu.os");
   auditor = await login("auditor@beyu.os");
   family = await login("family@beyu.os"); // FAMILY_OFFICE_PRINCIPAL lacks ai:analytics.read
+  agriOps = await login("agri.ops@beyu.os");
+  ujenziOps = await login("ujenzi.ops@beyu.os");
 }, 240_000);
 
 const REDIRECT_TO_SIGNIN = async (path: string) => {
@@ -44,7 +48,7 @@ describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () =>
       "/os", "/os/registry", "/os/organization-ownership", "/os/identity",
       "/os/organization", "/os/ownership", "/os/governance", "/os/assurance",
       "/os/hcm", "/os/documents", "/os/audit-events", "/os/registries",
-      "/os/family", "/os/noelia", "/os/finance", "/os/agriculture", "/os/foundation",
+      "/os/family", "/os/noelia", "/os/finance", "/os/agriculture", "/os/ujenzi", "/os/foundation",
       "/os/settings",
       // Existing focused capability destinations remain independently protected.
       "/os/constitution", "/os/security", "/os/notifications", "/os/events",
@@ -54,7 +58,7 @@ describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () =>
     for (const r of routes) {
       await REDIRECT_TO_SIGNIN(r);
     }
-  });
+  }, 60_000);
 });
 
 describe("Stage 2/6 — per-route authorization (authorized renders, unauthorized denies)", () => {
@@ -92,6 +96,30 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
     expect(ok.html).toMatch(/Noelia|HIVE/i);
     const denied = await apiGet("/os/noelia", auditor);
     expect(isDeniedPage(denied.html)).toBe(true);
+  });
+
+  it.skipIf(!available)("Ujenzi deep links recheck the target Sector OS and deny Agriculture-only identities", async () => {
+    const ok = await apiGet("/os/ujenzi", ujenziOps);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/Ujenzi|Construction/i);
+    expect(isDeniedPage(ok.html)).toBe(false);
+
+    const denied = await apiGet("/os/ujenzi", agriOps);
+    expect(denied.status).toBe(200);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/ujenzi:data\.read/);
+  });
+
+  it.skipIf(!available)("Agriculture deep links recheck the target Sector OS and deny Ujenzi-only identities", async () => {
+    const ok = await apiGet("/os/agriculture", agriOps);
+    expect(ok.status).toBe(200);
+    expect(ok.html).toMatch(/Agriculture|Farm/i);
+    expect(isDeniedPage(ok.html)).toBe(false);
+
+    const denied = await apiGet("/os/agriculture", ujenziOps);
+    expect(denied.status).toBe(200);
+    expect(isDeniedPage(denied.html)).toBe(true);
+    expect(denied.html).toMatch(/agriculture:data\.read/);
   });
 
   // Newly surfaced capability destinations (feature discovery integration):

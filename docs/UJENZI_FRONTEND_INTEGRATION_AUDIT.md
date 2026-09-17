@@ -1,90 +1,99 @@
 # Ujenzi Frontend Integration Reality Audit
 
-**Audit date:** 2026-09-17 (Africa/Nairobi)  
-**Canonical repository:** `yumvalila-bot/BEYU-OS-1.0`  
-**Audited branch / HEAD:** `arena/01a0adfa-beyu-os-1-0` / `51f50b82ec236fa638dd2af619fa563a6a81903b`  
-**Canonical baseline represented by this checkout:** merged shared-feature integration, commit `51f50b8 feat(frontend): integrate governed BEYU shared features (#65)`
+**Reconciliation date:** 2026-09-18 (Africa/Nairobi)
+**Authoritative baseline:** `origin/main` at `498d4b16725a46ae9dd9bab926cdbdd377ddb5c0`
+**Reconciliation branch:** `arena/01a0adfa-beyu-os-1-0`
 
-## Executive finding
+## Corrected executive finding
 
-**Ujenzi is `NOT_IMPLEMENTED` in the audited canonical tree.** There is no `sectors/ujenzi`, `src/app/os/ujenzi`, `src/app/api/v1/ujenzi`, `src/lib/ujenzi`, Ujenzi schema, Ujenzi migration, Ujenzi permission, Ujenzi test, or Ujenzi mobile screen at HEAD. Consequently, no Ujenzi frontend can be safely mounted from this tree and no launcher entry can be exposed without fabricating a destination.
+Ujenzi is **implemented in current canonical main**. The earlier version of this document audited commit `51f50b8` before Ujenzi was merged and is superseded by this reconciliation.
 
-GitHub PR [#61](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/61), `BEYU Ujenzi OS: Sector OS + Digital Twin graph`, is open and contains an unmerged candidate implementation on `arena/01a0a29b-beyu-os-1-0`. It is **not canonical repository state** and is based on a history for which this checkout reports no merge base. This audit used PR metadata/source only to identify the blocked upstream candidate; it does not treat that code, migrations, test claims, or authorization as merged evidence. Importing selected files would risk creating a partial/duplicate Ujenzi control surface and was therefore refused.
+Canonical provenance is PR [#69](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/69), merged as `498d4b1`. Its implementation commits are `eccfd17` through `152f71f`. Open PR #61 (`94abed5`) is a different historical Digital Twin candidate and is **SUPERSEDED**; none of it was copied or merged here.
 
-## Reality-audit commands and evidence
+Current main provides one Ujenzi Sector OS beneath the BEYU control plane—never separate BOQ, procurement, site, HSE, or handover operating systems.
 
-- `git status --short --branch`: clean, branch `arena/01a0adfa-beyu-os-1-0`.
-- `git branch --show-current`: `arena/01a0adfa-beyu-os-1-0` (Arena-pinned branch; not changed).
-- `git log -n 15 --oneline`: only canonical squash baseline `51f50b8` is present in this checkout.
-- `git rev-parse HEAD`: `51f50b82ec236fa638dd2af619fa563a6a81903b`.
-- Full-tree filename and content searches for Ujenzi/construction/BIM/BOQ/QS/site/HSE/QA-QC found no canonical Ujenzi implementation. Generic uses of “construction” (for example Finance documentation and an icon) are not a Sector OS.
-- `gh pr view 61` and `gh pr diff 61 --name-only` establish that an unmerged candidate exists; PR state was `OPEN`.
+## PR #68 reconciliation classification
 
-## Framework and integration points
+| PR #68 artifact | Old assertion | Classification | Current treatment |
+|---|---|---|---|
+| This audit | Ujenzi absent at `51f50b8` | REWORK | Rewritten against merged PR #69 and executed gates |
+| Ujenzi report | Implementation blocked | REWORK | Rewritten as current integration report |
+| Agriculture audit | Agriculture already integrated | KEEP + REWORK | Preserve matrix; refresh baseline, cross-sector boundary, and evidence |
+| Agriculture report | Existing implementation preserved | KEEP + REWORK | Refresh tests, dependency result, and provenance |
+| PR #61 candidate | Possible future source | SUPERSEDED | Do not merge or import |
+| PR #69 implementation | Not visible to old audit | KEEP / canonical | Current source of truth; no duplicate implementation |
 
-| Question | Audited result | Status |
+## Canonical integration inventory
+
+| Layer | Evidence | Result |
 |---|---|---|
-| Framework | Canonical BEYU web shell is Next.js 16.3.3 / React 19.2.6 App Router | FULLY_INTEGRATED (shell only) |
-| Ujenzi entry point | No canonical file | NOT_IMPLEMENTED |
-| Ujenzi pages/layout/components/hooks/services/API client | No canonical files | NOT_IMPLEMENTED |
-| Ujenzi APIs/backend modules | No canonical files | NOT_IMPLEMENTED |
-| Ujenzi database/migrations | No canonical tables/migrations | NOT_IMPLEMENTED |
-| Ujenzi permissions/roles | No `ujenzi:*` permission in canonical `src/lib/constants.ts` | NOT_IMPLEMENTED |
-| Tenant/entity/country/project scope | No canonical Ujenzi target or data path to verify | BLOCKED |
-| RLS | No canonical Ujenzi relation or policy to test | BLOCKED |
-| Audit/events | No canonical Ujenzi write path | NOT_IMPLEMENTED |
-| Noelia/HIVE | Canonical Noelia/HIVE exist, but no canonical Ujenzi tools | NOT_IMPLEMENTED |
-| Web tests | No `tests/ujenzi` directory | NOT_IMPLEMENTED |
-| Mobile | No Ujenzi Flutter screen, route, API client, or authorization enum | NOT_IMPLEMENTED |
-| Deployment | Production Ujenzi routes return 404 in unauthenticated page retrieval | MISSING_ENTRY |
+| Framework | Next.js 16.3.3 App Router, React 19.2.6, TypeScript 5.9.3 | Existing BEYU stack reused |
+| Launcher/shell | `src/lib/operating-systems.ts`, `src/app/launcher/page.tsx`, `src/app/os/layout.tsx` | One control plane + five Sector OS destinations |
+| Deep-link boundary | `src/app/os/ujenzi/layout.tsx` | Principal, canonical `BEYU-UJENZI` target, classification, and entity-scope fail-closed checks |
+| Frontend | 14 `page.tsx` files under `src/app/os/ujenzi` | Server-rendered Ujenzi workspace at `/os/ujenzi` |
+| HTTP API | 32 `route.ts` files under `src/app/api/v1/ujenzi` | `/api/v1/ujenzi/*`, all routed through `guarded()` or Ujenzi guarded helpers |
+| Domain | `src/lib/ujenzi/index.ts`, `http.ts`, `schemas.ts` | Tenant-owned construction operations and governed transitions |
+| Schema | `src/db/schema/ujenzi.ts` | 23 Ujenzi tables |
+| Migration | `drizzle/0043_ujenzi_os.sql` | Additive Ujenzi schema, constraints, grants, ENABLE + FORCE RLS |
+| Permissions | `ujenzi:data.read`, `ujenzi:data.manage` in `src/lib/constants.ts` | Named grants plus RBAC/ABAC checks |
+| Tenant/entity | `BEYU-UJENZI`, `TEN_BEYU_UJENZI`, `LEN_BEYU_UJENZI_LTD` | Canonical target and construction legal entity |
+| Noelia | `src/lib/noelia/tools/ujenzi-operations.ts` | Governed observation only; no self-authorization |
+| Finance boundary | Ujenzi events and dashboard declarations | Journals remain `FINANCE_OS_ONLY`; `CAP_POSTING` remains `LOCKED` |
+| Mobile | Existing `mobile/flutter/` inspected | No duplicate identity or business-logic implementation added by this reconciliation |
 
-## Capability matrix
+## Route / capability matrix
 
-The following statuses describe **canonical HEAD only**. Candidate PR #61 is not promoted to implementation status.
+All routes inherit the Ujenzi layout and each page independently calls `requireAccess("ujenzi:data.read")`.
 
-| Capability | Source file | Frontend component | Route | API | Service | Database / migration | Permission / role | Tenant / entity / country / project | RLS / audit / tests | Status |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Executive command center | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Projects | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Design & engineering | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| BIM / digital twin | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| BOQ / QS | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Interiors / FF&E | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Contracts | Shared BEYU contracting exists at `src/lib/contracts` and `/api/v1/contracts`; it is not an Ujenzi frontend | — | `/os/contracts` (shared) | `/api/v1/contracts/*` (shared) | shared contracts | shared contracts schema / `0042` | `contracts:*` | canonical BEYU scopes | canonical shared controls | BACKEND_ONLY (for Ujenzi) |
-| Variations & claims | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Procurement / suppliers / contractors | Shared Foundation procurement and Agriculture suppliers are not Ujenzi implementations | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Materials / equipment | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Workforce | Canonical BEYU HCM exists; no Ujenzi workforce adapter | — | shared HCM routes only | shared HCM APIs only | shared HCM | shared HCM tables | `hcm:*` | canonical scopes | shared RLS/audit/tests | BACKEND_ONLY (for Ujenzi) |
-| Scheduling / site operations | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| HSE / QA-QC | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Compliance / evidence / documents | Shared BEYU capabilities exist; no Ujenzi adapter | — | shared routes only | shared APIs only | shared services | shared schema | shared permissions | canonical scopes | shared controls | BACKEND_ONLY (for Ujenzi) |
-| Green construction | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Developer / infrastructure | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Handover & assets | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Offline operations | — | — | — | — | — | — | — | — | — | NOT_IMPLEMENTED |
-| Noelia contextual tools | Canonical `src/lib/noelia/*` exists; no Ujenzi registration at HEAD | — | canonical Noelia route only | canonical Noelia APIs | canonical Noelia/HIVE | canonical AI tables | canonical AI permissions | canonical context | canonical governance | NOT_IMPLEMENTED |
+| Capability | Web route | Principal API families | Data/services | Status |
+|---|---|---|---|---|
+| Command center | `/os/ujenzi` | `/dashboard` | project/site/cost/HSE/quality summaries | FULLY_INTEGRATED |
+| Projects and phases | `/os/ujenzi/projects`, `/projects/[id]` | `/projects`, `/phases`, `/milestones` | project lifecycle and scoped detail | FULLY_INTEGRATED |
+| BOQ and cost control | `/os/ujenzi/boq-cost` | `/boqs`, `/boqs/[id]/items`, `/boqs/[id]/approve`, `/cost-records` | immutable BOQ versions and five cost kinds | FULLY_INTEGRATED |
+| Site operations | `/os/ujenzi/site` | `/sites`, `/site-diaries`, `/toolbox-talks` | site records and diaries | FULLY_INTEGRATED |
+| Procurement | `/os/ujenzi/procurement` | `/requisitions`, approvals, `/purchase-orders`, approvals | governed procurement transitions | FULLY_INTEGRATED |
+| Materials | `/os/ujenzi/materials` | `/materials`, `/material-movements` | catalogue and movement events | FULLY_INTEGRATED |
+| Equipment | `/os/ujenzi/equipment` | `/equipment`, `/equipment/allocations` | plant/equipment allocation | FULLY_INTEGRATED |
+| Quality | `/os/ujenzi/quality` | `/inspection-requests`, results, `/ncrs`, close | QA/QC and NCR lifecycle | FULLY_INTEGRATED |
+| HSE | `/os/ujenzi/hse` | `/hazards`, `/hse-incidents` | safety observations/incidents | FULLY_INTEGRATED |
+| Variations | `/os/ujenzi/variations` | `/variations`, `/variations/[id]/decision` | request and governed decision | FULLY_INTEGRATED |
+| Claims | `/os/ujenzi/claims` | `/claims` | claim submission | FULLY_INTEGRATED |
+| Payment certification | `/os/ujenzi/payments` | `/payment-certificates` | event handoff only; no sector journal | FULLY_INTEGRATED |
+| Handover | `/os/ujenzi/handover` | `/punch-items`, close, `/projects/[id]/handover` | punch-list gate and handover | FULLY_INTEGRATED |
 
-## Unmerged candidate inventory (not canonical status)
+No dedicated BIM/digital-twin or Ujenzi mobile workflow is claimed merely because PR #61 advertised one.
 
-PR #61 advertises one Ujenzi Sector OS with `/os/ujenzi`, 27 API route files, `src/lib/ujenzi/*`, 69 Drizzle schema exports, migrations `0043`–`0048`, and six test files. Its page calls `requireAccess("ujenzi:data.read")`; its HTTP helpers use canonical `guarded`; its write permission is proposed as `ujenzi:data.manage`; and its copy keeps `CAP_POSTING` locked. These facts make PR #61 the appropriate upstream candidate to rebase/review—not a source to copy piecemeal. They do **not** prove compatibility with HEAD, current RLS completeness, current launcher architecture, or green current CI.
+## Authorization and isolation findings
 
-## Authorization chain available vs missing
+The effective chain is:
 
-Available canonical chain:
+`BEYU session / GlobalUserID → requirePrincipal or guarded → permission RBAC → tenant/entity/classification ABAC → canonical BEYU-UJENZI target recheck → withTenantDatabaseContext → PostgreSQL RLS → audit/events`
 
-`session → resolvePrincipal(GlobalUserID) → requirePrincipal/guarded → can(RBAC+ABAC, classification, tenant, entity, MFA) → withTenantDatabaseContext → RLS → audit`
+Reconciliation hardening closes a gap found while replaying current main: generic `SECTOR_OPERATOR` grants could previously reach another sector's read API within the caller's own tenant. `src/lib/api.ts` now rechecks canonical Agriculture/Ujenzi target scope for every corresponding API permission. `src/lib/authz.ts` also binds `ujenzi:data.manage` to `BEYU-UJENZI`. URL changes are therefore not cross-sector authority.
 
-Missing Ujenzi bindings:
+Executed negative paths include unauthenticated page/API denial, missing permission, Agriculture→Ujenzi page/API denial, read-only write denial, foreign tenant/entity/country/project denial, malformed input, no-RLS-context denial, forged tenant insert rejection, and child-table isolation.
 
-- no Ujenzi OS destination/target resolver;
-- no canonical `ujenzi:data.read/manage` permissions or role grants;
-- no Ujenzi tenant/entity/country/project resolver;
-- no Ujenzi route layout/deep-link check;
-- no Ujenzi API/service/schema/RLS/audit path;
-- no cross-sector negative test involving Ujenzi.
+## Database and test evidence
 
-Therefore authorization and RLS verification are `BLOCKED`, not inferred from Agriculture or from an open PR.
+A fresh disposable PostgreSQL 16.14 cluster replayed migrations `0000`–`0043`; the second migration run produced the same schema fingerprint. Runtime-role catalogue evidence found **23/23 Ujenzi tables RLS-enabled, 23/23 FORCE RLS, and 23/23 canonical `beyu_tenant_ids()` policies**.
 
-## Audit decision / implementation gate
+Executed focused gates:
 
-**Gate: STOPPED for Ujenzi.** The safe next action is to rebase and fully review PR #61 (or merge an equivalent verified implementation) against current `main`, resolve migration numbering/history, run current full database/RLS/security suites, and only then add Ujenzi to the existing launcher/navigation. This task did not create an empty route, placeholder page, duplicate authentication, duplicate ledger, duplicate Noelia, duplicate HIVE, or ungoverned launcher entry.
+- Ujenzi domain + runtime RLS + ABAC: **48 passed**.
+- Ujenzi live production-server HTTP: **11 passed**.
+- Full root suite against PostgreSQL and `next start`: **3,732 passed, 28 skipped, 0 failed** across 198 files.
+- Deployment-parity production build without runtime secrets: PASS; 146 pages and all Ujenzi routes emitted.
+- Typecheck: PASS. Lint: PASS with one pre-existing `<img>` optimization warning.
+- Root secret scan: PASS (1,859 tracked files).
+- Root `npm audit --audit-level=high`: PASS after lock-only `js-yaml` `4.3.1 → 4.3.2`; six moderate development-tool findings remain and require breaking upgrades.
+
+The 28 skips are repository-defined environment/owner-gated cases, not missing-server skips: `BEYU_TEST_BASE_URL` was explicitly set and the health probe was UP.
+
+## Remaining truthful gaps
+
+- Flutter SDK is not installed and no `mobile/flutter/test` suite exists; Flutter execution is BLOCKED.
+- The first ten Agriculture tables remain non-FORCE RLS (documented in the Agriculture audit); this is not an Ujenzi migration defect.
+- Browser automation/accessibility tooling beyond the server-rendered HTTP suites remains absent.
+- Authenticated production verification requires controlled credentials and database/audit evidence and is not claimed here.
+
+**Audit result:** canonical Ujenzi integration is present and verified locally; PR #61 is superseded; PR #68 documentation is reconciled without duplicating PR #69.
