@@ -90,12 +90,13 @@ describe("canonical constitutional hierarchy", () => {
     ).toBe(true);
   });
 
-  it("models exactly four Sector OSs beneath BEYU OS", () => {
+  it("models exactly five Sector OSs beneath BEYU OS", () => {
     const expected = [
       { label: "Finance OS", href: "/os/finance" },
       { label: "Health OS", href: "/health" },
       { label: "Agriculture OS", href: "/os/agriculture" },
       { label: "Foundation OS", href: "/os/foundation" },
+      { label: "Ujenzi OS", href: "/os/ujenzi" },
     ];
     expect(
       group("sector").items.map(({ label, href }) => ({ label, href })),
