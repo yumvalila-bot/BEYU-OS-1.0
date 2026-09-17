@@ -1063,8 +1063,10 @@ describe("risk module — leaves governance and financial state untouched", () =
     // handover protocol - every tenant-owned table RLS-forced via beyu_tenant_ids(); money stays
     // Finance OS (certificates are CERTIFIED_PENDING_FINANCE_INTEGRATION under a LOCKED
     // CAP_POSTING capability; no second GL); adds no specialist truth).
-    expect(n).toBe(44);
-  });
+    // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
+    // tenant governance — one delegation-instrument table, catalogue mirror, runtime
+    // DML grant; no specialist truth).
+    expect(n).toBe(45);  });
 
   it("leaves all triggers enabled", async () => {
     const disabled = await count(sql`

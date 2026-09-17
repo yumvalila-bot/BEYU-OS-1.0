@@ -21,6 +21,7 @@ import { db } from "@/db";
 import { ROLES, ROLE_CLEARANCE } from "@/lib/constants";
 import type { Principal } from "@/lib/authz";
 import { runSpecialist, type SpecialistContext } from "@/lib/specialist/platform";
+import { resetAuditLedgers } from "../helpers/ledger-reset";
 import {
   AUDIT_INTEL_VERSION,
   actorActivity,
@@ -148,6 +149,16 @@ const evt = (over: Partial<EventRecordView> = {}): EventRecordView => ({
 });
 
 beforeAll(async () => {
+  // HERMETIC LEDGER. The suite was written assuming the append-only ledgers are
+  // empty at seed. That assumption is order-dependent in a full run: other
+  // suites legitimately publish HIGHLY_RESTRICTED events into the same tenant
+  // (e.g. family trust-governance) and leave them on record — by design, the
+  // ledgers are append-only. The "zero withheld" positive control below is only
+  // deterministic if the ledger contains EXACTLY the activity this suite
+  // generates. The sanctioned reset (helpers/ledger-reset.ts, the ONLY way
+  // tests may clear these tables) restores the at-seed condition hermetically.
+  await resetAuditLedgers();
+
   const [t] = await rowsOf<{ id: string }>(sql`select id from tenants where id = 'TEN_BEYU_GROUP'`);
   tenantId = t.id;
 
@@ -897,8 +908,10 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // handover protocol - every tenant-owned table RLS-forced via beyu_tenant_ids(); money stays
     // Finance OS (certificates are CERTIFIED_PENDING_FINANCE_INTEGRATION under a LOCKED
     // CAP_POSTING capability; no second GL); adds no specialist truth).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(44);
-  });
+    // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
+    // tenant governance — one delegation-instrument table, catalogue mirror, runtime
+    // DML grant; no specialist truth).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(45);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

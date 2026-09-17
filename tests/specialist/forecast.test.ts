@@ -995,7 +995,10 @@ describe("forecast service — hostile inputs", () => {
     // handover protocol - every tenant-owned table RLS-forced via beyu_tenant_ids(); money stays
     // Finance OS (certificates are CERTIFIED_PENDING_FINANCE_INTEGRATION under a LOCKED
     // CAP_POSTING capability; no second GL); adds no specialist truth).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(44);
+    // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
+    // tenant governance — one delegation-instrument table, catalogue mirror, runtime
+    // DML grant; no specialist truth).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(45);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed
