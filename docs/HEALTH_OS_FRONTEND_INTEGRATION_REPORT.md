@@ -94,7 +94,9 @@ No test was weakened, deleted, or skipped by this change. One observed pre-exist
 
 ## J. Production verification
 
-**Unauthenticated (performed after merge — see final status):** `https://beyu-os-1-0.vercel.app/health` and `/health/os` must fail closed (redirect to `/`); `https://beyu-os-1-0.vercel.app/api/health` must report `database: UP`. *(Results recorded in the final response section O once the deployment lands.)*
+**Pre-merge production observation (2026-09-17, unauthenticated):** `https://beyu-os-1-0.vercel.app/health` fails closed — it redirects unauthenticated visitors to the BEYU sign-in page (the existing placeholder gate behaviour), and `https://beyu-os-1-0.vercel.app/` serves the control-plane sign-in surface normally. This is the expected state before the mount ships.
+
+**Post-merge (performed after merge — recorded in final response section O):** `https://beyu-os-1-0.vercel.app/health` and `/health/os` must fail closed (redirect to `/`) for unauthenticated visitors; `https://beyu-os-1-0.vercel.app/api/health` must report `database: UP`.
 
 **Authenticated production verification requires human-controlled credentials** (mission §XXVIII) and cannot be claimed by this integration. The exact human checklist (all steps verified locally against the identical code path):
 
