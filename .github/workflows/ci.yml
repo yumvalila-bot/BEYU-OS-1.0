@@ -375,18 +375,32 @@ jobs:
       - name: Post gate self-test failure as PR comment (debug)
         if: failure()
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          echo "Posting gate self-test failure as PR comment..."
+          echo "Posting gate self-test failure as PR comment via curl..."
           log=$(cat /tmp/gate-selftest.log 2>/dev/null | tail -n 200 || echo "no log")
           json=$(cat /tmp/gate-selftest-json.log 2>/dev/null | tail -n 300 || echo "no json")
-          # Truncate to avoid comment too large (GitHub limit 65536)
-          body=$(printf "Gate self-test failed (case 8). This comment is auto-generated for debugging P3.\n\n**Log tail:**\n\`\`\`\n%s\n\`\`\`\n\n**JSON:**\n\`\`\`json\n%s\n\`\`\`\n" "$log" "$json" | head -c 60000)
-          if [ -n "${{ github.event.pull_request.number }}" ]; then
-            gh pr comment ${{ github.event.pull_request.number }} --body "$body" 2>&1 || echo "Failed to post comment"
+          # Build comment body, truncate
+          body_text=$(printf "Gate self-test FAILED (case 8) - auto debug for P3\n\nLog tail:\n\`\`\`\n%s\n\`\`\`\n\nJSON:\n\`\`\`json\n%s\n\`\`\`\n" "$log" "$json" | head -c 50000)
+          # Use jq to JSON-escape
+          payload=$(jq -Rs --arg body "$body_text" '{body: $body}' <<< "")
+          # Post via GitHub API
+          pr_number="${{ github.event.pull_request.number }}"
+          if [ -n "$pr_number" ]; then
+            curl -s -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$pr_number/comments" \
+              | tee /tmp/comment-response.json
+            cat /tmp/comment-response.json
           else
-            echo "Not a PR event, skipping comment"
+            echo "Not a PR event"
           fi
+          # Also try gh
+          gh pr comment "$pr_number" --body "$body_text" 2>&1 || true
 
       - name: Verify no schema drift between the applied migrations and src/db/schema
         # REPLACES the previous gate, which ran `drizzle-kit generate` and compared
