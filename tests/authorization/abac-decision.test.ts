@@ -165,6 +165,14 @@ describe("Iteration 7 ABAC decision lattice", () => {
     const agri = principal({ tenantCode: "BEYU-AGRI", tenantType: "SECTOR", tenantId: "TEN_BEYU_AGRI" });
     expect(can(agri, "agriculture:data.manage").allowed).toBe(true);
   });
+
+  it("Ujenzi writes require the Ujenzi OS tenant even when SECTOR_OPERATOR holds the grant", () => {
+    const agri = principal({ tenantCode: "BEYU-AGRI", tenantType: "SECTOR", tenantId: "TEN_BEYU_AGRI" });
+    expect(can(agri, "ujenzi:data.manage").allowed).toBe(false);
+    expect(can(agri, "ujenzi:data.manage").reason).toMatch(/Ujenzi OS tenant/);
+    const ujenzi = principal({ tenantCode: "BEYU-UJENZI", tenantType: "SECTOR", tenantId: "TEN_BEYU_UJENZI" });
+    expect(can(ujenzi, "ujenzi:data.manage").allowed).toBe(true);
+  });
 });
 
 afterAll(async () => undefined);
