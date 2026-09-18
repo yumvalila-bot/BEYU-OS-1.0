@@ -347,13 +347,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           npx tsx scripts/migration/gate-selftest.ts 2>&1 | tee /tmp/gate-selftest.log
           rc=${PIPESTATUS[0]}
+          set -e
           if [ $rc -ne 0 ]; then
             echo "=== GATE SELF-TEST FAILED — dumping detailed JSON ===" | tee -a $GITHUB_STEP_SUMMARY
-            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee -a /tmp/gate-selftest-json.log | tee -a $GITHUB_STEP_SUMMARY || true
+            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee /tmp/gate-selftest-json.log | tee -a $GITHUB_STEP_SUMMARY || true
             echo "=== END DETAILED ===" | tee -a $GITHUB_STEP_SUMMARY
             cat /tmp/gate-selftest.log | tee -a $GITHUB_STEP_SUMMARY || true
+            echo "::error::GATE SELF-TEST FAILED — see step summary for details"
+            # Also try to run integrity and drift separately to isolate
+            echo "=== Running integrity --with-ledger separately ===" | tee -a $GITHUB_STEP_SUMMARY
+            npx tsx scripts/migration/integrity.ts --with-ledger 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+            echo "=== Running schema-drift separately ===" | tee -a $GITHUB_STEP_SUMMARY
+            npx tsx scripts/migration/schema-drift.ts 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
             exit $rc
           fi
 
