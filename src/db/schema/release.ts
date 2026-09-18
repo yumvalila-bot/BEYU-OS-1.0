@@ -192,3 +192,43 @@ export const rollbackRequests = pgTable(
     index("rollback_requests_type_idx").on(t.type),
   ],
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// release_approvals — P4 four-eyes approval evidence (0047)
+//
+// An approval is attributable EVIDENCE that a governed actor approved a
+// controlled release action. It never grants authorization by itself: RBAC,
+// ABAC, the release state machine and RLS all still apply. PROMOTED, SWITCHED
+// and CONTRACTED transitions require an active APPROVED record whose approver
+// is distinct from the acting principal (four-eyes). See
+// docs/architecture/RELEASE_APPROVALS.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const releaseApprovals = pgTable(
+  "release_approvals",
+  {
+    id: text("id").primaryKey(),
+    releaseId: text("release_id")
+      .notNull()
+      .references(() => releaseRecords.releaseId, { onDelete: "cascade" }),
+    environment: text("environment").notNull(),
+    // DEPLOY | PROMOTE | ROLLBACK | CONTRACT
+    scope: text("scope").notNull(),
+    // APPROVED | REVOKED | REJECTED
+    decision: text("decision").notNull(),
+    approverId: text("approver_id").notNull(),
+    approverType: text("approver_type").notNull(), // HUMAN | SERVICE | AI | SYSTEM
+    justification: text("justification").notNull(),
+    evidence: jsonb("evidence"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("release_approvals_release_id_idx").on(t.releaseId),
+    index("release_approvals_scope_idx").on(t.scope),
+    index("release_approvals_decision_idx").on(t.decision),
+    index("release_approvals_environment_idx").on(t.environment),
+    index("release_approvals_created_at_idx").on(t.createdAt),
+  ],
+);

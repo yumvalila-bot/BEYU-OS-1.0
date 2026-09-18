@@ -251,6 +251,8 @@ export const KNOWN_METADATA_DEBT = {
     // synthesise metadata that was never generated at authoring time. The gap
     // is acknowledged explicitly here, not hidden.
     "0046",
+    // 0047 is P4 release approvals — additive, expand-only, same policy as 0046.
+    "0047",
   ] as string[],
   /** Migrations present as SQL and in the ledger, absent from the journal. */
   missingJournal: [
@@ -261,6 +263,7 @@ export const KNOWN_METADATA_DEBT = {
     "0044_admin_user_tenant_governance",
     "0045_payment_webhook_events_tenant_index",
     "0046_release_governance",
+    "0047_release_approvals",
   ] as string[],
   /** Snapshots that are byte-identical copies of their predecessor. */
   chainCollision: ["0039"] as string[],

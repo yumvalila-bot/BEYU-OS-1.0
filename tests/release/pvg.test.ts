@@ -36,7 +36,8 @@ describe("P3 PVG — structured evidence", () => {
     expect(result.status).toBe("PASS");
     expect(result.blockingFailures).toEqual([]);
     expect(isPvgPass(result)).toBe(true);
-    expect(result.checks.length).toBe(10);
+    // P4 adds the database_release_compatibility check (11 total).
+    expect(result.checks.length).toBe(11);
     expect(result.releaseId).toBe(identity.releaseId);
   });
 

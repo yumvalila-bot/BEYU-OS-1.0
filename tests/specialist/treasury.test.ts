@@ -927,7 +927,7 @@ describe("treasury module — creates no second truth", () => {
     // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(47);  });
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(48);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

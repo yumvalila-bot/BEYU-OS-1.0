@@ -18,6 +18,8 @@
  * Do not modify existing historical migrations.
  */
 
+import { join } from "node:path";
+import { readMigrationFiles } from "@/lib/migration/integrity";
 import type { MigrationClassification, ExpandContractGate } from "./types";
 import type { ReleaseTransition } from "./types";
 
@@ -169,15 +171,20 @@ export function updateGateFromHistory(gate: ExpandContractGate, history: Release
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Verify migration count and checksum against P2 integrity.
- * This is a placeholder that would call src/lib/migration/integrity in real usage.
+ * Verify the repository's ACTUAL migration inventory against the expected
+ * count. P4: no longer a placeholder — counts the real files under `drizzle/`
+ * through the canonical P2 inventory reader, so the release plane and the
+ * migration plane can never disagree about what "the migrations" are.
  */
-export function verifyP2MigrationIntegrity(expectedCount: number = 47): { ok: boolean; count: number; expected: number } {
-  // In real implementation, would call reconcile() from src/lib/migration/integrity
-  // For P3, we assert the count is at least 46 (P2) + 1 (P3) = 47
+export function verifyP2MigrationIntegrity(expectedCount?: number): { ok: boolean; count: number; expected: number | null } {
+  const files = readMigrationFiles(join(process.cwd(), "drizzle"));
+  const count = files.length;
+  const expected = expectedCount ?? null;
   return {
-    ok: expectedCount >= 46,
-    count: expectedCount,
-    expected: expectedCount,
+    // Without an explicit expectation the inventory itself is the truth;
+    // with one, the real count must match exactly.
+    ok: expected === null ? count > 0 : count === expected,
+    count,
+    expected,
   };
 }
