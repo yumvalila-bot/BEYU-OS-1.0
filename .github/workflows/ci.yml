@@ -548,6 +548,7 @@ jobs:
             /tmp/root-migrate-rerun.log
             /tmp/health.json
             /tmp/root-tests.log
+            /tmp/gate-selftest.log
           if-no-files-found: warn
           retention-days: 14
 
