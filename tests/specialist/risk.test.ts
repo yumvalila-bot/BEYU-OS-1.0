@@ -1066,7 +1066,13 @@ describe("risk module — leaves governance and financial state untouched", () =
     // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
     // tenant governance — one delegation-instrument table, catalogue mirror, runtime
     // DML grant; no specialist truth).
-    expect(n).toBe(45);  });
+    // 45 -> 46: 0045_payment_webhook_events_tenant_index (P2 migration-integrity
+    // corrective — creates the payment_webhook_events tenant index that
+    // src/db/schema has declared since 0028 but no migration ever built, so it
+    // has never existed in any database. Purely additive and idempotent
+    // (CREATE INDEX IF NOT EXISTS): no table, no column, no specialist truth,
+    // no posting path, CAP_POSTING stays LOCKED).
+    expect(n).toBe(46);  });
 
   it("leaves all triggers enabled", async () => {
     const disabled = await count(sql`

@@ -57,23 +57,29 @@ never printed.
 **Root BEYU OS**
 
 1. `npm ci`
-2. `pg_isready` readiness wait and PostgreSQL 16 version assertion
-3. `npm run typecheck`
-4. `npm run lint`
-5. `npm run migrate` — the canonical migrations under `drizzle/` via `scripts/migrate.ts`
-6. Assert every migration is recorded in `beyu_migrations`
-7. Assert a re-run applies nothing (idempotent, no ledger drift)
-8. **Schema drift check** — fails if `drizzle-kit generate` produces a new migration
-   (validated relationally against the `drizzle/meta` snapshots; see "Schema drift
-   gate integrity" below for its current restoration status as of 2026-09-18)
-9. **Provision the non-superuser runtime role** — `scripts/setup-db-role.ts`
-10. **Assert the runtime role's attributes** — `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`
-11. `npm run seed`
-12. `npm run build`, then **build again with every runtime secret cleared** — fails
+2. **Migration integrity** — `scripts/migration/integrity.ts`. DB-free, so an
+   incoherent migration set fails in seconds rather than after a 46-migration apply
+3. `pg_isready` readiness wait and PostgreSQL 16 version assertion
+4. `npm run typecheck`
+5. `npm run lint`
+6. `npm run migrate` — the canonical migrations under `drizzle/` via `scripts/migrate.ts`
+7. Assert every migration is recorded in `beyu_migrations`
+8. Assert a re-run applies nothing (idempotent, no ledger drift)
+9. **Migration integrity reconciliation** — `scripts/migration/integrity.ts
+   --with-ledger` reconciles SQL vs journal vs snapshots vs the real
+   `beyu_migrations` ledger (see "Schema drift gate integrity" below)
+10. **Schema drift check** — `scripts/migration/schema-drift.ts` compares the schema
+    the migrations actually produced (`drizzle-kit pull` against the migrated
+    database) with the schema `src/db/schema.ts` declares (`drizzle-kit generate`),
+    both written to a throwaway directory
+11. **Provision the non-superuser runtime role** — `scripts/setup-db-role.ts`
+12. **Assert the runtime role's attributes** — `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`
+13. `npm run seed`
+14. `npm run build`, then **build again with every runtime secret cleared** — fails
     if a module regresses to requiring `DATABASE_URL` at build time
-13. Start the application and **assert `/api/health` reports `database: UP`**
-14. Full regression with `BEYU_TEST_BASE_URL` set
-15. **Assert the skip count is near zero** — an unreachable server must fail, never
+15. Start the application and **assert `/api/health` reports `database: UP`**
+16. Full regression with `BEYU_TEST_BASE_URL` set
+17. **Assert the skip count is near zero** — an unreachable server must fail, never
     silently skip the transport-level suites
 
 **Health OS frontend** — `npm ci`, typecheck, test, build. This package defines no
@@ -99,39 +105,63 @@ across all three packages. The threshold is the documented policy from
 must not redden the pipeline on every upstream publication, while a critical
 vulnerability in shipped runtime code must.
 
-## Schema drift gate integrity (reality correction, 2026-09-18)
+## Schema drift gate integrity (P2 resolution, 2026-09-18)
 
-During P1 of the integrated release programme the repo-side CI drift gate was
-inspected against current `main` (`ac9b588`). For the canonical root BEYU OS:
+P1 recorded that the repo-side drift gate was not proving anything. P2 reproduced
+that from current `main` (`ae09d53`) and replaced the gate. Full evidence, the
+reconciliation matrix and the remaining governance boundary are in
+`docs/migration/P2_MIGRATION_INTEGRITY.md`; this section is the pipeline summary.
 
-- The migration source (`drizzle/*.sql`) contains **45** migrations
-  (`0000` → `0044`), but the drizzle meta journal (`_journal.json`) ends at
-  `0039`.
-- Snapshots are genuinely missing for migrations `0018`, `0021`, `0029`, `0040`,
-  `0041`, `0042`, `0043`, `0044`, and file snapshots `0038` and `0039` are the
-  **same object** (identical `id`/`prevId`, from the out-of-band authoring
-  pattern). `drizzle-kit generate` reports the two snapshots as a parent
-  collision.
+**What was actually wrong.** `npx drizzle-kit generate --name=ci_drift_check`
+prints
 
-These are real defects in the schema drift mechanism — drift has occurred in the
-meta layer without being detected by the drift step. The step is therefore
-currently validated by its *absence* (the CLI errors out before generating) rather
-than by a meaningful diff. The runtime/operational consequences are unchanged:
-schema authority remains `.github/workflows/db-release.yml` +
-`scripts/db-release.ts`, which compare the **real database** against a clean
-scratch install (fingerprint, migration checksums, RLS inventory, destructive
-scan) — that gate independently detects live drift and is not affected by this
-finding.
+```
+Error: [drizzle/meta/0038_snapshot.json, drizzle/meta/0039_snapshot.json] are
+pointing to a parent snapshot: … which is a collision.
+```
 
-Restoring the `drizzle/meta` journal and regression-testing it for real
-(including the drift-gate health and the one-health-canonical-PG architecture)
-is an explicit **Phase 2 (PH2-B)** task. Raising it requires regenerating the
-journal from scratch, not inventing copies; that is neither a single-line
-relabelling nor something to perform blindly in P1, because it redetermines the
-relational guarantee of the drift gate. References for the audit trail: the
-historical `0030` journal repair in `POST_MERGE_FORENSIC_AUDIT_REPORT.md`, the
-pin-annotation pattern at the end of the specialist domain suites, and the
-schema-authority roles in `docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md`.
+and then **exits 0** having written nothing. The old gate compared
+`ls drizzle/*.sql | wc -l` before and after, saw no change, and printed "No schema
+drift." It never ran a comparison — failure mode *reports an error but exits
+successfully*, compounded by *depends on invalid metadata*.
+
+**That blindness had a real cost.** `payment_webhook_events_tenant_idx` is declared
+in `src/db/schema/payments.ts` and is present in `drizzle/meta/0028_snapshot.json`,
+but migration `0028` creates only two of the table's three indexes. The index has
+never existed in any database. The replacement gate reports it immediately; it is
+fixed by the additive, idempotent migration `0045`.
+
+**The replacement.** `scripts/migration/schema-drift.ts` measures two snapshots and
+compares them: `drizzle-kit pull` for the schema the migrations actually produced,
+`drizzle-kit generate` for the schema `src/db/schema.ts` declares. Both go to a
+throwaway directory under `os.tmpdir()`, so `drizzle/meta` is neither read nor
+trusted and cannot be edited to make the gate green. A run that exits 0 while
+reporting an error, or that produces no snapshot, **fails**. Ambiguity fails closed.
+
+**What it compares** (deliberately): tables, columns (name/type/nullability),
+enums, unique constraints and composite primary keys symmetrically; indexes,
+foreign keys and check constraints asymmetrically, where "declared in schema but
+absent from the database" is drift and the reverse is informational — BEYU's
+integrity migrations legitimately add database-side objects the ORM does not
+model, such as `audit_log_prev_hash_uidx`. RLS enablement, policies, foreign-key
+names and check-constraint expressions are excluded with reasons documented in
+`src/lib/migration/drift.ts`; RLS itself is verified directly against real
+PostgreSQL by the isolation suites.
+
+**Migration integrity** (`scripts/migration/integrity.ts`) is a separate, DB-free
+stage that runs before anything touches the database. It shares its logic with
+`tests/migration/*.test.ts`, so the pipeline and the suite cannot disagree.
+
+**What P2 deliberately did NOT do.** The historical `drizzle/meta` journal and
+snapshots were left untouched. Snapshots for `0018`, `0021`, `0029` and
+`0040`–`0045` were never generated, and `0039_snapshot.json` is a byte-identical
+copy of `0038_snapshot.json`. Synthesising the missing snapshots now would assert
+schema states that were never captured — fabricated migration metadata. The gap is
+therefore recorded in `KNOWN_METADATA_DEBT`, reported on every run, and blocked
+from growing: a new migration without metadata fails the build unless it is added
+to that register explicitly. This is safe because nothing in the repository
+consumes `drizzle/meta` at runtime — `scripts/migrate.ts` reads `drizzle/*.sql`
+directly and keeps its own `beyu_migrations` ledger.
 
 ## Why the runtime role step is not optional
 

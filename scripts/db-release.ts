@@ -47,6 +47,21 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
 import { annotateError, annotateGateFailures, failSanitized } from "./lib/ci-annotation";
+// Destructive-shape scanner: a hit is not automatically wrong, it is a
+// STOP-and-get-human-approval signal. Migration 0001 contains candidate-sandbox
+// TRUNCATEs and scripts/migrate.ts already refuses it against an existing schema;
+// the scanner generalises that gate to any pending migration.
+//
+// P2 moved the patterns into src/lib/migration/integrity so the preflight scan and
+// the CI migration-integrity stage cannot disagree. Two defects in the previous
+// local copy are fixed by that move:
+//   • a bare /\btruncate\b/i flagged migration 0008, whose only TRUNCATE text is a
+//     BEFORE TRUNCATE guard trigger and a RAISE message saying truncation is not
+//     allowed — noise that trains operators to pass --allow-destructive;
+//   • only the GRANT spelling of privilege escalation matched, so
+//     `ALTER ROLE … SUPERUSER|BYPASSRLS` — which defeats RLS just as thoroughly —
+//     went undetected.
+import { scanDestructive } from "../src/lib/migration/integrity";
 import { sanitizeError } from "./lib/sanitize-error";
 import { buildPgConnectionConfig } from "../src/db/tls";
 
@@ -90,29 +105,6 @@ function repoMigrations(): RepoMigration[] {
       const sql = readFileSync(join(dir, file), "utf8");
       return { version: file.replace(/\.sql$/, ""), file, checksum: sha256(sql), sql };
     });
-}
-
-/**
- * Destructive-shape scanner. A hit is not automatically wrong — it is a
- * STOP-and-get-human-approval signal. Historical guard: migration 0001
- * contains candidate-sandbox TRUNCATEs and migrate.ts already refuses it
- * against an existing schema; this scanner generalises the gate to any
- * pending migration that would destroy or reset state.
- */
-const DESTRUCTIVE_PATTERNS: Array<{ re: RegExp; label: string }> = [
-  { re: /\bdrop\s+database\b/i, label: "DROP DATABASE" },
-  { re: /\bdrop\s+schema\b/i, label: "DROP SCHEMA" },
-  { re: /\btruncate\b/i, label: "TRUNCATE" },
-  { re: /\bdrop\s+table\b/i, label: "DROP TABLE" },
-  { re: /\bdrop\s+column\b/i, label: "DROP COLUMN" },
-  { re: /\bgrant\s+[^;]*\bsuperuser\b/i, label: "GRANT SUPERUSER" },
-  { re: /\bgrant\s+[^;]*\bbypassrls\b/i, label: "GRANT BYPASSRLS" },
-  { re: /\balter\s+system\b/i, label: "ALTER SYSTEM" },
-  { re: /\bdrop\s+owned\b/i, label: "DROP OWNED" },
-];
-
-function scanDestructive(sql: string): string[] {
-  return DESTRUCTIVE_PATTERNS.filter((p) => p.re.test(sql)).map((p) => p.label);
 }
 
 async function main() {
