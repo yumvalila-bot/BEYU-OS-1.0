@@ -17,7 +17,7 @@ import {
  * The first three groups express the constitutional hierarchy directly:
  *   EXECUTIVE            — control surfaces of the one BEYU control plane;
  *   SHARED CAPABILITIES  — implemented once in BEYU OS, never separate OSs;
- *   SECTOR OS            — Finance, Health, Agriculture and Foundation below it.
+ *   SECTOR OS            — Finance, Health, Agriculture, Foundation and Ujenzi below it.
  *
  * The remaining workspace groups preserve useful, already-implemented focused
  * views without promoting those views into duplicate operating systems.
@@ -240,6 +240,67 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
           kind: "any",
           permissions: FOUNDATION_OS_READ_PERMISSIONS,
         },
+      },
+      {
+        href: "/os/ujenzi",
+        label: "Ujenzi OS",
+        description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, quality, HSE, variations, claims, payment certificates and handover under BEYU governance and Finance boundaries.",
+        icon: "ujenzi",
+        visibility: { kind: "permission", permission: "ujenzi:data.read" },
+      },
+    ],
+  },
+  {
+    id: "administration",
+    title: "Administration",
+    items: [
+      {
+        href: "/os/administration",
+        label: "Users & Identities",
+        description:
+          "Governed registration and lifecycle of user identities: register, activate, suspend, deactivate and remove, with audit attribution.",
+        icon: "identity",
+        visibility: { kind: "permission", permission: "identity:user.read" },
+      },
+      {
+        href: "/os/administration/tenants",
+        label: "Tenants",
+        description:
+          "The canonical tenant registry under governance: register tenants, transition lifecycle status, archive; removal is dependency-checked.",
+        icon: "org",
+        visibility: { kind: "permission", permission: "organization:entity.read" },
+      },
+      {
+        href: "/os/administration/memberships",
+        label: "Memberships",
+        description:
+          "User ↔ tenant membership through the canonical assignment model: assign presence, revoke it, and see every scoped grant.",
+        icon: "hierarchy",
+        visibility: { kind: "permission", permission: "identity:user.read" },
+      },
+      {
+        href: "/os/administration/roles",
+        label: "Roles & Capabilities",
+        description:
+          "The constitutional role catalogue and governed grant/revoke of scoped role assignments (MFA step-up, audited).",
+        icon: "governance",
+        visibility: { kind: "permission", permission: "identity:user.read" },
+      },
+      {
+        href: "/os/administration/delegations",
+        label: "Authority Delegations",
+        description:
+          "Bounded, time-limited, revocable delegations of administrative capability — never more authority than the delegator holds.",
+        icon: "command",
+        visibility: { kind: "permission", permission: "identity:delegation.manage" },
+      },
+      {
+        href: "/os/administration/audit",
+        label: "Administrative Audit",
+        description:
+          "The immutable, hash-chained audit trail of every administrative action — grants, transitions, delegations and refusals.",
+        icon: "audit",
+        visibility: { kind: "permission", permission: "audit:log.read" },
       },
     ],
   },

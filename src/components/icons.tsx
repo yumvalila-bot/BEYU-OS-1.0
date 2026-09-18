@@ -53,7 +53,8 @@ export type IconName =
   | "agriculture"
   | "foundation"
   | "family"
-  | "protection";
+  | "protection"
+  | "ujenzi";
 
 const GLYPHS: Record<IconName, ReactNode> = {
   /* Executive Control Centre — command grid with focal point */
@@ -337,6 +338,18 @@ const GLYPHS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 3.6c3.5 2 5.7 2.2 8.4 2-.3 7.6-3 12.2-8.4 15-5.4-2.8-8.1-7.4-8.4-15 2.7.2 4.9 0 8.4-2Z" />
       <path d="M12 8.6a4.6 4.6 0 0 1 4.6 4.6H7.4A4.6 4.6 0 0 1 12 8.6Z" />
+    </>
+  ),
+  /* Ujenzi OS — construction crane over a rising structure */
+  ujenzi: (
+    <>
+      <path d="M4 20.5h16" />
+      <path d="M6.5 20.5V8.2l10-3.4" />
+      <path d="M16.5 4.8v3.6" />
+      <path d="M13.2 8.4h6.6" />
+      <path d="M18.2 8.4v3.2" />
+      <path d="M16.6 11.6h3.2" />
+      <path d="M9.5 20.5v-5.4h5v5.4" />
     </>
   ),
 };

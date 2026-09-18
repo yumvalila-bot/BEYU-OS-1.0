@@ -192,6 +192,18 @@ export const CONNECTIVITY_GRAPH: readonly ConnectivityEdge[] = [
     failureMode: "REQUIRES_AUTHORITY",
     continuityRequirement: "programme funding remains separate from execution settlement",
   },
+  {
+    source: "UJENZI",
+    destination: "FINANCE",
+    contract: "PAYMENT_CERTIFIED and PURCHASE_ORDER_APPROVED events; no sector-side journal",
+    authority: "BEYU OS authority/capability gate; CAP_POSTING remains LOCKED",
+    dataClass: "RESTRICTED",
+    direction: "OUTBOUND",
+    interaction: "EVENT",
+    trace: "certificate/PO trace → Finance OS (no posting)",
+    failureMode: "DATA_NOT_AVAILABLE",
+    continuityRequirement: "no sector-side financial truth; certification is project-control truth only",
+  },
 ];
 
 export function connectivityGraph(): ConnectivityEdge[] {

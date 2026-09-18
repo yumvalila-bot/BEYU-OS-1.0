@@ -32,6 +32,8 @@ export const ID_PREFIX = {
   roleAssignment: "RAS",
   emergency: "EMG",
   delegation: "DLG",
+  /** Administrative authority delegation instrument (governed admin program). */
+  adminDelegation: "ADL",
   consent: "CNS",
   article: "ART",
   policy: "POL",
@@ -243,6 +245,8 @@ export const ID_PREFIX = {
   smartContractRegistry: "BCS",
   blockchainTokenPosition: "BCT",
   blockchainReconciliation: "BCX",
+  /* Ujenzi OS — construction sector operational records (Sector OS under BEYU OS). */
+  ujenzi: "UJZ",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

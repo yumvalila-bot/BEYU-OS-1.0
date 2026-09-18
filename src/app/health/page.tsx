@@ -5,8 +5,12 @@
  * Health OS is a separate application surface that consumes canonical BEYU identity
  * through federation.
  *
- * In production, this would redirect to the Health Web application deployed at
- * a separate domain/port. For now, it shows an information page.
+ * Authorized users are redirected to `/health/os`, which serves the EXISTING
+ * Health OS implementation (the `sectors/health` single-file SPA compiled by
+ * `scripts/build-health-spa.mjs`). That route re-runs this exact gate
+ * (canonical BEYU session + canonical identity federation link, fail-closed)
+ * so a deep link cannot bypass it. Unauthenticated and unauthorized states are
+ * rendered here with truthful availability copy.
  */
 
 import { redirect } from "next/navigation";
@@ -61,92 +65,9 @@ export default async function HealthOSPage() {
     );
   }
 
-  // Health OS authorized
-  // In production, this would redirect to the Health Web application
-  // For now, show an information page
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100">
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e7c45c]">
-            <Icon name="health" className="h-8 w-8" />
-          </span>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">Health OS</h1>
-          <p className="text-lg text-slate-600">
-            Healthcare Sector Operating System
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full">
-            <span className="text-sm font-medium text-blue-900">
-              Authorized
-            </span>
-          </div>
-        </div>
-
-        {/* Information Card */}
-        <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            Health OS Access
-          </h2>
-          <p className="text-slate-600 mb-6">
-            You are authorized to access Health OS. This sector operating system
-            provides healthcare-specific capabilities including:
-          </p>
-          <ul className="space-y-3 mb-6">
-            <li className="flex items-start gap-3">
-              <span className="text-blue-600 font-bold">•</span>
-              <span className="text-slate-700">Clinical operations (EMR, prescriptions, radiology, lab)</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-blue-600 font-bold">•</span>
-              <span className="text-slate-700">Patient care management</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-blue-600 font-bold">•</span>
-              <span className="text-slate-700">Healthcare governance and compliance</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-blue-600 font-bold">•</span>
-              <span className="text-slate-700">Security operations</span>
-            </li>
-          </ul>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-900">
-              <strong>Architecture Note:</strong> Health OS is a separate application surface
-              that consumes your canonical BEYU identity through federation. Your Health sector
-              credentials are linked to your canonical BEYU GlobalUserID, ensuring unified
-              identity across all operating systems.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/launcher"
-              className="flex-1 px-6 py-3 bg-slate-200 text-slate-900 rounded-lg hover:bg-slate-300 transition-colors text-center"
-            >
-              Back to Launcher
-            </a>
-            <button
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              disabled
-            >
-              Launch Health OS (Coming Soon)
-            </button>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-slate-500">
-          <p>
-            Canonical Identity: <span className="font-mono">{principal.userId}</span>
-          </p>
-          <p className="mt-1">
-            Tenant: <span className="font-medium">{principal.tenantCode}</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  // Health OS authorized — mount the EXISTING Health OS implementation.
+  // `/health/os` serves the compiled sector SPA and re-runs this exact gate
+  // (canonical session + federation link, fail-closed) on every request, so
+  // this redirect never relaxes authority.
+  redirect("/health/os");
 }

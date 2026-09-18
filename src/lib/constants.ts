@@ -122,6 +122,32 @@ export const PERMISSIONS = {
   "identity:user.manage": "Create, suspend or revoke identities",
   "identity:role.grant": "Grant or revoke role assignments",
   "identity:emergency.activate": "Activate break-glass emergency access",
+  //
+  // Administrative user & tenant governance (X10THINK administrative program).
+  //
+  // ONE shared BEYU OS capability — NOT an Admin OS. These are the FINE-GRAINED,
+  // DELEGABLE keys of the administrative surface. They EXTEND the existing
+  // umbrella permissions rather than duplicating them: `identity:user.manage`
+  // remains the constitutional umbrella over identity mutation and governs
+  // profile updates; the fine-grained keys below exist so that governance can
+  // separate registering a user from suspending one from removing one, and so
+  // that delegated administrative authority can be scoped to exactly one of
+  // these acts (a delegation of the umbrella would hand over every act at
+  // once). `organization:tenant.*` is genuinely new capability space: the
+  // tenant registry previously had NO permission at all, so nothing could
+  // govern tenant registration or lifecycle through a runtime path.
+  //
+  // Every key is enforced by the same canonical `can()` primitive, the same
+  // `guarded()` API boundary, the same audit ledger and the same RLS model as
+  // the rest of the catalogue. None of them bypasses anything.
+  "identity:user.register": "Register (create) a user identity through the governed administrative flow",
+  "identity:user.suspend": "Suspend, deactivate or reactivate an existing user identity",
+  "identity:user.remove": "Remove a user identity (irreversible governed act; anonymizes PII and retains attribution)",
+  "identity:membership.manage": "Assign or remove a user's membership of a tenant",
+  "identity:delegation.manage": "Delegate bounded administrative authority to another administrator, and revoke it",
+  "organization:tenant.register": "Register a tenant in the canonical organization model",
+  "organization:tenant.manage": "Transition tenant lifecycle status (activate, suspend, deactivate, reactivate, archive)",
+  "organization:tenant.remove": "Remove a tenant from active operation (dependency-checked; retains legal, financial and audit history)",
   // Organization & ownership
   "organization:entity.read": "Read corporate structure",
   "organization:entity.manage": "Create or amend legal entities",
@@ -284,6 +310,13 @@ export const PERMISSIONS = {
   // by explicit grant (A-06-1); they never inherit via Object.keys(PERMISSIONS).
   "agriculture:data.read": "Read Agriculture OS operational records (farms, fields, crop cycles, harvests, livestock, land, aqua, inventory, work, observations, traceability)",
   "agriculture:data.manage": "Create or amend Agriculture OS operational records",
+  // Ujenzi OS — construction sector operational records. SECTOR_OPERATOR is the
+  // registry owner (read + manage); named enterprise roles receive read only by
+  // explicit grant, mirroring the Agriculture grant model (A-06-1). Ujenzi
+  // never owns identity, HCM, journals, documents, approvals or AI: those stay
+  // canonical in BEYU shared capabilities.
+  "ujenzi:data.read": "Read Ujenzi OS operational records (projects, sites, phases, milestones, BOQ, cost records, procurement, materials, equipment, site diaries, quality, HSE, variations, claims, payment certificates, handover)",
+  "ujenzi:data.manage": "Create or amend Ujenzi OS operational records",
   // Foundation OS — ONE institutional OS; these are domain capabilities inside
   // it, not sub-OS products. Approval permissions are HIGH_RISK (MFA step-up).
   "foundation:registry.read": "Read the Foundation Registry",
@@ -364,8 +397,43 @@ export const PERMISSIONS = {
 
 export type PermissionCode = keyof typeof PERMISSIONS;
 
+/**
+ * The CLOSED set of administrative capabilities that may be DELEGATED to
+ * another administrator (governed admin program). Everything else — including
+ * `identity:delegation.manage` itself — is structurally non-delegable:
+ *
+ *   - `identity:delegation.manage` is excluded so a delegated administrator can
+ *     never create further delegations: no recursive privilege amplification,
+ *     ever. Delegation chains have depth exactly one.
+ *   - The read-side capabilities (`identity:user.read`, `audit:log.read`, …) are
+ *     ordinary grants; a delegatee who needs visibility receives it through the
+ *     same governed role-assignment path as everyone else.
+ *   - The umbrella permissions are excluded: delegation is scoped to the
+ *     fine-grained acts (register / suspend / remove / membership / roles /
+ *     tenant register / manage / remove) so a delegation can never hand over
+ *     "everything at once".
+ */
+export const ADMIN_DELEGATABLE_PERMISSIONS: readonly PermissionCode[] = [
+  "identity:user.register",
+  "identity:user.suspend",
+  "identity:user.remove",
+  "identity:membership.manage",
+  "identity:role.grant",
+  "organization:tenant.register",
+  "organization:tenant.manage",
+  "organization:tenant.remove",
+] as const;
+
+/** True when the code is inside the closed delegable set (unknown codes fail closed). */
+export function isDelegablePermission(code: string): code is PermissionCode {
+  return (ADMIN_DELEGATABLE_PERMISSIONS as readonly string[]).includes(code);
+}
+
 /** Canonical Agriculture OS tenant code (seed `T.agri`). Agriculture writes require this tenant. */
 export const AGRICULTURE_OS_TENANT_CODE = "BEYU-AGRI";
+
+/** Canonical Ujenzi OS tenant code (seed `T.ujenzi`). Construction writes require this tenant. */
+export const UJENZI_OS_TENANT_CODE = "BEYU-UJENZI";
 
 export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:emergency.activate",
@@ -405,6 +473,15 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "blockchain:manage",
   "governance:policy.manage",
   "government:submission.manage",
+  // Administrative user & tenant governance. Removing an identity or a tenant
+  // is the irreversible end of an governed lifecycle: even though the rows are
+  // retained (audit/legal attribution) and PII is anonymized, the act destroys
+  // the subject's standing in the control plane. Delegating administrative
+  // authority creates new authority in another human, which is the same
+  // constitutional weight as granting a role. All three carry MFA step-up.
+  "identity:user.remove",
+  "organization:tenant.remove",
+  "identity:delegation.manage",
 ];
 
 /** Canonical role catalogue with constitutional scope. */
@@ -425,6 +502,17 @@ export const ROLES: Record<
       "identity:user.read",
       "identity:user.manage",
       "identity:role.grant",
+      // Administrative user & tenant governance (X10THINK). The platform
+      // administrator holds the COMPLETE fine-grained set — including the two
+      // destructive removals and delegation itself, which no other role holds.
+      "identity:user.register",
+      "identity:user.suspend",
+      "identity:user.remove",
+      "identity:membership.manage",
+      "identity:delegation.manage",
+      "organization:tenant.register",
+      "organization:tenant.manage",
+      "organization:tenant.remove",
       "audit:log.read",
       "audit:event.read",
       "documents:registry.read",
@@ -462,6 +550,19 @@ export const ROLES: Record<
       "identity:user.read",
       "identity:user.manage",
       "identity:role.grant",
+      // Administrative user & tenant governance (X10THINK). The enterprise
+      // executive may operate the identity and tenant machinery day to day —
+      // register users, suspend them, register tenants, govern membership and
+      // assignments — but the two IRREVERSIBLE removals (user, tenant) and the
+      // delegation of administrative authority stay with the platform
+      // administrator. Destructive acts remain available to the CEO through
+      // the governance resolution path, which is where they constitutionally
+      // belong.
+      "identity:user.register",
+      "identity:user.suspend",
+      "identity:membership.manage",
+      "organization:tenant.register",
+      "organization:tenant.manage",
       "organization:entity.read",
       "organization:entity.manage",
       "organization:ownership.read",
@@ -540,6 +641,7 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Founder equity visibility + leaver initiation (X10THINK Phase 2). The
       // CEO may see capitalization and initiate leaver treatment; classifying
       // and approving a leaver case still requires legal review and a
@@ -619,6 +721,7 @@ export const ROLES: Record<
       "ai:workflow.run",
       "ai:model.registry.read",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Contracting capability for financing/commercial agreements plus the governed
       // smart-contract registry and evidence anchors. No money movement: CAP_POSTING and
       // the Finance posting engine remain the only Finance write path (fail-closed).
@@ -743,6 +846,7 @@ export const ROLES: Record<
       "ai:compliance.certification",
       "ai:compliance.metrics",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Risk & compliance review of the contracting register and of governed oracle and
       // evidence inputs (read side). Compliance findings can block execution through the
       // authority engine; they can never authorise a payment or an ownership change.
@@ -1133,7 +1237,9 @@ export const ROLES: Record<
       "government:integration.read",
       "government:submission.manage",
       "agriculture:data.read",
+      "ujenzi:data.read",
       "agriculture:data.manage",
+      "ujenzi:data.manage",
       "foundation:program.read",
       "foundation:compliance.read",
       "foundation:impact.read",
@@ -1305,6 +1411,7 @@ export const ROLES: Record<
       "ai:evaluation.read",
       "ai:risk.register.read",
       "agriculture:data.read",
+      "ujenzi:data.read",
       // Read-only capitalization oversight (X10THINK Phase 2). AUDITOR clearance
       // is RESTRICTED, matching the equity tables' default classification; no
       // manage verb and no trust access (HIGHLY_RESTRICTED) is granted.
@@ -1318,6 +1425,26 @@ export const ROLES: Record<
       "contracts:read",
       "blockchain:read",
     ],
+  },
+  /**
+   * Tenant membership marker (administrative governance program).
+   *
+   * In the canonical model a user "belongs" to a tenant through their
+   * `primary_tenant_id` plus their tenant-scoped role assignments. There is —
+   * deliberately — no separate membership table. TENANT_MEMBER is the
+   * ZERO-CAPABILITY membership representation: an active TENANT_MEMBER
+   * assignment in a tenant is the governed statement "this user is a member of
+   * this tenant", granting no data visibility whatsoever (an empty permission
+   * set fails `checkBeyuOSAuthorization`, so a pure member cannot even enter
+   * the /os control plane). Any actual capability is a separately governed
+   * role assignment.
+   */
+  TENANT_MEMBER: {
+    name: "Tenant Member",
+    description: "Membership of one tenant with no capability. Presence, not authority.",
+    scope: "TENANT",
+    privileged: false,
+    permissions: [],
   },
 };
 
@@ -1351,4 +1478,8 @@ export const ROLE_CLEARANCE: Record<string, Classification> = {
   FOUNDATION_DIRECTOR: "HIGHLY_RESTRICTED",
   FOUNDATION_OFFICER: "HIGHLY_RESTRICTED",
   AUDITOR: "RESTRICTED",
+  // Membership marker: presence in a tenant, never data visibility. INTERNAL is
+  // the minimum catalogue clearance; the role holds zero permissions so the
+  // clearance is inert by construction.
+  TENANT_MEMBER: "INTERNAL",
 };

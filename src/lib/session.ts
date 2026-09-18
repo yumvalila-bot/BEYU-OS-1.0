@@ -6,6 +6,7 @@ import { newId, ID_PREFIX } from "./ids";
 import { newSecret, sha256 } from "./crypto";
 import { SESSION_COOKIE, SESSION_TTL_HOURS, type Classification } from "./constants";
 import {
+  activeDelegatedPermissions,
   activeEmergencyPermissions,
   clearanceForRoles,
   loadGrants,
@@ -114,6 +115,10 @@ export async function resolvePrincipal(): Promise<Principal | null> {
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
   const emergencyPermissions = await activeEmergencyPermissions(row.userId, row.tenantId);
+  // Delegated administrative authority is resolved on EVERY request (exactly
+  // like emergency grants), so revoking or expiring a delegation takes effect
+  // immediately — never at session expiry.
+  const delegatedPermissions = await activeDelegatedPermissions(row.userId);
 
   return {
     userId: row.userId,
@@ -131,6 +136,7 @@ export async function resolvePrincipal(): Promise<Principal | null> {
     sessionId: row.sessionId,
     riskScore: row.riskScore,
     emergencyPermissions,
+    delegatedPermissions,
   };
 }
 

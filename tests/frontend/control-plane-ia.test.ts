@@ -90,12 +90,13 @@ describe("canonical constitutional hierarchy", () => {
     ).toBe(true);
   });
 
-  it("models exactly four Sector OSs beneath BEYU OS", () => {
+  it("models exactly five Sector OSs beneath BEYU OS", () => {
     const expected = [
       { label: "Finance OS", href: "/os/finance" },
       { label: "Health OS", href: "/health" },
       { label: "Agriculture OS", href: "/os/agriculture" },
       { label: "Foundation OS", href: "/os/foundation" },
+      { label: "Ujenzi OS", href: "/os/ujenzi" },
     ];
     expect(
       group("sector").items.map(({ label, href }) => ({ label, href })),
@@ -125,6 +126,49 @@ describe("canonical constitutional hierarchy", () => {
       }),
     ]);
     expect(visible(principal(), group("system").items[0]!)).toBe(true);
+  });
+
+  /**
+   * Administration (governed user & tenant capability) — a FIRST-CLASS shared
+   * capability of BEYU OS, NOT an "Admin OS". The group sits AFTER the pinned
+   * executive/shared/sector groups and BEFORE System. Every entry is
+   * permission-gated (never "open"), carries a semantic icon, and no label
+   * ends in "OS": this is capability, not a new operating system.
+   */
+  it("exposes the Administration governance capability as its own group between sector and system", () => {
+    expect(
+      CAPABILITY_IA.slice(0, 4).map(({ id }) => id),
+    ).toEqual(["executive", "shared", "sector", "administration"]);
+    // Secondary domain groups (shared-workspaces, finance-domains, …) follow the
+    // System group; what matters architecturally is that Administration sits
+    // immediately BEFORE System in the canonical order.
+    const systemIndex = CAPABILITY_IA.findIndex((g) => g.id === "system");
+    expect(systemIndex).toBeGreaterThan(0);
+    expect(CAPABILITY_IA.findIndex((g) => g.id === "administration")).toBe(systemIndex - 1);
+    expect(group("administration").title).toBe("Administration");
+    expect(
+      group("administration").items.map(({ label, href }) => ({ label, href })),
+    ).toEqual([
+      { label: "Users & Identities", href: "/os/administration" },
+      { label: "Tenants", href: "/os/administration/tenants" },
+      { label: "Memberships", href: "/os/administration/memberships" },
+      { label: "Roles & Capabilities", href: "/os/administration/roles" },
+      { label: "Authority Delegations", href: "/os/administration/delegations" },
+      { label: "Administrative Audit", href: "/os/administration/audit" },
+    ]);
+    expect(
+      group("administration").items.every(
+        (item) =>
+          item.visibility.kind === "permission" &&
+          !item.label.endsWith(" OS"),
+      ),
+    ).toBe(true);
+    // The delegation surface must be gated by the high-risk delegation
+    // capability itself — never open, never a weaker read permission.
+    expect(
+      group("administration").items.find((item) => item.href === "/os/administration/delegations")
+        ?.visibility,
+    ).toEqual({ kind: "permission", permission: "identity:delegation.manage" });
   });
 
   it("has one route per catalogue entry and a semantic icon for every entry", () => {

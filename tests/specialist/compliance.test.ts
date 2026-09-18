@@ -1167,8 +1167,16 @@ describe("compliance module — creates no second truth", () => {
     // and dispute evidence, anchors/oracles/events/registry/reconciliation; adds no specialist
     // truth and no posting path - money stays Finance OS, documents stay canonical, and there is
     // deliberately no key material or on-chain write path in a specialist module).
-expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(43);
-  });
+// + 0043_ujenzi_os (first-class Ujenzi OS construction-sector capability: projects,
+// contracts, BOQ/BOQ items, cost records, payment certificates, variations, claims, NCRs,
+// punch items, HSE incidents, requisitions, purchase orders, material catalog/movements and
+// handover protocol - every tenant-owned table RLS-forced via beyu_tenant_ids(); money stays
+// Finance OS (certificates are CERTIFIED_PENDING_FINANCE_INTEGRATION under a LOCKED
+// CAP_POSTING capability; no second GL); adds no specialist truth).
+    // 44 -> 45: 0044_admin_user_tenant_governance (governed administrative user &
+    // tenant governance — one delegation-instrument table, catalogue mirror, runtime
+    // DML grant; no specialist truth).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(45);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

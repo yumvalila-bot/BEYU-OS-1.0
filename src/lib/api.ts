@@ -4,6 +4,7 @@ import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
+import { operatingSystemTenantInScope, type OperatingSystemTenantCode } from "./operating-systems";
 import {
   claimIdempotencyKey,
   completeIdempotencyKey,
@@ -345,6 +346,7 @@ export async function guarded(
           options.permission.startsWith("foundation:") ||
           options.permission.startsWith("familyoffice:") ||
           options.permission.startsWith("blockchain:") ||
+          options.permission.startsWith("ujenzi:") ||
           options.permission.startsWith("finance:payments.") ||
           options.permission === "finance:settlement.manage") &&
         principal.entityScope.length > 0;
@@ -375,10 +377,25 @@ export async function guarded(
        * endpoint cannot forget the check. Domain services re-resolve the same
        * scope for their own queries (defence in depth).
        */
-      const sectorTargetReason =
-        decision.allowed && options.permission.startsWith("foundation:")
-          ? await foundationTargetScopeDenial(principal)
-          : null;
+      let sectorTargetReason: string | null = null;
+      if (decision.allowed && options.permission.startsWith("foundation:")) {
+        sectorTargetReason = await foundationTargetScopeDenial(principal);
+      } else if (decision.allowed) {
+        // API routes re-prove the same canonical target-OS boundary as sector
+        // layouts. Generic role grants are not cross-sector authorization: an
+        // Agriculture identity cannot reach Ujenzi (or vice versa) merely by
+        // changing the URL. The target is derived from the declared permission,
+        // never from client-supplied tenant or navigation state.
+        const target: { code: OperatingSystemTenantCode; name: string } | null =
+          options.permission.startsWith("agriculture:")
+            ? { code: "BEYU-AGRI", name: "Agriculture" }
+            : options.permission.startsWith("ujenzi:")
+              ? { code: "BEYU-UJENZI", name: "Ujenzi" }
+              : null;
+        if (target && !(await operatingSystemTenantInScope(principal, target.code))) {
+          sectorTargetReason = `${target.name} OS target tenant is outside the authenticated principal's governed tenant scope.`;
+        }
+      }
 
       if (scopeReason || sectorTargetReason || !decision.allowed) {
         const reason = scopeReason ?? sectorTargetReason ?? decision.reason;
