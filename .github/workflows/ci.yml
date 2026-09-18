@@ -350,10 +350,10 @@ jobs:
           npx tsx scripts/migration/gate-selftest.ts 2>&1 | tee /tmp/gate-selftest.log
           rc=${PIPESTATUS[0]}
           if [ $rc -ne 0 ]; then
-            echo "=== GATE SELF-TEST FAILED — dumping detailed JSON ==="
-            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 || true
-            echo "=== END DETAILED ==="
-            cat /tmp/gate-selftest.log || true
+            echo "=== GATE SELF-TEST FAILED — dumping detailed JSON ===" | tee -a $GITHUB_STEP_SUMMARY
+            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee -a /tmp/gate-selftest-json.log | tee -a $GITHUB_STEP_SUMMARY || true
+            echo "=== END DETAILED ===" | tee -a $GITHUB_STEP_SUMMARY
+            cat /tmp/gate-selftest.log | tee -a $GITHUB_STEP_SUMMARY || true
             exit $rc
           fi
 
