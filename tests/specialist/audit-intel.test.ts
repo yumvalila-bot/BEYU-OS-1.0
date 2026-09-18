@@ -917,7 +917,12 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // has never existed in any database. Purely additive and idempotent
     // (CREATE INDEX IF NOT EXISTS): no table, no column, no specialist truth,
     // no posting path, CAP_POSTING stays LOCKED).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(46);  });
+    // 46 -> 47: 0046_release_governance (P3 release governance — canonical control-plane
+    // capability: release_records, release_transitions, pvg_runs, canary_deployments,
+    // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
+    // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
+    // control plane).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(47);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

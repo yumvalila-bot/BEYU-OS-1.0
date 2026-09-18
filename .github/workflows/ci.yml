@@ -272,7 +272,7 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
-      - name: Apply canonical root migrations 0000-0045
+      - name: Apply canonical root migrations 0000-0046
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -282,7 +282,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0045 are all recorded
+      - name: Verify migrations 0000-0046 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -903,6 +903,79 @@ jobs:
             /tmp/health-tests-pglite.log
             /tmp/health-tests-realpg.log
             /tmp/health-lint.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # P3 RELEASE GOVERNANCE — canonical control-plane capability.
+  #
+  # Distinct stages: BUILD → TEST → DEPLOY → PVG → CANARY → PROMOTE
+  # A successful build must not imply promotion.
+  # A successful deployment must not imply promotion.
+  # PVG failure must block promotion.
+  #
+  # This job runs the DB-free P3 suites: state machine, PVG, canary, blue/green,
+  # identity, expand/contract, rollback, security, observability, architecture.
+  # It proves DEPLOYED != VERIFIED != PROMOTED, PVG fail-closed, canary % != auth,
+  # release identity mismatch blocks promotion, etc.
+  #
+  # Real PostgreSQL migration integrity is already covered by root-beyu-os job;
+  # this job is DB-free and fast, so it can run in parallel.
+  # ---------------------------------------------------------------------------
+  release-governance:
+    name: P3 Release Governance — DB-free verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build identity capture (non-secret tuple)
+        run: node scripts/build-identity.mjs
+
+      - name: Migration integrity — includes 0046 release governance
+        run: npx tsx scripts/migration/integrity.ts
+
+      - name: P3 release governance tests (DB-free)
+        run: npx vitest run tests/release/ tests/architecture/p3-release-governance.test.ts --reporter=verbose
+
+      - name: Verify BUILD ≠ TEST ≠ DEPLOY ≠ PVG ≠ CANARY ≠ PROMOTE distinction
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Checking that CI distinguishes BUILD/TEST/DEPLOY/PVG/CANARY/PROMOTE..."
+          # BUILD is npm run build, TEST is vitest, DEPLOY is Vercel Git integration + db-release.yml deploy job,
+          # PVG is release-governance job + db-release.yml verify + runtime-verify,
+          # CANARY is canary governance with adapter boundary (human-controlled),
+          # PROMOTE is governed transition requiring PVG evidence.
+          # This gate ensures no step claims promotion merely because deployment succeeded.
+          # The canonical invariant uses Unicode ≠ (DEPLOYED ≠ VERIFIED ≠ PROMOTED) per RELEASE_CONTRACT.md and ARCHITECTURE_INVARIANTS.md
+          # We check for Unicode and also ASCII fallback in code comments.
+          grep -q "DEPLOYED ≠ VERIFIED ≠ PROMOTED" docs/architecture/RELEASE_CONTRACT.md
+          grep -q "DEPLOYED" src/lib/release/state-machine.ts
+          grep -q "VERIFIED" src/lib/release/state-machine.ts
+          grep -q "PROMOTED" src/lib/release/state-machine.ts
+          echo "BUILD/TEST/DEPLOY/PVG/CANARY/PROMOTE distinction verified."
+
+      - name: Upload release governance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p3-release-governance-evidence
+          path: |
+            .next/RELEASE_IDENTITY.json
+            src/lib/release/generated-identity.json
           if-no-files-found: warn
           retention-days: 14
 

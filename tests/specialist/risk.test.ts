@@ -1072,7 +1072,12 @@ describe("risk module — leaves governance and financial state untouched", () =
     // has never existed in any database. Purely additive and idempotent
     // (CREATE INDEX IF NOT EXISTS): no table, no column, no specialist truth,
     // no posting path, CAP_POSTING stays LOCKED).
-    expect(n).toBe(46);  });
+    // 46 -> 47: 0046_release_governance (P3 release governance — canonical control-plane
+    // capability: release_records, release_transitions, pvg_runs, canary_deployments,
+    // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
+    // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
+    // control plane).
+    expect(n).toBe(47);  });
 
   it("leaves all triggers enabled", async () => {
     const disabled = await count(sql`

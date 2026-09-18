@@ -1004,7 +1004,12 @@ describe("forecast service — hostile inputs", () => {
     // has never existed in any database. Purely additive and idempotent
     // (CREATE INDEX IF NOT EXISTS): no table, no column, no specialist truth,
     // no posting path, CAP_POSTING stays LOCKED).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(46);
+    // 46 -> 47: 0046_release_governance (P3 release governance — canonical control-plane
+    // capability: release_records, release_transitions, pvg_runs, canary_deployments,
+    // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
+    // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
+    // control plane).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(47);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

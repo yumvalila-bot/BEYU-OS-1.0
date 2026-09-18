@@ -105,3 +105,15 @@ export * from "./schema/family-trust";
  * through resolvePrincipal(). Not an OS, not a second authorization model.
  */
 export * from "./schema/admin-governance";
+
+/*
+ * P3 RELEASE GOVERNANCE — canonical control-plane capability (additive).
+ *
+ * Release records, transitions, PVG runs, canary deployments, blue/green
+ * deployments and rollback requests. Governed, auditable, immutable append-only
+ * where applicable. Not an OS — a shared BEYU OS capability. Reuses existing
+ * audit_log + enterprise_events infrastructure for evidence; does not create
+ * competing trails. Authorization via platform:config.manage / platform:dashboard.read
+ * and existing RBAC/ABAC/RLS chain.
+ */
+export * from "./schema/release";
