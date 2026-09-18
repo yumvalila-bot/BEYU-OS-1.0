@@ -360,10 +360,12 @@ jobs:
             echo "=== JSON ==="
             npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee /tmp/gate-selftest-json.log || true
             cat /tmp/gate-selftest-json.log || true
-            echo "=== Running integrity --with-ledger separately ==="
-            npx tsx scripts/migration/integrity.ts --with-ledger 2>&1 || true
-            echo "=== Running schema-drift separately ==="
-            npx tsx scripts/migration/schema-drift.ts 2>&1 || true
+            echo "=== Running integrity --with-ledger separately ===" | tee /tmp/integrity-ledger.log
+            npx tsx scripts/migration/integrity.ts --with-ledger 2>&1 | tee -a /tmp/integrity-ledger.log || true
+            echo "=== Running schema-drift separately ===" | tee /tmp/drift-separate.log
+            npx tsx scripts/migration/schema-drift.ts 2>&1 | tee -a /tmp/drift-separate.log || true
+            echo "=== Drift separate log tail ==="
+            cat /tmp/drift-separate.log || true
             # Emit first 10 lines of failure as annotation (visible without log download)
             fail_line=$(grep -m1 "case 8" /tmp/gate-selftest.log || echo "case 8 failed")
             echo "::error::GATE SELF-TEST FAILED $fail_line"
@@ -382,11 +384,11 @@ jobs:
           echo "Posting gate self-test failure as PR comment via curl..."
           log=$(cat /tmp/gate-selftest.log 2>/dev/null | tail -n 200 || echo "no log")
           json=$(cat /tmp/gate-selftest-json.log 2>/dev/null | tail -n 300 || echo "no json")
-          # Build comment body, truncate
-          body_text=$(printf "Gate self-test FAILED (case 8) - auto debug for P3\n\nLog tail:\n\`\`\`\n%s\n\`\`\`\n\nJSON:\n\`\`\`json\n%s\n\`\`\`\n" "$log" "$json" | head -c 50000)
-          # Use jq to JSON-escape
+          drift=$(cat /tmp/drift-separate.log 2>/dev/null | tail -n 500 || echo "no drift log")
+          integrity=$(cat /tmp/integrity-ledger.log 2>/dev/null | tail -n 200 || echo "no integrity log")
+          # Build comment body, truncate to 60k
+          body_text=$(printf "Gate self-test FAILED (case 8) - auto debug for P3\n\n**Log tail:**\n\`\`\`\n%s\n\`\`\`\n\n**JSON:**\n\`\`\`json\n%s\n\`\`\`\n\n**Integrity --with-ledger:**\n\`\`\`\n%s\n\`\`\`\n\n**Drift separate:**\n\`\`\`\n%s\n\`\`\`\n" "$log" "$json" "$integrity" "$drift" | head -c 60000)
           payload=$(jq -Rs --arg body "$body_text" '{body: $body}' <<< "")
-          # Post via GitHub API
           pr_number="${{ github.event.pull_request.number }}"
           if [ -n "$pr_number" ]; then
             curl -s -X POST \
@@ -399,8 +401,6 @@ jobs:
           else
             echo "Not a PR event"
           fi
-          # Also try gh
-          gh pr comment "$pr_number" --body "$body_text" 2>&1 || true
 
       - name: Verify no schema drift between the applied migrations and src/db/schema
         # REPLACES the previous gate, which ran `drizzle-kit generate` and compared
