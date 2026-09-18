@@ -576,6 +576,27 @@ jobs:
           fi
           echo "Skip count within tolerance; HTTP/E2E gate executed."
 
+      - name: Post full regression failure as PR comment (debug)
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Posting full regression failure as PR comment..."
+          log=$(cat /tmp/root-tests.log 2>/dev/null | tail -n 1000 || echo "no root-tests.log")
+          body_text=$(printf "Full root regression FAILED - auto debug for P3\n\n**Root tests log tail (1000 lines):**\n\`\`\`\n%s\n\`\`\`\n" "$log" | head -c 60000)
+          payload=$(jq -Rs --arg body "$body_text" '{body: $body}' <<< "")
+          pr_number="${{ github.event.pull_request.number }}"
+          if [ -n "$pr_number" ]; then
+            curl -s -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$pr_number/comments" \
+              | tee /tmp/comment-regression.json || true
+          fi
+
       - name: Stop application
         if: always()
         run: kill "$(cat /tmp/beyu-server.pid)" 2>/dev/null || true
