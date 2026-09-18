@@ -352,16 +352,20 @@ jobs:
           rc=${PIPESTATUS[0]}
           set -e
           if [ $rc -ne 0 ]; then
-            echo "=== GATE SELF-TEST FAILED — dumping detailed JSON ===" | tee -a $GITHUB_STEP_SUMMARY
-            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee /tmp/gate-selftest-json.log | tee -a $GITHUB_STEP_SUMMARY || true
-            echo "=== END DETAILED ===" | tee -a $GITHUB_STEP_SUMMARY
-            cat /tmp/gate-selftest.log | tee -a $GITHUB_STEP_SUMMARY || true
-            echo "::error::GATE SELF-TEST FAILED — see step summary for details"
-            # Also try to run integrity and drift separately to isolate
-            echo "=== Running integrity --with-ledger separately ===" | tee -a $GITHUB_STEP_SUMMARY
-            npx tsx scripts/migration/integrity.ts --with-ledger 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
-            echo "=== Running schema-drift separately ===" | tee -a $GITHUB_STEP_SUMMARY
-            npx tsx scripts/migration/schema-drift.ts 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+            echo "=== GATE SELF-TEST FAILED ==="
+            cat /tmp/gate-selftest.log || true
+            echo "=== JSON ==="
+            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 | tee /tmp/gate-selftest-json.log || true
+            cat /tmp/gate-selftest-json.log || true
+            echo "=== Running integrity --with-ledger separately ==="
+            npx tsx scripts/migration/integrity.ts --with-ledger 2>&1 || true
+            echo "=== Running schema-drift separately ==="
+            npx tsx scripts/migration/schema-drift.ts 2>&1 || true
+            # Emit first 10 lines of failure as annotation (visible without log download)
+            fail_line=$(grep -m1 "case 8" /tmp/gate-selftest.log || echo "case 8 failed")
+            echo "::error::GATE SELF-TEST FAILED $fail_line"
+            # Also emit full log as annotation in chunks (GitHub shows annotations in UI)
+            echo "::error::$(head -n 50 /tmp/gate-selftest.log | tr '\n' '; ')"
             exit $rc
           fi
 
