@@ -259,7 +259,7 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
-      - name: Apply canonical root migrations 0000-0032
+      - name: Apply canonical root migrations 0000-0044
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -269,7 +269,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0032 are all recorded
+      - name: Verify migrations 0000-0044 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -656,7 +656,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-020 against real PostgreSQL
+      - name: Apply Health migrations 001-030 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -677,7 +677,7 @@ jobs:
         # Verified both ways on a real PostgreSQL 16.14 server: as
         # beyu_health_runtime against this postgres-owned database the ledger table
         # is never created and zero schemas appear; the same role against a
-        # database it owns applies all 18 migrations cleanly. The role separation
+        # database it owns applies the Health migrations cleanly. The role separation
         # that the RLS specs depend on is established by the specs themselves: they
         # set up as the privileged role, then CREATE ROLE rls_app/rls_bnd NOLOGIN
         # and SET ROLE to that non-owner role for the isolation assertions, so
@@ -706,7 +706,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-020 are all recorded
+      - name: Verify Health migrations 001-030 are all recorded
         shell: bash
         run: |
           set -euo pipefail
