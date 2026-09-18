@@ -128,6 +128,13 @@ function fkSignature(v: { tableFrom?: string; tableTo?: string; columnsFrom?: st
   return `${v.tableFrom ?? ""}[${(v.columnsFrom ?? []).join(",")}]→${v.tableTo ?? ""}[${(v.columnsTo ?? []).join(",")}]`;
 }
 
+function uniqueConstraintSignature(v: { name?: string; columns?: string[]; nullsNotDistinct?: boolean }): string {
+  const name = v.name ?? "";
+  const cols = (v.columns ?? []).join(",");
+  const nulls = v.nullsNotDistinct === true ? "true" : "false";
+  return `${name}|${cols}|nullsNotDistinct=${nulls}`;
+}
+
 /**
  * Compare the introspected database snapshot against the declared-schema
  * snapshot. Pure: no I/O, no database, no child process.
@@ -270,10 +277,18 @@ export function compareSnapshots(dbSnapshot: DrizzleSnapshot, declaredSnapshot: 
     if (dbPk !== decPk)
       add({ kind: "compositePrimaryKey", direction: "DECLARED_NOT_IN_DB", table: t, subject: "composite PK", detail: `database ${dbPk}, declared ${decPk}` });
 
-    const dbUq = JSON.stringify(Object.values(dbT.uniqueConstraints ?? {}).sort());
-    const decUq = JSON.stringify(Object.values(decT.uniqueConstraints ?? {}).sort());
-    if (dbUq !== decUq)
-      add({ kind: "uniqueConstraint", direction: "DECLARED_NOT_IN_DB", table: t, subject: "unique constraints", detail: `database ${dbUq}, declared ${decUq}` });
+    // Unique constraints: compare by content signature ignoring JSON key order
+    // drizzle-kit pull vs generate produce same constraint but with different key order
+    // (e.g. {"columns":[...],"name":...} vs {"name":...,"columns":[...]}) — JSON.stringify would report false drift
+    const dbUqSigs = new Set(Object.values(dbT.uniqueConstraints ?? {}).map((v: any) => uniqueConstraintSignature(v as any)));
+    const decUqSigs = new Set(Object.values(decT.uniqueConstraints ?? {}).map((v: any) => uniqueConstraintSignature(v as any)));
+    const dbUqSorted = [...dbUqSigs].sort().join(";");
+    const decUqSorted = [...decUqSigs].sort().join(";");
+    if (dbUqSorted !== decUqSorted) {
+      const dbUqRaw = JSON.stringify(Object.values(dbT.uniqueConstraints ?? {}).sort());
+      const decUqRaw = JSON.stringify(Object.values(decT.uniqueConstraints ?? {}).sort());
+      add({ kind: "uniqueConstraint", direction: "DECLARED_NOT_IN_DB", table: t, subject: "unique constraints", detail: `database ${dbUqRaw}, declared ${decUqRaw} (normalized: ${dbUqSorted} vs ${decUqSorted})` });
+    }
   }
 
   // ── enums: symmetric ────────────────────────────────────────────────────────
