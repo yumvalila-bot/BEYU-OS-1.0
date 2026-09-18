@@ -247,6 +247,10 @@ export const KNOWN_METADATA_DEBT = {
     // gap is known and accepted", which is the difference between a pinned debt
     // register and silent rot.
     "0045",
+    // 0046 is P3 release governance — additive, expand-only. P3 also refuses to
+    // synthesise metadata that was never generated at authoring time. The gap
+    // is acknowledged explicitly here, not hidden.
+    "0046",
   ] as string[],
   /** Migrations present as SQL and in the ledger, absent from the journal. */
   missingJournal: [
@@ -256,6 +260,7 @@ export const KNOWN_METADATA_DEBT = {
     "0043_ujenzi_os",
     "0044_admin_user_tenant_governance",
     "0045_payment_webhook_events_tenant_index",
+    "0046_release_governance",
   ] as string[],
   /** Snapshots that are byte-identical copies of their predecessor. */
   chainCollision: ["0039"] as string[],

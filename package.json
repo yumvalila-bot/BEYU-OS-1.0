@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build-health-spa.mjs && next build",
+    "build": "node scripts/build-identity.mjs && node scripts/build-health-spa.mjs && next build",
+    "build:identity": "node scripts/build-identity.mjs",
     "build:health-spa": "node scripts/build-health-spa.mjs",
     "start": "next start",
     "lint": "eslint .",

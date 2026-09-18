@@ -43,3 +43,8 @@ pg.log
 # audit DB maintenance helpers (local env only)
 scripts/_db_maint.mjs
 scripts/_db_reset.mjs
+
+# P3 release governance — generated identity (non-secret, build-time)
+src/lib/release/generated-identity.json
+public/release-identity.json
+.next/RELEASE_IDENTITY.json
