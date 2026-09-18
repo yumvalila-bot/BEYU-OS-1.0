@@ -347,7 +347,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx tsx scripts/migration/gate-selftest.ts
+          npx tsx scripts/migration/gate-selftest.ts 2>&1 | tee /tmp/gate-selftest.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            echo "=== GATE SELF-TEST FAILED — dumping detailed JSON ==="
+            npx tsx scripts/migration/gate-selftest.ts --json 2>&1 || true
+            echo "=== END DETAILED ==="
+            cat /tmp/gate-selftest.log || true
+            exit $rc
+          fi
 
       - name: Verify no schema drift between the applied migrations and src/db/schema
         # REPLACES the previous gate, which ran `drizzle-kit generate` and compared
