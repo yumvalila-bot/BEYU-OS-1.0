@@ -60,10 +60,12 @@ never printed.
 2. `pg_isready` readiness wait and PostgreSQL 16 version assertion
 3. `npm run typecheck`
 4. `npm run lint`
-5. `npm run migrate` — migrations 0000–0018 via `scripts/migrate.ts`
+5. `npm run migrate` — the canonical migrations under `drizzle/` via `scripts/migrate.ts`
 6. Assert every migration is recorded in `beyu_migrations`
 7. Assert a re-run applies nothing (idempotent, no ledger drift)
 8. **Schema drift check** — fails if `drizzle-kit generate` produces a new migration
+   (validated relationally against the `drizzle/meta` snapshots; see "Schema drift
+   gate integrity" below for its current restoration status as of 2026-09-18)
 9. **Provision the non-superuser runtime role** — `scripts/setup-db-role.ts`
 10. **Assert the runtime role's attributes** — `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`
 11. `npm run seed`
@@ -79,7 +81,7 @@ lint script; none is fabricated and `package.json` is not modified to invent one
 
 **Health OS backend** — real PostgreSQL 16. `npm ci`, `tsc --noEmit`, non-mutating
 ESLint (the package `lint` script carries `--fix` and is deliberately not invoked),
-then migrations `001_identity_foundation` → `018_global_reference_fail_closed`
+then migrations `001_identity_foundation` → `030_add_tenant_fk_integrity_triggers`
 applied against real PostgreSQL with ledger verification and an idempotence re-run.
 The Jest suite runs **twice**: once with all database URLs cleared, to prove the
 in-process PGlite layer is intact, and once against real PostgreSQL.
@@ -96,6 +98,40 @@ across all three packages. The threshold is the documented policy from
 `SECURITY.md`: dev-only advisories in build tooling are triaged deliberately and
 must not redden the pipeline on every upstream publication, while a critical
 vulnerability in shipped runtime code must.
+
+## Schema drift gate integrity (reality correction, 2026-09-18)
+
+During P1 of the integrated release programme the repo-side CI drift gate was
+inspected against current `main` (`ac9b588`). For the canonical root BEYU OS:
+
+- The migration source (`drizzle/*.sql`) contains **45** migrations
+  (`0000` → `0044`), but the drizzle meta journal (`_journal.json`) ends at
+  `0039`.
+- Snapshots are genuinely missing for migrations `0018`, `0021`, `0029`, `0040`,
+  `0041`, `0042`, `0043`, `0044`, and file snapshots `0038` and `0039` are the
+  **same object** (identical `id`/`prevId`, from the out-of-band authoring
+  pattern). `drizzle-kit generate` reports the two snapshots as a parent
+  collision.
+
+These are real defects in the schema drift mechanism — drift has occurred in the
+meta layer without being detected by the drift step. The step is therefore
+currently validated by its *absence* (the CLI errors out before generating) rather
+than by a meaningful diff. The runtime/operational consequences are unchanged:
+schema authority remains `.github/workflows/db-release.yml` +
+`scripts/db-release.ts`, which compare the **real database** against a clean
+scratch install (fingerprint, migration checksums, RLS inventory, destructive
+scan) — that gate independently detects live drift and is not affected by this
+finding.
+
+Restoring the `drizzle/meta` journal and regression-testing it for real
+(including the drift-gate health and the one-health-canonical-PG architecture)
+is an explicit **Phase 2 (PH2-B)** task. Raising it requires regenerating the
+journal from scratch, not inventing copies; that is neither a single-line
+relabelling nor something to perform blindly in P1, because it redetermines the
+relational guarantee of the drift gate. References for the audit trail: the
+historical `0030` journal repair in `POST_MERGE_FORENSIC_AUDIT_REPORT.md`, the
+pin-annotation pattern at the end of the specialist domain suites, and the
+schema-authority roles in `docs/deployment/THREE_WAY_PRODUCTION_ARCHITECTURE.md`.
 
 ## Why the runtime role step is not optional
 

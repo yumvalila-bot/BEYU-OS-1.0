@@ -182,8 +182,18 @@ async function certifyDatabase() {
       denied ? "SET ROLE postgres -> permission denied" : "SET ROLE unexpectedly succeeded");
 
     const mig = await many<{ version: string; mode: string }>(admin, "select version, mode from beyu_migrations order by version");
-    record("MIGRATIONS", "all 19 BEYU migrations present in beyu_migrations", mig.length >= 19,
-      `${mig.length} migration rows (${mig.filter((m) => m.mode === "APPLIED").length} forward-APPLIED)`);
+    // At least the canonical minimum set must be applied (the kernel baseline
+    // plus the first hardening migrations). The exact ACTIVE count is derived
+    // from the repository's canonical migration source (`drizzle/*.sql`) by the
+    // governed db-release pipeline; a hard constant here would drift the same
+    // way the historical "19" floor did.
+    const MIN_BEYU_MIGRATIONS = 19;
+    record(
+      "MIGRATIONS",
+      `all ${MIN_BEYU_MIGRATIONS}+ BEYU migrations present in beyu_migrations`,
+      mig.length >= MIN_BEYU_MIGRATIONS,
+      `${mig.length} migration rows (${mig.filter((m) => m.mode === "APPLIED").length} forward-APPLIED)`,
+    );
 
     const rls = await one<{ enabled: number; forced: number; policies: number }>(admin,
       `select
