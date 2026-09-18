@@ -8,7 +8,7 @@
 
 CREATE TABLE IF NOT EXISTS "release_records" (
   "id" text PRIMARY KEY NOT NULL,
-  "release_id" text NOT NULL UNIQUE,
+  "release_id" text NOT NULL,
   "git_sha" text NOT NULL,
   "repository" text NOT NULL,
   "build_id" text NOT NULL,
@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS "release_records" (
   "migration_count" integer,
   "schema_fingerprint" text,
   "release_timestamp" timestamp with time zone NOT NULL,
-  "created_at" timestamp with time zone NOT NULL DEFAULT now()
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "release_records_release_id_unique" UNIQUE ("release_id")
 );
 
 CREATE INDEX IF NOT EXISTS "release_records_release_id_idx" ON "release_records" ("release_id");
