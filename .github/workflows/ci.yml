@@ -230,6 +230,19 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - name: Migration integrity — canonical inventory reconciliation
+        # MIGRATION INTEGRITY runs before anything touches the database: it is
+        # DB-free, so an incoherent migration set fails here in seconds rather
+        # than after a 46-migration apply. Deterministic ordering, unique and
+        # contiguous sequence numbers, sha256 checksums, journal/snapshot
+        # reconciliation, destructive-operation classification and the pinned
+        # metadata-debt register are all asserted by the same functions the
+        # regression suite uses.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsx scripts/migration/integrity.ts
+
       - name: Wait for PostgreSQL readiness and record version
         # The service healthcheck already gates container start; this is an
         # explicit, independent assertion so "the container started" is never
@@ -259,7 +272,7 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
-      - name: Apply canonical root migrations 0000-0044
+      - name: Apply canonical root migrations 0000-0045
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -269,7 +282,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0044 are all recorded
+      - name: Verify migrations 0000-0045 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -299,21 +312,62 @@ jobs:
           fi
           echo "Migration re-run applied nothing. Ledger stable at $after."
 
-      - name: Verify no schema drift against src/db/schema
-        # If drizzle-kit wants to generate a new migration, the committed
-        # migrations no longer describe the schema.
+      - name: Reconcile migration ledger against the canonical source
+        # Same code path as tests/migration/migration-integrity.test.ts, now with
+        # the real beyu_migrations ledger: every SQL file recorded, every recorded
+        # checksum matching the file, nothing unexpected present.
         shell: bash
         run: |
           set -euo pipefail
-          before=$(ls drizzle/*.sql | wc -l)
-          npx drizzle-kit generate --name=ci_drift_check
-          after=$(ls drizzle/*.sql | wc -l)
-          if [ "$before" != "$after" ]; then
-            echo "::error::Schema drift detected — drizzle-kit generated a new migration."
-            git --no-pager diff --stat
-            exit 1
-          fi
-          echo "No schema drift."
+          npx tsx scripts/migration/integrity.ts --with-ledger
+
+      - name: Expand/Contract safety — no unsafe early contraction
+        # The database-compatibility half of EXPAND → MIGRATE → VERIFY → CANARY →
+        # PROMOTE → CONTRACT. Canary and promotion are later phases; this stage
+        # only proves that nothing in the migration set removes or narrows
+        # something a still-running release depends on.
+        #
+        # Reuses the single destructive scanner in src/lib/migration/integrity.ts
+        # (the same one scripts/db-release.ts uses), so there is one definition of
+        # "destructive" in the repository. 0001 is the only registered
+        # contraction; the register cannot silently grow.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsx scripts/migration/expand-contract.ts
+
+      - name: Drift-gate self-test — prove the gate separates valid from drift
+        # A gate observed only to pass proves nothing; the previous one was green
+        # for the whole life of the repository while comparing nothing. This runs
+        # eight cases against a DISPOSABLE scratch database (created and dropped
+        # here; beyu_os is never touched) and asserts the gate PASSES on valid
+        # states and FAILS on missing migration, checksum mismatch, extra
+        # migration, schema drift, and the live metadata collision — where
+        # drizzle-kit exits 0 while printing "Error: … collision".
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsx scripts/migration/gate-selftest.ts
+
+      - name: Verify no schema drift between the applied migrations and src/db/schema
+        # REPLACES the previous gate, which ran `drizzle-kit generate` and compared
+        # `ls drizzle/*.sql | wc -l` before and after. On this repository that
+        # command prints "Error: … which is a collision." and then EXITS 0 having
+        # written nothing, so the count never changed and the gate reported "No
+        # schema drift" without ever comparing anything. That is how
+        # payment_webhook_events_tenant_idx — declared in src/db/schema, created by
+        # no migration — went undetected.
+        #
+        # This gate instead measures two snapshots and compares them:
+        #   drizzle-kit pull      -> the schema the migrations actually produced
+        #   drizzle-kit generate  -> the schema src/db/schema.ts declares
+        # both written to a throwaway directory, so drizzle/meta is neither read
+        # nor trusted and cannot be edited to make the gate green. A run that
+        # exits 0 while reporting an error, or that produces no snapshot, FAILS.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsx scripts/migration/schema-drift.ts
 
       - name: Disaster-recovery drill — migration replay + restore + validation
         # Phase 18: reconstruct a scratch database from NOTHING but the
