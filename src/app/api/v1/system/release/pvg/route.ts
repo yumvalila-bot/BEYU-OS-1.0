@@ -1,12 +1,17 @@
 /**
- * BEYU OS — P3 PVG API (canonical)
+ * BEYU OS — P4 PVG API (canonical)
  *
  * POST /api/v1/system/release/pvg
  *
- * Runs PVG and returns structured evidence.
- * Guarded: platform:config.manage (promotion verification is control-plane authority)
+ * Runs the Production Verification Gate against LIVE state and returns
+ * structured evidence. P3 validated the PVG logic in DB-free mode; P4 probes
+ * reality (database, migration ledger, schema fingerprint, security
+ * invariants, event chain) and PERSISTS every run to `pvg_runs` — a PVG claim
+ * that leaves no evidence row is not a governed verification.
  *
- * PVG must fail closed. "Health endpoint returned 200" alone is NOT sufficient.
+ * Guarded: platform:config.manage (promotion verification is control-plane
+ * authority). PVG fails closed: "health returned 200" alone is NOT sufficient,
+ * and a probe that cannot run is a failure, not a pass.
  */
 
 import { z } from "zod";
@@ -14,6 +19,8 @@ import { apiOk, apiError, guarded } from "@/lib/api";
 import { getCurrentReleaseIdentity } from "@/lib/release/identity";
 import { runPvg } from "@/lib/release/pvg";
 import { recordAudit } from "@/lib/audit";
+import { probeLiveMigrationState, probeLiveSecurityState, probeLiveEventState } from "@/lib/release/live-pvg";
+import { recordPvgRun } from "@/lib/release/store";
 
 export const dynamic = "force-dynamic";
 
@@ -50,41 +57,57 @@ export async function POST(request: Request) {
       const identity = getCurrentReleaseIdentity();
       const environment = parsed.data.environment ?? identity.environment;
 
-      // In real implementation, these would be probed from live DB, health endpoints, etc.
-      // For P3, we run PVG in DB-free mode with injected context where available
+      // ── Live probes (P4). No hard-coded PASS. ─────────────────────────────
+      const [dbState, security, events] = await Promise.all([
+        probeLiveMigrationState(),
+        probeLiveSecurityState(),
+        probeLiveEventState(),
+      ]);
+
+      const expectedFingerprint = parsed.data.expectedMigrationFingerprint ?? null;
       const pvgResult = await runPvg({
         releaseIdentity: identity,
         expectedReleaseIdentity: {
           releaseId: parsed.data.expectedReleaseId,
           gitSha: parsed.data.expectedGitSha,
         },
-        expectedMigrationFingerprint: parsed.data.expectedMigrationFingerprint,
+        expectedMigrationFingerprint: expectedFingerprint,
         expectedSchemaFingerprint: parsed.data.expectedSchemaFingerprint,
         environment,
         correlationId: parsed.data.correlationId ?? ctx.traceId,
         traceId: ctx.traceId,
-        // Real checks would be injected here from DB probes
-        dbConnected: true,
-        migrationCount: 47,
-        latestMigration: "0046_release_governance",
-        migrationFingerprint: identity.migrationFingerprint,
-        migrationFingerprintMatches: parsed.data.expectedMigrationFingerprint
-          ? identity.migrationFingerprint === parsed.data.expectedMigrationFingerprint
-          : true,
-        runtimeHealth: true,
+        dbConnected: dbState.connected,
+        migrationCount: dbState.migrationCount,
+        latestMigration: dbState.latestMigration,
+        migrationFingerprint: dbState.migrationFingerprint,
+        migrationFingerprintMatches: expectedFingerprint
+          ? dbState.migrationFingerprint !== null && dbState.migrationFingerprint === expectedFingerprint
+          : null,
+        schemaFingerprint: dbState.schemaFingerprint,
+        schemaMatches: parsed.data.expectedSchemaFingerprint
+          ? dbState.schemaFingerprint === parsed.data.expectedSchemaFingerprint
+          : null,
+        runtimeHealth: dbState.connected,
         authzChecks: {
-          rbac: true,
-          abac: true,
-          rls: true,
-          capPostingLocked: true,
-          noeliaBoundary: true,
+          rbac: security.rbac,
+          abac: security.abac,
+          rls: security.rls,
+          capPostingLocked: security.capPostingLocked,
+          noeliaBoundary: security.noeliaBoundary,
         },
-        eventOutboxHealthy: true,
-        eventChainIntact: true,
-        criticalReadiness: true,
+        eventOutboxHealthy: events.outboxHealthy,
+        eventChainIntact: events.chainIntact,
+        criticalReadiness: dbState.connected,
       });
 
-      // Audit PVG run (reuses existing audit_log)
+      // ── Persist the run (append-only evidence; idempotent on run id) ──────
+      const runId = await recordPvgRun(pvgResult, {
+        correlationId: parsed.data.correlationId ?? ctx.traceId,
+        traceId: ctx.traceId,
+        actorId: ctx.principal.userId,
+      });
+
+      // Audit PVG run (reuses existing audit_log — no competing trail)
       await recordAudit({
         tenantId: null,
         actorUserId: ctx.principal.userId,
@@ -94,6 +117,7 @@ export async function POST(request: Request) {
         outcome: pvgResult.status === "PASS" ? "SUCCESS" : "FAILURE",
         reason: pvgResult.status === "PASS" ? "PVG passed" : pvgResult.blockingFailures.join("; "),
         newValue: {
+          runId,
           releaseId: pvgResult.releaseId,
           status: pvgResult.status,
           blockingFailures: pvgResult.blockingFailures,
@@ -108,6 +132,7 @@ export async function POST(request: Request) {
         return apiOk(
           {
             status: "FAIL",
+            runId,
             releaseId: pvgResult.releaseId,
             blockingFailures: pvgResult.blockingFailures,
             failureReason: pvgResult.checks
@@ -121,7 +146,7 @@ export async function POST(request: Request) {
         );
       }
 
-      return apiOk({ status: "PASS", pvgResult }, ctx.traceId);
+      return apiOk({ status: "PASS", runId, pvgResult }, ctx.traceId);
     },
   );
 }

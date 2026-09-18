@@ -176,6 +176,9 @@ export const PVG_CHECKS = [
   "event_outbox_health",
   "environment_identity",
   "deployment_identity",
+  // P4: the live release must carry the exact migration state the scratch
+  // pipeline attested (count/latest/fingerprint compatibility).
+  "database_release_compatibility",
 ] as const;
 
 export type PvgCheckId = (typeof PVG_CHECKS)[number];

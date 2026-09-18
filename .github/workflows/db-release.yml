@@ -362,6 +362,66 @@ jobs:
           exit 1
 
   # ─────────────────────────────────────────────────────────────────────────
+  # PVG — PRODUCTION VERIFICATION GATE (P4).
+  #
+  # Independent of "deployed": this job proves the RUNNING production artifact
+  # IS the released commit, the production database carries the expected
+  # migration state/fingerprint, CAP_POSTING is still LOCKED, RLS is enforced,
+  # no AI principal holds control-plane grants, and the event chain head is
+  # intact. Evidence is persisted to the release-governance ledger (--persist)
+  # and uploaded as an artifact. Exit 1 (red job) on ANY failure.
+  #
+  # VERIFIED ≠ PROMOTED: a green PVG is necessary but never sufficient for
+  # promotion — promotion is a governed transition that additionally requires
+  # four-eyes approval (release_approvals) and the state machine's evidence
+  # chain (DEPLOYED → PVG_VERIFIED → …).
+  # ─────────────────────────────────────────────────────────────────────────
+  pvg:
+    name: Production Verification Gate (PVG)
+    needs: [deploy, runtime-verify, preflight-repo]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
+      PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
+      RUN_ID: ${{ github.run_id }}
+      RUN_WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Run PVG against production (fail-closed, evidence persisted)
+        env:
+          EXPECTED_FINGERPRINT: ${{ needs.preflight-repo.outputs.expected-fingerprint }}
+          EXPECTED_LATEST: ${{ needs.preflight-repo.outputs.expected-latest }}
+          EXPECTED_COUNT: ${{ needs.preflight-repo.outputs.expected-count }}
+        run: |
+          npx tsx scripts/release/pvg-cli.ts \
+            --environment production \
+            --production-url "$PRODUCTION_URL" \
+            --expected-git-sha "${{ github.sha }}" \
+            --expected-fingerprint "$EXPECTED_FINGERPRINT" \
+            --expected-latest "$EXPECTED_LATEST" \
+            --expected-count "$EXPECTED_COUNT" \
+            --persist
+      - name: Upload PVG evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pvg-evidence-${{ github.run_id }}
+          path: .next/pvg-evidence.json
+          if-no-files-found: warn
+
+  # ─────────────────────────────────────────────────────────────────────────
   # DRIFT DETECTION — scheduled, read-only. Compares the repository migration
   # state with the production database and reports drift. NEVER overwrites.
   # ─────────────────────────────────────────────────────────────────────────

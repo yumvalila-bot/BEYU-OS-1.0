@@ -272,7 +272,7 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
-      - name: Apply canonical root migrations 0000-0046
+      - name: Apply canonical root migrations 0000-0047
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -282,7 +282,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0046 are all recorded
+      - name: Verify migrations 0000-0047 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -947,8 +947,8 @@ jobs:
       - name: Migration integrity — includes 0046 release governance
         run: npx tsx scripts/migration/integrity.ts
 
-      - name: P3 release governance tests (DB-free)
-        run: npx vitest run tests/release/ tests/architecture/p3-release-governance.test.ts --reporter=verbose
+      - name: P3/P4 release governance tests (DB-free)
+        run: npx vitest run tests/release/ tests/architecture/p3-release-governance.test.ts tests/architecture/p4-release-control.test.ts --reporter=verbose
 
       - name: Verify BUILD ≠ TEST ≠ DEPLOY ≠ PVG ≠ CANARY ≠ PROMOTE distinction
         shell: bash

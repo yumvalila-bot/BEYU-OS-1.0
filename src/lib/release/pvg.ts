@@ -32,6 +32,10 @@ export interface PvgCheckContext {
   expectedReleaseIdentity?: Partial<ReleaseIdentity> | null;
   expectedMigrationFingerprint?: string | null;
   expectedSchemaFingerprint?: string | null;
+  // P4: the scratch pipeline attests the exact release state; the live ledger
+  // must carry exactly these (count + latest) for compatibility.
+  expectedMigrationCount?: number | null;
+  expectedLatestMigration?: string | null;
   environment: string;
   correlationId: string | null;
   traceId: string | null;
@@ -350,6 +354,52 @@ async function checkDeploymentIdentity(ctx: PvgCheckContext): Promise<PvgCheckRe
   };
 }
 
+async function checkDatabaseReleaseCompatibility(ctx: PvgCheckContext): Promise<PvgCheckResult> {
+  const start = Date.now();
+  const failures: string[] = [];
+  const expectedCount = ctx.expectedMigrationCount ?? null;
+  const expectedLatest = ctx.expectedLatestMigration ?? null;
+  const expectedFp = ctx.expectedMigrationFingerprint ?? null;
+
+  if (expectedCount === null && expectedLatest === null && expectedFp === null) {
+    return {
+      check: "database_release_compatibility",
+      passed: true,
+      blocking: true,
+      evidence: { note: "No expected release state provided — compatibility not evaluated" },
+      failureReason: null,
+      durationMs: Date.now() - start,
+    };
+  }
+
+  if (expectedCount !== null && ctx.migrationCount != null && ctx.migrationCount !== expectedCount) {
+    failures.push(`migration count: expected ${expectedCount}, live ${ctx.migrationCount}`);
+  }
+  if (expectedLatest !== null && ctx.latestMigration != null && ctx.latestMigration !== expectedLatest) {
+    failures.push(`latest migration: expected ${expectedLatest}, live ${ctx.latestMigration}`);
+  }
+  if (expectedFp !== null) {
+    if (ctx.migrationFingerprint == null) {
+      failures.push("migration fingerprint could not be computed live");
+    } else if (ctx.migrationFingerprint !== expectedFp) {
+      failures.push(`migration fingerprint mismatch: expected ${expectedFp}, live ${ctx.migrationFingerprint}`);
+    }
+  }
+
+  return {
+    check: "database_release_compatibility",
+    passed: failures.length === 0,
+    blocking: true,
+    evidence: {
+      expected: { count: expectedCount, latest: expectedLatest, fingerprint: expectedFp },
+      actual: { count: ctx.migrationCount, latest: ctx.latestMigration, fingerprint: ctx.migrationFingerprint },
+      failures,
+    },
+    failureReason: failures.length > 0 ? `Database release compatibility failed: ${failures.join("; ")}` : null,
+    durationMs: Date.now() - start,
+  };
+}
+
 export const PVG_CHECK_FNS: Record<PvgCheckId, PvgCheckFn> = {
   runtime_health: checkRuntimeHealth,
   release_identity: checkReleaseIdentity,
@@ -361,6 +411,7 @@ export const PVG_CHECK_FNS: Record<PvgCheckId, PvgCheckFn> = {
   event_outbox_health: checkEventOutboxHealth,
   environment_identity: checkEnvironmentIdentity,
   deployment_identity: checkDeploymentIdentity,
+  database_release_compatibility: checkDatabaseReleaseCompatibility,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -385,6 +436,7 @@ export async function runPvg(ctx: PvgCheckContext): Promise<PvgResult> {
     "event_outbox_health",
     "environment_identity",
     "deployment_identity",
+    "database_release_compatibility",
   ] as PvgCheckId[]) {
     const fn = PVG_CHECK_FNS[checkId];
     const result = await fn({ ...ctx, releaseIdentity, correlationId, traceId });

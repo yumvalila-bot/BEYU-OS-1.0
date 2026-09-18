@@ -120,7 +120,7 @@ function main() {
     runtimeVersion: "BEYU-OS/1.0.0",
     schemaVersion: getEnv("BEYU_SCHEMA_FINGERPRINT") || null,
     migrationFingerprint: getEnv("BEYU_MIGRATION_FINGERPRINT") || null,
-    latestMigration: getEnv("BEYU_LATEST_MIGRATION") || "0046_release_governance",
+    latestMigration: getEnv("BEYU_LATEST_MIGRATION") || "0047_release_approvals",
     releaseTimestamp,
   };
 

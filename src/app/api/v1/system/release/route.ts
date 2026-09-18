@@ -1,18 +1,30 @@
 /**
- * BEYU OS — P3 Release Governance API (canonical)
+ * BEYU OS — P4 Release Governance API (canonical)
  *
  * GET /api/v1/system/release
+ * GET /api/v1/system/release?releaseId=…
  *
- * Returns current release observability: release ID, deployment ID, PVG status,
- * canary state, traffic state, promotion state, rollback state, migration fingerprint,
- * schema fingerprint, runtime version.
- *
- * Guarded: platform:dashboard.read
+ * Returns the release control plane's AUTHORITATIVE state read from the
+ * persisted ledger — not from memory and not decorated: current release
+ * identity, persisted state-machine history, latest PVG evidence, canary /
+ * blue-green / rollback instrument state, and the governance invariants.
+ * Guarded: platform:dashboard.read.
  */
 
-import { apiOk, guarded } from "@/lib/api";
+import { apiOk, apiError, guarded } from "@/lib/api";
 import { getCurrentReleaseIdentity } from "@/lib/release/identity";
 import { getHealthObservability } from "@/lib/release/observability";
+import {
+  getCurrentStateFromDb,
+  getLatestBlueGreenDeployment,
+  getLatestCanaryDeployment,
+  getLatestPvgRun,
+  getReleaseRecord,
+  getTransitionHistory,
+  listApprovals,
+  listRollbackRequests,
+} from "@/lib/release/store";
+import { APPROVAL_REQUIRED_STATES } from "@/lib/release/approvals";
 
 export const dynamic = "force-dynamic";
 
@@ -25,31 +37,57 @@ export async function GET(request: Request) {
       audit: { objectType: "RELEASE" },
     },
     async (ctx) => {
+      const url = new URL(request.url);
+      const requested = url.searchParams.get("releaseId");
       const identity = getCurrentReleaseIdentity();
-      const observability = getHealthObservability();
+      const releaseId = requested ?? identity.releaseId;
 
-      // In real DB mode, would fetch history, PVG runs, canary, blue/green from DB
-      // For P3, we return current identity + observability + note about DB persistence
-      return apiOk(
-        {
-          release: identity,
-          observability,
-          governance: {
-            stateMachine: "canonical",
-            pvg: "governed",
-            canary: "governed with adapter boundary",
-            blueGreen: "governed with adapter boundary",
-            expandContract: "EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT",
-            invariants: ["DEPLOYED != VERIFIED != PROMOTED", "PVG fail-closed", "Canary % != auth"],
+      try {
+        const record = await getReleaseRecord(releaseId);
+        const history = await getTransitionHistory(releaseId);
+        const currentState = await getCurrentStateFromDb(releaseId);
+        const latestPvg = await getLatestPvgRun(releaseId, identity.environment);
+        const latestCanary = await getLatestCanaryDeployment(releaseId);
+        const latestBlueGreen = await getLatestBlueGreenDeployment(identity.environment);
+        const rollbacks = await listRollbackRequests(releaseId);
+        const approvals = await listApprovals(releaseId);
+
+        return apiOk(
+          {
+            release: identity,
+            record,
+            state: currentState,
+            transitions: history,
+            pvg: latestPvg,
+            canary: latestCanary,
+            blueGreen: latestBlueGreen,
+            rollbacks,
+            approvals,
+            observability: getHealthObservability(),
+            governance: {
+              stateMachine: "canonical",
+              pvg: "governed — runs are persisted evidence",
+              canary: "governed with adapter boundary",
+              blueGreen: "governed with adapter boundary",
+              approvals: "four-eyes for PROMOTED/SWITCHED/CONTRACTED",
+              approvalRequiredStates: APPROVAL_REQUIRED_STATES,
+              expandContract: "EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT",
+              invariants: ["DEPLOYED ≠ VERIFIED ≠ PROMOTED", "PVG fail-closed", "Canary % ≠ auth", "approval ≠ authorization"],
+            },
           },
-          // Placeholder for DB-backed history (would be fetched from release_transitions)
-          history: [],
-          pvgRuns: [],
-          canaryDeployments: [],
-          blueGreenDeployments: [],
-        },
-        ctx.traceId,
-      );
+          ctx.traceId,
+        );
+      } catch (e) {
+        // Persistence unreachable: report the failure explicitly rather than
+        // degrading to an in-memory answer that would look authoritative.
+        return apiError(
+          "RELEASE_STORE_UNAVAILABLE",
+          "Release governance persistence is unreachable",
+          503,
+          ctx.traceId,
+          { error: e instanceof Error ? e.message : "error" },
+        );
+      }
     },
   );
 }

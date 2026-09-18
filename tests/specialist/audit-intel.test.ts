@@ -922,7 +922,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(47);  });
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(48);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);
