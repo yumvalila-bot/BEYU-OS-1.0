@@ -42,7 +42,18 @@ function run(cmd, args, env = {}) {
 }
 
 console.log("[build-health-spa] sectors/health: npm ci (sector lockfile, deterministic)…");
-run("npm", ["ci", "--no-audit", "--no-fund"]);
+// --include=dev is REQUIRED: this install happens INSIDE the root build command,
+// where Vercel's build environment sets NODE_ENV=production. npm then omits
+// devDependencies from `npm ci` (exit 0, silent), which would leave the sector's
+// own vite toolchain — including @tailwindcss/vite, imported directly by
+// vite.config.ts — uninstalled. The build would then pick up the root's vite
+// binary (vitest's auto-installed peer) and fail with
+// ERR_MODULE_NOT_FOUND: Cannot find package '@tailwindcss/vite' when loading
+// sectors/health/vite.config.ts. Forcing dev inclusion keeps this install
+// deterministic on every platform (Vercel production build, GitHub Actions,
+// local) while preserving sector isolation: the sector's own lockfile is the
+// sole source of its tree; nothing is borrowed from the root node_modules.
+run("npm", ["ci", "--no-audit", "--no-fund", "--include=dev"]);
 
 console.log("[build-health-spa] sectors/health: vite build (single-file, VITE_API_BASE_URL=/health-os)…");
 run("npm", ["run", "build"], { VITE_API_BASE_URL: "/health-os" });
