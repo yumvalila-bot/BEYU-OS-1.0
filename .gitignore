@@ -48,3 +48,6 @@ scripts/_db_reset.mjs
 src/lib/release/generated-identity.json
 public/release-identity.json
 .next/RELEASE_IDENTITY.json
+
+# Byte-exact Flutter bundle copy; regenerate with npm run brand:sync
+mobile/flutter/assets/images/beyu-os-logo.png

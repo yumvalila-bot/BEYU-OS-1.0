@@ -1,10 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
-import { FamilyTrustLogo } from "@/components/family-trust-logo";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { protectionSummary, listPolicies, familyView } from "@/lib/family-office-protection-service";
+
+export const metadata: Metadata = { title: "Family Office — Protection" };
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +77,7 @@ export default async function FamilyProtectionPage() {
               Finance OS remains the sole accounting authority.
             </p>
           </div>
-          <FamilyTrustLogo size={64} className="shrink-0" ariaLabel="BEYU Family Trust" />
+          <BeyuOsLogo size={64} className="shrink-0" ariaLabel="BEYU OS — Family Office" />
         </header>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

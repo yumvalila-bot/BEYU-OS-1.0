@@ -1,3 +1,4 @@
+import { FamilyTrustLogo } from "../../../../src/components/family-trust-logo";
 import { useState } from "react";
 import { PageHeader } from "../components/Chrome";
 import { I } from "../components/Icons";
@@ -65,6 +66,7 @@ export function TrusteeDashboard() {
           <div className="flex-1">
             <div className="text-[11px] tracking-[0.3em] text-gold-400 font-semibold flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-gold-400 pulse-soft" />
+              <FamilyTrustLogo size={64} />
               CONSTITUTIONAL AUTHORITY · BEYU FAMILY TRUST
             </div>
             <h2 className="font-display text-3xl lg:text-4xl mt-2">

@@ -5,6 +5,7 @@
 /// Only shows OSs the user is actually authorized for.
 
 import 'package:flutter/material.dart';
+import '../widgets/beyu_os_logo.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/router_provider.dart';
@@ -21,7 +22,11 @@ class LauncherScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Operating System'),
+        title: const Row(children: [
+          BeyuOsLogo(size: 32),
+          SizedBox(width: 8),
+          Flexible(child: Text('Select Operating System')),
+        ]),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

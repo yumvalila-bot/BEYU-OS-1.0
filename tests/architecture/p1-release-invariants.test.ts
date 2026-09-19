@@ -28,7 +28,7 @@ const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 
 describe("P1 — one control plane, six canonical OSs, shared capabilities", () => {
-  const os = read("src/lib/operating-systems.ts");
+  const os = read("src/lib/operating-system-catalog.ts");
 
   it("the sector catalogue is exactly the six canonical OSs", () => {
     expect(os).toContain('code: "FINANCE"');

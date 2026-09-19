@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
@@ -10,6 +11,8 @@ import { operatingSystemTenantInScope } from "@/lib/operating-systems";
  * ujenzi:* route. A named-entity grant cannot read tenant-wide construction
  * records, so it is refused here exactly as it is at the API boundary.
  */
+export const metadata: Metadata = { title: "Ujenzi OS" };
+
 export default async function UjenziLayout({
   children,
 }: {

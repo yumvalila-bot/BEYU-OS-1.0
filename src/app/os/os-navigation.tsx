@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BeyuLogo } from "@/components/beyu-logo";
+import { OsBrand } from "./os-brand";
 import { Icon, type IconName } from "@/components/icons";
 import { NavLink } from "./nav-link";
 import { SignOutButton } from "./sign-out-button";
@@ -104,7 +104,7 @@ function IdentityFooter({ principal }: { principal: OsNavigationPrincipal }) {
 function NavigationBrand() {
   return (
     <div className="px-5 pb-4 pt-5">
-      <BeyuLogo variant="light" size={40} href="/os" />
+      <OsBrand size={40} />
       <p className="mt-2 text-[9.5px] tracking-[0.16em] text-white/40">
         Bridging Care. Building Trust.
       </p>

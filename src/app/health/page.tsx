@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 /**
  * Health OS Entry Point
  *
@@ -18,6 +19,8 @@ import { resolvePrincipal } from "@/lib/session";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { Icon } from "@/components/icons";
 import { SignOutButton } from "../os/sign-out-button";
+
+export const metadata: Metadata = { title: "Health OS" };
 
 export default async function HealthOSPage() {
   const principal = await resolvePrincipal();

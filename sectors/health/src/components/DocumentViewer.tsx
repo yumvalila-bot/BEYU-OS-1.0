@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Logo } from "./Logo";
 import { I } from "./Icons";
 import { BEYU_DOCS, DOC_TYPE_ICON, type BeyuDoc, type DocModule } from "../data/documents";
 
@@ -20,6 +21,10 @@ export function DocumentViewer({ doc, onClose }: { doc: BeyuDoc | null; onClose:
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-navy-900/60 backdrop-blur-sm" onClick={onClose} />
       <div className="w-full max-w-3xl bg-white h-full flex flex-col slidein shadow-2xl">
+        {/* Viewer identity is outside the document: never change its legal issuer or proof. */}
+        <div className="border-b border-slate-200 px-6 py-2 text-xs text-navy-800">
+          <Logo variant="mark" size={28} /> <span>Health OS · Document viewer</span>
+        </div>
         {/* header */}
         <div className="px-6 py-4 bg-navy-800 text-white flex items-start gap-3">
           <div className="w-10 h-10 rounded-lg bg-gold-500 flex items-center justify-center shrink-0">

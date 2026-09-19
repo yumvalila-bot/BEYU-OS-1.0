@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { getBootstrapStatus } from "@/lib/bootstrap/service";
 import { EnrollmentForm } from "./enrollment-form";
+
+export const metadata: Metadata = { title: "Administrator enrollment" };
 
 export const dynamic = "force-dynamic";
 

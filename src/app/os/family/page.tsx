@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { beneficiaries, familyMembers, familyVaultItems, governanceBodies, legalEntities, parties, resolutions } from "@/db/schema";
@@ -7,6 +8,8 @@ import { can } from "@/lib/authz";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { FamilyTrustLogo } from "@/components/family-trust-logo";
+
+export const metadata: Metadata = { title: "Family Office" };
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +134,10 @@ export default async function FamilyPage() {
             asset on a genuine Family Trust surface. The OS chrome around it
             intentionally remains BEYU OS; sector and institutional identities
             are never merged (docs/branding/README.md). */}
-        <FamilyTrustLogo size={64} className="shrink-0" ariaLabel="BEYU Family Trust" />
+        <div className="shrink-0 text-center">
+          <FamilyTrustLogo size={64} className="mx-auto" />
+          <div className="mt-1 text-[10px] beyu-muted">BEYU FAMILY TRUST</div>
+        </div>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

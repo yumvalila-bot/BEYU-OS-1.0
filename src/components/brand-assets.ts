@@ -1,34 +1,26 @@
 /**
  * BEYU brand + Noelia identity — central asset registry.
  *
- * SINGLE SOURCE OF TRUTH for brand asset paths. Components (BeyuLogo,
- * NoeliaAvatar, NoeliaPanel) resolve every image through this registry; no
- * component hard-codes an asset URL, and no application code embeds the logo
- * or avatar SVG geometry.
- *
- * The asset FILES themselves (public/brand/*, public/noelia/*) are the
- * replaceable brand artefacts: swap a file in place (same path, same
- * viewBox) and every surface in the product updates without a code change.
- *
- * Hierarchy encoded by this system (see docs/branding/README.md):
- *   BEYU (institution) → BEYU OS (operating & governance environment)
- *   → HIVE (governed AI runtime) → NOELIA AI (unified governed AI identity).
+ * SINGLE SOURCE OF TRUTH for public asset URLs. The two institutional PNGs
+ * remain byte-exact sources; generated platform icons trace to the OS source.
+ * Components never redraw artwork. Legacy SVGs are historical, not active.
+ * Noelia has its own registry and remains a distinct governed AI identity.
  */
 
+export const BEYU_OS_ASSETS = {
+  /** Official BEYU OS mark — enterprise control-plane/software identity. */
+  official: "/brand/beyu-os-logo.png",
+} as const;
+
+/** Compatibility paths all resolve to the ONE operating source, never old SVGs. */
 export const BEYU_BRAND_ASSETS = {
-  /** Primary lockup, default. Use on LIGHT / neutral surfaces. */
-  full: "/brand/beyu-logo.svg",
-  /** Canonical mark only (gold ring · navy "B" · sage tree). */
-  mark: "/brand/beyu-logo-mark.svg",
-  /** Reversed lockup. Use on DARK surfaces (BEYU OS shell, sign-in). */
-  light: "/brand/beyu-logo-light.svg",
-  /** Primary lockup, dark wordmark. Use on LIGHT surfaces. */
-  dark: "/brand/beyu-logo-dark.svg",
-  /** Browser tab / app tile (self-contained navy tile). */
-  favicon: "/brand/favicon.svg",
-  /** PWA app icon, 512px. */
+  full: BEYU_OS_ASSETS.official,
+  mark: BEYU_OS_ASSETS.official,
+  light: BEYU_OS_ASSETS.official,
+  dark: BEYU_OS_ASSETS.official,
+  /** Derived by scripts/sync-brand-assets.mjs from the unmodified OS PNG. */
+  favicon: "/brand/favicon.png",
   appIcon512: "/brand/beyu-app-icon-512.png",
-  /** PWA app icon, 192px. */
   appIcon192: "/brand/beyu-app-icon-192.png",
 } as const;
 
@@ -43,20 +35,17 @@ export const BEYU_BRAND_ASSETS = {
  * TWO DISTINCT IDENTITIES — never substitute one for the other, never merge
  * them into one generic logo (see docs/branding/README.md):
  *   • BEYU FAMILY TRUST → parent institutional/fiduciary identity
- *     (genuine Family Trust / institutional surfaces, e.g. Family Office).
+ *     (genuine Family Trust governance and ownership surfaces).
  *   • BEYU OS           → enterprise control-plane / software identity
  *     (BEYU OS application surfaces, e.g. sign-in).
- * Sector OSs (Health / Finance / Agriculture) retain their own identities.
+ * All operating domains, including Ujenzi and Family Office, share BEYU OS.
  */
 export const BEYU_FAMILY_TRUST_ASSETS = {
   /** Official BEYU Family Trust lockup — parent institutional identity. */
   official: "/brand/beyu-family-trust-logo.png",
 } as const;
 
-export const BEYU_OS_ASSETS = {
-  /** Official BEYU OS mark — enterprise control-plane/software identity. */
-  official: "/brand/beyu-os-logo.png",
-} as const;
+
 
 /** Intrinsic pixel dimensions of the authoritative assets — aspect is contractual. */
 export const BEYU_FAMILY_TRUST_ASSET_DIMENSIONS = { width: 1239, height: 1254 } as const;
