@@ -319,3 +319,30 @@ service/RLS/HTTP checks + charter14 + core RLS23). New Chromium appointment life
 passed with three human identities. Build/typecheck/lint passed (0 errors, existing
 Noelia image warning only). Complete suite and full browser regression are running;
 new-source success must be recorded only after completion.
+
+### Appointment final-review corrections and observed CI
+
+- Appointment source2a00048 completed the full local suite: **4302 passed /11
+  existing bootstrap skips**,235 files passed/3 skipped,938.10s. All **14 browser
+  tests passed** in2.9m. Root CI35506360586 and scratch35506360590 both observed
+  completed **SUCCESS**. This evidence belongs to2a00048, not subsequent corrections.
+- Final review tightened new authority creation: LEGACY_UNCHARTERED bodies may
+  prepare nominations, but cannot activate membership without an adopted readable
+  charter. Existing legacy resolution behavior is preserved; no historical SQL
+  was rewritten. Test fixtures now actually adopt their charters through the
+  independent decision-backed workflow; a negative test removes charter coverage
+  inside a rollback-isolated fixture and proves that activation is denied.
+- A real negative test then reproduced cross-entity grant mixing in canonical
+  resolution tabling: an approval grant restricted to the Trust plus a Holding
+  read grant incorrectly TABLED a Holding resolution. The failing test and its
+  actual returned TABLED state are retained in the ignored scope-reproducer log.
+  Current target-entity grant filtering now applies to the shared voting/decision/
+  recusal/follow-up authorizer, shared charter/appointment presiding checks,
+  nominee consent-policy roles and simulation observations. Foreign approval
+  authority cannot be supplied by a local read grant. No assertion was weakened.
+- Corrected-source targeted regression:149 service/integration tests passed;
+  appointment/charter/simulation HTTP8 passed; appointment browser1 passed.
+  Rebuilt/typechecked/linted successfully. Complete corrected-source suite and
+  complete browser regression have been started and are not yet claimed successful.
+- This fixes a demonstrated governance authorization defect. It is not a claim
+  that every pre-existing cross-domain Principal/grant consumer was recertified.

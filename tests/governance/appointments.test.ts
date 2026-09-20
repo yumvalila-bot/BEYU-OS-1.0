@@ -1,13 +1,14 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { governanceAppointments, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users } from "../../src/db/schema";
+import { governanceAppointments, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users, governanceCharters, governanceCharterTerms, resolutions } from "../../src/db/schema";
 import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
 import { createBodyCharter, commandBodyCharter } from "../../src/lib/governance/charter-service";
 import { charterFixtureRules, concludedCharterBallot, cleanupCharters } from "../helpers/charters";
-import { decideResolutionClosure } from "../../src/lib/governance-vote-service";
+import { decideResolutionClosure, tableResolution } from "../../src/lib/governance-vote-service";
 import { NominateMemberSchema } from "../../src/lib/governance/appointment-contract";
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
+import { executionPrincipal } from "../helpers/governance-execution";
 import { verifyAuditChain, verifyEventChain } from "../../src/lib/audit";
 let f: Awaited<ReturnType<typeof appointmentFixture>>;
 const ctx = { traceId: "APPOINTMENT_TEST" }, prefix = "APPT_TEST";
@@ -22,6 +23,29 @@ describe("governed appointment → consent → canonical membership", () => {
  it.each(["mfa", "scope", "permission"])("requires current %s presiding authority", async (kind) => {
   const p = { ...f.chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "scope" ? { entityScope: ["WRONG"] } : { permissions: new Set<never>() }) };
   await expect(create({}, p)).rejects.toHaveProperty("code");
+ });
+ it("does not combine another entity's approval grant with a local read grant", async () => {
+  const grants = await db.select().from(roleAssignments).where(eq(roleAssignments.userId, f.secretary.userId));
+  await db.update(roleAssignments).set({ legalEntityId: "LEN_BEYU_FAMILY_TRUST" }).where(eq(roleAssignments.userId, f.secretary.userId));
+  await db.insert(roleAssignments).values({ ...grants[0], id: "RAS_APPT_LOCAL_READ", roleId: "ROL_AUDITOR", legalEntityId: "LEN_BEYU_HOLDINGS" });
+  try { await expect(create({}, f.secretary)).rejects.toHaveProperty("code", "FORBIDDEN"); }
+  finally {
+   await db.delete(roleAssignments).where(eq(roleAssignments.id, "RAS_APPT_LOCAL_READ"));
+   for (const g of grants) await db.update(roleAssignments).set({ legalEntityId: g.legalEntityId }).where(eq(roleAssignments.id, g.id));
+  }
+ });
+ it("also rejects cross-entity grant mixing at canonical resolution tabling", async () => {
+  const id = "RES_APPT_SCOPE_PROBE";
+  await db.insert(resolutions).values({ id, reference: id, bodyId: f.bodyId, tenantId: f.chair.tenantId, title: "Entity authority probe", category: "POLICY", summary: "Fixture", rationale: "Fixture", dataBasis: "Fixture", consequences: "No scope widening", proposedBy: f.chair.userId, classification: "PUBLIC", requiredMajority: "SIMPLE", status: "DRAFT" });
+  const grants = await db.select().from(roleAssignments).where(eq(roleAssignments.userId, f.secretary.userId));
+  await db.update(roleAssignments).set({ legalEntityId: "LEN_BEYU_FAMILY_TRUST" }).where(eq(roleAssignments.userId, f.secretary.userId));
+  await db.insert(roleAssignments).values({ ...grants[0], id: "RAS_APPT_SCOPE_PROBE", roleId: "ROL_AUDITOR", legalEntityId: "LEN_BEYU_HOLDINGS" });
+  const mixed = { ...await executionPrincipal(f.secretary.userId), entityScope: ["LEN_BEYU_FAMILY_TRUST", "LEN_BEYU_HOLDINGS"] };
+  try { await expect(as(mixed, () => tableResolution(mixed, { resolutionId: id }, ctx))).rejects.toHaveProperty("code", "FORBIDDEN"); }
+  finally {
+   await db.delete(roleAssignments).where(eq(roleAssignments.id, "RAS_APPT_SCOPE_PROBE"));
+   for (const g of grants) await db.update(roleAssignments).set({ legalEntityId: g.legalEntityId }).where(eq(roleAssignments.id, g.id));
+  }
  });
  it("does not permit self-nomination, backdating or premature activation", async () => {
   await expect(create({ nomineeUserId: f.chair.userId })).rejects.toHaveProperty("code", "FORBIDDEN");
@@ -75,6 +99,18 @@ describe("governed appointment → consent → canonical membership", () => {
    await command(a.id, "APPROVE", 1, f.secretary, { resolutionId: r }); await command(a.id, "ACCEPT", 2, f.candidate);
    await expect(command(a.id, "ACTIVATE", 3)).rejects.toHaveProperty("code", "RULE_VIOLATION");
   } finally { await cleanupCharters([c.id], cr ? [cr] : []); }
+ });
+ it("fails closed on an unchartered legacy body at the new authority boundary", async () => {
+  const a = await create(), r = await appointmentBallot(a.id, f.chair);
+  await command(a.id, "APPROVE", 1, f.secretary, { resolutionId: r }); await command(a.id, "ACCEPT", 2, f.candidate);
+  // Isolated administrator fixture transaction only: rollback restores the charter.
+  await expect(db.transaction(async (tx) => {
+   const charters = await tx.select().from(governanceCharters).where(eq(governanceCharters.bodyId, f.bodyId));
+   for (const c of charters) { await tx.delete(governanceCharterTerms).where(eq(governanceCharterTerms.id, c.id)); await tx.delete(governanceCharters).where(eq(governanceCharters.id, c.id)); }
+   await command(a.id, "ACTIVATE", 3);
+  })).rejects.toMatchObject({ code: "RULE_VIOLATION", message: expect.stringContaining("adopted, readable charter") });
+  expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.id)))[0].status).toBe("ACCEPTED");
+  expect(await db.select().from(governanceMembers).where(eq(governanceMembers.partyId, f.candidate.partyId!))).toHaveLength(0);
  });
  it("serializes consent and never grants RBAC or a seat merely on approval/consent", async () => {
   const before = await db.select().from(roleAssignments).where(eq(roleAssignments.userId, f.candidate.userId));

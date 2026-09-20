@@ -58,7 +58,8 @@ async function calculate(principal: Principal, id: string, input: z.infer<typeof
   const outcome = decideResolution({ majorityRule: body.majorityRule, quorum, tally, votingConcluded });
   const [entity] = body.legalEntityId ? await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1) : [];
   const [actor] = await db.select().from(users).where(eq(users.id, principal.userId)).limit(1);
-  const grants = await loadGrants(principal.userId, principal.tenantId);
+  const grants = (await loadGrants(principal.userId, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === body.legalEntityId);
   const roles = grants.map((g) => g.code);
   const live = { ...principal, roles, permissions: permissionsForRoles(roles), clearance: clearanceForRoles(roles),
     entityScope: grants.flatMap((g) => g.entityId ? [g.entityId] : []), emergencyPermissions: [], delegatedPermissions: [] };

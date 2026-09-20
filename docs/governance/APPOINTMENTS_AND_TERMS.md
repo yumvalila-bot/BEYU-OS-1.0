@@ -24,7 +24,8 @@ new nomination and new decision. ACTIVE and DECLINED records are terminal.
 4. A current unconflicted presiding human activates the accepted appointment.
    This independently rechecks source decision authority, current grants, MFA,
    constitutional/policy controls, document and nominee identity, overlap and
-   adopted composition. It atomically creates the exact canonical
+   adopted composition. An unchartered legacy body cannot activate new membership;
+   it must first adopt a readable charter. It atomically creates the exact canonical
    `governance_members` record, never an RBAC grant or Finance capability.
 
 The start/end dates use the existing canonical inclusive date semantics. Scheduled
@@ -47,7 +48,9 @@ resignation/removal workflow. The roster displays current/scheduled/expired term
 - Eight canonical seat roles are supported. Competence/independence review has a
   human-reviewed instrument and rationale, not a machine-certified competency matrix.
   In particular, INDEPENDENT_MEMBER is not proof of legal independence.
-- Adopted composition is checked both now and at known membership boundaries
+- An adopted, readable charter is mandatory for new membership activation, even
+  though existing legacy written-resolution paths remain supported. Composition
+  is checked both now and at known membership boundaries
   throughout the proposed term. Hidden adopted terms fail closed. Overlapping
   party terms are rejected. The service never lowers quorum to fill a vacancy.
 - A body that already cannot meet its adopted controls cannot use this route as
@@ -131,3 +134,26 @@ shared meeting/notices/invitations/acknowledgements/agenda/papers/attendance/mot
 minutes lifecycle; shared calendar, expiry escalation and evaluations. These are
 engineering gaps, not external blockers. This increment does not certify the full
 X10THINK mission or replace missing legal governance with a title or UI status.
+
+
+Final review hardening: initial source2a00048 allowed activation with LEGACY_UNCHARTERED
+coverage. The subsequent correction requires an adopted readable charter before
+creating any new membership, without blocking preparatory nomination or rewriting
+existing legacy resolution authority. Appointment fixtures now actually adopt their
+charter through independent, decision-backed commands. A rollback-isolated negative
+test proves that removing charter coverage blocks activation and leaves no member.
+The earlier4302/14 complete regression applies to2a00048; corrected-source regression
+must be separately completed and recorded.
+
+
+Entity-grant correlation is also enforced at the shared charter/appointment
+presiding boundary: only currently dated grants applicable to the target legal
+entity contribute permissions, clearance and policy roles. A foreign-entity approval
+grant cannot be combined with a target-entity read grant to manufacture approval.
+Nominee access and consent-policy role resolution use the same target filtering.
+A real non-owner regression then reproduced the same issue in canonical resolution
+tabling (the negative test resolved TABLED instead of denying). The shared
+voting/closure/recusal/follow-up authorizer now also resolves current target-entity
+grants, and read-only preflight observations use the same filtering. This is a
+bounded governance correction, not certification of every cross-domain Principal/
+grant consumer. No assertion was weakened to repair the demonstrated defect.

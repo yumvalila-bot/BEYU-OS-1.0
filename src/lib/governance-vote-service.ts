@@ -206,6 +206,18 @@ async function authorizeGovernanceAction(
     throw new GovernanceError(code, decision.reason);
   }
 
+  // Capability and policy roles must come from grants applicable to this
+  // entity. A foreign approval grant plus a local read grant is not approval.
+  const grants = (await loadGrants(principal.userId, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === ctx.body.legalEntityId);
+  const liveRoles = grants.map((grant) => grant.code);
+  const livePrincipal = { ...principal, roles: liveRoles, permissions: permissionsForRoles(liveRoles),
+    clearance: clearanceForRoles(liveRoles), emergencyPermissions: [], delegatedPermissions: [] };
+  if (!can(livePrincipal, permission, { classification, tenantId: ctx.resolution.tenantId,
+      entityId: ctx.body.legalEntityId ?? undefined }).allowed) {
+    throw new GovernanceError("FORBIDDEN", "Current grants applicable to this entity do not authorize this action.");
+  }
+
   const [entity] = ctx.body.legalEntityId
     ? await db.select().from(legalEntities).where(eq(legalEntities.id, ctx.body.legalEntityId)).limit(1)
     : [];
@@ -225,7 +237,7 @@ async function authorizeGovernanceAction(
     entityCode: entity?.code,
     jurisdictionCode: entity?.countryCode,
     tenantId: ctx.resolution.tenantId,
-    roles: principal.roles,
+    roles: liveRoles,
     classification,
     riskScore: principal.riskScore,
     aiInitiated: false,
@@ -1448,7 +1460,8 @@ export async function authorizeResolutionFollowUp(principal: Principal, id: stri
   const permission = presiding ? "governance:resolution.approve" : "governance:resolution.read";
   // Re-resolve dated grants at the execution boundary. A copied/cached session
   // principal or emergency grant cannot resurrect expired follow-up authority.
-  const grants = await loadGrants(actor.id, principal.tenantId);
+  const grants = (await loadGrants(actor.id, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === ctx.body.legalEntityId);
   const liveRoles = grants.map((g) => g.code);
   const liveEntities = grants.flatMap((g) => g.entityId ? [g.entityId] : []);
   if (!permissionsForRoles(liveRoles).has(permission) ||

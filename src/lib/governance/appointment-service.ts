@@ -32,7 +32,7 @@ export async function readAppointment(p: Principal, bodyId: string, id: string) 
 async function nominee(body: typeof governanceBodies.$inferSelect, userId: string, classification: Appointment["classification"]) {
  const [u] = await db.select().from(users).where(eq(users.id, userId)).for("share");
  if (!u || u.status !== "ACTIVE" || u.isServiceAccount || !u.partyId || u.primaryTenantId !== body.tenantId) throw fail("An active human nominee in the body's tenant is required.");
- const grants = await loadGrants(u.id, body.tenantId);
+ const grants = (await loadGrants(u.id, body.tenantId)).filter((g) => !g.entityId || g.entityId === body.legalEntityId);
  if (!permissionsForRoles(grants.map((g) => g.code)).has("governance:resolution.read") || classificationRank(clearanceForRoles(grants.map((g) => g.code))) < classificationRank(classification) ||
      (grants.some((g) => g.entityId) && !grants.some((g) => g.entityId === body.legalEntityId))) throw fail("The nominee needs independently provisioned scoped read access; nomination cannot grant it.");
  return u;
@@ -48,7 +48,7 @@ async function prospective(body: typeof governanceBodies.$inferSelect, row: Appo
  const members = await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id));
  if (members.some((m) => m.partyId === row.partyId && m.appointedOn <= row.retiredOn && (!m.retiredOn || m.retiredOn >= row.appointedOn))) throw fail("An overlapping appointment for this party already exists.");
  const charter = await currentCharterComposition(body);
- if (!charter.satisfied) throw fail("Current adopted composition must be satisfied; no vacancy bypass is granted.");
+ if (!charter.charter || !charter.satisfied) throw fail("An adopted, readable charter and satisfied current composition are required; legacy or vacancy status cannot grant new membership.");
  if (charter.charter) {
   const [terms] = await db.select().from(governanceCharterTerms).where(eq(governanceCharterTerms.id, charter.charter.id));
   if (!terms) throw fail("Adopted composition terms are unavailable.");
@@ -116,7 +116,7 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    if (input.command === "ACCEPT" || input.command === "DECLINE") {
     if (p.userId !== row.nomineeUserId || p.partyId !== row.partyId || !p.mfaSatisfied) throw new GovernanceError("FORBIDDEN", "Only the authenticated human nominee with MFA may consent or decline.");
     const { entity } = await readBodyEntity(body);
-    const roles = (await loadGrants(p.userId, p.tenantId)).map((g) => g.code);
+    const roles = (await loadGrants(p.userId, p.tenantId)).filter((g) => !g.entityId || g.entityId === body.legalEntityId).map((g) => g.code);
     const policy = await evaluatePolicy({ action: `governance:appointment.${input.command.toLowerCase()}`, tenantId: body.tenantId, entityCode: entity.code, jurisdictionCode: entity.countryCode, roles, classification: row.classification, riskScore: p.riskScore, aiInitiated: false });
     policyVersion = policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     if (policy.effect === "DENY" || policy.obligations.length) throw new GovernanceError("POLICY_DENIED", "Consent policy has undischarged restrictions.");

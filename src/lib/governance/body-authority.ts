@@ -16,7 +16,8 @@ export async function readGoverningBody(principal: Principal, bodyId: string) {
 export async function authorizeBodyPresider(principal: Principal, bodyId: string, classification: Classification, command: string, domain = "charter") {
   const body = await readGoverningBody(principal, bodyId);
   const [actor] = await db.select().from(users).where(eq(users.id, principal.userId)).for("share");
-  const grants = await loadGrants(principal.userId, principal.tenantId);
+  const grants = (await loadGrants(principal.userId, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === body.legalEntityId);
   const roles = grants.map((g) => g.code);
   const entities = grants.flatMap((g) => g.entityId ? [g.entityId] : []);
   const [entity] = body.legalEntityId ? await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1) : [];
