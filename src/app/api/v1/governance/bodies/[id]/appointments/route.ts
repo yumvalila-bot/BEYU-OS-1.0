@@ -20,7 +20,16 @@ export async function POST(request: Request, params: Params) {
   const input = NominateMemberSchema.parse(json);
   try {
    await withTenantDatabaseContext(ctx.principal, async () => { const body = await readGoverningBody(ctx.principal, id); const doc = await readBodyDocument(ctx.principal, body, input.documentId); await authorizeBodyPresider(ctx.principal, id, doc.classification, "NOMINATE", "appointment"); });
-   return await withIdempotency(ctx, `governance.bodies.${id}.appointments`, input, async () => ({ status: 201, body: await nominateMember(ctx.principal, id, input, { traceId: ctx.traceId }) }));
+   return await withIdempotency(ctx, `governance.bodies.${id}.appointments`, input, async () => {
+    try { return { status: 201, body: await nominateMember(ctx.principal, id, input, { traceId: ctx.traceId }) }; }
+    catch (e) {
+     // The appointment service's nested transaction has rolled back before this
+     // recognized domain error is returned. Release only that known-failed claim.
+     // Unknown/commit/completion failures still throw and remain IN_FLIGHT.
+     if (e instanceof GovernanceError) return apiError(e.code, e.message, GOVERNANCE_ERROR_STATUS[e.code], ctx.traceId);
+     throw e;
+    }
+   });
   } catch (e) { if (e instanceof GovernanceError) return apiError(e.code, e.message, GOVERNANCE_ERROR_STATUS[e.code], ctx.traceId); throw e; }
  });
 }

@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { governanceMembers, governanceAppointments } from "../../src/db/schema";
+import { governanceMembers, governanceAppointments, idempotencyRecords, users } from "../../src/db/schema";
 import { apiPost, login, serverAvailable } from "../helpers/http";
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments } from "../helpers/appointments";
 import { withReboundAppointmentActors } from "../helpers/appointment-identity";
@@ -15,16 +15,58 @@ describe.skipIf(!available)("appointment actual HTTP authority boundary", () => 
   expect((await apiPost(path(), appointmentInput(f.candidate.userId))).status).toBe(401);
   expect((await apiPost(path(), appointmentInput(f.candidate.userId, { status: "ACTIVE" }), { cookie: chair })).status).toBe(422);
  });
+ it("releases a known rolled-back nomination denial for an unchanged retry", async () => {
+  const key = crypto.randomUUID(), input = appointmentInput(f.candidate.userId);
+  await db.update(users).set({ isServiceAccount: true }).where(eq(users.id, f.candidate.userId));
+  try {
+   const denied = await apiPost<Result>(path(), input, { cookie: chair, idempotencyKey: key });
+   expect(denied.status, JSON.stringify(denied.body)).toBe(422);
+   expect(denied.body.error?.message).toContain("active human nominee");
+  } finally { await db.update(users).set({ isServiceAccount: false }).where(eq(users.id, f.candidate.userId)); }
+  const created = await apiPost<Result>(path(), input, { cookie: chair, idempotencyKey: key });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  const replay = await apiPost<Result>(path(), input, { cookie: chair, idempotencyKey: key });
+  expect(replay.status).toBe(201); expect(replay.body.data).toEqual(created.body.data);
+ });
  it("denies rebinding-based self-approval with a real authenticated HTTP session", async () => {
   const a = await apiPost<Result>(path(), appointmentInput(f.candidate.userId), { cookie: chair, idempotencyKey: crypto.randomUUID() });
   expect(a.status, JSON.stringify(a.body)).toBe(201);
   const resolutionId = await appointmentBallot(a.body.data.id, f.chair);
+  const key = crypto.randomUUID();
+  const intention = { command: "APPROVE", expectedRevision: 1, resolutionId, note: "Original nominator cannot approve through another account" };
   await withReboundAppointmentActors(f, async () => {
-   const denied = await apiPost<Result>(`${path()}/${a.body.data.id}`, { command: "APPROVE", expectedRevision: 1, resolutionId, note: "Original nominator cannot approve through another account" }, { cookie: secretary, idempotencyKey: crypto.randomUUID() });
+   const denied = await apiPost<Result>(`${path()}/${a.body.data.id}`, intention, { cookie: secretary, idempotencyKey: key });
    expect(denied.status, JSON.stringify(denied.body)).toBe(403);
    expect(denied.body.error?.message).toContain("nominating person");
    expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.body.data.id)))[0]).toMatchObject({ status: "NOMINATED", revision: 1, nominatedByPartyId: f.chair.partyId, approvedByPartyId: null });
   });
+  const approved = await apiPost<Result>(`${path()}/${a.body.data.id}`, intention, { cookie: secretary, idempotencyKey: key });
+  expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+  const replay = await apiPost<Result>(`${path()}/${a.body.data.id}`, intention, { cookie: secretary, idempotencyKey: key });
+  expect(replay.status).toBe(200); expect(replay.body.data).toEqual(approved.body.data);
+ });
+ it("keeps an unknown SQL failure in flight rather than automatically executing a second nomination", async () => {
+  const key = crypto.randomUUID(), input = appointmentInput(f.candidate.userId);
+  const before = await db.select().from(governanceAppointments).where(eq(governanceAppointments.bodyId, f.bodyId));
+  await db.execute(sql`create function test_appt_origin_unknown_failure() returns trigger language plpgsql as $$ begin if NEW.body_id='GOV_APPT_HTTP' then raise exception 'Disposable unknown appointment failure'; end if; return NEW; end $$`);
+  await db.execute(sql`create trigger test_appt_origin_unknown_failure after insert on governance_appointments for each row execute function test_appt_origin_unknown_failure()`);
+  try {
+   const failed = await apiPost<Result>(path(), input, { cookie: chair, idempotencyKey: key });
+   expect(failed.status, JSON.stringify(failed.body)).toBe(500);
+  } finally {
+   await db.execute(sql`drop trigger test_appt_origin_unknown_failure on governance_appointments`);
+   await db.execute(sql`drop function test_appt_origin_unknown_failure()`);
+  }
+  try {
+   const blocked = await apiPost<Result>(path(), input, { cookie: chair, idempotencyKey: key });
+   expect(blocked.status, JSON.stringify(blocked.body)).toBe(409);
+   expect(blocked.body.error?.message).toContain("currently being processed");
+   expect(await db.select().from(governanceAppointments).where(eq(governanceAppointments.bodyId, f.bodyId))).toEqual(before);
+   expect((await db.select().from(idempotencyRecords).where(and(eq(idempotencyRecords.idempotencyKey, key), eq(idempotencyRecords.actorUserId, f.chair.userId))))[0].state).toBe("IN_FLIGHT");
+  } finally {
+   // Fixture cleanup only; production requires reconciliation, never auto-reclaim.
+   await db.delete(idempotencyRecords).where(and(eq(idempotencyRecords.idempotencyKey, key), eq(idempotencyRecords.actorUserId, f.chair.userId)));
+  }
  });
  it("deduplicates nomination and requires independent approval, actual nominee consent and fresh activation", async () => {
   const key = crypto.randomUUID(), input = appointmentInput(f.candidate.userId);

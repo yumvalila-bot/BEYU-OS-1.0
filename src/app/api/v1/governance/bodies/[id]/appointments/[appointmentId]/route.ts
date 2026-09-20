@@ -17,7 +17,16 @@ export async function POST(request: Request, params: { params: Promise<{ id: str
      if (row.nomineeUserId !== ctx.principal.userId || row.partyId !== ctx.principal.partyId || !ctx.principal.mfaSatisfied) throw new GovernanceError("FORBIDDEN", "Only the authenticated nominee may consent.");
     } else await authorizeBodyPresider(ctx.principal, id, row.classification, input.command, "appointment");
    });
-   return await withIdempotency(ctx, `governance.bodies.${id}.appointments.${appointmentId}`, input, async () => ({ status: 200, body: await commandAppointment(ctx.principal, id, appointmentId, input, { traceId: ctx.traceId }) }));
+   return await withIdempotency(ctx, `governance.bodies.${id}.appointments.${appointmentId}`, input, async () => {
+    try { return { status: 200, body: await commandAppointment(ctx.principal, id, appointmentId, input, { traceId: ctx.traceId }) }; }
+    catch (e) {
+     // The appointment service's nested transaction has rolled back before this
+     // recognized domain error is returned. Release only that known-failed claim.
+     // Unknown/commit/completion failures still throw and remain IN_FLIGHT.
+     if (e instanceof GovernanceError) return apiError(e.code, e.message, GOVERNANCE_ERROR_STATUS[e.code], ctx.traceId);
+     throw e;
+    }
+   });
   } catch (e) { if (e instanceof GovernanceError) return apiError(e.code, e.message, GOVERNANCE_ERROR_STATUS[e.code], ctx.traceId); throw e; }
  });
 }

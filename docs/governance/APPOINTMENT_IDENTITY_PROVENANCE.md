@@ -52,3 +52,13 @@ The appointment UI now retains the idempotency key after a denial, as the charte
 UI already does. A denial cannot disprove an earlier lost successful response.
 An edited intention receives a new key; an unchanged retry retains request identity.
 The backend, never visible controls or notifications, determines authority.
+
+A browser regression exposed a route-level issue: recognized appointment service
+denials were normalized only after the idempotency boundary, leaving known-failed
+claims in flight. The two appointment routes now return recognized governance
+errors **after the service's nested transaction has rolled back**, allowing the
+existing wrapper to release only these known-failed claims. Unknown SQL/commit/
+completion failures still throw and retain their durable IN_FLIGHT claim. Real
+HTTP coverage injects an unknown SQL failure and proves retry remains blocked;
+known nomination and approval denials instead recover and replay without duplicates.
+The shared idempotency mechanism and Finance routes are not relaxed or changed.
