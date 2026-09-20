@@ -365,6 +365,13 @@
       "when": 1789887600051,
       "tag": "0051_governance_appointments",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789908344420,
+      "tag": "0052_governance_body_establishments",
+      "breakpoints": true
     }
   ]
 }

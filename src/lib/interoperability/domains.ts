@@ -1,3 +1,4 @@
+import { ESTABLISHMENT_EVENTS } from "../governance/establishment-contract";
 import { APPOINTMENT_EVENTS } from "../governance/appointment-contract";
 import { ACTION_EVENT_TYPES } from "../governance/action-contract";
 import type { InteropClassification } from "./contract";
@@ -89,7 +90,7 @@ export const DOMAIN_REGISTRY: readonly DomainRegistryEntry[] = [
     systemOfRecord: "constitution_articles, policies, governance_bodies, resolutions, tasks, governance_action_evidence",
     dataClass: "RESTRICTED",
     apiContract: ["governed resolution lifecycle", ...SHARED_API],
-    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...Object.values(ACTION_EVENT_TYPES), ...Object.values(APPOINTMENT_EVENTS), "GOVERNANCE_CHARTER_CREATED", "GOVERNANCE_CHARTER_SUBMITTED", "GOVERNANCE_CHARTER_ADOPTED", ...SHARED_EVENTS],
+    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...Object.values(ACTION_EVENT_TYPES), ...Object.values(APPOINTMENT_EVENTS), ...Object.values(ESTABLISHMENT_EVENTS), "GOVERNANCE_CHARTER_CREATED", "GOVERNANCE_CHARTER_SUBMITTED", "GOVERNANCE_CHARTER_ADOPTED", ...SHARED_EVENTS],
     authorityModel: "constitution → policy → decision → capability",
     securityModel: "common RBAC/ABAC + body membership + SoD",
     tenantModel: "tenant subtree with parent governance scope",

@@ -106,6 +106,7 @@ export const governanceBodies = pgTable(
     majorityRule: text("majority_rule").notNull().default("SIMPLE"), // SIMPLE | TWO_THIRDS | UNANIMOUS
     reservedMatters: jsonb("reserved_matters").$type<string[]>().notNull().default([]),
     charterDocumentId: text("charter_document_id"),
+    classification: classificationEnum("classification").notNull().default("PUBLIC"),
     status: versionStatusEnum("status").notNull().default("ACTIVE"),
   },
   (t) => [uniqueIndex("governance_bodies_code_uidx").on(t.code)],

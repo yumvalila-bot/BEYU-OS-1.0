@@ -496,3 +496,56 @@ bypass and non-nominee consent also denied. Persistence and reload confirm no
 client-side success substituted for backend state. Build/typecheck passed;
 lint0 errors/1 existing image warning. Full corrected suite/browser regression
 will be recorded separately after completion; focused evidence is not final proof.
+
+### Appointment acceptance completed; bounded establishment continuation
+
+Frozen863a3380309d66ca9e215a2734635d4ffae32789 completed the fresh-database full
+suite: **4323 passed/11 existing skips**,236 files passed/3 skipped,1030.32s;
+**all24 Chromium tests passed**,7.4m. No source changed during either run.
+Root CI35510280309 and scratch35510280306 both observed **SUCCESS** for that SHA.
+Fresh main fetch still resolves5ac90f2cc712582bde45cc0f2616937d856a6f71.
+This completes local and observed CI validation of the bounded appointment
+increment, not the full governance mission. Evidence: ignored continuation-full-
+suite.log, continuation-full-browser.log and continuation-ci-watch.log.
+
+Continued to the next genuine P1 gap: explicit superior-body establishment, documented
+in BODY_ESTABLISHMENT.md. Additive0052 supports immutable proposed charter/committee
+identity → superior review → independent RESERVED_MATTER approval → exact canonical
+DRAFT committee. Active, chartered BOARD/TRUSTEES authority, current constitution,
+entity/country/classification, instrument and decision provenance are required.
+The same entity/tenant is derived from the superior; no caller-selected expansion.
+Proposer-party identity is snapshotted for independent approval. Generic notices
+and shared audit/events commit with the proposal/body, including decision causation.
+
+The existing body registry remains canonical. Only a narrowly matched DRAFT
+COMMITTEE insertion is permitted; body UPDATE/DELETE, membership and final-decision
+protections remain. New body identities inherit instrument classification; legacy
+reference identities retain their previous PUBLIC visibility within tenant/entity
+RLS. The proposal table uses FORCE RLS, immutable transitions, no runtime deletion
+and a deferred exact-body constraint. No SECURITY DEFINER, new OS, role grant,
+Finance activation, Noelia authority or hidden privileged writer was introduced.
+
+This establishment foundation is intentionally **PARTIAL**, not the requested full
+body lifecycle: it cannot activate an empty body. Consent-backed initial membership,
+superior child-charter adoption/activation, suspension/dissolution/archive and
+vacancy recovery remain engineering work. The UI explicitly says ESTABLISHED is
+not ACTIVE and exposes no activation shortcut. Missing stages are not labelled
+human approvals or external blockers.
+
+Validation before the complete new-source run:
+-12 new service/adversarial tests passed, including superior/constitutional authority,
+  current charter/instrument, classified identity, independence, exact source,
+  duplicate/concurrent establishment, rollback and unchanged roles/Finance.
+-11 new actual non-owner PostgreSQL tests passed: no unscoped/foreign-tenant/entity/
+  lower-classification reads, no deletion/forged transitions, exact insertion gate,
+  country/entity instrument checks. A deferred-constraint test rejects an established
+  proposal without its exact canonical body.
+-2 real HTTP tests and1 Chromium superior-review/establishment/reload/denial test
+  passed. Existing appointment boundaries also passed against the new schema.
+-Fresh53-migration replay/seed/constrained runtime provisioning passed, as did the
+ 0051→0052 upgrade and no-op replay. Fingerprint9df81d7082bc55df36312218e9f64e14
+  remained unchanged on the no-op. Integrity-with-ledger passed with14 existing debts.
+-Historical0048–0051 SQL unchanged;0051 SHA256:
+ `bf2d3f13a8365c9bbeefa2347f31a8c8157b16e6839dd8b9008fb7b45e2b6ecf`.
+-Typecheck/build passed; lint0 errors/1 existing warning. Full new-source regression,
+  all browser tests and observed new-source CI still require completion below.

@@ -40,6 +40,7 @@ export const ID_PREFIX = {
   body: "GOV",
   charter: "GCH",
   governanceAppointment: "GAP",
+  bodyEstablishment: "GBE",
   member: "GMB",
   resolution: "RES",
   vote: "VOT",
