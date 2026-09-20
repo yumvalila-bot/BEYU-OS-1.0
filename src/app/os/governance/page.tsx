@@ -1,3 +1,4 @@
+import { SimulationPanel } from "./simulation-panel";
 import { CharterPanel } from "./charter-panel";
 import { readBodyCharters, canManageCharters } from "@/lib/governance/charter-service";
 import { currentCharterComposition } from "@/lib/governance/charter-rules";
@@ -231,6 +232,7 @@ export default async function GovernancePage() {
                     />
                   )}
 
+                  <SimulationPanel resolutionId={r.id} />
                   {execution.has(r.id) && <ActionPanel resolutionId={r.id} userId={access.principal.userId}
                     canManage={execution.get(r.id)!.canManage}
                     actions={execution.get(r.id)!.actions.map((action) => ({ ...action,

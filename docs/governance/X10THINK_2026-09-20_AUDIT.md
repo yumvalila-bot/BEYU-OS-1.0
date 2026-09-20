@@ -10,6 +10,11 @@ immutable versioned charter review/adoption and enforced role-count composition
 controls. Body creation and the appointment/acceptance/renewal lifecycle are still
 not implemented; this does not change the mission's incomplete status.
 
+[Read-only preflight](READ_ONLY_PREFLIGHT.md) now adds a database-enforced
+non-mutating simulation API/UI using the canonical voting engine. Delegation,
+approval-chain and independent country-grant coverage are explicitly incomplete;
+a hypothetical outcome cannot authorize anything.
+
 ## Baseline and method
 
 - Started clean on `arena/01a0bda3-beyu-os-1-0` at
@@ -102,7 +107,7 @@ unless an explicit human dependency is named; they are not disguised as external
 | AM Break-glass | PARTIAL substrate | Existing emergency permissions and auditing remain; no new governance bypass or self-authorization. No claim of complete governance emergency workflow |
 | AN Multi-entity/country | PARTIAL | Tenant subtree, legal entities, entity ABAC and RLS, country policy context; no complete cross-border constitutional rule model |
 | AO Knowledge graph | PARTIAL | Existing relational IDs/FKs/events; no unnecessary graph store. Missing meeting/action/evidence edges remain missing |
-| AP Simulation | NOT IMPLEMENTED (governance preflight API) | Pure voting/authority engines are testable; that is not an authorized non-mutating scenario API |
+| AP Simulation | IMPLEMENTED bounded preflight / PARTIAL full simulation | `governance/simulation.ts`, authenticated simulation API and resolution panel; READ ONLY/repeatable snapshot, unchanged source, explicit no-authority flags, canonical quorum/tally and current controls. Delegation/approval chains/country grants explicitly unsupported; no scenario persistence or completed meeting workflow simulation |
 | AQ Maturity | PARTIAL substrate | `command/posture.ts` advisory institutional posture; not governance-specific evidence-based improvement plans |
 | AR Noelia/HIVE | PARTIAL | `noelia/governance.ts`, tool registry, governed runtime and tests. No new AI write tool, vote, approval or self-authorization capability added; read-only scoped implementation reporting added, with no action mutation tool; not complete governance intelligence |
 
@@ -209,3 +214,24 @@ action/evidence/independent-verification chain; full charters/appointments/compo
 calendar/notification consumers; governance risk/assurance/stakeholder/maturity
 integration and safe simulation. The architecture can support further work;
 this patch does **not** establish the master mission's definition of done.
+
+
+## Charter and preflight continuation validation
+
+- Charter/composition source `f31e46b5e4d7082996bf9f2107dff829914afb78` pushed
+  on the same PR77 workstream. Root CI run **35503257334** and scratch CI run
+  **35503257355** both observed completed **SUCCESS**. Earlier pending root status
+  is superseded by this observed result, not assumed success.
+- Charter full local suite initially had **4256 passed / 1 failed / 11 skipped**.
+  The only failure was the credential-convergence harness expecting the default
+  database name instead of the disposable `beyu_charter_validation`. Corrected the
+  ignored `BEYU_RUNTIME_DB_NAME` configuration and reran runtime-role provisioning;
+  all **7 credential-convergence tests passed** without changing assertions.
+- Preflight focused service/API tests: **19 passed**; Chromium browser: **1 passed**.
+  Production build, typecheck and lint passed (0 errors / 1 existing image warning).
+  Full corrected suite and complete browser regression are pending at this checkpoint.
+- `origin/main` fetched again during this continuation and remains
+  `5ac90f2cc712582bde45cc0f2616937d856a6f71`; no main divergence found.
+- No migration after0050 is required for this bounded read-only capability. P0
+  0048, execution0049 and charter0050 remain unchanged. No production promotion,
+  legal ratification, Finance activation or merge occurred.
