@@ -23,15 +23,16 @@ export async function appointmentAuthority(p: Principal, body: typeof governance
  if (!composition.charter || !composition.satisfied) throw fail("Superior appointment authority needs an adopted charter and satisfied composition.");
  const [c] = await db.select().from(governanceCharters).where(and(eq(governanceCharters.bodyId, body.id), eq(governanceCharters.status, "APPROVED"))).orderBy(desc(governanceCharters.version)).limit(1).for("share");
  const [terms] = c ? await db.select().from(governanceCharterTerms).where(eq(governanceCharterTerms.id, c.id)) : [];
- if (!c || !terms || !c.createdByPartyId || c.authorityBodyId !== superior.id || classificationRank(terms.classification) > classificationRank(classification)) throw fail("A readable superior-approved initial charter covered by the appointment classification is required.");
+ if (!c || !terms) throw new GovernanceError("FORBIDDEN", "No appointment authority exists until the initial charter is superior-approved and readable.");
+ if (!c.createdByPartyId || c.authorityBodyId !== superior.id || classificationRank(terms.classification) > classificationRank(classification)) throw fail("A readable superior-approved initial charter covered by the appointment classification is required.");
  const doc = await readBodyDocument(p, body, terms.documentId);
  if (doc.version !== terms.documentVersion || doc.checksum !== terms.documentChecksum || doc.classification !== terms.classification || terms.rules.quorumMinimum !== body.quorumMinimum || terms.rules.majorityRule !== body.majorityRule) throw fail("Initial charter evidence or canonical voting rules changed.");
  return { authorityBodyId: superior.id, initialCharterId: c.id };
 }
-export async function authorizeAppointmentPresider(p: Principal, bodyId: string, classification: Classification, command: string) {
+export async function authorizeAppointmentPresider(p: Principal, bodyId: string, classification: Classification, command: string, plannedActivation = false) {
  const body = await readGoverningBody(p, bodyId);
  const linkage = await appointmentAuthority(p, body, classification);
- if (linkage.initialCharterId && command === "ACTIVATE") throw fail("Initial appointments require atomic composition/body activation; individual activation is forbidden.");
+ if (linkage.initialCharterId && command === "ACTIVATE" && !plannedActivation) throw fail("Initial appointments require atomic composition/body activation; individual activation is forbidden.");
  const authority = linkage.initialCharterId
   ? await authorizeEstablishmentSuperior(p, linkage.authorityBodyId, classification, command, "appointment")
   : await authorizeBodyPresider(p, bodyId, classification, command, "appointment");

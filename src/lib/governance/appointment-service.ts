@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { governanceAppointments, governanceBodies, governanceMembers, governanceCharterTerms, legalEntities, users, notifications, resolutionVotes } from "@/db/schema";
+import { governanceAppointments, governanceBodyActivations, governanceBodies, governanceMembers, governanceCharterTerms, legalEntities, users, notifications, resolutionVotes } from "@/db/schema";
 import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../authz";
 import { classificationRank } from "../constants";
 import { GovernanceError } from "../governance";
@@ -38,16 +38,17 @@ async function nominee(body: typeof governanceBodies.$inferSelect, userId: strin
      (grants.some((g) => g.entityId) && !grants.some((g) => g.entityId === body.legalEntityId))) throw fail("The nominee needs independently provisioned scoped read access; nomination cannot grant it.");
  return u;
 }
-async function snapshot(p: Principal, body: typeof governanceBodies.$inferSelect, row: Appointment) {
+export async function assertAppointmentSnapshot(p: Principal, body: typeof governanceBodies.$inferSelect, row: Appointment) {
  const doc = await readBodyDocument(p, body, row.documentId);
  if (doc.version !== row.documentVersion || doc.checksum !== row.documentChecksum || doc.classification !== row.classification) throw fail("Appointment instrument changed; nominate a new immutable version.");
  const u = await nominee(body, row.nomineeUserId, row.classification);
  if (u.partyId !== row.partyId) throw fail("Nominee identity changed; a new nomination is required.");
 }
-async function prospective(body: typeof governanceBodies.$inferSelect, row: Appointment) {
+async function prospective(body: typeof governanceBodies.$inferSelect, row: Appointment, planned = false) {
  if (row.appointedOn < today()) throw fail("Activation cannot backdate authority; a new dated nomination is required.");
  const members = await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id));
  if (members.some((m) => m.partyId === row.partyId && m.appointedOn <= row.retiredOn && (!m.retiredOn || m.retiredOn >= row.appointedOn))) throw fail("An overlapping appointment for this party already exists.");
+ if (planned) return; // Whole-plan composition is rechecked before and at atomic commit.
  const charter = await currentCharterComposition(body);
  if (!charter.charter || !charter.satisfied) throw fail("An adopted, readable charter and satisfied current composition are required; legacy or vacancy status cannot grant new membership.");
  if (charter.charter) {
@@ -62,7 +63,7 @@ async function prospective(body: typeof governanceBodies.$inferSelect, row: Appo
   for (const date of boundaries) if (!assessComposition(terms.rules, [...members, candidate], date).satisfied) throw fail("Proposed term violates adopted composition at a membership boundary.");
  }
 }
-async function mandate(p: Principal, bodyId: string, row: Appointment, resolutionId: string) {
+export async function appointmentMandate(p: Principal, bodyId: string, row: Appointment, resolutionId: string) {
  const authority = await authorizeResolutionFollowUp(p, resolutionId, true);
  const r = authority.resolution;
  if (authority.body.id !== bodyId || r.category !== "APPOINTMENT" || r.linkedObjectType !== "GOVERNANCE_APPOINTMENT" || r.linkedObjectId !== row.id || classificationRank(r.classification) < classificationRank(row.classification)) throw fail("An appropriately classified APPOINTMENT decision explicitly approving this nomination is required.");
@@ -99,6 +100,14 @@ export async function nominateMember(p: Principal, bodyId: string, raw: unknown,
  });
 }
 export async function commandAppointment(p: Principal, bodyId: string, id: string, raw: unknown, context: MutationContext) {
+ return commandScoped(p, bodyId, id, raw, context, null);
+}
+/** Internal atomic-plan path: no HTTP input can supply this plan identity. The
+ * ACTIVE plan cannot commit unless every exact member/body/charter is present. */
+export async function activatePlannedAppointment(p: Principal, bodyId: string, id: string, revision: number, planId: string, context: MutationContext) {
+ return commandScoped(p, bodyId, id, { command: "ACTIVATE", expectedRevision: revision, note: "Activate the exact consented initial composition plan" }, context, planId);
+}
+async function commandScoped(p: Principal, bodyId: string, id: string, raw: unknown, context: MutationContext, planId: string | null) {
  const input = AppointmentCommandSchema.parse(raw);
  return withTenantDatabaseContext(p, async () => {
   await db.execute(sql`select set_config('beyu.governance_appointment_actor', ${p.userId}, true)`);
@@ -109,6 +118,13 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    await db.select().from(governanceBodies).where(eq(governanceBodies.id, bodyId)).for("update");
    await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, id)).for("update");
    const { body, row } = await readAppointment(p, bodyId, id);
+   let planned = false;
+   if (planId) {
+    const [plan] = await db.select().from(governanceBodyActivations).where(eq(governanceBodyActivations.id, planId));
+    if (input.command !== "ACTIVATE" || !plan || plan.status !== "ACTIVE" || plan.bodyId !== bodyId || plan.authorityBodyId !== row.authorityBodyId || plan.initialCharterId !== row.initialCharterId || !plan.nominationIds.includes(id) || plan.activatedByUserId !== p.userId) throw fail("Exact active transaction-bound composition plan required.");
+    await db.execute(sql`select set_config('beyu.body_activation_id', ${plan.id}, true),set_config('beyu.body_activation_actor', ${p.userId}, true)`);
+    planned = true;
+   }
    if (row.revision !== input.expectedRevision) throw new GovernanceError("CONFLICT", "Stale appointment revision.");
    const expected = input.command === "APPROVE" ? "NOMINATED" : input.command === "ACTIVATE" ? "ACCEPTED" : "APPROVED";
    if (row.status !== expected && !(input.command === "DECLINE" && row.status === "ACCEPTED")) throw fail("Invalid appointment transition.");
@@ -120,9 +136,9 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    if (input.command !== "DECLINE") {
     const linkage = await appointmentAuthority(p, body, row.classification);
     if ((row.authorityBodyId ?? row.bodyId) !== linkage.authorityBodyId || row.initialCharterId !== linkage.initialCharterId) throw fail("Recorded appointment authority/initial charter changed; a new nomination is required.");
-    if (row.initialCharterId && input.command === "ACTIVATE") throw fail("Initial appointments require atomic composition/body activation; individual activation is forbidden.");
+    if (row.initialCharterId && input.command === "ACTIVATE" && !planned) throw fail("Initial appointments require atomic composition/body activation; individual activation is forbidden.");
    }
-   await snapshot(p, body, row);
+   await assertAppointmentSnapshot(p, body, row);
    let cause: string | null = null, policyVersion: string | null = null;
    if (input.command === "ACCEPT" || input.command === "DECLINE") {
     if (p.userId !== row.nomineeUserId || p.partyId !== row.partyId || !p.mfaSatisfied) throw new GovernanceError("FORBIDDEN", "Only the authenticated human nominee with MFA may consent or decline.");
@@ -132,13 +148,13 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
     policyVersion = policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     if (policy.effect === "DENY" || policy.obligations.length) throw new GovernanceError("POLICY_DENIED", "Consent policy has undischarged restrictions.");
    } else {
-    const authority = await authorizeAppointmentPresider(p, bodyId, row.classification, input.command);
+    const authority = await authorizeAppointmentPresider(p, bodyId, row.classification, input.command, planned);
     policyVersion = authority.policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     const [nominator] = await db.select().from(users).where(eq(users.id, row.nominatedByUserId)).for("share");
     if (input.command === "APPROVE" && (!nominator || nominator.partyId === p.partyId || row.nominatedByPartyId === p.partyId)) throw new GovernanceError("FORBIDDEN", "Approval must be independent of the nominating person, not just their account.");
     if (p.partyId === row.partyId || p.userId === row.nomineeUserId || (input.command === "APPROVE" && p.userId === row.nominatedByUserId)) throw new GovernanceError("FORBIDDEN", "Independent presiding approval and activation are required.");
-    cause = await mandate(p, row.authorityBodyId ?? bodyId, row, resolutionId!);
-    if (input.command === "ACTIVATE") await prospective(body, row);
+    cause = await appointmentMandate(p, row.authorityBodyId ?? bodyId, row, resolutionId!);
+    if (input.command === "ACTIVATE") await prospective(body, row, planned);
    }
    return transition(p, body, input.command, row, async () => {
     const memberId = input.command === "ACTIVATE" ? newId(ID_PREFIX.member) : null;

@@ -124,3 +124,5 @@ export * from "./schema/governance-charters";
 export * from "./schema/governance-appointments";
 
 export * from "./schema/governance-establishments";
+
+export * from "./schema/governance-activations";

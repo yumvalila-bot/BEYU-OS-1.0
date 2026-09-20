@@ -23,7 +23,8 @@ instrument checks. Notifications and accepted appointments grant no authority.
 
 **Individual initial activation is forbidden in the service and SQL.** The child
 remains DRAFT, the charter APPROVED/not effective, and canonical membership empty.
-An atomic whole-composition/body activation workflow is still required. Ordinary
+0056 now supplies the separately authorized atomic whole-composition/body
+activation workflow; see [BODY_ACTIVATION.md](BODY_ACTIVATION.md). Ordinary
 active-body appointments retain their existing activation/composition controls.
 Membership remains distinct from RBAC/security/Finance/delegated authority.
 

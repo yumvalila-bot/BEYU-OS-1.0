@@ -113,16 +113,17 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 56-migration inventory and rejects the stale baseline", async () => {
-    // 0055 adds non-authorizing initial appointments; historical SQL stays byte-exact.
+  it("requires the exact 57-migration inventory and rejects the stale baseline", async () => {
+    // 0056 adds atomic initial body activation; historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(56);
+    const result = verifyP2MigrationIntegrity(57);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(56);
+    expect(result.count).toBe(57);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(55).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(56).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

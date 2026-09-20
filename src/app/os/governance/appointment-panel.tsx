@@ -24,7 +24,7 @@ export function AppointmentPanel({ initial = false, bodyId, userId, canManage, a
  return <details className="mt-4 border-t border-slate-500/20 pt-3" data-appointment-body={bodyId}>
   <summary className="cursor-pointer text-xs font-semibold">Appointments & member terms</summary>
   <p className="my-2 text-xs beyu-muted">Nominate → independent decision-backed approval → nominee consent → current-authority activation. No security role, Finance capability or legal independence is granted by a label.</p>
-  {initial && <p className="my-2 text-xs">Initial appointments are approved by the recorded superior and may obtain consent only. No membership or body activation occurs here; atomic composition activation is still required.</p>}
+  {initial && <p className="my-2 text-xs">Initial appointments are approved by the recorded superior and may obtain consent only. No membership or body activation occurs here; use the separately approved whole-composition activation plan.</p>}
   {message && <p role="status" className="my-2 text-xs">{message}</p>}
   {appointments.map((a) => {
    const own = a.nomineeUserId === userId;

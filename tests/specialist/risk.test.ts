@@ -1083,7 +1083,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0052: superior-body establishment, not specialist execution authority.
     // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(n).toBe(56);
+    expect(n).toBe(57);
   });
 
   it("leaves all triggers enabled", async () => {
