@@ -1,8 +1,9 @@
+import { authorizeAppointmentPresider } from "@/lib/governance/appointment-authority";
 import { apiError, apiOk, guarded, withIdempotency } from "@/lib/api";
 import { GovernanceError, GOVERNANCE_ERROR_STATUS } from "@/lib/governance";
 import { NominateMemberSchema } from "@/lib/governance/appointment-contract";
 import { nominateMember, listBodyAppointments } from "@/lib/governance/appointment-service";
-import { authorizeBodyPresider, readBodyDocument, readGoverningBody } from "@/lib/governance/body-authority";
+import { readBodyDocument, readGoverningBody } from "@/lib/governance/body-authority";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
@@ -19,7 +20,7 @@ export async function POST(request: Request, params: Params) {
   let json: unknown; try { json = await request.json(); } catch { return apiError("VALIDATION_ERROR", "Valid JSON required.", 422, ctx.traceId); }
   const input = NominateMemberSchema.parse(json);
   try {
-   await withTenantDatabaseContext(ctx.principal, async () => { const body = await readGoverningBody(ctx.principal, id); const doc = await readBodyDocument(ctx.principal, body, input.documentId); await authorizeBodyPresider(ctx.principal, id, doc.classification, "NOMINATE", "appointment"); });
+   await withTenantDatabaseContext(ctx.principal, async () => { const body = await readGoverningBody(ctx.principal, id); const doc = await readBodyDocument(ctx.principal, body, input.documentId); await authorizeAppointmentPresider(ctx.principal, id, doc.classification, "NOMINATE"); });
    return await withIdempotency(ctx, `governance.bodies.${id}.appointments`, input, async () => {
     try { return { status: 201, body: await nominateMember(ctx.principal, id, input, { traceId: ctx.traceId }) }; }
     catch (e) {

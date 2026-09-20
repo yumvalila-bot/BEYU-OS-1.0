@@ -30,7 +30,7 @@ export async function appointmentFixture(prefix: string) {
 export const appointmentInput = (userId: string, extra = {}) => ({ nomineeUserId: userId, documentId: "DOC_D4", seatRole: "MEMBER", votingRights: true, appointedOn: new Date().toISOString().slice(0,10), retiredOn: "2030-12-31", rationale: "Review the candidate's eligibility, competence and documented term", ...extra });
 export async function appointmentBallot(id: string, chair: Principal, decide = true) {
  const [a] = await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, id));
- const [body] = await db.select().from(governanceBodies).where(eq(governanceBodies.id, a.bodyId));
+ const [body] = await db.select().from(governanceBodies).where(eq(governanceBodies.id, a.authorityBodyId ?? a.bodyId));
  const resolutionId = `RES_${id}`;
  await db.insert(resolutions).values({ id: resolutionId, reference: resolutionId, tenantId: body.tenantId, bodyId: body.id, title: "Appoint the identified nominee", category: "APPOINTMENT", summary: "Fixture", rationale: "Fixture", dataBasis: "Fixture", consequences: "No RBAC grant", proposedBy: chair.userId, status: "TABLED", requiredMajority: body.majorityRule, classification: a.classification, linkedObjectType: "GOVERNANCE_APPOINTMENT", linkedObjectId: id, votingOpensAt: new Date(0), votingClosesAt: new Date(1) });
  for (const m of await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id))) await db.insert(resolutionVotes).values({ id: `${resolutionId}_${m.id}`, resolutionId, memberId: m.id, vote: m.partyId === a.partyId ? "RECUSED" : "FOR" });

@@ -1,8 +1,9 @@
+import { authorizeAppointmentPresider } from "@/lib/governance/appointment-authority";
 import { apiError, guarded, withIdempotency } from "@/lib/api";
 import { GovernanceError, GOVERNANCE_ERROR_STATUS } from "@/lib/governance";
 import { AppointmentCommandSchema } from "@/lib/governance/appointment-contract";
 import { commandAppointment, readAppointment } from "@/lib/governance/appointment-service";
-import { authorizeBodyPresider } from "@/lib/governance/body-authority";
+
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 export const dynamic = "force-dynamic";
 export async function POST(request: Request, params: { params: Promise<{ id: string; appointmentId: string }> }) {
@@ -15,7 +16,7 @@ export async function POST(request: Request, params: { params: Promise<{ id: str
     const { row } = await readAppointment(ctx.principal, id, appointmentId);
     if (input.command === "ACCEPT" || input.command === "DECLINE") {
      if (row.nomineeUserId !== ctx.principal.userId || row.partyId !== ctx.principal.partyId || !ctx.principal.mfaSatisfied) throw new GovernanceError("FORBIDDEN", "Only the authenticated nominee may consent.");
-    } else await authorizeBodyPresider(ctx.principal, id, row.classification, input.command, "appointment");
+    } else await authorizeAppointmentPresider(ctx.principal, id, row.classification, input.command);
    });
    return await withIdempotency(ctx, `governance.bodies.${id}.appointments.${appointmentId}`, input, async () => {
     try { return { status: 200, body: await commandAppointment(ctx.principal, id, appointmentId, input, { traceId: ctx.traceId }) }; }

@@ -1,0 +1,55 @@
+import "dotenv/config";
+import "../setup-env";
+import { test, expect } from "@playwright/test";
+import { eq } from "drizzle-orm";
+import { db } from "../../src/db";
+import { governanceAppointments, governanceBodies, governanceMembers, roleAssignments } from "../../src/db/schema";
+import { login } from "../helpers/http";
+import { appointmentBallot } from "../helpers/appointments";
+import { initialAppointmentFixture } from "../helpers/initial-appointments";
+import { cleanupEstablishments } from "../helpers/establishments";
+let f: Awaited<ReturnType<typeof initialAppointmentFixture>>;
+test.beforeAll(async () => { await cleanupEstablishments("INITIAL_APPT_BROWSER"); f = await initialAppointmentFixture("INITIAL_APPT_BROWSER"); });
+test.afterAll(() => cleanupEstablishments("INITIAL_APPT_BROWSER"));
+test("superior nomination and approval obtain consent without individually activating a dormant committee", async ({ page, context, baseURL }) => {
+ test.setTimeout(180000);
+ async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); }
+ await identity(f.chair.email);
+ const panel = page.locator(`[data-appointment-body="${f.childId}"]`); await panel.locator("summary").click();
+ await expect(panel).toContainText("No membership or body activation occurs here");
+ await panel.getByLabel("Nominee user ID").fill(f.candidate.userId);
+ await panel.getByLabel("Appointment instrument document ID").fill("DOC_D4");
+ await panel.getByLabel("Term start").fill(new Date().toISOString().slice(0,10)); await panel.getByLabel("Term end (inclusive)").fill("2030-12-31");
+ await panel.getByLabel("Nomination rationale and evidence review").fill("Prepare documented initial composition with explicit human consent");
+ const created = page.waitForResponse((r) => r.url().endsWith(`/${f.childId}/appointments`) && r.request().method() === "POST");
+ await panel.getByRole("button", { name: "Nominate a body member" }).click(); const response = await created; expect(response.status()).toBe(201);
+ const a = (await response.json()).data; expect(a.authorityBodyId).toBe(f.bodyId); expect(a.initialCharterId).toBe(f.initialCharterId);
+ const resolutionId = await appointmentBallot(a.id, f.chair);
+ await identity(f.secretary.email); await panel.locator("summary").click();
+ const card = panel.locator(`[data-appointment-id="${a.id}"]`);
+ await card.getByLabel("Appointment review / consent note").fill("Independent review under the recorded superior mandate");
+ await card.getByLabel("Approved nomination-specific APPOINTMENT resolution ID").fill(resolutionId);
+ const grants = await db.select().from(roleAssignments).where(eq(roleAssignments.userId, f.secretary.userId));
+ await db.update(roleAssignments).set({ effectiveTo: "2000-01-01" }).where(eq(roleAssignments.userId, f.secretary.userId));
+ let deniedKey: string | null = null;
+ try {
+  const denied = page.waitForResponse((r) => r.url().endsWith(`/appointments/${a.id}`) && r.request().method() === "POST");
+  await card.getByRole("button", { name: "Record independent appointment approval" }).click(); const rejection = await denied;
+  expect(rejection.status()).toBe(403); deniedKey = await rejection.request().headerValue("idempotency-key");
+ } finally { for (const g of grants) await db.update(roleAssignments).set({ effectiveTo: g.effectiveTo }).where(eq(roleAssignments.id, g.id)); }
+ const approval = page.waitForResponse((r) => r.url().endsWith(`/appointments/${a.id}`) && r.request().method() === "POST");
+ await card.getByRole("button", { name: "Record independent appointment approval" }).click(); const approved = await approval;
+ expect(approved.status()).toBe(200); expect(await approved.request().headerValue("idempotency-key")).toBe(deniedKey);
+ await expect(card).toContainText("APPROVED");
+ await identity(f.candidate.email); await panel.locator("summary").click();
+ await expect(panel.getByRole("button", { name: "Nominate a body member" })).toHaveCount(0);
+ await card.getByLabel("Appointment review / consent note").fill("I consent to initial terms without receiving authority");
+ await card.getByRole("button", { name: "Accept appointment terms" }).click(); await expect(card).toContainText("ACCEPTED");
+ await identity(f.secretary.email); await panel.locator("summary").click(); await expect(card).toContainText("ACCEPTED");
+ await expect(card.getByRole("button", { name: "Activate canonical membership" })).toHaveCount(0);
+ const deniedActivation = await page.request.post(`/api/v1/governance/bodies/${f.childId}/appointments/${a.id}`, { data: { command: "ACTIVATE", expectedRevision: 3, note: "Attempt forbidden individual initial activation" }, headers: { "idempotency-key": crypto.randomUUID() } });
+ expect(deniedActivation.status()).toBe(422);
+ expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.id)))[0]).toMatchObject({ status: "ACCEPTED", memberId: null });
+ expect((await db.select().from(governanceBodies).where(eq(governanceBodies.id, f.childId)))[0].status).toBe("DRAFT");
+ expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, f.childId))).toHaveLength(0);
+});

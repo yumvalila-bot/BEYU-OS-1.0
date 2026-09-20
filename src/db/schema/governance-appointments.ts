@@ -1,11 +1,15 @@
 import { boolean, date, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { governanceBodies, resolutions } from "./governance";
+import { governanceCharters } from "./governance-charters";
 import { users, parties } from "./identity";
 import { documents } from "./platform";
 import { classificationEnum } from "./enums";
 /** Appointment workflow/provenance, not a second membership or RBAC register. */
 export const governanceAppointments = pgTable("governance_appointments", {
  id: text("id").primaryKey(), bodyId: text("body_id").notNull().references(() => governanceBodies.id),
+ // NULL authority on pre-0055 rows retains the old, same-body-only semantics.
+ authorityBodyId: text("authority_body_id").references(() => governanceBodies.id),
+ initialCharterId: text("initial_charter_id").references(() => governanceCharters.id),
  nomineeUserId: text("nominee_user_id").notNull().references(() => users.id),
  partyId: text("party_id").notNull().references(() => parties.id),
  seatRole: text("seat_role").notNull(), votingRights: boolean("voting_rights").notNull(),

@@ -1,3 +1,4 @@
+import { canManageAppointments } from "@/lib/governance/appointment-authority";
 import { EstablishmentPanel } from "./establishment-panel";
 import { listBodyEstablishments } from "@/lib/governance/establishment-service";
 import { AppointmentPanel } from "./appointment-panel";
@@ -49,7 +50,7 @@ export default async function GovernancePage() {
     const composition = await currentCharterComposition(body);
     const { appointments } = await listBodyAppointments(access.principal, body.id);
     const { proposals } = await listBodyEstablishments(access.principal, body.id);
-    return [body.id, { ...view, appointments, proposals, canManage: body.status === "ACTIVE" && await canManageCharters(access.principal, body.id), canManageCharter: await canManageCharters(access.principal, body.id),
+    return [body.id, { ...view, appointments, proposals, canManageAppointments: await canManageAppointments(access.principal, body.id), canManage: body.status === "ACTIVE" && await canManageCharters(access.principal, body.id), canManageCharter: await canManageCharters(access.principal, body.id),
       composition: composition.coverage === "APPROVED_PENDING_ACTIVATION" ? "Initial charter approved, not effective; composition and activation remain blocked" : composition.coverage === "LEGACY_UNCHARTERED" ? "No adopted charter recorded (legacy coverage gap)" : composition.satisfied ? "Current composition satisfies adopted rules" : "Adopted charter requirements not satisfied; mutations are blocked" }] as const;
   })));
   const bodyIds = bodies.map((body) => body.id);
@@ -162,7 +163,7 @@ export default async function GovernancePage() {
                 </div>
               </div>
               <EstablishmentPanel parentId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManage && ["BOARD", "TRUSTEES"].includes(b.bodyType)} quorum={b.quorumMinimum} majority={b.majorityRule} proposals={charterViews.get(b.id)!.proposals.map((p) => ({ id: p.id, name: p.name, code: p.code, status: p.status, revision: p.revision, proposedByUserId: p.proposedByUserId, bodyId: p.bodyId }))} />
-              <AppointmentPanel bodyId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManage} appointments={charterViews.get(b.id)!.appointments.map((a) => ({ id: a.id, status: a.status, revision: a.revision, nomineeUserId: a.nomineeUserId, nominatedByUserId: a.nominatedByUserId, seatRole: a.seatRole, votingRights: a.votingRights, appointedOn: a.appointedOn, retiredOn: a.retiredOn, documentId: a.documentId, rationale: a.rationale, memberId: a.memberId }))} />
+              <AppointmentPanel initial={b.status === "DRAFT"} bodyId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManageAppointments} appointments={charterViews.get(b.id)!.appointments.map((a) => ({ id: a.id, authorityBodyId: a.authorityBodyId, initialCharterId: a.initialCharterId, status: a.status, revision: a.revision, nomineeUserId: a.nomineeUserId, nominatedByUserId: a.nominatedByUserId, seatRole: a.seatRole, votingRights: a.votingRights, appointedOn: a.appointedOn, retiredOn: a.retiredOn, documentId: a.documentId, rationale: a.rationale, memberId: a.memberId }))} />
               <CharterPanel bodyId={b.id} userId={access.principal.userId} quorum={b.quorumMinimum} majority={b.majorityRule}
                 initial={b.status === "DRAFT"} canManage={charterViews.get(b.id)!.canManageCharter} charters={charterViews.get(b.id)!.charters} composition={charterViews.get(b.id)!.composition} />
             </Panel>

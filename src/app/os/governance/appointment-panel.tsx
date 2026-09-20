@@ -2,8 +2,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SEAT_ROLES } from "@/lib/governance/charter-contract";
-type Appointment = { id: string; status: string; revision: number; nomineeUserId: string; nominatedByUserId: string; seatRole: string; votingRights: boolean; appointedOn: string; retiredOn: string; documentId: string; rationale: string; memberId: string | null };
-export function AppointmentPanel({ bodyId, userId, canManage, appointments }: { bodyId: string; userId: string; canManage: boolean; appointments: Appointment[] }) {
+type Appointment = { authorityBodyId?: string | null; initialCharterId?: string | null; id: string; status: string; revision: number; nomineeUserId: string; nominatedByUserId: string; seatRole: string; votingRights: boolean; appointedOn: string; retiredOn: string; documentId: string; rationale: string; memberId: string | null };
+export function AppointmentPanel({ initial = false, bodyId, userId, canManage, appointments }: { initial?: boolean; bodyId: string; userId: string; canManage: boolean; appointments: Appointment[] }) {
  const router = useRouter(), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
  const retry = useRef<{ fingerprint: string; key: string } | null>(null), root = `/api/v1/governance/bodies/${bodyId}/appointments`;
  const style = "w-full rounded border border-slate-500/30 bg-transparent p-2 text-xs";
@@ -24,15 +24,17 @@ export function AppointmentPanel({ bodyId, userId, canManage, appointments }: { 
  return <details className="mt-4 border-t border-slate-500/20 pt-3" data-appointment-body={bodyId}>
   <summary className="cursor-pointer text-xs font-semibold">Appointments & member terms</summary>
   <p className="my-2 text-xs beyu-muted">Nominate → independent decision-backed approval → nominee consent → current-authority activation. No security role, Finance capability or legal independence is granted by a label.</p>
+  {initial && <p className="my-2 text-xs">Initial appointments are approved by the recorded superior and may obtain consent only. No membership or body activation occurs here; atomic composition activation is still required.</p>}
   {message && <p role="status" className="my-2 text-xs">{message}</p>}
   {appointments.map((a) => {
    const own = a.nomineeUserId === userId;
    const approve = canManage && !own && a.nominatedByUserId !== userId && a.status === "NOMINATED";
-   const activate = canManage && !own && a.status === "ACCEPTED";
+   const activate = !initial && !a.initialCharterId && canManage && !own && a.status === "ACCEPTED";
    const consent = own && ["APPROVED", "ACCEPTED"].includes(a.status);
    return <article id={`appointment-${a.id}`} data-appointment-id={a.id} key={a.id} className="my-3 space-y-2 rounded border border-slate-500/30 p-2 text-xs">
     <h4>{a.seatRole} · {a.status} · revision {a.revision}</h4><p className="break-all">{a.id} · nominee {a.nomineeUserId}</p>
     <p>{a.appointedOn} – {a.retiredOn} · {a.votingRights ? "Voting" : "Non-voting"}</p><p>{a.rationale}</p><p>Instrument: {a.documentId}</p>
+    {a.initialCharterId && <p>Initial charter: {a.initialCharterId} · superior decision body: {a.authorityBodyId}. Consent is not membership.</p>}
     {a.memberId && <p>Canonical membership: {a.memberId}. Eligibility remains date-, policy- and scope-dependent.</p>}
     {(approve || activate || consent) && <form className="space-y-2" onSubmit={(event) => {
      event.preventDefault(); const f = new FormData(event.currentTarget), button = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement;

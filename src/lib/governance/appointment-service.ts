@@ -9,7 +9,8 @@ import { withAuditTransaction } from "../audit";
 import { evaluatePolicy } from "../policy";
 import { ID_PREFIX, newId } from "../ids";
 import { authorizeResolutionFollowUp, withResolutionAuthorityLock, type MutationContext } from "../governance-vote-service";
-import { authorizeBodyPresider, readBodyDocument, readGoverningBody } from "./body-authority";
+import { readBodyDocument, readGoverningBody } from "./body-authority";
+import { appointmentAuthority, authorizeAppointmentPresider } from "./appointment-authority";
 import { currentCharterComposition, assessComposition } from "./charter-rules";
 import { APPOINTMENT_EVENTS, AppointmentCommandSchema, NominateMemberSchema } from "./appointment-contract";
 
@@ -79,7 +80,7 @@ async function transition(p: Principal, body: typeof governanceBodies.$inferSele
   return row;
  }, (row) => ({ tenantId: body.tenantId, actorUserId: p.userId, actorType: "HUMAN", action: `governance.appointment.${command.toLowerCase()}`, objectType: "GOVERNANCE_APPOINTMENT", objectId: row.id, outcome: "SUCCESS", reason: note, oldValue: old ? serial(old) : null, newValue: serial(row), traceId: context.traceId }),
  (row) => ({ type: APPOINTMENT_EVENTS[command], source: "beyu-os/governance", domain: "GOVERNANCE", operation: command, tenantId: body.tenantId, legalEntityId: body.legalEntityId, subjectType: "GOVERNANCE_APPOINTMENT", subjectId: row.id, actorUserId: p.userId, actorType: "HUMAN", classification: row.classification, payload: serial(row), traceId: context.traceId, correlationId: context.traceId, causationId: cause, destinationDomain: null, policyVersion,
- authorityContext: { authorityId: body.id, decisionId: row.resolutionId, capabilityCode: null, permissionCode: command === "ACCEPT" || command === "DECLINE" ? "governance:resolution.read" : "governance:resolution.approve", policyVersion } }));
+ authorityContext: { authorityId: row.authorityBodyId ?? body.id, decisionId: row.resolutionId, capabilityCode: null, permissionCode: command === "ACCEPT" || command === "DECLINE" ? "governance:resolution.read" : "governance:resolution.approve", policyVersion } }));
 }
 export async function nominateMember(p: Principal, bodyId: string, raw: unknown, context: MutationContext) {
  const input = NominateMemberSchema.parse(raw);
@@ -88,12 +89,12 @@ export async function nominateMember(p: Principal, bodyId: string, raw: unknown,
   const body = await readGoverningBody(p, bodyId);
   await db.select().from(governanceBodies).where(eq(governanceBodies.id, bodyId)).for("update");
   const doc = await readBodyDocument(p, body, input.documentId);
-  const authority = await authorizeBodyPresider(p, bodyId, doc.classification, "NOMINATE", "appointment");
+  const authority = await authorizeAppointmentPresider(p, bodyId, doc.classification, "NOMINATE");
   const u = await nominee(body, input.nomineeUserId, doc.classification);
   if (u.id === p.userId || u.partyId === p.partyId) throw new GovernanceError("FORBIDDEN", "A presiding officer cannot nominate themselves.");
   if (input.appointedOn < today()) throw fail("A nomination cannot backdate an appointment.");
   return transition(p, body, "NOMINATE", null, async () => {
-   const [row] = await db.insert(governanceAppointments).values({ ...input, id: newId(ID_PREFIX.governanceAppointment), bodyId, partyId: u.partyId!, classification: doc.classification, documentVersion: doc.version, documentChecksum: doc.checksum, nominatedByUserId: p.userId, nominatedByPartyId: p.partyId }).returning(); return row;
+   const [row] = await db.insert(governanceAppointments).values({ ...input, id: newId(ID_PREFIX.governanceAppointment), bodyId, authorityBodyId: authority.authorityBodyId, initialCharterId: authority.initialCharterId, partyId: u.partyId!, classification: doc.classification, documentVersion: doc.version, documentChecksum: doc.checksum, nominatedByUserId: p.userId, nominatedByPartyId: p.partyId }).returning(); return row;
   }, input.rationale, context, null, authority.policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null);
  });
 }
@@ -116,22 +117,27 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    if (input.command === "ACCEPT" && row.retiredOn < today()) throw fail("The appointment term has expired; a new nomination is required.");
    if (input.command !== "DECLINE" && !row.nominatedByPartyId) throw fail("Original nominating party is unknown; a new nomination is required.");
    if (!["APPROVE", "DECLINE"].includes(input.command) && !row.approvedByPartyId) throw fail("Original approving party is unknown; a new nomination is required.");
+   if (input.command !== "DECLINE") {
+    const linkage = await appointmentAuthority(p, body, row.classification);
+    if ((row.authorityBodyId ?? row.bodyId) !== linkage.authorityBodyId || row.initialCharterId !== linkage.initialCharterId) throw fail("Recorded appointment authority/initial charter changed; a new nomination is required.");
+    if (row.initialCharterId && input.command === "ACTIVATE") throw fail("Initial appointments require atomic composition/body activation; individual activation is forbidden.");
+   }
    await snapshot(p, body, row);
    let cause: string | null = null, policyVersion: string | null = null;
    if (input.command === "ACCEPT" || input.command === "DECLINE") {
     if (p.userId !== row.nomineeUserId || p.partyId !== row.partyId || !p.mfaSatisfied) throw new GovernanceError("FORBIDDEN", "Only the authenticated human nominee with MFA may consent or decline.");
-    const { entity } = await readBodyEntity(body);
+    const { entity } = await readBodyEntity(body, Boolean(row.initialCharterId));
     const roles = (await loadGrants(p.userId, p.tenantId)).filter((g) => !g.entityId || g.entityId === body.legalEntityId).map((g) => g.code);
     const policy = await evaluatePolicy({ action: `governance:appointment.${input.command.toLowerCase()}`, tenantId: body.tenantId, entityCode: entity.code, jurisdictionCode: entity.countryCode, roles, classification: row.classification, riskScore: p.riskScore, aiInitiated: false });
     policyVersion = policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     if (policy.effect === "DENY" || policy.obligations.length) throw new GovernanceError("POLICY_DENIED", "Consent policy has undischarged restrictions.");
    } else {
-    const authority = await authorizeBodyPresider(p, bodyId, row.classification, input.command, "appointment");
+    const authority = await authorizeAppointmentPresider(p, bodyId, row.classification, input.command);
     policyVersion = authority.policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     const [nominator] = await db.select().from(users).where(eq(users.id, row.nominatedByUserId)).for("share");
     if (input.command === "APPROVE" && (!nominator || nominator.partyId === p.partyId || row.nominatedByPartyId === p.partyId)) throw new GovernanceError("FORBIDDEN", "Approval must be independent of the nominating person, not just their account.");
     if (p.partyId === row.partyId || p.userId === row.nomineeUserId || (input.command === "APPROVE" && p.userId === row.nominatedByUserId)) throw new GovernanceError("FORBIDDEN", "Independent presiding approval and activation are required.");
-    cause = await mandate(p, bodyId, row, resolutionId!);
+    cause = await mandate(p, row.authorityBodyId ?? bodyId, row, resolutionId!);
     if (input.command === "ACTIVATE") await prospective(body, row);
    }
    return transition(p, body, input.command, row, async () => {
@@ -153,8 +159,8 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
   return resolutionId && (input.command === "APPROVE" || input.command === "ACTIVATE") ? withResolutionAuthorityLock(p, resolutionId, operation) : operation();
  });
 }
-async function readBodyEntity(body: typeof governanceBodies.$inferSelect) {
+async function readBodyEntity(body: typeof governanceBodies.$inferSelect, initial: boolean) {
  const [entity] = body.legalEntityId ? await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)) : [];
- if (!entity || entity.tenantId !== body.tenantId || entity.status !== "ACTIVE" || body.status !== "ACTIVE") throw fail("Active scoped governing entity/body required.");
+ if (!entity || entity.tenantId !== body.tenantId || entity.status !== "ACTIVE" || !(body.status === "ACTIVE" || (initial && body.status === "DRAFT"))) throw fail("Active scoped governing entity/body required.");
  return { entity };
 }

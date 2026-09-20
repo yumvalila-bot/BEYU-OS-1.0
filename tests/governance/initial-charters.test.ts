@@ -57,7 +57,10 @@ describe("initial charters use superior authority, never empty-body authority", 
   expect(await as(f.chair, () => currentCharterComposition(body))).toMatchObject({ satisfied: false, coverage: "APPROVED_PENDING_ACTIVATION" });
   expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, f.childId))).toHaveLength(0);
   expect(await db.select().from(roleAssignments)).toEqual(roles); expect(await db.select().from(governanceCapabilityRegistry)).toEqual(capabilities);
-  await expect(as(f.secretary, () => nominateMember(f.secretary, f.childId, appointmentInput(f.candidate.userId), ctx))).rejects.toHaveProperty("code", "FORBIDDEN");
+  // 0055 permits superior-backed preparation only; approval still grants no seat.
+  const nomination = await as(f.secretary, () => nominateMember(f.secretary, f.childId, appointmentInput(f.candidate.userId), ctx));
+  expect(nomination).toMatchObject({ status: "NOMINATED", authorityBodyId: f.bodyId, initialCharterId: c.id, memberId: null });
+  expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, f.childId))).toHaveLength(0);
   await expect(command(c.id, "SUBMIT", 3)).rejects.toHaveProperty("code", "RULE_VIOLATION");
   const events = await db.select().from(enterpriseEvents).where(eq(enterpriseEvents.subjectId, c.id)); expect(events).toHaveLength(3);
   const event = events.find((e) => e.type === "GOVERNANCE_CHARTER_APPROVED")!;

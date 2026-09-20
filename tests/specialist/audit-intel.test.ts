@@ -928,7 +928,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0052: superior-body establishment, not specialist execution authority.
     // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(55);  });
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(56);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);
