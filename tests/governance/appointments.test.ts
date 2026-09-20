@@ -47,6 +47,13 @@ describe("governed appointment → consent → canonical membership", () => {
    for (const g of grants) await db.update(roleAssignments).set({ legalEntityId: g.legalEntityId }).where(eq(roleAssignments.id, g.id));
   }
  });
+ it("never lets a service account exercise a retained presiding seat", async () => {
+  const id = "RES_APPT_SERVICE_PROBE";
+  await db.insert(resolutions).values({ id, reference: id, bodyId: f.bodyId, tenantId: f.chair.tenantId, title: "Human authority probe", category: "POLICY", summary: "Fixture", rationale: "Fixture", dataBasis: "Fixture", consequences: "No machine authority", proposedBy: f.chair.userId, classification: "PUBLIC", requiredMajority: "SIMPLE", status: "DRAFT" });
+  await db.update(users).set({ isServiceAccount: true }).where(eq(users.id, f.secretary.userId));
+  try { await expect(as(f.secretary, () => tableResolution(f.secretary, { resolutionId: id }, ctx))).rejects.toHaveProperty("code", "FORBIDDEN"); }
+  finally { await db.update(users).set({ isServiceAccount: false }).where(eq(users.id, f.secretary.userId)); }
+ });
  it("does not permit self-nomination, backdating or premature activation", async () => {
   await expect(create({ nomineeUserId: f.chair.userId })).rejects.toHaveProperty("code", "FORBIDDEN");
   await expect(create({ appointedOn: "2000-01-01" })).rejects.toHaveProperty("code", "RULE_VIOLATION");

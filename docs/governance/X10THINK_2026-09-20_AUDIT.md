@@ -346,3 +346,11 @@ new-source success must be recorded only after completion.
   complete browser regression have been started and are not yet claimed successful.
 - This fixes a demonstrated governance authorization defect. It is not a claim
   that every pre-existing cross-domain Principal/grant consumer was recertified.
+
+A further concrete human-authority regression was reproduced against a separate
+validation database: an account marked is_service_account=true retained a human
+presiding seat and the canonical service returned TABLED. Acting-seat lookup now
+requires ACTIVE, non-service-account identity and a matching Principal party.
+The failing reproducer is preserved;104 corrected appointment/voting/decision/action
+service tests passed. This source correction requires its own rebuilt full-suite
+validation; intermediate runs are not substitutes. No new migration was necessary.

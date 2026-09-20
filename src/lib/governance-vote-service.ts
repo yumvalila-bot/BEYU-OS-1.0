@@ -158,6 +158,8 @@ async function loadResolutionContext(
     .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
     .innerJoin(users, eq(users.partyId, parties.id))
     .where(and(eq(governanceMembers.bodyId, row.body.id), eq(users.id, principal.userId),
+      eq(users.status, "ACTIVE"), eq(users.isServiceAccount, false),
+      principal.partyId ? eq(users.partyId, principal.partyId) : sql`false`,
       lte(governanceMembers.appointedOn, today),
       or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today))))
     .limit(1)

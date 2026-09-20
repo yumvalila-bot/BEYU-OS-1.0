@@ -157,3 +157,11 @@ voting/closure/recusal/follow-up authorizer now also resolves current target-ent
 grants, and read-only preflight observations use the same filtering. This is a
 bounded governance correction, not certification of every cross-domain Principal/
 grant consumer. No assertion was weakened to repair the demonstrated defect.
+
+
+A second real tabling regression reproduced a service account retaining a presiding
+seat and being recorded as a HUMAN actor. Canonical acting-seat lookup now requires
+a currently active non-service-account user bound to the Principal's party. Even a
+retained seat, role grant and previously satisfied MFA cannot turn a machine account
+into a voting/presiding human. The negative test is retained. Read-only assistance
+is not converted into an approval or self-authority path.
