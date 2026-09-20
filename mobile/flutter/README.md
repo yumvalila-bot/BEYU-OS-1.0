@@ -206,3 +206,18 @@ Proprietary — BEYU OS
 ---
 
 **BEYU OS Mobile** — Secure, governed, canonical mobile access to the enterprise control plane.
+
+## Canonical institutional artwork
+
+Before building, run `npm ci` then `npm run brand:sync` from the repository root.
+This copies `public/brand/beyu-os-logo.png` byte-for-byte to the ignored
+`assets/images/beyu-os-logo.png` bundle path already declared by `pubspec.yaml`.
+`lib/widgets/beyu_os_logo.dart` is the single Flutter presenter used by login,
+splash, launcher and the existing OS shell. No mobile-only logo is authored.
+Domain navigation icons remain technical icons, not institutional identities.
+
+Repository limitations at the 2026-09-19 audit: native Android/iOS projects and
+the declared Inter font files are absent; this checkout has no Flutter SDK.
+Finance OS, Ujenzi OS and Family Office screens/model codes are not implemented
+in this client. Their web implementations are not evidence of native support.
+This branding change does not fabricate mobile domains or change authorization.

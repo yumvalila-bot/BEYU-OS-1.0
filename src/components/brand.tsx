@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import { BeyuLogo } from "./beyu-logo";
+import { BeyuOsLogo } from "./beyu-os-logo";
 
 /**
  * BEYU shared primitives.
  *
- * Brand mark presentation lives in <BeyuLogo /> (central registry
- * /public/brand/*) — this module never embeds the logo SVG, so there is
+ * Brand mark presentation lives in <BeyuOsLogo /> (central registry
+ * /public/brand/*) — this module never redraws the canonical artwork, so there is
  * exactly one implementation of the mark in the product.
  */
 
@@ -98,7 +98,7 @@ export function Metric({
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   return (
     <div role="status" className="beyu-panel flex flex-col items-center px-6 py-10 text-center">
-      <BeyuLogo variant="mark" size={40} ariaLabel="BEYU" className="motion-safe:animate-beyu-pulse" />
+      <BeyuOsLogo size={40} ariaLabel="BEYU" className="motion-safe:animate-beyu-pulse" />
       <div className="mt-4 beyu-kicker beyu-muted">{label}</div>
       <span className="sr-only">{label}…</span>
     </div>
@@ -109,7 +109,7 @@ export function Denied({ reason, capability }: { reason: string; capability: str
   return (
     <div className="beyu-panel mx-auto max-w-2xl px-6 py-8">
       <div className="flex items-center gap-3">
-        <BeyuLogo variant="mark" size={30} ariaLabel="BEYU" />
+        <BeyuOsLogo size={30} ariaLabel="BEYU" />
         <div className="beyu-kicker text-[#b08d1c]">Access decision recorded</div>
       </div>
       <h1 className="mt-3 text-[20px] font-semibold tracking-tight">Authorisation denied</h1>
@@ -129,7 +129,7 @@ export function Denied({ reason, capability }: { reason: string; capability: str
 export function EmptyState({ message, mark = true }: { message: string; mark?: boolean }) {
   return (
     <div className="flex items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--beyu-line)] px-4 py-6 text-center text-[12.5px] beyu-muted">
-      {mark && <BeyuLogo variant="mark" size={22} ariaLabel="BEYU" decorative className="opacity-60" />}
+      {mark && <BeyuOsLogo size={22} ariaLabel="BEYU" decorative className="opacity-60" />}
       <span>{message}</span>
     </div>
   );

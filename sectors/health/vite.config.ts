@@ -10,8 +10,12 @@ const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
 export default defineConfig({
+  // The mounted build uses Next public assets; do not copy legacy SVGs into dist.
+  build: { copyPublicDir: false },
+  publicDir: path.resolve(__dirname, "../../public"),
   plugins: [react(), tailwindcss(), viteSingleFile()],
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": path.resolve(__dirname, "src"),
     },

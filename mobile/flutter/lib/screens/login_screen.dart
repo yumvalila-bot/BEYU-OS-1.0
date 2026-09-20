@@ -4,6 +4,7 @@
 /// Consumes the same identity authority as BEYU Web.
 
 import 'package:flutter/material.dart';
+import '../widgets/beyu_os_logo.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/auth_models.dart';
@@ -53,12 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
-                  const Icon(
-                    Icons.shield_outlined,
-                    size: 64,
-                    color: Color(0xFFD4AF37),
-                  ),
+                  const Center(child: BeyuOsLogo(size: 64)),
                   const SizedBox(height: 16),
                   const Text(
                     'BEYU OS',

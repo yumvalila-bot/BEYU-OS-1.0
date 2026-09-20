@@ -11,7 +11,9 @@ import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge } from "@/components/brand";
-import { BeyuLogo } from "@/components/beyu-logo";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { HistoryNavigation } from "@/components/history-navigation";
+import { OsBrand } from "./os-brand";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
 import {
   DesktopNavigation,
@@ -110,7 +112,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
           <header className="beyu-shell sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white sm:px-5 xl:px-8">
             <div className="flex items-center gap-3 xl:hidden">
               <ResponsiveNavigation groups={nav} principal={navigationPrincipal} />
-              <BeyuLogo variant="light" size={32} href="/os" />
+              <OsBrand size={32} />
             </div>
             <div className="hidden items-center gap-3 xl:flex">
               <span className="beyu-kicker text-white/45">Tenant context</span>
@@ -122,7 +124,8 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
                 {principal.riskScore} · MFA {principal.mfaSatisfied ? "satisfied" : "not satisfied"}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <HistoryNavigation />
               <span className="beyu-kicker text-white/45">Alerts</span>
               <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/15 px-2 py-[3px] text-[11px] font-semibold text-[#efd98f]">
                 {alerts.length}
@@ -148,7 +151,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
             )}
             {children}
             <footer className="mt-10 flex items-start gap-2.5 border-t border-[color:var(--beyu-line)] pt-4 text-[10.5px] beyu-muted">
-              <BeyuLogo variant="mark" size={18} decorative className="mt-[1px] shrink-0" />
+              <BeyuOsLogo size={18} decorative className="mt-[1px] shrink-0" />
               <span>
                 BEYU OS · Bridging Care. Building Trust. Every view is permission-scoped, tenant-isolated
                 and audited. Metrics resolve to a declared source of truth. AI output is advisory; material

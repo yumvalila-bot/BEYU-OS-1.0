@@ -1,5 +1,4 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type { IconName } from "@/components/icons";
 import { db } from "@/db";
 import { tenants } from "@/db/schema";
 import { can, type Principal } from "@/lib/authz";
@@ -8,67 +7,9 @@ import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 
-export type OperatingSystemDestination = {
-  code: "BEYU" | "FINANCE" | "HEALTH" | "AGRICULTURE" | "FOUNDATION" | "UJENZI";
-  name: string;
-  level: "CONTROL_PLANE" | "SECTOR_OS";
-  description: string;
-  href: string;
-  icon: IconName;
-};
-
-export const BEYU_CONTROL_PLANE: OperatingSystemDestination = {
-  code: "BEYU",
-  name: "BEYU OS",
-  level: "CONTROL_PLANE",
-  description: "Global constitutional control plane, enterprise kernel and governed intelligence layer.",
-  href: "/os",
-  icon: "command",
-};
-
-/** Canonical Sector OS order. Shared capabilities never belong in this list. */
-export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
-  {
-    code: "FINANCE",
-    name: "Finance OS",
-    level: "SECTOR_OS",
-    description: "Canonical financial authority for ledger, periods, treasury, tax and reconciliation.",
-    href: "/os/finance",
-    icon: "finance",
-  },
-  {
-    code: "HEALTH",
-    name: "Health OS",
-    level: "SECTOR_OS",
-    description: "Federated healthcare operations under canonical BEYU identity and Health authorization.",
-    href: "/health",
-    icon: "health",
-  },
-  {
-    code: "AGRICULTURE",
-    name: "Agriculture OS",
-    level: "SECTOR_OS",
-    description: "Farms, crops, livestock, traceability and export operations under BEYU governance.",
-    href: "/os/agriculture",
-    icon: "agriculture",
-  },
-  {
-    code: "FOUNDATION",
-    name: "Foundation OS",
-    level: "SECTOR_OS",
-    description: "Foundation formation, grants, programs, safeguarding and impact under shared controls.",
-    href: "/os/foundation",
-    icon: "foundation",
-  },
-  {
-    code: "UJENZI",
-    name: "Ujenzi OS",
-    level: "SECTOR_OS",
-    description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, site operations, quality, HSE, variations, claims, payment certificates and handover.",
-    href: "/os/ujenzi",
-    icon: "ujenzi",
-  },
-];
+// Re-export the same canonical catalogue; keep it usable by UI without DB imports.
+import { BEYU_CONTROL_PLANE, SECTOR_OPERATING_SYSTEMS, type OperatingSystemDestination } from "./operating-system-catalog";
+export { BEYU_CONTROL_PLANE, SECTOR_OPERATING_SYSTEMS, type OperatingSystemDestination } from "./operating-system-catalog";
 
 export const FINANCE_OS_READ_PERMISSIONS: PermissionCode[] = [
   "finance:ledger.read",

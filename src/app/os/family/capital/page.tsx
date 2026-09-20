@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -14,10 +15,12 @@ import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
-import { FamilyTrustLogo } from "@/components/family-trust-logo";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { listCommitteeDecisions, listInvestments } from "@/lib/family-office-capital-service";
 import { validateCommitteeDecision } from "@/lib/family/office/capital-wealth";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Family Office — Capital" };
 
 export const dynamic = "force-dynamic";
 
@@ -145,7 +148,7 @@ export default async function FamilyCapitalPage() {
               its basis; and Finance OS remains the sole authority for accounting, posting and periods.
             </p>
           </div>
-          <FamilyTrustLogo size={64} className="shrink-0" ariaLabel="BEYU Family Trust" />
+          <BeyuOsLogo size={64} className="shrink-0" ariaLabel="BEYU OS — Family Office" />
         </header>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

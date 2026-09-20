@@ -5,6 +5,7 @@
 /// Fail-closed: if authorization is lost, shows access denied.
 
 import 'package:flutter/material.dart';
+import '../widgets/beyu_os_logo.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/router_provider.dart';
@@ -40,9 +41,14 @@ class OSshellScreen extends StatelessWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(_getIcon(), color: _getColor()),
+            const BeyuOsLogo(size: 32),
             const SizedBox(width: 8),
-            Text(osInfo?.osName ?? osCode.name.toUpperCase()),
+            Flexible(
+              child: Text(
+                osInfo?.osName ?? osCode.name.toUpperCase(),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -80,36 +86,6 @@ class OSshellScreen extends StatelessWidget {
         return const FoundationOSScreen();
       case OSCode.unknown:
         return const _FutureOSScreen(osName: 'Unknown OS');
-    }
-  }
-
-  IconData _getIcon() {
-    switch (osCode) {
-      case OSCode.beyu:
-        return Icons.shield_outlined;
-      case OSCode.health:
-        return Icons.local_hospital_outlined;
-      case OSCode.agriculture:
-        return Icons.agriculture_outlined;
-      case OSCode.foundation:
-        return Icons.account_balance_wallet;
-      case OSCode.unknown:
-        return Icons.grid_view;
-    }
-  }
-
-  Color _getColor() {
-    switch (osCode) {
-      case OSCode.beyu:
-        return const Color(0xFFD4AF37);
-      case OSCode.health:
-        return Colors.blue;
-      case OSCode.agriculture:
-        return Colors.green;
-      case OSCode.foundation:
-        return const Color(0xFFB08D1C);
-      case OSCode.unknown:
-        return Colors.grey;
     }
   }
 }

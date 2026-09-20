@@ -11,7 +11,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime.d.ts"]
     },
     "strict": true,
     "noUnusedLocals": true,

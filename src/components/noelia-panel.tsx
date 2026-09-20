@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BeyuLogo } from "./beyu-logo";
+import { BeyuOsLogo } from "./beyu-os-logo";
 import { NoeliaAvatar, NoeliaStatus, type NoeliaAvatarState } from "./noelia-avatar";
 
 /**
@@ -48,7 +48,7 @@ export function NoeliaPanel({
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--beyu-line)] px-5 py-3">
         {/* BEYU anchors the identity: institution first */}
         <div className="flex items-center gap-2.5">
-          <BeyuLogo variant="mark" size={26} ariaLabel="BEYU" />
+          <BeyuOsLogo size={26} ariaLabel="BEYU" />
           <div className="leading-none">
             <div className="text-[12px] font-semibold tracking-[0.3em]">BEYU OS</div>
             <div className="beyu-kicker mt-1.5 beyu-muted">HIVE · governed AI runtime</div>

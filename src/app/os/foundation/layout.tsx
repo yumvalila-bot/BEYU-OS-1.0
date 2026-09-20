@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
@@ -10,6 +11,8 @@ import { operatingSystemTenantInScope } from "@/lib/operating-systems";
  * scope. Until every nested read can also prove an entity join, a named-entity
  * grant must not fall back to a tenant-wide Foundation query.
  */
+export const metadata: Metadata = { title: "Foundation OS" };
+
 export default async function FoundationLayout({
   children,
 }: {

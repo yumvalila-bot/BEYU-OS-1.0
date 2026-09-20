@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build-identity.mjs && node scripts/build-health-spa.mjs && next build",
+    "build": "npm run brand:check && node scripts/build-identity.mjs && node scripts/build-health-spa.mjs && next build",
     "build:identity": "node scripts/build-identity.mjs",
     "build:health-spa": "node scripts/build-health-spa.mjs",
     "start": "next start",
@@ -25,7 +25,10 @@
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "preflight:tls": "tsx scripts/tls-preflight.mts",
     "sbom": "node scripts/supply-chain/sbom.mjs",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "brand:sync": "node scripts/sync-brand-assets.mjs",
+    "brand:check": "node scripts/sync-brand-assets.mjs --check",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "dotenv": "17.3.1",
@@ -39,6 +42,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",

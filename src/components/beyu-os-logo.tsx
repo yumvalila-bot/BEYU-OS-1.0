@@ -12,14 +12,11 @@ import { BEYU_OS_ASSETS, BEYU_OS_ASSET_DIMENSIONS } from "./brand-assets";
  *   on BEYU OS application surfaces (sign-in, control-plane chrome).
  *   <FamilyTrustLogo /> = the parent institutional/fiduciary identity — use
  *   that only on genuine Family Trust / institutional surfaces. NEVER
- *   substitute one for the other. Sector OSs (Health / Finance / Agriculture)
- *   keep their own identities.
+ *   substitute one for the other. Finance, Health, Agriculture, Ujenzi,
+ *   Foundation and Family Office share this operating identity.
  *
- * Presentation note: the authoritative file has a white studio matte, so on
- * DARK surfaces it is presented inside a light plate by the caller (standard
- * raster-logo treatment). For dark chrome without a plate, the registry's
- * reversed SVG lockup (<BeyuLogo variant="light" />) remains the canonical
- * asset.
+ * The source has a white matte, preserved on all surfaces. No recolouring,
+ * alternate geometry, cropping or dark-mode filter is applied.
  */
 export interface BeyuOsLogoProps {
   /** Rendered HEIGHT in px (width follows the source aspect ratio). */

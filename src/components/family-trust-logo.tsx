@@ -9,10 +9,10 @@ import { BEYU_FAMILY_TRUST_ASSETS, BEYU_FAMILY_TRUST_ASSET_DIMENSIONS } from "./
  *
  * Identity boundary (docs/branding/README.md):
  *   FamilyTrustLogo = the parent institutional/fiduciary identity. Use it on
- *   genuine Family Trust / institutional surfaces (e.g. Family Office).
+ *   genuine Family Trust governance / ownership surfaces, not operational chrome.
  *   <BeyuOsLogo />   = the BEYU OS control-plane/software identity. Use that
  *   on BEYU OS application surfaces. NEVER substitute one for the other.
- *   Sector OSs (Health / Finance / Agriculture) keep their own identities.
+ *   Operating domains share BeyuOsLogo; Noelia remains separate.
  */
 export interface FamilyTrustLogoProps {
   /** Rendered HEIGHT in px (width follows the source aspect ratio). */

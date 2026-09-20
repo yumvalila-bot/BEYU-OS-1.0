@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
@@ -23,6 +24,8 @@ import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/co
 import { Icon } from "@/components/icons";
 import { reconcileTreasuryToLedger, scanDataQuality, summarizeDataQuality } from "@/lib/finance/reconciliation";
 import { trialBalance, statement } from "@/lib/finance/reporting";
+
+export const metadata: Metadata = { title: "Finance OS" };
 
 export const dynamic = "force-dynamic";
 

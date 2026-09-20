@@ -3,6 +3,7 @@
 /// Shown while initializing the app and checking session.
 
 import 'package:flutter/material.dart';
+import '../widgets/beyu_os_logo.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -14,12 +15,7 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // BEYU Logo placeholder
-            Icon(
-              Icons.shield_outlined,
-              size: 80,
-              color: Color(0xFFD4AF37),
-            ),
+            BeyuOsLogo(size: 80),
             SizedBox(height: 24),
             Text(
               'BEYU OS',

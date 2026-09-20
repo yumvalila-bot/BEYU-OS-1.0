@@ -3,7 +3,7 @@
  *
  * WHAT THIS SUITE PINS
  *   1. ONE BEYU logo system: every surface renders the official mark from the
- *      central registry (/public/brand/*) via <BeyuLogo /> — no component may
+ *      central registry (/public/brand/*) via <BeyuOsLogo /> — no component may
  *      inline or re-draw the mark's geometry (single source of truth).
  *   2. ONE Noelia identity: <NoeliaAvatar /> presents the same canonical face
  *      at every size and state; only the status indicator changes. Small
@@ -22,7 +22,7 @@
  *   7. AUTHORITATIVE institutional assets byte-intact: the supplied Family
  *      Trust and BEYU OS PNGs keep their pinned SHA-256, intrinsic
  *      dimensions and aspect ratio, and the two identities stay distinct on
- *      every surface (Family Trust ≠ BEYU OS ≠ sector OSs).
+ *      every surface (Family Trust ≠ BEYU OS; operating domains share BEYU OS).
  *
  * Pure node suite — no database, no running server required.
  */
@@ -244,8 +244,9 @@ describe("institutional identity separation across surfaces", () => {
     const enrollment = readFileSync(path.join(ROOT, "src", "app", "enroll", "page.tsx"), "utf8");
     const settings = readFileSync(path.join(ROOT, "src", "app", "os", "settings", "page.tsx"), "utf8");
 
-    expect(navigation).toContain("BeyuLogo");
-    expect(shell).toContain("BeyuLogo");
+    expect(navigation).toContain("OsBrand");
+    expect(shell).toContain("BeyuOsLogo");
+    expect(shell).toContain("OsBrand");
     expect(launcher).toContain("BeyuOsLogo");
     expect(signIn).toContain("BeyuOsLogo");
     expect(enrollment).toContain("BeyuOsLogo");
@@ -256,7 +257,7 @@ describe("institutional identity separation across surfaces", () => {
     }
   });
 
-  it("the Family Office carries the Family Trust institutional identity, not the OS mark", () => {
+  it("Family Trust lineage governance retains its explicit institutional identity inside the operating shell", () => {
     const family = readFileSync(path.join(ROOT, "src", "app", "os", "family", "page.tsx"), "utf8");
     expect(family).toContain("FamilyTrustLogo");
     expect(family).not.toContain("BeyuOsLogo");
@@ -282,14 +283,14 @@ describe("<BeyuLogo />", () => {
     expect(html).toContain(`src="${src}"`);
   });
 
-  it("sizes by height with the correct aspect per variant", () => {
+  it("legacy variants delegate with the canonical PNG aspect (never stretch to the old SVG ratio)", () => {
     const mark = renderToString(React.createElement(BeyuLogo, { variant: "mark", size: 32 }));
     expect(mark).toMatch(/height="32"/);
     expect(mark).toMatch(/width="32"/);
 
     const full = renderToString(React.createElement(BeyuLogo, { variant: "full", size: 40 }));
     expect(full).toMatch(/height="40"/);
-    expect(full).toMatch(/width="152"/); // 40 × 3.8
+    expect(full).toMatch(/width="40"/); // canonical PNG is square for every legacy variant
   });
 
   it("is accessible by default (alt text per variant)", () => {

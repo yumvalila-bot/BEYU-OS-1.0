@@ -45,6 +45,9 @@
 }
 
 :root {
+  /* Institutional palette; existing UI/theme tokens intentionally unchanged. */
+  --beyu-institutional-navy: #0B1F4D;
+  --beyu-institutional-gold: #D4A017;
   --beyu-navy: #0b1d3a;
   --beyu-navy-deep: #050f22;
   --beyu-navy-soft: #16294a;
