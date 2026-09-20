@@ -1,14 +1,13 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { documents, governanceBodies, governanceCharters, governanceCharterTerms, governanceMembers, legalEntities, users } from "@/db/schema";
-import { can, clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../authz";
-import { classificationRank, type Classification } from "../constants";
+import { governanceBodies, governanceCharters, governanceCharterTerms, governanceMembers } from "@/db/schema";
+import { can, type Principal } from "../authz";
+import { classificationRank } from "../constants";
 import { withAuditTransaction } from "../audit";
 import { GovernanceError } from "../governance";
 import { tenantScopeIds } from "../tenant-scope";
-import { evaluatePolicy } from "../policy";
+import { authorizeBodyPresider as authorize, readBodyDocument as document } from "./body-authority";
 import { newId, ID_PREFIX } from "../ids";
-import { hasEffectiveConstitution } from "./constitution";
 import { authorizeResolutionFollowUp, withResolutionAuthorityLock, type MutationContext } from "../governance-vote-service";
 import { assessComposition } from "./charter-rules";
 import { CreateCharterSchema, CharterCommandSchema } from "./charter-contract";
@@ -20,42 +19,6 @@ export async function readBodyCharters(principal: Principal, bodyId: string) {
     .leftJoin(governanceCharterTerms, eq(governanceCharterTerms.id, governanceCharters.id)).where(eq(governanceCharters.bodyId, body.id)).orderBy(desc(governanceCharters.version));
   return { body, charters: rows.map(({ header, terms }) => ({ ...header,
     terms: terms && classificationRank(terms.classification) <= classificationRank(principal.clearance) ? terms : null })) };
-}
-async function authorize(principal: Principal, bodyId: string, classification: Classification, command: string) {
-  const { body } = await readBodyCharters(principal, bodyId);
-  const [actor] = await db.select().from(users).where(eq(users.id, principal.userId)).for("share");
-  const grants = await loadGrants(principal.userId, principal.tenantId);
-  const roles = grants.map((g) => g.code);
-  const entities = grants.flatMap((g) => g.entityId ? [g.entityId] : []);
-  const [entity] = body.legalEntityId ? await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1) : [];
-  const seats = await db.select().from(governanceMembers).where(and(eq(governanceMembers.bodyId, body.id), eq(governanceMembers.partyId, principal.partyId)));
-  const today = new Date().toISOString().slice(0, 10);
-  if (!actor || actor.status !== "ACTIVE" || actor.isServiceAccount || actor.partyId !== principal.partyId || !principal.mfaSatisfied ||
-      body.status !== "ACTIVE" || !entity || entity.status !== "ACTIVE" || entity.tenantId !== body.tenantId ||
-      !can(principal, "governance:resolution.approve", { tenantId: body.tenantId, entityId: body.legalEntityId!, classification }).allowed ||
-      !permissionsForRoles(roles).has("governance:resolution.approve") || classificationRank(clearanceForRoles(roles)) < classificationRank(classification) ||
-      (entities.length && !entities.includes(body.legalEntityId!)) ||
-      !seats.some((s) => ["CHAIR", "SECRETARY"].includes(s.seatRole) && s.appointedOn <= today && (!s.retiredOn || s.retiredOn >= today))) {
-    throw new GovernanceError("FORBIDDEN", "Current scoped presiding human authority with MFA is required.");
-  }
-  if (!await hasEffectiveConstitution()) throw new GovernanceError("POLICY_DENIED", "An effective constitution is required.");
-  const policy = await evaluatePolicy({ action: `governance:charter.${command.toLowerCase()}`, tenantId: body.tenantId, entityCode: entity.code,
-    jurisdictionCode: entity.countryCode, roles, classification, riskScore: principal.riskScore, aiInitiated: false });
-  if (policy.effect === "DENY" || policy.obligations.length) throw new GovernanceError("POLICY_DENIED", "Charter policy denies this action or has undischarged obligations.");
-  const permissionPolicy = await evaluatePolicy({ action: "governance:resolution.approve", tenantId: body.tenantId, entityCode: entity.code,
-    jurisdictionCode: entity.countryCode, roles, classification, riskScore: principal.riskScore, aiInitiated: false });
-  if (permissionPolicy.effect === "DENY" || permissionPolicy.obligations.length) throw new GovernanceError("POLICY_DENIED", "Approval capability policy has undischarged restrictions.");
-  policy.appliedPolicies.push(...permissionPolicy.appliedPolicies);
-  return { body, entity, policy };
-}
-async function document(principal: Principal, body: typeof governanceBodies.$inferSelect, id: string) {
-  const [doc] = await db.select().from(documents).where(and(eq(documents.id, id), eq(documents.tenantId, body.tenantId))).for("share");
-  const [entity] = body.legalEntityId ? await db.select().from(legalEntities).where(eq(legalEntities.id, body.legalEntityId)).limit(1) : [];
-  if (!doc || !can(principal, "documents:registry.read", { tenantId: body.tenantId, entityId: body.legalEntityId ?? undefined, classification: doc.classification }).allowed) throw new GovernanceError("NOT_FOUND", "Charter document is not visible.");
-  if (doc.authorityStatus !== "AUTHORITATIVE" || doc.supersededById || !/^[a-f0-9]{64}$/i.test(doc.checksum) ||
-    (doc.effectiveDate && doc.effectiveDate > new Date().toISOString().slice(0, 10)) ||
-    (doc.entityScope && doc.entityScope !== "*" && doc.entityScope !== entity?.code) || (doc.jurisdictionCode && doc.jurisdictionCode !== entity?.countryCode)) throw new GovernanceError("RULE_VIOLATION", "Current authoritative document in the body's entity/country is required.");
-  return doc;
 }
 function serial(value: unknown): Record<string, unknown> { return JSON.parse(JSON.stringify(value)); }
 

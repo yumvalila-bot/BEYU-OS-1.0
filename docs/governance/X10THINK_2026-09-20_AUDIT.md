@@ -7,8 +7,10 @@ Continuation: the generic action chain is now implemented as described in
 
 P1 continuation: [Charters and composition](CHARTERS_AND_COMPOSITION.md) adds
 immutable versioned charter review/adoption and enforced role-count composition
-controls. Body creation and the appointment/acceptance/renewal lifecycle are still
-not implemented; this does not change the mission's incomplete status.
+controls. [Appointments and terms](APPOINTMENTS_AND_TERMS.md) now adds nomination,
+independent decision-backed approval, nominee consent and guarded canonical member
+activation. Body creation, advanced renewal and the full meeting lifecycle remain
+incomplete; this does not change the mission's incomplete status.
 
 [Read-only preflight](READ_ONLY_PREFLIGHT.md) now adds a database-enforced
 non-mutating simulation API/UI using the canonical voting engine. Delegation,
@@ -69,10 +71,10 @@ unless an explicit human dependency is named; they are not disguised as external
 | A Constitution | PARTIAL | `schema/governance.ts` articles/policies; `governance/constitution.ts`, `policy.ts`; effective apex gate FIXED. No comprehensive amendment/version approval workflow or ratified per-body/jurisdiction rules |
 | B Governing bodies | PARTIAL | `governanceBodies`, `/os/governance`; identity/type/entity/quorum/majority; runtime writes remain protected. Versioned charter review/adoption and live composition enforcement now exist; body establishment/suspension/dissolution remains missing |
 | C Charters / terms | IMPLEMENTED core / PARTIAL full lifecycle | `governance_charters` + classified immutable `governance_charter_terms`, `charter-service.ts`, API/UI/RLS/tests: document snapshot → review → independent adoption under explicit voted POLICY resolution. Latest adopted version governs without rewriting history; superior-body authority and canonical rule amendment remain missing |
-| D Membership | PARTIAL | `governanceMembers`, `core.entityAppointments`, party/user linkage; active authority FIXED. No shared application/nomination/acceptance/suspension workflow |
-| E Seats / composition | PARTIAL | `seatRole`, `votingRights`, appointment dates; adopted minimum/maximum voting/role counts now enforced, including dates, duplicates and observers. No independent vacant-seat/nomination/competency-evidence model |
+| D Membership | IMPLEMENTED core appointment chain / PARTIAL full lifecycle | `governanceAppointments` + canonical `governanceMembers`, migration0051, service/API/UI: nomination → independent decision-backed approval → nominee acceptance → current-authority activation. No RBAC/Finance grant; early removal/resignation and superior-body recovery remain missing |
+| E Seats / composition | PARTIAL | `seatRole`, `votingRights`, appointment dates; adopted minimum/maximum voting/role counts now enforced, including dates, duplicates and observers. Nomination/activation now exists; no independent vacant-seat plan or structured competency-evidence matrix |
 | F Competency matrix | NOT IMPLEMENTED | No corporate governance competency schema/service/API in inspected source. HCM is not a substitute |
-| G Tenure / succession | PARTIAL | Member dates and family/trust mechanisms; no shared renewal/emergency replacement/expiry notification workflow |
+| G Tenure / succession | PARTIAL | Bounded inclusive term dates, scheduled/expired roster labels and retained old member/ballot IDs; subsequent non-overlapping nomination can create a new term. No automated renewal/succession, emergency replacement or expiry escalation |
 | H Meetings | NOT IMPLEMENTED (shared) / PARTIAL (Foundation) | `schema/foundation.ts`, `/api/v1/foundation/governance/meetings` are sector-specific. No shared corporate meeting state machine; do not duplicate this as an OS |
 | I Notices | NOT IMPLEMENTED (shared) | No notice issuance/acknowledgement/exception model tied to corporate resolutions |
 | J Attendance | NOT IMPLEMENTED (shared) | Written-resolution participation is ballots, **not meeting attendance** |
@@ -290,3 +292,30 @@ calendar/escalations and evaluations remain engineering work—not external bloc
 The next priority remains the guarded body/membership lifecycle, preserving the
 existing no-direct-authority-write boundary rather than creating a bypass.
 Legal ratification, Finance activation and production promotion are HUMAN CONTROLLED.
+
+
+### Appointment continuation (0051)
+
+Resumed at e77566e without reset. GitHub recovered; e77566e evidence was pushed.
+Preflight scratch35504744855 observed SUCCESS; root35504744854 was CANCELLED by
+newer work, not passed. e77566e scratch35505572848 observed SUCCESS; its root
+35505572822 was still in progress at the last observation.
+
+Implemented the bounded appointment/consent/activation chain in
+[Appointments and terms](APPOINTMENTS_AND_TERMS.md). Shared presiding/document
+checks were extracted from the charter service without introducing a second
+permission system. Existing body/term readers and canonical member truth are reused.
+
+Migration0051 is additive to immutable0048–0050 SQL. It retains body write and
+member edit/delete denials, replacing only the member INSERT denial with a narrow
+activated-appointment match. RLS/immutable transition guards and a deferred
+canonical-member constraint backstop atomic activation. No privileged function,
+SECURITY DEFINER, automatic security grant or Finance activation is introduced.
+
+Fresh52-migration replay/seed/runtime provisioning, deterministic no-op rerun and
+integrity-with-ledger passed;14 historical metadata issues remain acknowledged,
+not rewritten. Initial focused validation: **63 passed** (26 new appointment
+service/RLS/HTTP checks + charter14 + core RLS23). New Chromium appointment lifecycle
+passed with three human identities. Build/typecheck/lint passed (0 errors, existing
+Noelia image warning only). Complete suite and full browser regression are running;
+new-source success must be recorded only after completion.

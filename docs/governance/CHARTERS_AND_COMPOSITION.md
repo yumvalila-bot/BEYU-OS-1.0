@@ -118,11 +118,18 @@ Production rollout remains human-controlled.
 ## Still not implemented
 
 Full governing-body creation/suspension/dissolution; charter-driven changes to
-canonical voting rules; nominee/appointment approval and acceptance; automatic
-seat activation; competency evidence, independent-status verification, tenure,
-renewal, succession, resignation/removal; charter approval by a different superior
+canonical voting rules; automatic seat activation; structured competency evidence,
+independent-status verification, advanced renewal, succession, resignation/removal; charter approval by a different superior
 body; vacancy/exception recovery; the meeting-to-minutes lifecycle. Existing
 administrative controls are not relabelled as these missing workflows. A vacancy
 that violates adopted rules deliberately blocks operations; it does not invent
 emergency authority or appoint a replacement. These remain engineering gaps,
 with separate human ratification requirements—not fabricated external blockers.
+
+
+Continuation0051: [Appointments and terms](APPOINTMENTS_AND_TERMS.md) implements
+explicit nomination, independent approval, nominee consent and current-authority
+membership activation for existing bodies. Finite term dates and non-overlap checks
+now apply to that path. It is not automatic activation, superior-body/vacancy recovery,
+statutory appointment registration or the complete body lifecycle. Migration0048
+SQL remains unchanged;0051 narrowly replaces its member INSERT denial as documented.

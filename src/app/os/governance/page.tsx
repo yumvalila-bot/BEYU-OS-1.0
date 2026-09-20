@@ -1,3 +1,5 @@
+import { AppointmentPanel } from "./appointment-panel";
+import { listBodyAppointments } from "@/lib/governance/appointment-service";
 import { SimulationPanel } from "./simulation-panel";
 import { CharterPanel } from "./charter-panel";
 import { readBodyCharters, canManageCharters } from "@/lib/governance/charter-service";
@@ -43,7 +45,8 @@ export default async function GovernancePage() {
   const charterViews = new Map(await Promise.all(bodies.map(async (body) => {
     const view = await readBodyCharters(access.principal, body.id);
     const composition = await currentCharterComposition(body);
-    return [body.id, { ...view, canManage: await canManageCharters(access.principal, body.id),
+    const { appointments } = await listBodyAppointments(access.principal, body.id);
+    return [body.id, { ...view, appointments, canManage: await canManageCharters(access.principal, body.id),
       composition: composition.coverage === "LEGACY_UNCHARTERED" ? "No adopted charter recorded (legacy coverage gap)" : composition.satisfied ? "Current composition satisfies adopted rules" : "Adopted charter requirements not satisfied; mutations are blocked" }] as const;
   })));
   const bodyIds = bodies.map((body) => body.id);
@@ -55,6 +58,7 @@ export default async function GovernancePage() {
             bodyId: governanceMembers.bodyId,
             seatRole: governanceMembers.seatRole,
             votingRights: governanceMembers.votingRights,
+            appointedOn: governanceMembers.appointedOn, retiredOn: governanceMembers.retiredOn,
             name: parties.displayName,
           })
           .from(governanceMembers)
@@ -140,7 +144,7 @@ export default async function GovernancePage() {
                 <ul className="mt-1 space-y-1">
                   {seat.map((m) => (
                     <li key={m.id} className="text-[12px]">
-                      {m.name} <span className="beyu-muted">· {m.seatRole}{m.votingRights ? "" : " · non-voting"}</span>
+                      {m.name} <span className="beyu-muted">· {m.seatRole}{m.votingRights ? "" : " · non-voting"} · {m.appointedOn} – {m.retiredOn ?? "open term"} · {m.appointedOn > new Date().toISOString().slice(0,10) ? "SCHEDULED" : m.retiredOn && m.retiredOn < new Date().toISOString().slice(0,10) ? "EXPIRED" : "CURRENT TERM"}</span>
                     </li>
                   ))}
                   {seat.length === 0 && <li className="text-[11.5px] beyu-muted">No seats recorded.</li>}
@@ -154,6 +158,7 @@ export default async function GovernancePage() {
                   ))}
                 </div>
               </div>
+              <AppointmentPanel bodyId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManage} appointments={charterViews.get(b.id)!.appointments.map((a) => ({ id: a.id, status: a.status, revision: a.revision, nomineeUserId: a.nomineeUserId, nominatedByUserId: a.nominatedByUserId, seatRole: a.seatRole, votingRights: a.votingRights, appointedOn: a.appointedOn, retiredOn: a.retiredOn, documentId: a.documentId, rationale: a.rationale, memberId: a.memberId }))} />
               <CharterPanel bodyId={b.id} userId={access.principal.userId} quorum={b.quorumMinimum} majority={b.majorityRule}
                 canManage={charterViews.get(b.id)!.canManage} charters={charterViews.get(b.id)!.charters} composition={charterViews.get(b.id)!.composition} />
             </Panel>

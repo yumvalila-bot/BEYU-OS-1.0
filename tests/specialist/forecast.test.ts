@@ -1010,9 +1010,10 @@ describe("forecast service — hostile inputs", () => {
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
     // + 0048: shared governance RLS; no specialist tables or posting authority added.
+    // + 0051: guarded appointment activation; no specialist or Finance authority.
     // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(51);
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(52);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed
