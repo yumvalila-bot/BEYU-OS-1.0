@@ -400,6 +400,13 @@
       "when": 1789934212926,
       "tag": "0056_governance_body_activation",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1789941752934,
+      "tag": "0057_governance_membership_lifecycle",
+      "breakpoints": true
     }
   ]
 }

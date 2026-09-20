@@ -28,7 +28,7 @@ export async function authorizeBodyPresider(principal: Principal, bodyId: string
       !can(principal, "governance:resolution.approve", { tenantId: body.tenantId, entityId: body.legalEntityId!, classification }).allowed ||
       !permissionsForRoles(roles).has("governance:resolution.approve") || classificationRank(clearanceForRoles(roles)) < classificationRank(classification) ||
       (entities.length && !entities.includes(body.legalEntityId!)) ||
-      !seats.some((s) => ["CHAIR", "SECRETARY"].includes(s.seatRole) && s.appointedOn <= today && (!s.retiredOn || s.retiredOn >= today))) {
+      !seats.some((s) => s.lifecycleStatus === "ACTIVE" && ["CHAIR", "SECRETARY"].includes(s.seatRole) && s.appointedOn <= today && (!s.retiredOn || s.retiredOn >= today))) {
     throw new GovernanceError("FORBIDDEN", "Current scoped presiding human authority with MFA is required.");
   }
   if (!await hasEffectiveConstitution()) throw new GovernanceError("POLICY_DENIED", "An effective constitution is required.");

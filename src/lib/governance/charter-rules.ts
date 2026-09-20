@@ -3,11 +3,11 @@ import { db } from "@/db";
 import { governanceCharters, governanceCharterTerms, governanceMembers } from "@/db/schema";
 import { CharterRulesSchema, SEAT_ROLES } from "./charter-contract";
 
-export function assessComposition(raw: unknown, members: { partyId: string; seatRole: string; votingRights: boolean; appointedOn: string; retiredOn: string | null }[], asOf = new Date().toISOString().slice(0, 10)) {
+export function assessComposition(raw: unknown, members: { lifecycleStatus?: string; partyId: string; seatRole: string; votingRights: boolean; appointedOn: string; retiredOn: string | null }[], asOf = new Date().toISOString().slice(0, 10)) {
   const parsed = CharterRulesSchema.safeParse(raw);
   if (!parsed.success) return { satisfied: false, violations: ["Charter rules are invalid."], votingMembers: 0 };
   const rules = parsed.data;
-  const active = members.filter((m) => m.appointedOn <= asOf && (!m.retiredOn || m.retiredOn >= asOf));
+  const active = members.filter((m) => (m.lifecycleStatus === undefined || m.lifecycleStatus === "ACTIVE") && m.appointedOn <= asOf && (!m.retiredOn || m.retiredOn >= asOf));
   const violations: string[] = [];
   if (active.some((m) => !(SEAT_ROLES as readonly string[]).includes(m.seatRole))) violations.push("Unknown active seat role.");
   if (active.some((m) => m.seatRole === "OBSERVER" && m.votingRights)) violations.push("An observer cannot hold voting rights under this charter.");

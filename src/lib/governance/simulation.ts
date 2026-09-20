@@ -35,7 +35,7 @@ async function calculate(principal: Principal, id: string, input: z.infer<typeof
   if (!isMajorityRule(body.majorityRule) || body.majorityRule !== resolution.requiredMajority || !Number.isSafeInteger(body.quorumMinimum) || body.quorumMinimum < 1) throw new GovernanceError("RULE_VIOLATION", "Invalid or inconsistent voting rules cannot be simulated.");
   const now = new Date(), today = now.toISOString().slice(0, 10);
   const members = (await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id)))
-    .filter((m) => m.appointedOn <= today && (!m.retiredOn || m.retiredOn >= today));
+    .filter((m) => m.lifecycleStatus === "ACTIVE" && m.appointedOn <= today && (!m.retiredOn || m.retiredOn >= today));
   if (new Set(members.map((m) => m.partyId)).size !== members.length) throw new GovernanceError("RULE_VIOLATION", "Duplicate active party seats require reconciliation.");
   const eligible = members.filter((m) => m.votingRights).map((m) => m.id);
   const stored = await db.select().from(resolutionVotes).where(eq(resolutionVotes.resolutionId, id));

@@ -220,6 +220,7 @@ export function ProposeResolution({
                 <option value="">None</option>
                 <option value="GOVERNANCE_APPOINTMENT">Appointment nomination</option>
                 <option value="GOVERNANCE_CHARTER">Charter version</option>
+                <option value="GOVERNANCE_MEMBERSHIP_CHANGE">Membership lifecycle request</option>
                 <option value="GOVERNANCE_BODY_ACTIVATION">Initial composition activation plan</option>
                 <option value="GOVERNANCE_BODY_ESTABLISHMENT">Body establishment proposal</option>
               </select>

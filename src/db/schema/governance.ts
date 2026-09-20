@@ -114,6 +114,8 @@ export const governanceBodies = pgTable(
 
 export const governanceMembers = pgTable("governance_members", {
   id: text("id").primaryKey(),
+    lifecycleStatus: text("lifecycle_status").notNull().default("ACTIVE"),
+    lifecycleRevision: integer("lifecycle_revision").notNull().default(0),
   bodyId: text("body_id")
     .notNull()
     .references(() => governanceBodies.id),

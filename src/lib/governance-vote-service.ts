@@ -108,6 +108,7 @@ type ResolutionContext = {
 function activeSeatConditions(today: string) {
   return and(
     eq(governanceMembers.votingRights, true),
+    eq(governanceMembers.lifecycleStatus, "ACTIVE"),
     lte(governanceMembers.appointedOn, today),
     or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today)),
   );
@@ -160,7 +161,8 @@ async function loadResolutionContext(
     .where(and(eq(governanceMembers.bodyId, row.body.id), eq(users.id, principal.userId),
       eq(users.status, "ACTIVE"), eq(users.isServiceAccount, false),
       principal.partyId ? eq(users.partyId, principal.partyId) : sql`false`,
-      lte(governanceMembers.appointedOn, today),
+      eq(governanceMembers.lifecycleStatus, "ACTIVE"),
+    lte(governanceMembers.appointedOn, today),
       or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today))))
     .limit(1)
     .then((rows) => rows.map((r) => r.governance_members));
@@ -191,6 +193,9 @@ async function authorizeGovernanceAction(
   if (!await hasEffectiveConstitution()) {
     throw new GovernanceError("POLICY_DENIED", "An effective constitutional foundation is required before governance action.");
   }
+  // An ended/suspended seat is not authority, even if the body also lacks quorum.
+  // Read-only implementation participants need not be voting members.
+  if (permission !== "governance:resolution.read" && !ctx.seat) throw new GovernanceError("FORBIDDEN", "Current active membership is required for this governance action.");
   const composition = await currentCharterComposition(ctx.body);
   if (!composition.satisfied) throw new GovernanceError("RULE_VIOLATION", "Adopted charter composition or voting requirements are not satisfied.");
   const classification = ctx.resolution.classification as Classification;
@@ -1207,7 +1212,7 @@ export async function votingSnapshots(
       .from(governanceMembers)
       .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
       .innerJoin(users, eq(users.partyId, parties.id))
-      .where(and(inArray(governanceMembers.bodyId, bodyIds), eq(users.id, principal.userId))),
+      .where(and(inArray(governanceMembers.bodyId, bodyIds), eq(users.id, principal.userId), eq(governanceMembers.lifecycleStatus, "ACTIVE"), lte(governanceMembers.appointedOn, today), or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today)))),
   ]);
 
   const decisionEvents = await db.select({ subjectId: enterpriseEvents.subjectId, payload: enterpriseEvents.payload })
@@ -1342,7 +1347,8 @@ async function presidingAuthorityFor(
       and(
         inArray(governanceMembers.bodyId, rows.map((r) => r.body.id)),
         eq(users.id, principal.userId),
-        lte(governanceMembers.appointedOn, today),
+        eq(governanceMembers.lifecycleStatus, "ACTIVE"),
+    lte(governanceMembers.appointedOn, today),
         or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today)),
       ),
     );

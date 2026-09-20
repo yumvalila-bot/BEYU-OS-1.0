@@ -42,6 +42,7 @@ export const ID_PREFIX = {
   governanceAppointment: "GAP",
   bodyEstablishment: "GBE",
   bodyActivation: "GBA",
+  membershipChange: "GMC",
   member: "GMB",
   resolution: "RES",
   vote: "VOT",

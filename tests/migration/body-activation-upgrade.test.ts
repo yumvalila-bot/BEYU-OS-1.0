@@ -1,3 +1,4 @@
+import { predecessorInitialHistory } from "../helpers/predecessor-initial-history";
 import { expect, it } from "vitest";
 import { Client } from "pg";
 import { randomUUID } from "node:crypto";
@@ -18,8 +19,8 @@ it.skipIf(!adminUrl)("0056 upgrades real consented initial appointments without 
  try{
   await master.query(`create database ${name} owner postgres`);created=true;
   run(join(root,"scripts/migrate.ts"),dir,"predecessor");run(join(root,"scripts/setup-db-role.ts"),root,"runtime-before");run(join(root,"src/db/seed.ts"),root,"seed");
-  const fixture=join(dir,"fixture.mjs");writeFileSync(fixture,`import '${join(root,"tests/setup-env.ts")}';\nimport {bodyActivationFixture} from '${join(root,"tests/helpers/body-activation.ts")}';\nawait bodyActivationFixture('ACTIVATION_UPGRADE');process.exit(0);\n`);run(fixture,root,"consented-initial-composition");
   await client.connect();
+  await predecessorInitialHistory(client);
   const tables=["governance_bodies","governance_body_establishments","governance_charters","governance_charter_terms","governance_appointments","governance_members","resolutions","resolution_votes","role_assignments","governance_capability_registry","audit_log","enterprise_events"];
   const snapshot=async()=>{const result:Record<string,unknown>={};for(const t of tables)result[t]=(await client.query(`select * from ${t} t order by to_jsonb(t)::text`)).rows;return result;};
   const before=await snapshot();

@@ -47,7 +47,7 @@ export async function assertAppointmentSnapshot(p: Principal, body: typeof gover
 async function prospective(body: typeof governanceBodies.$inferSelect, row: Appointment, planned = false) {
  if (row.appointedOn < today()) throw fail("Activation cannot backdate authority; a new dated nomination is required.");
  const members = await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id));
- if (members.some((m) => m.partyId === row.partyId && m.appointedOn <= row.retiredOn && (!m.retiredOn || m.retiredOn >= row.appointedOn))) throw fail("An overlapping appointment for this party already exists.");
+ if (members.some((m) => ["ACTIVE", "SUSPENDED"].includes(m.lifecycleStatus) && m.partyId === row.partyId && m.appointedOn <= row.retiredOn && (!m.retiredOn || m.retiredOn >= row.appointedOn))) throw fail("An overlapping appointment for this party already exists.");
  if (planned) return; // Whole-plan composition is rechecked before and at atomic commit.
  const charter = await currentCharterComposition(body);
  if (!charter.charter || !charter.satisfied) throw fail("An adopted, readable charter and satisfied current composition are required; legacy or vacancy status cannot grant new membership.");
