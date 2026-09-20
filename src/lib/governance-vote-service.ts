@@ -12,7 +12,7 @@ import {
   resolutionVotes,
   users,
 } from "@/db/schema";
-import { can, type Principal } from "./authz";
+import { can, clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "./authz";
 import { evaluatePolicy } from "./policy";
 import { withAuditTransaction, type EventInput } from "./audit";
 import { assertWithinScope, tenantScopeIds, TenantIsolationError } from "./tenant-scope";
@@ -182,7 +182,7 @@ async function loadResolutionContext(
 async function authorizeGovernanceAction(
   principal: Principal,
   ctx: ResolutionContext,
-  permission: "governance:resolution.vote" | "governance:resolution.approve",
+  permission: "governance:resolution.vote" | "governance:resolution.approve" | "governance:resolution.read",
   action: string,
 ) {
   if (!await hasEffectiveConstitution()) {
@@ -1361,7 +1361,7 @@ export async function decideResolutionClosure(principal: Principal, input: Decid
  * Body -> members -> resolution is the common row-lock order. Body FOR UPDATE
  * also serializes membership inserts through the existing foreign key.
  */
-async function withResolutionAuthorityLock<T>(principal: Principal, id: string, operation: () => Promise<T>): Promise<T> {
+export async function withResolutionAuthorityLock<T>(principal: Principal, id: string, operation: () => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     const scope = await tenantScopeIds(principal);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`beyu:resolution-vote:${id}`}))`);
@@ -1370,10 +1370,11 @@ async function withResolutionAuthorityLock<T>(principal: Principal, id: string, 
     if (!target) throw new GovernanceError("NOT_FOUND", "Resolution not found within your authorised scope.");
     // Terminal rows are deliberately invisible to UPDATE under RLS. Domain
     // preconditions still return their precise ALREADY_DECIDED/RULE_VIOLATION
-    // response; no mutation is reachable from any of these operations.
-    if ((TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(target.status)) return operation();
+    // response. Follow-up work locks the body/seats but never edits the terminal
+    // resolution; ordinary voting mutations still reject terminal state.
     await tx.select().from(governanceBodies).where(eq(governanceBodies.id, target.bodyId)).for("update");
     await tx.select().from(governanceMembers).where(eq(governanceMembers.bodyId, target.bodyId)).for("share");
+    if ((TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(target.status)) return operation();
     const [locked] = await tx.select().from(resolutions).where(eq(resolutions.id, id)).for("update");
     if (!locked || locked.bodyId !== target.bodyId || locked.tenantId !== target.tenantId) {
       throw new GovernanceError("CONFLICT", "Resolution scope changed; reload and retry.");
@@ -1431,4 +1432,43 @@ export async function declareRecusal(
         permissionCode: "governance:resolution.vote", policyVersion },
     }));
   });
+}
+
+/** Follow-up recording reuses the resolution's authority checks; it grants no
+ * domain execution authority. The immutable decision is never re-voted here. */
+export async function authorizeResolutionFollowUp(principal: Principal, id: string, presiding: boolean) {
+  const ctx = await loadResolutionContext(principal, id);
+  const [actor] = await db.select().from(users).where(eq(users.id, principal.userId)).for("share");
+  if (!actor || actor.status !== "ACTIVE" || actor.isServiceAccount || actor.partyId !== principal.partyId || !principal.mfaSatisfied) {
+    throw new GovernanceError("FORBIDDEN", "Follow-up requires an active authenticated human with MFA.");
+  }
+  const permission = presiding ? "governance:resolution.approve" : "governance:resolution.read";
+  // Re-resolve dated grants at the execution boundary. A copied/cached session
+  // principal or emergency grant cannot resurrect expired follow-up authority.
+  const grants = await loadGrants(actor.id, principal.tenantId);
+  const liveRoles = grants.map((g) => g.code);
+  const liveEntities = grants.flatMap((g) => g.entityId ? [g.entityId] : []);
+  if (!permissionsForRoles(liveRoles).has(permission) ||
+      classificationRank(clearanceForRoles(liveRoles)) < classificationRank(ctx.resolution.classification) ||
+      (liveEntities.length && (!ctx.body.legalEntityId || !liveEntities.includes(ctx.body.legalEntityId)))) {
+    throw new GovernanceError("FORBIDDEN", "Current dated role grants no longer authorize this mandate.");
+  }
+  const livePrincipal = { ...principal, roles: liveRoles };
+  const policy = await authorizeGovernanceAction(livePrincipal, ctx, permission, "governance.action");
+  if (presiding && (!ctx.seat || !DECISION_SEATS.includes(ctx.seat.seatRole))) {
+    throw new GovernanceError("FORBIDDEN", "An active unconflicted presiding seat is required.");
+  }
+  if (ctx.resolution.status !== "APPROVED" || !ctx.resolution.quorumMet ||
+      !ctx.resolution.decisionDate || !ctx.resolution.decidedByMemberId) {
+    throw new GovernanceError("GOVERNANCE_NOT_SATISFIED", "An approved, attributed, quorate decision is required.");
+  }
+  const events = await db.select().from(enterpriseEvents).where(and(
+    eq(enterpriseEvents.subjectId, id), eq(enterpriseEvents.tenantId, ctx.resolution.tenantId),
+    eq(enterpriseEvents.type, "GOVERNANCE_RESOLUTION_DECIDED"),
+  ));
+  const decisionEvent = events.find((event) => event.payload.outcome === "APPROVED" &&
+    event.payload.decidedByMemberId === ctx.resolution.decidedByMemberId &&
+    event.payload.decisionDate === ctx.resolution.decisionDate!.toISOString());
+  if (!decisionEvent) throw new GovernanceError("GOVERNANCE_NOT_SATISFIED", "Decision-event provenance is required; reference data cannot mandate execution.");
+  return { ...ctx, policy, decisionEvent, livePrincipal };
 }

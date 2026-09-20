@@ -5,6 +5,9 @@ import {
   complianceAssessments,
   complianceObligations,
   resolutions,
+  governanceBodies,
+  legalEntities,
+  tasks,
   strategicObjectives,
   risks,
   taxStrategies,
@@ -216,25 +219,31 @@ export class BeyuNoeliaReadService {
     requireCanonicalContext();
     const classifications = visibleClassifications(context);
     if (classifications.length === 0) return { findings: [] };
-    const rows = await db
-      .select()
-      .from(resolutions)
-      .where(and(
-        inArray(resolutions.tenantId, context.scope.tenantIds),
-        inArray(resolutions.classification, classifications),
-      ))
-      .orderBy(desc(resolutions.createdAt))
-      .limit(8);
-    const pending = rows.filter((row) => row.status === "DRAFT" || row.status === "TABLED");
+    const scoped = await db.select({ resolution: resolutions }).from(resolutions)
+      .innerJoin(governanceBodies, eq(governanceBodies.id, resolutions.bodyId))
+      .innerJoin(legalEntities, eq(legalEntities.id, governanceBodies.legalEntityId))
+      .where(and(inArray(resolutions.tenantId, context.scope.tenantIds),
+        inArray(resolutions.classification, classifications), entityPredicate(governanceBodies.legalEntityId, context),
+        context.target.countryCode ? eq(legalEntities.countryCode, context.target.countryCode) : inArray(legalEntities.countryCode, context.scope.countryCodes)))
+      .orderBy(desc(resolutions.createdAt)).limit(8);
+    const rows = scoped.map((r) => r.resolution);
+    const actions = rows.length ? await db.select().from(tasks).where(and(
+      inArray(tasks.sourceResolutionId, rows.map((r) => r.id)), inArray(tasks.tenantId, context.scope.tenantIds),
+    )) : [];
+    const pending = rows.filter((row) => ["DRAFT", "TABLED", "VOTED"].includes(row.status));
+    const overdue = actions.filter((a) => a.status !== "CLOSED" && a.dueAt && a.dueAt.getTime() < Date.now());
     return {
-      headline: `${pending.length} resolution(s) await a governance decision.`,
-      findings: rows.map((row) => ({
-        label: `${row.reference} · ${row.title}`,
-        value: `${row.status} · ${row.category} · quorum ${row.quorumMet ? "met" : "not met"} · ${row.votesFor}/${row.votesAgainst}/${row.votesAbstain}`,
-        kind: "FACT" as const,
-      })),
+      headline: `${pending.length} sampled resolution(s) await a decision; ${overdue.length} linked action(s) are overdue.`,
+      findings: rows.map((row) => {
+        const work = actions.filter((a) => a.sourceResolutionId === row.id);
+        return { label: `${row.reference} · ${row.title}`,
+          value: `${row.status} · ${row.category} · quorum ${row.quorumMet ? "met" : "not met"} · ${row.votesFor}/${row.votesAgainst}/${row.votesAbstain} · implementation ${work.length ? `${work.filter((a) => a.status === "CLOSED").length}/${work.length} actions closed` : "NOT_RECORDED (not proof of completion)"}`,
+          kind: "FACT" as const };
+      }),
       sources: rows.map((row) => ({ kind: "RESOLUTION", ref: row.reference, label: row.title, authority: "GOVERNANCE_ENGINE" })),
-      narrative: "Noelia may summarize governance evidence but cannot vote, approve, table or decide a resolution.",
+      narrative: "Noelia summarizes recorded facts only. It cannot vote, approve, table, decide, submit evidence, verify or close mandated work. Governance approval never unlocks Finance posting.",
+      limitations: ["Sample limited to the eight most recent visible resolutions; not an enterprise-wide completion certification.", "Registry evidence checks do not independently attest storage-object bytes or legal sufficiency."],
+      humanReviewRequired: rows.some((r) => r.status === "APPROVED" && (!actions.some((a) => a.sourceResolutionId === r.id) || actions.some((a) => a.sourceResolutionId === r.id && a.status !== "CLOSED"))),
       confidence: 0.94,
     };
   }

@@ -928,7 +928,8 @@ describe("treasury module — creates no second truth", () => {
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
     // + 0048: shared governance RLS; no specialist tables or posting authority added.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(49);  });
+    // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(50);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

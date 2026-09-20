@@ -1129,6 +1129,8 @@ describe("compliance module — creates no second truth", () => {
       "foundation_compliance_tasks",
       "foundation_evidence",
       "foundation_obligations",
+      // 0049: shared governed-task evidence references, not specialist compliance truth.
+      "governance_action_evidence",
       "noelia_evidence",
     ]);
   });
@@ -1188,7 +1190,8 @@ describe("compliance module — creates no second truth", () => {
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
     // + 0048: shared governance RLS; no specialist tables or posting authority added.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(49);  });
+    // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(50);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

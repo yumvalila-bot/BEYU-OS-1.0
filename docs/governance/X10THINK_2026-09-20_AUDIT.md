@@ -2,6 +2,9 @@
 
 Date: 2026-09-20. **Engineering checkpoint — NOT a completion or production certification.**
 
+Continuation: the generic action chain is now implemented as described in
+[Resolution execution](RESOLUTION_EXECUTION.md). The full mission remains incomplete.
+
 ## Baseline and method
 
 - Started clean on `arena/01a0bda3-beyu-os-1-0` at
@@ -70,11 +73,11 @@ unless an explicit human dependency is named; they are not disguised as external
 | O Deliberation | PARTIAL | Resolution rationale/dataBasis/consequences and ballot comments; no structured alternatives/questions/discussion history |
 | P Motions | NOT IMPLEMENTED | No shared proposer/seconder/amendment state machine; a resolution is not relabelled as a motion |
 | Q Voting | PARTIAL; integrity defects FIXED | Open recorded electronic written ballots, SIMPLE/TWO_THIRDS/UNANIMOUS, abstention, recusal, server closure. No secret ballot implementation or attendance dependency |
-| R Resolutions | PARTIAL | Proposal → DRAFT → TABLED → VOTED → server-derived terminal outcome. API/UI/audit/events/tests exist. Not the full implementation/verification/closure chain |
+| R Resolutions | PARTIAL | Proposal → DRAFT → TABLED → VOTED → server-derived terminal outcome. API/UI/audit/events/tests exist. Implementation/evidence/independent review/action closure now use canonical tasks; formal aggregate implementation-plan sealing remains missing |
 | S Decision registry | PARTIAL | `governanceDecisionRegistry`, `decision-authority.ts`, Finance activation decisions. Not a general alternatives/evidence/review-date decision journal |
 | T Minutes | NOT IMPLEMENTED (shared) | No shared draft/review/approval/locked correction workflow |
-| U Resolution implementation | NOT IMPLEMENTED (generic) / PARTIAL (capital) | `capital-governance-service.ts` binds one downstream prerequisite. No generic mandated plan/milestones/evidence/verification engine. **Mandatory mission gap** |
-| V Governance actions | PARTIAL substrate only | `tasks`, `workflowInstances`, `/os/workflow`; not a resolution-linked verified action lifecycle |
+| U Resolution implementation | IMPLEMENTED core chain / PARTIAL broader planning | `governance/action-service.ts`, migration0049, guarded APIs/UI/RLS/tests implement approved mandate → tasks → document evidence → independent verification → action closure. No formal aggregate plan sealing/reassignment/cancellation; Finance execution remains separately gated |
+| V Governance actions | IMPLEMENTED core lifecycle / PARTIAL advanced workflows | Existing `tasks` extended, not duplicated; owner/deadline/priority, blockers, one creation-ordered prerequisite, current evidence, independent human verification and closure; no reassignment or SLA escalation engine |
 | W Delegation | PARTIAL | `governance/delegation.ts`, `admin/delegation.ts`, admin APIs; multiple purpose-specific mechanisms. Not one complete corporate execution-time delegation model |
 | X Reserved matters | PARTIAL; numeric/linked-capital bypass FIXED | `governance/reserved-matters.ts`, proposal enforcement; vocabulary/monetary rules exist. No comprehensive per-jurisdiction approval chain |
 | Y Authority engine | PARTIAL | `can`, `guarded`, policy engine, membership gates, decision authority, RLS. No unified evaluator covering all 24 requested dimensions |
@@ -84,11 +87,11 @@ unless an explicit human dependency is named; they are not disguised as external
 | AC Assurance / audit | PARTIAL | Assurance schema, audit specialist and shared immutable ledger; not complete committee remediation oversight |
 | AD Stakeholders | NOT IMPLEMENTED (shared governance) | Parties are not a material-issues/consultation/governance-response register |
 | AE Calendar | NOT IMPLEMENTED (shared governance) | No consolidated meetings/terms/delegations/reviews calendar |
-| AF Notifications | PARTIAL substrate | `platform.notifications`, shared notification UI; no complete governance deadline/notice/expiry consumers |
+| AF Notifications | PARTIAL | Existing notifications now receive atomic assignment/review/rework signals with generic contents and reauthorized deep links. Deadline/notice/expiry/external-delivery consumers remain absent |
 | AG Reporting | PARTIAL | Governance view and read-only specialists; no complete board/committee/implementation reporting set |
-| AH Command center | PARTIAL | Existing `/os/governance` enhanced; no fabricated meeting/pack/action health metrics |
+| AH Command center | PARTIAL | Existing `/os/governance` enhanced; server-derived implementation/overdue action metrics now exist; no fabricated meeting/pack health metrics |
 | AI Records vault | PARTIAL | Shared Documents/retention/legal-hold mechanism; no governance-specific records capture/retention classification workflow |
-| AJ Event ledger | PARTIAL; covered mutations IMPLEMENTED | `withAuditTransaction`, hash-chained audit/events; proposal/table/vote/decision/recusal atomic. Missing workflows cannot emit real events |
+| AJ Event ledger | PARTIAL; covered mutations IMPLEMENTED | `withAuditTransaction`, hash-chained audit/events; proposal/table/vote/decision/recusal and all new task transitions atomic, with decision causation. Missing workflows cannot emit real events |
 | AK Security | PARTIAL; core RLS/decision defects FIXED | Guarded identity/RBAC/ABAC/MFA and core RLS; country-scoped policy uses entity country, **no independent country grant axis on Principal**. Full cross-domain audit not certified |
 | AL Exceptions | PARTIAL substrate | Shared approval/security mechanisms; no explicit expiring corporate quorum/notice exception workflow. No implicit exceptions introduced |
 | AM Break-glass | PARTIAL substrate | Existing emergency permissions and auditing remain; no new governance bypass or self-authorization. No claim of complete governance emergency workflow |
@@ -96,7 +99,7 @@ unless an explicit human dependency is named; they are not disguised as external
 | AO Knowledge graph | PARTIAL | Existing relational IDs/FKs/events; no unnecessary graph store. Missing meeting/action/evidence edges remain missing |
 | AP Simulation | NOT IMPLEMENTED (governance preflight API) | Pure voting/authority engines are testable; that is not an authorized non-mutating scenario API |
 | AQ Maturity | PARTIAL substrate | `command/posture.ts` advisory institutional posture; not governance-specific evidence-based improvement plans |
-| AR Noelia/HIVE | PARTIAL | `noelia/governance.ts`, tool registry, governed runtime and tests. No new AI write tool, vote, approval or self-authorization capability added; not complete governance intelligence |
+| AR Noelia/HIVE | PARTIAL | `noelia/governance.ts`, tool registry, governed runtime and tests. No new AI write tool, vote, approval or self-authorization capability added; read-only scoped implementation reporting added, with no action mutation tool; not complete governance intelligence |
 
 ## API, state and frontend contract
 
@@ -195,8 +198,9 @@ code or seed changes. Production promotion and any live data reconciliation
 require human approval.
 
 **Engineering still required, not external excuses:** shared meeting/notice/
-attendance/agenda/motion/minutes lifecycle; the mandatory resolution → action →
-evidence → independent verification chain; full charters/appointments/composition;
+attendance/agenda/motion/minutes lifecycle; aggregate implementation-plan sealing,
+reassignment/cancellation and SLA escalation beyond the now-implemented core
+action/evidence/independent-verification chain; full charters/appointments/composition;
 calendar/notification consumers; governance risk/assurance/stakeholder/maturity
 integration and safe simulation. The architecture can support further work;
 this patch does **not** establish the master mission's definition of done.

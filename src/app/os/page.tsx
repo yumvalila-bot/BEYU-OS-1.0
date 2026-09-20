@@ -224,7 +224,7 @@ export default async function ControlCentre() {
       ),
       gated(
         caps.dashboard && !entityScoped,
-        db.select().from(tasks).where(and(inArray(tasks.tenantId, scope), sql`${tasks.status} <> 'DONE'`)).orderBy(tasks.dueAt).limit(6),
+        db.select().from(tasks).where(and(inArray(tasks.tenantId, scope), sql`${tasks.status} not in ('DONE', 'CLOSED', 'CANCELLED')`, caps.governance ? undefined : isNull(tasks.sourceResolutionId))).orderBy(tasks.dueAt).limit(6),
         [],
       ),
       gated(

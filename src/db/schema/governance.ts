@@ -4,6 +4,7 @@
  * resolutions, votes, approvals, workflows and tasks.
  */
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -300,10 +301,20 @@ export const tasks = pgTable(
     dueAt: timestamp("due_at", { withTimezone: true }),
     status: text("status").notNull().default("OPEN"), // OPEN | IN_PROGRESS | DONE | ESCALATED | CANCELLED
     escalationLevel: integer("escalation_level").notNull().default(0),
+    /** Optional mandate provenance; NULL preserves ordinary kernel tasks. */
+    sourceResolutionId: text("source_resolution_id").references(() => resolutions.id, { onDelete: "restrict" }),
+    dependsOnTaskId: text("depends_on_task_id").references((): AnyPgColumn => tasks.id, { onDelete: "restrict" }),
+    version: integer("version").notNull().default(1),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    completedByUserId: text("completed_by_user_id").references(() => users.id),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    verifiedByUserId: text("verified_by_user_id").references(() => users.id),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("tasks_assignee_idx").on(t.assigneeUserId)],
-);
+  (t) => [index("tasks_assignee_idx").on(t.assigneeUserId), index("tasks_resolution_idx").on(t.sourceResolutionId)],
+).enableRLS();
 
 /** Strategy management: vision → objective → initiative → KPI. */
 export const strategicObjectives = pgTable("strategic_objectives", {

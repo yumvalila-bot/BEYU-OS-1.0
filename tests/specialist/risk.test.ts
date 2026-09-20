@@ -1078,7 +1078,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
     // + 0048: shared governance RLS; no specialist tables or posting authority added.
-    expect(n).toBe(49);  });
+    // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
+    expect(n).toBe(50);  });
 
   it("leaves all triggers enabled", async () => {
     const disabled = await count(sql`

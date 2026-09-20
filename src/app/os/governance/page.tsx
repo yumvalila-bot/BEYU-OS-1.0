@@ -6,6 +6,7 @@ import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { auditTrailsFor } from "@/lib/audit";
 import {
+  authorizeResolutionFollowUp,
   canDecideResolutions,
   canTableResolutions,
   votingSnapshots,
@@ -14,6 +15,9 @@ import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { ProposeResolution } from "./propose";
 import { VotePanel } from "./vote-panel";
+import { ActionPanel } from "./action-panel";
+import { listGovernanceActions } from "@/lib/governance/action-service";
+import { GovernanceError } from "@/lib/governance";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +65,13 @@ export default async function GovernancePage() {
           )
           .orderBy(resolutions.createdAt)
       : [];
+  const execution = new Map(await Promise.all(visible.filter((r) => r.status === "APPROVED").map(async (r) => {
+    const actions = await listGovernanceActions(access.principal, r.id);
+    let canManage = false;
+    try { await authorizeResolutionFollowUp(access.principal, r.id, true); canManage = true; }
+    catch (error) { if (!(error instanceof GovernanceError)) throw error; }
+    return [r.id, { actions, canManage }] as const;
+  })));
   const canReadPolicies = can(access.principal, "governance:policy.read").allowed;
   const policyIds = [
     ...new Set(
@@ -163,7 +174,7 @@ export default async function GovernancePage() {
               const policy = policyRows.find((p) => p.id === r.authorityPolicyId);
               const total = r.votesFor + r.votesAgainst + r.votesAbstain;
               return (
-                <div key={r.id} data-resolution-id={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
+                <div key={r.id} id={`resolution-${r.id}`} data-resolution-id={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <span className="font-mono text-[11.5px] beyu-muted">{r.reference}</span>
@@ -208,6 +219,11 @@ export default async function GovernancePage() {
                       decisionDate={r.decisionDate ? r.decisionDate.toISOString() : null}
                     />
                   )}
+
+                  {execution.has(r.id) && <ActionPanel resolutionId={r.id} userId={access.principal.userId}
+                    canManage={execution.get(r.id)!.canManage}
+                    actions={execution.get(r.id)!.actions.map((action) => ({ ...action,
+                      dueAt: action.dueAt?.toISOString() ?? null, closedAt: action.closedAt?.toISOString() ?? null }))} />}
 
                   {(() => {
                     const trail = trails.get(r.id) ?? [];

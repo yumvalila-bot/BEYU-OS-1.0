@@ -117,3 +117,5 @@ export * from "./schema/admin-governance";
  * and existing RBAC/ABAC/RLS chain.
  */
 export * from "./schema/release";
+
+export * from "./schema/governance-execution";

@@ -45,6 +45,7 @@ export const ID_PREFIX = {
   workflow: "WFL",
   instance: "WFI",
   task: "TSK",
+  actionEvidence: "GAE",
   objective: "OBJ",
   risk: "RSK",
   control: "CTL",

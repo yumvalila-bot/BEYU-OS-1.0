@@ -1,3 +1,4 @@
+import { ACTION_EVENT_TYPES } from "../governance/action-contract";
 import type { InteropClassification } from "./contract";
 
 /** Canonical enterprise domain identifiers. Sector codes are registered here, not implemented here. */
@@ -84,10 +85,10 @@ export const DOMAIN_REGISTRY: readonly DomainRegistryEntry[] = [
     domainCode: "GOVERNANCE",
     domainName: "Constitutional Governance",
     owner: "BEYU OS Governance",
-    systemOfRecord: "constitution_articles, policies, governance_bodies, resolutions",
+    systemOfRecord: "constitution_articles, policies, governance_bodies, resolutions, tasks, governance_action_evidence",
     dataClass: "RESTRICTED",
     apiContract: ["governed resolution lifecycle", ...SHARED_API],
-    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...SHARED_EVENTS],
+    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...Object.values(ACTION_EVENT_TYPES), ...SHARED_EVENTS],
     authorityModel: "constitution → policy → decision → capability",
     securityModel: "common RBAC/ABAC + body membership + SoD",
     tenantModel: "tenant subtree with parent governance scope",

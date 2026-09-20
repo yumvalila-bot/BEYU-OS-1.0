@@ -1,6 +1,21 @@
-# Governance hardening — final engineering checkpoint
+# Governance hardening — P0 validation record
 
 2026-09-20 UTC · **Master mission incomplete. Production readiness NOT certified.**
+
+## Continuation correction
+
+GitHub connectivity has been restored. The two P0 CI runs linked below completed
+successfully, as did applicable Health/release/security/dependency checks and the
+Vercel preview; production jobs remained intentionally skipped. A fresh main fetch
+still resolved to `5ac90f2cc712582bde45cc0f2616937d856a6f71`.
+The former reconnect requirement below is historical, **not a current blocker**.
+
+The next engineering slice implements the shared kernel's mandated action,
+evidence, independent verification and closure chain. See
+[Resolution execution](RESOLUTION_EXECUTION.md) for current functionality and
+remaining limits. The measurements below remain the earlier P0 run, not a claim
+that the new source has already passed the same validation. Current continuation
+results are recorded separately once the full rerun finishes.
 
 ## A–B. Starting and final repository state
 
@@ -10,8 +25,8 @@
 - Implementation commit: `e5b1f2e` — core RLS, authority/voting hardening, self-recusal, tests.
 - Audit commit: `7c9924c` — complete A–AR reality matrix and operational boundaries.
 - Both commits pushed; **draft PR [#77](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/77)** created.
-- This final evidence document is recorded in a subsequent local commit. Its push
-  and PR-body update are blocked by the GitHub connection failure below.
+- This evidence document was committed as `f1982d0`; the original push was delayed
+  by the historical GitHub failure, which is now resolved.
 - Tested source: `7c9924cf7a3fdc3993a5cb16e054a4830d3b79d7`. No source changes after final passing suite.
 
 ## C–J. Capability, implementation and security report
@@ -64,7 +79,7 @@ missing snapshots and the 0038/0039 metadata collision remain explicitly reporte
 | Browser | **10 passed** including self-recusal, server enforcement after client interaction, responsive shell, keyboard history and deep-link authentication |
 | Secret scan | Passed, 1,970 tracked files at implementation commit; final scan repeated after evidence commit |
 | Production dependency audit | Existing critical-only repository threshold passed; **2 moderate Vitest/mocker advisories remain**. No dependency audit gate relaxed, no forced major upgrade |
-| GitHub CI | Triggered, final status **UNVERIFIED** due expired/broken GitHub connection |
+| GitHub CI (P0 pushed revision) | **SUCCESS**, observed after connection recovery; production stages intentionally skipped |
 
 The first complete run exposed four failures: three chain-verification failures
 from serializing a Date-valued prior ballot into the new audit payload, and a
@@ -88,7 +103,8 @@ production-release job was invoked. After the local full run, `gh pr checks` and
 `gh run view` returned **HTTP 401 Bad credentials**. A subsequent `git fetch`
 also failed authentication. Final CI status, failures, remote artifacts and
 further current-main changes therefore cannot be asserted or remediated here.
-**Required external action: reconnect GitHub in Arena. Do not send credentials.**
+That connection failure was temporary and is now resolved; no credential or
+reconnect action is currently required.
 
 ## M–O. Documentation, remaining work and readiness
 
@@ -108,8 +124,9 @@ minutes; the mandatory generic resolution → action → evidence → independen
 verification chain; complete charter/appointment/composition workflows; country
 permission axis, expiring governance exceptions; notification/calendar consumers;
 board evaluation, stakeholder/maturity integration and authorized simulation.
-These are not implemented by this patch and are not reclassified as external
-blockers. Each is mapped to existing substrate and evidence in the A–AR matrix.
+Those were the gaps at the P0 checkpoint. The core action chain has since been
+implemented; broader planning and the other listed gaps remain engineering work,
+not external blockers. Each is mapped to existing substrate and evidence in the A–AR matrix.
 
 **Human-controlled dependencies:** ratified governing charters, body/appointment/
 closing authority, notice/exception/jurisdiction rules, policy provenance decisions,
@@ -118,7 +135,7 @@ these gaps. Complete mission readiness cannot be claimed while these and the
 engineering gaps remain.
 
 **Disposition:** tested and pushed P0 integrity remediation in a draft PR; full
-master mission incomplete, remote CI unverified, production promotion withheld.
+master mission incomplete, P0 remote CI now verified successful, production promotion withheld.
 After GitHub reconnection: inspect/remediate CI, push this evidence, reconcile
 current main, and continue the remaining P1/P2 work rather than treating the
 presence of tables, screens or a green local suite as completion.
