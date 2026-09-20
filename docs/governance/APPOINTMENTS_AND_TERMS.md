@@ -117,8 +117,14 @@ validation: 26 new tests (13 lifecycle, 11 actual non-owner SQL/RLS, 2 real HTTP
 plus existing charter14 and core RLS23: **63 passed**. The new Chromium test passed
 nomination → independent approval → nominee acceptance → activation and reload
 with three authenticated identities. Production build/typecheck/lint passed
-(0 lint errors / one existing image warning). Complete suite/browser regression
-is running; do not infer its result from focused checks.
+(0 lint errors / one existing image warning). Final application source d0b09d880d131bbca675df08b650711cdf2b9751 completed
+**4306 tests passed / 11 existing bootstrap skips**,235 files passed /3 skipped
+(913.51s), followed by **14 Chromium tests passed** (3.4m). Source was frozen
+through both runs. The earlier mixed-source run failed and is not used as
+final-source evidence. Both ordinary and no-runtime-secrets production builds
+passed; the latter started with the constrained runtime database role, reported
+database UP, and passed8 real appointment/charter/preflight HTTP tests.
+See the dated audit checkpoint for exact CI and remote-access limitations.
 
 Apply0051 before this writer. Deployments must retain migration, authentication,
 RLS, approval and branch protections. Rolling back the application leaves persisted
@@ -142,8 +148,8 @@ creating any new membership, without blocking preparatory nomination or rewritin
 existing legacy resolution authority. Appointment fixtures now actually adopt their
 charter through independent, decision-backed commands. A rollback-isolated negative
 test proves that removing charter coverage blocks activation and leaves no member.
-The earlier4302/14 complete regression applies to2a00048; corrected-source regression
-must be separately completed and recorded.
+The earlier4302/14 complete regression applies to2a00048; the separately completed
+4306/14 regression above applies to corrected application source d0b09d8.
 
 
 Entity-grant correlation is also enforced at the shared charter/appointment

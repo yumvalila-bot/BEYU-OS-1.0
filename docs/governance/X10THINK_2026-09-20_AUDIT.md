@@ -354,3 +354,108 @@ requires ACTIVE, non-service-account identity and a matching Principal party.
 The failing reproducer is preserved;104 corrected appointment/voting/decision/action
 service tests passed. This source correction requires its own rebuilt full-suite
 validation; intermediate runs are not substitutes. No new migration was necessary.
+
+
+### Frozen corrected-source validation checkpoint — 2026-09-20
+
+**Attribution.** Appointment continuation started at
+`e77566ec0cd862012d68c3177fb06a10bdae4009`. The final application source is
+`d0b09d880d131bbca675df08b650711cdf2b9751`, already pushed to the same
+`arena/01a0bda3-beyu-os-1-0` branch. This checkpoint changes documentation only;
+it does not change the tested application, tests, migrations or workflow. PR77
+remains the same workstream, OPEN/DRAFT at its last successful remote observation.
+
+**FIXED / IMPLEMENTED.** Commits2a00048,ab1322f,d0b09d8 provide the bounded0051
+appointment workflow, adopted-charter activation requirement, target-entity live
+grant correlation and current-human acting-seat binding described above. Existing
+0048 authority protections,0049 resolution execution,0050 charter controls and
+read-only preflight remain. No new OS, Noelia/HIVE authority, security-role grant,
+Finance CAP_POSTING activation, production promotion or legal ratification was added.
+
+**TESTED — actual completed local results.**
+
+- Frozen d0b09d8 PostgreSQL/HTTP complete suite: **4306 passed,11 existing bootstrap
+  skips, zero failures;235 files passed,3 skipped;913.51s**.
+- Subsequent complete Chromium suite against the rebuilt runtime: **14 passed,
+  zero failures;3.4m**. Includes appointment, charter, resolution execution with a
+  different verifier, persisted recusal, non-authorizing simulation, navigation,
+  responsive layouts and unauthenticated deep-link boundaries.
+- Corrected-source focused human-authority regression:104 passed, as previously
+  recorded. Production build and typecheck passed; lint0 errors/1 existing image
+  warning. Pre-commit secret scan2024 tracked files was clean.
+- Additional CI-style production build with runtime database/authentication secrets
+  blanked and the local .env temporarily removed: **PASS**. With runtime credentials
+  restored, the constrained-role server started and `/api/health` returned
+  `checks.database=UP`. Appointment/charter/preflight real HTTP tests against this
+  no-secrets build: **8 passed**,67.77s. This is local parity evidence, not a claim
+  to reproduce or resolve the remote startup result.
+- The prior intermediate run remains recorded as **4305 passed/1 failed/11 skipped**.
+  It began before the human-actor correction and source changed during execution;
+  its retained-seat failure and raw log were retained. Its browser stage did not run.
+  It is neither a passed run nor frozen final-source evidence.
+- Migration inventory remains52 (0000–0051). Fresh replay, seed, constrained runtime
+  provisioning and no-op replay were previously passed for0051; no migration has
+  changed since. The complete corrected-source suite also passed the24-case drift
+  suite and8-case gate self-test.14 acknowledged metadata debts remain, not rewritten.
+  Rechecked0048/0049/0050 SHA-256 values exactly match those recorded above.
+
+Raw local evidence (ignored, not committed):
+`tmp/governance/appointment-complete-suite.log`, `appointment-complete-browser.log`,
+`appointment-build-complete.log`, `appointment-lint-complete.log`,
+`appointment-no-secrets-build.log`, `appointment-no-secrets-health.json`,
+`appointment-no-secrets-http.log`. Earlier failed/reproducer evidence is retained
+under its distinct filenames. The regenerated unrelated Health SPA file was restored.
+
+**CI VERIFIED / NOT VERIFIED.**
+
+- Source2a00048 root35506360586 and scratch35506360590: observed **SUCCESS**.
+- Sourceab1322f scratch35507779664: observed **SUCCESS**.
+- The already-running local watcher for ab1322f root35507779672 later exited1.
+  Its saved `appointment-ci-final.log` marks the application-start step with X;
+  full root regression and browser stages were skipped. The earlier in-progress
+  observation is superseded by this **non-success** evidence. Builds, migration
+  replay/integrity/drift and runtime-role checks were marked passed before startup.
+  Detailed startup logs and the structured final conclusion were not retrieved;
+  do not label this run successful or invent its root cause. Local parity validation
+  above did not reproduce a startup failure.
+- d0b09d8 run IDs and conclusions remain **NOT VERIFIED**. No earlier success is
+  attributed to this source. This checkpoint's future remote status is also unknown.
+
+**EXTERNALLY BLOCKED — remote operations only.** At11:38:13UTC the Actions API
+returned `HTTP 401: Bad credentials`. A subsequent final-main fetch also returned
+`fatal: could not read Username for 'https://github.com': terminal prompts disabled`.
+GitHub reconnection in Arena is required for detailed CI diagnosis, latest CI
+observation, evidence push/PR refresh and fresh main reconciliation. No credentials
+were requested in chat. Local engineering/validation continued despite this boundary.
+The last fetched main remains `5ac90f2cc712582bde45cc0f2616937d856a6f71`; newer remote
+changes cannot be ruled out. No blind merge, branch switch or main push was performed.
+
+**PARTIAL / NOT IMPLEMENTED — engineering work, not external blockers.**
+
+- A–H: body establishment/suspension/dissolution and explicit superior-body mandate;
+  atomic initial membership/charter bootstrap and vacancy recovery; formal seat
+  plans; competency/independence matrices; advanced renewal/succession and early
+  resignation/removal. Eight seat-role labels and dated terms are not full coverage.
+- I–T: complete shared meeting→notice→invitation→acknowledgement→agenda/papers→
+  attendance→quorum/conflict→deliberation→motion→vote→resolution→minutes chain.
+  Existing written-resolution voting/quorum/recusal/decision support is not a
+  complete meeting lifecycle. Calendar, escalation and evaluations remain missing.
+- Resolution→action→implementation→evidence→independent verification→closure is
+  implemented for bounded actions. Aggregate execution certification, reassignment,
+  cancellation, exceptions and post-VERIFIED correction remain incomplete.
+- Preflight is nonmutating and non-authorizing; it is not complete country law,
+  delegation-chain or approval-chain certification. Notifications are generic
+  in-app updates, not full meeting delivery/acknowledgement/calendar workflows.
+
+**Next engineering dependency.** Existing charter/appointment paths deliberately
+require an already-authorized body and current composition. A new empty body or
+inquorate vacancy cannot bootstrap itself through these paths. The next A–H work
+must implement explicit superior-body authority and a governed atomic initial
+composition path, rather than relaxing0048, treating a draft body as authoritative,
+using privileged runtime writes or lowering quorum. This dependency is engineering
+work; it is not an excuse to claim all remaining work externally blocked.
+
+**READINESS / HUMAN CONTROLLED.** The bounded corrected appointment increment is
+locally validated. The full requested governance mission remains **incomplete and
+not production-certified**. Merge, legal ratification, Finance activation and
+production promotion remain human-controlled. No irreversible promotion occurred.
