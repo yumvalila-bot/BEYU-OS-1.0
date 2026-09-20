@@ -1,3 +1,4 @@
+import { BODY_CHANGE_EVENTS } from "../governance/body-lifecycle-contract";
 import { MEMBERSHIP_EVENTS } from "../governance/membership-contract";
 import { ACTIVATION_EVENTS } from "../governance/activation-contract";
 import { ESTABLISHMENT_EVENTS } from "../governance/establishment-contract";
@@ -92,7 +93,7 @@ export const DOMAIN_REGISTRY: readonly DomainRegistryEntry[] = [
     systemOfRecord: "constitution_articles, policies, governance_bodies, resolutions, tasks, governance_action_evidence",
     dataClass: "RESTRICTED",
     apiContract: ["governed resolution lifecycle", ...SHARED_API],
-    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...Object.values(ACTION_EVENT_TYPES), ...Object.values(APPOINTMENT_EVENTS), ...Object.values(ESTABLISHMENT_EVENTS), ...Object.values(MEMBERSHIP_EVENTS), ...Object.values(ACTIVATION_EVENTS), "GOVERNANCE_CHARTER_CREATED", "GOVERNANCE_CHARTER_SUBMITTED", "GOVERNANCE_CHARTER_ADOPTED", "GOVERNANCE_CHARTER_APPROVED", ...SHARED_EVENTS],
+    eventContract: ["GOVERNANCE_RESOLUTION_PROPOSED", "GOVERNANCE_RESOLUTION_DECIDED", ...Object.values(ACTION_EVENT_TYPES), ...Object.values(APPOINTMENT_EVENTS), ...Object.values(ESTABLISHMENT_EVENTS), ...Object.values(MEMBERSHIP_EVENTS), ...Object.values(BODY_CHANGE_EVENTS), ...Object.values(ACTIVATION_EVENTS), "GOVERNANCE_CHARTER_CREATED", "GOVERNANCE_CHARTER_SUBMITTED", "GOVERNANCE_CHARTER_ADOPTED", "GOVERNANCE_CHARTER_APPROVED", ...SHARED_EVENTS],
     authorityModel: "constitution → policy → decision → capability",
     securityModel: "common RBAC/ABAC + body membership + SoD",
     tenantModel: "tenant subtree with parent governance scope",

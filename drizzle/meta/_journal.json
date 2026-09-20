@@ -407,6 +407,13 @@
       "when": 1789941752934,
       "tag": "0057_governance_membership_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1789944839938,
+      "tag": "0058_governance_body_lifecycle",
+      "breakpoints": true
     }
   ]
 }

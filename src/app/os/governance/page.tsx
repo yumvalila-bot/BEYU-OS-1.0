@@ -1,3 +1,5 @@
+import { BodyLifecyclePanel } from "./body-lifecycle-panel";
+import { listBodyChanges, canManageBodyChanges } from "@/lib/governance/body-lifecycle-service";
 import { MembershipPanel } from "./membership-panel";
 import { listMembershipChanges, canManageMembership } from "@/lib/governance/membership-service";
 import { ActivationPanel } from "./activation-panel";
@@ -54,10 +56,12 @@ export default async function GovernancePage() {
     const composition = await currentCharterComposition(body);
     const { appointments } = await listBodyAppointments(access.principal, body.id);
     const { changes } = await listMembershipChanges(access.principal, body.id);
+    const bodyLifecycle = await listBodyChanges(access.principal, body.id);
+    const manageBodyLifecycle = await canManageBodyChanges(access.principal, body.id);
     const canManageMember = await canManageMembership(access.principal, body.id);
     const { plans } = await listBodyActivations(access.principal, body.id);
     const { proposals } = await listBodyEstablishments(access.principal, body.id);
-    return [body.id, { ...view, appointments, proposals, plans, changes, canManageMember, canManageAppointments: await canManageAppointments(access.principal, body.id), canManage: body.status === "ACTIVE" && await canManageCharters(access.principal, body.id), canManageCharter: await canManageCharters(access.principal, body.id),
+    return [body.id, { ...view, bodyLifecycle, manageBodyLifecycle, appointments, proposals, plans, changes, canManageMember, canManageAppointments: await canManageAppointments(access.principal, body.id), canManage: body.status === "ACTIVE" && await canManageCharters(access.principal, body.id), canManageCharter: await canManageCharters(access.principal, body.id),
       composition: composition.coverage === "APPROVED_PENDING_ACTIVATION" ? "Initial charter approved, not effective; composition and activation remain blocked" : composition.coverage === "LEGACY_UNCHARTERED" ? "No adopted charter recorded (legacy coverage gap)" : composition.satisfied ? "Current composition satisfies adopted rules" : "Adopted charter requirements not satisfied; mutations are blocked" }] as const;
   })));
   const bodyIds = bodies.map((body) => body.id);
@@ -172,6 +176,7 @@ export default async function GovernancePage() {
               </div>
               <EstablishmentPanel parentId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManage && ["BOARD", "TRUSTEES"].includes(b.bodyType)} quorum={b.quorumMinimum} majority={b.majorityRule} proposals={charterViews.get(b.id)!.proposals.map((p) => ({ id: p.id, name: p.name, code: p.code, status: p.status, revision: p.revision, proposedByUserId: p.proposedByUserId, bodyId: p.bodyId }))} />
               {seat.length > 0 && <MembershipPanel bodyId={b.id} userId={access.principal.userId} partyId={access.principal.partyId} canManage={charterViews.get(b.id)!.canManageMember} members={seat} changes={charterViews.get(b.id)!.changes.map(c=>({id:c.id,memberId:c.memberId,command:c.command,status:c.status,proposedByUserId:c.proposedByUserId,appliedAt:c.appliedAt?.toISOString()??null}))}/>}
+              <BodyLifecyclePanel bodyId={b.id} status={b.status} revision={charterViews.get(b.id)!.bodyLifecycle.revision} userId={access.principal.userId} canManage={charterViews.get(b.id)!.manageBodyLifecycle} changes={charterViews.get(b.id)!.bodyLifecycle.changes.map(c=>({...c,appliedAt:c.appliedAt?.toISOString()??null}))}/>
               <AppointmentPanel initial={b.status === "DRAFT"} bodyId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManageAppointments} appointments={charterViews.get(b.id)!.appointments.map((a) => ({ id: a.id, authorityBodyId: a.authorityBodyId, initialCharterId: a.initialCharterId, status: a.status, revision: a.revision, nomineeUserId: a.nomineeUserId, nominatedByUserId: a.nominatedByUserId, seatRole: a.seatRole, votingRights: a.votingRights, appointedOn: a.appointedOn, retiredOn: a.retiredOn, documentId: a.documentId, rationale: a.rationale, memberId: a.memberId }))} />
               {(b.status === "DRAFT" || charterViews.get(b.id)!.plans.length > 0) && <ActivationPanel bodyId={b.id} userId={access.principal.userId} canManage={b.status === "DRAFT" && charterViews.get(b.id)!.canManageAppointments}
                 plans={charterViews.get(b.id)!.plans.map((p) => ({ id:p.id,status:p.status,revision:p.revision,authorityBodyId:p.authorityBodyId,initialCharterId:p.initialCharterId,nominationIds:p.nominationIds,proposedByUserId:p.proposedByUserId,activatedAt:p.activatedAt?.toISOString() ?? null }))}
