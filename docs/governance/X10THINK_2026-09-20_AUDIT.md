@@ -549,3 +549,95 @@ Validation before the complete new-source run:
  `bf2d3f13a8365c9bbeefa2347f31a8c8157b16e6839dd8b9008fb7b45e2b6ecf`.
 -Typecheck/build passed; lint0 errors/1 existing warning. Full new-source regression,
   all browser tests and observed new-source CI still require completion below.
+
+The first frozen0052 full run at4652f00 finished **4342 passed/6 failed/11 skipped**,
+233 files passed/6 failed/3 skipped,929.47s. All six failures were exact inventory
+assertions still expecting52 migrations in the P3 release and five specialist
+suites. No workflow/RLS failure was hidden. The browser stage did not run. The
+failed log remains body-full-suite.log. Root CI's P3 DB-free job also reported
+failure; its command reproduced the same stale inventory assertion locally.
+
+Updated those assertions to **exactly53**, not a lower bound; the release test now
+also proves that expecting the old52 baseline fails. Corrected focused validation:
+424 specialist tests passed;182 DB-free release tests passed/6 expected DB skips.
+No release protection, historical checksum or promotion distinction was weakened.
+
+At13:13UTC, fetching the final CI conclusion returned HTTP401 Bad credentials.
+The detailed job-log storage redirect had earlier failed with EOF. GitHub needs
+reconnection in Arena; no credentials were requested. The remote source4652f00
+was already pushed, scratch35511965800 observed SUCCESS, and its P3 failure is
+known. Root final conclusion remains unobserved; it is not claimed successful.
+Local correction and complete regression continue independently of that boundary.
+
+The shared resolution form previously omitted linked-object fields even though the
+API supported them. Added explicit nomination/charter/establishment link selection
+and exact record ID authoring, without client-controlled status/actor/authority.
+The form now uses the existing idempotency contract and retains its key after an
+uncertain response; it no longer falsely says a network failure means no commit.
+A browser test for each of the three links lets the real server commit, drops the
+response, retries unchanged, and proves one canonical DRAFT resolution, the same
+returned ID/key, no new membership, and persisted state after reload.
+
+Initial browser probes timed out on ambiguous nested select labels. The original
+log/error contexts remain retained; explicit accessible select names repaired the
+UI without relaxing exact-name selectors. Corrected **3 browser tests passed** in
+1.3m. This is additional focused evidence; the final complete suite and all28
+browser tests still require their own frozen-source run.
+
+### Full correction run and additional retry regression
+
+Frozen081ebdd completed the **entire PostgreSQL/HTTP suite:4348 passed/11 existing
+skips**,239 files passed/3 skipped,920.10s. Its browser stage was deliberately
+interrupted to add a newly identified retry case; no complete browser success is
+attributed to that source. Retained logs:body-081ebdd-complete-suite.log and
+body-081ebdd-browser-interrupted.log.
+
+The original form correction cleared its key on every4xx. A real-API browser
+reproducer held an isolated, unexecuted IN_FLIGHT claim: attempt1 returned409,
+but attempt2 used a **different key** and returned201. This demonstrated request
+identity rotation around an unresolved claim, not a backend idempotency bypass.
+Both failed reproducer logs are retained (body-inflight[-key]-reproducer.log).
+The form now retains the key on every non-success response; only confirmed success
+or changed payload starts a new key. No server recovery policy was weakened.
+
+All3 strengthened browser cases passed in1.3m: two real REQUEST_IN_PROGRESS409s,
+then release of only the demonstrably unexecuted fixture claim, real commit with
+lost response, and replay. All four browser requests retain one key, one canonical
+DRAFT resolution, no candidate membership, and reload persistence. The fixture
+release is not a runtime recovery mechanism; uncertain committed claims remain
+fail-closed. The complete final-source suite/browser run will be recorded below.
+
+Fresh53 schema drift also passed (body-complete-drift.log). Integrity-with-ledger
+passed with the same14 acknowledged historical debts and0 blockers; checksums for
+0048–0051 remain exactly those recorded above. No historical migration was edited.
+
+### Final local proof — c244caa17f0bd4cfe98ffe5108752eb998955f9c
+
+The frozen application source completed **4348 passed/11 existing skips**,239
+files passed/3 skipped,946.69s, followed by **all28 Chromium tests passed**,9.3m.
+The combined process exited0; no source changed during either stage. Logs are
+body-c244caa-suite.log and body-c244caa-browser.log. The exact CI DB-free release
+command also passed182 tests/6 expected DB skips at this source,3.62s.
+
+Typecheck, secret scan (2041 application-tree files), and build without runtime/
+database secrets passed. Lint reports0 errors/1 existing image warning. One build
+shell invocation returned1 despite completed build output and no diagnostic; its
+body-c244caa-build-first.log is retained. A fresh explicit rerun reported build
+exit0; no success was inferred solely from the ambiguous invocation.
+Final schema drift passed with0 blocking/149 informational SQL-managed objects;
+integrity-with-ledger passed with53 migrations and14 historical debts/0 blockers.
+0048–0051 remain unchanged against08ba146. Runtime remains non-owner/non-BYPASSRLS;
+no admin/test connection variables were supplied to the application process.
+
+At14:11UTC final main fetch again failed because GitHub credentials were
+unavailable; PR77 and root-run35511965796 queries returnedHTTP401 Bad credentials.
+Last fetched main remains5ac90f2cc712582bde45cc0f2616937d856a6f71, and PR77's last
+observed OPEN/DRAFT head is4652f006bd8e51148ff59a13ca13e05938e6547c. The corrected
+source has **no observed remote CI certification**. No current-main reconciliation,
+PR refresh, merge, production promotion or Finance activation is claimed.
+
+A concise acceptance/evidence map and explicit remaining engineering gaps are in
+X10THINK_2026-09-20_BODY_VALIDATION.md. This final checkpoint is documentation only;
+its subsequent commit does not change the application SHA tested above. The broad
+mission remains partial; in particular inactive establishment is not initial
+composition/child-charter/ACTIVE bootstrap or the complete body/meeting lifecycle.

@@ -89,3 +89,10 @@ complete activation/suspension/dissolution/history, charter lifecycle, membershi
 seats, competency, succession and linked meetings. Missing engineering must not be
 relabelled as a human approval or external blocker. Production promotion remains
 human-controlled.
+
+The shared resolution proposal form can author the required exact establishment
+link: RESERVED MATTER + Body establishment proposal + the proposal ID. The server
+still derives actor/tenant/status and validates the later mandate independently.
+Browser recovery tests drop a real committed response and prove unchanged retries
+return the same single DRAFT resolution. No optimistic UI item substitutes for
+persisted authority, and linkage itself grants no power.

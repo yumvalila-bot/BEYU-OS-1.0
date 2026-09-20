@@ -186,3 +186,10 @@ records. Extended non-owner SQL checks retain body/member edit/delete protection
 and finalized-decision/ballot immutability. Ten actual browser denial cases verify
 that stale rendered forms cannot overrule revoked authority or changed instrument
 scope; persisted state remains unchanged after denial and reload.
+
+The shared resolution form now authors exact nomination links directly: choose
+APPOINTMENT, select Appointment nomination, and enter the nomination ID. The form
+also supports charter and establishment links. A link creates only a DRAFT
+resolution; ballots, independent approval and activation remain separate governed
+actions. Uncertain-response retries reuse the existing idempotency key rather
+than creating a second proposal or claiming no commit occurred.
