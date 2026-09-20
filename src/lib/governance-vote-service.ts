@@ -1212,7 +1212,7 @@ export async function votingSnapshots(
       .from(governanceMembers)
       .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
       .innerJoin(users, eq(users.partyId, parties.id))
-      .where(and(inArray(governanceMembers.bodyId, bodyIds), eq(users.id, principal.userId), eq(governanceMembers.lifecycleStatus, "ACTIVE"), lte(governanceMembers.appointedOn, today), or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today)))),
+      .where(and(inArray(governanceMembers.bodyId, bodyIds), eq(users.id, principal.userId))),
   ]);
 
   const decisionEvents = await db.select({ subjectId: enterpriseEvents.subjectId, payload: enterpriseEvents.payload })
@@ -1236,8 +1236,14 @@ export async function votingSnapshots(
       ballots,
     );
     const tally = tallyBallots(ballots);
-    const seat = mySeats.find((s) => s.bodyId === body.id) ?? null;
-    const myBallot = seat ? ballots.find((b) => b.memberId === seat.id) : undefined;
+    const terminal = (TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(resolution.status);
+    const ownSeats = mySeats.filter((s) => s.bodyId === body.id);
+    // A finalized personal ballot is historical evidence, not current authority.
+    // Prefer the current eligible seat for live controls after replacement/renewal.
+    const historicalBallots = terminal ? eligibleBallots(allBallots.filter((b) => b.resolutionId === resolution.id) as (BallotLine & { conflictDeclared: boolean })[], ownSeats.map((s) => s.id)) : [];
+    const seat = (terminal ? ownSeats.find((s) => historicalBallots.some((b) => b.memberId === s.id)) : undefined)
+      ?? ownSeats.find((s) => eligibleMemberIds.includes(s.id)) ?? ownSeats[0] ?? null;
+    const myBallot = seat ? (terminal ? historicalBallots : ballots).find((b) => b.memberId === seat.id) : undefined;
 
     const windowState = votingWindowState(
       { opensAt: resolution.votingOpensAt, closesAt: resolution.votingClosesAt },
@@ -1258,7 +1264,6 @@ export async function votingSnapshots(
     else if (windowState === "CLOSED") reason = "The voting window has closed.";
     else canVote = true;
 
-    const terminal = (TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(resolution.status);
     const event = decisionEvents.find((e) => e.subjectId === resolution.id);
     const recorded = recordedQuorumSchema.safeParse(event?.payload?.quorum);
     const snapshotQuorum = terminal && recorded.success ? recorded.data : {

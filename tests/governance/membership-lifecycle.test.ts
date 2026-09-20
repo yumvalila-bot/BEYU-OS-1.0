@@ -1,7 +1,8 @@
+import { decideResolutionClosure, votingSnapshots } from "../../src/lib/governance-vote-service";
 import { beforeAll,afterAll,describe,it,expect } from "vitest";
 import { eq,sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { governanceMembers,governanceMembershipChanges,roleAssignments,governanceCapabilityRegistry,auditLog,enterpriseEvents,governanceAppointments,documents } from "../../src/db/schema";
+import { governanceMembers,governanceMembershipChanges,roleAssignments,governanceCapabilityRegistry,auditLog,enterpriseEvents,governanceAppointments,documents,resolutions,resolutionVotes } from "../../src/db/schema";
 import { proposeMembershipChange,applyMembershipChange } from "../../src/lib/governance/membership-service";
 import { currentCharterComposition } from "../../src/lib/governance/charter-rules";
 import { authorizeBodyPresider } from "../../src/lib/governance/body-authority";
@@ -13,7 +14,12 @@ const target=()=>f.members.find(m=>m.partyId===f.candidate.partyId)!;
 const propose=(command="SUSPEND",expectedRevision=0,p=f.chair,extra={})=>as(p,()=>proposeMembershipChange(p,f.childId,target().id,{command,expectedRevision,documentId:"DOC_D4",rationale:"Review exact original membership and independent current authority",...extra},ctx));
 const apply=(id:string,resolutionId:string,p=f.secretary)=>as(p,()=>applyMembershipChange(p,f.childId,id,{resolutionId,note:"Independently apply the exact current superior decision"},ctx));
 async function request(command="SUSPEND",revision=0){const r=await propose(command,revision);return {r,resolutionId:await membershipBallot(r.id,f)};}
-beforeAll(async()=>{await cleanupMembership("MEMBERSHIP");f=await membershipFixture("MEMBERSHIP");},120000);
+beforeAll(async()=>{await cleanupMembership("MEMBERSHIP");f=await membershipFixture("MEMBERSHIP");
+ await db.insert(resolutions).values({id:"RES_MEMBER_HISTORY",reference:"RES_MEMBER_HISTORY",tenantId:f.chair.tenantId,bodyId:f.childId,title:"Preserve concluded membership history",category:"POLICY",summary:"Fixture",rationale:"Fixture",dataBasis:"Fixture",consequences:"No automatic grants",proposedBy:f.candidate.userId,status:"TABLED",requiredMajority:"SIMPLE",classification:"PUBLIC",votingOpensAt:new Date(0),votingClosesAt:new Date(1)});
+ for(const m of f.members)await db.insert(resolutionVotes).values({id:`RV_HISTORY_${m.id}`,resolutionId:"RES_MEMBER_HISTORY",memberId:m.id,vote:"FOR"});
+ await as(f.candidate,()=>decideResolutionClosure(f.candidate,{resolutionId:"RES_MEMBER_HISTORY"},ctx));
+ expect((await as(f.candidate,()=>votingSnapshots(f.candidate,["RES_MEMBER_HISTORY"]))).get("RES_MEMBER_HISTORY")).toMatchObject({currentVote:"FOR",quorumBasis:"DECISION_RECORD"});
+},120000);
 afterAll(()=>cleanupMembership("MEMBERSHIP"));
 describe("governed membership lifecycle",()=>{
  it("denies nonpresiders, forged authority, and another person's resignation",async()=>{
@@ -40,12 +46,13 @@ describe("governed membership lifecycle",()=>{
   expect(await db.select().from(governanceMembers)).toEqual(before);expect(await db.select().from(auditLog)).toEqual(audits);expect(await db.select().from(enterpriseEvents)).toEqual(events);
  });
  it("serializes suspension, preserves evidence and disables presiding/composition without RBAC mutation",async()=>{
-  const {r,resolutionId}=await request(),roles=await db.select().from(roleAssignments),caps=await db.select().from(governanceCapabilityRegistry),appointments=await db.select().from(governanceAppointments);
+  const {r,resolutionId}=await request(),roles=await db.select().from(roleAssignments),caps=await db.select().from(governanceCapabilityRegistry),appointments=await db.select().from(governanceAppointments),decisionHistory=await db.select().from(resolutions),ballotHistory=await db.select().from(resolutionVotes);
   const results=await Promise.allSettled([apply(r.id,resolutionId),apply(r.id,resolutionId)]);expect(results.filter(r=>r.status==="fulfilled")).toHaveLength(1);expect(results.find(r=>r.status==="rejected")).toMatchObject({reason:{code:"CONFLICT"}});
   expect((await db.select().from(governanceMembers).where(eq(governanceMembers.id,target().id)))[0]).toEqual({...target(),lifecycleStatus:"SUSPENDED",lifecycleRevision:1});
   await expect(as(f.candidate,()=>authorizeBodyPresider(f.candidate,f.childId,"PUBLIC","NOMINATE","appointment"))).rejects.toHaveProperty("code","FORBIDDEN");
   expect(await as(f.chair,()=>currentCharterComposition({id:f.childId,quorumMinimum:4,majorityRule:"SIMPLE"}))).toMatchObject({satisfied:false});
-  expect(await db.select().from(roleAssignments)).toEqual(roles);expect(await db.select().from(governanceCapabilityRegistry)).toEqual(caps);expect(await db.select().from(governanceAppointments)).toEqual(appointments);
+  expect(await db.select().from(roleAssignments)).toEqual(roles);expect(await db.select().from(governanceCapabilityRegistry)).toEqual(caps);expect(await db.select().from(governanceAppointments)).toEqual(appointments);expect(await db.select().from(resolutions)).toEqual(decisionHistory);expect(await db.select().from(resolutionVotes)).toEqual(ballotHistory);
+  expect((await as(f.candidate,()=>votingSnapshots(f.candidate,["RES_MEMBER_HISTORY"]))).get("RES_MEMBER_HISTORY")).toMatchObject({currentVote:"FOR",canVote:false,quorumBasis:"DECISION_RECORD",quorum:{eligible:4,met:true}});
   const events=await db.select().from(enterpriseEvents).where(eq(enterpriseEvents.subjectId,target().id));expect(events.filter(e=>e.type==="GOVERNANCE_MEMBER_SUSPENDED")).toHaveLength(1);expect(events.find(e=>e.type==="GOVERNANCE_MEMBER_SUSPENDED")).toMatchObject({correlationId:ctx.traceId,causationId:expect.any(String)});
  });
  it("reinstates only through the superior while the child lacks composition, without renewing its dates",async()=>{
@@ -57,6 +64,7 @@ describe("governed membership lifecycle",()=>{
   await expect(propose("RESIGN",2,{...f.candidate,mfaSatisfied:false})).rejects.toHaveProperty("code","FORBIDDEN");
   const resigned=await propose("RESIGN",2,f.candidate);expect(resigned.status).toBe("APPLIED");expect(resigned.appliedByPartyId).toBe(f.candidate.partyId);
   expect((await db.select().from(governanceMembers).where(eq(governanceMembers.id,target().id)))[0]).toEqual({...target(),lifecycleStatus:"RESIGNED",lifecycleRevision:3});
+  expect((await as(f.candidate,()=>votingSnapshots(f.candidate,["RES_MEMBER_HISTORY"]))).get("RES_MEMBER_HISTORY")).toMatchObject({currentVote:"FOR",canVote:false,quorumBasis:"DECISION_RECORD"});
   await expect(propose("REINSTATE",3)).rejects.toHaveProperty("code","RULE_VIOLATION");
   expect((await db.select().from(governanceMembershipChanges).where(eq(governanceMembershipChanges.memberId,target().id))).filter(c=>c.status==="APPLIED")).toHaveLength(3);
  });

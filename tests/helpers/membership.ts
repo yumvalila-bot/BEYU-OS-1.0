@@ -21,4 +21,4 @@ export async function membershipBallot(id:string,f:Awaited<ReturnType<typeof mem
  for(const m of await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId,f.bodyId)))await db.insert(resolutionVotes).values({id:`${resolutionId}_${m.id}`,resolutionId,memberId:m.id,vote:"FOR"});
  await as(f.chair,()=>decideResolutionClosure(f.chair,{resolutionId},ctx));return resolutionId;
 }
-export async function cleanupMembership(prefix:string){await db.execute(sql`delete from governance_membership_changes where body_id in(select body_id from governance_body_establishments where parent_body_id=${`GOV_${prefix}`})`);await cleanupBodyActivation(prefix);}
+export async function cleanupMembership(prefix:string){await db.execute(sql`delete from governance_membership_changes where body_id in(select body_id from governance_body_establishments where parent_body_id=${`GOV_${prefix}`})`);await db.execute(sql`delete from resolution_votes where member_id in(select m.id from governance_members m join governance_body_establishments e on e.body_id=m.body_id where e.parent_body_id=${`GOV_${prefix}`})`);await cleanupBodyActivation(prefix);}

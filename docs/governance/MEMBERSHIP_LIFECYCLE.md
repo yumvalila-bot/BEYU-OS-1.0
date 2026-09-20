@@ -46,6 +46,10 @@ well as original dates. Suspended occupancy is retained for overlap checks;
 terminal resigned/removed memberships do not reserve a future occupancy.
 Inactive members and their old ballots remain readable within existing scope.
 Final decision snapshots and original appointment evidence remain unchanged.
+Personal ballots on final decisions are selected from historical seats, not the
+current electorate: a suspended/resigned voter still sees their recorded vote,
+without regaining the ability to vote. A reproduced regression and its retained
+assertions cover that separation.
 
 The SQL migration carries forward the latest invoker establishment, charter,
 initial-appointment, body-activation and current-composition guards, adding only
