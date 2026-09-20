@@ -16,6 +16,11 @@ beforeAll(async()=>{
 },120000);
 afterAll(async()=>{if(runtime)await runtime.end();await cleanupMembership("MEMBERSHIP_RLS");await db.execute(sql`delete from documents where id='DOC_MEMBERSHIP_RLS'`);});
 describe("actual non-owner membership lifecycle boundary",()=>{
+ it.each([["beyu.governance_context","off"],["beyu.governance_classifications","PUBLIC"],["beyu.current_tenant_ids","TEN_WRONG_SCOPE"]])("cannot hide deferred evidence using %s=%s",async(key,value)=>scoped(async()=>{
+  expect((await apply()).rowCount).toBe(1);
+  await runtime.query("select set_config($1,$2,true)",[key,value]);
+  await expect(runtime.query("set constraints all immediate")).rejects.toHaveProperty("code","23514");
+ }));
  it("denies missing context",async()=>{expect((await runtime.query("select id from governance_membership_changes where id=$1",[id])).rowCount).toBe(0);});
  it.each([{tenant:"TEN_BEYU_FINTECH"},{entity:"WRONG_ENTITY"},{classification:"PUBLIC"}])("enforces %j despite global flag",async(o)=>scoped(async()=>{expect((await runtime.query("select id from governance_membership_changes where id=$1",[id])).rowCount).toBe(0);expect((await apply()).rowCount).toBe(0);},o));
  it("denies a nonpresider with forged transaction flags",async()=>scoped(async()=>{await expect(apply()).rejects.toHaveProperty("code","23514");},{actor:f.candidate.userId}));

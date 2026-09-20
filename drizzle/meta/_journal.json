@@ -414,6 +414,13 @@
       "when": 1789944839938,
       "tag": "0058_governance_body_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789946723842,
+      "tag": "0059_governance_atomic_visibility",
+      "breakpoints": true
     }
   ]
 }

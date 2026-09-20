@@ -1195,7 +1195,7 @@ describe("compliance module — creates no second truth", () => {
     // + 0052: superior-body establishment, not specialist execution authority.
     // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(59);  });
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(60);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

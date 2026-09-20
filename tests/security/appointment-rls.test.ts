@@ -2,9 +2,9 @@ import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { nominateMember } from "../../src/lib/governance/appointment-service";
-import { appointmentFixture, appointmentInput, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
-let runtime: Client, f: Awaited<ReturnType<typeof appointmentFixture>>, id: string;
+import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
+import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
+let runtime: Client, f: Awaited<ReturnType<typeof appointmentFixture>>, id: string, acceptedId:string;
 async function scoped(fn: () => Promise<void>, options: { tenant?: string; entity?: string; classification?: string; read?: string } = {}) {
  await runtime.query("begin");
  try {
@@ -19,9 +19,20 @@ beforeAll(async () => {
  await cleanupAppointments("APPT_RLS"); f = await appointmentFixture("APPT_RLS");
  await db.execute(sql`insert into documents select (jsonb_populate_record(null::documents, to_jsonb(d)||'{"id":"DOC_APPT_RLS","classification":"RESTRICTED"}'::jsonb)).* from documents d where id='DOC_D4'`);
  id = (await as(f.chair, () => nominateMember(f.chair, f.bodyId, appointmentInput(f.candidate.userId, { documentId: "DOC_APPT_RLS" }), { traceId: "APPOINTMENT_RLS" }))).id;
+ const ctx={traceId:"APPOINTMENT_ATOMIC_SCOPE"};
+ const pending=await as(f.chair,()=>nominateMember(f.chair,f.bodyId,appointmentInput(f.candidate.userId,{documentId:"DOC_APPT_RLS"}),ctx));acceptedId=pending.id;
+ const rid=await appointmentBallot(acceptedId,f.chair);
+ await as(f.secretary,()=>commandAppointment(f.secretary,f.bodyId,acceptedId,{command:"APPROVE",expectedRevision:1,resolutionId:rid,note:"Independent approval for deferred SQL visibility proof"},ctx));
+ await as(f.candidate,()=>commandAppointment(f.candidate,f.bodyId,acceptedId,{command:"ACCEPT",expectedRevision:2,note:"Human consent for deferred SQL visibility proof"},ctx));
 });
 afterAll(async () => { await cleanupAppointments("APPT_RLS"); await db.execute(sql`delete from documents where id='DOC_APPT_RLS'`); if (runtime) await runtime.end(); });
 describe("appointment direct non-owner SQL boundary", () => {
+ it.each([["beyu.governance_context","off"],["beyu.governance_classifications","PUBLIC"],["beyu.current_tenant_ids","TEN_WRONG_SCOPE"],["beyu.governance_context","on"]])("partial activation remains atomic with %s=%s",async(key,value)=>scoped(async()=>{
+  await runtime.query("select set_config('beyu.governance_appointment_actor',$1,true),set_config('beyu.governance_appointment_id',$2,true)",[f.secretary.userId,acceptedId]);
+  expect((await runtime.query("update governance_appointments set status='ACTIVE',revision=4,activated_by_user_id=$2,member_id='GMB_INVISIBLE_APPOINTMENT' where id=$1",[acceptedId,f.secretary.userId])).rowCount).toBe(1);
+  await runtime.query("select set_config($1,$2,true)",[key,value]);
+  await expect(runtime.query("set constraints all immediate")).rejects.toHaveProperty("code","23514");
+ }));
  it("exposes no rows without scoped context", async () => { expect((await runtime.query("select id from governance_appointments where id=$1", [id])).rowCount).toBe(0); });
  it.each([{ tenant: "TEN_BEYU_FINTECH" }, { entity: "WRONG_ENTITY" }, { classification: "PUBLIC" }, { read: "off" }])("blocks %j despite global flag", async (options) => scoped(async () => { expect((await runtime.query("select id from governance_appointments where id=$1", [id])).rowCount).toBe(0); }, options));
  it("cannot delete appointment history", async () => scoped(async () => { expect((await runtime.query("delete from governance_appointments where id=$1", [id])).rowCount).toBe(0); }));

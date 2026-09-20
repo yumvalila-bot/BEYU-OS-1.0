@@ -106,3 +106,10 @@ advanced read-only analysis remain gaps. They are not GitHub or approval blocker
 Membership and body status still confer no RBAC, security, Finance, delegated
 capability or CAP_POSTING. Noelia/HIVE remain assistive. Production promotion is
 human-controlled.
+
+## Subsequent deferred-validation hardening
+
+The later security review reproduced a context-loss loophole in five existing
+atomic guards. [0059](ATOMIC_VISIBILITY_HARDENING.md) closes it with a forward,
+invoker-only fail-closed visibility check. The complete validation target is now
+**60 migrations**, not the intermediate 59-migration development database.

@@ -28,6 +28,11 @@ beforeAll(async()=>{
 },120000);
 afterAll(async()=>{if(runtime)await runtime.end();await cleanupBodyActivation("BODY_ACT_RLS");await db.execute(sql`delete from documents where id='DOC_BODY_ACT_RLS'`);});
 describe("atomic body activation actual non-owner SQL",()=>{
+ it.each([["beyu.governance_context","off"],["beyu.governance_classifications","PUBLIC"],["beyu.current_tenant_ids","TEN_WRONG_SCOPE"]])("cannot hide deferred evidence using %s=%s",async(key,value)=>scoped(async()=>{
+  expect((await activate()).rowCount).toBe(1);
+  await runtime.query("select set_config($1,$2,true)",[key,value]);
+  await expect(runtime.query("set constraints all immediate")).rejects.toHaveProperty("code","23514");
+ }));
  it("fails closed without scope",async()=>{expect((await runtime.query("select id from governance_body_activations where id=$1",[id])).rowCount).toBe(0);});
  it.each([{tenant:"TEN_BEYU_FINTECH"},{entity:"WRONG_ENTITY"},{classification:"PUBLIC"}])("enforces %j despite a forged global flag",async(options)=>scoped(async()=>{
   expect((await runtime.query("select id from governance_body_activations where id=$1",[id])).rowCount).toBe(0);

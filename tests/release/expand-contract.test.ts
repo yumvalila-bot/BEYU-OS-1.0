@@ -113,12 +113,12 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 59-migration inventory and rejects the stale baseline", async () => {
+  it("requires the exact 60-migration inventory and rejects the stale baseline", async () => {
     // 0057 adds governed membership lifecycle; historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(59);
+    const result = verifyP2MigrationIntegrity(60);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(59);
+    expect(result.count).toBe(60);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
