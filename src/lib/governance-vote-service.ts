@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currentCharterComposition } from "./governance/charter-rules";
 import { hasEffectiveConstitution } from "./governance/constitution";
 import { and, eq, inArray, isNull, or, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -188,6 +189,8 @@ async function authorizeGovernanceAction(
   if (!await hasEffectiveConstitution()) {
     throw new GovernanceError("POLICY_DENIED", "An effective constitutional foundation is required before governance action.");
   }
+  const composition = await currentCharterComposition(ctx.body);
+  if (!composition.satisfied) throw new GovernanceError("RULE_VIOLATION", "Adopted charter composition or voting requirements are not satisfied.");
   const classification = ctx.resolution.classification as Classification;
 
   const decision = can(principal, permission, {

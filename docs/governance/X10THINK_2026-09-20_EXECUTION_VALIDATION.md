@@ -3,6 +3,16 @@
 2026-09-20 · **Implemented and pushed this execution slice. Full A–AR mission
 remains incomplete; production readiness is not certified.**
 
+## Subsequent reconciliation
+
+On the next continuation, GitHub access was restored, this report (`caab4e1`) was
+pushed, and the previously pending root security gate for `779c922` was observed
+**SUCCESS** (run35501306145, completed 2026-09-20T09:23:33Z). All applicable checks
+for the evidence-only `caab4e1` revision were also observed successful. The
+historical authentication failure in section L is no longer the current status.
+The next P1 charter/composition source increment is validated separately; prior
+CI success is not substituted for checks on new source.
+
 ## A. Repository baseline
 
 Session branch remains `arena/01a0bda3-beyu-os-1-0`. Original main/session baseline:

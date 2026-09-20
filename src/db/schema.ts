@@ -119,3 +119,4 @@ export * from "./schema/admin-governance";
 export * from "./schema/release";
 
 export * from "./schema/governance-execution";
+export * from "./schema/governance-charters";

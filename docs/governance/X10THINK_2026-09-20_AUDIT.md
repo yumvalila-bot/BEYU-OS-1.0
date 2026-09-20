@@ -5,6 +5,11 @@ Date: 2026-09-20. **Engineering checkpoint — NOT a completion or production ce
 Continuation: the generic action chain is now implemented as described in
 [Resolution execution](RESOLUTION_EXECUTION.md). The full mission remains incomplete.
 
+P1 continuation: [Charters and composition](CHARTERS_AND_COMPOSITION.md) adds
+immutable versioned charter review/adoption and enforced role-count composition
+controls. Body creation and the appointment/acceptance/renewal lifecycle are still
+not implemented; this does not change the mission's incomplete status.
+
 ## Baseline and method
 
 - Started clean on `arena/01a0bda3-beyu-os-1-0` at
@@ -57,10 +62,10 @@ unless an explicit human dependency is named; they are not disguised as external
 | Scope | Classification after patch | Repository evidence and remaining gap |
 |---|---|---|
 | A Constitution | PARTIAL | `schema/governance.ts` articles/policies; `governance/constitution.ts`, `policy.ts`; effective apex gate FIXED. No comprehensive amendment/version approval workflow or ratified per-body/jurisdiction rules |
-| B Governing bodies | PARTIAL | `governanceBodies`, `/os/governance`; identity/type/entity/quorum/majority; runtime writes now blocked pending controlled administration. No complete charter/history/effective-date workflow |
-| C Charters / terms | PARTIAL | `charterDocumentId`, shared documents; no approval/version/supersession lifecycle for charters |
+| B Governing bodies | PARTIAL | `governanceBodies`, `/os/governance`; identity/type/entity/quorum/majority; runtime writes remain protected. Versioned charter review/adoption and live composition enforcement now exist; body establishment/suspension/dissolution remains missing |
+| C Charters / terms | IMPLEMENTED core / PARTIAL full lifecycle | `governance_charters` + classified immutable `governance_charter_terms`, `charter-service.ts`, API/UI/RLS/tests: document snapshot → review → independent adoption under explicit voted POLICY resolution. Latest adopted version governs without rewriting history; superior-body authority and canonical rule amendment remain missing |
 | D Membership | PARTIAL | `governanceMembers`, `core.entityAppointments`, party/user linkage; active authority FIXED. No shared application/nomination/acceptance/suspension workflow |
-| E Seats / composition | PARTIAL | `seatRole`, `votingRights`, appointment dates; no independent vacant-seat/composition/competency model |
+| E Seats / composition | PARTIAL | `seatRole`, `votingRights`, appointment dates; adopted minimum/maximum voting/role counts now enforced, including dates, duplicates and observers. No independent vacant-seat/nomination/competency-evidence model |
 | F Competency matrix | NOT IMPLEMENTED | No corporate governance competency schema/service/API in inspected source. HCM is not a substitute |
 | G Tenure / succession | PARTIAL | Member dates and family/trust mechanisms; no shared renewal/emergency replacement/expiry notification workflow |
 | H Meetings | NOT IMPLEMENTED (shared) / PARTIAL (Foundation) | `schema/foundation.ts`, `/api/v1/foundation/governance/meetings` are sector-specific. No shared corporate meeting state machine; do not duplicate this as an OS |
@@ -91,7 +96,7 @@ unless an explicit human dependency is named; they are not disguised as external
 | AG Reporting | PARTIAL | Governance view and read-only specialists; no complete board/committee/implementation reporting set |
 | AH Command center | PARTIAL | Existing `/os/governance` enhanced; server-derived implementation/overdue action metrics now exist; no fabricated meeting/pack health metrics |
 | AI Records vault | PARTIAL | Shared Documents/retention/legal-hold mechanism; no governance-specific records capture/retention classification workflow |
-| AJ Event ledger | PARTIAL; covered mutations IMPLEMENTED | `withAuditTransaction`, hash-chained audit/events; proposal/table/vote/decision/recusal and all new task transitions atomic, with decision causation. Missing workflows cannot emit real events |
+| AJ Event ledger | PARTIAL; covered mutations IMPLEMENTED | `withAuditTransaction`, hash-chained audit/events; proposal/table/vote/decision/recusal and all new task and charter transitions atomic, with decision causation. Missing workflows cannot emit real events |
 | AK Security | PARTIAL; core RLS/decision defects FIXED | Guarded identity/RBAC/ABAC/MFA and core RLS; country-scoped policy uses entity country, **no independent country grant axis on Principal**. Full cross-domain audit not certified |
 | AL Exceptions | PARTIAL substrate | Shared approval/security mechanisms; no explicit expiring corporate quorum/notice exception workflow. No implicit exceptions introduced |
 | AM Break-glass | PARTIAL substrate | Existing emergency permissions and auditing remain; no new governance bypass or self-authorization. No claim of complete governance emergency workflow |

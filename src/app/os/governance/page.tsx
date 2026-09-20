@@ -1,3 +1,6 @@
+import { CharterPanel } from "./charter-panel";
+import { readBodyCharters, canManageCharters } from "@/lib/governance/charter-service";
+import { currentCharterComposition } from "@/lib/governance/charter-rules";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
@@ -36,6 +39,12 @@ export default async function GovernancePage() {
         )
       : inArray(governanceBodies.tenantId, scope);
   const bodies = await db.select().from(governanceBodies).where(bodyPredicate);
+  const charterViews = new Map(await Promise.all(bodies.map(async (body) => {
+    const view = await readBodyCharters(access.principal, body.id);
+    const composition = await currentCharterComposition(body);
+    return [body.id, { ...view, canManage: await canManageCharters(access.principal, body.id),
+      composition: composition.coverage === "LEGACY_UNCHARTERED" ? "No adopted charter recorded (legacy coverage gap)" : composition.satisfied ? "Current composition satisfies adopted rules" : "Adopted charter requirements not satisfied; mutations are blocked" }] as const;
+  })));
   const bodyIds = bodies.map((body) => body.id);
   const members =
     bodyIds.length > 0
@@ -144,6 +153,8 @@ export default async function GovernancePage() {
                   ))}
                 </div>
               </div>
+              <CharterPanel bodyId={b.id} userId={access.principal.userId} quorum={b.quorumMinimum} majority={b.majorityRule}
+                canManage={charterViews.get(b.id)!.canManage} charters={charterViews.get(b.id)!.charters} composition={charterViews.get(b.id)!.composition} />
             </Panel>
           );
         })}

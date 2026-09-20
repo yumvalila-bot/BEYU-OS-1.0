@@ -923,8 +923,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
     // + 0048: shared governance RLS; no specialist tables or posting authority added.
+    // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(50);  });
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(51);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

@@ -38,6 +38,7 @@ export const ID_PREFIX = {
   article: "ART",
   policy: "POL",
   body: "GOV",
+  charter: "GCH",
   member: "GMB",
   resolution: "RES",
   vote: "VOT",
