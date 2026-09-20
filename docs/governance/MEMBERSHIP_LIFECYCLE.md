@@ -96,8 +96,10 @@ passed four actual HTTP tests and a complete browser suspension → denied autho
 not substitutes for the full regression/browser rerun on the published increment.
 Typecheck, lint (one existing image warning), integrity (58 checksums, 14 known
 metadata debts, zero blockers), drift (zero blockers) and no-op passed before
-publication. The complete validation checkpoint will record final source-specific
-suite, browser and observed CI outcomes, not infer them.
+publication. The [completed local validation checkpoint](MEMBERSHIP_VALIDATION_2026-09-21.md)
+records the subsequent source-specific 4,470-test and 33-browser passes, the
+separate successful execution of all eleven optional bootstrap tests, and the
+observed CI/publication boundary. It does not infer a final root CI result.
 
 ## Remaining work, not external blockers
 
