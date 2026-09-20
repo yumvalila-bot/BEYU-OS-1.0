@@ -1,3 +1,14 @@
+import { ActivationPanel } from "./activation-panel";
+import { listBodyActivations } from "@/lib/governance/activation-service";
+import { canManageAppointments } from "@/lib/governance/appointment-authority";
+import { EstablishmentPanel } from "./establishment-panel";
+import { listBodyEstablishments } from "@/lib/governance/establishment-service";
+import { AppointmentPanel } from "./appointment-panel";
+import { listBodyAppointments } from "@/lib/governance/appointment-service";
+import { SimulationPanel } from "./simulation-panel";
+import { CharterPanel } from "./charter-panel";
+import { readBodyCharters, canManageCharters } from "@/lib/governance/charter-service";
+import { currentCharterComposition } from "@/lib/governance/charter-rules";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceBodies, governanceMembers, parties, policies, resolutions } from "@/db/schema";
@@ -6,6 +17,7 @@ import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { auditTrailsFor } from "@/lib/audit";
 import {
+  authorizeResolutionFollowUp,
   canDecideResolutions,
   canTableResolutions,
   votingSnapshots,
@@ -14,6 +26,9 @@ import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, EmptyState, Panel, stateTone } from "@/components/brand";
 import { ProposeResolution } from "./propose";
 import { VotePanel } from "./vote-panel";
+import { ActionPanel } from "./action-panel";
+import { listGovernanceActions } from "@/lib/governance/action-service";
+import { GovernanceError } from "@/lib/governance";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +47,15 @@ export default async function GovernancePage() {
         )
       : inArray(governanceBodies.tenantId, scope);
   const bodies = await db.select().from(governanceBodies).where(bodyPredicate);
+  const charterViews = new Map(await Promise.all(bodies.map(async (body) => {
+    const view = await readBodyCharters(access.principal, body.id);
+    const composition = await currentCharterComposition(body);
+    const { appointments } = await listBodyAppointments(access.principal, body.id);
+    const { plans } = await listBodyActivations(access.principal, body.id);
+    const { proposals } = await listBodyEstablishments(access.principal, body.id);
+    return [body.id, { ...view, appointments, proposals, plans, canManageAppointments: await canManageAppointments(access.principal, body.id), canManage: body.status === "ACTIVE" && await canManageCharters(access.principal, body.id), canManageCharter: await canManageCharters(access.principal, body.id),
+      composition: composition.coverage === "APPROVED_PENDING_ACTIVATION" ? "Initial charter approved, not effective; composition and activation remain blocked" : composition.coverage === "LEGACY_UNCHARTERED" ? "No adopted charter recorded (legacy coverage gap)" : composition.satisfied ? "Current composition satisfies adopted rules" : "Adopted charter requirements not satisfied; mutations are blocked" }] as const;
+  })));
   const bodyIds = bodies.map((body) => body.id);
   const members =
     bodyIds.length > 0
@@ -41,6 +65,7 @@ export default async function GovernancePage() {
             bodyId: governanceMembers.bodyId,
             seatRole: governanceMembers.seatRole,
             votingRights: governanceMembers.votingRights,
+            appointedOn: governanceMembers.appointedOn, retiredOn: governanceMembers.retiredOn,
             name: parties.displayName,
           })
           .from(governanceMembers)
@@ -61,6 +86,13 @@ export default async function GovernancePage() {
           )
           .orderBy(resolutions.createdAt)
       : [];
+  const execution = new Map(await Promise.all(visible.filter((r) => r.status === "APPROVED").map(async (r) => {
+    const actions = await listGovernanceActions(access.principal, r.id);
+    let canManage = false;
+    try { await authorizeResolutionFollowUp(access.principal, r.id, true); canManage = true; }
+    catch (error) { if (!(error instanceof GovernanceError)) throw error; }
+    return [r.id, { actions, canManage }] as const;
+  })));
   const canReadPolicies = can(access.principal, "governance:policy.read").allowed;
   const policyIds = [
     ...new Set(
@@ -119,7 +151,7 @@ export default async function GovernancePage() {
                 <ul className="mt-1 space-y-1">
                   {seat.map((m) => (
                     <li key={m.id} className="text-[12px]">
-                      {m.name} <span className="beyu-muted">· {m.seatRole}{m.votingRights ? "" : " · non-voting"}</span>
+                      {m.name} <span className="beyu-muted">· {m.seatRole}{m.votingRights ? "" : " · non-voting"} · {m.appointedOn} – {m.retiredOn ?? "open term"} · {m.appointedOn > new Date().toISOString().slice(0,10) ? "SCHEDULED" : m.retiredOn && m.retiredOn < new Date().toISOString().slice(0,10) ? "EXPIRED" : "CURRENT TERM"}</span>
                     </li>
                   ))}
                   {seat.length === 0 && <li className="text-[11.5px] beyu-muted">No seats recorded.</li>}
@@ -133,6 +165,13 @@ export default async function GovernancePage() {
                   ))}
                 </div>
               </div>
+              <EstablishmentPanel parentId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManage && ["BOARD", "TRUSTEES"].includes(b.bodyType)} quorum={b.quorumMinimum} majority={b.majorityRule} proposals={charterViews.get(b.id)!.proposals.map((p) => ({ id: p.id, name: p.name, code: p.code, status: p.status, revision: p.revision, proposedByUserId: p.proposedByUserId, bodyId: p.bodyId }))} />
+              <AppointmentPanel initial={b.status === "DRAFT"} bodyId={b.id} userId={access.principal.userId} canManage={charterViews.get(b.id)!.canManageAppointments} appointments={charterViews.get(b.id)!.appointments.map((a) => ({ id: a.id, authorityBodyId: a.authorityBodyId, initialCharterId: a.initialCharterId, status: a.status, revision: a.revision, nomineeUserId: a.nomineeUserId, nominatedByUserId: a.nominatedByUserId, seatRole: a.seatRole, votingRights: a.votingRights, appointedOn: a.appointedOn, retiredOn: a.retiredOn, documentId: a.documentId, rationale: a.rationale, memberId: a.memberId }))} />
+              {(b.status === "DRAFT" || charterViews.get(b.id)!.plans.length > 0) && <ActivationPanel bodyId={b.id} userId={access.principal.userId} canManage={b.status === "DRAFT" && charterViews.get(b.id)!.canManageAppointments}
+                plans={charterViews.get(b.id)!.plans.map((p) => ({ id:p.id,status:p.status,revision:p.revision,authorityBodyId:p.authorityBodyId,initialCharterId:p.initialCharterId,nominationIds:p.nominationIds,proposedByUserId:p.proposedByUserId,activatedAt:p.activatedAt?.toISOString() ?? null }))}
+                accepted={charterViews.get(b.id)!.appointments.filter((a) => a.status === "ACCEPTED" && a.initialCharterId).map((a) => ({ id:a.id,seatRole:a.seatRole,nomineeUserId:a.nomineeUserId }))} />}
+              <CharterPanel bodyId={b.id} userId={access.principal.userId} quorum={b.quorumMinimum} majority={b.majorityRule}
+                initial={b.status === "DRAFT"} canManage={charterViews.get(b.id)!.canManageCharter} charters={charterViews.get(b.id)!.charters} composition={charterViews.get(b.id)!.composition} />
             </Panel>
           );
         })}
@@ -163,7 +202,7 @@ export default async function GovernancePage() {
               const policy = policyRows.find((p) => p.id === r.authorityPolicyId);
               const total = r.votesFor + r.votesAgainst + r.votesAbstain;
               return (
-                <div key={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
+                <div key={r.id} id={`resolution-${r.id}`} data-resolution-id={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <span className="font-mono text-[11.5px] beyu-muted">{r.reference}</span>
@@ -208,6 +247,12 @@ export default async function GovernancePage() {
                       decisionDate={r.decisionDate ? r.decisionDate.toISOString() : null}
                     />
                   )}
+
+                  <SimulationPanel resolutionId={r.id} />
+                  {execution.has(r.id) && <ActionPanel resolutionId={r.id} userId={access.principal.userId}
+                    canManage={execution.get(r.id)!.canManage}
+                    actions={execution.get(r.id)!.actions.map((action) => ({ ...action,
+                      dueAt: action.dueAt?.toISOString() ?? null, closedAt: action.closedAt?.toISOString() ?? null }))} />}
 
                   {(() => {
                     const trail = trails.get(r.id) ?? [];

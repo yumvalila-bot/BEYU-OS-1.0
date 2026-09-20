@@ -52,7 +52,7 @@ export type QuorumResult = {
   /** Eligible members after removing recusals — the denominator. */
   eligibleCount: number;
   recusedCount: number;
-  /** The effective requirement, never more than the available electorate. */
+  /** The configured absolute requirement; recusals never lower it. */
   required: number;
   participated: number;
   met: boolean;
@@ -61,30 +61,41 @@ export type QuorumResult = {
 /**
  * Quorum.
  *
- * `quorum_minimum` is an absolute member count in this schema (no percentage or
- * ratio form exists), so it is used directly. It is capped at the eligible count:
- * a body cannot require more attendees than it has non-recused members, which
- * would otherwise make every resolution permanently undecidable after a recusal.
+ * `quorum_minimum` is an absolute member count, not a proportion. An
+ * insufficient electorate must defer the decision, never rewrite the rule.
  */
 export function calculateQuorum(input: QuorumInput, ballots: BallotLine[]): QuorumResult {
-  const recused = new Set(input.recusedMemberIds);
-  const eligible = input.eligibleMemberIds.filter((id) => !recused.has(id));
-  const eligibleSet = new Set(eligible);
-
-  // Only substantive ballots from still-eligible members count as participation.
-  const participated = ballots.filter(
-    (b) => eligibleSet.has(b.memberId) && isSubstantiveVote(b.vote),
-  ).length;
-
-  const required = Math.max(0, Math.min(input.quorumMinimum, eligible.length));
-
+  const members = new Set(input.eligibleMemberIds);
+  const recused = new Set(input.recusedMemberIds.filter((id) => members.has(id)));
+  const eligible = new Set([...members].filter((id) => !recused.has(id)));
+  const participated = new Set(ballots.filter(
+    (b) => eligible.has(b.memberId) && isSubstantiveVote(b.vote),
+  ).map((b) => b.memberId)).size;
+  const required = input.quorumMinimum;
+  const validRule = Number.isSafeInteger(required) && required > 0;
   return {
-    eligibleCount: eligible.length,
-    recusedCount: input.recusedMemberIds.length,
+    eligibleCount: eligible.size,
+    recusedCount: recused.size,
     required,
     participated,
-    met: eligible.length > 0 && participated >= required,
+    met: validRule && eligible.size > 0 && participated >= required,
   };
+}
+
+/** One electorate for quorum AND tally. Conflicts fail closed as recusals. */
+export function eligibleBallots(
+  ballots: (BallotLine & { conflictDeclared?: boolean })[],
+  eligibleMemberIds: string[],
+): BallotLine[] {
+  const eligible = new Set(eligibleMemberIds);
+  const seen = new Set<string>();
+  return ballots.filter((b) => eligible.has(b.memberId)).map((b) => {
+    if (seen.has(b.memberId) || !(VOTE_VALUES as readonly string[]).includes(b.vote)) {
+      throw new Error("Invalid or duplicate authoritative ballot");
+    }
+    seen.add(b.memberId);
+    return { memberId: b.memberId, vote: b.conflictDeclared ? "RECUSED" : b.vote };
+  });
 }
 
 export type Tally = { for: number; against: number; abstain: number; recused: number };
@@ -129,6 +140,10 @@ export type Decision = {
 export function decideResolution(input: DecisionInput): Decision {
   const { tally, quorum, majorityRule } = input;
 
+  if (!isMajorityRule(majorityRule)) {
+    return { outcome: "DEFERRED", explanation: "Unknown majority rule; no authority to decide.", threshold: null };
+  }
+
   if (!input.votingConcluded) {
     return {
       outcome: "PENDING",
@@ -172,7 +187,6 @@ export function decideResolution(input: DecisionInput): Decision {
       threshold = Math.ceil((decisive * 2) / 3);
       break;
     case "SIMPLE":
-    default:
       threshold = Math.floor(decisive / 2) + 1;
       break;
   }

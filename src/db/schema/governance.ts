@@ -4,6 +4,7 @@
  * resolutions, votes, approvals, workflows and tasks.
  */
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -105,10 +106,11 @@ export const governanceBodies = pgTable(
     majorityRule: text("majority_rule").notNull().default("SIMPLE"), // SIMPLE | TWO_THIRDS | UNANIMOUS
     reservedMatters: jsonb("reserved_matters").$type<string[]>().notNull().default([]),
     charterDocumentId: text("charter_document_id"),
+    classification: classificationEnum("classification").notNull().default("PUBLIC"),
     status: versionStatusEnum("status").notNull().default("ACTIVE"),
   },
   (t) => [uniqueIndex("governance_bodies_code_uidx").on(t.code)],
-);
+).enableRLS();
 
 export const governanceMembers = pgTable("governance_members", {
   id: text("id").primaryKey(),
@@ -122,7 +124,7 @@ export const governanceMembers = pgTable("governance_members", {
   votingRights: boolean("voting_rights").notNull().default(true),
   appointedOn: date("appointed_on").notNull(),
   retiredOn: date("retired_on"),
-});
+}).enableRLS();
 
 export const resolutions = pgTable(
   "resolutions",
@@ -183,7 +185,7 @@ export const resolutions = pgTable(
     uniqueIndex("resolutions_reference_uidx").on(t.reference),
     index("resolutions_tenant_idx").on(t.tenantId),
   ],
-);
+).enableRLS();
 
 export const resolutionVotes = pgTable(
   "resolution_votes",
@@ -201,7 +203,7 @@ export const resolutionVotes = pgTable(
     castAt: timestamp("cast_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("resolution_votes_uidx").on(t.resolutionId, t.memberId)],
-);
+).enableRLS();
 
 /** Generic maker/checker approval chain used by every domain. */
 export const approvals = pgTable(
@@ -300,10 +302,20 @@ export const tasks = pgTable(
     dueAt: timestamp("due_at", { withTimezone: true }),
     status: text("status").notNull().default("OPEN"), // OPEN | IN_PROGRESS | DONE | ESCALATED | CANCELLED
     escalationLevel: integer("escalation_level").notNull().default(0),
+    /** Optional mandate provenance; NULL preserves ordinary kernel tasks. */
+    sourceResolutionId: text("source_resolution_id").references(() => resolutions.id, { onDelete: "restrict" }),
+    dependsOnTaskId: text("depends_on_task_id").references((): AnyPgColumn => tasks.id, { onDelete: "restrict" }),
+    version: integer("version").notNull().default(1),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    completedByUserId: text("completed_by_user_id").references(() => users.id),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    verifiedByUserId: text("verified_by_user_id").references(() => users.id),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("tasks_assignee_idx").on(t.assigneeUserId)],
-);
+  (t) => [index("tasks_assignee_idx").on(t.assigneeUserId), index("tasks_resolution_idx").on(t.sourceResolutionId)],
+).enableRLS();
 
 /** Strategy management: vision → objective → initiative → KPI. */
 export const strategicObjectives = pgTable("strategic_objectives", {

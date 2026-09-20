@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -43,6 +43,7 @@ export function ProposeResolution({
   classifications: string[];
 }) {
   const router = useRouter();
+  const retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,6 +59,7 @@ export function ProposeResolution({
     rationale: "",
     dataBasis: "",
     consequences: "",
+    linkedObjectType: "", linkedObjectId: "",
     classification: classifications.includes("RESTRICTED") ? "RESTRICTED" : (classifications[0] ?? "INTERNAL"),
   });
 
@@ -72,20 +74,28 @@ export function ProposeResolution({
   if (form.dataBasis.trim().length < 10) problems.push("Data basis must be at least 10 characters.");
   if (form.consequences.trim().length < 10) problems.push("Consequences must be at least 10 characters.");
   if (!form.bodyId) problems.push("Select a governance body.");
+  if (form.linkedObjectType && form.linkedObjectId.trim().length < 2) problems.push("Supply the exact linked governance record ID.");
 
   async function submit() {
     setBusy(true);
     setError(null);
     setDetails([]);
+    const { linkedObjectType, linkedObjectId, ...fields } = form;
+    const payload = JSON.stringify({ ...fields, ...(linkedObjectType ? { linkedObjectType, linkedObjectId: linkedObjectId.trim() } : {}) });
+    if (retry.current?.fingerprint !== payload) retry.current = { fingerprint: payload, key: crypto.randomUUID() };
     try {
       const res = await fetch("/api/v1/governance/resolutions", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "idempotency-key": retry.current.key },
         // Only the fields the client is allowed to supply. Tenant, actor,
         // reference and lifecycle status are derived by the server.
-        body: JSON.stringify(form),
+        body: payload,
       });
       const json = await res.json();
+      // A 4xx response (notably REQUEST_IN_PROGRESS, throttling or expired
+      // authentication) does not prove that an earlier attempt did not commit.
+      // Only confirmed success or a changed payload starts a new request key.
+      if (res.ok) retry.current = null;
 
       if (!res.ok) {
         const code = json?.error?.code ?? "ERROR";
@@ -110,11 +120,11 @@ export function ProposeResolution({
       }
 
       setCreated(json.data as Created);
-      setForm((f) => ({ ...f, title: "", summary: "", rationale: "", dataBasis: "", consequences: "" }));
+      setForm((f) => ({ ...f, title: "", summary: "", rationale: "", dataBasis: "", consequences: "", linkedObjectType: "", linkedObjectId: "" }));
       // Re-read the database so the persisted record is what gets displayed.
       startTransition(() => router.refresh());
     } catch {
-      setError("Unable to reach the governance service. The proposal was not recorded.");
+      setError("Response unconfirmed. Retry unchanged to recover safely.");
       setCreated(null);
     } finally {
       setBusy(false);
@@ -133,7 +143,7 @@ export function ProposeResolution({
   const body = bodies.find((b) => b.id === form.bodyId);
 
   return (
-    <div className="rounded-xl border border-[color:var(--beyu-line)] p-4">
+    <div data-resolution-proposal className="rounded-xl border border-[color:var(--beyu-line)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="beyu-kicker text-[#b08d1c]">Governed mutation</div>
@@ -178,7 +188,7 @@ export function ProposeResolution({
           <div className="grid gap-3 lg:grid-cols-2">
             <label className="text-[11.5px]">
               <div className="beyu-kicker beyu-muted">Governance body</div>
-              <select className={`${input} mt-1`} value={form.bodyId} onChange={(e) => set("bodyId")(e.target.value)}>
+              <select aria-label="Governance body" className={`${input} mt-1`} value={form.bodyId} onChange={(e) => set("bodyId")(e.target.value)}>
                 {bodies.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} ({b.majorityRule})
@@ -189,6 +199,7 @@ export function ProposeResolution({
             <label className="text-[11.5px]">
               <div className="beyu-kicker beyu-muted">Category</div>
               <select
+                aria-label="Category"
                 className={`${input} mt-1`}
                 value={form.category}
                 onChange={(e) => set("category")(e.target.value)}
@@ -201,6 +212,24 @@ export function ProposeResolution({
               </select>
             </label>
           </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <label className="block text-[11.5px]">
+              <div className="beyu-kicker beyu-muted">Linked governance record</div>
+              <select aria-label="Linked governance record" className={`${input} mt-1`} value={form.linkedObjectType} onChange={(e) => setForm((f) => ({ ...f, linkedObjectType: e.target.value, linkedObjectId: "" }))}>
+                <option value="">None</option>
+                <option value="GOVERNANCE_APPOINTMENT">Appointment nomination</option>
+                <option value="GOVERNANCE_CHARTER">Charter version</option>
+                <option value="GOVERNANCE_BODY_ACTIVATION">Initial composition activation plan</option>
+                <option value="GOVERNANCE_BODY_ESTABLISHMENT">Body establishment proposal</option>
+              </select>
+            </label>
+            {form.linkedObjectType && <label className="block text-[11.5px]">
+              <div className="beyu-kicker beyu-muted">Linked governance record ID</div>
+              <input className={`${input} mt-1`} maxLength={64} value={form.linkedObjectId} onChange={(e) => set("linkedObjectId")(e.target.value)} />
+            </label>}
+          </div>
+          <p className="text-[11px] beyu-muted">Use APPOINTMENT for a nomination, POLICY for a charter, or RESERVED MATTER for establishment. Linking a record grants no authority; approval and follow-up recheck the exact source.</p>
 
           <label className="block text-[11.5px]">
             <div className="beyu-kicker beyu-muted">Title</div>

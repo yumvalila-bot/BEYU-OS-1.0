@@ -588,7 +588,7 @@ describe("governed vote — voting conclusion", () => {
     expect(result.outcome).toBe("DEADLOCKED");
   });
 
-  it("excludes a recused member from quorum so the remainder can still decide", async () => {
+  it("does not lower quorum when a trustee recuses", async () => {
     const r = await makeResolution({ bodyId: TRUSTEES });
     const fam = await principalFor("NEEMA_BEYU");
     const gov = await principalFor("GRACE_KILELE");
@@ -608,11 +608,13 @@ describe("governed vote — voting conclusion", () => {
       conflictDeclared: true,
     });
 
-    // Electorate shrinks to 1; that member's FOR vote carries unanimously.
+    // Electorate shrinks to 1; the required quorum remains 2.
     const result = await castVote(fam, { resolutionId: r.id, vote: "FOR" }, ctx);
     expect(result.quorum.eligible).toBe(1);
     expect(result.quorum.recused).toBe(1);
-    expect(result.outcome).toBe("APPROVED");
+    expect(result.quorum.required).toBe(2);
+    expect(result.quorum.met).toBe(false);
+    expect(result.outcome).toBe("DEFERRED");
   });
 });
 

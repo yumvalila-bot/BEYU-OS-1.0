@@ -2,7 +2,8 @@ import { inArray, sql, type SQL } from "drizzle-orm";
 import { db, withDatabaseTransactionContext } from "@/db";
 import { tenants } from "@/db/schema";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import type { Principal } from "./authz";
+import { can, type Principal } from "./authz";
+import { classificationsAtOrBelow } from "./constants";
 
 /**
  * Canonical tenant-scoping abstraction.
@@ -75,7 +76,15 @@ export async function withTenantDatabaseContext<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
   const ids = await tenantScopeIds(principal);
-  return withDatabaseRlsContext(ids, hasGlobalGovernanceScope(principal), operation);
+  return withDatabaseRlsContext(ids, hasGlobalGovernanceScope(principal), async () => {
+    // Trusted server Principal only; never request-supplied tenant/entity/clearance.
+    // SET LOCAL prevents context surviving a commit, rollback or pooled reuse.
+    await db.execute(sql`select set_config('beyu.governance_context', 'on', true)`);
+    await db.execute(sql`select set_config('beyu.governance_actions_read', ${can(principal, 'governance:resolution.read').allowed ? 'on' : 'off'}, true)`);
+    await db.execute(sql`select set_config('beyu.governance_entity_ids', ${principal.entityScope.join(",")}, true)`);
+    await db.execute(sql`select set_config('beyu.governance_classifications', ${classificationsAtOrBelow(principal.clearance).join(",")}, true)`);
+    return operation();
+  });
 }
 
 /**

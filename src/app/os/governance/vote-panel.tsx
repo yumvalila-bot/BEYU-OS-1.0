@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation";
 export type Snapshot = {
   resolutionId: string;
   canVote: boolean;
+  canRecuse: boolean;
+  quorumBasis: "CURRENT_ELECTORATE" | "DECISION_RECORD" | "UNAVAILABLE";
   reason: string | null;
   currentVote: string | null;
   windowState: "NOT_OPEN" | "OPEN" | "CLOSED";
@@ -48,6 +50,7 @@ export function VotePanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
+  const [recusalReason, setRecusalReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -58,7 +61,7 @@ export function VotePanel({
     try {
       const res = await fetch(path, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
         body: JSON.stringify(payload),
       });
       const json = await res.json();
@@ -132,8 +135,9 @@ export function VotePanel({
           {t.for} for · {t.against} against · {t.abstain} abstain
         </span>
         <span className={q.met ? "text-emerald-700 dark:text-emerald-400" : "beyu-muted"}>
-          quorum {q.participated}/{q.required} of {q.eligible} eligible
-          {q.recused > 0 ? ` (${q.recused} recused, excluded)` : ""} — {q.met ? "met" : "not met"}
+          {snapshot.quorumBasis === "UNAVAILABLE"
+            ? `Recorded quorum: ${q.met ? "met" : "not met"}; historical electorate evidence unavailable`
+            : `${snapshot.quorumBasis === "DECISION_RECORD" ? "Decision-time quorum" : "Quorum"} ${q.participated}/${q.required} of ${q.eligible} eligible${q.recused > 0 ? ` (${q.recused} recused, excluded)` : ""} — ${q.met ? "met" : "not met"}`}
         </span>
         {snapshot.votingClosesAt && !decided && (
           <span className="beyu-muted">
@@ -167,6 +171,26 @@ export function VotePanel({
           ))}
           {(busy || pending) && <span className="self-center text-[11px] beyu-muted">Recording…</span>}
         </div>
+      )}
+
+      {snapshot.canRecuse && (
+        <form className="mt-3 space-y-2" onSubmit={(event) => {
+          event.preventDefault();
+          void submit(`/api/v1/governance/resolutions/${snapshot.resolutionId}/recusal`,
+            { reason: recusalReason }, () => "Conflict recorded. You are recused; voting and closure authority are restricted.");
+        }}>
+          <label className="block text-xs">
+            Conflict / recusal reason (recorded in the audit trail)
+            <textarea required minLength={10} maxLength={2000} value={recusalReason}
+              onChange={(event) => setRecusalReason(event.target.value)}
+              className="mt-1 block w-full rounded border border-[color:var(--beyu-line)] bg-transparent p-2" />
+          </label>
+          <button type="submit" disabled={busy || pending}
+            className="rounded border border-amber-600 px-3 py-1 text-xs disabled:opacity-60">
+            Declare conflict and recuse myself
+          </button>
+          <p className="text-xs beyu-muted">This restriction cannot be cleared through the voting interface.</p>
+        </form>
       )}
 
       {!snapshot.canVote && snapshot.reason && (

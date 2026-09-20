@@ -1,6 +1,7 @@
+import { hasEffectiveConstitution } from "./governance/constitution";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { capitalRequests, governanceBodies, policies, resolutions } from "@/db/schema";
+import { capitalRequests, governanceBodies, legalEntities, policies, resolutions } from "@/db/schema";
 import { can, type Principal } from "./authz";
 import { evaluatePolicy, type PolicyObligation } from "./policy";
 import { withAuditTransaction } from "./audit";
@@ -34,8 +35,8 @@ import {
  *
  * Lifecycle integrity: this service PROPOSES only. It creates a resolution in the
  * initial lifecycle state and can never produce an approved, voted or otherwise
- * decided resolution. Voting and approval are separate governed mutations that do
- * not exist yet.
+ * decided resolution. Voting and approval are separate governed mutations
+ * implemented separately in governance-vote-service.ts.
  */
 
 /**
@@ -240,25 +241,35 @@ export function inferMatterTrigger(
   category: ResolutionCategory,
   matterTrigger?: MatterTrigger | null,
 ): MatterTrigger | null {
+  if (category === "CAPITAL") {
+    if (matterTrigger && matterTrigger !== "CAPITAL_ALLOCATION") {
+      throw new GovernanceError("RULE_VIOLATION", "A capital proposal cannot override its capital-allocation trigger.");
+    }
+    return "CAPITAL_ALLOCATION";
+  }
   if (matterTrigger) return matterTrigger;
-  if (category === "CAPITAL") return "CAPITAL_ALLOCATION";
   return null;
 }
 
-async function resolveProposalAmount(input: ProposeResolutionInput): Promise<number | null> {
-  if (typeof input.amount === "number" && Number.isFinite(input.amount)) return input.amount;
+async function resolveProposalAmount(input: ProposeResolutionInput, principal: Principal): Promise<number | null> {
+  // A persisted financial object outranks an untrusted client estimate.
   if (input.linkedObjectType === "CAPITAL_REQUEST" && input.linkedObjectId) {
-    const [req] = await db
-      .select({ amount: capitalRequests.amount })
-      .from(capitalRequests)
-      .where(eq(capitalRequests.id, input.linkedObjectId))
-      .limit(1);
-    if (req?.amount != null) {
-      const n = Number(req.amount);
-      return Number.isFinite(n) ? n : null;
+    const scope = await tenantScopeIds(principal);
+    const [req] = await db.select().from(capitalRequests)
+      .where(and(eq(capitalRequests.id, input.linkedObjectId), inArray(capitalRequests.tenantId, scope))).limit(1);
+    if (!req || !can(principal, "finance:capital.read", { tenantId: req.tenantId, entityId: req.legalEntityId }).allowed) {
+      throw new GovernanceError("NOT_FOUND", "Linked capital request not found within your authorised scope.");
     }
+    const amount = Number(req.amount);
+    if (!Number.isFinite(amount) || amount < 0 || (input.amount != null && input.amount !== amount)) {
+      throw new GovernanceError("RULE_VIOLATION", "Proposal amount is inconsistent with the authoritative capital request.");
+    }
+    return amount;
   }
-  return null;
+  if (input.amount != null && (!Number.isFinite(input.amount) || input.amount < 0)) {
+    throw new GovernanceError("RULE_VIOLATION", "Invalid proposal amount.");
+  }
+  return input.amount ?? null;
 }
 
 /**
@@ -273,6 +284,9 @@ export async function proposeResolution(
   input: ProposeResolutionInput,
   context: ProposeResolutionContext,
 ): Promise<ProposedResolution> {
+  if (!await hasEffectiveConstitution()) {
+    throw new GovernanceError("POLICY_DENIED", "An effective constitutional foundation is required before governance action.");
+  }
   /* ---- 1. TENANT SCOPE ------------------------------------------------
    * The governing body is located strictly inside the principal's canonical
    * tenant scope. A forged bodyId belonging to another tenant resolves to
@@ -314,8 +328,16 @@ export async function proposeResolution(
   }
 
   /* ---- 3. POLICY HIERARCHY (DENY is final) ---------------------------- */
+  const [entity] = governingBody.legalEntityId
+    ? await db.select().from(legalEntities).where(eq(legalEntities.id, governingBody.legalEntityId)).limit(1)
+    : [];
+  if (governingBody.legalEntityId && (!entity || !scope.includes(entity.tenantId) || entity.status !== "ACTIVE")) {
+    throw new GovernanceError("FORBIDDEN", "Governing entity is not active within this scope.");
+  }
   const policy = await evaluatePolicy({
     action: "governance:resolution.propose",
+    entityCode: entity?.code,
+    jurisdictionCode: entity?.countryCode,
     tenantId: governingBody.tenantId,
     roles: principal.roles,
     classification: input.classification,
@@ -333,14 +355,21 @@ export async function proposeResolution(
   /* ---- 4. GOVERNANCE BUSINESS RULES ----------------------------------- */
   if (input.authorityPolicyId) {
     const [authority] = await db
-      .select({ id: policies.id, status: policies.status })
+      .select()
       .from(policies)
       .where(eq(policies.id, input.authorityPolicyId))
       .limit(1);
     if (!authority) {
       throw new GovernanceError("NOT_FOUND", "The cited authority policy does not exist.");
     }
-    if (authority.status !== "ACTIVE") {
+    const today = new Date().toISOString().slice(0, 10);
+    if ((authority.tenantId && authority.tenantId !== governingBody.tenantId) ||
+        classificationRank(authority.classification) > classificationRank(principal.clearance) ||
+        (authority.entityScope && authority.entityScope !== "*" && authority.entityScope !== entity?.code) ||
+        (authority.jurisdictionCode && authority.jurisdictionCode !== entity?.countryCode)) {
+      throw new GovernanceError("NOT_FOUND", "Authority policy not found within the governing scope.");
+    }
+    if (authority.status !== "ACTIVE" || authority.effectiveFrom > today || (authority.effectiveTo && authority.effectiveTo < today)) {
       throw new GovernanceError(
         "RULE_VIOLATION",
         "A resolution may only cite an ACTIVE policy as its authority.",
@@ -361,9 +390,10 @@ export async function proposeResolution(
    * The reserved-matters engine existed and was tested in isolation. A capital
    * allocation of 5,000,000 categorised CAPITAL (not RESERVED_MATTER) still
    * passed this service. The engine is now the API-boundary control. */
-  const trigger = inferMatterTrigger(input.category, input.matterTrigger);
+  // Linking a capital request cannot disguise its financial semantics as OTHER.
+  const trigger = inferMatterTrigger(input.linkedObjectType === "CAPITAL_REQUEST" ? "CAPITAL" : input.category, input.matterTrigger);
   if (trigger) {
-    const amount = await resolveProposalAmount(input);
+    const amount = await resolveProposalAmount(input, principal);
     const treatment = await requiresReservedMatterTreatment({
       trigger,
       amount,

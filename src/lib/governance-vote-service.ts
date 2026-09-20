@@ -1,22 +1,29 @@
+import { z } from "zod";
+import { currentCharterComposition } from "./governance/charter-rules";
+import { hasEffectiveConstitution } from "./governance/constitution";
 import { and, eq, inArray, isNull, or, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  enterpriseEvents,
   governanceBodies,
   governanceMembers,
+  legalEntities,
   parties,
   resolutions,
   resolutionVotes,
   users,
 } from "@/db/schema";
-import { can, type Principal } from "./authz";
+import { can, clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "./authz";
 import { evaluatePolicy } from "./policy";
 import { withAuditTransaction, type EventInput } from "./audit";
 import { assertWithinScope, tenantScopeIds, TenantIsolationError } from "./tenant-scope";
 import { newId, ID_PREFIX } from "./ids";
 import { classificationRank, type Classification } from "./constants";
 import { GovernanceError, type GovernanceErrorCode } from "./governance";
+import { DeclareRecusalSchema } from "./governance-vote-contract";
 import {
   allEligibleHaveVoted,
+  eligibleBallots,
   calculateQuorum,
   decideResolution,
   isMajorityRule,
@@ -150,11 +157,20 @@ async function loadResolutionContext(
     .from(governanceMembers)
     .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
     .innerJoin(users, eq(users.partyId, parties.id))
-    .where(and(eq(governanceMembers.bodyId, row.body.id), eq(users.id, principal.userId)))
+    .where(and(eq(governanceMembers.bodyId, row.body.id), eq(users.id, principal.userId),
+      eq(users.status, "ACTIVE"), eq(users.isServiceAccount, false),
+      principal.partyId ? eq(users.partyId, principal.partyId) : sql`false`,
+      lte(governanceMembers.appointedOn, today),
+      or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today))))
     .limit(1)
     .then((rows) => rows.map((r) => r.governance_members));
 
-  const majorityRule = isMajorityRule(row.body.majorityRule) ? row.body.majorityRule : "SIMPLE";
+  if (row.resolution.tenantId !== row.body.tenantId || !isMajorityRule(row.body.majorityRule) ||
+      row.resolution.requiredMajority !== row.body.majorityRule ||
+      !Number.isSafeInteger(row.body.quorumMinimum) || row.body.quorumMinimum < 1) {
+    throw new GovernanceError("RULE_VIOLATION", "Inconsistent governance scope or voting rules; authorized reconciliation required.");
+  }
+  const majorityRule = row.body.majorityRule;
 
   return {
     resolution: row.resolution,
@@ -169,9 +185,14 @@ async function loadResolutionContext(
 async function authorizeGovernanceAction(
   principal: Principal,
   ctx: ResolutionContext,
-  permission: "governance:resolution.vote" | "governance:resolution.approve",
+  permission: "governance:resolution.vote" | "governance:resolution.approve" | "governance:resolution.read",
   action: string,
 ) {
+  if (!await hasEffectiveConstitution()) {
+    throw new GovernanceError("POLICY_DENIED", "An effective constitutional foundation is required before governance action.");
+  }
+  const composition = await currentCharterComposition(ctx.body);
+  if (!composition.satisfied) throw new GovernanceError("RULE_VIOLATION", "Adopted charter composition or voting requirements are not satisfied.");
   const classification = ctx.resolution.classification as Classification;
 
   const decision = can(principal, permission, {
@@ -187,10 +208,38 @@ async function authorizeGovernanceAction(
     throw new GovernanceError(code, decision.reason);
   }
 
+  // Capability and policy roles must come from grants applicable to this
+  // entity. A foreign approval grant plus a local read grant is not approval.
+  const grants = (await loadGrants(principal.userId, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === ctx.body.legalEntityId);
+  const liveRoles = grants.map((grant) => grant.code);
+  const livePrincipal = { ...principal, roles: liveRoles, permissions: permissionsForRoles(liveRoles),
+    clearance: clearanceForRoles(liveRoles), emergencyPermissions: [], delegatedPermissions: [] };
+  if (!can(livePrincipal, permission, { classification, tenantId: ctx.resolution.tenantId,
+      entityId: ctx.body.legalEntityId ?? undefined }).allowed) {
+    throw new GovernanceError("FORBIDDEN", "Current grants applicable to this entity do not authorize this action.");
+  }
+
+  const [entity] = ctx.body.legalEntityId
+    ? await db.select().from(legalEntities).where(eq(legalEntities.id, ctx.body.legalEntityId)).limit(1)
+    : [];
+  if (ctx.body.legalEntityId && (!entity || !(await tenantScopeIds(principal)).includes(entity.tenantId) || entity.status !== "ACTIVE")) {
+    throw new GovernanceError("FORBIDDEN", "Governing entity is not active within this scope.");
+  }
+  if (ctx.seat) {
+    const [ballot] = await db.select().from(resolutionVotes).where(and(
+      eq(resolutionVotes.resolutionId, ctx.resolution.id), eq(resolutionVotes.memberId, ctx.seat.id),
+    )).limit(1);
+    if (ballot?.vote === "RECUSED" || ballot?.conflictDeclared) {
+      throw new GovernanceError("FORBIDDEN", "Conflict or recusal restricts participation in this resolution.");
+    }
+  }
   const policy = await evaluatePolicy({
     action: permission,
+    entityCode: entity?.code,
+    jurisdictionCode: entity?.countryCode,
     tenantId: ctx.resolution.tenantId,
-    roles: principal.roles,
+    roles: liveRoles,
     classification,
     riskScore: principal.riskScore,
     aiInitiated: false,
@@ -201,6 +250,9 @@ async function authorizeGovernanceAction(
       policy.denials.map((d) => d.message).join(" ") || `Denied by governance policy (${action}).`,
       { denials: policy.denials },
     );
+  }
+  if (policy.obligations.length > 0) {
+    throw new GovernanceError("POLICY_DENIED", "Required policy approvals or human review have not been discharged by this workflow.");
   }
   return policy;
 }
@@ -222,7 +274,7 @@ export type TableResolutionInput = {
  * body's presiding officer (CHAIR, or SECRETARY who convenes it) may table,
  * derived from `governance_members.seat_role` — never from a hardcoded identity.
  */
-export async function tableResolution(
+async function tableResolutionLocked(
   principal: Principal,
   input: TableResolutionInput,
   context: MutationContext,
@@ -263,7 +315,7 @@ export async function tableResolution(
   const now = new Date();
   const closesAt =
     input.votingClosesAt ?? new Date(now.getTime() + DEFAULT_VOTING_WINDOW_DAYS * 86_400_000);
-  if (closesAt.getTime() <= now.getTime()) {
+  if (!Number.isFinite(closesAt.getTime()) || closesAt.getTime() <= now.getTime()) {
     throw new GovernanceError("RULE_VIOLATION", "The voting window must close in the future.");
   }
 
@@ -369,11 +421,12 @@ export async function tableResolution(
  * CAST VOTE
  * ------------------------------------------------------------------ */
 
-export async function castVote(
+async function castVoteLocked(
   principal: Principal,
   input: CastVoteInput,
   context: MutationContext,
 ): Promise<VoteResult> {
+  if (!isSubstantiveVote(input.vote)) throw new GovernanceError("RULE_VIOLATION", "Invalid substantive vote.");
   const ctx = await loadResolutionContext(principal, input.resolutionId);
 
   /* ---- SYSTEM AUTHORIZATION (RBAC + ABAC + classification + policy) ---- */
@@ -521,10 +574,10 @@ export async function castVote(
           });
 
         // Recompute from the authoritative ballot set inside the lock.
-        const ballots = (await tx
-          .select({ memberId: resolutionVotes.memberId, vote: resolutionVotes.vote })
+        const ballots = eligibleBallots(await tx
+          .select({ memberId: resolutionVotes.memberId, vote: resolutionVotes.vote, conflictDeclared: resolutionVotes.conflictDeclared })
           .from(resolutionVotes)
-          .where(eq(resolutionVotes.resolutionId, ctx.resolution.id))) as BallotLine[];
+          .where(eq(resolutionVotes.resolutionId, ctx.resolution.id)) as (BallotLine & { conflictDeclared: boolean })[], ctx.eligibleMemberIds);
 
         const recusedMemberIds = ballots.filter((b) => b.vote === "RECUSED").map((b) => b.memberId);
         const quorum = calculateQuorum(
@@ -800,7 +853,7 @@ const DECISION_SEATS = ["CHAIR", "SECRETARY"];
  * Authority is verified independently of voting authority: holding
  * `governance:resolution.vote` confers nothing here.
  */
-export async function decideResolutionClosure(
+async function decideResolutionClosureLocked(
   principal: Principal,
   input: DecideResolutionInput,
   context: MutationContext,
@@ -886,10 +939,10 @@ export async function decideResolutionClosure(
       }
 
       // Re-read the ballots inside the lock: this is the authoritative electorate.
-      const ballots = (await tx
-        .select({ memberId: resolutionVotes.memberId, vote: resolutionVotes.vote })
+      const ballots = eligibleBallots(await tx
+        .select({ memberId: resolutionVotes.memberId, vote: resolutionVotes.vote, conflictDeclared: resolutionVotes.conflictDeclared })
         .from(resolutionVotes)
-        .where(eq(resolutionVotes.resolutionId, ctx.resolution.id))) as BallotLine[];
+        .where(eq(resolutionVotes.resolutionId, ctx.resolution.id)) as (BallotLine & { conflictDeclared: boolean })[], ctx.eligibleMemberIds);
 
       const recusedMemberIds = ballots.filter((b) => b.vote === "RECUSED").map((b) => b.memberId);
       const quorum = calculateQuorum(
@@ -1094,6 +1147,8 @@ export async function decideResolutionClosure(
 export type VotingSnapshot = {
   resolutionId: string;
   canVote: boolean;
+  canRecuse: boolean;
+  quorumBasis: "CURRENT_ELECTORATE" | "DECISION_RECORD" | "UNAVAILABLE";
   reason: string | null;
   memberId: string | null;
   currentVote: string | null;
@@ -1134,6 +1189,7 @@ export async function votingSnapshots(
         resolutionId: resolutionVotes.resolutionId,
         memberId: resolutionVotes.memberId,
         vote: resolutionVotes.vote,
+        conflictDeclared: resolutionVotes.conflictDeclared,
       })
       .from(resolutionVotes)
       .where(inArray(resolutionVotes.resolutionId, rows.map((r) => r.resolution.id))),
@@ -1154,12 +1210,20 @@ export async function votingSnapshots(
       .where(and(inArray(governanceMembers.bodyId, bodyIds), eq(users.id, principal.userId))),
   ]);
 
+  const decisionEvents = await db.select({ subjectId: enterpriseEvents.subjectId, payload: enterpriseEvents.payload })
+    .from(enterpriseEvents).where(and(inArray(enterpriseEvents.subjectId, rows.map((r) => r.resolution.id)),
+      eq(enterpriseEvents.type, "GOVERNANCE_RESOLUTION_DECIDED"), inArray(enterpriseEvents.tenantId, scope)));
+  const recordedQuorumSchema = z.object({ eligible: z.number().int().nonnegative(), recused: z.number().int().nonnegative(),
+    required: z.number().int().positive(), participated: z.number().int().nonnegative(), met: z.boolean() });
   const hasVotePermission = can(principal, "governance:resolution.vote").allowed;
   const now = new Date();
 
   for (const { resolution, body } of rows) {
-    const ballots = allBallots.filter((b) => b.resolutionId === resolution.id) as BallotLine[];
+    if (!can(principal, "governance:resolution.read", {
+      tenantId: resolution.tenantId, entityId: body.legalEntityId ?? undefined, classification: resolution.classification,
+    }).allowed) continue;
     const eligibleMemberIds = eligibleSeats.filter((s) => s.bodyId === body.id).map((s) => s.id);
+    const ballots = eligibleBallots(allBallots.filter((b) => b.resolutionId === resolution.id) as (BallotLine & { conflictDeclared: boolean })[], eligibleMemberIds);
     const recusedMemberIds = ballots.filter((b) => b.vote === "RECUSED").map((b) => b.memberId);
 
     const quorum = calculateQuorum(
@@ -1177,7 +1241,8 @@ export async function votingSnapshots(
 
     let canVote = false;
     let reason: string | null = null;
-    if (!hasVotePermission) reason = "governance:resolution.vote is not granted to your roles.";
+    if (body.status !== "ACTIVE") reason = "The governing body is not active.";
+    else if (!hasVotePermission) reason = "governance:resolution.vote is not granted to your roles.";
     else if (!seat) reason = "You do not hold a seat on this governing body.";
     else if (!seat.votingRights) reason = "Your seat does not carry voting rights.";
     else if (!eligibleMemberIds.includes(seat.id)) reason = "Your seat is not currently active.";
@@ -1188,22 +1253,29 @@ export async function votingSnapshots(
     else if (windowState === "CLOSED") reason = "The voting window has closed.";
     else canVote = true;
 
+    const terminal = (TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(resolution.status);
+    const event = decisionEvents.find((e) => e.subjectId === resolution.id);
+    const recorded = recordedQuorumSchema.safeParse(event?.payload?.quorum);
+    const snapshotQuorum = terminal && recorded.success ? recorded.data : {
+      eligible: terminal ? 0 : quorum.eligibleCount, recused: terminal ? 0 : quorum.recusedCount,
+      required: quorum.required, participated: terminal ? 0 : quorum.participated,
+      met: terminal ? resolution.quorumMet : quorum.met,
+    };
     snapshots.set(resolution.id, {
       resolutionId: resolution.id,
+      quorumBasis: terminal ? (recorded.success ? "DECISION_RECORD" : "UNAVAILABLE") : "CURRENT_ELECTORATE",
       canVote,
+      canRecuse: body.status === "ACTIVE" && hasVotePermission && !!seat && eligibleMemberIds.includes(seat.id) &&
+        myBallot?.vote !== "RECUSED" && ["DRAFT", "TABLED", "VOTED"].includes(resolution.status),
       reason,
       memberId: seat?.id ?? null,
       currentVote: myBallot?.vote ?? null,
       windowState,
       votingClosesAt: resolution.votingClosesAt?.toISOString() ?? null,
-      quorum: {
-        eligible: quorum.eligibleCount,
-        recused: quorum.recusedCount,
-        required: quorum.required,
-        participated: quorum.participated,
-        met: quorum.met,
-      },
-      tally: { for: tally.for, against: tally.against, abstain: tally.abstain },
+      quorum: snapshotQuorum,
+      tally: terminal
+        ? { for: resolution.votesFor, against: resolution.votesAgainst, abstain: resolution.votesAbstain }
+        : { for: tally.for, against: tally.against, abstain: tally.abstain },
     });
   }
 
@@ -1260,8 +1332,9 @@ async function presidingAuthorityFor(
     );
   if (rows.length === 0) return allowed;
 
+  const today = new Date().toISOString().slice(0, 10);
   const seats = await db
-    .select({ bodyId: governanceMembers.bodyId, seatRole: governanceMembers.seatRole })
+    .select({ id: governanceMembers.id, bodyId: governanceMembers.bodyId, seatRole: governanceMembers.seatRole })
     .from(governanceMembers)
     .innerJoin(parties, eq(parties.id, governanceMembers.partyId))
     .innerJoin(users, eq(users.partyId, parties.id))
@@ -1269,12 +1342,151 @@ async function presidingAuthorityFor(
       and(
         inArray(governanceMembers.bodyId, rows.map((r) => r.body.id)),
         eq(users.id, principal.userId),
+        lte(governanceMembers.appointedOn, today),
+        or(isNull(governanceMembers.retiredOn), gte(governanceMembers.retiredOn, today)),
       ),
     );
 
+  const conflicts = await db.select().from(resolutionVotes)
+    .where(inArray(resolutionVotes.resolutionId, rows.map((r) => r.resolution.id)));
   for (const { resolution, body } of rows) {
     const seat = seats.find((s) => s.bodyId === body.id);
-    if (seat && DECISION_SEATS.includes(seat.seatRole)) allowed.add(resolution.id);
+    if (seat && body.status === "ACTIVE" && DECISION_SEATS.includes(seat.seatRole) &&
+      !conflicts.some((b) => b.resolutionId === resolution.id && b.memberId === seat.id && (b.vote === "RECUSED" || b.conflictDeclared)) &&
+      can(principal, "governance:resolution.approve", { tenantId: resolution.tenantId,
+        entityId: body.legalEntityId ?? undefined, classification: resolution.classification }).allowed) {
+      allowed.add(resolution.id);
+    }
   }
   return allowed;
+}
+
+export async function tableResolution(principal: Principal, input: TableResolutionInput, context: MutationContext): Promise<TableResult> {
+  return withResolutionAuthorityLock(principal, input.resolutionId, () => tableResolutionLocked(principal, input, context));
+}
+
+export async function castVote(principal: Principal, input: CastVoteInput, context: MutationContext): Promise<VoteResult> {
+  return withResolutionAuthorityLock(principal, input.resolutionId, () => castVoteLocked(principal, input, context));
+}
+
+export async function decideResolutionClosure(principal: Principal, input: DecideResolutionInput, context: MutationContext): Promise<DecisionResult> {
+  return withResolutionAuthorityLock(principal, input.resolutionId, () => decideResolutionClosureLocked(principal, input, context));
+}
+
+/** Lock before reading authority, eligibility, conflict, or prior ballot state.
+ * db.transaction preserves the caller's RLS context, including nested savepoints.
+ * Body -> members -> resolution is the common row-lock order. Body FOR UPDATE
+ * also serializes membership inserts through the existing foreign key.
+ */
+export async function withResolutionAuthorityLock<T>(principal: Principal, id: string, operation: () => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    const scope = await tenantScopeIds(principal);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`beyu:resolution-vote:${id}`}))`);
+    const [target] = await tx.select().from(resolutions)
+      .where(and(eq(resolutions.id, id), inArray(resolutions.tenantId, scope))).limit(1);
+    if (!target) throw new GovernanceError("NOT_FOUND", "Resolution not found within your authorised scope.");
+    // Terminal rows are deliberately invisible to UPDATE under RLS. Domain
+    // preconditions still return their precise ALREADY_DECIDED/RULE_VIOLATION
+    // response. Follow-up work locks the body/seats but never edits the terminal
+    // resolution; ordinary voting mutations still reject terminal state.
+    await tx.select().from(governanceBodies).where(eq(governanceBodies.id, target.bodyId)).for("update");
+    await tx.select().from(governanceMembers).where(eq(governanceMembers.bodyId, target.bodyId)).for("share");
+    if ((TERMINAL_RESOLUTION_STATUSES as readonly string[]).includes(target.status)) return operation();
+    const [locked] = await tx.select().from(resolutions).where(eq(resolutions.id, id)).for("update");
+    if (!locked || locked.bodyId !== target.bodyId || locked.tenantId !== target.tenantId) {
+      throw new GovernanceError("CONFLICT", "Resolution scope changed; reload and retry.");
+    }
+    return operation();
+  });
+}
+
+/** Declare one's own conflict/recusal before final closure. Restrictive only:
+ * there is intentionally no endpoint to clear recusal or impersonate a member.
+ * A late conflict on an already final record requires a new governed decision.
+ */
+export async function declareRecusal(
+  principal: Principal,
+  input: { resolutionId: string; reason: string },
+  context: MutationContext,
+): Promise<{ resolutionId: string; memberId: string; status: string; vote: "RECUSED" }> {
+  const { reason } = DeclareRecusalSchema.parse({ reason: input.reason });
+  return withResolutionAuthorityLock(principal, input.resolutionId, async () => {
+    const ctx = await loadResolutionContext(principal, input.resolutionId);
+    const policy = await authorizeGovernanceAction(principal, ctx, "governance:resolution.vote", "governance.resolution.recuse");
+    const policyVersion = policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
+    if (!ctx.seat || !["DRAFT", "TABLED", "VOTED"].includes(ctx.resolution.status)) {
+      throw new GovernanceError("RULE_VIOLATION", "An active member may declare recusal only before final closure.");
+    }
+    const memberId = ctx.seat.id;
+    const [previous] = await db.select().from(resolutionVotes).where(and(
+      eq(resolutionVotes.resolutionId, ctx.resolution.id), eq(resolutionVotes.memberId, memberId),
+    )).limit(1);
+    return withAuditTransaction(async (tx) => {
+      await tx.insert(resolutionVotes).values({ id: newId(ID_PREFIX.vote), resolutionId: ctx.resolution.id,
+        memberId, vote: "RECUSED", conflictDeclared: true, comment: reason })
+        .onConflictDoUpdate({ target: [resolutionVotes.resolutionId, resolutionVotes.memberId],
+          set: { vote: "RECUSED", conflictDeclared: true, comment: reason, castAt: new Date() } });
+      const records = await tx.select().from(resolutionVotes).where(eq(resolutionVotes.resolutionId, ctx.resolution.id));
+      const ballots = eligibleBallots(records as (BallotLine & { conflictDeclared: boolean })[], ctx.eligibleMemberIds);
+      const recusedMemberIds = ballots.filter((b) => b.vote === "RECUSED").map((b) => b.memberId);
+      const quorum = calculateQuorum({ eligibleMemberIds: ctx.eligibleMemberIds, recusedMemberIds, quorumMinimum: ctx.body.quorumMinimum }, ballots);
+      const tally = tallyBallots(ballots);
+      // No decision or approval occurs here. Closure remains a distinct power.
+      await tx.update(resolutions).set({ votesFor: tally.for, votesAgainst: tally.against,
+        votesAbstain: tally.abstain, quorumMet: quorum.met }).where(eq(resolutions.id, ctx.resolution.id));
+      return { resolutionId: ctx.resolution.id, memberId, status: ctx.resolution.status, vote: "RECUSED" as const };
+    }, () => ({ tenantId: ctx.resolution.tenantId, actorUserId: principal.userId, actorType: "HUMAN",
+      action: "governance.resolution.recuse", objectType: "RESOLUTION", objectId: ctx.resolution.id,
+      outcome: "SUCCESS", reason, authority: "governance:resolution.vote", traceId: context.traceId, policyVersion: policyVersion ?? undefined,
+      oldValue: previous ? { ...previous, castAt: previous.castAt.toISOString() } : null, newValue: { memberId, vote: "RECUSED", conflictDeclared: true },
+    }), () => ({ type: "GOVERNANCE_RESOLUTION_RECUSAL_DECLARED", source: "beyu-os/governance", domain: "GOVERNANCE",
+      operation: "DECLARE_RECUSAL", tenantId: ctx.resolution.tenantId, legalEntityId: ctx.body.legalEntityId,
+      subjectType: "RESOLUTION", subjectId: ctx.resolution.id, actorUserId: principal.userId, actorType: "HUMAN",
+      classification: ctx.resolution.classification, payload: { memberId, reason, previousVote: previous?.vote ?? null },
+      traceId: context.traceId, correlationId: context.traceId,
+      destinationDomain: null, causationId: null, policyVersion,
+      authorityContext: { authorityId: ctx.resolution.id, decisionId: null, capabilityCode: null,
+        permissionCode: "governance:resolution.vote", policyVersion },
+    }));
+  });
+}
+
+/** Follow-up recording reuses the resolution's authority checks; it grants no
+ * domain execution authority. The immutable decision is never re-voted here. */
+export async function authorizeResolutionFollowUp(principal: Principal, id: string, presiding: boolean) {
+  const ctx = await loadResolutionContext(principal, id);
+  const [actor] = await db.select().from(users).where(eq(users.id, principal.userId)).for("share");
+  if (!actor || actor.status !== "ACTIVE" || actor.isServiceAccount || actor.partyId !== principal.partyId || !principal.mfaSatisfied) {
+    throw new GovernanceError("FORBIDDEN", "Follow-up requires an active authenticated human with MFA.");
+  }
+  const permission = presiding ? "governance:resolution.approve" : "governance:resolution.read";
+  // Re-resolve dated grants at the execution boundary. A copied/cached session
+  // principal or emergency grant cannot resurrect expired follow-up authority.
+  const grants = (await loadGrants(actor.id, principal.tenantId))
+    .filter((grant) => !grant.entityId || grant.entityId === ctx.body.legalEntityId);
+  const liveRoles = grants.map((g) => g.code);
+  const liveEntities = grants.flatMap((g) => g.entityId ? [g.entityId] : []);
+  if (!permissionsForRoles(liveRoles).has(permission) ||
+      classificationRank(clearanceForRoles(liveRoles)) < classificationRank(ctx.resolution.classification) ||
+      (liveEntities.length && (!ctx.body.legalEntityId || !liveEntities.includes(ctx.body.legalEntityId)))) {
+    throw new GovernanceError("FORBIDDEN", "Current dated role grants no longer authorize this mandate.");
+  }
+  const livePrincipal = { ...principal, roles: liveRoles };
+  const policy = await authorizeGovernanceAction(livePrincipal, ctx, permission, "governance.action");
+  if (presiding && (!ctx.seat || !DECISION_SEATS.includes(ctx.seat.seatRole))) {
+    throw new GovernanceError("FORBIDDEN", "An active unconflicted presiding seat is required.");
+  }
+  if (ctx.resolution.status !== "APPROVED" || !ctx.resolution.quorumMet ||
+      !ctx.resolution.decisionDate || !ctx.resolution.decidedByMemberId) {
+    throw new GovernanceError("GOVERNANCE_NOT_SATISFIED", "An approved, attributed, quorate decision is required.");
+  }
+  const events = await db.select().from(enterpriseEvents).where(and(
+    eq(enterpriseEvents.subjectId, id), eq(enterpriseEvents.tenantId, ctx.resolution.tenantId),
+    eq(enterpriseEvents.type, "GOVERNANCE_RESOLUTION_DECIDED"),
+  ));
+  const decisionEvent = events.find((event) => event.payload.outcome === "APPROVED" &&
+    event.payload.decidedByMemberId === ctx.resolution.decidedByMemberId &&
+    event.payload.decisionDate === ctx.resolution.decisionDate!.toISOString());
+  if (!decisionEvent) throw new GovernanceError("GOVERNANCE_NOT_SATISFIED", "Decision-event provenance is required; reference data cannot mandate execution.");
+  return { ...ctx, policy, decisionEvent, livePrincipal };
 }

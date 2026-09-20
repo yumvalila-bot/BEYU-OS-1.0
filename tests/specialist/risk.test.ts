@@ -1077,7 +1077,14 @@ describe("risk module — leaves governance and financial state untouched", () =
     // blue_green_deployments, rollback_requests; all additive, expand-only, no specialist
     // truth, no posting path, CAP_POSTING stays LOCKED, six OSs unchanged, BEYU OS single
     // control plane).
-    expect(n).toBe(48);  });
+    // + 0048: shared governance RLS; no specialist tables or posting authority added.
+    // + 0051: guarded appointment activation; no specialist or Finance authority.
+    // + 0053: non-effective superior charter approval; no execution authority.
+    // + 0052: superior-body establishment, not specialist execution authority.
+    // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
+    // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
+    expect(n).toBe(57);
+  });
 
   it("leaves all triggers enabled", async () => {
     const disabled = await count(sql`

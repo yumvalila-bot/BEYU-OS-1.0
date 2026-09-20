@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import Link from "next/link";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { noeliaWorkflows, tasks, workflowInstances, workflows } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
@@ -81,7 +82,7 @@ export default async function WorkflowPage() {
         ? db
             .select()
             .from(tasks)
-            .where(and(inArray(tasks.tenantId, scope), sql`${tasks.status} <> 'DONE'`))
+            .where(and(inArray(tasks.tenantId, scope), sql`${tasks.status} not in ('DONE', 'CLOSED', 'CANCELLED')`, can(principal, 'governance:resolution.read').allowed ? undefined : isNull(tasks.sourceResolutionId)))
             .orderBy(tasks.dueAt)
             .limit(30)
         : Promise.resolve([] as (typeof tasks.$inferSelect)[]),
@@ -179,8 +180,8 @@ export default async function WorkflowPage() {
                   <tbody>
                     {openTasks.map((t) => (
                       <tr key={t.id}>
-                        <td><div className="font-medium">{t.title}</div>{t.description && <div className="max-w-md text-[11px] beyu-muted">{t.description}</div>}</td>
-                        <td className="text-[11.5px]">{t.assigneeRole ?? "—"}</td>
+                        <td><div className="font-medium">{t.sourceResolutionId ? <Link className="underline" href={`/os/governance#resolution-${encodeURIComponent(t.sourceResolutionId)}`}>{t.title}</Link> : t.title}</div>{t.description && <div className="max-w-md text-[11px] beyu-muted">{t.description}</div>}</td>
+                        <td className="text-[11.5px]">{t.assigneeUserId ?? t.assigneeRole ?? "—"}</td>
                         <td><Badge tone={t.priority === "HIGH" ? "red" : "slate"}>{t.priority}</Badge></td>
                         <td className="text-[11.5px] beyu-muted">{t.dueAt ? t.dueAt.toISOString().slice(0, 10) : "—"}</td>
                         <td className="tabular-nums text-[11.5px]">{t.escalationLevel > 0 ? `level ${t.escalationLevel}` : "—"}</td>

@@ -281,6 +281,125 @@
       "when": 1789154761430,
       "tag": "0039_agriculture_food_export",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789887600040,
+      "tag": "0040_founder_equity_cap_table_esop",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789887600041,
+      "tag": "0041_family_trust_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789887600042,
+      "tag": "0042_governed_contracting_and_blockchain",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789887600043,
+      "tag": "0043_ujenzi_os",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789887600044,
+      "tag": "0044_admin_user_tenant_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789887600045,
+      "tag": "0045_payment_webhook_events_tenant_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789887600046,
+      "tag": "0046_release_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789887600047,
+      "tag": "0047_release_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789887600048,
+      "tag": "0048_governance_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789887600049,
+      "tag": "0049_governance_execution",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789887600050,
+      "tag": "0050_governance_charters",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789887600051,
+      "tag": "0051_governance_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789908344420,
+      "tag": "0052_governance_body_establishments",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789926101749,
+      "tag": "0053_governance_initial_charters",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789930055051,
+      "tag": "0054_governance_appointment_origin",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1789933018313,
+      "tag": "0055_governance_initial_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789934212926,
+      "tag": "0056_governance_body_activation",
+      "breakpoints": true
     }
   ]
 }

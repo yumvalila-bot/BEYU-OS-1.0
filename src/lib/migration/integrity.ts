@@ -254,17 +254,9 @@ export const KNOWN_METADATA_DEBT = {
     // 0047 is P4 release approvals — additive, expand-only, same policy as 0046.
     "0047",
   ] as string[],
-  /** Migrations present as SQL and in the ledger, absent from the journal. */
-  missingJournal: [
-    "0040_founder_equity_cap_table_esop",
-    "0041_family_trust_governance",
-    "0042_governed_contracting_and_blockchain",
-    "0043_ujenzi_os",
-    "0044_admin_user_tenant_governance",
-    "0045_payment_webhook_events_tenant_index",
-    "0046_release_governance",
-    "0047_release_approvals",
-  ] as string[],
+  /** Journal inventory reconciled through 0048 on 2026-09-20.
+   * Historical snapshots remain absent; no fabricated backdated snapshots. */
+  missingJournal: [] as string[],
   /** Snapshots that are byte-identical copies of their predecessor. */
   chainCollision: ["0039"] as string[],
 } as const;
