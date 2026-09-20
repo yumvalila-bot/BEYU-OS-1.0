@@ -75,7 +75,9 @@ source entity/country and service-account flag; no AI authority is introduced.
 Reserved-matter observations are conditional: only an unambiguous trigger and a
 readable persisted amount can support the existing rule evaluation. Capital data
 must satisfy both source visibility and actual request-entity permission checks.
-Client amounts are never accepted. An unavailable trigger/amount is explicitly
+Client amounts are never accepted. This is the existing numeric reservation-rule
+evaluation, not independent currency normalization or legal interpretation. An
+unavailable trigger/amount is explicitly
 NOT_EVALUATED, never treated as proof of non-reservation.
 
 ## Explicit gaps
@@ -105,6 +107,15 @@ quorum/recusal, concurrent opposing scenarios, malformed/forged inputs, scope
 isolation, expired live grants and unknown categories. Build/typecheck/lint passed
 (0 lint errors; the existing Noelia image warning remains).
 
-A complete corrected full-suite run and full browser regression were started after
-these focused checks. Their results must be recorded from completed logs, not
-inferred from this document or from earlier charter CI.
+Completed corrected full-suite validation of source `dc66969`: **4276 passed,
+11 skipped**, 232 files passed / 3 skipped, **868.84 seconds**. The 11 skips are the
+existing bootstrap enrollment/foundation/preparation cases, not skipped simulation
+or transport tests. Complete Chromium regression: **13 passed in 2.1 minutes**.
+No test assertion was weakened. The disposable database-name configuration fix is
+now covered by a successful complete run, not just its focused rerun.
+
+The source commit was pushed to PR77. Its CI runs35504744854/35504744855 started,
+but subsequent GitHub access returned HTTP401. Their final outcomes are **not
+verified**. Charter f31e46b root35503257334 and scratch35503257355 were observed
+successful before access expired. See the continuation evidence below the reality
+matrix for the precise boundary; local success is not substituted for CI success.

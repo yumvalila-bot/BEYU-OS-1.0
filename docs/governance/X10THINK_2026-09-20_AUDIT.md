@@ -235,3 +235,58 @@ this patch does **not** establish the master mission's definition of done.
 - No migration after0050 is required for this bounded read-only capability. P0
   0048, execution0049 and charter0050 remain unchanged. No production promotion,
   legal ratification, Finance activation or merge occurred.
+
+
+### Completed local preflight regression; remote observation boundary
+
+Source commit: **dc66969279270ac2ee9ce883b6c2e72b0b13e8d6**, pushed successfully
+on `arena/01a0bda3-beyu-os-1-0`; PR77 remains OPEN/DRAFT. This continuation resumed
+at f31e46b; original mission baseline remains5ac90f2. No prior work was reset.
+
+- **TESTED:** complete `npm test` against the fresh51-migration database and actual
+  non-owner application server: **4276 passed / 11 skipped**, **232 files passed /
+  3 skipped**, **868.84s**, started2026-09-20 10:17:08 UTC. Existing bootstrap-only
+  skips retained. This supersedes the earlier database-name harness failure and
+  pending full-suite status. No assertions or failure thresholds were weakened.
+- **TESTED:** complete Chromium regression **13 passed / 0 failed**, **2.1m**,
+  covering charter adoption, independently verified execution, restrictive recusal,
+  read-only simulation, navigation, responsive shell, branding and deep-link gates.
+- **TESTED:** source build/typecheck/lint passed; 0 lint errors, 1 existing Noelia
+  image warning. Secret scan clean2009 tracked files; staged diff check passed.
+- Full-suite migration drift/integrity and eight-case gate self-test passed; no
+  migration beyond0050, no schema drift introduced, historical metadata debt retained.
+- **CI VERIFIED:** charter source f31e46b root35503257334 and scratch35503257355
+  completed SUCCESS, actually observed. Earlier execution/evidence success remains
+  attributed to its own source revision.
+- **CI NOT VERIFIED:** preflight source dc66969 root35504744854 last observed
+  in_progress (completed non-root jobs successful at that observation); its
+  scratch35504744855 was queued when last observed. Neither final conclusion is
+  available. Do not treat missing observation as failure or success.
+- **EXTERNALLY BLOCKED (remote only):** subsequent `gh run view` for both runs
+  returned `HTTP 401: Bad credentials`; latest `git fetch origin main` returned
+  `fatal: could not read Username for 'https://github.com': terminal prompts disabled`.
+  GitHub must be reconnected in Arena. No credentials were requested. Local
+  engineering and full regression continued after this failure. The evidence
+  accompanying this checkpoint is committed locally; pushing it remains pending
+  unless a later successful push is explicitly recorded.
+- **MAIN RECONCILIATION:** the last successful fetch still resolved origin/main to
+  5ac90f2cc712582bde45cc0f2616937d856a6f71; the final fetch was blocked, so a newer
+  remote revision cannot be ruled out. No blind merge or branch switch occurred.
+
+Retained SQL checksums (SHA-256):
+
+-0048: `cc5cf0d8b162a07587a6ce2eadef0ae844a3c6882c33a8f987e38ae76510cca0`
+-0049: `194aca23adb4e566e15f39837bb89002a593a71b7b8395bbdf2c177bdb7e56b6`
+-0050: `7ee87b07bfb537f56124d53b664209fc6949040caf0085fb36c0fc4d8cc720e9`
+
+Local raw evidence remains in ignored `tmp/governance/simulation-{full-suite,
+all-browser,transport,browser,build,typecheck,lint,secrets}.log`.
+
+**READINESS:** the bounded preflight increment is locally validated; the full
+X10THINK mission is **not substantially complete or production-certified**.
+Governing-body lifecycle, appointment/acceptance/activation, competency, tenure,
+renewal/succession, superior-body/vacancy recovery, complete corporate meeting chain,
+calendar/escalations and evaluations remain engineering work—not external blockers.
+The next priority remains the guarded body/membership lifecycle, preserving the
+existing no-direct-authority-write boundary rather than creating a bypass.
+Legal ratification, Finance activation and production promotion are HUMAN CONTROLLED.
