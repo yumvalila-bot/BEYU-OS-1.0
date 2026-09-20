@@ -15,7 +15,9 @@ evidence, independent verification and closure chain. See
 [Resolution execution](RESOLUTION_EXECUTION.md) for current functionality and
 remaining limits. The measurements below remain the earlier P0 run, not a claim
 that the new source has already passed the same validation. Current continuation
-results are recorded separately once the full rerun finishes.
+results are recorded in [the continuation validation report](X10THINK_2026-09-20_EXECUTION_VALIDATION.md),
+including 4,228 passing tests, 11 browser tests and the subsequent renewed
+GitHub authentication failure during final CI monitoring.
 
 ## A–B. Starting and final repository state
 
@@ -104,7 +106,8 @@ production-release job was invoked. After the local full run, `gh pr checks` and
 also failed authentication. Final CI status, failures, remote artifacts and
 further current-main changes therefore cannot be asserted or remediated here.
 That connection failure was temporary and is now resolved; no credential or
-reconnect action is currently required.
+reconnect action was required at that recovery checkpoint. See the continuation
+report for the later authentication expiry.
 
 ## M–O. Documentation, remaining work and readiness
 

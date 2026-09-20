@@ -55,9 +55,11 @@ Completion requires evidence; verification and closure recheck it. Documents
 must be authoritative, effective, not superseded, in the same tenant, within the
 mandate's entity/country/classification, and readable by the human. Every linked
 document needs a snapshot matching its current registry version and SHA-256.
-If it changes after completion, a presiding human returns work for rework and
+If it changes after completion but before verification, a presiding human returns work for rework and
 the owner submits the current version before another completion. Old snapshots
-are retained. Registry metadata is **not a cryptographic attestation of remote
+are retained. A document change after VERIFIED blocks closure; this version has
+no post-verification correction workflow and does not silently rewrite the
+verification. Registry metadata is **not a cryptographic attestation of remote
 storage bytes**, signature validity or the evidence's substantive/legal adequacy;
 the independent human still needs to inspect the underlying artifact.
 
