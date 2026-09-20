@@ -144,13 +144,14 @@ describe("P3 — preserves P2 invariants", () => {
   it("KNOWN_METADATA_DEBT includes 0046", () => {
     const integrity = read("src/lib/migration/integrity.ts");
     expect(integrity).toContain("0046");
-    expect(integrity).toContain("0046_release_governance");
+    expect(read("drizzle/meta/_journal.json")).toContain("0046_release_governance");
   });
 
-  it("drizzle/meta not rewritten (still ends at 0039)", () => {
+  it("journal appends current inventory without fabricating historical snapshots", () => {
     const journal = read("drizzle/meta/_journal.json");
     expect(journal).toContain("0039");
-    expect(journal).not.toContain("0046"); // Journal still ends at 0039, debt acknowledged
+    expect(journal).toContain("0046_release_governance");
+    expect(journal).toContain("0048_governance_isolation"); // Historical snapshot debt remains explicit
   });
 
   it("CAP_POSTING still locked (not bypassed)", () => {

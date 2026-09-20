@@ -111,3 +111,8 @@ export function findVoteServerControlledField(
 ): VoteServerControlledField | null {
   return VOTE_SERVER_CONTROLLED_FIELDS.find((field) => field in raw) ?? null;
 }
+
+/** A restrictive self-declaration, never authority to clear someone else's conflict. */
+export const DeclareRecusalSchema = z.object({
+  reason: z.string().trim().min(10).max(2000),
+}).strict();

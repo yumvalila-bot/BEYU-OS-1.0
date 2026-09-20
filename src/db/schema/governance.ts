@@ -108,7 +108,7 @@ export const governanceBodies = pgTable(
     status: versionStatusEnum("status").notNull().default("ACTIVE"),
   },
   (t) => [uniqueIndex("governance_bodies_code_uidx").on(t.code)],
-);
+).enableRLS();
 
 export const governanceMembers = pgTable("governance_members", {
   id: text("id").primaryKey(),
@@ -122,7 +122,7 @@ export const governanceMembers = pgTable("governance_members", {
   votingRights: boolean("voting_rights").notNull().default(true),
   appointedOn: date("appointed_on").notNull(),
   retiredOn: date("retired_on"),
-});
+}).enableRLS();
 
 export const resolutions = pgTable(
   "resolutions",
@@ -183,7 +183,7 @@ export const resolutions = pgTable(
     uniqueIndex("resolutions_reference_uidx").on(t.reference),
     index("resolutions_tenant_idx").on(t.tenantId),
   ],
-);
+).enableRLS();
 
 export const resolutionVotes = pgTable(
   "resolution_votes",
@@ -201,7 +201,7 @@ export const resolutionVotes = pgTable(
     castAt: timestamp("cast_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("resolution_votes_uidx").on(t.resolutionId, t.memberId)],
-);
+).enableRLS();
 
 /** Generic maker/checker approval chain used by every domain. */
 export const approvals = pgTable(

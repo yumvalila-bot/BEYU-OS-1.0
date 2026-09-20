@@ -114,11 +114,11 @@ describe("P3 expand/contract — gate", () => {
 
 describe("P3 expand/contract — P2 integration", () => {
   it("preserves P2 migration history invariant (46+)", async () => {
-    // P4 adds 0047, so count should be 48
+    // Governance isolation adds 0048; historical migrations remain byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(48);
+    const result = verifyP2MigrationIntegrity(49);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(48);
+    expect(result.count).toBe(49);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

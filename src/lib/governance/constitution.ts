@@ -182,3 +182,10 @@ export async function articleByNumber(articleNo: number): Promise<{
     .limit(1);
   return row ?? null;
 }
+
+/** Runtime precondition, not an interpretation or ratification of article prose. */
+export async function hasEffectiveConstitution(asOf = new Date().toISOString().slice(0, 10)): Promise<boolean> {
+  const [article] = await db.select().from(constitutionArticles)
+    .where(eq(constitutionArticles.articleNo, 1)).limit(1);
+  return !!article && article.status === "ACTIVE" && article.effectiveFrom <= asOf;
+}

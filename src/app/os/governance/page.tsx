@@ -163,7 +163,7 @@ export default async function GovernancePage() {
               const policy = policyRows.find((p) => p.id === r.authorityPolicyId);
               const total = r.votesFor + r.votesAgainst + r.votesAbstain;
               return (
-                <div key={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
+                <div key={r.id} data-resolution-id={r.id} className="rounded-lg border border-[color:var(--beyu-line)] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <span className="font-mono text-[11.5px] beyu-muted">{r.reference}</span>

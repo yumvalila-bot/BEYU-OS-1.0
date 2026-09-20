@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allEligibleHaveVoted,
+  eligibleBallots,
   calculateQuorum,
   decideResolution,
   tallyBallots,
@@ -96,19 +97,16 @@ describe("quorum", () => {
     expect(q.met).toBe(false);
   });
 
-  it("a recusal can lower the requirement enough to reach quorum", () => {
-    // 5 members, quorum 4, only 3 participate -> not met. Recuse one member and
-    // the electorate becomes 4 with the same 3 participants -> still not met;
-    // recuse two and the requirement caps at 3 -> met. Recusal changes the
-    // denominator, never the participation count.
+  it("recusals never lower the configured absolute requirement", () => {
+    // Recusal reduces eligibility, not the constitutional minimum of four.
     const ballots = [ballot("M1", "FOR"), ballot("M2", "FOR"), ballot("M3", "AGAINST")];
     const base = { eligibleMemberIds: members(5), quorumMinimum: 4 };
     expect(calculateQuorum({ ...base, recusedMemberIds: [] }, ballots).met).toBe(false);
     expect(calculateQuorum({ ...base, recusedMemberIds: ["M5"] }, ballots).met).toBe(false);
     const withTwo = calculateQuorum({ ...base, recusedMemberIds: ["M4", "M5"] }, ballots);
     expect(withTwo.eligibleCount).toBe(3);
-    expect(withTwo.required).toBe(3);
-    expect(withTwo.met).toBe(true);
+    expect(withTwo.required).toBe(4);
+    expect(withTwo.met).toBe(false);
   });
 
   it("ignores ballots from members outside the eligible electorate", () => {
@@ -121,15 +119,15 @@ describe("quorum", () => {
     expect(q.met).toBe(false);
   });
 
-  it("does not let a recusal make a body permanently undecidable", () => {
+  it("defers when recusals leave fewer members than the required quorum", () => {
     // quorum_minimum 4 but only 2 non-recused members remain.
     const q = calculateQuorum(
       { eligibleMemberIds: members(4), recusedMemberIds: ["M3", "M4"], quorumMinimum: 4 },
       [ballot("M1", "FOR"), ballot("M2", "FOR"), ballot("M3", "RECUSED"), ballot("M4", "RECUSED")],
     );
     expect(q.eligibleCount).toBe(2);
-    expect(q.required).toBe(2);
-    expect(q.met).toBe(true);
+    expect(q.required).toBe(4);
+    expect(q.met).toBe(false);
   });
 
   it("counts an abstention as participation", () => {
@@ -395,5 +393,29 @@ describe("tally", () => {
       ballot("M5", "RECUSED"),
     ]);
     expect(t).toEqual({ for: 2, against: 1, abstain: 1, recused: 1 });
+  });
+});
+
+
+describe("adversarial voting integrity", () => {
+  it.each([0, -1, 1.5, NaN, Infinity])("fails closed on invalid quorum %s", (quorumMinimum) => {
+    expect(calculateQuorum({ eligibleMemberIds: ["M1"], recusedMemberIds: [], quorumMinimum }, [ballot("M1", "FOR")]).met).toBe(false);
+  });
+  it("counts identities once, not duplicated input rows", () => {
+    const q = calculateQuorum({ eligibleMemberIds: ["M1", "M1", "M2"], recusedMemberIds: [], quorumMinimum: 2 }, [ballot("M1", "FOR"), ballot("M1", "FOR")]);
+    expect(q.eligibleCount).toBe(2);
+    expect(q.participated).toBe(1);
+    expect(q.met).toBe(false);
+  });
+  it("never falls back to SIMPLE for an unknown rule", () => {
+    expect(decideResolution({ majorityRule: "UNKNOWN" as never, quorum: { eligibleCount: 1, recusedCount: 0, required: 1, participated: 1, met: true }, tally: { for: 1, against: 0, abstain: 0, recused: 0 }, votingConcluded: true }).outcome).toBe("DEFERRED");
+  });
+  it("excludes expired seats and restricts conflict-declared ballots", () => {
+    expect(eligibleBallots([{ memberId: "M1", vote: "FOR", conflictDeclared: true }, ballot("M2", "AGAINST"), ballot("EXPIRED", "FOR")], ["M1", "M2"]))
+      .toEqual([ballot("M1", "RECUSED"), ballot("M2", "AGAINST")]);
+  });
+  it("refuses duplicate or unknown authoritative ballots", () => {
+    expect(() => eligibleBallots([ballot("M1", "FOR"), ballot("M1", "AGAINST")], ["M1"])).toThrow();
+    expect(() => eligibleBallots([ballot("M1", "INVALID" as never)], ["M1"])).toThrow();
   });
 });
