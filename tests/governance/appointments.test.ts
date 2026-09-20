@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { governanceAppointments, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users, governanceCharters, governanceCharterTerms, resolutions } from "../../src/db/schema";
+import { auditLog, governanceAppointments, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users, governanceCharters, governanceCharterTerms, resolutions } from "../../src/db/schema";
 import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
 import { createBodyCharter, commandBodyCharter } from "../../src/lib/governance/charter-service";
 import { charterFixtureRules, concludedCharterBallot, cleanupCharters } from "../helpers/charters";
@@ -90,10 +90,14 @@ describe("governed appointment → consent → canonical membership", () => {
   try { await expect(command(a.id, "ACTIVATE", 3)).rejects.toHaveProperty("code", "FORBIDDEN"); }
   finally { for (const g of grants) await db.update(roleAssignments).set({ effectiveTo: g.effectiveTo }).where(eq(roleAssignments.id, g.id)); }
   const events = await db.select().from(enterpriseEvents).where(eq(enterpriseEvents.subjectId, a.id));
+  const audit = await db.select().from(auditLog).where(eq(auditLog.objectId, a.id));
+  const notices = await db.select().from(notifications).where(eq(notifications.userId, f.candidate.userId));
   await expect(as(f.secretary, async () => { await commandAppointment(f.secretary, f.bodyId, a.id, { command: "ACTIVATE", expectedRevision: 3, note: "Simulated transport rollback" }, ctx); throw Error("Abort entire transaction"); })).rejects.toThrow("Abort entire transaction");
   expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.id)))[0].status).toBe("ACCEPTED");
   expect(await db.select().from(governanceMembers).where(eq(governanceMembers.partyId, f.candidate.partyId!))).toHaveLength(0);
   expect(await db.select().from(enterpriseEvents).where(eq(enterpriseEvents.subjectId, a.id))).toEqual(events);
+  expect(await db.select().from(auditLog).where(eq(auditLog.objectId, a.id))).toEqual(audit);
+  expect(await db.select().from(notifications).where(eq(notifications.userId, f.candidate.userId))).toEqual(notices);
  });
  it("enforces adopted composition rather than merely displaying it", async () => {
   const c = await as(f.chair, () => createBodyCharter(f.chair, f.bodyId, { documentId: "DOC_D4", purpose: "Restrict this body to the current five voting members", rules: { ...charterFixtureRules, maximumVotingMembers: 5 } }, ctx));

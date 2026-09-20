@@ -171,3 +171,18 @@ a currently active non-service-account user bound to the Principal's party. Even
 retained seat, role grant and previously satisfied MFA cannot turn a machine account
 into a voting/presiding human. The negative test is retained. Read-only assistance
 is not converted into an approval or self-authority path.
+
+## Extended acceptance matrix (continuation from08ba146)
+
+Acceptance is rejected once the immutable term's inclusive end date has passed.
+There is no independently configured consent-expiry TTL in this increment; no
+such deadline is invented. Activation still cannot backdate authority. An expired
+proposal requires a new dated nomination, not rewritten appointment evidence.
+
+Added service cases cover duplicate/concurrent activation, current revoked/expired
+authority, wrong entity/country/body, insufficient or fabricated approvals and
+presider recusal, plus unchanged unrelated memberships, RBAC and Finance capability
+records. Extended non-owner SQL checks retain body/member edit/delete protections
+and finalized-decision/ballot immutability. Ten actual browser denial cases verify
+that stale rendered forms cannot overrule revoked authority or changed instrument
+scope; persisted state remains unchanged after denial and reload.

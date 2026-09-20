@@ -26,6 +26,24 @@ describe("appointment direct non-owner SQL boundary", () => {
  it.each([{ tenant: "TEN_BEYU_FINTECH" }, { entity: "WRONG_ENTITY" }, { classification: "PUBLIC" }, { read: "off" }])("blocks %j despite global flag", async (options) => scoped(async () => { expect((await runtime.query("select id from governance_appointments where id=$1", [id])).rowCount).toBe(0); }, options));
  it("cannot delete appointment history", async () => scoped(async () => { expect((await runtime.query("delete from governance_appointments where id=$1", [id])).rowCount).toBe(0); }));
  it.each(["status='ACTIVE',revision=revision+1", "seat_role='CHAIR',revision=revision+1", "nominee_user_id='USR_AMANI_BEYU',revision=revision+1", "status='APPROVED',approved_by_user_id='USR_AMANI_BEYU',revision=revision+1"])("rejects forged transition %s", async (set) => scoped(async () => { await expect(runtime.query(`update governance_appointments set ${set} where id=$1`, [id])).rejects.toHaveProperty("code", "23514"); }));
+ it.each(["governance_bodies", "governance_members"])("0051 preserves UPDATE denial on %s", async (table) => scoped(async () => {
+  const filter = table === "governance_bodies" ? "id" : "body_id";
+  await expect(runtime.query(`update ${table} set ${table === "governance_bodies" ? "name=name" : "seat_role='CHAIR'"} where ${filter}=$1`, [f.bodyId])).rejects.toHaveProperty("code", "42501");
+ }));
+ it.each(["governance_bodies", "governance_members"])("0051 preserves DELETE denial on %s", async (table) => scoped(async () => {
+  expect((await runtime.query(`delete from ${table} where ${table === "governance_bodies" ? "id" : "body_id"}=$1`, [f.bodyId])).rowCount).toBe(0);
+ }));
+ it("0051 preserves body creation denial", async () => scoped(async () => {
+  await expect(runtime.query(`insert into governance_bodies select (jsonb_populate_record(null::governance_bodies,to_jsonb(b)||'{"id":"GOV_FORGED_APPT","code":"GOV_FORGED_APPT"}'::jsonb)).* from governance_bodies b where id=$1`, [f.bodyId])).rejects.toHaveProperty("code", "42501");
+ }));
+ it("0051 preserves finalized decisions and ballots", async () => scoped(async () => {
+  const final = await runtime.query("select id from resolutions where body_id=$1 and status='APPROVED'", [f.bodyId]); expect(final.rowCount).toBeGreaterThan(0);
+  const resolutionId = final.rows[0].id;
+  expect((await runtime.query("update resolutions set status='DRAFT' where id=$1", [resolutionId])).rowCount).toBe(0);
+  expect((await runtime.query("delete from resolutions where id=$1", [resolutionId])).rowCount).toBe(0);
+  expect((await runtime.query("update resolution_votes set vote='AGAINST' where resolution_id=$1", [resolutionId])).rowCount).toBe(0);
+  expect((await runtime.query("delete from resolution_votes where resolution_id=$1", [resolutionId])).rowCount).toBe(0);
+ }));
  it("does not treat an appointment flag as appointment authority", async () => scoped(async () => {
   await runtime.query("select set_config('beyu.governance_appointment_id',$1,true)", [id]);
   await expect(runtime.query("insert into governance_members(id,body_id,party_id,seat_role,appointed_on) values('GMB_FORGED_APPT',$1,$2,'CHAIR',CURRENT_DATE)", [f.bodyId, f.candidate.partyId])).rejects.toHaveProperty("code", "42501");

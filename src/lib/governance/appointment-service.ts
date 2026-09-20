@@ -111,6 +111,9 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    if (row.revision !== input.expectedRevision) throw new GovernanceError("CONFLICT", "Stale appointment revision.");
    const expected = input.command === "APPROVE" ? "NOMINATED" : input.command === "ACTIVATE" ? "ACCEPTED" : "APPROVED";
    if (row.status !== expected && !(input.command === "DECLINE" && row.status === "ACCEPTED")) throw fail("Invalid appointment transition.");
+   // Consent is not authority, but it must not attest to an already-ended term.
+   // No arbitrary acceptance TTL is invented; the immutable term is the bound.
+   if (input.command === "ACCEPT" && row.retiredOn < today()) throw fail("The appointment term has expired; a new nomination is required.");
    await snapshot(p, body, row);
    let cause: string | null = null, policyVersion: string | null = null;
    if (input.command === "ACCEPT" || input.command === "DECLINE") {

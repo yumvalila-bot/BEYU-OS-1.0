@@ -459,3 +459,40 @@ work; it is not an excuse to claim all remaining work externally blocked.
 locally validated. The full requested governance mission remains **incomplete and
 not production-certified**. Merge, legal ratification, Finance activation and
 production promotion remain human-controlled. No irreversible promotion occurred.
+
+### Resumed appointment acceptance matrix — start08ba146
+
+GitHub reconnected. Fresh main fetch resolves5ac90f2 unchanged; PR77 is OPEN/DRAFT
+on this branch with remote application d0b09d8 at the initial observation. Saved
+08ba146 evidence was successfully pushed. Structured Actions results now confirm:
+**d0b09d8 root35508095235 SUCCESS, scratch35508095206 SUCCESS**. Intermediate
+ab1322f root35507779672 concluded **CANCELLED**, not a diagnosed application startup
+failure. Its X-marked startup step was insufficient to identify the conclusion;
+this fetched conclusion supersedes that ambiguity. Production jobs were skipped,
+not executed or certified.
+
+Created a separate empty database and applied all52 migrations, seeded it and
+provisioned the constrained runtime role. A repeat migration run applied nothing,
+with fingerprint0daa573cf315a1545eaca2523f090d46 unchanged. Integrity-with-ledger
+passed, preserving14 acknowledged debts and every historical SQL file.
+
+Added adversarial service coverage for simultaneous/duplicate activation, unchanged
+unrelated memberships/RBAC/Finance capability records, immutable nomination
+provenance, event causation/correlation, revoked grants at approval/activation,
+expired seats, wrong entity/country instruments, wrong body, fabricated decision
+provenance, insufficient votes and presider recusal. Added real non-owner SQL
+regressions retaining body creation/UPDATE/DELETE, member UPDATE/DELETE and finalized
+decision/ballot protections after0051. Rollback also checks audit and notifications.
+
+A new expiry test genuinely failed: a nominee could record ACCEPTED after the
+entire immutable term ended. Activation remained denied, but this was misleading
+consent evidence. The service now rejects new acceptance after retiredOn; no
+arbitrary separate consent TTL was invented and no historical migration changed.
+The failing reproducer is retained in continuation-adversarial-reproducer.log.
+Corrected focused service/RLS matrix:45 passed. New actual-browser denial suite:
+10 passed (4.1m), including stale rendered approval/activation forms after expiry,
+revocation, foreign-entity grants and wrong-country instruments; hidden-control
+bypass and non-nominee consent also denied. Persistence and reload confirm no
+client-side success substituted for backend state. Build/typecheck passed;
+lint0 errors/1 existing image warning. Full corrected suite/browser regression
+will be recorded separately after completion; focused evidence is not final proof.
