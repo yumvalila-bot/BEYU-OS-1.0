@@ -24,8 +24,8 @@ export async function readBodyEstablishment(p: Principal, parentId: string, id: 
  if (!row) throw new GovernanceError("NOT_FOUND", "Body establishment is not visible.");
  return { parent: view.parent, row };
 }
-async function superior(p: Principal, parentId: string, classification: Proposal["classification"], command: string) {
- const authority = await authorizeBodyPresider(p, parentId, classification, command, "body_establishment");
+export async function authorizeEstablishmentSuperior(p: Principal, parentId: string, classification: Proposal["classification"], command: string, domain = "body_establishment") {
+ const authority = await authorizeBodyPresider(p, parentId, classification, command, domain);
  if (!["BOARD", "TRUSTEES"].includes(authority.body.bodyType)) throw fail("Only an authorized board or trustees may propose an internal committee in this increment.");
  const composition = await currentCharterComposition(authority.body);
  if (!composition.charter || !composition.satisfied) throw fail("Superior authority requires an adopted readable charter and satisfied composition.");
@@ -54,7 +54,7 @@ export async function proposeBodyEstablishment(p: Principal, parentId: string, r
  return scoped(p, async () => {
   const parent = await readGoverningBody(p, parentId);
   await db.select().from(governanceBodies).where(eq(governanceBodies.id, parentId)).for("update");
-  const doc = await readBodyDocument(p, parent, input.documentId), authority = await superior(p, parentId, doc.classification, "PROPOSE");
+  const doc = await readBodyDocument(p, parent, input.documentId), authority = await authorizeEstablishmentSuperior(p, parentId, doc.classification, "PROPOSE");
   if (input.rules.quorumMinimum !== parent.quorumMinimum || input.rules.majorityRule !== parent.majorityRule) throw fail("Initial committee rules must preserve superior quorum and voting controls.");
   const policyVersion = authority.policy.appliedPolicies.map((v) => `${v.code}@${v.version}`).join(",") || null;
   return changed(p, parent, "PROPOSE", null, async () => {
@@ -71,7 +71,7 @@ export async function commandBodyEstablishment(p: Principal, parentId: string, i
    await db.select().from(governanceBodies).where(eq(governanceBodies.id, parentId)).for("update");
    await db.select().from(governanceBodyEstablishments).where(eq(governanceBodyEstablishments.id, id)).for("update");
    const { parent, row } = await readBodyEstablishment(p, parentId, id);
-   const authority = await superior(p, parentId, row.classification, input.command);
+   const authority = await authorizeEstablishmentSuperior(p, parentId, row.classification, input.command);
    if (row.revision !== input.expectedRevision) throw new GovernanceError("CONFLICT", "Stale establishment revision.");
    if (row.status !== ({ SUBMIT: "DRAFT", APPROVE: "IN_REVIEW", ESTABLISH: "APPROVED" } as const)[input.command]) throw fail("Invalid establishment transition.");
    const doc = await readBodyDocument(p, parent, row.documentId);

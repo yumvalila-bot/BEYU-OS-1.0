@@ -372,6 +372,13 @@
       "when": 1789908344420,
       "tag": "0052_governance_body_establishments",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789926101749,
+      "tag": "0053_governance_initial_charters",
+      "breakpoints": true
     }
   ]
 }

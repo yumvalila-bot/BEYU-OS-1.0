@@ -46,7 +46,8 @@ describe("charter direct PostgreSQL boundary", () => {
  }));
  it("blocks a forged cross-country document snapshot at the database boundary", async () => scoped(async () => {
   const [doc] = await db.select().from(documents).where(eq(documents.id, "DOC_CHARTER_COUNTRY"));
-  await runtime.query(`insert into governance_charters(id,body_id,version,created_by_user_id) values('GCH_RLS_FORGED','GOV_GROUP_BOARD',10000,'USR_AMANI_BEYU')`);
+  await runtime.query("select set_config('beyu.governance_charter_actor','USR_AMANI_BEYU',true)");
+  await runtime.query(`insert into governance_charters(id,body_id,version,created_by_user_id,authority_body_id,created_by_party_id) select 'GCH_RLS_FORGED','GOV_GROUP_BOARD',10000,id,'GOV_GROUP_BOARD',party_id from users where id='USR_AMANI_BEYU'`);
   await expect(runtime.query(`insert into governance_charter_terms(id,document_id,document_version,document_checksum,purpose,rules,classification) values('GCH_RLS_FORGED',$1,$2,$3,'Cross-country forgery',$4,'PUBLIC')`, [doc.id, doc.version, doc.checksum, JSON.stringify(charterFixtureRules)])).rejects.toHaveProperty("code", "23514");
  }));
  it("keeps referenced registry artifacts from being deleted", async () => scoped(async () => {

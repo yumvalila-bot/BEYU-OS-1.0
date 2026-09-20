@@ -1,7 +1,7 @@
 import { integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { governanceBodies, resolutions } from "./governance";
 import { documents } from "./platform";
-import { users } from "./identity";
+import { parties, users } from "./identity";
 import { classificationEnum } from "./enums";
 import type { CharterRules } from "@/lib/governance/charter-contract";
 /** Immutable versions of a body's charter. Latest adopted version is current;
@@ -9,6 +9,9 @@ import type { CharterRules } from "@/lib/governance/charter-contract";
 export const governanceCharters = pgTable("governance_charters", {
   id: text("id").primaryKey(),
   bodyId: text("body_id").notNull().references(() => governanceBodies.id),
+  // Nullable only for preserved pre-0053 history; new writes require both.
+  authorityBodyId: text("authority_body_id").references(() => governanceBodies.id),
+  createdByPartyId: text("created_by_party_id").references(() => parties.id),
   version: integer("version").notNull(),
   revision: integer("revision").notNull().default(1),
   status: text("status").notNull().default("DRAFT"),

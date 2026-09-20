@@ -21,6 +21,8 @@ export async function cleanupEstablishments(prefix: string) {
  const rows = await db.select().from(governanceBodyEstablishments).where(eq(governanceBodyEstablishments.parentBodyId, `GOV_${prefix}`));
  await db.delete(governanceBodyEstablishments).where(eq(governanceBodyEstablishments.parentBodyId, `GOV_${prefix}`));
  for (const r of rows) if (r.bodyId) {
+  await db.execute(sql`delete from governance_charter_terms where id in (select id from governance_charters where body_id=${r.bodyId})`);
+  await db.execute(sql`delete from governance_charters where body_id=${r.bodyId}`);
   await db.execute(sql`delete from resolution_votes where resolution_id in (select id from resolutions where body_id=${r.bodyId})`);
   await db.delete(resolutions).where(eq(resolutions.bodyId, r.bodyId));
   await db.delete(governanceBodies).where(eq(governanceBodies.id, r.bodyId));

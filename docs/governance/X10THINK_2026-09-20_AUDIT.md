@@ -641,3 +641,41 @@ X10THINK_2026-09-20_BODY_VALIDATION.md. This final checkpoint is documentation o
 its subsequent commit does not change the application SHA tested above. The broad
 mission remains partial; in particular inactive establishment is not initial
 composition/child-charter/ACTIVE bootstrap or the complete body/meeting lifecycle.
+
+### Further continuation — workspace recovery and initial charter foundation
+
+On resumption, actual HEAD was5ac90f2 with the prior working tree restored, but the
+local-only b65a1e3/c244caa commit objects were absent. No files were discarded. The
+saved tree was compared with fetched PR77 head4652f00: only the expected12 saved
+correction/report files differed. Recovery395552e452eb7beaae23bcb75c7ea247be20922b
+preserves that tree atop the published history and was pushed normally. This is
+metadata recovery, not a restart or migration recreation. origin/main was fetched
+and remains5ac90f2; PR77 is OPEN/DRAFT. Restored GitHub confirms original root
+35511965796 concluded FAILURE (P3 release and full root regression), scratch
+35511965800 SUCCESS. Old failed-job log download still fails at the external
+storage redirect; its signed URL is not reproduced. Recovery CI35526368551's P3
+job is observed SUCCESS; root remained running at this checkpoint, not certified.
+Recovery scratch35526368550 is observed SUCCESS.
+
+A new empty PostgreSQL16 database replayed all53 migrations, runtime provisioning
+and seed; the appointment service/adversarial/non-owner SQL matrix again passed45
+checks. Continued to superior-approved initial charters, not self-bootstrap.
+Additive0053 records immutable authority-body/original-author-party provenance and
+allows a dormant committee's initial charter to reach APPROVED, explicitly not
+ADOPTED/effective. Existing active-body composition checks remain. Body/member write
+policies are untouched. The shared browser uses distinct charter-management versus
+child-appointment permissions; pending approval cannot enable membership controls.
+
+Pre-complete validation:8 initial-charter service/adversarial tests;15 non-owner
+SQL cases;2 HTTP cases;1 new actual-browser flow (including stale expired authority)
+and the existing active-charter browser flow. Fresh54 replay/seed/runtime/no-op and
+integrity passed. The isolated predecessor-upgrade test preserves actual historical
+header/terms and denies unknown-provenance progression without backfill. Earlier
+fixture probes used nonexistent authority enum values; those failed logs are
+retained and corrected to the actual EXPIRED enum, without relaxing SQL assertions.
+An unpublished draft of0053 was strengthened before commit; its databases were not
+checksum-repaired. Final verification uses a separate fresh54 database.
+
+Details and compatibility restriction: INITIAL_CHARTERS.md. Full new-source suite,
+all29 browsers, drift and observed new-source CI must be recorded separately after
+completion. The body/charter/initial-membership mission is still partial.

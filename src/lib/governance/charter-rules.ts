@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { governanceCharters, governanceCharterTerms, governanceMembers } from "@/db/schema";
 import { CharterRulesSchema, SEAT_ROLES } from "./charter-contract";
@@ -24,8 +24,9 @@ export function assessComposition(raw: unknown, members: { partyId: string; seat
 /** No charter is manufactured for legacy bodies. Once adopted, controls persist
  * from immutable terms, even if the source registry document is later revised. */
 export async function currentCharterComposition(body: { id: string; quorumMinimum: number; majorityRule: string }) {
-  const [charter] = await db.select().from(governanceCharters).where(and(eq(governanceCharters.bodyId, body.id), eq(governanceCharters.status, "ADOPTED"))).orderBy(desc(governanceCharters.version)).limit(1);
+  const [charter] = await db.select().from(governanceCharters).where(and(eq(governanceCharters.bodyId, body.id), inArray(governanceCharters.status, ["ADOPTED", "APPROVED"]))).orderBy(desc(governanceCharters.version)).limit(1);
   if (!charter) return { charter: null, satisfied: true, violations: [] as string[], coverage: "LEGACY_UNCHARTERED" as const };
+  if (charter.status === "APPROVED") return { charter, satisfied: false, violations: ["Initial charter is approved but not effective; governed initial composition and activation are still required."], coverage: "APPROVED_PENDING_ACTIVATION" as const };
   const [terms] = await db.select().from(governanceCharterTerms).where(eq(governanceCharterTerms.id, charter.id));
   if (!terms) return { charter, satisfied: false, violations: ["Adopted charter terms are unavailable in this scope."], coverage: "ADOPTED_CHARTER" as const };
   const members = await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id));
