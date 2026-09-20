@@ -1,9 +1,10 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "../../src/db";
-import { governanceMembers } from "../../src/db/schema";
+import { governanceMembers, governanceAppointments } from "../../src/db/schema";
 import { apiPost, login, serverAvailable } from "../helpers/http";
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments } from "../helpers/appointments";
+import { withReboundAppointmentActors } from "../helpers/appointment-identity";
 const available = await serverAvailable(); let f: Awaited<ReturnType<typeof appointmentFixture>>, chair: string, secretary: string, candidate: string;
 type Result = { data: { id: string; status: string; memberId: string }; error?: { message: string } };
 const path = () => `/api/v1/governance/bodies/${f.bodyId}/appointments`;
@@ -13,6 +14,17 @@ describe.skipIf(!available)("appointment actual HTTP authority boundary", () => 
  it("denies unauthenticated and forged state requests", async () => {
   expect((await apiPost(path(), appointmentInput(f.candidate.userId))).status).toBe(401);
   expect((await apiPost(path(), appointmentInput(f.candidate.userId, { status: "ACTIVE" }), { cookie: chair })).status).toBe(422);
+ });
+ it("denies rebinding-based self-approval with a real authenticated HTTP session", async () => {
+  const a = await apiPost<Result>(path(), appointmentInput(f.candidate.userId), { cookie: chair, idempotencyKey: crypto.randomUUID() });
+  expect(a.status, JSON.stringify(a.body)).toBe(201);
+  const resolutionId = await appointmentBallot(a.body.data.id, f.chair);
+  await withReboundAppointmentActors(f, async () => {
+   const denied = await apiPost<Result>(`${path()}/${a.body.data.id}`, { command: "APPROVE", expectedRevision: 1, resolutionId, note: "Original nominator cannot approve through another account" }, { cookie: secretary, idempotencyKey: crypto.randomUUID() });
+   expect(denied.status, JSON.stringify(denied.body)).toBe(403);
+   expect(denied.body.error?.message).toContain("nominating person");
+   expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.body.data.id)))[0]).toMatchObject({ status: "NOMINATED", revision: 1, nominatedByPartyId: f.chair.partyId, approvedByPartyId: null });
+  });
  });
  it("deduplicates nomination and requires independent approval, actual nominee consent and fresh activation", async () => {
   const key = crypto.randomUUID(), input = appointmentInput(f.candidate.userId);

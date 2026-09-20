@@ -14,7 +14,10 @@ export const governanceAppointments = pgTable("governance_appointments", {
  documentVersion: text("document_version").notNull(), documentChecksum: text("document_checksum").notNull(),
  classification: classificationEnum("classification").notNull(), rationale: text("rationale").notNull(),
  status: text("status").notNull().default("NOMINATED"), revision: integer("revision").notNull().default(1),
+ // Nullable only for pre-0054 history; never infer the original person from a mutable account.
+ nominatedByPartyId: text("nominated_by_party_id").references(() => parties.id),
  nominatedByUserId: text("nominated_by_user_id").notNull().references(() => users.id),
+ approvedByPartyId: text("approved_by_party_id").references(() => parties.id),
  approvedByUserId: text("approved_by_user_id").references(() => users.id),
  resolutionId: text("resolution_id").references(() => resolutions.id),
  acceptedAt: timestamp("accepted_at", { withTimezone: true }),

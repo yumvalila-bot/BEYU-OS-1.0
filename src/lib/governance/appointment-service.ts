@@ -93,7 +93,7 @@ export async function nominateMember(p: Principal, bodyId: string, raw: unknown,
   if (u.id === p.userId || u.partyId === p.partyId) throw new GovernanceError("FORBIDDEN", "A presiding officer cannot nominate themselves.");
   if (input.appointedOn < today()) throw fail("A nomination cannot backdate an appointment.");
   return transition(p, body, "NOMINATE", null, async () => {
-   const [row] = await db.insert(governanceAppointments).values({ ...input, id: newId(ID_PREFIX.governanceAppointment), bodyId, partyId: u.partyId!, classification: doc.classification, documentVersion: doc.version, documentChecksum: doc.checksum, nominatedByUserId: p.userId }).returning(); return row;
+   const [row] = await db.insert(governanceAppointments).values({ ...input, id: newId(ID_PREFIX.governanceAppointment), bodyId, partyId: u.partyId!, classification: doc.classification, documentVersion: doc.version, documentChecksum: doc.checksum, nominatedByUserId: p.userId, nominatedByPartyId: p.partyId }).returning(); return row;
   }, input.rationale, context, null, authority.policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null);
  });
 }
@@ -114,6 +114,8 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
    // Consent is not authority, but it must not attest to an already-ended term.
    // No arbitrary acceptance TTL is invented; the immutable term is the bound.
    if (input.command === "ACCEPT" && row.retiredOn < today()) throw fail("The appointment term has expired; a new nomination is required.");
+   if (input.command !== "DECLINE" && !row.nominatedByPartyId) throw fail("Original nominating party is unknown; a new nomination is required.");
+   if (!["APPROVE", "DECLINE"].includes(input.command) && !row.approvedByPartyId) throw fail("Original approving party is unknown; a new nomination is required.");
    await snapshot(p, body, row);
    let cause: string | null = null, policyVersion: string | null = null;
    if (input.command === "ACCEPT" || input.command === "DECLINE") {
@@ -127,7 +129,7 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
     const authority = await authorizeBodyPresider(p, bodyId, row.classification, input.command, "appointment");
     policyVersion = authority.policy.appliedPolicies.map((p) => `${p.code}@${p.version}`).join(",") || null;
     const [nominator] = await db.select().from(users).where(eq(users.id, row.nominatedByUserId)).for("share");
-    if (input.command === "APPROVE" && (!nominator || nominator.partyId === p.partyId)) throw new GovernanceError("FORBIDDEN", "Approval must be independent of the nominating person, not just their account.");
+    if (input.command === "APPROVE" && (!nominator || nominator.partyId === p.partyId || row.nominatedByPartyId === p.partyId)) throw new GovernanceError("FORBIDDEN", "Approval must be independent of the nominating person, not just their account.");
     if (p.partyId === row.partyId || p.userId === row.nomineeUserId || (input.command === "APPROVE" && p.userId === row.nominatedByUserId)) throw new GovernanceError("FORBIDDEN", "Independent presiding approval and activation are required.");
     cause = await mandate(p, bodyId, row, resolutionId!);
     if (input.command === "ACTIVATE") await prospective(body, row);
@@ -136,7 +138,7 @@ export async function commandAppointment(p: Principal, bodyId: string, id: strin
     const memberId = input.command === "ACTIVATE" ? newId(ID_PREFIX.member) : null;
     const [updated] = await db.update(governanceAppointments).set({ revision: row.revision + 1,
      status: input.command === "APPROVE" ? "APPROVED" : input.command === "ACCEPT" ? "ACCEPTED" : input.command === "ACTIVATE" ? "ACTIVE" : "DECLINED",
-     ...(input.command === "APPROVE" ? { approvedByUserId: p.userId, resolutionId } : {}),
+     ...(input.command === "APPROVE" ? { approvedByUserId: p.userId, approvedByPartyId: p.partyId, resolutionId } : {}),
      ...(input.command === "ACCEPT" ? { acceptedAt: new Date() } : {}),
      ...(input.command === "ACTIVATE" ? { activatedByUserId: p.userId, memberId } : {}),
     }).where(and(eq(governanceAppointments.id, id), eq(governanceAppointments.revision, input.expectedRevision))).returning();

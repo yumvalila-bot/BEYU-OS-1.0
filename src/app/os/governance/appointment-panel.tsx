@@ -14,7 +14,9 @@ export function AppointmentPanel({ bodyId, userId, canManage, appointments }: { 
   try {
    const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": retry.current.key }, body: payload });
    const data = await response.json(); setMessage(response.ok ? "Recorded; server state refreshed." : data.error?.message ?? "Request denied.");
-   if (response.ok || response.status < 500) retry.current = null;
+   // A later denial cannot disprove an earlier lost successful response.
+   // Preserve identity for an unchanged retry; edited intentions get a new key.
+   if (response.ok) retry.current = null;
    if (response.ok) router.refresh();
   } catch { setMessage("Response unconfirmed. Retry unchanged to recover safely."); }
   finally { setBusy(false); }

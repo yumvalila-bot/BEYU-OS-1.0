@@ -379,6 +379,13 @@
       "when": 1789926101749,
       "tag": "0053_governance_initial_charters",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789930055051,
+      "tag": "0054_governance_appointment_origin",
+      "breakpoints": true
     }
   ]
 }
