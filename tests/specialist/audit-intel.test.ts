@@ -844,7 +844,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- THROUGH recordAudit (which owns the audit chain), never audit ledgers
       -- themselves. Excluded by exact name so this guard still fails if the audit
       -- module ever defines a table.
-        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry')
+      -- governance_calendar_events (drizzle/0061) is the governance calendar
+      -- domain's schedule table, not an audit ledger; excluded by exact name.
+        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry', 'governance_calendar_events')
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -928,7 +930,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0052: superior-body establishment, not specialist execution authority.
     // + 0050: scoped charter versions/terms, not specialist truth or appointment powers.
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(60);  });
+    // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
+    // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(62);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);
