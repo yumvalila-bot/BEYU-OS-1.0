@@ -95,7 +95,7 @@ export const AddAgendaItemInputSchema = z.object({
   leadPartyId: z.string().min(1).max(100).optional(),
   durationMinutes: z.number().int().positive().default(15),
   boardPaperDocumentId: z.string().min(1).max(100).optional(),
-  boardPaperChecksum: z.string().min(10).max(200).optional(),
+  boardPaperChecksum: z.string().regex(/^[a-f0-9]{64}$/i, "Board paper checksum must be a valid 64-character SHA-256 hex string").optional(),
   isConfidential: z.boolean().default(false),
 }).strict();
 export type AddAgendaItemInput = z.input<typeof AddAgendaItemInputSchema>;
@@ -131,7 +131,7 @@ export type ParsedTableMotionInput = z.infer<typeof TableMotionInputSchema>;
 
 export const RecordMinutesInputSchema = z.object({
   minutesDocumentId: z.string().min(1).max(100),
-  minutesDocumentChecksum: z.string().min(10).max(200),
+  minutesDocumentChecksum: z.string().regex(/^[a-f0-9]{64}$/i, "Minutes document checksum must be a valid 64-character SHA-256 hex string"),
   summary: z.string().trim().min(10).max(5000),
 }).strict();
 export type RecordMinutesInput = z.input<typeof RecordMinutesInputSchema>;
