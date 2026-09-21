@@ -5,6 +5,7 @@ import { DevicePreferences } from "@/components/device-preferences";
 import { Icon, type IconName } from "@/components/icons";
 import { can, type Principal } from "@/lib/authz";
 import type { PermissionCode } from "@/lib/constants";
+import { NOELIA_DISPLAY_IDENTITY } from "@/lib/noelia/appearance";
 import { requirePrincipal } from "@/lib/guard";
 import { SignOutButton } from "../sign-out-button";
 
@@ -135,10 +136,12 @@ export default async function SettingsPage() {
   const principal = await requirePrincipal();
   const administration = administrationFor(principal);
   const canReadIdentity = can(principal, "identity:user.read").allowed;
+  const canQueryNoelia = can(principal, "ai:noelia.query").allowed;
 
   const sections = [
     { href: "#general", label: "General" },
     { href: "#appearance", label: "Appearance" },
+    { href: "#noelia", label: "Noelia" },
     { href: "#account", label: "Account" },
     { href: "#security", label: "Security" },
     { href: "#notifications", label: "Notifications" },
@@ -227,6 +230,48 @@ export default async function SettingsPage() {
       </section>
 
       <DevicePreferences />
+
+      <section
+        id="noelia"
+        aria-labelledby="noelia-heading"
+        className="beyu-panel scroll-mt-24 p-5"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b1f4d] text-[#f0d36f]">
+              <Icon name="hive" className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="beyu-kicker text-[#b08d1c]">Noelia</div>
+              <h2
+                id="noelia-heading"
+                className="mt-1 text-[15px] font-semibold"
+              >
+                {NOELIA_DISPLAY_IDENTITY.name} — {NOELIA_DISPLAY_IDENTITY.subtitle}
+              </h2>
+              <p className="mt-0.5 text-[11px] font-medium tracking-wide text-[#9a7813]">
+                {NOELIA_DISPLAY_IDENTITY.motto}
+              </p>
+              <p className="mt-1 max-w-2xl text-[11.5px] beyu-muted">
+                The single governed BEYU AI identity. Appearance and
+                personalization (avatar, presence, motion, greeting, position,
+                notifications) are configured in the Noelia assistant panel in
+                the OS header — browser-local, presentation only, never an
+                authorization input.{" "}
+                {canQueryNoelia
+                  ? "Her assistant and audit trail are one page away."
+                  : "Her assistant appears once your grants include ai:noelia.query; the server remains authoritative."}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/os/noelia"
+            className="shrink-0 rounded-lg bg-[#0b1f4d] px-3.5 py-2.5 text-[11.5px] font-semibold text-white hover:bg-[#102b61] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
+          >
+            Open Noelia →
+          </Link>
+        </div>
+      </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
         <section
