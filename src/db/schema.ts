@@ -130,4 +130,6 @@ export * from "./schema/governance-membership";
 
 export * from "./schema/governance-body-changes";
 export * from "./schema/governance-meetings";
+export * from "./schema/governance-calendar";
+
 
