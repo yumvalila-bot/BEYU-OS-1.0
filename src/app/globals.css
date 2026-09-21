@@ -173,3 +173,16 @@ html.beyu-reduce-motion *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+
+/* Noelia appearance preference: suppresses non-essential Noelia animation.
+   Presentation only — it never changes any governed application state.
+   Scoped to Noelia surfaces (`.noelia-motion-off`) so the wider OS shell
+   keeps its own motion policy. */
+.noelia-motion-off *,
+.noelia-motion-off *::before,
+.noelia-motion-off *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

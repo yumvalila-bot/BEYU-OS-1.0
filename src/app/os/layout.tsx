@@ -6,13 +6,15 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { type Principal } from "@/lib/authz";
+import { can, type Principal } from "@/lib/authz";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
+import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
 import { Badge } from "@/components/brand";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { HistoryNavigation } from "@/components/history-navigation";
+import { NoeliaShell } from "@/components/noelia-shell";
 import { OsBrand } from "./os-brand";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
 import {
@@ -86,6 +88,22 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
       .orderBy(desc(notifications.createdAt))
       .limit(5);
     const nav = await visibleNav(principal);
+
+    /*
+     * Noelia shell facts — computed ONCE here, server-side, and passed to the
+     * client shell as display-only props. Noelia is a single governed AI
+     * identity; she is not a module and does not add a navigation entry.
+     * Whether a principal may query her is the existing ai:noelia.query grant;
+     * the panel only displays the resulting state and every action still
+     * travels through the governed API boundary.
+     */
+    const noeliaShell = {
+      canQuery: can(principal, "ai:noelia.query").allowed,
+      mfaSatisfied: principal.mfaSatisfied,
+      providerMode: noeliaProviderModeFromEnvironment(),
+      principalName: principal.displayName,
+    };
+
     const navigationPrincipal: OsNavigationPrincipal = {
       displayName: principal.displayName,
       email: principal.email,
@@ -125,6 +143,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <div className="flex items-center gap-3">
+              <NoeliaShell {...noeliaShell} />
               <HistoryNavigation />
               <span className="beyu-kicker text-white/45">Alerts</span>
               <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/15 px-2 py-[3px] text-[11px] font-semibold text-[#efd98f]">
