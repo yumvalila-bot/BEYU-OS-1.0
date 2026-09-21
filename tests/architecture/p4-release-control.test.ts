@@ -79,7 +79,8 @@ describe("P4 release control architecture", () => {
 
   it("0047 is registered in the known metadata debt register (not silent)", async () => {
     const { KNOWN_METADATA_DEBT } = await import("@/lib/migration/integrity");
-    expect(KNOWN_METADATA_DEBT.missingJournal).toContain("0047_release_approvals");
+    expect(KNOWN_METADATA_DEBT.missingJournal).not.toContain("0047_release_approvals");
+    expect(readFileSync("drizzle/meta/_journal.json", "utf8")).toContain("0047_release_approvals");
     expect(KNOWN_METADATA_DEBT.missingSnapshot).toContain("0047");
   });
 

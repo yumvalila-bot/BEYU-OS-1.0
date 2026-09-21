@@ -96,7 +96,17 @@ enum, so no new state is required.
 
 ---
 
-## 3. `resolution_votes` tenancy rests on a coding invariant, not RLS
+## 3. Core governance RLS — RESOLVED by migration 0048 (2026-09-20)
+
+Bodies, memberships, resolutions and votes now have enabled/forced RLS. Child
+policies derive scope through the existing parent foreign keys, without a duplicate
+tenant column. Entity/classification ceilings and restrictive mutation policies
+are enforced. Direct runtime-role tests cover positive and negative cases. See
+[X10THINK audit](X10THINK_2026-09-20_AUDIT.md) for the exact boundary and remaining gaps.
+
+### Historical analysis before 0048 (retained; no longer current)
+
+`resolution_votes` tenancy rested on a coding invariant, not RLS.
 
 **Facts.**
 

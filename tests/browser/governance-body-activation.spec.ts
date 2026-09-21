@@ -1,0 +1,58 @@
+import "dotenv/config";
+import "../setup-env";
+import { test, expect } from "@playwright/test";
+import { eq } from "drizzle-orm";
+import { db } from "../../src/db";
+import { governanceAppointments, governanceBodies, governanceMembers, governanceCharters, roleAssignments } from "../../src/db/schema";
+import { login } from "../helpers/http";
+import { appointmentBallot } from "../helpers/appointments";
+import { bodyActivationFixture, activationBallot, cleanupBodyActivation } from "../helpers/body-activation";
+let f:Awaited<ReturnType<typeof bodyActivationFixture>>;
+test.beforeAll(async()=>{await cleanupBodyActivation("BODY_ACT_BROWSER");f=await bodyActivationFixture("BODY_ACT_BROWSER","DOC_D4",3);});
+test.afterAll(()=>cleanupBodyActivation("BODY_ACT_BROWSER"));
+test("initial nomination → independent approval → consent → exact composition decision → atomic body activation → visible seats",async({page,context,baseURL})=>{
+ test.setTimeout(300000);
+ async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance");}
+ const appointments=page.locator(`[data-appointment-body="${f.childId}"]`),panel=page.locator(`[data-activation-body="${f.childId}"]`);
+ await identity(f.chair.email);await appointments.locator("summary").click();
+ await appointments.getByLabel("Nominee user ID").fill(f.candidates[3].userId);
+ await appointments.getByLabel("Appointment instrument document ID").fill("DOC_D4");
+ await appointments.getByLabel("Term start").fill(new Date().toISOString().slice(0,10));await appointments.getByLabel("Term end (inclusive)").fill("2030-12-31");
+ await appointments.getByLabel("Nomination rationale and evidence review").fill("Complete the independently approved initial committee composition");
+ const created=page.waitForResponse(r=>r.url().endsWith(`/${f.childId}/appointments`)&&r.request().method()==="POST");
+ await appointments.getByRole("button",{name:"Nominate a body member"}).click();const nominationResponse=await created;expect(nominationResponse.status()).toBe(201);const nomination=(await nominationResponse.json()).data;
+ const resolutionId=await appointmentBallot(nomination.id,f.chair);
+ await identity(f.secretary.email);await appointments.locator("summary").click();const appointment=appointments.locator(`[data-appointment-id="${nomination.id}"]`);
+ await appointment.getByLabel("Appointment review / consent note").fill("Independent approval of the final required initial seat");
+ await appointment.getByLabel("Approved nomination-specific APPOINTMENT resolution ID").fill(resolutionId);
+ await appointment.getByRole("button",{name:"Record independent appointment approval"}).click();await expect(appointment).toContainText("APPROVED");
+ const nonNominee=await page.request.post(`/api/v1/governance/bodies/${f.childId}/appointments/${nomination.id}`,{data:{command:"ACCEPT",expectedRevision:2,note:"The approver cannot consent for the nominee"},headers:{"idempotency-key":crypto.randomUUID()}});expect(nonNominee.status()).toBe(403);
+ await identity(f.candidates[3].email);await appointments.locator("summary").click();
+ await expect(panel.getByRole("button",{name:"Propose initial composition"})).toHaveCount(0);
+ await appointment.getByLabel("Appointment review / consent note").fill("I consent to these dated duties without receiving security powers");
+ await appointment.getByRole("button",{name:"Accept appointment terms"}).click();await expect(appointment).toContainText("ACCEPTED");
+ await identity(f.chair.email);await panel.locator("summary").click();
+ expect(await panel.getByRole("checkbox").count()).toBe(4);for(const box of await panel.getByRole("checkbox").all())await box.check();
+ await panel.getByLabel("Initial composition rationale").fill("Activate only this exact charter and four consented initial members");
+ const proposed=page.waitForResponse(r=>r.url().endsWith(`/${f.childId}/activations`)&&r.request().method()==="POST");await panel.getByRole("button",{name:"Propose initial composition"}).click();const response=await proposed;expect(response.status()).toBe(201);const plan=(await response.json()).data;
+ const card=panel.locator(`[data-activation-id="${plan.id}"]`);await card.getByLabel("Activation review note").fill("Submit frozen complete initial composition for superior decision");
+ await card.getByRole("button",{name:"Submit initial composition"}).click();await expect(card).toContainText("IN_REVIEW");
+ await expect(card.getByRole("button",{name:"Record independent composition approval"})).toHaveCount(0);
+ const activationResolution=await activationBallot(plan.id,f);
+ await identity(f.secretary.email);await panel.locator("summary").click();
+ await card.getByLabel("Activation review note").fill("Independently approve the exact superior reserved matter decision");await card.getByLabel("Approved activation-specific RESERVED_MATTER resolution ID").fill(activationResolution);
+ await card.getByRole("button",{name:"Record independent composition approval"}).click();await expect(card).toContainText("APPROVED");
+ await card.getByLabel("Activation review note").fill("Activate all canonical memberships and effective charter atomically");
+ const grants=await db.select().from(roleAssignments).where(eq(roleAssignments.userId,f.secretary.userId));
+ await db.update(roleAssignments).set({effectiveTo:"2000-01-01"}).where(eq(roleAssignments.userId,f.secretary.userId));let deniedKey:string|null=null;
+ try{const denial=page.waitForResponse(r=>r.url().endsWith(`/activations/${plan.id}`)&&r.request().method()==="POST");await card.getByRole("button",{name:"Activate body and whole composition"}).click();const denied=await denial;expect(denied.status()).toBe(403);deniedKey=await denied.request().headerValue("idempotency-key");}
+ finally{for(const g of grants)await db.update(roleAssignments).set({effectiveTo:g.effectiveTo}).where(eq(roleAssignments.id,g.id));}
+ expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId,f.childId))).toHaveLength(0);
+ const activated=page.waitForResponse(r=>r.url().endsWith(`/activations/${plan.id}`)&&r.request().method()==="POST");await card.getByRole("button",{name:"Activate body and whole composition"}).click();const success=await activated;expect(success.status()).toBe(200);expect(await success.request().headerValue("idempotency-key")).toBe(deniedKey);
+ await expect(card).toContainText("ACTIVE");await expect(card).toContainText("Effective activation recorded");
+ const bodyCard=panel.locator("..");await expect(bodyCard).toContainText("Initial member 3");await expect(bodyCard).toContainText("CURRENT TERM");await expect(bodyCard).not.toContainText("No seats recorded.");
+ expect((await db.select().from(governanceBodies).where(eq(governanceBodies.id,f.childId)))[0].status).toBe("ACTIVE");
+ expect((await db.select().from(governanceCharters).where(eq(governanceCharters.id,f.initialCharterId)))[0].status).toBe("ADOPTED");
+ expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId,f.childId))).toHaveLength(4);
+ expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.bodyId,f.childId))).every(a=>a.status==="ACTIVE"&&a.memberId)).toBe(true);
+});

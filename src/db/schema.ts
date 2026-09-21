@@ -117,3 +117,19 @@ export * from "./schema/admin-governance";
  * and existing RBAC/ABAC/RLS chain.
  */
 export * from "./schema/release";
+
+export * from "./schema/governance-execution";
+export * from "./schema/governance-charters";
+
+export * from "./schema/governance-appointments";
+
+export * from "./schema/governance-establishments";
+
+export * from "./schema/governance-activations";
+export * from "./schema/governance-membership";
+
+export * from "./schema/governance-body-changes";
+export * from "./schema/governance-meetings";
+export * from "./schema/governance-calendar";
+
+

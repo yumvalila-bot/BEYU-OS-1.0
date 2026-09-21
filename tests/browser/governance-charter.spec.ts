@@ -1,0 +1,35 @@
+import "dotenv/config";
+import "../setup-env";
+import { test, expect } from "@playwright/test";
+import { eq } from "drizzle-orm";
+import { db } from "../../src/db";
+import { governanceCharters } from "../../src/db/schema";
+import { apiPost, login } from "../helpers/http";
+import { concludedCharterBallot, cleanupCharters } from "../helpers/charters";
+let id: string, resolutionId: string, chair: string, secretary: string;
+test.beforeAll(async () => { test.setTimeout(120000); chair = await login("ceo@beyu.os"); secretary = await login("governance@beyu.os"); });
+test.afterAll(() => cleanupCharters(id ? [id] : [], resolutionId ? [resolutionId] : []));
+test("charter review and independent adoption survive reload and enforce server truth", async ({ page, context, baseURL }) => {
+ async function identity(cookie: string) { await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); }
+ await identity(chair); await page.goto("/os/governance");
+ const panel = page.locator('[data-charter-body="GOV_GROUP_BOARD"]'); await panel.locator("summary").click();
+ await panel.getByLabel("Charter document ID", { exact: true }).fill("DOC_D4");
+ await panel.getByLabel("Charter purpose / terms of reference").fill("Browser adoption of independently reviewed board terms and composition requirements");
+ const creating = page.waitForResponse((r) => r.url().endsWith("/GOV_GROUP_BOARD/charters") && r.request().method() === "POST");
+ await panel.getByRole("button", { name: "Create charter version", exact: true }).click();
+ const response = await creating; expect(response.status()).toBe(201); id = (await response.json()).data.id;
+ const card = panel.locator(`[data-charter-id="${id}"]`); await expect(card).toContainText("DRAFT");
+ await card.getByLabel("Review note").fill("Submit complete terms for independent review");
+ const submitted = page.waitForResponse((r) => r.url().endsWith(`/charters/${id}`));
+ await card.getByRole("button", { name: "Submit charter for review" }).click(); expect((await submitted).status()).toBe(200);
+ await expect(card).toContainText("IN_REVIEW"); await expect(card.getByRole("button", { name: "Record independent charter adoption" })).toHaveCount(0);
+ resolutionId = await concludedCharterBallot(id);
+ expect((await apiPost(`/api/v1/governance/resolutions/${resolutionId}/decision`, {}, { cookie: chair })).status).toBe(200);
+ await identity(secretary); await page.reload(); await panel.locator("summary").click();
+ await card.getByLabel("Review note").fill("Independently record the approved charter adoption");
+ await card.getByLabel("Approved charter-specific POLICY resolution ID").fill(resolutionId);
+ const adopting = page.waitForResponse((r) => r.url().endsWith(`/charters/${id}`)); await card.getByRole("button", { name: "Record independent charter adoption" }).click(); expect((await adopting).status()).toBe(200);
+ await expect(card).toContainText("ADOPTED"); await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("ADOPTED");
+ await expect(panel).toContainText("Current composition satisfies adopted rules");
+ const [record] = await db.select().from(governanceCharters).where(eq(governanceCharters.id, id)); expect(record.adoptedByUserId).toBe("USR_GRACE_KILELE"); expect(record.resolutionId).toBe(resolutionId);
+});

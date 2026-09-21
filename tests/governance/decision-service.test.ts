@@ -406,9 +406,10 @@ describe("governed decision — computed outcomes", () => {
     const result = await decideResolutionClosure(await principalFor(CHAIR), { resolutionId: r.id }, ctx);
     expect(result.quorum.eligible).toBe(3);
     expect(result.quorum.recused).toBe(2);
-    // The requirement is capped at the surviving electorate, so quorum is met.
-    expect(result.quorum.met).toBe(true);
-    expect(result.outcome).toBe("APPROVED");
+    // Recusal cannot amend the constitutional quorum.
+    expect(result.quorum.required).toBe(4);
+    expect(result.quorum.met).toBe(false);
+    expect(result.outcome).toBe("DEFERRED");
     // RECUSED ballots are never substantive votes.
     expect(result.tally.for).toBe(3);
     expect(result.tally.recused).toBe(2);

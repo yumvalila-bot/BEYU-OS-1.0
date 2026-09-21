@@ -168,7 +168,7 @@ export function mattersTriggeredBy(input: {
     if (p.threshold === null) return true;
     // A threshold matter with no amount supplied engages: the caller cannot escape a monetary
     // reservation by omitting the amount.
-    if (input.amount === null || input.amount === undefined) return true;
+    if (input.amount === null || input.amount === undefined || !Number.isFinite(input.amount) || input.amount < 0) return true;
     return input.amount >= p.threshold;
   });
 

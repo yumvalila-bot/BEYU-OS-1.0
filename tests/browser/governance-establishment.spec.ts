@@ -1,0 +1,38 @@
+import "dotenv/config";
+import "../setup-env";
+import { test, expect } from "@playwright/test";
+import { eq } from "drizzle-orm";
+import { db } from "../../src/db";
+import { governanceBodies, governanceMembers } from "../../src/db/schema";
+import { login } from "../helpers/http";
+import { establishmentFixture, establishmentBallot, cleanupEstablishments } from "../helpers/establishments";
+let f: Awaited<ReturnType<typeof establishmentFixture>>;
+test.beforeAll(async () => { await cleanupEstablishments("ESTABLISH_BROWSER"); f = await establishmentFixture("ESTABLISH_BROWSER"); });
+test.afterAll(() => cleanupEstablishments("ESTABLISH_BROWSER"));
+test("superior review establishes only an inactive committee, survives reload and denies self-authority", async ({ page, context, baseURL }) => {
+ test.setTimeout(150000);
+ async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); }
+ await identity(f.chair.email);
+ const panel = page.locator(`[data-establishment-parent="${f.bodyId}"]`); await panel.locator("summary").click();
+ await panel.getByLabel("Committee registry code").fill("COM_BROWSER_ESTABLISHMENT");
+ await panel.getByLabel("Committee name", { exact: true }).fill("Governed inactive review committee");
+ await panel.getByLabel("Establishment charter document ID").fill("DOC_D4");
+ await panel.getByLabel("Committee mandate and limitations").fill("Independent superior review for an inactive internal committee without membership authority");
+ const response = page.waitForResponse((r) => r.url().endsWith(`/${f.bodyId}/establishments`) && r.request().method() === "POST");
+ await panel.getByRole("button", { name: "Propose inactive committee" }).click(); const created = await response; expect(created.status()).toBe(201); const id = (await created.json()).data.id;
+ const card = panel.locator(`[data-establishment-id="${id}"]`); await expect(card).toContainText("DRAFT");
+ await card.getByLabel("Establishment review note").fill("Submit the immutable charter for superior authority review"); await card.getByRole("button", { name: "Submit establishment for authority review" }).click(); await expect(card).toContainText("IN_REVIEW");
+ const resolutionId = await establishmentBallot(id, f.chair);
+ const selfApproval = await page.evaluate(async ({ url, resolutionId }) => { const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ command: "APPROVE", expectedRevision: 2, resolutionId, note: "Attempted self approval of the establishment" }) }); return r.status; }, { url: `/api/v1/governance/bodies/${f.bodyId}/establishments/${id}`, resolutionId });
+ expect(selfApproval).toBe(403);
+ await identity(f.secretary.email); await panel.locator("summary").click();
+ await card.getByLabel("Establishment review note").fill("Independent superior review of the exact reserved-matter mandate"); await card.getByLabel("Superior RESERVED_MATTER resolution ID").fill(resolutionId);
+ await card.getByRole("button", { name: "Record independent establishment approval" }).click(); await expect(card).toContainText("APPROVED");
+ await card.getByLabel("Establishment review note").fill("Recheck source and record only a dormant canonical committee");
+ await card.getByRole("button", { name: "Establish inactive committee" }).click(); await expect(card).toContainText("ESTABLISHED");
+ await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("Canonical DRAFT committee:");
+ const [body] = await db.select().from(governanceBodies).where(eq(governanceBodies.code, "COM_BROWSER_ESTABLISHMENT")); expect(body.status).toBe("DRAFT");
+ expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id))).toHaveLength(0);
+ const denied = await page.evaluate(async (url) => { const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ code: "COM_SELF_ESTABLISHED", name: "Cannot establish myself", purpose: "A dormant body has no power to create another authority", documentId: "DOC_D4", rules: { quorumMinimum: 4, majorityRule: "SIMPLE", minimumVotingMembers: 4, maximumVotingMembers: 8, requiredSeats: [{ role: "CHAIR", minimum: 1, maximum: 1 }] } }) }); return r.status; }, `/api/v1/governance/bodies/${body.id}/establishments`);
+ expect(denied).toBe(403);
+});

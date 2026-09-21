@@ -298,3 +298,26 @@ describe.skipIf(!available)("vote mutation over HTTP", () => {
     expect(row.votingOpensAt).not.toBeNull();
   });
 });
+
+
+describe.skipIf(!available)("HTTP self-recusal", () => {
+  it("persists recusal, replays idempotently, and blocks voting and closure", async () => {
+    const id = await tabledResolution("RECUSAL1");
+    const path = `/api/v1/governance/resolutions/${id}/recusal`;
+    const payload = { reason: "Related-party interest requires my recusal" };
+    const first = await apiPost(path, payload, { cookie: governance, idempotencyKey: "recusal-replay" });
+    expect(first.status).toBe(201);
+    const replay = await apiPost(path, payload, { cookie: governance, idempotencyKey: "recusal-replay" });
+    expect(replay.status).toBe(201); expect(replay.body).toEqual(first.body);
+    expect((await apiPost(votePath(id), { vote: "FOR" }, { cookie: governance })).status).toBe(403);
+    expect((await apiPost(`/api/v1/governance/resolutions/${id}/decision`, {}, { cookie: governance })).status).toBe(403);
+    const records = await db.select().from(resolutionVotes).where(eq(resolutionVotes.resolutionId, id));
+    expect(records).toHaveLength(1); expect(records[0].vote).toBe("RECUSED");
+  });
+  it("rejects forged membership and unauthenticated recusal", async () => {
+    const id = await tabledResolution("RECUSAL2");
+    const path = `/api/v1/governance/resolutions/${id}/recusal`;
+    expect((await apiPost(path, { reason: "Test conflict declaration" })).status).toBe(401);
+    expect((await apiPost(path, { reason: "Test conflict declaration", memberId: "FORGED" }, { cookie: governance })).status).toBe(422);
+  });
+});

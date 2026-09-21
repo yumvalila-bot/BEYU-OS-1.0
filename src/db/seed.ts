@@ -6,7 +6,7 @@
  * Run:  npx tsx src/db/seed.ts
  */
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { adminDb, adminPool } from "./admin";
 import * as s from "./schema";
 import { fixedId, ID_PREFIX } from "@/lib/ids";
@@ -460,19 +460,12 @@ async function main() {
     { key: "TRS_PRIN", body: B.trustees, party: "NEEMA_BEYU", seat: "CHAIR" },
     { key: "TRS_CGO", body: B.trustees, party: "GRACE_KILELE", seat: "MEMBER" },
   ];
-  await adminDb
-    .insert(s.governanceMembers)
-    .values(
-      members.map((m) => ({
-        id: fixedId(ID_PREFIX.member, m.key),
-        bodyId: m.body,
-        partyId: fixedId(ID_PREFIX.party, m.party),
-        seatRole: m.seat,
-        votingRights: m.seat !== "OBSERVER",
-        appointedOn: "2024-01-01",
-      })),
-    )
-    .onConflictDoNothing();
+  // Explicit original columns keep historical upgrade fixtures seedable. New
+  // lifecycle defaults belong to the migration; reseeding never revives a seat.
+  for (const m of members) await adminDb.execute(sql`insert into governance_members
+    (id,body_id,party_id,seat_role,voting_rights,appointed_on)
+    values (${fixedId(ID_PREFIX.member,m.key)},${m.body},${fixedId(ID_PREFIX.party,m.party)},${m.seat},${m.seat !== "OBSERVER"},'2024-01-01')
+    on conflict do nothing`);
 
   await adminDb
     .insert(s.resolutions)
