@@ -111,5 +111,7 @@ human-controlled.
 
 The later security review reproduced a context-loss loophole in five existing
 atomic guards. [0059](ATOMIC_VISIBILITY_HARDENING.md) closes it with a forward,
-invoker-only fail-closed visibility check. The complete validation target is now
-**60 migrations**, not the intermediate 59-migration development database.
+invoker-only fail-closed visibility check. The complete source-specific validation evidence across all 60 migrations,
+4,517 root tests, 34 browser tests, 11 optional bootstrap tests, migration
+integrity, schema drift and no-op proofs is recorded in
+[BODY_LIFECYCLE_VALIDATION_2026-09-21.md](BODY_LIFECYCLE_VALIDATION_2026-09-21.md).
