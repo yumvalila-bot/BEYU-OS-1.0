@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
-import { auditLog, governanceAppointments, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users, governanceCharters, governanceCharterTerms, resolutions } from "../../src/db/schema";
+import { auditLog, governanceAppointments, parties, governanceMembers, roleAssignments, documents, enterpriseEvents, notifications, users, governanceCharters, governanceCharterTerms, resolutions } from "../../src/db/schema";
 import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
 import { createBodyCharter, commandBodyCharter } from "../../src/lib/governance/charter-service";
 import { charterFixtureRules, concludedCharterBallot, cleanupCharters } from "../helpers/charters";
@@ -10,6 +10,7 @@ import { NominateMemberSchema } from "../../src/lib/governance/appointment-contr
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
 import { executionPrincipal } from "../helpers/governance-execution";
 import { verifyAuditChain, verifyEventChain } from "../../src/lib/audit";
+import { newId } from "../../src/lib/ids";
 let f: Awaited<ReturnType<typeof appointmentFixture>>;
 const ctx = { traceId: "APPOINTMENT_TEST" }, prefix = "APPT_TEST";
 const create = (extra = {}, p = f.chair) => as(p, () => nominateMember(p, f.bodyId, appointmentInput(f.candidate.userId, extra), ctx));
@@ -138,6 +139,45 @@ describe("governed appointment → consent → canonical membership", () => {
   const events = await db.select().from(enterpriseEvents).where(eq(enterpriseEvents.subjectId, a.id)); expect(events).toHaveLength(4); expect(events.find((e) => e.type === "GOVERNANCE_MEMBERSHIP_ACTIVATED")?.causationId).toBeTruthy();
   expect((await db.select().from(notifications).where(eq(notifications.userId, f.candidate.userId))).some((n) => n.linkHref?.includes(a.id))).toBe(true);
   expect((await verifyAuditChain()).verified).toBe(true); expect((await verifyEventChain()).verified).toBe(true);
+ });
+ it("allows vacancy recovery when adding the candidate restores adopted composition", async () => {
+  // Simulate a temporary vacancy by retiring one non-presiding member
+  const members = await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, f.bodyId));
+  const target = members.find(m => m.partyId !== f.chair.partyId && m.partyId !== f.secretary.partyId && m.partyId !== f.candidate.partyId)!;
+  await db.update(governanceMembers).set({ retiredOn: "2020-01-01" }).where(eq(governanceMembers.id, target.id));
+  const vacUserId = `USR_${prefix}_VAC`, vacPartyId = `PTY_${prefix}_VAC`;
+  let apptId = "", resId = "";
+  try {
+   const [u] = await db.select().from(users).where(eq(users.id, f.chair.userId));
+   const [party] = await db.select().from(parties).where(eq(parties.id, u.partyId!));
+   await db.insert(parties).values({ ...party, id: vacPartyId, displayName: "Vacancy Candidate" });
+   await db.insert(users).values({ ...u, id: vacUserId, partyId: vacPartyId, email: "vacancy_candidate@beyu.os" });
+   for (const g of await db.select().from(roleAssignments).where(eq(roleAssignments.userId, u.id))) await db.insert(roleAssignments).values({ ...g, id: `${vacUserId}_${g.id}`, userId: vacUserId });
+   const candidate = await executionPrincipal(vacUserId);
+   const a = await as(f.chair, () => nominateMember(f.chair, f.bodyId, appointmentInput(candidate.userId), ctx));
+   apptId = a.id;
+   const r = await appointmentBallot(a.id, f.chair);
+   resId = r;
+   await command(a.id, "APPROVE", 1, f.secretary, { resolutionId: r });
+   await as(candidate, () => commandAppointment(candidate, f.bodyId, a.id, { command: "ACCEPT", expectedRevision: 2, note: "Consent to fill the governed vacancy" }, ctx));
+   const active = await command(a.id, "ACTIVATE", 3);
+   expect(active.status).toBe("ACTIVE");
+   expect(active.memberId).toBeTruthy();
+  } finally {
+   await db.update(governanceMembers).set({ retiredOn: target.retiredOn }).where(eq(governanceMembers.id, target.id));
+   if (apptId) {
+     await db.delete(governanceMembers).where(eq(governanceMembers.partyId, vacPartyId));
+     await db.delete(governanceAppointments).where(eq(governanceAppointments.id, apptId));
+   }
+   if (resId) {
+     await db.execute(sql`delete from resolution_votes where resolution_id=${resId}`);
+     await db.delete(resolutions).where(eq(resolutions.id, resId));
+   }
+   await db.delete(notifications).where(eq(notifications.userId, vacUserId));
+   await db.delete(roleAssignments).where(eq(roleAssignments.userId, vacUserId));
+   await db.delete(users).where(eq(users.id, vacUserId));
+   await db.delete(parties).where(eq(parties.id, vacPartyId));
+  }
  });
  it("blocks overlapping membership after a fresh independent approval and consent", async () => {
   const a = await create(); const r = await appointmentBallot(a.id, f.chair);

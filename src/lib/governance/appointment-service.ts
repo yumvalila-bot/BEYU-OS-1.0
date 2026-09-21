@@ -50,18 +50,18 @@ async function prospective(body: typeof governanceBodies.$inferSelect, row: Appo
  if (members.some((m) => ["ACTIVE", "SUSPENDED"].includes(m.lifecycleStatus) && m.partyId === row.partyId && m.appointedOn <= row.retiredOn && (!m.retiredOn || m.retiredOn >= row.appointedOn))) throw fail("An overlapping appointment for this party already exists.");
  if (planned) return; // Whole-plan composition is rechecked before and at atomic commit.
  const charter = await currentCharterComposition(body);
- if (!charter.charter || !charter.satisfied) throw fail("An adopted, readable charter and satisfied current composition are required; legacy or vacancy status cannot grant new membership.");
- if (charter.charter) {
-  const [terms] = await db.select().from(governanceCharterTerms).where(eq(governanceCharterTerms.id, charter.charter.id));
-  if (!terms) throw fail("Adopted composition terms are unavailable.");
-  const candidate = { partyId: row.partyId, seatRole: row.seatRole, votingRights: row.votingRights, appointedOn: row.appointedOn, retiredOn: row.retiredOn };
-  const boundaries = new Set([row.appointedOn, row.retiredOn]);
-  for (const m of members) {
-   if (m.appointedOn >= row.appointedOn && m.appointedOn <= row.retiredOn) boundaries.add(m.appointedOn);
-   if (m.retiredOn) { const next = new Date(new Date(m.retiredOn).valueOf() + 86400000).toISOString().slice(0,10); if (next >= row.appointedOn && next <= row.retiredOn) boundaries.add(next); }
-  }
-  for (const date of boundaries) if (!assessComposition(terms.rules, [...members, candidate], date).satisfied) throw fail("Proposed term violates adopted composition at a membership boundary.");
+ if (!charter.charter) throw fail("An adopted, readable charter is required; legacy status cannot grant new membership.");
+ const [terms] = await db.select().from(governanceCharterTerms).where(eq(governanceCharterTerms.id, charter.charter.id));
+ if (!terms) throw fail("Adopted composition terms are unavailable.");
+ const candidate = { partyId: row.partyId, seatRole: row.seatRole, votingRights: row.votingRights, appointedOn: row.appointedOn, retiredOn: row.retiredOn };
+ const candidateSet = [...members, candidate];
+ if (!assessComposition(terms.rules, candidateSet, row.appointedOn).satisfied) throw fail("Activation requires that adding this candidate achieves or preserves valid adopted composition.");
+ const boundaries = new Set([row.appointedOn, row.retiredOn]);
+ for (const m of members) {
+  if (m.appointedOn >= row.appointedOn && m.appointedOn <= row.retiredOn) boundaries.add(m.appointedOn);
+  if (m.retiredOn) { const next = new Date(new Date(m.retiredOn).valueOf() + 86400000).toISOString().slice(0,10); if (next >= row.appointedOn && next <= row.retiredOn) boundaries.add(next); }
  }
+ for (const date of boundaries) if (!assessComposition(terms.rules, candidateSet, date).satisfied) throw fail("Proposed term violates adopted composition at a membership boundary.");
 }
 export async function appointmentMandate(p: Principal, bodyId: string, row: Appointment, resolutionId: string) {
  const authority = await authorizeResolutionFollowUp(p, resolutionId, true);
