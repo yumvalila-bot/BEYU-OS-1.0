@@ -1086,7 +1086,11 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
     // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
     // + 0062: shared Universal Dimensional Graphics capability tables (viz_*); no specialist truth.
-    expect(n).toBe(63);
+    // + 0064/0065: capability base domain type (beyu_domain_type) and the Family
+    //   Office SHARED CAPABILITY base row (a governed namespace only — never an OS,
+    //   no specialist truth, no second registry).
+    // + 0063: governed tenant-domain registry (tenant_domains). No specialist truth.
+    expect(n).toBe(66);
   });
 
   it("leaves all triggers enabled", async () => {

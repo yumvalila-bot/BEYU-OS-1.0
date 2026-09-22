@@ -10,14 +10,11 @@ import { can, type Principal } from "@/lib/authz";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
-import {
-  noeliaProviderModeFromEnvironment,
-  resolveNoeliaContextualAppearance,
-} from "@/lib/noelia/appearance";
+import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
 import { Badge } from "@/components/brand";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { HistoryNavigation } from "@/components/history-navigation";
-import { NoeliaShell } from "@/components/noelia-shell";
+import { NoeliaShellForOS } from "./noelia-shell-for-os";
 import { OsBrand } from "./os-brand";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
 import {
@@ -99,14 +96,21 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
      * Whether a principal may query her is the existing ai:noelia.query grant;
      * the panel only displays the resulting state and every action still
      * travels through the governed API boundary.
+     *
+     * The ACTIVE OS context is not a server fact a layout can know (layouts do
+     * not receive the pathname), so it is resolved client-side by
+     * `NoeliaShellForOS` from the canonical registry — `/os/health` →
+     * HEALTH_OS, `/os/finance` → FINANCE_OS, `/os/agriculture` →
+     * AGRICULTURE_OS, `/os/ujenzi` → UJENZI_OS, `/os/foundation` →
+     * FOUNDATION_OS, everything else → BEYU_OS. Presentation only: it is never
+     * an authorization input, and this layout's `checkBeyuOSAuthorization`
+     * check above remains the control-plane boundary.
      */
     const noeliaShell = {
       canQuery: can(principal, "ai:noelia.query").allowed,
       mfaSatisfied: principal.mfaSatisfied,
       providerMode: noeliaProviderModeFromEnvironment(),
       principalName: principal.displayName,
-      activeOS: "BEYU_OS" as const,
-      contextualAppearance: resolveNoeliaContextualAppearance("BEYU_OS"),
     };
 
     const navigationPrincipal: OsNavigationPrincipal = {
@@ -148,7 +152,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <NoeliaShell {...noeliaShell} />
+              <NoeliaShellForOS {...noeliaShell} />
               <HistoryNavigation />
               <span className="beyu-kicker text-white/45">Alerts</span>
               <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/15 px-2 py-[3px] text-[11px] font-semibold text-[#efd98f]">

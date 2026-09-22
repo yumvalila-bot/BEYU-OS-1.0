@@ -45,6 +45,9 @@ describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () =>
       "/os/organization", "/os/ownership", "/os/governance", "/os/assurance",
       "/os/hcm", "/os/documents", "/os/audit-events", "/os/registries",
       "/os/family", "/os/noelia", "/os/finance", "/os/agriculture", "/os/foundation",
+      // The two remaining canonical Sector OS routes are protected exactly like
+      // the others: a direct URL never reaches a sector without the gate.
+      "/os/ujenzi", "/os/health",
       "/os/settings",
       // Existing focused capability destinations remain independently protected.
       "/os/constitution", "/os/security", "/os/notifications", "/os/events",
@@ -250,8 +253,8 @@ describe("Operating-system launcher hierarchy", () => {
     expect(launcher.html).toContain('href="/os/ujenzi"');
     // A missing Health federation link is presented truthfully as unavailable,
     // never as a launchable URL. In an environment with a real link it may be
-    // authorised instead, and /health will recheck that link on entry.
-    expect(launcher.html).toMatch(/href="\/health"|NOT IN CURRENT GRANT/);
+    // authorised instead, and /os/health will recheck that link on entry.
+    expect(launcher.html).toMatch(/href="\/os\/health"|NOT IN CURRENT GRANT/);
     expect(launcher.html).toContain("Finance OS remains the financial source of truth");
   });
 });

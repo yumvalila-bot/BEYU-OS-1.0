@@ -35,6 +35,24 @@ export * from "./schema/government";
 export * from "./schema/ujenzi";
 
 /*
+ * GOVERNED TENANT-DOMAIN REGISTRY (additive) — the ONE source of truth for
+ * hostname → tenant mapping (Health OS tenant domains first).
+ *
+ * A domain row maps ONE hostname to ONE canonical tenant (optionally one legal
+ * entity and country) for ONE operating system. Resolution happens through this
+ * registry and then through the EXISTING authorization chain; a hostname NEVER
+ * grants access — it can only restrict the tenant context a request is
+ * evaluated in, and every request re-runs session, federation/OS authorization,
+ * tenant/entity/country scope, RBAC/ABAC/policy and RLS server-side.
+ *
+ * RLS tenant isolation mirrors 0031/0034/0035/0043/0062: FORCE ROW LEVEL
+ * SECURITY with a beyu_tenant_ids() policy. Only ACTIVE + VERIFIED tenant rows
+ * resolve; unknown or inactive names fail closed and never fall back to a
+ * default tenant.
+ */
+export * from "./schema/tenant-domains";
+
+/*
  * UNIVERSAL DIMENSIONAL GRAPHICS FOUNDATION — shared capability (additive).
  *
  * ONE shared BEYU capability, NOT an OS and NOT a sector: dimension-extension

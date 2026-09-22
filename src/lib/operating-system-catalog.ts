@@ -34,7 +34,12 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     name: "Health OS",
     level: "SECTOR_OS",
     description: "Federated healthcare operations under canonical BEYU identity and Health authorization.",
-    href: "/health",
+    // Canonical Sector OS route. The Health OS implementation itself is the
+    // EXISTING federated sector SPA; `/os/health` mounts it behind the same
+    // server-side session + federation gate as before. `/health` (entry/denial
+    // surface) and `/health/os` (the original mount URL) remain functional
+    // aliases — no second implementation, no second shell.
+    href: "/os/health",
     icon: "health",
   },
   {

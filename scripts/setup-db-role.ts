@@ -343,6 +343,39 @@ async function main(): Promise<void> {
       console.log(`revoked DELETE on government_submissions for ${runtimeRole} (interaction history is never erased)`);
     }
 
+    // 4e. Governed tenant-domain registry (mirror of migration 0063).
+    //
+    //     Step 3's blanket grant would otherwise hand the runtime role INSERT/
+    //     UPDATE/DELETE on the table that decides which hostname belongs to which
+    //     tenant — i.e. the runtime could re-point a tenant domain or delete the
+    //     binding it is subject to. The hostname mapping is configuration that
+    //     GOVERNS the runtime, so it is runtime-immutable (same rule as
+    //     os_registry and role_assignments): SELECT only. Governed lifecycle
+    //     mutations run through the existing admin-DSN boundary inside the
+    //     audited administrative service, exactly like role grants.
+    const tenantDomainsPresent = await client.query(
+      `select 1 from pg_tables where schemaname = 'public' and tablename = 'tenant_domains'`,
+    );
+    if ((tenantDomainsPresent.rowCount ?? 0) > 0) {
+      await execFormat(`'grant select on public.tenant_domains to %I'`, [runtimeRole]);
+      await execFormat(`'revoke insert, update, delete on public.tenant_domains from %I'`, [runtimeRole]);
+      const td = await client.query(
+        `select has_table_privilege($1::text, 'public.tenant_domains', 'SELECT') as s,
+                has_table_privilege($1::text, 'public.tenant_domains', 'INSERT') as i,
+                has_table_privilege($1::text, 'public.tenant_domains', 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.tenant_domains', 'DELETE') as d`,
+        [runtimeRole],
+      );
+      const tp = td.rows[0];
+      if (tp.i || tp.u || tp.d) {
+        throw new Error(`tenant_domains is still writable by ${runtimeRole} after revocation`);
+      }
+      if (!tp.s) {
+        throw new Error(`tenant_domains lost SELECT for ${runtimeRole}; the runtime could no longer resolve tenant hostnames`);
+      }
+      console.log(`revoked DML on tenant_domains for ${runtimeRole} (hostname binding is runtime-immutable)`);
+    }
+
     // 5. Verification of the runtime role's effective privileges.
     const attrs = await client.query(
       `select rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolreplication, rolbypassrls

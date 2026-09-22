@@ -113,13 +113,16 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 63-migration inventory and rejects the stale baseline", async () => {
-    // 0062 adds the shared Universal Dimensional Graphics capability tables (viz_*);
-    // historical SQL stays byte-exact.
+  it("requires the exact 66-migration inventory and rejects the stale baseline", async () => {
+    // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
+    // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
+    // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
+    // SHARED CAPABILITY base row (a governed namespace — never an OS, never a
+    // tenant). Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(63);
+    const result = verifyP2MigrationIntegrity(66);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(63);
+    expect(result.count).toBe(66);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
@@ -131,6 +134,7 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(60).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(61).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(62).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(63).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

@@ -87,6 +87,89 @@ async function main() {
     ])
     .onConflictDoNothing();
 
+  /* ---------------- governed tenant domains ---------------- */
+  /*
+   * The ONE OS base domain that exists today: the Health OS base
+   * `health.beyuos.co.tz`, owned by the canonical Health OS tenant
+   * (BEYU-HEALTH). It defines the tenant-subdomain NAMESPACE
+   * (<tenant-slug>.health.beyuos.co.tz) and carries NO tenant context itself.
+   *
+   * Status ACTIVE means the application RECOGNISES the namespace.
+   * verification_state DOCUMENTED + method PLATFORM_DEPLOYMENT_CONFIG records
+   * honestly that the base is DNS/deployment-platform configuration performed by
+   * a human operator — it is NOT a runtime-verified DNS fact. Creating the DNS
+   * record, the wildcard certificate and the Vercel domain mapping is a
+   * human-controlled platform step (docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md).
+   *
+   * Identical id to migration 0063's guarded bootstrap insert, so a fresh
+   * install and an existing database converge on one row.
+   *
+   * The table is checked first because the constitutional bootstrap is also used
+   * against PREDECESSOR schemas (the migration-upgrade harness seeds a database
+   * that only carries the migrations under test). A schema that predates 0063
+   * simply has no tenant-domain registry to bootstrap — the seed must stay
+   * idempotent and schema-resilient, exactly like every other step.
+   */
+  const tenantDomainsTable = await adminDb.execute<{ name: string | null }>(
+    sql`select to_regclass('public.tenant_domains')::text as name`,
+  );
+  if (tenantDomainsTable.rows[0]?.name) {
+    await adminDb
+      .insert(s.tenantDomains)
+      .values([
+        {
+        id: fixedId(ID_PREFIX.tenantDomain, "HEALTH_OS_BASE"),
+        tenantId: T.health,
+        os: "HEALTH_OS",
+        hostname: "health.beyuos.co.tz",
+        domainType: "OS_BASE",
+        status: "ACTIVE",
+        verificationState: "DOCUMENTED",
+        verificationMethod: "PLATFORM_DEPLOYMENT_CONFIG",
+        verificationEvidence:
+          "deployment-platform:DNS + Vercel domain configuration (human-controlled; docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md)",
+        registeredBy: "SEED/CONSTITUTIONAL_BOOTSTRAP",
+        classification: "INTERNAL",
+        },
+        {
+          /*
+           * The Family Office SHARED CAPABILITY base. Family Office is implemented
+           * ONCE inside BEYU OS and is never an operating system: the canonical
+           * registry entry `SHARED_FAMILY_OFFICE` carries
+           * `kind = SHARED_CAPABILITY` ("never a separate OS"), no
+           * operating-system code exists for it, and no Sector OS route is added.
+           * This row only
+           * names the capability's governed NAMESPACE
+           * (`<tenant>.familyoffice.beyuos.co.tz`); it carries no tenant context and
+           * grants nothing.
+           *
+           * The owner tenant is the enterprise tenant because the capability's
+           * canonical authorityScope is ENTERPRISE_WIDE — the row records namespace
+           * ownership, not a tenant binding, and the capability's data remains
+           * governed by its own family:* permissions, tenant scope and RLS.
+           *
+           * Same honesty rule as the OS base: ACTIVE means the application
+           * recognises the namespace; DOCUMENTED + PLATFORM_DEPLOYMENT_CONFIG means
+           * the base is DNS/deployment-platform configuration performed by a human
+           * operator, NOT a runtime-verified DNS fact.
+           */
+          id: fixedId(ID_PREFIX.tenantDomain, "FAMILY_OFFICE_CAPABILITY_BASE"),
+          tenantId: T.group,
+          os: "SHARED_FAMILY_OFFICE",
+          hostname: "familyoffice.beyuos.co.tz",
+          domainType: "CAPABILITY_BASE" as const,
+          status: "ACTIVE" as const,
+          verificationState: "DOCUMENTED" as const,
+          verificationMethod: "PLATFORM_DEPLOYMENT_CONFIG",
+          verificationEvidence:
+            "deployment-platform:DNS + Vercel domain configuration (human-controlled; docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md)",
+          registeredBy: "SEED/CONSTITUTIONAL_BOOTSTRAP",
+          classification: "INTERNAL",
+        },
+      ])
+      .onConflictDoNothing();
+  }
+
   /* ---------------- corporate structure ---------------- */
   const E = {
     trust: fixedId(ID_PREFIX.legalEntity, "BEYU_FAMILY_TRUST"),

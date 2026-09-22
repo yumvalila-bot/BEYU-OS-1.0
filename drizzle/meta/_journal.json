@@ -442,6 +442,27 @@
       "when": 1789952000000,
       "tag": "0062_universal_dimensional_visualization",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789955600000,
+      "tag": "0063_tenant_domain_registry",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789962800000,
+      "tag": "0064_domain_type_capability_base",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789966400000,
+      "tag": "0065_family_office_capability_domain",
+      "breakpoints": true
     }
   ]
 }

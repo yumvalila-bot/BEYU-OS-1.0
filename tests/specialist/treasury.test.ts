@@ -936,7 +936,11 @@ describe("treasury module — creates no second truth", () => {
     // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
     // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
     // + 0062: shared Universal Dimensional Graphics capability tables (viz_*); no treasury table, no second money truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(63);  });
+    // + 0064/0065: capability base domain type (beyu_domain_type) and the Family
+    //   Office SHARED CAPABILITY base row (a governed namespace only — never an OS,
+    //   no specialist truth, no second registry).
+    // + 0063: governed tenant-domain registry (tenant_domains). No treasury table, no second money truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(66);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

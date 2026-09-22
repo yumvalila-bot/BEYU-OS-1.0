@@ -148,6 +148,19 @@ export const PERMISSIONS = {
   "organization:tenant.register": "Register a tenant in the canonical organization model",
   "organization:tenant.manage": "Transition tenant lifecycle status (activate, suspend, deactivate, reactivate, archive)",
   "organization:tenant.remove": "Remove a tenant from active operation (dependency-checked; retains legal, financial and audit history)",
+  //
+  // Governed tenant domains (hostname → tenant mapping). The registry is the ONE
+  // source of truth for which hostname belongs to which tenant; these keys
+  // govern its lifecycle. A permission here grants the ability to ADMINISTER a
+  // mapping — never to reach a tenant: downloading/publishing a hostname is not
+  // access, and every request still passes session, federation, RBAC/ABAC,
+  // tenant/entity/country scope and RLS. Registering a domain creates no tenant,
+  // and reassigning one is a step-up, destructive-scale act (see HIGH_RISK).
+  "organization:tenantdomain.read": "Read the governed tenant-domain registry (hostname → tenant mapping) within scope",
+  "organization:tenantdomain.register": "Register a hostname for an existing operational tenant (creates no tenant)",
+  "organization:tenantdomain.verify": "Record proof of control of a registered hostname (live DNS TXT verification, fail-closed)",
+  "organization:tenantdomain.manage": "Transition a tenant domain lifecycle (activate, suspend, retire)",
+  "organization:tenantdomain.reassign": "Move a suspended tenant domain to another in-scope tenant (never while ACTIVE)",
   // Organization & ownership
   "organization:entity.read": "Read corporate structure",
   "organization:entity.manage": "Create or amend legal entities",
@@ -496,6 +509,11 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:user.remove",
   "organization:tenant.remove",
   "identity:delegation.manage",
+  // Re-pointing a live hostname at a different tenant changes which tenant a
+  // public address belongs to. It is never allowed while the domain is ACTIVE
+  // (the service must suspend it first) and it carries MFA step-up for the same
+  // reason tenant removal does: the act moves constitutional weight.
+  "organization:tenantdomain.reassign",
   // Registering a 9D+ dimension extension changes the shared capability model
   // every Sector OS consumes. It creates no data access and no posting path,
   // but it is a constitutional-scale configuration act: MFA step-up applies.
@@ -531,6 +549,11 @@ export const ROLES: Record<
       "organization:tenant.register",
       "organization:tenant.manage",
       "organization:tenant.remove",
+      "organization:tenantdomain.read",
+      "organization:tenantdomain.register",
+      "organization:tenantdomain.verify",
+      "organization:tenantdomain.manage",
+      "organization:tenantdomain.reassign",
       "audit:log.read",
       "audit:event.read",
       "documents:registry.read",
@@ -590,6 +613,15 @@ export const ROLES: Record<
       "identity:membership.manage",
       "organization:tenant.register",
       "organization:tenant.manage",
+      // Governed tenant domains: the enterprise executive registers, verifies
+      // and operates tenant hostnames day to day, exactly as it registers and
+      // manages tenants. Re-pointing an existing hostname at a DIFFERENT tenant
+      // (reassignment) stays with the platform administrator, mirroring the way
+      // the irreversible tenant removal does.
+      "organization:tenantdomain.read",
+      "organization:tenantdomain.register",
+      "organization:tenantdomain.verify",
+      "organization:tenantdomain.manage",
       "organization:entity.read",
       "organization:entity.manage",
       "organization:ownership.read",

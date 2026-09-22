@@ -90,7 +90,10 @@ test("public surfaces and metadata resolve without an authenticated session", as
 
 test("unauthenticated deep links still redirect, including Ujenzi and Health", async ({ page, context }) => {
   await context.clearCookies();
-  for (const path of ["/os", "/os/finance", "/os/agriculture", "/os/foundation", "/os/ujenzi", "/os/family", "/os/family/protection", "/health/os"]) {
+  // The canonical Sector OS routes (including `/os/health`, which serves the
+  // same governed Health OS mount as `/health/os`) must fail closed to the
+  // sign-in surface on a direct unauthenticated request.
+  for (const path of ["/os", "/os/finance", "/os/health", "/os/agriculture", "/os/foundation", "/os/ujenzi", "/os/family", "/os/family/protection", "/health/os"]) {
     const response = await page.request.get(path, { maxRedirects: 0 });
     expect(response.status()).toBe(307);
     expect(response.headers().location).toBe("/");

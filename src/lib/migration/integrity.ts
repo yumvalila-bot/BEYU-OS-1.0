@@ -253,6 +253,18 @@ export const KNOWN_METADATA_DEBT = {
     "0046",
     // 0047 is P4 release approvals — additive, expand-only, same policy as 0046.
     "0047",
+    // 0063 is the governed tenant-domain registry (Health OS tenant domains) —
+    // additive, expand-only. It is registered here deliberately and visibly for
+    // the same reason as 0045/0046/0047: the metadata gap is acknowledged and
+    // reviewable rather than hidden, and no snapshot is fabricated. The journal
+    // entry IS present, so only the snapshot is outstanding.
+    "0063",
+    // 0064 appends the CAPABILITY_BASE label to beyu_domain_type and 0065 records
+    // the Family Office capability base domain on the governed registry. Both are
+    // additive and expand-only; both are registered here for the same documented
+    // reason as 0063 (journal entries present, no snapshot fabricated).
+    "0064",
+    "0065",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */
