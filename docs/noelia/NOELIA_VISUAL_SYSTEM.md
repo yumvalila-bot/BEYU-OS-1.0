@@ -86,3 +86,14 @@ The context resolver (`src/lib/noelia/context-resolver.ts`) maps:
 The original files (`Noelia AI .png`, etc.) remain intact at repo root. The
 public copies are non-destructive presentation assets (same bytes, verified
 by SHA-256). No source PNG was modified, recolored, cropped, or regenerated.
+
+## Appearance & Personalization (browser-local)
+
+How the canonical identity is *displayed* (avatar treatment, presence,
+motion, greeting register, panel dock, notification presentation) is
+configurable per browser in the Noelia assistant panel of the authenticated
+BEYU OS shell. See `docs/noelia/NOELIA_APPEARANCE.md` for the canonical
+model, persistence scope (browser-local fallback, never server persisted,
+never tenant scoped) and the hard presentation-only boundary. Appearance
+preferences are never an authorization input and never change the identity
+itself.
