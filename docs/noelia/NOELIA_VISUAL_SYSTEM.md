@@ -81,7 +81,18 @@ The context resolver (`src/lib/noelia/context-resolver.ts`) maps:
 - `FINANCE_OS` → `/public/noelia/canonical/noelia-finance-os-canonical.png`
 - `HEALTH_OS` → `/public/noelia/canonical/noelia-health-os-canonical.png`
 - `AGRICULTURE_OS` → `/public/noelia/canonical/noelia-agriculture-os-canonical.png`
+- `UJENZI_OS` → `/public/noelia/canonical/noelia-ai-canonical.png` (canonical fallback)
 - `NOELIA_AI` / default → `/public/noelia/canonical/noelia-ai-canonical.png`
+
+## Ujenzi OS and Professional Manifestation Asset Policy
+
+- `UJENZI_OS is a Sector OS.`
+- `Architectural and Engineering manifestations are governed contexts inside UJENZI_OS, not separate operating systems.`
+- `Contextual appearance changes Noelia's visual manifestation without creating a new Noelia identity.`
+- Authoritative Ujenzi-specific raster asset status:
+  `UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.`
+- The engine reuses the canonical Noelia fallback portrait (`noelia-ai`) without generating, recoloring, cropping, or synthesizing placeholder images.
+- Architectural and Engineering manifestations are expressed through contextual metadata, labels, and specialized terminology alongside the canonical fallback portrait.
 
 The original files (`Noelia AI .png`, etc.) remain intact at repo root. The
 public copies are non-destructive presentation assets (same bytes, verified

@@ -31,8 +31,12 @@ import {
   noeliaProviderCapabilityLabel,
   resolveNoeliaGovernedState,
   resolveNoeliaPresentation,
+  resolveNoeliaContextualAppearance,
+  type NoeliaContextualAppearance,
   type NoeliaGovernedState,
   type NoeliaProviderMode,
+  type SupportedNoeliaOSContext,
+  type SupportedUjenziProfessionalContext,
 } from "@/lib/noelia/appearance";
 import { useNoeliaAppearance } from "./noelia-appearance-store";
 import { NoeliaAppearanceSettings } from "./noelia-appearance-settings";
@@ -47,19 +51,26 @@ function NoeliaFace({
   state,
   decorative,
   className = "",
+  contextualAppearance,
 }: {
   px: number;
   useMark: boolean;
   state: NoeliaAvatarStateLocal;
   decorative?: boolean;
   className?: string;
+  contextualAppearance?: NoeliaContextualAppearance | null;
 }) {
+  const avatarSrc =
+    contextualAppearance?.assetPath && contextualAppearance.status !== "DENIED"
+      ? contextualAppearance.assetPath
+      : NOELIA_ASSETS.avatar;
+
   // Plain <img> by design: fixed-dimension canonical identity assets from
   // the central registry, exactly as NoeliaAvatar does for page surfaces.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={useMark ? NOELIA_ASSETS.icon : NOELIA_ASSETS.avatar}
+      src={useMark ? NOELIA_ASSETS.icon : avatarSrc}
       alt={decorative ? "" : "Noelia AI"}
       width={px}
       height={px}
@@ -149,14 +160,49 @@ export interface NoeliaShellProps {
   providerMode: NoeliaProviderMode;
   /** Principal display name for the greeting (server-resolved). */
   principalName: string | null;
+  /** Active OS context (server-resolved or client-resolved). Display-only. */
+  activeOS?: SupportedNoeliaOSContext | string | null;
+  /** Active professional context inside UJENZI_OS. Display-only. */
+  professionalContext?: SupportedUjenziProfessionalContext | string | null;
+  /** Server-resolved contextual appearance (display-only). */
+  contextualAppearance?: NoeliaContextualAppearance | null;
 }
 
-export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalName }: NoeliaShellProps) {
+export function NoeliaShell({
+  canQuery,
+  mfaSatisfied,
+  providerMode,
+  principalName,
+  activeOS,
+  professionalContext,
+  contextualAppearance,
+}: NoeliaShellProps) {
   const { prefs } = useNoeliaAppearance();
   const presentation = useMemo(
     () => resolveNoeliaPresentation(prefs),
     [prefs],
   );
+
+  const [selectedProfessionalContext, setSelectedProfessionalContext] = useState<
+    SupportedUjenziProfessionalContext | null
+  >((professionalContext as SupportedUjenziProfessionalContext | null) ?? null);
+
+  const effectiveOS = activeOS ?? contextualAppearance?.osContext ?? null;
+  const effectiveProfessionalContext =
+    selectedProfessionalContext ??
+    (professionalContext as SupportedUjenziProfessionalContext | null) ??
+    contextualAppearance?.professionalContext ??
+    null;
+
+  const effectiveAppearance: NoeliaContextualAppearance | null = useMemo(() => {
+    if (contextualAppearance && !selectedProfessionalContext) {
+      return contextualAppearance;
+    }
+    if (effectiveOS) {
+      return resolveNoeliaContextualAppearance(effectiveOS, effectiveProfessionalContext);
+    }
+    return null;
+  }, [contextualAppearance, effectiveOS, effectiveProfessionalContext, selectedProfessionalContext]);
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"assistant" | "appearance">("assistant");
@@ -357,7 +403,13 @@ export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalNam
         className="hidden min-h-10 items-center gap-2.5 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-left transition hover:border-[#d4af37]/50 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4af37] md:inline-flex"
       >
         <span className="relative inline-flex">
-          <NoeliaFace px={presentation.entryAvatarPx} useMark={presentation.entryUsesMark} state={faceState} decorative={prefs.presenceMode !== "full"} />
+          <NoeliaFace
+            px={presentation.entryAvatarPx}
+            useMark={presentation.entryUsesMark}
+            state={faceState}
+            decorative={prefs.presenceMode !== "full"}
+            contextualAppearance={effectiveAppearance}
+          />
           {presentation.entryShowsState && (
             <span
               aria-hidden="true"
@@ -394,7 +446,13 @@ export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalNam
         className={`fixed bottom-4 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#d4af37]/50 bg-[#0b1d3a] shadow-lg transition hover:border-[#d4af37] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4af37] md:hidden ${open ? "pointer-events-none opacity-0" : ""}`}
       >
         <span className="relative inline-flex">
-          <NoeliaFace px={44} useMark={false} state={faceState} decorative />
+          <NoeliaFace
+            px={44}
+            useMark={false}
+            state={faceState}
+            decorative
+            contextualAppearance={effectiveAppearance}
+          />
           <span
             aria-hidden="true"
             className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0b1d3a] ${entryDot}`}
@@ -430,6 +488,7 @@ export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalNam
                     px={presentation.entryAvatarPx + 16}
                     useMark={presentation.entryUsesMark}
                     state={faceState}
+                    contextualAppearance={effectiveAppearance}
                   />
                 </span>
                 <div>
@@ -442,6 +501,13 @@ export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalNam
                   <div className="mt-0.5 text-[11px] text-white/65">
                     {NOELIA_DISPLAY_IDENTITY.subtitle} · {NOELIA_DISPLAY_IDENTITY.motto}
                   </div>
+                  {effectiveAppearance && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span className="rounded-md border border-[#d4af37]/60 bg-[#d4af37]/15 px-2 py-0.5 font-semibold text-[#efd98f]">
+                        {effectiveAppearance.contextualLabel}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               <button
@@ -505,6 +571,50 @@ export function NoeliaShell({ canQuery, mfaSatisfied, providerMode, principalNam
                 aria-labelledby="noelia-tab-assistant"
                 className={`px-4 ${presentation.panelDensity === "compact" ? "py-3" : "py-4"}`}
               >
+                {effectiveAppearance && (
+                  <div className="mb-3 rounded-lg border border-[color:var(--beyu-line)] bg-white/5 p-2.5 text-[11px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-[#efd98f]">
+                        {effectiveAppearance.contextualLabel}
+                      </span>
+                      <span className="rounded-full border border-white/20 px-2 py-[1px] text-[9px] uppercase">
+                        {effectiveAppearance.status === "FALLBACK_CANONICAL" ? "Fallback Active" : "Authoritative"}
+                      </span>
+                    </div>
+                    {effectiveAppearance.notes && (
+                      <p className="mt-1 text-[10px] leading-snug beyu-muted italic">
+                        {effectiveAppearance.notes}
+                      </p>
+                    )}
+                    {effectiveOS === "UJENZI_OS" && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-[color:var(--beyu-line)] pt-1.5">
+                        <span className="beyu-kicker text-[9px]">Manifestation:</span>
+                        {[
+                          { id: null, label: "General" },
+                          { id: "ARCHITECTURAL" as const, label: "Architectural" },
+                          { id: "ENGINEERING" as const, label: "Engineering" },
+                        ].map((m) => {
+                          const active = effectiveProfessionalContext === m.id;
+                          return (
+                            <button
+                              key={m.label}
+                              type="button"
+                              onClick={() => setSelectedProfessionalContext(m.id)}
+                              className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
+                                active
+                                  ? "bg-[#d4af37] text-[#0b1d3a] font-semibold"
+                                  : "border border-[color:var(--beyu-line)] hover:border-[#d4af37]/60"
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <p className="text-[12.5px] leading-relaxed">{presentation.greeting(principalName)}</p>
 
                 {/* governed notices (presentation filter) */}

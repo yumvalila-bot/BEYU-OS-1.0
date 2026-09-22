@@ -10,7 +10,10 @@ import { can, type Principal } from "@/lib/authz";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
-import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
+import {
+  noeliaProviderModeFromEnvironment,
+  resolveNoeliaContextualAppearance,
+} from "@/lib/noelia/appearance";
 import { Badge } from "@/components/brand";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { HistoryNavigation } from "@/components/history-navigation";
@@ -102,6 +105,8 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
       mfaSatisfied: principal.mfaSatisfied,
       providerMode: noeliaProviderModeFromEnvironment(),
       principalName: principal.displayName,
+      activeOS: "BEYU_OS" as const,
+      contextualAppearance: resolveNoeliaContextualAppearance("BEYU_OS"),
     };
 
     const navigationPrincipal: OsNavigationPrincipal = {
