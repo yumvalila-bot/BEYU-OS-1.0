@@ -28,6 +28,13 @@
  */
 
 import { z } from "zod";
+import {
+  SUPPORTED_NOELIA_OS_CONTEXTS,
+  resolveNoeliaOSContext,
+  type NoeliaContextualAppearance,
+  type SupportedNoeliaOSContext,
+  type SupportedUjenziProfessionalContext,
+} from "./context-resolver";
 
 /* ------------------------------------------------------------------ */
 /* Fixed display identity — canonical, never user-editable.            */
@@ -378,4 +385,63 @@ export function resolveNoeliaPresentation(
  */
 export function noeliaAppearanceStorageKeys(): readonly string[] {
   return [...NOELIA_PERSISTED_KEYS, "themeMode"];
+}
+
+/* ------------------------------------------------------------------ */
+/* Contextual Appearance Resolution (presentation-only).               */
+/* ------------------------------------------------------------------ */
+
+export {
+  SUPPORTED_NOELIA_OS_CONTEXTS,
+  SUPPORTED_UJENZI_PROFESSIONAL_CONTEXTS,
+  type SupportedNoeliaOSContext,
+  type SupportedUjenziProfessionalContext,
+  type SupportedNoeliaProfessionalContext,
+  type NoeliaContextualAppearance,
+} from "./context-resolver";
+
+/**
+ * Resolves the contextual appearance model for a given OS and optional
+ * professional context.
+ *
+ * Presentation only:
+ * - Canonical identity is always NOELIA_AI.
+ * - UJENZI_OS is a Sector OS.
+ * - Architectural and Engineering manifestations are governed contexts
+ *   inside UJENZI_OS, not separate operating systems.
+ * - If no Ujenzi asset exists: UJENZI_OS contextual asset unavailable;
+ *   canonical Noelia fallback active.
+ */
+export function resolveNoeliaContextualAppearance(
+  os: SupportedNoeliaOSContext | string | null = "BEYU_OS",
+  professionalContext?: SupportedUjenziProfessionalContext | string | null,
+): NoeliaContextualAppearance {
+  const normOS = (os ?? "BEYU_OS").toUpperCase();
+  const activeOS: SupportedNoeliaOSContext =
+    SUPPORTED_NOELIA_OS_CONTEXTS.includes(normOS as SupportedNoeliaOSContext)
+      ? (normOS as SupportedNoeliaOSContext)
+      : "BEYU_OS";
+
+  const mockScope = {
+    tenantIds: ["canonical"],
+    legalEntityIds: [],
+    countryCodes: [],
+    entities: [],
+    tenantCountries: [],
+    enterprise: true,
+    osContexts: [...SUPPORTED_NOELIA_OS_CONTEXTS],
+  };
+  const mockTarget = {
+    tenantId: "canonical",
+    legalEntityId: null,
+    countryCode: null,
+  };
+
+  const resolved = resolveNoeliaOSContext(
+    activeOS,
+    mockScope,
+    mockTarget,
+    professionalContext,
+  );
+  return resolved.contextualAppearance;
 }

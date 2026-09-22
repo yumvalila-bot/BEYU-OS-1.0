@@ -117,4 +117,15 @@ export const NOELIA_CANONICAL_PNG_ASSETS = {
     status: "PRESERVED",
     notes: "Original filename preserved exactly. Never renamed, deleted, or regenerated.",
   },
+  ujenzi_os: {
+    canonicalFilename: "Noelia AI .png",
+    repositoryPath: "/Noelia AI .png",
+    presentationPath: "/noelia/canonical/noelia-ai-canonical.png",
+    logicalIdentifier: "noelia-ai",
+    sha256: "12542aef08ef5bb087a9ad15e2a8631a",
+    contextMapping: "UJENZI_OS",
+    dimensions: { width: 1024, height: 1024 },
+    status: "FALLBACK_CANONICAL",
+    notes: "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.",
+  },
 } as const;

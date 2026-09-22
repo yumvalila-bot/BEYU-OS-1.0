@@ -46,6 +46,19 @@ or competing memory systems.
 - **Capabilities:** Farms, crops, livestock, production, logistics, agricultural finance, field intelligence.
 - **Authorization domain:** Agriculture, field.
 
+### Ujenzi OS
+- **Canonical classification:** `UJENZI_OS is a Sector OS.`
+- **Visual reference:** Canonical Noelia fallback portrait (`noelia-ai`).
+- **Asset Status:** `UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.`
+- **Capabilities:** Projects, sites, BOQ and cost control, procurement, materials, equipment, site operations, quality, HSE, variations, claims, payments, handover, architectural coordination, engineering coordination.
+- **Authorization domain:** Ujenzi, construction.
+- **Governed Professional Manifestations:**
+  `Architectural and Engineering manifestations are governed contexts inside UJENZI_OS, not separate operating systems.`
+  `Contextual appearance changes Noelia's visual manifestation without creating a new Noelia identity.`
+  - **Architectural Manifestation:** Design coordination, architectural planning, BIM and spatial coordination, documentation standards.
+  - **Engineering Manifestation:** Structural engineering, civil works, MEP coordination, geotechnical, infrastructure, site engineering.
+  - **Other Supported Operational Manifestations:** Construction execution, Site operations, HSE compliance, BIM coordination, BOQ & Cost tracking, Quality & NCR management, Commissioning & Handover.
+
 ## Stability Guarantee
 
 Noelia's identity remains stable while her context changes. The same canonical

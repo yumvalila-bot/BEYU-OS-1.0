@@ -73,6 +73,26 @@ Not allowed — and structurally impossible in this implementation:
 - appearance fields are rejected by the strict API schemas (422) and can
   never be smuggled into a governed request (covered by tests).
 
+## Contextual Appearance Engine & Governed Professional Manifestations
+
+Extending the presentation layer established in PR #78, Noelia dynamically resolves
+contextual appearance based on the authoritative OS and professional context:
+
+- **Single Identity Invariant:**
+  `Contextual appearance changes Noelia's visual manifestation without creating a new Noelia identity.`
+  The identity remains strictly `NOELIA_AI` across every OS and manifestation.
+- **Canonical Sector OS:**
+  `UJENZI_OS is a Sector OS.` It is a first-class Sector OS alongside Health OS, Finance OS, and Agriculture OS.
+- **Governed Manifestations in Ujenzi:**
+  `Architectural and Engineering manifestations are governed contexts inside UJENZI_OS, not separate operating systems.`
+- **Asset Status & Fallback:**
+  `UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.`
+  The canonical Noelia fallback portrait (`noelia-ai`) is displayed. No synthetic raster assets are generated.
+- **Authorization Isolation:**
+  Contextual appearance and professional manifestation selection are presentation-only.
+  Selecting Architectural or Engineering manifestation inside Ujenzi OS never grants tool
+  permissions, bypasses RBAC/ABAC/RLS, or elevates authority.
+
 ## Governed state indicator (Phase 7)
 
 `resolveNoeliaGovernedState` (pure, server-driven inputs):

@@ -46,19 +46,34 @@ No spoofed context can bypass this chain.
 | `FINANCE_OS` | `NOELIA_AI` | `Noelia Finance OS` | Financial / accounting vocabulary | Financial, risk, compliance, governance, tax, analytics | Finance + OS |
 | `HEALTH_OS` | `NOELIA_AI` | `Noelia Health OS` | Clinical / health vocabulary | Health, compliance, governance, analytics | Health + OS |
 | `AGRICULTURE_OS` | `NOELIA_AI` | `Noelia Agriculture OS` | Agriculture / field vocabulary | Agriculture, finance (agricultural), governance, analytics | Agriculture + OS |
+| `UJENZI_OS` | `NOELIA_AI` | Canonical Noelia Fallback (`noelia-ai`) | Construction operations vocabulary | Projects, sites, BOQ/cost, HSE, quality, analytics | Ujenzi + OS |
+| `UJENZI_OS` (Architectural) | `NOELIA_AI` | Canonical Noelia Fallback (`noelia-ai`) | Architectural design & BIM vocabulary | Architectural coordination, BIM spatial, planning, analytics | Ujenzi + Professional |
+| `UJENZI_OS` (Engineering) | `NOELIA_AI` | Canonical Noelia Fallback (`noelia-ai`) | Structural & civil engineering vocabulary | Structural analysis, civil works, MEP, analytics | Ujenzi + Professional |
+
+## Ujenzi OS and Governed Professional Manifestations
+
+- `UJENZI_OS is a Sector OS.` It is a canonical first-class Sector OS alongside Health OS, Finance OS, and Agriculture OS.
+- `Architectural and Engineering manifestations are governed contexts inside UJENZI_OS, not separate operating systems.`
+- `Contextual appearance changes Noelia's visual manifestation without creating a new Noelia identity.`
+- `UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.`
+- Architectural and Engineering contexts are presentational and descriptive; they never grant unauthorized capabilities, tool permissions, or execution bypasses.
 
 ## Security Rules
 
 1. **No arbitrary OS selection.** The resolver ignores any client-provided
    `os` parameter that is not validated by authorization scope.
 2. **No independent identity.** `canonicalNoeliaIdentity` is always
-   `NOELIA_AI`. There is no `NOELIA_FINANCE`, `NOELIA_HEALTH`, or
-   `NOELIA_AGRICULTURE` identity.
+   `NOELIA_AI`. There is no `NOELIA_FINANCE`, `NOELIA_HEALTH`, `NOELIA_AGRICULTURE`,
+   or `NOELIA_UJENZI` identity.
 3. **No independent memory.** Memory retrieval uses the OS scope filter,
    but memory records themselves reference the same `canonicalNoeliaIdentity`
    (`NOELIA_AI`) and the same user identity (`GlobalUserID`).
 4. **No independent authorization.** The authorization chain is always
    the same. Only the authorized OS subset changes.
+5. **Authorization Isolation for Professional Manifestations.** A client requesting
+   Architectural or Engineering manifestation within Ujenzi OS receives contextual
+   presentation only. Appearance selection never grants tool execution authority,
+   write permissions, or RBAC/ABAC elevation.
 
 ## Source of Truth
 
