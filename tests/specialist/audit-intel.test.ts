@@ -933,7 +933,11 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
     // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
     // + 0062: shared Universal Dimensional Graphics capability tables (viz_*); no specialist truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(63);  });
+    // + 0064/0065: capability base domain type (beyu_domain_type) and the Family
+    //   Office SHARED CAPABILITY base row (a governed namespace only — never an OS,
+    //   no specialist truth, no second registry).
+    // + 0063: governed tenant-domain registry (tenant_domains). No audit-substrate change; the ledger stays immutable.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(66);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

@@ -138,3 +138,34 @@ Load balancing is **traffic infrastructure**, never an authorization mechanism.
 The routing decision chooses *where* traffic goes; BEYU authorization (server)
 decides *whether* the request is permitted. No route may be introduced that
 conflicts with existing application behavior.
+
+## I. Tenant domains / hostnames
+
+A tenant domain is a **governed binding**, never an authority. The chain is:
+
+```
+Hostname → Governed tenant-domain registry (tenant_domains) → Tenant identity →
+Entity/country context → Existing session/federation → Existing RBAC + ABAC +
+policy → Existing RLS → Existing Sector OS
+```
+
+Hostname resolution may only ever **narrow** the tenant context a request is
+evaluated in. It may never grant access, bypass login, identity federation,
+RBAC/ABAC, policy, tenant/entity/country scope or RLS, create an implicit tenant,
+infer a role, trust arbitrary `Host` headers, or route an unknown name to a
+default tenant. Unknown, inactive, unverified or disputed names **fail closed**
+with a uniform, information-free `404`; names inside a registered OS namespace
+that no governed row proves are refused, never served as the OS base tenant.
+
+One hostname belongs to exactly one tenant: uniqueness is enforced by the
+database, the hostname binding is **runtime-immutable** (`beyu_runtime` holds
+`SELECT` only — the registry governs the runtime, so the runtime credential may
+not re-point it), every lifecycle act is transactional with its audit record and
+enterprise event, and nothing is ever deleted — retirement is a terminal status.
+
+DNS is **not** authorization: a wildcard record, a certificate or a deployment
+platform domain mapping grants nothing, and the application resolves only exact
+registered names. `*.health.beyuos.co.tz` is DNS infrastructure; the application
+gate, not DNS, decides what may be served. Deployment-platform and DNS
+configuration remain human-controlled and are **not** claimed as done by the
+application work (see `docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md`).

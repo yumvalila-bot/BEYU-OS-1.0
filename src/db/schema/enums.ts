@@ -229,3 +229,43 @@ export const eligibilityEnum = pgEnum("beyu_eligibility", [
   "INELIGIBLE",
   "UNDER_REVIEW",
 ]);
+
+/**
+ * Governed tenant-domain type. A hostname resolves to a tenant ONLY through the
+ * canonical registry (`tenant_domains`); the type says what the name IS:
+ *
+ *   OS_BASE          a SECTOR OS's own origin (e.g. health.beyuos.co.tz) — the
+ *                    platform-configured base of an operating system. It defines
+ *                    the tenant subdomain NAMESPACE and carries no tenant context.
+ *   CAPABILITY_BASE  a SHARED CAPABILITY's own origin
+ *                    (e.g. familyoffice.beyuos.co.tz) — the base of a capability
+ *                    that is implemented ONCE inside BEYU OS and is never a Sector
+ *                    OS (Family Office, HCM, Governance, Risk/Compliance,
+ *                    Audit/Events, Workflow, Security, Noelia/HIVE). Like OS_BASE
+ *                    it defines a tenant subdomain NAMESPACE and carries NO tenant
+ *                    context; unlike OS_BASE its canonical registry entry is a
+ *                    `SHARED_CAPABILITY`, never a `SECTOR_OS`. The base domain
+ *                    being a capability must never be reachable as a seventh OS.
+ *   TENANT_SUBDOMAIN a tenant's name inside a platform base NAMESPACE
+ *                    (e.g. <tenant-slug>.health.beyuos.co.tz, or a capability
+ *                    tenant host such as <tenant>.familyoffice.beyuos.co.tz).
+ *   CUSTOM_DOMAIN    an externally owned name mapped to one tenant
+ *                    (e.g. www.example-health.co.tz). Never inside a platform base
+ *                    namespace, so a custom domain can never impersonate one.
+ *
+ * OS_BASE and CAPABILITY_BASE together are the PLATFORM NAMESPACE BASES: they
+ * answer "which governed namespace is this?" and never "which tenant?".
+ */
+export const domainTypeEnum = pgEnum("beyu_domain_type", [
+  "OS_BASE",
+  "TENANT_SUBDOMAIN",
+  "CUSTOM_DOMAIN",
+  /**
+   * Shared-capability base domain (migrations 0064/0065). APPENDED — `ALTER TYPE
+   * … ADD VALUE` appends, so this declaration mirrors the live database exactly
+   * and no existing label, row or behaviour moves. A capability base is a
+   * platform namespace base like OS_BASE: it answers "which governed namespace is
+   * this?", never "which tenant?".
+   */
+  "CAPABILITY_BASE",
+]);

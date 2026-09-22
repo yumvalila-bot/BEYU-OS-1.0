@@ -68,20 +68,35 @@ describe("Health OS SPA mount (governed, fail-closed, no second shell)", () => {
 
   it("treats the URL as a location, never as an authorization input", () => {
     // No pathname/header/search-param branch anywhere in the gate: Health OS
-    // authority comes only from the session and the federation link.
+    // authority comes only from the session and the federation link. The one
+    // request fact the mount may consider is the untrusted Host, and it can only
+    // ever cause a refusal (asserted below), never a grant.
     expect(code(mount)).not.toMatch(/pathname|searchParams|request\.headers|x-forwarded/i);
+    expect(code(mount)).toContain("resolveRequestHostname");
+    expect(code(mount)).toContain("hostnameDenialResponse");
+    // A refusal happens BEFORE the sector document is produced, and the document
+    // is never conditioned on the host.
+    expect(code(mount).indexOf("hostnameDenialResponse")).toBeLessThan(
+      code(mount).indexOf("new NextResponse(healthSpaHtml"),
+    );
   });
 
   it("mounts the canonical Sector OS route and the legacy alias on that one gate", () => {
     // Canonical route: `/os/health` (the registry's Health OS href).
     expect(canonicalRoute).toContain('from "./mount"');
-    expect(canonicalRoute).toContain("serveHealthOS()");
+    expect(canonicalRoute).toContain('serveHealthOS({ host: request.headers.get("host") })');
     expect(canonicalRoute).toContain('export const dynamic = "force-dynamic"');
     // Pre-existing mount URL retained as a compatibility alias — same handler,
     // never a second implementation.
     expect(legacyRoute).toContain('from "@/app/os/health/mount"');
-    expect(legacyRoute).toContain("serveHealthOS()");
+    expect(legacyRoute).toContain('serveHealthOS({ host: request.headers.get("host") })');
     expect(legacyRoute).toContain('export const dynamic = "force-dynamic"');
+    // The ONLY request fact a route may hand the mount is the untrusted Host, and
+    // it exists solely so the governed tenant-domain gate can REFUSE. No path,
+    // query, cookie, IP or forwarded header may reach the gate.
+    for (const route of [canonicalRoute, legacyRoute]) {
+      expect(route).not.toMatch(/searchParams|nextUrl|x-forwarded|x-real-ip|request\.url/i);
+    }
     // Neither route may reintroduce gate logic of its own.
     for (const route of [canonicalRoute, legacyRoute]) {
       expect(route).not.toContain("resolvePrincipal");

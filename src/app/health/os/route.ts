@@ -18,6 +18,10 @@ import { serveHealthOS } from "@/app/os/health/mount";
 // Session + federation state is per-request; never prerender or cache.
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<Response> {
-  return serveHealthOS();
+export async function GET(request: Request): Promise<Response> {
+  // The Host header is forwarded for ONE purpose: it may cause this request to be
+  // refused by the governed tenant-domain gate (see ./mount). It can never widen
+  // access — `serveHealthOS` still runs the canonical session and identity
+  // federation gates, and nothing else reads it.
+  return serveHealthOS({ host: request.headers.get("host") });
 }

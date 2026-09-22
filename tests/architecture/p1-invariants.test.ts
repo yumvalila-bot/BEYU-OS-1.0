@@ -43,6 +43,12 @@ describe("P1 — security constitution is one chain, RLS is final", () => {
     // security constitution rather than inferred from a route table.
     expect(recon).toContain("No hidden authorization routes");
   });
+
+  it("records that a hostname/tenant domain is never an authorization boundary", () => {
+    expect(recon).toContain("A tenant domain is a **governed binding**, never an authority");
+    expect(recon).toContain("Unknown, inactive, unverified or disputed names **fail closed**");
+    expect(recon).toContain("DNS is **not** authorization");
+  });
 });
 
 describe("P1 — events grant no authority", () => {

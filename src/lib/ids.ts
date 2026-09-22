@@ -264,6 +264,8 @@ export const ID_PREFIX = {
   blockchainReconciliation: "BCX",
   /* Ujenzi OS — construction sector operational records (Sector OS under BEYU OS). */
   ujenzi: "UJZ",
+  /* Governed tenant-domain registry (Health OS tenant domains; one capability). */
+  tenantDomain: "TDM",
   /* Universal Dimensional Graphics Foundation — ONE shared capability (not an OS). */
   vizDimension: "VZD",
   vizScene: "VZS",
