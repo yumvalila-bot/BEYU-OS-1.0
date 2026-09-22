@@ -35,6 +35,20 @@ export * from "./schema/government";
 export * from "./schema/ujenzi";
 
 /*
+ * UNIVERSAL DIMENSIONAL GRAPHICS FOUNDATION — shared capability (additive).
+ *
+ * ONE shared BEYU capability, NOT an OS and NOT a sector: dimension-extension
+ * registry (9D+), scene configurations, digital-twin registrations and the
+ * export ledger. Sector OSs — Health, Finance, Agriculture and UJENZI (each a
+ * full Sector OS) — plus Foundation consume the capability through governed
+ * adapters that re-check each sector's OWN authorization; RLS tenant isolation
+ * mirrors migrations 0031/0034/0035/0043. No journal, ledger or posting
+ * column exists here; Finance OS remains the only journal writer and
+ * CAP_POSTING stays LOCKED.
+ */
+export * from "./schema/visualization";
+
+/*
  * Governed CONTRACTING domain — materialized (additive).
  *
  * Contract records, party posture, authority checks, deterministic obligations

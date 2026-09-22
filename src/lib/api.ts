@@ -346,6 +346,11 @@ export async function guarded(
           options.permission.startsWith("familyoffice:") ||
           options.permission.startsWith("blockchain:") ||
           options.permission.startsWith("ujenzi:") ||
+          // The Universal Dimensional Graphics capability aggregates sector
+          // rows without complete legal-entity keys; entity-scoped access is
+          // refused rather than widened — the same fail-closed rule as the
+          // sectors it aggregates.
+          options.permission.startsWith("viz:") ||
           options.permission.startsWith("finance:payments.") ||
           options.permission === "finance:settlement.manage") &&
         principal.entityScope.length > 0;

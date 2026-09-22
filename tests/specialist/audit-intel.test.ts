@@ -932,7 +932,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
     // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
     // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(62);  });
+    // + 0062: shared Universal Dimensional Graphics capability tables (viz_*); no specialist truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(63);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

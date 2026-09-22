@@ -1,5 +1,72 @@
 # Changelog
 
+## [Unreleased] — Universal Dimensional Graphics, Visualization, Simulation, Digital Twin & Future XR Foundation — 2026-09-22
+
+Additive, backward-compatible introduction of **ONE shared BEYU capability** (NOT an OS, NOT a sector):
+the universal 1D–8D + governed 9D+ / XD dimensional graphics, visualization, digital-twin and future-XR
+foundation consumed by Health OS, Finance OS, Agriculture OS, **UJENZI OS (a full Sector OS — never
+downgraded)** and the BEYU Foundation through governed adapters. No existing route, table, permission,
+role grant or test was modified destructively; no BIM/Engineering/GIS/Digital-Twin/XR "OS" was created.
+
+- Migration `0062_universal_dimensional_visualization` (+ journal entry 62 + hand-synthesized
+  `drizzle/meta/0062_snapshot.json`, prevId chained to 0061): 4 tenant-scoped tables
+  (`viz_dimension_extensions`, `viz_scenes`, `viz_digital_twins`, `viz_exports`) with `ENABLE`+`FORCE`
+  ROW LEVEL SECURITY, `beyu_tenant_ids()` USING+WITH CHECK policies, `beyu_runtime` DML-only grants and
+  fail-closed verification blocks (RLS posture + 8 CHECK constraints) mirroring 0031/0034/0035/0043/0061.
+  NO journal/ledger/treasury/posting column exists anywhere in the schema — **CAP_POSTING stays LOCKED**.
+- `src/lib/viz/`: Universal Dimension Registry (canonical code registry; extensions can never shadow
+  1D–8D/XD or carry posting authority; unknown codes rejected, never assumed), governed scene-model
+  projection with an exact client allowlist (classification/source refs/tenant ids never cross),
+  digital-twin abstraction (identity bindings persisted; every facet projected LIVE per request),
+  engines for 4D time / 5D quantity (read-only) / 6D performance / 7D lifecycle (fail-closed stage
+  mapping) / 8D risk, renderer abstraction (SVG_2D/HTML_TABLE/timeline/chart/map implemented;
+  WEBGL_3D/WEBGPU_3D/XR declared PLANNED/NOT_IMPLEMENTED with deterministic fallbacks), XR contract +
+  fail-closed null adapter, exports (JSON/CSV server-side with sha256 ledger; SVG/PNG client-side;
+  PDF/IFC honestly NOT_IMPLEMENTED), provenance on the canonical Noelia epistemic vocabulary, and the
+  accessibility layer (always-present table equivalent, keyboard contract, contrast-checked palette,
+  reduced-motion + low-bandwidth policies).
+- Sector adapters (`src/lib/viz/adapters/`): UJENZI (full 1D–8D over ujenzi_* tables; inspection
+  severity UNAVAILABLE, never fabricated; BIM/IFC parsing declared NOT_IMPLEMENTED), AGRICULTURE
+  (full; weather/env `epistemicStatus` preserved; hazard severity DERIVED deterministically from the
+  register's own likelihood×impact scores), FINANCE (**READ-GOVERNED** — the only money surface is the
+  existing `trialBalance()` reporting engine; DATA_NOT_AVAILABLE/DATA_CONFLICT epistemics preserved;
+  never posts), FOUNDATION (scoped via `foundationScopeIds`; classification inherited fail-closed; no
+  safeguarding/beneficiary data), HEALTH (**PARTIALLY_IMPLEMENTED** — federation bridge + OS-registry
+  lifecycle only; PHI never reachable; clinical datasets PLANNED behind a governed non-PHI contract),
+  BEYU control plane (honest empty dataset).
+- Authorization (`src/lib/viz/authorization.ts` + the canonical boundary): new permissions
+  `viz:registry.read`, `viz:scene.read`, `viz:scene.manage`, `viz:export`, `viz:dimension.manage`
+  (HIGH-RISK, MFA step-up) with explicit role grants; holding a viz permission is NEVER sector access —
+  every request re-checks the sector's OWN boundary (`ujenzi:data.read`+scope, `agriculture:data.read`
+  +scope, Finance read paths, Health federation link, Foundation scope); deep links re-authorize
+  (out-of-scope → NOT_FOUND, existence protected); entity-scoped principals fail closed (`guarded()`
+  `scopeShapeUnsupported` + `viz:` prefix); viewing is not exporting.
+- API `/api/v1/viz/*` (guarded(): registry GET/POST-extension, scenes GET/POST + `[id]` manifest/archive,
+  twins GET/POST + `[id]` live projection, ad-hoc `manifest`, exports GET ledger/POST attachment with
+  `X-BEYU-Export-Hash`).
+- Events/audit on the EXISTING chains: `withAuditTransaction` writes domain row + audit + hashed
+  enterprise event atomically; closed vocabulary `VIZ_DIMENSION_REGISTERED`, `VIZ_SCENE_CREATED`,
+  `VIZ_SCENE_ARCHIVED`, `VIZ_TWIN_REGISTERED`, `VIZ_EXPORT_CREATED` under interop domain
+  `VISUALIZATION` (`DOM-VISUALIZATION`, PARTIAL); `REFRESH_TRIGGERS` lists only grep-verified emitted
+  sector events and is a staleness HINT only.
+- Noelia/HIVE: `viz.dimensions.explain` + `viz.scene.summarize` registered in the default registry —
+  both `sideEffects: NONE`, shape/status metadata only (never row-level values), explicit honest
+  refusal for unauthorized sectors; no create/register/export/mutation tool path exists.
+- Frontend: shared `/os/viz` workspace (sector + dimension activation, SVG 2D projection only when
+  governed geometry exists, always-present accessible table, object inspector with epistemic badges,
+  scenes/deep links, twin projection view, governed exports + ledger, registry/adapter/renderer
+  matrices, honest capability-status tab), capability IA entry under "Shared capabilities", new
+  `dimensional` brand icon.
+- Tests `tests/viz/` (9 suites, 83 tests): registry purity, allowlist/leak-prevention deep scans
+  (forbidden keys never cross; CSV/JSON exports never wider than the screen), RBAC + sector
+  conjunction + classification ceilings + entity-scope fail-closed, service lifecycle with atomic
+  audit/event proof, CAP_POSTING lock (static import graph + live journal-count invariance),
+  UJENZI OS regression (SECTOR_OS destination + DOM-UJENZI intact, adapter strictly read-only, no
+  smuggled "OS"), runtime-role RLS adversarial isolation (cross-tenant SELECT/INSERT/UPDATE/DELETE
+  refused; CHECK floors hold), Noelia tool contracts.
+- Docs: `docs/VISUALIZATION_FOUNDATION.md` (architecture + honest status matrix) and
+  `docs/VISUALIZATION_IMPLEMENTATION_REPORT.md` (executed evidence log).
+
 ## [Unreleased] — Family Office Protection & Insurance (life insurance) — 2026-09-11
 
 Additive, backward-compatible enhancement of the EXISTING Family Office with a governed

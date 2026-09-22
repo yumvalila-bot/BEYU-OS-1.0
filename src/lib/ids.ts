@@ -264,6 +264,11 @@ export const ID_PREFIX = {
   blockchainReconciliation: "BCX",
   /* Ujenzi OS — construction sector operational records (Sector OS under BEYU OS). */
   ujenzi: "UJZ",
+  /* Universal Dimensional Graphics Foundation — ONE shared capability (not an OS). */
+  vizDimension: "VZD",
+  vizScene: "VZS",
+  vizTwin: "VZT",
+  vizExport: "VZE",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

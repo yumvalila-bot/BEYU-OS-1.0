@@ -54,7 +54,8 @@ export type IconName =
   | "foundation"
   | "family"
   | "protection"
-  | "ujenzi";
+  | "ujenzi"
+  | "dimensional";
 
 const GLYPHS: Record<IconName, ReactNode> = {
   /* Executive Control Centre — command grid with focal point */
@@ -350,6 +351,18 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M18.2 8.4v3.2" />
       <path d="M16.6 11.6h3.2" />
       <path d="M9.5 20.5v-5.4h5v5.4" />
+    </>
+  ),
+  /* Universal Dimensional Graphics — cube on axis lines with a time tick:
+     the shared 1D→8D+ capability (never an OS badge). */
+  dimensional: (
+    <>
+      <path d="M12 3.2 20 7.4v9.2L12 20.8 4 16.6V7.4z" />
+      <path d="M4 7.4l8 4.2 8-4.2" />
+      <path d="M12 11.6v9.2" />
+      <path d="M2.6 12H4" />
+      <path d="M20 12h1.4" />
+      <path d="M12 1.8v1.4" />
     </>
   ),
 };

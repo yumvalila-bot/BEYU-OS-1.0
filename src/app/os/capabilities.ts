@@ -191,6 +191,14 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         visibility: { kind: "any", permissions: REGISTRY_READ },
       },
       {
+        href: "/os/viz",
+        label: "Dimensional Graphics & Twins",
+        description:
+          "The Universal Dimensional Graphics, Visualization, Simulation, Digital Twin & Future XR Foundation — ONE shared capability: governed 1D–8D+ scenes, live digital twins and audited exports over each Sector OS's own authorized data. Never an OS; never a second copy of sector truth.",
+        icon: "dimensional",
+        visibility: { kind: "any", permissions: ["viz:scene.read", "viz:registry.read"] },
+      },
+      {
         href: "/os/family",
         label: "Family Office",
         description: "Family governance, lineage, beneficiaries, wealth and protection inside BEYU OS under highly restricted grants.",

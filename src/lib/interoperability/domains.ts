@@ -28,6 +28,11 @@ export const DOMAIN_CODES = [
   "AGRICULTURE",
   "FOUNDATION",
   "UJENZI",
+  /** Universal Dimensional Graphics Foundation — ONE shared capability domain
+   * (visualization/simulation/digital-twin metadata + governed scene acts).
+   * It is NOT a Sector OS: Health, Finance, Agriculture and UJENZI remain the
+   * canonical sector domains and consume this one through governed adapters. */
+  "VISUALIZATION",
 ] as const;
 export type DomainCode = (typeof DOMAIN_CODES)[number];
 
@@ -444,6 +449,34 @@ export const DOMAIN_REGISTRY: readonly DomainRegistryEntry[] = [
     traceModel: "common envelope required",
     continuityClass: "LOCAL_ATOMIC",
     dependencies: ["IDENTITY", "HCM", "FINANCE", "GOVERNANCE", "SECURITY"],
+    status: "PARTIAL",
+  },
+  {
+    domainId: "DOM-VISUALIZATION",
+    domainCode: "VISUALIZATION",
+    domainName: "Universal Dimensional Graphics Foundation (shared capability)",
+    owner: "BEYU OS Kernel (shared capability — never a Sector OS)",
+    systemOfRecord:
+      "viz_dimension_extensions, viz_scenes, viz_digital_twins, viz_exports (configuration/ledger only; sector data stays in its Sector OS)",
+    dataClass: "CONFIDENTIAL",
+    apiContract: ["/api/v1/viz/*", ...SHARED_API],
+    eventContract: [
+      "VIZ_DIMENSION_REGISTERED",
+      "VIZ_SCENE_CREATED",
+      "VIZ_SCENE_ARCHIVED",
+      "VIZ_TWIN_REGISTERED",
+      "VIZ_EXPORT_CREATED",
+      ...SHARED_EVENTS,
+    ],
+    authorityModel:
+      "viz:registry.read / viz:scene.read / viz:scene.manage / viz:export / viz:dimension.manage, ALWAYS conjuncted with the visualized sector's own read boundary",
+    securityModel:
+      "common RBAC/ABAC + FORCE RLS tenant isolation + allowlist manifest projection (leak prevention) + audited exports; CAP_POSTING untouched (no posting path exists)",
+    tenantModel: "tenant-scoped configuration; sector data scope resolved by each adapter",
+    entityModel: "optional legal-entity binding on scenes/twins; entity-scoped principals fail closed",
+    traceModel: "common envelope required",
+    continuityClass: "LOCAL_ATOMIC",
+    dependencies: ["IDENTITY", "GOVERNANCE", "SECURITY", "AUDIT", "UJENZI", "AGRICULTURE", "FINANCE", "HEALTH", "FOUNDATION"],
     status: "PARTIAL",
   },
 ];

@@ -317,6 +317,20 @@ export const PERMISSIONS = {
   // canonical in BEYU shared capabilities.
   "ujenzi:data.read": "Read Ujenzi OS operational records (projects, sites, phases, milestones, BOQ, cost records, procurement, materials, equipment, site diaries, quality, HSE, variations, claims, payment certificates, handover)",
   "ujenzi:data.manage": "Create or amend Ujenzi OS operational records",
+  // Universal Dimensional Graphics, Visualization, Simulation, Digital Twin &
+  // Future XR Foundation — ONE shared BEYU capability, NOT an OS and NOT a
+  // sector. Sector OSs (Health, Finance, Agriculture, UJENZI — each a full
+  // Sector OS) plus Foundation consume it through governed adapters. Holding a
+  // viz permission NEVER grants sector data on its own: every scene/twin/
+  // export re-checks the sector's OWN read boundary (ujenzi:data.read,
+  // agriculture:data.read, the Finance read paths, the Health federation
+  // link, Foundation scope) and RLS remains the final database boundary.
+  // Visualization never posts money: CAP_POSTING stays LOCKED (§24/§44).
+  "viz:registry.read": "Read the Universal Dimension Registry (1D–8D, governed 9D+ extensions, XD) and the renderer capability matrix",
+  "viz:scene.read": "View governed visualization scenes and digital twins through authorized sector adapters (read-only; never a sector grant by itself)",
+  "viz:scene.manage": "Create, amend or archive visualization scene configurations and digital-twin registrations (configuration only — never sector data mutation)",
+  "viz:export": "Export governed visualization data (JSON/CSV of the allowlisted manifest); separate from viewing — an authorized viewer is not automatically an exporter; every export is ledgered and audited",
+  "viz:dimension.manage": "Register or amend governed 9D+ dimension extensions in the Universal Dimension Registry (HIGH-RISK: extends the shared capability model; MFA step-up)",
   // Foundation OS — ONE institutional OS; these are domain capabilities inside
   // it, not sub-OS products. Approval permissions are HIGH_RISK (MFA step-up).
   "foundation:registry.read": "Read the Foundation Registry",
@@ -482,6 +496,10 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "identity:user.remove",
   "organization:tenant.remove",
   "identity:delegation.manage",
+  // Registering a 9D+ dimension extension changes the shared capability model
+  // every Sector OS consumes. It creates no data access and no posting path,
+  // but it is a constitutional-scale configuration act: MFA step-up applies.
+  "viz:dimension.manage",
 ];
 
 /** Canonical role catalogue with constitutional scope. */
@@ -532,6 +550,15 @@ export const ROLES: Record<
       "ai:compliance.audit",
       "ai:compliance.certification",
       "ai:compliance.metrics",
+
+      // Universal Dimensional Graphics (shared capability): the platform administrator
+      // maintains the shared dimension registry and scene configuration. Sector data
+      // remains behind each sector's OWN boundary; CAP_POSTING stays LOCKED.
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:scene.manage",
+      "viz:export",
+      "viz:dimension.manage",
     ],
   },
   GROUP_CEO: {
@@ -661,6 +688,13 @@ export const ROLES: Record<
       "contracts:read",
       "contracts:manage",
       "blockchain:read",
+
+      // Universal Dimensional Graphics (shared capability): enterprise-wide governed
+      // visualization read + audited export. Sector data access still requires the
+      // sector's own read boundary per scene.
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:export",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -730,6 +764,14 @@ export const ROLES: Record<
       "contracts:authority",
       "blockchain:read",
       "blockchain:manage",
+
+      // Universal Dimensional Graphics (shared capability): governed visualization read
+      // + audited export. Financial visualization is READ-GOVERNED: it never posts,
+      // never alters balances and never bypasses Finance authorization (CAP_POSTING
+      // stays LOCKED).
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:export",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -808,6 +850,10 @@ export const ROLES: Record<
       "contracts:authority",
       "blockchain:read",
       "blockchain:manage",
+
+      // Universal Dimensional Graphics (shared capability): governed visualization read.
+      "viz:registry.read",
+      "viz:scene.read",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -853,6 +899,13 @@ export const ROLES: Record<
       "contracts:read",
       "contracts:manage",
       "blockchain:read",
+
+      // Universal Dimensional Graphics (shared capability): risk/compliance overlays (8D)
+      // + audited export for evidence. A viz export is not compliance evidence by
+      // itself; the underlying governed records remain canonical.
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:export",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {
@@ -1217,6 +1270,10 @@ export const ROLES: Record<
       // only through governed HCM workflows, never directly.
       "contracts:read",
       "contracts:manage",
+
+      // Universal Dimensional Graphics (shared capability): governed visualization read.
+      "viz:registry.read",
+      "viz:scene.read",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1250,6 +1307,15 @@ export const ROLES: Record<
       // only. Lifecycle progression, execution and counterparty screening stay with the
       // group functions that own them; RLS still bounds every read.
       "contracts:read",
+
+      // Universal Dimensional Graphics (shared capability): sector operators build and
+      // read scenes for their own Sector OS and export through the audited path.
+      // Scene configuration is NOT sector data mutation: every dataset still flows
+      // through the sector's own authorization and RLS.
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:scene.manage",
+      "viz:export",
     ],
   },
   FOUNDATION_DIRECTOR: {
@@ -1319,6 +1385,11 @@ export const ROLES: Record<
       //   records authorized commitments; it never assumes government or donor authority.
       "contracts:read",
       "contracts:manage",
+
+      // Universal Dimensional Graphics (shared capability): governed visualization read
+      // within Foundation scope.
+      "viz:registry.read",
+      "viz:scene.read",
     ],
   },
   FOUNDATION_OFFICER: {
@@ -1371,6 +1442,11 @@ export const ROLES: Record<
       //   execution gates still require the accountable authority above this role.
       "contracts:read",
       "contracts:manage",
+
+      // Universal Dimensional Graphics (shared capability): governed visualization read
+      // within Foundation scope.
+      "viz:registry.read",
+      "viz:scene.read",
     ],
   },
   AUDITOR: {
@@ -1424,6 +1500,12 @@ export const ROLES: Record<
       //   of the register, its determinations and its anchors. No manage or authority verbs.
       "contracts:read",
       "blockchain:read",
+
+      // Universal Dimensional Graphics (shared capability): independent read + audited
+      // export of governed visualizations. No manage verb and no registry mutation.
+      "viz:registry.read",
+      "viz:scene.read",
+      "viz:export",
     ],
   },
   /**
