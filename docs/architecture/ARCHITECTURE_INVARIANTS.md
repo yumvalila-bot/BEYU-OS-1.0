@@ -33,6 +33,41 @@ ONE BEYU OS          (constitutional control plane)
 - One registry of record for OSs; one for capabilities; one authorization
   chain; one event ledger. No duplicate systems, no duplicate taxonomies.
 
+### A.1 Canonical Sector OS route contract
+
+One registry is the single source of route → OS identity
+(`src/lib/operating-system-catalog.ts`, consumed by `src/lib/operating-systems.ts`,
+the launcher, the capability map, the sidebar and the OS brand). A route is
+resolved from that registry; it is never inferred from URL text.
+
+| Route | Registry code | Operating system |
+| --- | --- | --- |
+| `/os` | `BEYU_OS` | BEYU OS — constitutional control plane |
+| `/os/health` | `HEALTH_OS` | Health OS |
+| `/os/finance` | `FINANCE_OS` | Finance OS |
+| `/os/agriculture` | `AGRICULTURE_OS` | Agriculture OS |
+| `/os/ujenzi` | `UJENZI_OS` | Ujenzi OS |
+| `/os/foundation` | `FOUNDATION_OS` | Foundation OS |
+
+- **A route confers nothing.** Each canonical route re-runs its own server-side
+  gate (session → OS/federation authorization → tenant → entity → country →
+  role → permission → policy → RLS) on every request; the URL is never
+  authorization.
+- **One Health OS mount.** The single governed handler
+  (`src/app/os/health/mount.ts`) serves `/os/health` (canonical) and `/health/os`
+  (pre-existing alias); `/health` remains the truthful denial/availability
+  surface. There is no second mount, shell, session system or authorization
+  check.
+- **No catch-all under `/os`.** An unknown OS route uses the existing 404 and
+  never resolves to an unrelated Sector OS.
+- **Noelia context is presentation only.** The active OS context for the
+  existing contextual appearance engine is resolved from this registry
+  (`src/lib/os-context.ts`) and can never grant, widen or imply access.
+- **Capabilities are not OSs.** Ujenzi capabilities (BIM, BOQ, HSE,
+  commissioning, CRS, digital-twin identity graph) and shared capabilities
+  (HCM, Family Office, Visualization, Noelia/HIVE) receive no route of their
+  own under this contract.
+
 ## B. Security (unchanged by any programme phase)
 
 ```

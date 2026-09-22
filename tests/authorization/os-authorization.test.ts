@@ -50,7 +50,9 @@ function directRoute(
   const beyu = checkBeyuOSAuthorization(princip).authorized;
   const count = (beyu ? 1 : 0) + (healthAuthorized ? 1 : 0);
   if (count > 1) return "launcher";
-  if (count === 1) return beyu ? "/os" : "/health";
+  // The launcher redirects a single authorized destination to its canonical
+  // route; the Health OS canonical route is /os/health.
+  if (count === 1) return beyu ? "/os" : "/os/health";
   return "signin";
 }
 
@@ -70,7 +72,7 @@ describe("OS authorization routing matrix", () => {
     p.permissions = new Set();
     const os = authorizedOs(checkBeyuOSAuthorization(p).authorized, true);
     expect(os.filter((o) => o.authorized).map((o) => o.code)).toEqual(["HEALTH"]);
-    expect(directRoute(p, true)).toBe("/health");
+    expect(directRoute(p, true)).toBe("/os/health");
   });
 
   it("User B (Health + Finance/BEYU) sees the OS selector", () => {

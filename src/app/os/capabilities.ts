@@ -226,7 +226,10 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         visibility: { kind: "any", permissions: FINANCE_OS_READ_PERMISSIONS },
       },
       {
-        href: "/health",
+        // Canonical route: `/os/health`. The link is presentational only — it
+        // carries no OS authorization, and the route re-runs the canonical
+        // session + Health federation gate server-side on every request.
+        href: "/os/health",
         label: "Health OS",
         description: "Federated healthcare operations under canonical BEYU identity and a separately re-verified Health authorization boundary.",
         icon: "health",

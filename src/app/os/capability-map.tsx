@@ -14,7 +14,7 @@ import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
  * than a fabricated "status".
  */
 const SECTOR_REGISTRY_CODE: Record<string, string> = {
-  "/health": "HEALTH_OS",
+  "/os/health": "HEALTH_OS",
   "/os/finance": "FINANCE_OS",
   "/os/agriculture": "AGRICULTURE_OS",
   "/os/foundation": "FOUNDATION_OS",

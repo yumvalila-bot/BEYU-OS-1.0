@@ -2,13 +2,17 @@
  * Health OS SPA mount — governed, fail-closed, no second shell.
  *
  * Source-level contract for the integration that mounts the EXISTING Health OS
- * implementation (`sectors/health` single-file SPA) at `/health/os` inside the
- * BEYU authenticated shell. These tests are pure (no database, no server) and
- * pin the security-relevant properties of the wiring:
+ * implementation (`sectors/health` single-file SPA) inside the BEYU
+ * authenticated boundary. These tests are pure (no database, no server) and pin
+ * the security-relevant properties of the wiring:
  *
- *   - the mount route re-runs the full BEYU gate (session + federation link);
+ *   - the mount re-runs the full BEYU gate (session + federation link);
  *   - every failure path fails closed (307 to `/` or back to `/health`);
- *   - the `/health` page keeps its gate and truthful denial copy;
+ *   - the canonical Sector OS route `/os/health` and the pre-existing mount URL
+ *     `/health/os` delegate to that ONE gate — neither may carry its own
+ *     relaxed copy, and the URL itself is never an authorization input;
+ *   - the `/health` page keeps its gate, its truthful denial copy and now
+ *     redirects authorized users to the canonical route;
  *   - the sector API is reachable only under a dedicated namespace and only
  *     when explicitly configured (no build-time default target);
  *   - the BEYU liveness/readiness probes are untouched.
@@ -22,30 +26,68 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const source = (...parts: string[]) =>
   readFileSync(path.join(ROOT, ...parts), "utf8");
 
+/**
+ * Source text with comments removed.
+ *
+ * These gates assert what the CODE does. A doc comment explaining that the
+ * module never reads the pathname must not be mistaken for the module reading
+ * it (and, equally, a comment can never satisfy an assertion about behaviour).
+ */
+const code = (text: string) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+/** The one governed mount: gates + the compiled sector SPA document. */
+const mount = source("src", "app", "os", "health", "mount.ts");
+const canonicalRoute = source("src", "app", "os", "health", "route.ts");
+const legacyRoute = source("src", "app", "health", "os", "route.ts");
+
 describe("Health OS SPA mount (governed, fail-closed, no second shell)", () => {
-  it("serves the compiled sector SPA from a dedicated dynamic route", () => {
-    const route = source("src", "app", "health", "os", "route.ts");
-    expect(route).toContain('export const dynamic = "force-dynamic"');
-    expect(route).toContain("healthSpaHtml");
-    expect(route).toContain("text/html; charset=utf-8");
+  it("serves the compiled sector SPA from the single governed mount", () => {
+    expect(mount).toContain("healthSpaHtml");
+    expect(mount).toContain("text/html; charset=utf-8");
     // Session-bearing, authorization-scoped content must not be cached.
-    expect(route).toContain("no-store");
+    expect(mount).toContain("no-store");
   });
 
-  it("re-runs the full BEYU gate at the mount (deep link cannot bypass /health)", () => {
-    const route = source("src", "app", "health", "os", "route.ts");
+  it("re-runs the full BEYU gate at the mount (a deep link cannot bypass it)", () => {
     // Both gates, in order, before the bundle is ever served.
-    expect(route).toContain("resolvePrincipal");
-    expect(route).toContain("checkHealthOSAuthorization");
+    expect(mount).toContain("resolvePrincipal");
+    expect(mount).toContain("checkHealthOSAuthorization");
     const gateIndex = Math.min(
-      route.indexOf("resolvePrincipal"),
-      route.indexOf("checkHealthOSAuthorization"),
+      mount.indexOf("resolvePrincipal"),
+      mount.indexOf("checkHealthOSAuthorization"),
     );
-    expect(route.indexOf("healthSpaHtml") > gateIndex).toBe(true);
+    expect(mount.indexOf("healthSpaHtml") > gateIndex).toBe(true);
     // Unauthenticated → back to the sign-in surface; unauthorized/unavailable
     // → back to the truthful /health denial pages (307, no error page).
-    expect(route).toMatch(/status: 307/);
-    expect(route).toContain('Location: "/health"');
+    expect(mount).toMatch(/status: 307/);
+    expect(mount).toContain('HEALTH_OS_DENIAL_PATH = "/health"');
+  });
+
+  it("treats the URL as a location, never as an authorization input", () => {
+    // No pathname/header/search-param branch anywhere in the gate: Health OS
+    // authority comes only from the session and the federation link.
+    expect(code(mount)).not.toMatch(/pathname|searchParams|request\.headers|x-forwarded/i);
+  });
+
+  it("mounts the canonical Sector OS route and the legacy alias on that one gate", () => {
+    // Canonical route: `/os/health` (the registry's Health OS href).
+    expect(canonicalRoute).toContain('from "./mount"');
+    expect(canonicalRoute).toContain("serveHealthOS()");
+    expect(canonicalRoute).toContain('export const dynamic = "force-dynamic"');
+    // Pre-existing mount URL retained as a compatibility alias — same handler,
+    // never a second implementation.
+    expect(legacyRoute).toContain('from "@/app/os/health/mount"');
+    expect(legacyRoute).toContain("serveHealthOS()");
+    expect(legacyRoute).toContain('export const dynamic = "force-dynamic"');
+    // Neither route may reintroduce gate logic of its own.
+    for (const route of [canonicalRoute, legacyRoute]) {
+      expect(route).not.toContain("resolvePrincipal");
+      expect(route).not.toContain("checkHealthOSAuthorization");
+      expect(route).not.toContain("healthSpaHtml");
+    }
   });
 
   it("keeps the /health page gate and its truthful denial copy intact", () => {
@@ -54,9 +96,10 @@ describe("Health OS SPA mount (governed, fail-closed, no second shell)", () => {
     expect(page).toContain("checkHealthOSAuthorization");
     expect(page).toContain("This availability state does not prove");
     expect(page).toContain('name={unavailable ? "health" : "security"}');
-    // The placeholder is gone: authorized users reach the real implementation.
+    // The placeholder is gone: authorized users reach the real implementation
+    // at its canonical route.
     expect(page).not.toContain("Coming Soon");
-    expect(page).toContain('redirect("/health/os")');
+    expect(page).toContain('redirect("/os/health")');
   });
 
   it("proxies the sector API only under a dedicated namespace and only when configured", () => {

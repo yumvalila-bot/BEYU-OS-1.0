@@ -6,12 +6,14 @@ import type { Metadata } from "next";
  * Health OS is a separate application surface that consumes canonical BEYU identity
  * through federation.
  *
- * Authorized users are redirected to `/health/os`, which serves the EXISTING
- * Health OS implementation (the `sectors/health` single-file SPA compiled by
- * `scripts/build-health-spa.mjs`). That route re-runs this exact gate
- * (canonical BEYU session + canonical identity federation link, fail-closed)
- * so a deep link cannot bypass it. Unauthenticated and unauthorized states are
- * rendered here with truthful availability copy.
+ * Authorized users are redirected to `/os/health` — the canonical Sector OS
+ * route for Health OS — which serves the EXISTING Health OS implementation (the
+ * `sectors/health` single-file SPA compiled by `scripts/build-health-spa.mjs`).
+ * That route re-runs this exact gate (canonical BEYU session + canonical identity
+ * federation link, fail-closed) so a deep link cannot bypass it. The original
+ * mount URL `/health/os` remains a working alias of the same governed mount.
+ * Unauthenticated and unauthorized states are rendered here with truthful
+ * availability copy — this page stays the Health OS denial/availability surface.
  */
 
 import { redirect } from "next/navigation";
@@ -68,9 +70,9 @@ export default async function HealthOSPage() {
     );
   }
 
-  // Health OS authorized — mount the EXISTING Health OS implementation.
-  // `/health/os` serves the compiled sector SPA and re-runs this exact gate
-  // (canonical session + federation link, fail-closed) on every request, so
-  // this redirect never relaxes authority.
-  redirect("/health/os");
+  // Health OS authorized — mount the EXISTING Health OS implementation at the
+  // canonical Sector OS route. `/os/health` serves the compiled sector SPA and
+  // re-runs this exact gate (canonical session + federation link, fail-closed)
+  // on every request, so this redirect never relaxes authority.
+  redirect("/os/health");
 }

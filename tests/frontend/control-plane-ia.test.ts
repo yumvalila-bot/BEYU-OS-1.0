@@ -96,7 +96,10 @@ describe("canonical constitutional hierarchy", () => {
   it("models exactly five Sector OSs beneath BEYU OS", () => {
     const expected = [
       { label: "Finance OS", href: "/os/finance" },
-      { label: "Health OS", href: "/health" },
+      // Health OS is a Sector OS like every other one: its canonical route
+      // lives inside the /os namespace. /health remains the denial/availability
+      // surface and re-checks the same federation gate.
+      { label: "Health OS", href: "/os/health" },
       { label: "Agriculture OS", href: "/os/agriculture" },
       { label: "Foundation OS", href: "/os/foundation" },
       { label: "Ujenzi OS", href: "/os/ujenzi" },
@@ -217,7 +220,7 @@ describe("permission-conscious discovery", () => {
 
   it("keeps Health federation out of local permission inference", () => {
     const health = group("sector").items.find(
-      (item) => item.href === "/health",
+      (item) => item.href === "/os/health",
     )!;
     expect(visible(principal(), health)).toBe(false);
   });
