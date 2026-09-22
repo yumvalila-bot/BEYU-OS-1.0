@@ -13,6 +13,7 @@ import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
 import { registerFamilyOfficeTools } from "@/lib/family/office/noelia-tools";
 import { registerAgricultureExportTools } from "@/lib/noelia/agriculture-export-tools";
+import { registerVizTools } from "@/lib/viz/noelia-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1392,6 +1393,14 @@ export function createDefaultNoeliaToolRegistry(
    * no shipment authorization, no Finance posting.
    */
   registerAgricultureExportTools(registry);
+  /**
+   * Universal Dimensional Graphics Foundation — ONE shared capability (NOT an
+   * OS): governed, read-only visualization intelligence (dimension registry
+   * explainer + authorized scene summarizer). No scene creation, no twin
+   * registration, no export and no sector mutation has a tool path; those
+   * remain human-governed. CAP_POSTING stays LOCKED.
+   */
+  registerVizTools(registry);
 
   return registry;
 }

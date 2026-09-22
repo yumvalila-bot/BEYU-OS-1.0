@@ -1017,7 +1017,8 @@ describe("forecast service — hostile inputs", () => {
     // + 0049: canonical task execution and governance_action_evidence links; no specialist truth or Finance execution.
     // + 0060: governed meetings, agendas, conflicts, motions; no specialist truth.
     // + 0061: governance calendar, evaluations, legal holds; no specialist truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(62);
+    // + 0062: shared Universal Dimensional Graphics capability tables (viz_*); no specialist truth, no forecast/scenario/assumption table.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(63);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

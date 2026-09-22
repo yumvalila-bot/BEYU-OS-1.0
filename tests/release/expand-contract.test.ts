@@ -113,12 +113,13 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 62-migration inventory and rejects the stale baseline", async () => {
-    // 0061 adds governance calendar, evaluations, and legal holds; historical SQL stays byte-exact.
+  it("requires the exact 63-migration inventory and rejects the stale baseline", async () => {
+    // 0062 adds the shared Universal Dimensional Graphics capability tables (viz_*);
+    // historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(62);
+    const result = verifyP2MigrationIntegrity(63);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(62);
+    expect(result.count).toBe(63);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
@@ -129,6 +130,7 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(59).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(60).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(61).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(62).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {
