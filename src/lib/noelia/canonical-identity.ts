@@ -113,64 +113,75 @@ export const NOELIA_CANONICAL_ID = {
     },
   },
   visual_profile: {
-    canonical_portrait_path: "/noelia/noelia-avatar.svg",
+    /**
+     * CANONICAL APPEARANCE CONTRACT — Noelia's canonical visual appearance is
+     * `/NOELIA.png`. It is the SINGLE canonical visual reference across BEYU
+     * OS; every OS/professional context resolves to this one asset. Sector or
+     * contextual experiences change wording, tools, permissions and
+     * workflows — never the appearance asset. Alternate Noelia avatar assets
+     * must not be introduced without an explicit architecture decision.
+     * Appearance confers no authorization or capability.
+     */
+    canonical_portrait_path: "/NOELIA.png",
     canonical_mark_path: "/noelia/noelia-icon.svg",
-    canonical_raster_png_path: "/noelia/noelia-avatar.png",
-    authoritative_png_assets: {
+    canonical_appearance_asset: {
+      canonical_filename: "NOELIA.png",
+      logical_identifier: "noelia-canonical",
+      repository_path: "/NOELIA.png",
+      public_presentation_path: "/NOELIA.png",
+      sha256: "643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990",
+      md5: "320f9a86fd740a371f3a57d70e1bba4d",
+      dimensions_px: { width: 1119, height: 1405 },
+      status: "AUTHORITATIVE",
+      notes:
+        "SINGLE canonical Noelia appearance. Never modified, recompressed, recolored, cropped, or regenerated. public/NOELIA.png is a byte-exact deployment copy of the tracked root asset.",
+    },
+    /**
+     * HISTORICAL preserved originals (root of the repository). These are
+     * retained byte-exact for provenance and are NOT application-served
+     * appearance variants — every runtime surface resolves to /NOELIA.png.
+     */
+    historical_png_assets: {
       noelia_ai: {
         canonical_filename: "Noelia AI .png",
         logical_identifier: "noelia-ai",
         repository_path: "/Noelia AI .png",
-        public_presentation_path: "/noelia/canonical/noelia-ai-canonical.png",
-        sha256: "12542aef08ef5bb087a9ad15e2a8631a",
-        context_mapping: "NOELIA_AI",
-        dimensions_px: { width: 1024, height: 1024 },
-        status: "PRESERVED",
-        notes: "Authoritative canonical Noelia AI portrait. Never modified, recolored, or regenerated.",
+        md5: "12542aef08ef5bb087a9ad15e2a8631a",
+        status: "HISTORICAL_PRESERVED",
+        notes: "Preserved original. Not an application-served appearance; runtime resolves to /NOELIA.png.",
       },
       noelia_beyu_os: {
         canonical_filename: "Noelia BEYU OS.png",
         logical_identifier: "noelia-beyu-os",
         repository_path: "/Noelia BEYU OS.png",
-        public_presentation_path: "/noelia/canonical/noelia-beyu-os-canonical.png",
-        sha256: "4f61c9187398e80e32746b0f8540b513",
-        context_mapping: "BEYU_OS",
-        dimensions_px: { width: 1024, height: 1024 },
-        status: "PRESERVED",
-        notes: "Authoritative BEYU OS manifestation of Noelia. Never modified or regenerated.",
+        md5: "4f61c9187398e80e32746b0f8540b513",
+        status: "HISTORICAL_PRESERVED",
+        notes: "Preserved original. Not an application-served appearance; runtime resolves to /NOELIA.png.",
       },
       noelia_finance_os: {
         canonical_filename: "Noelia Finance os.png",
         logical_identifier: "noelia-finance-os",
         repository_path: "/Noelia Finance os.png",
-        public_presentation_path: "/noelia/canonical/noelia-finance-os-canonical.png",
-        sha256: "2eb029f1739e9fbf54041dccfae27093",
-        context_mapping: "FINANCE_OS",
-        dimensions_px: { width: 1024, height: 1024 },
-        status: "PRESERVED",
-        notes: "Authoritative Finance OS manifestation of Noelia. Never modified or regenerated.",
+        md5: "2eb029f1739e9fbf54041dccfae27093",
+        status: "HISTORICAL_PRESERVED",
+        notes: "Preserved original. Not an application-served appearance; runtime resolves to /NOELIA.png.",
       },
       noelia_health_os: {
         canonical_filename: "Noelia Health os.png",
         logical_identifier: "noelia-health-os",
         repository_path: "/Noelia Health os.png",
-        public_presentation_path: "/noelia/canonical/noelia-health-os-canonical.png",
-        sha256: "6a63d1037bd0bb68d4811ebd1516b1e3",
-        context_mapping: "HEALTH_OS",
-        dimensions_px: { width: 1024, height: 1024 },
-        status: "PRESERVED",
-        notes: "Authoritative Health OS manifestation of Noelia. Never modified or regenerated.",
+        md5: "6a63d1037bd0bb68d4811ebd1516b1e3",
+        status: "HISTORICAL_PRESERVED",
+        notes: "Preserved original. Not an application-served appearance; runtime resolves to /NOELIA.png.",
       },
       noelia_agriculture_os: {
         canonical_filename: "Noeloa Agriculture OS.png",
         logical_identifier: "noelia-agriculture",
         repository_path: "/Noeloa Agriculture OS.png",
-        public_presentation_path: "/noelia/canonical/noelia-agriculture-os-canonical.png",
-        sha256: "14ea902f3a8b88e685cc183a83fb1699",
-        context_mapping: "AGRICULTURE_OS",
-        dimensions_px: { width: 1024, height: 1024 },
-        status: "PRESERVED",
-        notes: "Authoritative Agriculture OS manifestation of Noelia. Original filename preserved exactly (Noeloa). Never renamed, deleted, or regenerated.",
+        md5: "14ea902f3a8b88e685cc183a83fb1699",
+        status: "HISTORICAL_PRESERVED",
+        notes:
+          "Preserved original. Original filename preserved exactly (Noeloa). Not an application-served appearance; runtime resolves to /NOELIA.png.",
       },
     },
     accessibility: {

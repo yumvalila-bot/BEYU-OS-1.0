@@ -98,7 +98,7 @@ describe("B. Canonical OS Resolution", () => {
     const result = resolveNoeliaOSContext("BEYU_OS", mockScope(), mockTarget);
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("BEYU_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-beyu-os-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.contextualAppearance.contextualLabel).toContain("BEYU OS");
   });
@@ -107,7 +107,7 @@ describe("B. Canonical OS Resolution", () => {
     const result = resolveNoeliaOSContext("HEALTH_OS", mockScope(), mockTarget);
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("HEALTH_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-health-os-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.contextualAppearance.contextualLabel).toContain("Health OS");
   });
@@ -116,7 +116,7 @@ describe("B. Canonical OS Resolution", () => {
     const result = resolveNoeliaOSContext("FINANCE_OS", mockScope(), mockTarget);
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("FINANCE_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-finance-os-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.contextualAppearance.contextualLabel).toContain("Finance OS");
   });
@@ -125,7 +125,7 @@ describe("B. Canonical OS Resolution", () => {
     const result = resolveNoeliaOSContext("AGRICULTURE_OS", mockScope(), mockTarget);
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("AGRICULTURE_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-agriculture-os-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.contextualAppearance.contextualLabel).toContain("Agriculture OS");
   });
@@ -134,8 +134,8 @@ describe("B. Canonical OS Resolution", () => {
     const result = resolveNoeliaOSContext("UJENZI_OS", mockScope(), mockTarget);
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("UJENZI_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-ai-canonical.png");
-    expect(result.contextualAppearance.status).toBe("FALLBACK_CANONICAL");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
+    expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.contextualAppearance.contextualLabel).toContain("Ujenzi OS");
   });
 });
@@ -234,31 +234,48 @@ describe("F. Unauthorized Professional Context", () => {
 describe("G. Missing Asset & Canonical Fallback", () => {
   it("unknown OS falls back to canonical NOELIA_AI asset mapping", () => {
     const mapping = NOELIA_ASSET_MAPPING["UNKNOWN_OS"] ?? NOELIA_ASSET_MAPPING["NOELIA_AI"];
-    expect(mapping.logicalId).toBe("noelia-ai");
-    expect(mapping.path).toBe("/noelia/canonical/noelia-ai-canonical.png");
+    expect(mapping.logicalId).toBe("noelia-canonical");
+    expect(mapping.path).toBe("/NOELIA.png");
   });
 });
 
-describe("H. Ujenzi Missing Asset Fallback & Documentation", () => {
-  it("explicitly marks UJENZI_OS as canonical fallback with documented reason", () => {
+describe("H. Single Canonical Appearance Across Every OS Context", () => {
+  it("UJENZI_OS (and every other context) resolves the ONE canonical /NOELIA.png", () => {
     const ujenziMapping = NOELIA_ASSET_MAPPING["UJENZI_OS"];
-    expect(ujenziMapping.status).toBe("FALLBACK_CANONICAL");
-    expect(ujenziMapping.path).toBe("/noelia/canonical/noelia-ai-canonical.png");
-    expect(ujenziMapping.logicalId).toBe("noelia-ai");
-    expect(ujenziMapping.notes).toBe(
-      "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.",
-    );
+    expect(ujenziMapping.status).toBe("AUTHORITATIVE");
+    expect(ujenziMapping.path).toBe("/NOELIA.png");
+    expect(ujenziMapping.logicalId).toBe("noelia-canonical");
 
     const appearance = resolveNoeliaContextualAppearance("UJENZI_OS");
-    expect(appearance.status).toBe("FALLBACK_CANONICAL");
-    expect(appearance.notes).toBe(
-      "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.",
-    );
+    expect(appearance.status).toBe("AUTHORITATIVE");
+    expect(appearance.assetPath).toBe("/NOELIA.png");
+  });
+
+  it("every registered OS mapping resolves to the single canonical asset", () => {
+    for (const mapping of Object.values(NOELIA_ASSET_MAPPING)) {
+      expect(mapping.path).toBe("/NOELIA.png");
+      expect(mapping.logicalId).toBe("noelia-canonical");
+      expect(mapping.status).toBe("AUTHORITATIVE");
+    }
   });
 });
 
-describe("I. Asset Integrity (Authoritative PNGs)", () => {
-  it("preserves exact byte hashes of the 5 authoritative PNG assets", () => {
+describe("I. Asset Integrity (Canonical + Historical PNGs)", () => {
+  it("the canonical Noelia appearance /NOELIA.png exists, is byte-exact, and is deployed byte-identically", () => {
+    const rootAsset = path.join(ROOT, "NOELIA.png");
+    const publicAsset = path.join(ROOT, "public", "NOELIA.png");
+    expect(existsSync(rootAsset), "Canonical asset NOELIA.png must exist at the repository root").toBe(true);
+    expect(existsSync(publicAsset), "Deployment copy public/NOELIA.png must exist").toBe(true);
+    const rootBuffer = readFileSync(rootAsset);
+    const publicBuffer = readFileSync(publicAsset);
+    expect(
+      createHash("sha256").update(rootBuffer).digest("hex"),
+      "NOELIA.png must remain the unmodified canonical appearance",
+    ).toBe("643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990");
+    expect(publicBuffer.equals(rootBuffer), "public/NOELIA.png must be byte-identical to /NOELIA.png").toBe(true);
+  });
+
+  it("preserves exact byte hashes of the 5 historical PNG originals", () => {
     const assets = [
       { name: "Noelia AI .png", expectedMd5: "12542aef08ef5bb087a9ad15e2a8631a" },
       { name: "Noelia BEYU OS.png", expectedMd5: "4f61c9187398e80e32746b0f8540b513" },
@@ -336,7 +353,7 @@ describe("M. Shell Rendering & Contextual Manifestation", () => {
     );
     expect(html).toContain("Noelia");
     expect(html).toContain('alt="Noelia AI"');
-    expect(html).toContain("/noelia/canonical/noelia-ai-canonical.png");
+    expect(html).toContain("/NOELIA.png");
   });
 });
 

@@ -1,9 +1,9 @@
 /**
  * <NoeliaCrossOSVisual /> — Cross-OS canonical visual resolution.
  *
- * Resolves the correct canonical Noelia visual manifestation based on
- * the active OS context. Uses the preserved original PNG assets
- * (non-destructive presentation copies in public/noelia/canonical/).
+ * Every OS context resolves to the SAME single canonical Noelia appearance
+ * (/NOELIA.png) via the canonical asset mapping. Only contextual metadata
+ * (label, caption) changes per OS — never the appearance asset.
  */
 import { NOELIA_ASSET_MAPPING } from "@/lib/noelia/context-resolver";
 

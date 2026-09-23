@@ -8,10 +8,10 @@ import { NOELIA_ASSETS } from "./brand-assets";
  * only a small status indicator (dot / badge) changes. That is what keeps her
  * the same recognizable identity on every screen.
  *
- * Identity cues (fixed in /noelia/noelia-avatar.svg):
- *   · calm attentive gaze, warm composed smile
- *   · espresso hair, centre part, low bun
- *   · BEYU-navy blazer, ivory field, gold ring — quiet BEYU lineage
+ * Canonical appearance: /NOELIA.png — the single canonical Noelia appearance
+ * asset (photographic portrait, never modified, regenerated or restyled).
+ * At xs/sm sizes the identity MARK (/noelia/noelia-icon.svg) is shown instead
+ * of a distorted portrait.
  *
  * Governance note: this is presentation only. Whether a principal may see or
  * query Noelia is decided by the existing ai:noelia.query guard and HIVE

@@ -30,7 +30,7 @@ describe("NoeliaShell (server render)", () => {
   it("renders the header entry with canonical face, identity and READY state", () => {
     const html = renderShell();
     expect(html).toContain("aria-controls=\"noelia-assistant-panel\"");
-    expect(html).toContain("/noelia/noelia-avatar.svg");
+    expect(html).toContain("/NOELIA.png");
     expect(html).toContain('alt="Noelia AI"');
     expect(html).toContain(">Noelia<span");
     expect(html).toContain("Governed AI");

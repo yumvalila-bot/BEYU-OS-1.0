@@ -73,7 +73,24 @@ export type ResolvedNoeliaContext = {
   denialCode?: string;
 };
 
-/** Canonical visual asset mapping (non-destructive, preserved originals). */
+/**
+ * CANONICAL VISUAL ASSET MAPPING.
+ *
+ * NOELIA.png = SINGLE CANONICAL NOELIA APPEARANCE. Every OS context resolves
+ * to the same canonical asset (`/NOELIA.png`). Context changes wording,
+ * capabilities, tools and workflows — never the appearance asset. The mapping
+ * keys are retained so contextual metadata (labels, audit context) remains
+ * per-OS while the visual identity stays ONE.
+ */
+const NOELIA_CANONICAL_APPEARANCE_ENTRY = {
+  path: "/NOELIA.png",
+  logicalId: "noelia-canonical",
+  sha256: "643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990",
+  status: "AUTHORITATIVE",
+  notes:
+    "Single canonical Noelia appearance (/NOELIA.png). Never modified, recompressed, recolored, cropped, or regenerated.",
+} as const;
+
 export const NOELIA_ASSET_MAPPING: Record<
   string,
   {
@@ -84,48 +101,12 @@ export const NOELIA_ASSET_MAPPING: Record<
     notes?: string;
   }
 > = {
-  BEYU_OS: {
-    path: "/noelia/canonical/noelia-beyu-os-canonical.png",
-    logicalId: "noelia-beyu-os",
-    sha256: "4f61c9187398e80e32746b0f8540b513",
-    status: "AUTHORITATIVE",
-    notes: "Authoritative BEYU OS manifestation of Noelia. Never modified or regenerated.",
-  },
-  FINANCE_OS: {
-    path: "/noelia/canonical/noelia-finance-os-canonical.png",
-    logicalId: "noelia-finance-os",
-    sha256: "2eb029f1739e9fbf54041dccfae27093",
-    status: "AUTHORITATIVE",
-    notes: "Authoritative Finance OS manifestation of Noelia. Never modified or regenerated.",
-  },
-  HEALTH_OS: {
-    path: "/noelia/canonical/noelia-health-os-canonical.png",
-    logicalId: "noelia-health-os",
-    sha256: "6a63d1037bd0bb68d4811ebd1516b1e3",
-    status: "AUTHORITATIVE",
-    notes: "Authoritative Health OS manifestation of Noelia. Never modified or regenerated.",
-  },
-  AGRICULTURE_OS: {
-    path: "/noelia/canonical/noelia-agriculture-os-canonical.png",
-    logicalId: "noelia-agriculture",
-    sha256: "14ea902f3a8b88e685cc183a83fb1699",
-    status: "AUTHORITATIVE",
-    notes: "Authoritative Agriculture OS manifestation of Noelia. Original filename preserved exactly (Noeloa). Never renamed, deleted, or regenerated.",
-  },
-  UJENZI_OS: {
-    path: "/noelia/canonical/noelia-ai-canonical.png",
-    logicalId: "noelia-ai",
-    sha256: "12542aef08ef5bb087a9ad15e2a8631a",
-    status: "FALLBACK_CANONICAL",
-    notes: "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.",
-  },
-  NOELIA_AI: {
-    path: "/noelia/canonical/noelia-ai-canonical.png",
-    logicalId: "noelia-ai",
-    sha256: "12542aef08ef5bb087a9ad15e2a8631a",
-    status: "AUTHORITATIVE",
-    notes: "Authoritative canonical Noelia AI portrait. Never modified, recolored, or regenerated.",
-  },
+  BEYU_OS: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
+  FINANCE_OS: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
+  HEALTH_OS: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
+  AGRICULTURE_OS: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
+  UJENZI_OS: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
+  NOELIA_AI: { ...NOELIA_CANONICAL_APPEARANCE_ENTRY },
 };
 
 export function resolveNoeliaOSContext(
