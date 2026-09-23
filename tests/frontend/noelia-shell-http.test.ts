@@ -27,7 +27,7 @@ describe("Noelia appears in the authenticated OS shell", () => {
     expect(res.status).toBe(200);
     expect(isDeniedPage(res.html)).toBe(false);
     // Canonical asset from the central registry (never a re-drawn face).
-    expect(res.html).toContain("/noelia/noelia-avatar.svg");
+    expect(res.html).toContain("/NOELIA.png");
     expect(res.html).toContain('alt="Noelia AI"');
     // Identity cues: entry shows the name with the governed-state chip.
     expect(res.html).toContain(">Noelia<span");

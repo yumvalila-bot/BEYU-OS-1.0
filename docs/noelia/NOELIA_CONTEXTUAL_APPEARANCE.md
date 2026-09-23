@@ -77,16 +77,22 @@ Supported Ujenzi professional manifestations:
 
 ## 4. Asset Discovery and Fallback Status
 
-Asset discovery audit result:
-**`NO_AUTHORITATIVE_UJENZI_ASSET_FOUND`**
+**CANONICAL APPEARANCE RULE: Noelia's canonical visual appearance is `/NOELIA.png`.**
+
+Every OS context — BEYU_OS, FINANCE_OS, HEALTH_OS, AGRICULTURE_OS, UJENZI_OS —
+resolves to the SAME single canonical asset. There are no per-sector Noelia
+images and no fallback hierarchy: context changes labels, capabilities, tools
+and vocabulary, never the appearance asset.
 
 Per canonical asset rules:
 - No synthetic raster images were created, redrawn, recolored, cropped, or AI-generated.
-- The canonical Noelia fallback portrait (`/noelia/canonical/noelia-ai-canonical.png`, logical ID `noelia-ai`) is active.
-- Explicit documentation:
-  "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active."
+- The single canonical portrait (`/NOELIA.png`, logical ID `noelia-canonical`,
+  SHA-256 `643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990`) is
+  served for every context.
+- Alternate Noelia avatar assets must not be introduced without an explicit
+  architecture decision.
 
-The five authoritative source PNGs at the repository root remain byte-exact and verified:
+The five historical source PNGs at the repository root remain byte-exact and preserved for provenance (not application-served):
 1. `Noelia AI .png` — `12542aef08ef5bb087a9ad15e2a8631a`
 2. `Noelia BEYU OS.png` — `4f61c9187398e80e32746b0f8540b513`
 3. `Noelia Finance os.png` — `2eb029f1739e9fbf54041dccfae27093`

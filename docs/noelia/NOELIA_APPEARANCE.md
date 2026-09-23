@@ -119,7 +119,7 @@ generative provider when she is not.
 ## Assets (Phase 1)
 
 Only the canonical registry is used (`src/components/brand-assets.ts`):
-the canonical portrait (`/noelia/noelia-avatar.svg`), the identity mark
+the canonical portrait (`/NOELIA.png`), the identity mark
 (`/noelia/noelia-icon.svg`) for icon mode, and the SHA-256-pinned canonical
 PNG set for the cross-OS surfaces. No asset was redrawn, regenerated,
 recoloured, cropped destructively or replaced. Where a component needs a

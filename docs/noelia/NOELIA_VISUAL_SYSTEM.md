@@ -15,30 +15,44 @@ Noelia never appears above BEYU. Noelia never appears as BEYU's constitutional
 or governance authority. The Noelia UI states the accountability boundary in
 plain language.
 
-## Canonical Image Registry
+## Canonical Appearance Contract
 
-The five authoritative PNG assets (supplied by the BEYU Family Trust) are
-preserved exactly — never redrawn, regenerated, recolored, cropped
-destructively, distorted, or overwritten.
+**Noelia's canonical visual appearance is `/NOELIA.png`.**
 
-| Logical ID | Canonical Filename (repo root) | Context Mapping | SHA-256 | Status | Notes |
-|---|---|---|---|---|---|
-| `noelia-ai` | `Noelia AI .png` | `NOELIA_AI` (general) | `12542aef...` | PRESERVED | Canonical portrait. Never modified. |
-| `noelia-beyu-os` | `Noelia BEYU OS.png` | `BEYU_OS` | `4f61c918...` | PRESERVED | Control-plane manifestation. Never modified. |
-| `noelia-finance-os` | `Noelia Finance os.png` | `FINANCE_OS` | `2eb029f1...` | PRESERVED | Finance OS manifestation. Never modified. |
-| `noelia-health-os` | `Noelia Health os.png` | `HEALTH_OS` | `6a63d103...` | PRESERVED | Health OS manifestation. Never modified. |
-| `noelia-agriculture` | `Noeloa Agriculture OS.png` | `AGRICULTURE_OS` | `14ea902f...` | PRESERVED | Agriculture OS manifestation. Original filename preserved exactly (`Noeloa`). Never renamed, deleted, or regenerated. |
+- It is the SINGLE canonical visual reference across BEYU OS and the Vercel
+  application. Every surface that shows Noelia's appearance (control plane,
+  Sector OS contexts, organization page, shell, panels) resolves to this ONE
+  asset.
+- Sector/contextual experiences must reuse it. Context may change wording,
+  tools, permissions, workflows and operational capabilities — never the
+  appearance asset.
+- Alternate Noelia avatar assets must NOT be introduced without an explicit
+  architecture decision.
+- Appearance confers no authorization or capability. Noelia's image is never
+  proof of identity, authority, role, approval, or permission.
 
-Public presentation copies (non-destructive derived assets):
+| Logical ID | Canonical Filename | Serving Path | SHA-256 | Status |
+|---|---|---|---|---|
+| `noelia-canonical` | `NOELIA.png` (repo root, tracked) | `/NOELIA.png` | `643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990` | AUTHORITATIVE |
 
-```
-public/noelia/canonical/
-  noelia-ai-canonical.png
-  noelia-beyu-os-canonical.png
-  noelia-finance-os-canonical.png
-  noelia-health-os-canonical.png
-  noelia-agriculture-os-canonical.png
-```
+`public/NOELIA.png` is a byte-exact deployment copy of the tracked root asset
+(Next.js only serves `public/`); byte-equality is pinned by
+`tests/noelia/contextual-appearance.test.ts`. Neither file may be modified,
+recompressed, recolored, cropped, or regenerated.
+
+## Historical Image Register (provenance only)
+
+The five original PNG assets remain preserved byte-exact at the repository
+root for provenance. They are HISTORICAL — no application surface serves them
+as an appearance, and no per-OS presentation copies exist.
+
+| Logical ID | Historical Filename (repo root) | MD5 | Status |
+|---|---|---|---|
+| `noelia-ai` | `Noelia AI .png` | `12542aef...` | HISTORICAL_PRESERVED |
+| `noelia-beyu-os` | `Noelia BEYU OS.png` | `4f61c918...` | HISTORICAL_PRESERVED |
+| `noelia-finance-os` | `Noelia Finance os.png` | `2eb029f1...` | HISTORICAL_PRESERVED |
+| `noelia-health-os` | `Noelia Health os.png` | `6a63d103...` | HISTORICAL_PRESERVED |
+| `noelia-agriculture` | `Noeloa Agriculture OS.png` | `14ea902f...` | HISTORICAL_PRESERVED (original filename `Noeloa` preserved exactly) |
 
 ## Component System
 
@@ -47,7 +61,7 @@ Components resolve through the central registry (`src/components/brand-assets.ts
 
 ### `<NoeliaAvatar />`
 - Renders the canonical identity face at all sizes.
-- Size `xs`/`sm` → identity mark (`noelia-icon.svg`); `md`+ → canonical portrait (`noelia-avatar.svg` or canonical PNG).
+- Size `xs`/`sm` → identity mark (`noelia-icon.svg`); `md`+ → the canonical portrait (`/NOELIA.png`).
 - State indicator: `idle` · `thinking` · `processing` · `speaking` · `success` · `warning` · `error` · `offline`.
 - Face never changes per state. Only status indicator (dot/badge) changes.
 - Accessibility: `alt` default `"Noelia AI"`; `decorative` → `alt=""`; state announced via `role="status"` live region; animations `motion-safe:` guarded (`prefers-reduced-motion` → static).

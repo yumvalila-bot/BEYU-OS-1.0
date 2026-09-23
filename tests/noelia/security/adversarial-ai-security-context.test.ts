@@ -26,16 +26,17 @@ describe("Noelia Identity Isolation", () => {
     expect(NOELIA_CANONICAL_ID.canonical_id).toBe("NOELIA_AI");
   });
 
-  it("visual mapping preserves original filenames and SHA-256", () => {
+  it("visual mapping pins the single canonical appearance and its SHA-256", () => {
     const ai = NOELIA_ASSET_MAPPING["NOELIA_AI"];
-    expect(ai?.sha256).toBe("12542aef08ef5bb087a9ad15e2a8631a");
-    expect(ai?.logicalId).toBe("noelia-ai");
+    expect(ai?.sha256).toBe("643b375a9abc074a5e4b53d581b09c20fddbfca6701f0d71f3a13c3d5754c990");
+    expect(ai?.logicalId).toBe("noelia-canonical");
   });
 
-  it("agriculture filename preserved exactly (Noeloa) in registry mapping", () => {
-    const ag = NOELIA_ASSET_MAPPING["AGRICULTURE_OS"];
-    expect(ag?.logicalId).toBe("noelia-agriculture");
-    expect(ag?.sha256).toBeDefined();
+  it("every OS context resolves the SAME canonical appearance (no competing assets)", () => {
+    for (const mapping of Object.values(NOELIA_ASSET_MAPPING)) {
+      expect(mapping.path).toBe("/NOELIA.png");
+      expect(mapping.logicalId).toBe("noelia-canonical");
+    }
   });
 });
 
@@ -60,7 +61,7 @@ describe("Noelia OS Authorization / Context Spoofing Prevention", () => {
     const result = resolveNoeliaOSContext("FINANCE_OS", scope, { tenantId: "t1", legalEntityId: "e1", countryCode: "US" });
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("FINANCE_OS");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-finance-os-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
   });
 
   it("allows authorized Health OS context", () => {
@@ -95,17 +96,14 @@ describe("Noelia OS Authorization / Context Spoofing Prevention", () => {
     expect(result.availableCapabilities).toEqual([]);
   });
 
-  it("allows authorized UJENZI_OS context with canonical fallback asset", () => {
+  it("allows authorized UJENZI_OS context with the single canonical asset", () => {
     const scope = mockScope(["BEYU_OS", "UJENZI_OS"]);
     const result = resolveNoeliaOSContext("UJENZI_OS", scope, { tenantId: "t1", legalEntityId: "e1", countryCode: "US" });
     expect(result.authorizedContext).toBe(true);
     expect(result.activeOS).toBe("UJENZI_OS");
     expect(result.canonicalIdentity.canonical_id).toBe("NOELIA_AI");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-ai-canonical.png");
-    expect(result.contextualAppearance.status).toBe("FALLBACK_CANONICAL");
-    expect(result.contextualAppearance.notes).toBe(
-      "UJENZI_OS contextual asset unavailable; canonical Noelia fallback active.",
-    );
+    expect(result.visualManifestation).toBe("/NOELIA.png");
+    expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
   });
 });
 
@@ -117,9 +115,9 @@ describe("Noelia Ujenzi Professional Contexts & Privilege Isolation", () => {
     expect(result.canonicalIdentity.canonical_id).toBe("NOELIA_AI");
     expect(result.activeOS).toBe("UJENZI_OS");
     expect(result.professionalContext).toBe("ARCHITECTURAL");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-ai-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.contextualLabel).toBe("Noelia Ujenzi OS — Architectural Manifestation");
-    expect(result.contextualAppearance.status).toBe("FALLBACK_CANONICAL");
+    expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.personalityModifier).toContain("Architectural design");
     expect(result.availableCapabilities).toContain("ARCHITECTURAL_COORDINATION");
   });
@@ -131,9 +129,9 @@ describe("Noelia Ujenzi Professional Contexts & Privilege Isolation", () => {
     expect(result.canonicalIdentity.canonical_id).toBe("NOELIA_AI");
     expect(result.activeOS).toBe("UJENZI_OS");
     expect(result.professionalContext).toBe("ENGINEERING");
-    expect(result.visualManifestation).toBe("/noelia/canonical/noelia-ai-canonical.png");
+    expect(result.visualManifestation).toBe("/NOELIA.png");
     expect(result.contextualAppearance.contextualLabel).toBe("Noelia Ujenzi OS — Engineering Manifestation");
-    expect(result.contextualAppearance.status).toBe("FALLBACK_CANONICAL");
+    expect(result.contextualAppearance.status).toBe("AUTHORITATIVE");
     expect(result.personalityModifier).toContain("Structural engineering");
     expect(result.availableCapabilities).toContain("STRUCTURAL_ANALYSIS");
   });
@@ -203,8 +201,8 @@ describe("Noelia Ujenzi Professional Contexts & Privilege Isolation", () => {
     expect(result.auditEvent?.metadata).toEqual({
       activeOS: "UJENZI_OS",
       professionalContext: "ARCHITECTURAL",
-      logicalAssetId: "noelia-ai",
-      status: "FALLBACK_CANONICAL",
+      logicalAssetId: "noelia-canonical",
+      status: "AUTHORITATIVE",
     });
   });
 });

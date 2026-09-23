@@ -12,6 +12,18 @@ the same Noelia identity.
 They must never become separate AI personalities, separate identity systems,
 or competing memory systems.
 
+## Canonical Visual Appearance
+
+**Noelia's canonical visual appearance is `/NOELIA.png`.**
+
+- It is the single canonical visual reference across BEYU OS and its Vercel
+  application.
+- Sector/contextual experiences must reuse it; contextual manifestations vary
+  wording, tools, permissions and workflows — never the appearance asset.
+- Alternate Noelia avatar assets must not be introduced without an explicit
+  architecture decision.
+- Appearance does not confer authorization or capability of any kind.
+
 ## Canonical Identity Object
 
 | Field | Value |
