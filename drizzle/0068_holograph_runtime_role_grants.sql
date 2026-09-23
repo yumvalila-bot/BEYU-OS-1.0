@@ -39,10 +39,15 @@ END
 $$;
 
 --> statement-breakpoint
--- Verification: the constrained runtime role must hold exactly the four DML
--- privileges on each new table — fail closed if the grant is missing, and
--- fail closed if the role is missing (an environment without the runtime
--- role cannot enforce the RLS model at all and must not pass silently).
+-- Verification. The canonical CI ordering provisions the runtime role AFTER
+-- the migration run (setup-db-role.ts then grants DML on ALL tables in the
+-- schema, so the four new tables are covered there). Environments that
+-- provision the role BEFORE migrating (local embedded PostgreSQL) get the
+-- grant from the block above — so the check is conditional, matching 0062's
+-- silent-when-absent grant semantics:
+--   • role EXISTS  → fail closed unless it holds exactly the four DML
+--     privileges on each new table;
+--   • role ABSENT  → NOTICE only: provisioning owns the grants by design.
 DO $$
 DECLARE
   tbl TEXT;
@@ -50,20 +55,21 @@ DECLARE
   runtime_role_exists BOOLEAN;
 BEGIN
   SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime') INTO runtime_role_exists;
-  IF NOT runtime_role_exists THEN
-    RAISE EXCEPTION 'Migration 0068 verification failed: the beyu_runtime role must exist (RLS-subject role)';
-  END IF;
 
-  FOREACH tbl IN ARRAY ARRAY['viz_assets','viz_devices','viz_render_profiles','viz_interactions']
-  LOOP
-    SELECT count(*) INTO privilege_count FROM information_schema.table_privileges tp
-      WHERE tp.table_schema = 'public'
-        AND tp.table_name = tbl
-        AND tp.grantee = 'beyu_runtime'
-        AND tp.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE');
-    IF privilege_count <> 4 THEN
-      RAISE EXCEPTION 'Migration 0068 verification failed: beyu_runtime must hold SELECT/INSERT/UPDATE/DELETE on %', tbl;
-    END IF;
-  END LOOP;
+  IF runtime_role_exists THEN
+    FOREACH tbl IN ARRAY ARRAY['viz_assets','viz_devices','viz_render_profiles','viz_interactions']
+    LOOP
+      SELECT count(*) INTO privilege_count FROM information_schema.table_privileges tp
+        WHERE tp.table_schema = 'public'
+          AND tp.table_name = tbl
+          AND tp.grantee = 'beyu_runtime'
+          AND tp.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE');
+      IF privilege_count <> 4 THEN
+        RAISE EXCEPTION 'Migration 0068 verification failed: beyu_runtime must hold SELECT/INSERT/UPDATE/DELETE on %', tbl;
+      END IF;
+    END LOOP;
+  ELSE
+    RAISE NOTICE 'Migration 0068: beyu_runtime not yet provisioned; table grants are owned by the role-provisioning step (setup-db-role.ts).';
+  END IF;
 END
 $$;
