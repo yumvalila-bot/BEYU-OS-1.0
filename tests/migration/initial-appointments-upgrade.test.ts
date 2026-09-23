@@ -13,7 +13,11 @@ it.skipIf(!adminUrl)("0055 preserves actual ordinary appointment history with sa
  const env = { ...process.env, BEYU_ADMIN_DATABASE_URL: url.href, BEYU_TEST_DATABASE_URL: url.href, DATABASE_URL: runtime.href, BEYU_RUNTIME_DATABASE_URL: runtime.href };
  mkdirSync(join(root, "tmp/governance"), { recursive: true });
  const dir = mkdtempSync(join(root, "tmp/governance/initial-appointments-upgrade-")); mkdirSync(join(dir, "drizzle"));
- for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && Number(f.slice(0,4)) <= 54)) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
+ // 0066 (Shared Search FTS) is additive-only and independent of 0056-0065; the
+ // current seed's drizzle inserts reference the mirrored search_tsv column, so
+ // 0066 belongs in the predecessor baseline. The migration under test (0055)
+ // remains the ONLY upgrade step applied after the predecessor state.
+ for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && (Number(f.slice(0,4)) <= 54 || f === "0066_shared_search_fulltext.sql"))) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
  const run = (script: string, cwd: string, label: string) => {
   const r = spawnSync(process.execPath, [join(root,"node_modules/tsx/dist/cli.mjs"),join(root,script)], { cwd, env, encoding:"utf8", timeout: 60000 });
   writeFileSync(join(dir,`${label}.log`),(r.stdout ?? "") + (r.stderr ?? ""));
@@ -45,7 +49,8 @@ it.skipIf(!adminUrl)("0055 preserves actual ordinary appointment history with sa
   expect(after.map(({ authority_body_id, initial_charter_id, ...preserved }) => {
    expect(authority_body_id).toBeNull(); expect(initial_charter_id).toBeNull(); return preserved;
   })).toEqual(before);
-  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(56);
+  // 57 = 0000-0054 (55) + 0066 shared-search baseline (1) + 0055 under test (1).
+  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(57);
   async function runtimeScope(who: string, fn: () => Promise<void>) {
    await client.query("begin");
    try {

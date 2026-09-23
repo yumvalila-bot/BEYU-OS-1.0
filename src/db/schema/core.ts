@@ -22,6 +22,7 @@ import {
   tenantTypeEnum,
   versionStatusEnum,
 } from "./enums";
+import { tsvector } from "./search";
 
 export const countries = pgTable("countries", {
   code: text("code").primaryKey(), // ISO 3166-1 alpha-2
@@ -64,8 +65,14 @@ export const tenants = pgTable(
     status: lifecycleStatusEnum("status").notNull().default("ACTIVE"),
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    // Display fields only; RLS on this table remains the authorization boundary.
+    searchTsv: tsvector("search_tsv"),
   },
-  (t) => [uniqueIndex("tenants_code_uidx").on(t.code)],
+  (t) => [
+    uniqueIndex("tenants_code_uidx").on(t.code),
+    index("tenants_search_tsv_idx").on(t.searchTsv),
+  ],
 );
 
 export const legalEntities = pgTable(
@@ -95,10 +102,13 @@ export const legalEntities = pgTable(
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("legal_entities_code_uidx").on(t.code),
     index("legal_entities_tenant_idx").on(t.tenantId),
+    index("legal_entities_search_tsv_idx").on(t.searchTsv),
   ],
 );
 

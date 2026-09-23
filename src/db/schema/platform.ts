@@ -21,6 +21,7 @@ import { aiOutputClassEnum, authorityStatusEnum, classificationEnum } from "./en
 import { countries, legalEntities, tenants } from "./core";
 import { users } from "./identity";
 import { approvals } from "./governance";
+import { tsvector } from "./search";
 
 /**
  * Serialized append head for tamper-evident ledgers. Writers must lock the
@@ -62,8 +63,14 @@ export const documents = pgTable(
     legalHold: boolean("legal_hold").notNull().default(false),
     approvedBy: text("approved_by"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
-  (t) => [index("documents_tenant_idx").on(t.tenantId), index("documents_category_idx").on(t.category)],
+  (t) => [
+    index("documents_tenant_idx").on(t.tenantId),
+    index("documents_category_idx").on(t.category),
+    index("documents_search_tsv_idx").on(t.searchTsv),
+  ],
 );
 
 export const retentionPolicies = pgTable(
@@ -330,12 +337,17 @@ export const knowledgeSources = pgTable(
     embeddingDimensions: integer("embedding_dimensions"),
     chunkCount: integer("chunk_count").notNull().default(0),
     lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    // Matches on title/code/domain/content/keywords; the search service
+    // returns the title only (content excerpts never cross the boundary).
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("knowledge_sources_code_uidx").on(t.code),
     index("knowledge_sources_scope_idx").on(t.scopeType, t.tenantId),
     index("knowledge_sources_entity_idx").on(t.legalEntityId),
     index("knowledge_sources_country_idx").on(t.countryCode),
+    index("knowledge_sources_search_tsv_idx").on(t.searchTsv),
   ],
 );
 

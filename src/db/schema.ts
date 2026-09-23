@@ -18,6 +18,7 @@ export * from "./schema/ai-phase5";
 export * from "./schema/agriculture";
 export * from "./schema/foundation";
 export * from "./schema/government";
+export * from "./schema/search";
 
 /*
  * UJENZI OS — construction Sector OS (additive).

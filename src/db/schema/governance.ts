@@ -26,6 +26,7 @@ import {
 } from "./enums";
 import { legalEntities, tenants } from "./core";
 import { parties, users } from "./identity";
+import { tsvector } from "./search";
 
 /** Constitutional articles — highest authority in the hierarchy. */
 export const constitutionArticles = pgTable(
@@ -182,10 +183,13 @@ export const resolutions = pgTable(
     decisionDate: timestamp("decision_date", { withTimezone: true }),
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("resolutions_reference_uidx").on(t.reference),
     index("resolutions_tenant_idx").on(t.tenantId),
+    index("resolutions_search_tsv_idx").on(t.searchTsv),
   ],
 ).enableRLS();
 

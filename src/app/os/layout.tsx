@@ -13,6 +13,7 @@ import { classificationsAtOrBelow } from "@/lib/constants";
 import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
 import { Badge } from "@/components/brand";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { GlobalSearch } from "@/components/global-search";
 import { HistoryNavigation } from "@/components/history-navigation";
 import { NoeliaShellForOS } from "./noelia-shell-for-os";
 import { OsBrand } from "./os-brand";
@@ -152,6 +153,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <div className="flex items-center gap-3">
+              <GlobalSearch visible={can(principal, "platform:search.read").allowed} />
               <NoeliaShellForOS {...noeliaShell} />
               <HistoryNavigation />
               <span className="beyu-kicker text-white/45">Alerts</span>
