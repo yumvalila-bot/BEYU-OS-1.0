@@ -470,6 +470,20 @@
       "when": 1789970000000,
       "tag": "0066_shared_search_fulltext",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1789973600000,
+      "tag": "0067_holograph_spatial_capability",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1789977200000,
+      "tag": "0068_holograph_runtime_role_grants",
+      "breakpoints": true
     }
   ]
 }

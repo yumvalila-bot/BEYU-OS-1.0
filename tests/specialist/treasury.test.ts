@@ -942,7 +942,10 @@ describe("treasury module — creates no second truth", () => {
     // + 0063: governed tenant-domain registry (tenant_domains). No treasury table, no second money truth.
     // + 0066: shared BEYU OS Search capability (trigger-maintained tsvector + GIN indexes on existing
     //   RLS-protected tables; no specialist truth). No treasury table, no second money truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(67);  });
+    // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
+    //   shared capability, never an OS). No treasury table, no second money truth.
+    // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(69);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

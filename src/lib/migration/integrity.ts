@@ -271,6 +271,18 @@ export const KNOWN_METADATA_DEBT = {
     // for the same documented reason as 0063/0064/0065 (journal entry present,
     // no snapshot fabricated).
     "0066",
+    // 0067 is the Holograph spatial capability registries (viz_assets,
+    // viz_devices, viz_render_profiles, viz_interactions) — additive,
+    // expand-only, RLS-bound, no destructive statement. Registered here for the
+    // same documented reason as 0063/0064/0065/0066 (journal entry present, no
+    // snapshot fabricated).
+    "0067",
+    // 0068 grants the constrained runtime role (beyu_runtime) the same DML
+    // privileges 0062 granted on the original visualization tables, extended
+    // to the four Holograph registries. Pure GRANT + verification — no DDL on
+    // data, no RLS weakening; the 0067 tenant-isolation policies remain the
+    // boundary.
+    "0068",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

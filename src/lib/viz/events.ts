@@ -33,6 +33,16 @@ export const VIZ_EVENT_TYPES = [
   "VIZ_SCENE_ARCHIVED",
   "VIZ_TWIN_REGISTERED",
   "VIZ_EXPORT_CREATED",
+  // Holograph spatial capability registries (migration 0067).
+  "VIZ_ASSET_REGISTERED",
+  "VIZ_ASSET_UPDATED",
+  "VIZ_DEVICE_REGISTERED",
+  "VIZ_DEVICE_STATUS_CHANGED",
+  "VIZ_RENDER_PROFILE_REGISTERED",
+  // Interaction ledger: one event per interaction REQUEST. The payload carries
+  // the outcome (ALLOWED/DENIED/DELEGATED) — denials are first-class so the
+  // event stream mirrors the audit ledger, never the reverse.
+  "VIZ_INTERACTION_REQUESTED",
 ] as const;
 
 export type VizEventType = (typeof VIZ_EVENT_TYPES)[number];

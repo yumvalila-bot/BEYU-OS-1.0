@@ -11,13 +11,33 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { and, eq, like } from "drizzle-orm";
 import { db } from "@/db";
-import { tenants, vizDigitalTwins, vizDimensionExtensions, vizExports, vizScenes } from "@/db/schema";
+import {
+  tenants,
+  vizAssets,
+  vizDigitalTwins,
+  vizDimensionExtensions,
+  vizDevices,
+  vizExports,
+  vizInteractions,
+  vizRenderProfiles,
+  vizScenes,
+} from "@/db/schema";
 import { UJENZI_OS_TENANT_CODE } from "@/lib/constants";
 import { newId, ID_PREFIX, fixedId } from "@/lib/ids";
 import { seededPrincipal } from "../noelia/db-fixtures";
 
 const RUN = `VZRLS${Date.now()}`;
-const VIZ_TABLES = ["viz_dimension_extensions", "viz_scenes", "viz_digital_twins", "viz_exports"];
+const VIZ_TABLES = [
+  "viz_dimension_extensions",
+  "viz_scenes",
+  "viz_digital_twins",
+  "viz_exports",
+  // Holograph shared-capability tables (migration 0067).
+  "viz_assets",
+  "viz_devices",
+  "viz_render_profiles",
+  "viz_interactions",
+];
 
 let runtime: Client | null = null;
 let ujenziTenantId = "";
@@ -25,6 +45,14 @@ let rootTenantId = "";
 let ujenziUserId = "";
 let sceneA = "";
 let sceneB = "";
+
+// Holograph (0067) adversarial fixtures — one row per new table in the root
+// tenant, plus one asset in the UJENZI tenant.
+let holoAssetRoot = "";
+let holoAssetUjenzi = "";
+let holoDeviceRoot = "";
+let holoProfileRoot = "";
+let holoInteractionRoot = "";
 
 async function setTenantScope(client: Client, tenantIds: string[]): Promise<void> {
   await client.query("SELECT set_config('beyu.global_scope', 'off', false)");
@@ -183,5 +211,87 @@ describe("the CHECK floor holds at the database layer", () => {
   it("fixedId keeps deterministic ids out of the picture (ids are unguessable)", () => {
     expect(fixedId(ID_PREFIX.vizScene, "probe")).toMatch(/^VZS/);
     expect(newId(ID_PREFIX.vizScene)).toMatch(/^VZS/);
+  });
+});
+
+describe("Holograph tables (migration 0067) — adversarial isolation through the runtime role", () => {
+  beforeAll(async () => {
+    holoAssetRoot = newId(ID_PREFIX.vizAsset);
+    holoAssetUjenzi = newId(ID_PREFIX.vizAsset);
+    holoDeviceRoot = newId(ID_PREFIX.vizDevice);
+    holoProfileRoot = newId(ID_PREFIX.vizRenderProfile);
+    holoInteractionRoot = newId(ID_PREFIX.vizInteraction);
+
+    const nowIso = new Date().toISOString();
+    await db.insert(vizAssets).values([
+      { id: holoAssetRoot, tenantId: rootTenantId, name: `${RUN} asset root`, assetType: "BUILDING", sourceSystem: "TEST", sourceObjectId: `${RUN}-root`, integrityHash: "e".repeat(64), storageRef: "local://test", provenance: { registeredBy: ujenziUserId, rationale: RUN, importedAt: nowIso }, createdByUserId: ujenziUserId },
+      { id: holoAssetUjenzi, tenantId: ujenziTenantId, name: `${RUN} asset ujenzi`, assetType: "FARM", sourceSystem: "TEST", sourceObjectId: `${RUN}-ujenzi`, integrityHash: "f".repeat(64), storageRef: "local://test", provenance: { registeredBy: ujenziUserId, rationale: RUN, importedAt: nowIso }, createdByUserId: ujenziUserId },
+    ]);
+    await db.insert(vizDevices).values({ id: holoDeviceRoot, tenantId: rootTenantId, name: `${RUN} device root`, deviceClass: "WEB", renderingBackend: "SVG_2D", provenance: { registeredBy: ujenziUserId, rationale: RUN, registeredAt: new Date().toISOString() }, createdByUserId: ujenziUserId });
+    await db.insert(vizRenderProfiles).values({ id: holoProfileRoot, tenantId: rootTenantId, name: `${RUN} profile root`, renderer: "SVG_2D", createdByUserId: ujenziUserId });
+    await db.insert(vizInteractions).values({ id: holoInteractionRoot, tenantId: rootTenantId, sector: "BEYU", interactionType: "SELECT_OBJECT", outcome: "ALLOWED", requestedByUserId: ujenziUserId });
+  });
+
+  afterAll(async () => {
+    await db.delete(vizInteractions).where(like(vizInteractions.id, `${RUN}%`));
+    await db.delete(vizRenderProfiles).where(like(vizRenderProfiles.id, `${RUN}%`));
+    await db.delete(vizDevices).where(like(vizDevices.id, `${RUN}%`));
+    await db.delete(vizAssets).where(like(vizAssets.id, `${RUN}%`));
+  });
+
+  it("the UJENZI scope sees its own asset and NONE of the root rows on any new table", async () => {
+    await setTenantScope(runtime!, [ujenziTenantId]);
+    expect((await runtime!.query("SELECT id FROM viz_assets WHERE id IN ($1,$2)", [holoAssetRoot, holoAssetUjenzi])).rows.map((r) => r.id)).toEqual([holoAssetUjenzi]);
+    expect((await runtime!.query("SELECT id FROM viz_devices WHERE id = $1", [holoDeviceRoot])).rows).toEqual([]);
+    expect((await runtime!.query("SELECT id FROM viz_render_profiles WHERE id = $1", [holoProfileRoot])).rows).toEqual([]);
+    expect((await runtime!.query("SELECT id FROM viz_interactions WHERE id = $1", [holoInteractionRoot])).rows).toEqual([]);
+  });
+
+  it("the root scope sees the root rows and NOT the UJENZI asset", async () => {
+    await setTenantScope(runtime!, [rootTenantId]);
+    expect((await runtime!.query("SELECT id FROM viz_assets WHERE id IN ($1,$2)", [holoAssetRoot, holoAssetUjenzi])).rows.map((r) => r.id)).toEqual([holoAssetRoot]);
+    expect((await runtime!.query("SELECT id FROM viz_devices WHERE id = $1", [holoDeviceRoot])).rows.map((r) => r.id)).toEqual([holoDeviceRoot]);
+    expect((await runtime!.query("SELECT id FROM viz_render_profiles WHERE id = $1", [holoProfileRoot])).rows.map((r) => r.id)).toEqual([holoProfileRoot]);
+    expect((await runtime!.query("SELECT id FROM viz_interactions WHERE id = $1", [holoInteractionRoot])).rows.map((r) => r.id)).toEqual([holoInteractionRoot]);
+  });
+
+  it("an empty scope sees nothing on the new tables", async () => {
+    await setTenantScope(runtime!, []);
+    for (const table of ["viz_assets", "viz_devices", "viz_render_profiles", "viz_interactions"]) {
+      expect((await runtime!.query(`SELECT id FROM ${table} WHERE id LIKE $1`, [`${RUN}%`])).rows).toEqual([]);
+    }
+  });
+
+  it("cross-tenant INSERT is refused by WITH CHECK (42501) on every new table", async () => {
+    await setTenantScope(runtime!, [ujenziTenantId]);
+    const crossTenantInserts: Array<[string, string[]]> = [
+      [`INSERT INTO viz_assets (id, tenant_id, name, asset_type, source_system, source_object_id, integrity_hash, storage_ref, provenance, created_by_user_id)
+        VALUES ($1, $2, '${RUN} smuggled asset', 'GLTF', 'TEST', '${RUN}-smuggled', 'a' || repeat('a', 63), 'local://x', '{}'::jsonb, $3)`, [newId(ID_PREFIX.vizAsset), rootTenantId, ujenziUserId]],
+      [`INSERT INTO viz_devices (id, tenant_id, name, device_class, rendering_backend, provenance, created_by_user_id)
+        VALUES ($1, $2, '${RUN} smuggled device', 'WEB', 'SVG_2D', '{}'::jsonb, $3)`, [newId(ID_PREFIX.vizDevice), rootTenantId, ujenziUserId]],
+      [`INSERT INTO viz_render_profiles (id, tenant_id, name, renderer, created_by_user_id)
+        VALUES ($1, $2, '${RUN} smuggled profile', 'SVG_2D', $3)`, [newId(ID_PREFIX.vizRenderProfile), rootTenantId, ujenziUserId]],
+      [`INSERT INTO viz_interactions (id, tenant_id, sector, interaction_type, outcome, requested_by_user_id)
+        VALUES ($1, $2, 'BEYU', 'SELECT_OBJECT', 'ALLOWED', $3)`, [newId(ID_PREFIX.vizInteraction), rootTenantId, ujenziUserId]],
+    ];
+    for (const [insertSql, params] of crossTenantInserts) {
+      await expect(runtime!.query(insertSql, params)).rejects.toMatchObject({ code: "42501" });
+    }
+  });
+
+  it("direct UPDATE/DELETE of root rows under the UJENZI scope affects nothing", async () => {
+    await setTenantScope(runtime!, [ujenziTenantId]);
+    expect((await runtime!.query("UPDATE viz_assets SET name = $1 WHERE id = $2", [`${RUN} hijacked`, holoAssetRoot])).rowCount).toBe(0);
+    expect((await runtime!.query("DELETE FROM viz_devices WHERE id = $1", [holoDeviceRoot])).rowCount).toBe(0);
+    expect((await runtime!.query("UPDATE viz_interactions SET outcome = 'DENIED' WHERE id = $1", [holoInteractionRoot])).rowCount).toBe(0);
+    const [asset] = await db.select({ name: vizAssets.name, integrityHash: vizAssets.integrityHash }).from(vizAssets).where(eq(vizAssets.id, holoAssetRoot));
+    expect(asset.name).toBe(`${RUN} asset root`);
+    const [interaction] = await db.select({ outcome: vizInteractions.outcome }).from(vizInteractions).where(eq(vizInteractions.id, holoInteractionRoot));
+    expect(interaction.outcome).toBe("ALLOWED");
+  });
+
+  it("the runtime role cannot disable RLS on the new tables", async () => {
+    await expect(runtime!.query("ALTER TABLE viz_assets DISABLE ROW LEVEL SECURITY")).rejects.toMatchObject({ code: "42501" });
+    await expect(runtime!.query("ALTER TABLE viz_interactions NO FORCE ROW LEVEL SECURITY")).rejects.toMatchObject({ code: "42501" });
   });
 });
