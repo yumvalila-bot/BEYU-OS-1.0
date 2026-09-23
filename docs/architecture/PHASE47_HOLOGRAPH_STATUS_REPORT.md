@@ -56,32 +56,62 @@ New/extended tests in this phase (61):
 4. **Stale HTTP-test header expectation** — `tests/viz/http.test.ts` asserted the old
    "Dimensional Graphics & Digital Twins" heading; updated to the canonical "Holograph —
    Spatial Visualization & Digital Twins" (this test runs in CI where the server exists).
+5. **0068 verification incompatible with canonical CI ordering** — the first CI run
+   failed on both DB jobs (`SQLSTATE P0001`): the role-provisioning step runs AFTER
+   migrations, so the "role must exist" raise fired. Fixed in `f6d260f`: verification is
+   now conditional (strict when the role exists, NOTICE when absent — provisioning owns
+   the grants in that ordering, matching 0062's semantics). Root-caused from CI
+   annotations + workflow step order; both paths verified locally.
 
-## 2. CI RESULT — NOT YET RUNNABLE (GitHub connection expired)
+## 2. CI RESULT — GREEN (all required checks pass)
 
-The branch commit is prepared locally, but the sandbox GitHub credential
-(`GH_TOKEN`) is rejected by GitHub ("Bad credentials"), so the branch cannot be pushed and
-the PR cannot be opened from this session. **No CI result exists yet.** This is a
-connection problem, not a code problem. **Required action: reconnect GitHub in Arena**,
-after which push + PR + CI monitoring can complete. Nothing here is claimed as CI-verified.
+GitHub Actions run for PR #84 (branch `arena/01a0cfae-beyu-os-1-0` @ `f6d260f`):
 
-## 3. PR MERGEABILITY — NOT CREATED; NOT MERGED
+| Check | Result |
+|---|---|
+| Committed secret scan | **PASS** |
+| Migration validation (scratch PostgreSQL 16) | **PASS** |
+| Root BEYU OS — PostgreSQL security gate (typecheck, lint, build, migrations on real PG16, runtime-role provisioning, seed, production build, live server, full PostgreSQL+HTTP/E2E regression, browser tests) | **PASS — 42m50s** |
+| Health OS backend — real PostgreSQL gate | **PASS** |
+| Health OS frontend verification | **PASS** |
+| Production dependency audits (root / health-backend / health-frontend) | **PASS** ×3 |
+| P3 Release Governance — DB-free verification | **PASS** |
+| Vercel (PR preview deployment) | **PASS** (deployment `8ga4scznWGntcKiGzE7AJ7Gso47P`) |
+| Production promotion jobs (PVG, production deploy, preflight, drift report, runtime verify, three-way release record, Supabase Preview) | **skipping** — by design for a PR to `main`; human-controlled boundary |
 
-- PR (planned title: `feat(holograph): governed spatial visualization and family office
-  capability`, 18-point description prepared) is **blocked on the GitHub reconnection**.
+The security gate's HTTP/E2E regression runs the 12 viz `http.test.ts` integration tests
+that skip locally (CI configures `BEYU_TEST_BASE_URL`; an unavailable server is a hard
+failure there), so the complete visualization suite executed in CI.
+
+**First CI attempt failed** (two DB jobs, `SQLSTATE P0001`): 0068's verification raised
+when `beyu_runtime` was absent, but the canonical CI ordering provisions that role
+AFTER the migration run (setup-db-role.ts then grants DML on all tables). Fixed by
+commit `f6d260f` (verification made conditional, matching 0062's silent-when-absent
+grant semantics; both paths verified locally, including a rolled-back role-rename
+simulation of the CI path). The failure was inspected at the source, root-caused, and
+fixed — nothing was bypassed or disabled.
+
+## 3. PR MERGEABILITY — PR #84 OPEN, CI GREEN, NOT MERGED
+
+- PR: https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/84 —
+  `feat(holograph): governed spatial visualization and family office capability`
+  (18-point description), all required checks passing.
 - **DO NOT MERGE.** Merging and any promotion are deliberate human actions outside this
-  session's authority (human-controlled promotion boundary). Green local tests are NOT
-  interpreted as merge authorization.
+  session's authority (human-controlled promotion boundary). Green local tests and green
+  CI are NOT interpreted as merge authorization.
 
-## 4. VERCEL DEPLOYMENT RESULT — NOT TRIGGERED
+## 4. VERCEL DEPLOYMENT RESULT — PR PREVIEW DEPLOYED (preview only)
 
-No Vercel deployment was triggered by this work. No deployment evidence exists and none
-is claimed.
+The Vercel integration auto-deployed a **preview** of the PR branch
+(deployment `8ga4scznWGntcKiGzE7AJ7Gso47P`, status: pass). This is a throwaway preview,
+not a production deployment. No production environment was touched or pointed at this
+branch.
 
 ## 5. PRODUCTION RESULT — NO CHANGE
 
 Nothing was promoted to production. Production PostgreSQL (Supabase, eu-west-3) is
-untouched. `npm run certify` (production floor) is unchanged and remains human-controlled.
+untouched (all production jobs skipped by design on a PR). `npm run certify`
+(production floor) is unchanged and remains human-controlled.
 
 ---
 
@@ -167,10 +197,11 @@ is unchanged.
 
 | Deliverable | State |
 |---|---|
-| Feature work committed to session branch | **DONE** — `77dd058` (43 files, +5165/−36) |
-| Authoritative local gate | **GREEN** (all 7 steps) |
-| Migration integrity | 69 ordered, additive, checksummed; expand/contract gate PASS |
-| PR | **BLOCKED** — GitHub credential expired; reconnect required, then push + open |
-| CI | **NOT RUN** until PR exists |
+| Feature work committed to session branch | **DONE** — commits `191adba` (feature, 44 files, +5341/−36) + `f6d260f` (0068 CI-ordering fix) + report update |
+| Authoritative local gate | **GREEN** (all 7 steps: typecheck, lint, build, migrate, full suite ×2, finance) |
+| Migration integrity | 69 ordered, additive, checksummed; expand/contract gate PASS locally and in CI |
+| PR | **OPEN** — #84 (18-point description) |
+| CI | **GREEN** — all required checks pass (see §2); production jobs skip by design |
 | Merge | **NOT PERFORMED** — human-controlled boundary |
-| Vercel / Production | **NOT TOUCHED** |
+| Vercel | **PR preview only** (deployment `8ga4scznWGntcKiGzE7AJ7Gso47P`, pass) |
+| Production | **NOT TOUCHED** |
