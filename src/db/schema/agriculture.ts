@@ -21,6 +21,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { countries, legalEntities, tenants } from "./core";
+import { tsvector } from "./search";
 
 export const farms = pgTable(
   "agriculture_farms",
@@ -52,11 +53,14 @@ export const farms = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("agriculture_farms_tenant_code_uidx").on(t.tenantId, t.code),
     index("agriculture_farms_tenant_idx").on(t.tenantId),
     index("agriculture_farms_entity_idx").on(t.legalEntityId),
+    index("agriculture_farms_search_tsv_idx").on(t.searchTsv),
   ],
 );
 
@@ -1031,8 +1035,14 @@ export const projects = pgTable(
     classification: text("classification").notNull().default("INTERNAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
-  (t) => [uniqueIndex("agriculture_projects_0_uidx").on(t.tenantId, t.code), index("agriculture_projects_tenant_idx").on(t.tenantId)],
+  (t) => [
+    uniqueIndex("agriculture_projects_0_uidx").on(t.tenantId, t.code),
+    index("agriculture_projects_tenant_idx").on(t.tenantId),
+    index("agriculture_projects_search_tsv_idx").on(t.searchTsv),
+  ],
 );
 
 export const projectMilestones = pgTable(

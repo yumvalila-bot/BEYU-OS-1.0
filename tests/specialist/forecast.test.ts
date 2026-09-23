@@ -1023,7 +1023,9 @@ describe("forecast service — hostile inputs", () => {
     //   no specialist truth, no second registry).
     // + 0063: governed tenant-domain registry (tenant_domains; hostname → tenant binding, RLS,
     // runtime SELECT-only). Adds no forecast/scenario/assumption table and no specialist truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(66);
+    // + 0066: shared BEYU OS Search capability (trigger-maintained tsvector + GIN indexes on existing
+    //   RLS-protected tables; no specialist truth). Adds no forecast/scenario/assumption table and no specialist truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(67);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

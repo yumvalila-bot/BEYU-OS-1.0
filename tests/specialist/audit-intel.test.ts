@@ -937,7 +937,9 @@ describe("audit module — never mutates the ledger it inspects", () => {
     //   Office SHARED CAPABILITY base row (a governed namespace only — never an OS,
     //   no specialist truth, no second registry).
     // + 0063: governed tenant-domain registry (tenant_domains). No audit-substrate change; the ledger stays immutable.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(66);  });
+    // + 0066: shared BEYU OS Search capability (trigger-maintained tsvector + GIN indexes on existing
+    //   RLS-protected tables; no specialist truth). No audit-substrate change; the ledger stays immutable.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(67);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

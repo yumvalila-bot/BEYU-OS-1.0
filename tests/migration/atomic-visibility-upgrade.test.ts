@@ -13,7 +13,11 @@ it.skipIf(!adminUrl)("0059 preserves all predecessor history while hardening def
  const runtime=new URL(process.env.BEYU_RUNTIME_DATABASE_URL!);runtime.pathname=`/${name}`;
  const env={...process.env,BEYU_ADMIN_DATABASE_URL:admin.href,BEYU_TEST_DATABASE_URL:admin.href,DATABASE_URL:runtime.href,BEYU_RUNTIME_DATABASE_URL:runtime.href};
  mkdirSync(join(root,"tmp/governance"),{recursive:true});const dir=mkdtempSync(join(root,"tmp/governance/atomic-visibility-upgrade-"));mkdirSync(join(dir,"drizzle"));
- for(const f of readdirSync(join(root,"drizzle")).filter(f=>/^\d+.*\.sql$/.test(f)&&Number(f.slice(0,4))<=58))copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
+ // 0066 (Shared Search FTS) is additive-only and independent of 0056-0065; the
+// current seed's drizzle inserts reference the mirrored search_tsv column, so
+// 0066 belongs in the predecessor baseline. The migration under test (0059)
+// remains the ONLY upgrade step applied after the predecessor state.
+for(const f of readdirSync(join(root,"drizzle")).filter(f=>/^\d+.*\.sql$/.test(f)&&(Number(f.slice(0,4))<=58||f==="0066_shared_search_fulltext.sql")))copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
  const run=(script:string,cwd:string,label:string)=>{const r=spawnSync(process.execPath,[join(root,"node_modules/tsx/dist/cli.mjs"),script],{cwd,env,encoding:"utf8",timeout:90000});writeFileSync(join(dir,`${label}.log`),(r.stdout??"")+(r.stderr??""));expect(r.status,`see ${join(dir,`${label}.log`)}`).toBe(0);};
  const client=new Client({connectionString:admin.href});let created=false;
  try{
@@ -29,7 +33,8 @@ it.skipIf(!adminUrl)("0059 preserves all predecessor history while hardening def
   run(join(root,"scripts/migrate.ts"),dir,"upgrade");run(join(root,"scripts/migrate.ts"),dir,"noop");run(join(root,"scripts/setup-db-role.ts"),root,"runtime-after");
   expect(await snapshot()).toEqual(before);
   expect((await client.query("select id from governance_body_changes")).rowCount).toBe(0);
-  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(60);
+  // 61 = 0000-0058 (59) + 0066 shared-search baseline (1) + 0059 under test (1).
+  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(61);
   expect((await client.query("select relrowsecurity,relforcerowsecurity from pg_class where relname='governance_body_changes'")).rows).toEqual([{relrowsecurity:true,relforcerowsecurity:true}]);
   await client.query("begin");await client.query("set local role beyu_runtime");
   expect((await client.query("select rolsuper,rolbypassrls from pg_roles where rolname=current_user")).rows[0]).toEqual({rolsuper:false,rolbypassrls:false});

@@ -1090,7 +1090,9 @@ describe("risk module — leaves governance and financial state untouched", () =
     //   Office SHARED CAPABILITY base row (a governed namespace only — never an OS,
     //   no specialist truth, no second registry).
     // + 0063: governed tenant-domain registry (tenant_domains). No specialist truth.
-    expect(n).toBe(66);
+    // + 0066: shared BEYU OS Search capability (trigger-maintained tsvector + GIN indexes on existing
+    //   RLS-protected tables; no specialist truth). No specialist truth.
+    expect(n).toBe(67);
   });
 
   it("leaves all triggers enabled", async () => {

@@ -24,6 +24,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { countries, legalEntities, tenants } from "./core";
+import { tsvector } from "./search";
 
 export const UJENZI_STATUS = {
   PROJECT: ["PLANNED", "ACTIVE", "COMPLETED", "HANDED_OVER", "ARCHIVED"],
@@ -73,6 +74,8 @@ export const ujenziProjects = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("ujenzi_projects_tenant_code_uidx").on(t.tenantId, t.code),
@@ -80,6 +83,7 @@ export const ujenziProjects = pgTable(
     index("ujenzi_projects_entity_idx").on(t.legalEntityId),
     index("ujenzi_projects_status_idx").on(t.status),
     check("ujenzi_projects_status_ck", sql`status IN ('PLANNED','ACTIVE','COMPLETED','HANDED_OVER','ARCHIVED')`),
+    index("ujenzi_projects_search_tsv_idx").on(t.searchTsv),
   ],
 );
 
@@ -187,6 +191,10 @@ export const ujenziBoqs = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    // The row carries no free-text name; the generated surface includes the
+    // capability vocabulary ("boq", "bill of quantities") plus status/currency/notes.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("ujenzi_boqs_project_version_uidx").on(t.projectId, t.version),
@@ -195,6 +203,7 @@ export const ujenziBoqs = pgTable(
     index("ujenzi_boqs_status_idx").on(t.status),
     check("ujenzi_boqs_status_ck", sql`status IN ('DRAFT','SUBMITTED','APPROVED','SUPERSEDED')`),
     check("ujenzi_boqs_version_ck", sql`version >= 1`),
+    index("ujenzi_boqs_search_tsv_idx").on(t.searchTsv),
   ],
 );
 

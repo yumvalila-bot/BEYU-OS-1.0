@@ -113,16 +113,19 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 66-migration inventory and rejects the stale baseline", async () => {
+  it("requires the exact 67-migration inventory and rejects the stale baseline", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
     // SHARED CAPABILITY base row (a governed namespace — never an OS, never a
-    // tenant). Historical SQL stays byte-exact.
+    // tenant). 0066 adds the Shared Search capability: one regular tsvector
+    // column + maintenance trigger + GIN index on ten already-RLS-protected
+    // tables (native PostgreSQL FTS — no new index store, no new service).
+    // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(66);
+    const result = verifyP2MigrationIntegrity(67);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(66);
+    expect(result.count).toBe(67);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);

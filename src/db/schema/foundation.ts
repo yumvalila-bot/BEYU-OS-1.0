@@ -36,6 +36,7 @@ import {
 import { classificationEnum } from "./enums";
 import { countries, jurisdictions, legalEntities, tenants } from "./core";
 import { parties, users } from "./identity";
+import { tsvector } from "./search";
 import { employees, foundationPrograms } from "./people";
 import { documents } from "./platform";
 
@@ -108,12 +109,15 @@ export const foundations = pgTable(
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Shared Search capability (0066): trigger-maintained tsvector, GIN-indexed.
+    searchTsv: tsvector("search_tsv"),
   },
   (t) => [
     uniqueIndex("foundations_tenant_code_uidx").on(t.tenantId, t.code),
     index("foundations_tenant_idx").on(t.tenantId),
     index("foundations_entity_idx").on(t.legalEntityId),
     index("foundations_status_idx").on(t.status),
+    index("foundations_search_tsv_idx").on(t.searchTsv),
   ],
 );
 

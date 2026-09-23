@@ -265,6 +265,12 @@ export const KNOWN_METADATA_DEBT = {
     // reason as 0063 (journal entries present, no snapshot fabricated).
     "0064",
     "0065",
+    // 0066 is the shared BEYU OS Search capability — native PostgreSQL full-text
+    // search (trigger-maintained tsvector columns + GIN indexes on ten
+    // already-RLS-protected tables). Additive and expand-only; registered here
+    // for the same documented reason as 0063/0064/0065 (journal entry present,
+    // no snapshot fabricated).
+    "0066",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

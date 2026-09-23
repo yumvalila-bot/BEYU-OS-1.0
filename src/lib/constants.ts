@@ -117,6 +117,21 @@ export const PERMISSIONS = {
   "platform:config.manage": "Manage configuration and feature flags",
   "platform:registry.read": "Read the OS / source-of-truth registry",
   "platform:registry.manage": "Register or retire an OS",
+  //
+  // Shared Search (ONE shared BEYU OS capability — kind SHARED_CAPABILITY in
+  // os_registry, never a Search OS / Knowledge OS / Documents OS).
+  //
+  // `platform:search.read` is the key to the canonical cross-OS search query.
+  // It grants NO data of its own: every result source is separately gated by
+  // that source's EXISTING read permission (organization:entity.read,
+  // documents:registry.read, governance:resolution.read, ujenzi:data.read,
+  // agriculture:data.read, foundation:registry.read, ai:noelia.query), so a
+  // search can only surface records the principal may already read through the
+  // normal governed API. Search has no write path and confers no posting,
+  // mutation, approval or financial capability — CAP_POSTING stays LOCKED.
+  // Scope (tenant/entity/country) and the classification ceiling are always
+  // resolved from the authenticated principal, never from request input.
+  "platform:search.read": "Query the governed shared cross-OS search (read-only; surfaces only records already readable through each source's own permission)",
   // Identity
   "identity:user.read": "Read identity records",
   "identity:user.manage": "Create, suspend or revoke identities",
@@ -532,6 +547,8 @@ export const ROLES: Record<
     privileged: true,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "platform:config.manage",
       "platform:registry.read",
       "platform:registry.manage",
@@ -595,6 +612,8 @@ export const ROLES: Record<
     // new permissions now require an explicit decision to grant.
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "platform:registry.read",
       "platform:registry.manage",
       "identity:user.read",
@@ -736,6 +755,8 @@ export const ROLES: Record<
     privileged: true,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "organization:ownership.read",
       "governance:resolution.read",
@@ -813,6 +834,8 @@ export const ROLES: Record<
     privileged: true,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "platform:registry.read",
       "organization:entity.read",
       "organization:ownership.read",
@@ -895,6 +918,8 @@ export const ROLES: Record<
     privileged: false,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "governance:resolution.read",
       "governance:resolution.vote",
@@ -947,6 +972,8 @@ export const ROLES: Record<
     privileged: true,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "organization:ownership.read",
       "governance:body.read",
@@ -1288,6 +1315,8 @@ export const ROLES: Record<
     privileged: false,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "hcm:employee.read",
       "hcm:employee.manage",
@@ -1315,6 +1344,8 @@ export const ROLES: Record<
     privileged: false,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "hcm:employee.read",
       "finance:capital.read",
@@ -1357,6 +1388,8 @@ export const ROLES: Record<
     privileged: true,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "governance:body.read",
       "governance:resolution.read",
@@ -1431,6 +1464,8 @@ export const ROLES: Record<
     privileged: false,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "organization:entity.read",
       "governance:resolution.read",
       "risk:register.read",
@@ -1488,6 +1523,8 @@ export const ROLES: Record<
     privileged: false,
     permissions: [
       "platform:dashboard.read",
+      // Shared Search: read-only; each source remains behind its own permission.
+      "platform:search.read",
       "platform:registry.read",
       "organization:entity.read",
       "organization:ownership.read",
