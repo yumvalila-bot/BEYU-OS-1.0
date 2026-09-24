@@ -1097,7 +1097,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No specialist truth.
-    expect(n).toBe(70);
+    // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No specialist truth.
+    expect(n).toBe(71);
   });
 
   it("leaves all triggers enabled", async () => {

@@ -294,6 +294,13 @@ export const KNOWN_METADATA_DEBT = {
     // the same documented reason as 0063–0068: the journal entry IS present and
     // the gap is acknowledged and reviewable, not hidden.
     "0069",
+    // 0070 inserts the UJENZI_OS service-principal registry row (one
+    // idempotent INSERT, no DDL, no RLS change). It creates no table and
+    // alters no column, so it produces no table-level schema state for a
+    // snapshot to capture. Registered here for the same documented reason as
+    // 0063–0069: the journal entry IS present and the gap is acknowledged and
+    // reviewable, not hidden; no snapshot is fabricated.
+    "0070",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

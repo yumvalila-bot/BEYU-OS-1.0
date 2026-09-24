@@ -51,6 +51,7 @@ export const INTERNAL_SERVICE_ISSUERS = [
   "AGRICULTURE_OS",
   "FINANCE_OS",
   "FOUNDATION_OS",
+  "UJENZI_OS",
   "BEYU_OS",
 ] as const;
 
