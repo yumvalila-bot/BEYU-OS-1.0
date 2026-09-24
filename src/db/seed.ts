@@ -93,6 +93,9 @@ async function main() {
    * `health.beyuos.co.tz`, owned by the canonical Health OS tenant
    * (BEYU-HEALTH). It defines the tenant-subdomain NAMESPACE
    * (<tenant-slug>.health.beyuos.co.tz) and carries NO tenant context itself.
+   * The namespace STRING is current deployment/configuration state —
+   * replaceable through future governed configuration, never a permanent
+   * architectural identity and never an authorization input.
    *
    * Status ACTIVE means the application RECOGNISES the namespace.
    * verification_state DOCUMENTED + method PLATFORM_DEPLOYMENT_CONFIG records

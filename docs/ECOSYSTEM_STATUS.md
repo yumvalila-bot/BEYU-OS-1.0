@@ -89,13 +89,20 @@ to a file, a test, or a command run in this session — not to prior reports.
   `familyoffice.beyuos.co.tz` (CAPABILITY_BASE), both honestly recorded as
   `DOCUMENTED` + `PLATFORM_DEPLOYMENT_CONFIG` — application recognition, not
   runtime-verified DNS fact.
-- **Namespace note (CURRENT IMPLEMENTATION, governance decision required to
-  change):** current `main` uses the `beyuos.co.tz` namespace pervasively
-  (code, seed, docs, tests). A `beyuos.com` namespace does not exist in
-  current `main`. Renaming would be a broad cross-layer change touching code,
-  seed data, docs and tests; per smallest-correct-change it is NOT renamed in
-  this branch. DNS records, certificates and Vercel domain mappings are
-  EXTERNAL DEPENDENCY (human-controlled platform steps) in either case.
+- **Namespace note (CURRENT IMPLEMENTATION — configuration state, NOT
+  permanent identity):** the current repository/deployment configuration uses
+  `beyuos.co.tz` as the active domain namespace (seed rows, code examples,
+  docs, test fixtures). This is configuration state and is replaceable when
+  BEYU acquires and governs a different production domain. It is NOT a
+  permanent architectural identity, NOT an immutable constitutional value, and
+  NOT the permanent BEYU OS canonical domain. BEYU OS identity
+  (GlobalUserID, tenant, entity, OS, authorization, governance, Noelia) is
+  domain-independent and never rewrites on a domain change; tenant
+  reachability resolves through governed `tenant_domains` registry rows,
+  which is what makes a future domain migration a controlled
+  configuration/governance operation. No future domain is assumed or named
+  here. DNS records, certificates and Vercel domain mappings remain
+  EXTERNAL DEPENDENCY (human-controlled platform steps).
 - Custom-domain status: CODE SUPPORT only. DNS CONFIGURED / VERCEL DOMAIN
   CONFIGURED / ROUTING VERIFIED / PRODUCTION VERIFIED are all
   PRODUCTION UNVERIFIED (no Vercel/DNS access from this environment).
@@ -214,7 +221,7 @@ Everything else is CURRENT IMPLEMENTATION or EXTERNAL DEPENDENCY.
 |---|---|---|---|
 | 1 | Supabase access (`siyzygezdmlxbvwttrdz`) | Apply/verify migrations 0000–0070, RLS, runtime role on production PostgreSQL | Human runs `npm run migrate` with `BEYU_ADMIN_DATABASE_URL` (session pooler) and `scripts/setup-db-role.ts`, then `npm run certify` |
 | 2 | Vercel project access (`beyu-os-1-0`) | Confirm deployment SHA tracks `main`, set production env (`DATABASE_URL` runtime pooler, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY`, `BEYU_INTERNAL_SERVICE_TOKEN`, `HEALTH_API_URL` if the sector backend is deployed) | Human verifies deployment + env in Vercel dashboard |
-| 3 | DNS control (`beyuos.co.tz` or a future `beyuos.com` decision) | Custom OS-base and tenant-subdomain routing | Human creates DNS records + wildcard certificate + Vercel domain mappings; governance decides the canonical namespace first (§4) |
+| 3 | DNS control for the active configuration namespace (`beyuos.co.tz` today; replaceable, no future domain assumed) | Custom OS-base and tenant-subdomain routing | Human creates DNS records + wildcard certificate + Vercel domain mappings; any future namespace replacement is a governed configuration operation (§4) |
 | 4 | Sector backend deployments (Health NestJS API; any Agriculture/Finance/Ujenzi remote backends) | End-to-end sector sign-in and event dispatch beyond the mounted SPA | Human deploys sector backends, sets `HEALTH_API_URL`, provisions sector secrets |
 | 5 | External authority credentials (TRA, NIDA, NHIF, DHIS2, model backends) | Live Tax/government/HIVE verification | Human provisions credentials in the deployment secret store; until then the code correctly reports PENDING/BLOCKED |
 | 6 | Production promotion decision | Merge + deploy | HUMAN PRODUCTION GATE — explicitly not taken by this session |
