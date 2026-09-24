@@ -82,9 +82,10 @@ describe("canonical constitutional hierarchy", () => {
       "Documents & Knowledge",
       "Audit & Events",
       "Registries",
-      // Shared Universal Dimensional Graphics capability — a capability entry,
-      // deliberately NOT labelled an OS (the assertion below still forbids " OS").
-      "Dimensional Graphics & Twins",
+      // Shared Holograph spatial-visualization capability — a capability
+      // entry, deliberately NOT labelled an OS (the assertion below still
+      // forbids " OS").
+      "Holograph — Spatial Visualization & Twins",
       "Family Office",
       "Noelia / HIVE",
     ]);

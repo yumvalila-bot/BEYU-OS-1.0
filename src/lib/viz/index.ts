@@ -30,6 +30,7 @@
  */
 export * from "./dimensions";
 export * from "./errors";
+export * from "./holograph";
 export * from "./provenance";
 export * from "./scene-model";
 export * from "./digital-twin";
@@ -37,8 +38,13 @@ export * from "./authorization";
 export * from "./events";
 export * from "./exports";
 export * from "./renderers";
+export * from "./render-profiles";
 export * from "./xr";
 export * from "./accessibility";
+export * from "./assets";
+export * from "./devices";
+export * from "./interactions";
+export * from "./family-office-view";
 export * from "./engines/time";
 export * from "./engines/quantity";
 export * from "./engines/performance";

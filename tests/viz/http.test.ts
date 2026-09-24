@@ -251,7 +251,7 @@ describe.skipIf(!available)("Visualization API over HTTP", () => {
     const authorized = await apiGet("/os/viz", adminCookie);
     expect(authorized.status).toBe(200);
     expect(isDeniedPage(authorized.html)).toBe(false);
-    expect(authorized.html).toContain("Dimensional Graphics &amp; Digital Twins");
+    expect(authorized.html).toContain("Holograph — Spatial Visualization &amp; Digital Twins");
 
     // FAMILY_MEMBER_VIEW holds no viz permissions: the page renders the
     // governed denial panel — never a partial workspace, never a 500.

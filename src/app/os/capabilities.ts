@@ -192,9 +192,9 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
       },
       {
         href: "/os/viz",
-        label: "Dimensional Graphics & Twins",
+        label: "Holograph — Spatial Visualization & Twins",
         description:
-          "The Universal Dimensional Graphics, Visualization, Simulation, Digital Twin & Future XR Foundation — ONE shared capability: governed 1D–8D+ scenes, live digital twins and audited exports over each Sector OS's own authorized data. Never an OS; never a second copy of sector truth.",
+          "Holograph — the shared spatial visualization and digital-twin capability: governed 1D–8D+ scenes, a 3D/asset registry with provenance and integrity, hardware-independent device and renderer abstractions with a 2D fallback, governed interactions (denials included) and the governed Family Office spatial view — over each Sector OS's own authorized data. Never an OS; never a second copy of sector truth; CAP_POSTING remains LOCKED.",
         icon: "dimensional",
         visibility: { kind: "any", permissions: ["viz:scene.read", "viz:registry.read"] },
       },

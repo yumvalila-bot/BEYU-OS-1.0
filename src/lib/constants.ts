@@ -359,6 +359,17 @@ export const PERMISSIONS = {
   "viz:scene.manage": "Create, amend or archive visualization scene configurations and digital-twin registrations (configuration only — never sector data mutation)",
   "viz:export": "Export governed visualization data (JSON/CSV of the allowlisted manifest); separate from viewing — an authorized viewer is not automatically an exporter; every export is ledgered and audited",
   "viz:dimension.manage": "Register or amend governed 9D+ dimension extensions in the Universal Dimension Registry (HIGH-RISK: extends the shared capability model; MFA step-up)",
+  // Holograph (the canonical name of this capability) governed registries.
+  // The asset registry is METADATA: registering an asset stores provenance +
+  // integrity references — it never stores binary geometry and never grants
+  // sector data access. Device registration is a security-relevant
+  // configuration act (HIGH-RISK, MFA step-up). Interactions are ledgered
+  // requests: presentation, navigation or delegation to governed workflows —
+  // never sector mutation and never a posting path.
+  "viz:asset.read": "Read the governed Holograph presentation registries (spatial asset registry, device registry and render profiles; metadata only — never binary geometry, never a data grant)",
+  "viz:asset.manage": "Register or archive governed Holograph spatial assets (configuration + provenance only; never sector data mutation)",
+  "viz:device.manage": "Register or transition the lifecycle of Holograph devices (HIGH-RISK: a device is a presentation security context; MFA step-up; no physical holographic hardware support exists or is claimed)",
+  "viz:interaction.execute": "Request governed Holograph spatial interactions (presentation, navigation and workflow/approval delegation; every request is ledgered and audited, denials included; never a sector mutation and never a posting path)",
   // Foundation OS — ONE institutional OS; these are domain capabilities inside
   // it, not sub-OS products. Approval permissions are HIGH_RISK (MFA step-up).
   "foundation:registry.read": "Read the Foundation Registry",
@@ -533,6 +544,13 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   // every Sector OS consumes. It creates no data access and no posting path,
   // but it is a constitutional-scale configuration act: MFA step-up applies.
   "viz:dimension.manage",
+  // Registering or transitioning a Holograph device changes which presentation
+  // devices are recorded as serving governed scenes. It grants no data access
+  // and no posting path, but it is a security-relevant configuration act:
+  // MFA step-up applies. (No physical holographic hardware support exists or
+  // is claimed; FUTURE_HOLOGRAPHIC_DEVICE devices can only ever be
+  // REGISTERED/NOT_IMPLEMENTED.)
+  "viz:device.manage",
 ];
 
 /** Canonical role catalogue with constitutional scope. */
@@ -599,6 +617,10 @@ export const ROLES: Record<
       "viz:scene.manage",
       "viz:export",
       "viz:dimension.manage",
+      "viz:asset.read",
+      "viz:asset.manage",
+      "viz:device.manage",
+      "viz:interaction.execute",
     ],
   },
   GROUP_CEO: {
@@ -745,6 +767,8 @@ export const ROLES: Record<
       // sector's own read boundary per scene.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
       "viz:export",
     ] as PermissionCode[],
   },
@@ -824,6 +848,8 @@ export const ROLES: Record<
       // stays LOCKED).
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
       "viz:export",
     ],
   },
@@ -909,6 +935,8 @@ export const ROLES: Record<
       // Universal Dimensional Graphics (shared capability): governed visualization read.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -962,6 +990,8 @@ export const ROLES: Record<
       // itself; the underlying governed records remain canonical.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
       "viz:export",
     ],
   },
@@ -1335,6 +1365,8 @@ export const ROLES: Record<
       // Universal Dimensional Graphics (shared capability): governed visualization read.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1378,6 +1410,9 @@ export const ROLES: Record<
       "viz:registry.read",
       "viz:scene.read",
       "viz:scene.manage",
+      "viz:asset.read",
+      "viz:asset.manage",
+      "viz:interaction.execute",
       "viz:export",
     ],
   },
@@ -1455,6 +1490,8 @@ export const ROLES: Record<
       // within Foundation scope.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
     ],
   },
   FOUNDATION_OFFICER: {
@@ -1514,6 +1551,8 @@ export const ROLES: Record<
       // within Foundation scope.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
     ],
   },
   AUDITOR: {
@@ -1574,6 +1613,8 @@ export const ROLES: Record<
       // export of governed visualizations. No manage verb and no registry mutation.
       "viz:registry.read",
       "viz:scene.read",
+      "viz:asset.read",
+      "viz:interaction.execute",
       "viz:export",
     ],
   },

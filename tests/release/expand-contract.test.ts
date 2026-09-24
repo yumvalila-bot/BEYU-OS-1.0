@@ -113,7 +113,7 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 67-migration inventory and rejects the stale baseline", async () => {
+  it("requires the exact 69-migration inventory and rejects the stale baseline", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
@@ -121,11 +121,20 @@ describe("P3 expand/contract — P2 integration", () => {
     // tenant). 0066 adds the Shared Search capability: one regular tsvector
     // column + maintenance trigger + GIN index on ten already-RLS-protected
     // tables (native PostgreSQL FTS — no new index store, no new service).
+    // 0067 adds the Holograph spatial capability registries (viz_assets,
+    // viz_devices, viz_render_profiles, viz_interactions): additive,
+    // expand-only, RLS-bound — the four governed presentation/interaction
+    // registries of the existing shared capability (never a new OS).
+    // 0068 grants the constrained runtime role the same DML privileges 0062
+    // granted on the original visualization tables, extended to the four
+    // Holograph registries (0067 created the tables but carried no grants;
+    // the runtime role is the RLS-subject role and must hold the DML set for
+    // the governed routes to function — RLS remains the boundary).
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(67);
+    const result = verifyP2MigrationIntegrity(69);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(67);
+    expect(result.count).toBe(69);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
@@ -138,6 +147,11 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(61).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(62).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(63).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(64).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(65).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(66).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(67).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(68).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

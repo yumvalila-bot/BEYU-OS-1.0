@@ -271,6 +271,11 @@ export const ID_PREFIX = {
   vizScene: "VZS",
   vizTwin: "VZT",
   vizExport: "VZE",
+  /* Holograph spatial capability registries (migration 0067) — same ONE capability. */
+  vizAsset: "VZA",
+  vizDevice: "VZQ",
+  vizRenderProfile: "VZP",
+  vizInteraction: "VZI",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

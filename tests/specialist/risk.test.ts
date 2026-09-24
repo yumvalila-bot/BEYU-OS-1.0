@@ -1092,7 +1092,10 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0063: governed tenant-domain registry (tenant_domains). No specialist truth.
     // + 0066: shared BEYU OS Search capability (trigger-maintained tsvector + GIN indexes on existing
     //   RLS-protected tables; no specialist truth). No specialist truth.
-    expect(n).toBe(67);
+    // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
+    //   shared capability, never an OS). No specialist truth.
+    // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
+    expect(n).toBe(69);
   });
 
   it("leaves all triggers enabled", async () => {

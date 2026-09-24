@@ -30,10 +30,18 @@ import { assertSectorAccess } from "./authorization";
 import type { NoeliaFinding } from "@/lib/noelia/types";
 import { registryFor, buildGovernedManifest } from "./service";
 import { getAdapter } from "./adapters";
+import { HOLOGRAPH_CANONICAL_DEFINITION, HOLOGRAPH_IS, HOLOGRAPH_IS_NOT, HOLOGRAPH_AUTHORIZATION_ORDER, holographSubsystemStatus } from "./holograph";
 
 const EXPLAIN_SCHEMA = z
   .object({
     sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]).optional(),
+  })
+  .passthrough()
+  .optional();
+
+const HOLOGRAPH_STATUS_SCHEMA = z
+  .object({
+    subsystem: z.string().trim().min(2).max(120).optional(),
   })
   .passthrough()
   .optional();
@@ -99,6 +107,32 @@ export function registerVizTools(registry: NoeliaToolRegistry): void {
       outputSchema: noeliaToolOutputSchema,
     },
     execute: (context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> => summarizeScene(context, input),
+  });
+
+  registry.register({
+    name: "viz.holograph.status",
+    permission: "viz:registry.read",
+    classification: "INTERNAL",
+    risk: "LOW",
+    description:
+      "Report the Holograph capability canon: the canonical definition, what Holograph is and is not (it is a shared BEYU OS capability, never an OS, never an authorization or posting authority), the authorization order, and the honest subsystem status matrix. Read-only; creates nothing and changes no authorization.",
+    metadata: {
+      stableId: "cap-viz-holograph-status",
+      version: "1.0.0",
+      ownerRole: "PLATFORM_ADMIN",
+      domain: "VISUALIZATION",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: { maxRetries: 1, backoffMs: 200 },
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: AUDIT,
+      inputSchema: HOLOGRAPH_STATUS_SCHEMA,
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> => holographStatus(context, input),
   });
 }
 
@@ -235,6 +269,44 @@ async function summarizeScene(context: ToolInvocationContext, input: unknown): P
       { kind: "adapter", ref: descriptor?.systemOfRecord ?? sector, label: `${sector} adapter collection`, authority: "BEYU OS Kernel" },
     ],
     limitations: descriptor ? [...descriptor.notImplemented.map((n) => `${sector}: ${n}`)] : [],
+    confidence: 1,
+    humanReviewRequired: false,
+  };
+}
+
+async function holographStatus(context: ToolInvocationContext, input?: unknown): Promise<NoeliaToolOutput> {
+  const parsed = HOLOGRAPH_STATUS_SCHEMA.safeParse(input);
+  const filter = parsed.success ? parsed.data?.subsystem?.toLowerCase() : undefined;
+
+  const matrix = holographSubsystemStatus();
+  const rows = filter ? matrix.filter((m) => m.subsystem.toLowerCase().includes(filter)) : matrix;
+
+  const counts: Record<string, number> = {};
+  for (const row of matrix) counts[row.status] = (counts[row.status] ?? 0) + 1;
+
+  const findings: NoeliaFinding[] = rows.map((m) => ({
+    label: m.subsystem,
+    value: `${m.status} — ${m.where}`,
+    kind: "FACT" as const,
+    status: "OBSERVED",
+  }));
+
+  const limitations: string[] = [
+    "Holograph is a shared BEYU OS capability, never an OS: it holds no OS registry entry.",
+    "No physical holographic hardware support exists in this repository and none is claimed.",
+    "CAP_POSTING remains LOCKED: no Holograph path posts, transfers or approves financial transactions.",
+  ];
+
+  return {
+    headline: `Holograph capability: ${counts.IMPLEMENTED ?? 0} IMPLEMENTED, ${counts.PARTIALLY_IMPLEMENTED ?? 0} PARTIALLY_IMPLEMENTED, ${counts.NOT_IMPLEMENTED ?? 0} NOT_IMPLEMENTED, ${counts.PLANNED ?? 0} PLANNED subsystem(s).`,
+    narrative:
+      HOLOGRAPH_CANONICAL_DEFINITION +
+      ` It is: ${HOLOGRAPH_IS.join("; ")}. It is NOT: ${HOLOGRAPH_IS_NOT.join("; ")}. The authorization order holds: ${HOLOGRAPH_AUTHORIZATION_ORDER.join(" → ")}.`,
+    findings,
+    sources: [
+      { kind: "registry", ref: "src/lib/viz/holograph.ts", label: "Holograph canon + honest status matrix", authority: "BEYU OS Kernel" },
+    ],
+    limitations,
     confidence: 1,
     humanReviewRequired: false,
   };
