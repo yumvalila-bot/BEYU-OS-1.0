@@ -283,6 +283,17 @@ export const KNOWN_METADATA_DEBT = {
     // data, no RLS weakening; the 0067 tenant-isolation policies remain the
     // boundary.
     "0068",
+    // 0069 closes the Foundation OS Row Level Security gap on
+    // `foundation_programs` — the one Foundation substrate created by the 0000
+    // kernel baseline and therefore missed by 0035's RLS block, which
+    // enumerated only the 39 tables it created. It is a single
+    // ENABLE ROW LEVEL SECURITY + the canonical beyu_tenant_ids() policy + a
+    // supporting tenant index + a runtime-role grant assertion. It is additive
+    // and expand-only, creates no table and alters no column, so it produces no
+    // table-level schema state for a snapshot to capture. Registered here for
+    // the same documented reason as 0063–0068: the journal entry IS present and
+    // the gap is acknowledged and reviewable, not hidden.
+    "0069",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */
