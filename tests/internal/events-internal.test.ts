@@ -535,6 +535,65 @@ describe("POST /api/v1/internal/events — Phase 8.5 adversarial hardening", () 
     expect(res.status).toBe(413);
   });
 
+  it("a sector cannot attribute an event to ANOTHER sector: iss !== source is 403 ISSUER_SOURCE_MISMATCH (audited)", async () => {
+    // A HEALTH_OS token claiming source FINANCE_OS is cross-sector
+    // attribution spoof: denied before any business logic, exactly like the
+    // identity register issuer binding (ISSUER_SECTOR_MISMATCH).
+    const env = envelope({ source: "FINANCE_OS" });
+    const res = await publishRoute(
+      req("http://localhost/api/v1/internal/events", env, token("HEALTH_OS")),
+    );
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("ISSUER_SOURCE_MISMATCH");
+
+    // No receipt was claimed: the refused delivery left nothing to reconcile.
+    const receipts = await db
+      .select()
+      .from(internalEventReceipts)
+      .where(eq(internalEventReceipts.idempotencyKey, env.idempotencyKey));
+    expect(receipts).toHaveLength(0);
+
+    // The refusal is audited as a SERVICE denial.
+    const audits = await db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.action, "internal.events.publish"), eq(auditLog.objectId, env.idempotencyKey)));
+    expect(audits.some((a) => a.actorType === "SERVICE" && a.outcome === "DENIED" && a.reason === "ISSUER_SOURCE_MISMATCH")).toBe(true);
+  });
+
+  it("UJENZI_OS publishes governed events as a canonical sector issuer (201, exactly-once)", async () => {
+    // Migration 0070 records UJENZI_OS explicitly in the service-principal
+    // registry so per-issuer SUSPEND/REVOKE governs it like every sector.
+    const principal = await db.execute(sql`select status from service_principals where issuer = 'UJENZI_OS'`);
+    expect(principal.rows).toHaveLength(1);
+    expect((principal.rows[0] as { status: string }).status).toBe("ACTIVE");
+
+    const env = envelope({
+      eventType: "ujenzi.site.diary_submitted",
+      source: "UJENZI_OS",
+      domain: "construction",
+      operation: "site.event",
+      tenantCode: TENANT_CODE,
+      subjectType: "site_diary",
+      payload: { project: "PRJ-1", shift: "day" },
+    });
+    const res = await publishRoute(
+      req("http://localhost/api/v1/internal/events", env, token("UJENZI_OS")),
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { data: { eventId: string; duplicate: boolean } };
+    expect(body.data.duplicate).toBe(false);
+
+    // Duplicate delivery returns the ORIGINAL event — exactly-once acceptance.
+    const dup = await publishRoute(
+      req("http://localhost/api/v1/internal/events", env, token("UJENZI_OS")),
+    );
+    expect(dup.status).toBe(200);
+    const dupBody = (await dup.json()) as { data: { eventId: string; duplicate: boolean } };
+    expect(dupBody.data.duplicate).toBe(true);
+    expect(dupBody.data.eventId).toBe(body.data.eventId);
+  });
+
   it("sector-declared occurredAt is honored on the governed event", async () => {
     const declared = "2026-08-15T10:00:00.000Z";
     const env = envelope({ occurredAt: declared });

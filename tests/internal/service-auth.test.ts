@@ -130,6 +130,18 @@ describe("internal service token verification", () => {
     delete process.env[INTERNAL_SERVICE_TOKEN_ENV];
   });
 
+  it("accepts every canonical sector issuer (HEALTH/AGRICULTURE/FINANCE/FOUNDATION/UJENZI_OS)", () => {
+    process.env[INTERNAL_SERVICE_TOKEN_ENV] = SECRET;
+    try {
+      for (const iss of ["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "UJENZI_OS"]) {
+        const r = verifyInternalServiceToken(baseToken({ iss, sub: `service:${iss}` }));
+        expect(r.ok).toBe(true);
+      }
+    } finally {
+      delete process.env[INTERNAL_SERVICE_TOKEN_ENV];
+    }
+  });
+
   it("rejects sub not matching service:<iss>", () => {
     process.env[INTERNAL_SERVICE_TOKEN_ENV] = SECRET;
     const r = verifyInternalServiceToken(baseToken({ sub: "service:BEYU_OS" }));

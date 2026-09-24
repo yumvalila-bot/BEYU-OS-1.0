@@ -34,7 +34,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, tenants, legalEntities } from "@/db/schema";
 import { publishEventTx } from "@/lib/audit";
-import { recordAuditTx, type EventInput } from "@/lib/audit";
+import { recordAudit, recordAuditTx, type EventInput } from "@/lib/audit";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 import { apiError, apiOk, guardedInternal } from "@/lib/internal/api";
 
@@ -51,7 +51,7 @@ const EventSchema = z
     eventType: z.string().min(3).max(120),
     eventVersion: z.string().min(1).max(20).default("1"),
     schemaVersion: z.string().min(1).max(20).default("1"),
-    source: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS"]),
+    source: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "UJENZI_OS"]),
     domain: z.string().min(2).max(60),
     operation: z.string().min(2).max(80),
     destinationDomain: z.string().min(2).max(60).nullable().optional(),
@@ -81,6 +81,30 @@ export async function POST(request: Request) {
       rateLimit: { limit: 600, windowMs: 60_000 },
     },
     async ({ body, token, traceId }) => {
+      // Issuer must match the source it is publishing for: HEALTH_OS tokens
+      // publish HEALTH_OS events — a sector cannot attribute events to another
+      // sector. Same contract as internal identity register
+      // (ISSUER_SECTOR_MISMATCH): the service token authenticates the caller,
+      // it does not authorize cross-sector attribution.
+      if (token.iss !== body.source) {
+        await recordAudit({
+          tenantId: null,
+          actorType: "SERVICE",
+          action: "internal.events.publish",
+          objectType: "EVENT",
+          objectId: body.idempotencyKey,
+          outcome: "DENIED",
+          reason: "ISSUER_SOURCE_MISMATCH",
+          traceId,
+        });
+        return apiError(
+          "ISSUER_SOURCE_MISMATCH",
+          `Token issued by ${token.iss} cannot publish events for ${body.source}.`,
+          403,
+          traceId,
+        );
+      }
+
       if (JSON.stringify(body.payload).length > MAX_PAYLOAD_BYTES) {
         return apiError("PAYLOAD_TOO_LARGE", "Event payload exceeds 128 KiB.", 413, traceId);
       }

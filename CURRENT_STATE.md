@@ -1,5 +1,11 @@
 # CURRENT_STATE — Fresh Reality Audit (Phase 0)
 
+> HISTORICAL STATE (superseded as the canonical reference on 2026-09-24).
+> This report is preserved evidence of what was measured on the date below.
+> The ONE canonical current ecosystem status is now
+> `docs/ECOSYSTEM_STATUS.md`; where the two conflict, the source code and the
+> canonical status document govern.
+
 **Date:** 2026-09-02 (Africa/Dar_es_Salaam)
 **Program:** BEYU OS 1.0 — Constitutional Runtime Integration + Production Readiness Remediation
 **Mode at time of writing:** audit only. No source changes had been made in this phase when the

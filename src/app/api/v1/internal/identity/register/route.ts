@@ -40,7 +40,7 @@ const RegisterSchema = z
     email: z.string().email().max(320).transform((v) => v.toLowerCase().trim()),
     displayName: z.string().min(1).max(200),
     tenantCode: z.string().min(2).max(50),
-    sector: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS"]),
+    sector: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "UJENZI_OS"]),
     sectorUserId: z.string().min(1).max(100),
     countryCode: z.string().length(2).optional(),
   })

@@ -7,9 +7,14 @@ HUMAN-CONTROLLED, NOT DONE** · last reviewed 2026-09-22
 
 ## 1. What this document is
 
-BEYU OS has one constitutional control plane (`beyuos.co.tz`, the `/os` control
+BEYU OS has one constitutional control plane (the `/os` control
 plane, the five canonical Sector OS routes) and one governed way for a tenant to
-be reachable at its own hostname:
+be reachable at its own hostname. The control plane's identity is
+domain-independent: the domain strings in this document (`beyuos.co.tz` and its
+subdomains) are the current deployment/configuration namespace — configuration
+state, replaceable through future governed configuration when BEYU acquires and
+governs a different production domain. No domain string is a constitutional
+value, and no future domain is assumed here.
 
 ```
 health.beyuos.co.tz                    OS base domain  → Health OS, no tenant

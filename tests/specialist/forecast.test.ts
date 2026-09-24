@@ -1030,7 +1030,8 @@ describe("forecast service — hostile inputs", () => {
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). Adds no forecast/scenario/assumption table and no specialist truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(70);
+    // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). Adds no forecast/scenario/assumption table and no specialist truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(71);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

@@ -136,11 +136,13 @@ describe("P3 expand/contract — P2 integration", () => {
     // enumerated only the 39 tables it created. One ENABLE ROW LEVEL SECURITY +
     // the canonical beyu_tenant_ids() policy + a supporting tenant index + a
     // runtime-role grant assertion — additive, expand-only, no column altered.
+    // 0070 records the UJENZI_OS service-principal registry row (one
+    // idempotent INSERT; no DDL, no RLS change) — additive, expand-only.
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(70);
+    const result = verifyP2MigrationIntegrity(71);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(70);
+    expect(result.count).toBe(71);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);

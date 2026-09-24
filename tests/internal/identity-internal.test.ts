@@ -25,6 +25,7 @@ const SECRET = "test-internal-secret-0123456789abcdef0123456789";
 const RUN = Date.now().toString(36);
 const EMAIL = `fed-${RUN}@beyu.test`;
 const EMAIL2 = `fed2-${RUN}@beyu.test`;
+const EMAIL3 = `fed3-${RUN}@beyu.test`;
 
 const now = () => Math.floor(Date.now() / 1000);
 const token = (iss = "HEALTH_OS") =>
@@ -264,5 +265,59 @@ describe("POST /api/v1/internal/identity/lookup", () => {
       .from(auditLog)
       .where(like(auditLog.action, "internal.identity.lookup"));
     expect(audits.some((a) => a.actorType === "SERVICE" && a.outcome === "SUCCESS")).toBe(true);
+  });
+});
+
+describe("cross-sector identity federation — ONE GlobalUserID (§5)", () => {
+  it("SAME human + SAME tenant across HEALTH_OS, FINANCE_OS and UJENZI_OS resolves to ONE canonical identity", async () => {
+    // Sector provisioning is idempotent: creating access in another Sector OS
+    // must NOT create another human identity. Each sector provisions with its
+    // OWN issuer token for its OWN sector (iss === sector), and every repeat
+    // resolves to the one canonical GlobalUserID created by the first call.
+    const payload = (sector: string) => ({
+      email: EMAIL3,
+      displayName: "Cross Sector Human",
+      tenantCode: TENANT_CODE,
+      sector,
+      sectorUserId: `${sector.toLowerCase()}-${RUN}`,
+    });
+
+    const first = await registerRoute(
+      req("http://localhost/api/v1/internal/identity/register", payload("HEALTH_OS"), token("HEALTH_OS")),
+    );
+    expect(first.status).toBe(201);
+    const firstBody = (await first.json()) as { data: { globalUserId: string; partyId: string; created: boolean } };
+    expect(firstBody.data.created).toBe(true);
+    expect(firstBody.data.globalUserId).toMatch(/^USR_/);
+
+    for (const sector of ["FINANCE_OS", "UJENZI_OS"]) {
+      const res = await registerRoute(
+        req("http://localhost/api/v1/internal/identity/register", payload(sector), token(sector)),
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { globalUserId: string; partyId: string; created: boolean } };
+      expect(body.data.globalUserId).toBe(firstBody.data.globalUserId);
+      expect(body.data.partyId).toBe(firstBody.data.partyId);
+      expect(body.data.created).toBe(false);
+    }
+
+    // Exactly ONE canonical user row exists for the human — no duplicate
+    // sector identity was minted.
+    const rows = await db.select().from(users).where(eq(users.email, EMAIL3.toLowerCase()));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(firstBody.data.globalUserId);
+  });
+
+  it("a UJENZI_OS token cannot provision for another sector (issuer binding holds for the new issuer)", async () => {
+    const res = await registerRoute(
+      req(
+        "http://localhost/api/v1/internal/identity/register",
+        { email: EMAIL2, displayName: "X", tenantCode: TENANT_CODE, sector: "HEALTH_OS", sectorUserId: "s-1" },
+        token("UJENZI_OS"),
+      ),
+    );
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("ISSUER_SECTOR_MISMATCH");
   });
 });
