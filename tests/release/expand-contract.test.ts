@@ -113,7 +113,7 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 69-migration inventory and rejects the stale baseline", async () => {
+  it("requires the exact 70-migration inventory and rejects the stale baseline", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
@@ -130,11 +130,17 @@ describe("P3 expand/contract — P2 integration", () => {
     // Holograph registries (0067 created the tables but carried no grants;
     // the runtime role is the RLS-subject role and must hold the DML set for
     // the governed routes to function — RLS remains the boundary).
+    // 0069 closes the Foundation OS Row Level Security gap on
+    // `foundation_programs`: the one Foundation substrate created by the 0000
+    // kernel baseline and therefore missed by 0035's RLS block, which
+    // enumerated only the 39 tables it created. One ENABLE ROW LEVEL SECURITY +
+    // the canonical beyu_tenant_ids() policy + a supporting tenant index + a
+    // runtime-role grant assertion — additive, expand-only, no column altered.
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(69);
+    const result = verifyP2MigrationIntegrity(70);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(69);
+    expect(result.count).toBe(70);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
@@ -152,6 +158,7 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(66).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(67).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(68).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(69).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

@@ -4,7 +4,7 @@
 - **Status:** Implemented as a first-class Sector OS inside the BEYU kernel
 - **Path lock:** `src/lib/foundation/` (public alias `src/lib/foundation-os/` removed at merge — one canonical home)
 - **Schema:** `src/db/schema/foundation.ts` barrelled from `src/db/schema.ts`
-- **Migrations:** `drizzle/0032_*` foundation (10 tables) + `drizzle/0035_foundation_os.sql` production (39 tables). RLS on every Foundation OS table; `suppliers` renamed to `foundation_suppliers` at merge to avoid the kernel-asset registry collision.
+- **Migrations:** `drizzle/0035_foundation_os.sql` production (39 tables). `drizzle/0069_foundation_programs_rls.sql` enables RLS on the kernel-era `foundation_programs` table (see §2.1). RLS on **every** Foundation OS table — all 40 substrates now carry `ENABLE ROW LEVEL SECURITY` plus a `beyu_tenant_ids()` `<table>_tenant_isolation` policy; `foundation_suppliers` was renamed from `suppliers` at merge to avoid the kernel-asset registry collision.
 
 ## 1. What Foundation OS is
 
@@ -65,6 +65,63 @@ Canonical Foundation identity (BEYU OS, not a second identity system):
 `foundationActor` is always `ctx.principal` (GlobalUserID → session tenant → entity). Production routes never hardcode sector emails or non-foundation entity IDs.
 
 Web: `/os/foundation` is a BEYU kernel module (`foundation:registry.read`), listed in OS nav. It is **not** a federated launcher OS. `tests/authorization/os-authorization.test.ts` remains the BEYU+HEALTH launcher contract.
+
+## 2.1 Row Level Security
+
+Every Foundation OS substrate is RLS-bound. The policy is identical on all 40
+tables and is the **canonical kernel primitive**, not a Foundation-specific one:
+
+```sql
+ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY <table>_tenant_isolation ON <table>
+  USING      (tenant_id = ANY (beyu_tenant_ids()))
+  WITH CHECK (tenant_id = ANY (beyu_tenant_ids()));
+```
+
+Because both clauses call `beyu_tenant_ids()`, a change to that primitive changes
+the Foundation tables and their 39 siblings at once — there is one tenant
+authorization model, and Foundation OS does not define a second one.
+
+**The `foundation_programs` gap (migration 0069).** `foundation_programs` is the
+canonical program substrate and is created by the **0000 kernel baseline**, not
+by 0035. Migration 0035 enabled RLS on the 39 tables *it* created and enumerated
+them by name in its verification block, so the pre-existing program table was
+never covered. Until 0069 it was the one Foundation substrate with no RLS at
+all. Measured on a freshly migrated database, as the non-superuser,
+`NOBYPASSRLS` runtime role:
+
+| Tenant context | `foundation_programs` rows | `foundations` rows |
+| --- | --- | --- |
+| `TEN_BEYU_FOUNDATION` (owner) | **3** | 1 |
+| `TEN_BEYU_TZ` (foreign) | **3** ← should be 0 | 0 |
+| `TEN_FOREIGN_XYZ` (nonexistent) | **3** ← should be 0 | 0 |
+| `""` (empty, fail-closed) | **3** ← should be 0 | 0 |
+
+`foundations` correctly closed to 0 for every foreign and empty context;
+`foundation_programs` returned every row for every context. The application
+layer filters on `tenant_id` (`service-operations.ts`), so this was not a live
+cross-tenant read through the API — it was the **loss of the defence in depth**
+the other 39 tables have. RLS exists so that one missing `WHERE` clause in a
+future Foundation query cannot become a cross-tenant disclosure.
+
+0069 closes it: `ENABLE ROW LEVEL SECURITY` + the canonical policy + a
+supporting `foundation_programs_tenant_idx` (the table had only its primary key
+while every sibling carries a `*_tenant_idx`) + a runtime-role grant assertion
+for fresh installs where migrations precede `scripts/setup-db-role.ts`.
+
+`FORCE ROW LEVEL SECURITY` is deliberately **not** applied, matching all 39
+siblings: `src/db/seed.ts` writes Foundation program rows through the admin
+connection without a tenant GUC, and forcing RLS on the owner would break
+`npm run seed`.
+
+Post-0069 measurement (same probe, same role): foreign and empty contexts return
+**0** rows; the owner context still returns 3.
+
+The executable proof is `tests/security/foundation-rls-isolation.test.ts`, which
+asserts the structural coverage of all 40 substrates *and* the behavioural
+isolation (cross-tenant read, cross-tenant insert under `WITH CHECK`, cross-tenant
+update, cross-tenant delete, join traversal, and `SET LOCAL` non-leakage across
+transactions). Reverting the policy makes 11 of its 12 assertions fail.
 
 ## 3. Finance boundary
 
@@ -135,9 +192,12 @@ Interop IDs: `/^[A-Za-z0-9_-]{8,128}$/` for `traceId` / `globalUserId` / `princi
 
 ## 8. Tests
 
+- `tests/security/foundation-rls-isolation.test.ts` — runtime-role RLS: structural coverage of all 40 Foundation substrates, plus cross-tenant read / insert / update / delete, join traversal, `SET LOCAL` non-leakage (12)
 - `tests/foundation/engines.test.ts` — lifecycle, formation, jurisdiction, deadline, escalation, i18n, evidence, simulator (27)
 - `tests/foundation/domain.test.ts` — service CRUD, tenant isolation, finance boundary, audit (12)
-- `tests/foundation/http.test.ts` — transport, RBAC matrix (9)
+- `tests/foundation/target-scope.test.ts` — the canonical Foundation target-tenant/classification boundary (21)
+- `tests/security/foundation-api-target-scope.test.ts` — the same boundary independently at the API edge (10)
+- `tests/foundation/http.test.ts` — transport, RBAC matrix, wrong-tenant denial, forgery attempts, UI parity (18; requires a running server)
 - Merge-hardening: bootstrap enrollment suites restore the seeded admin in `afterAll`; specialist migration-count pins attribute both `0034_agriculture_os` and `0035_foundation_os`
 
 ## 9. Operations

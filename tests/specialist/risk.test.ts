@@ -1095,7 +1095,9 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). No specialist truth.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    expect(n).toBe(69);
+    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No specialist truth.
+    expect(n).toBe(70);
   });
 
   it("leaves all triggers enabled", async () => {
