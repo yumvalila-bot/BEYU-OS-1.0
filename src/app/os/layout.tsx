@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { notifications } from "@/db/schema";
+import { adminBootstrapState, notifications } from "@/db/schema";
 import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { can, type Principal } from "@/lib/authz";
@@ -69,6 +69,29 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
 
   return withTenantDatabaseContext(principal, async () => {
     const allowedClassifications = classificationsAtOrBelow(principal.clearance);
+
+    /*
+     * "BEYU Admin — Frontend Preview" marker — a DISPLAY-ONLY fact.
+     *
+     * The current BEYU administrator is the canonical identity the one-time
+     * bootstrap sealed (`admin_bootstrap_state` singleton, `admin_user_id`);
+     * the development-preview capability is the named `platform:frontend.preview`
+     * grant. Both must hold — the role grant alone, or the sealed identity
+     * alone, never suffices, and a missing state row fails closed to "no
+     * marker". The marker itself grants nothing: no page, query or RLS policy
+     * reads it for authorization, and every surface the administrator opens
+     * still re-runs the existing server-side authorization on their own
+     * governed grants. Regular users see no marker and gain no capability.
+     */
+    const [bootstrap] = await db
+      .select({ adminUserId: adminBootstrapState.adminUserId })
+      .from(adminBootstrapState)
+      .where(eq(adminBootstrapState.id, "SINGLETON"))
+      .limit(1);
+    const frontendPreview =
+      bootstrap?.adminUserId === principal.userId &&
+      can(principal, "platform:frontend.preview").allowed;
+
     const roleRecipient =
       principal.roles.length > 0
         ? or(isNull(notifications.role), inArray(notifications.role, principal.roles))
@@ -151,6 +174,14 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
               <span className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11.5px]">
                 {principal.riskScore} · MFA {principal.mfaSatisfied ? "satisfied" : "not satisfied"}
               </span>
+              {frontendPreview && (
+                <span
+                  title="Governed development preview of the canonical BEYU frontend surfaces. This marker grants no permission: every surface still re-runs the existing server-side authorization."
+                  className="rounded-md border border-[#d4af37]/60 bg-[#d4af37]/10 px-2.5 py-1 text-[11.5px] font-semibold text-[#efd98f]"
+                >
+                  BEYU Admin — Frontend Preview
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <GlobalSearch visible={can(principal, "platform:search.read").allowed} />

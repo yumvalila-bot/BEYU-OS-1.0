@@ -9,9 +9,23 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
+import { can } from "@/lib/authz";
 import { resolvePrincipal } from "@/lib/session";
 import { SignOutButton } from "../os/sign-out-button";
 import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
+
+/**
+ * The sixth canonical frontend surface. Family Office is a BEYU
+ * capability/domain surface inside the control plane — deliberately NOT a
+ * Sector OS — so it does not appear in `SECTOR_OPERATING_SYSTEMS`. Its route
+ * is the existing canonical Family Office frontend page.
+ */
+const FAMILY_OFFICE_SURFACE = {
+  name: "Family Office",
+  href: "/os/family",
+  icon: "family" as const,
+  note: "BEYU capability/domain surface — never an OS",
+};
 
 function DestinationCard({ destination, authorized }: { destination: OperatingSystemDestination; authorized: boolean }) {
   const content = (
@@ -87,6 +101,48 @@ export default async function LauncherPage() {
   const controlPlane = destinations.filter((destination) => destination.level === "CONTROL_PLANE");
   const authorizedCodes = new Set(destinations.map((destination) => destination.code));
 
+  /**
+   * "BEYU Admin — Frontend Preview" — server-resolved, PRESENTATION-ONLY.
+   *
+   * Visible only to a principal holding the governed `platform:frontend.preview`
+   * capability (granted to no role but the canonical BEYU administrator's). It
+   * lists the six canonical frontend surfaces — the five Sector OSs from the
+   * canonical registry plus the Family Office capability surface — with the
+   * state the EXISTING resolvers just computed (`authorizedOperatingSystems`
+   * for the sectors, the Family Office page's own `family:member.read` grant
+   * for the capability surface). It grants nothing: no entry here is an
+   * authorization, and every destination re-checks authority on entry, so a
+   * surface that is "not in current grant" stays unreachable no matter what
+   * the URL says. Regular users never see this section.
+   */
+  const frontendPreview = can(principal, "platform:frontend.preview").allowed;
+  const familyOfficeReadable = can(principal, "family:member.read").allowed;
+  const previewSurfaces: Array<{
+    name: string;
+    href: string;
+    icon: OperatingSystemDestination["icon"];
+    note: string;
+    authorized: boolean;
+    stateLabel: string;
+  }> = [
+    ...SECTOR_OPERATING_SYSTEMS.map((destination) => ({
+      name: destination.name,
+      href: destination.href,
+      icon: destination.icon,
+      note: "Sector OS",
+      authorized: authorizedCodes.has(destination.code),
+      stateLabel:
+        destination.code === "HEALTH" && !authorizedCodes.has("HEALTH")
+          ? "Federation link not active — canonical state at /health"
+          : "Not in current grant",
+    })),
+    {
+      ...FAMILY_OFFICE_SURFACE,
+      authorized: familyOfficeReadable,
+      stateLabel: "family:member.read not granted",
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <header className="bg-[#0b1f4d] text-white">
@@ -152,6 +208,59 @@ export default async function LauncherPage() {
             ))}
           </div>
         </section>
+
+        {frontendPreview && (
+          <section aria-labelledby="frontend-preview-heading" className="border-t border-slate-200 pt-8">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">
+                  BEYU Admin — Frontend Preview
+                </p>
+                <h2 id="frontend-preview-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
+                  The six canonical frontend surfaces
+                </h2>
+                <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
+                  Current governed state, resolved server-side from the same catalogue and resolvers as every
+                  other destination. Opening a surface runs the existing server-side authorization unchanged —
+                  this list grants nothing and is visible only to the governed BEYU administrator.
+                </p>
+              </div>
+              <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/10 px-3 py-1 text-[10px] font-semibold tracking-wide text-[#9b7410]">
+                DEVELOPMENT PREVIEW — READ-ONLY, GOVERNED
+              </span>
+            </div>
+            <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              {previewSurfaces.map((surface) => (
+                <div key={surface.href} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b1f4d]/5 text-[#9b7410]">
+                      <Icon name={surface.icon} className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-[13.5px] font-semibold text-[#0b1f4d]">
+                        {surface.name}
+                        <span className="text-[10px] font-semibold tracking-wide text-slate-400">{surface.note}</span>
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-500">{surface.href}</div>
+                    </div>
+                  </div>
+                  {surface.authorized ? (
+                    <Link
+                      href={surface.href}
+                      className="inline-flex min-h-9 items-center rounded-lg bg-[#0b1f4d] px-3.5 text-[12px] font-semibold text-white transition hover:bg-[#132a5c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a017]"
+                    >
+                      Open frontend →
+                    </Link>
+                  ) : (
+                    <span className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-[10px] font-semibold tracking-wide text-slate-500">
+                      {surface.stateLabel}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <footer className="border-t border-slate-200 pt-5 text-[11px] leading-relaxed text-slate-500">
           Launcher visibility is not authority. Tenant, entity, country, role, permission, clearance and
