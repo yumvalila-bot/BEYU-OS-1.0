@@ -38,7 +38,7 @@ function actorFor(principal: { tenantId: string; userId: string }): VizActor {
 
 describe("Holograph interactions — governed request model", () => {
   let ceo: Seeded;
-  let admin: Seeded;
+  let hcm: Seeded;
   let ujenziOps: Seeded;
   let governance: Seeded;
   let auditor: Seeded;
@@ -48,7 +48,12 @@ describe("Holograph interactions — governed request model", () => {
 
   beforeAll(async () => {
     ceo = await seededPrincipal("ceo@beyu.os");
-    admin = await seededPrincipal("admin@beyu.os"); // PLATFORM_ADMIN: NO Finance read path
+    // HCM_DIRECTOR holds no Finance OS read grant at all — the canonical
+    // "no Finance read path" principal for the sector-boundary proof. (The
+    // platform administrator intentionally carries the READ side of every
+    // canonical surface for governed frontend development preview, so it is
+    // the wrong fixture for a Finance-denial assertion.)
+    hcm = await seededPrincipal("hcm@beyu.os"); // HCM_DIRECTOR: NO Finance read path
     ujenziOps = await seededPrincipal("ujenzi.ops@beyu.os"); // UJENZI tenant
     governance = await seededPrincipal("governance@beyu.os");
     auditor = await seededPrincipal("auditor@beyu.os");
@@ -92,14 +97,14 @@ describe("Holograph interactions — governed request model", () => {
   });
 
   it("DENIED when the principal has NO Finance read path — and the denial is a first-class ledger row (Finance boundary)", async () => {
-    // PLATFORM_ADMIN holds no finance:* read permission at all: a FINANCE
+    // HCM_DIRECTOR holds no finance:* read permission at all: a FINANCE
     // interaction must be refused at the sector stage, ledgered and audited
     // as DENIED. CAP_POSTING stays LOCKED; nothing here can post.
-    expect(can(admin, "finance:ledger.read" as never).allowed).toBe(false);
+    expect(can(hcm, "finance:ledger.read" as never).allowed).toBe(false);
     const result = await requestInteraction(
       { interactionType: "QUERY_SPATIAL_DATA", sector: "FINANCE" },
-      actorFor(admin),
-      admin,
+      actorFor(hcm),
+      hcm,
     );
     adminTenantCreated.push(result.interactionId);
     expect(result.outcome).toBe("DENIED");

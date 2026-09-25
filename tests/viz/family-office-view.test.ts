@@ -31,6 +31,7 @@ const DATE = "2026-01-01";
 let admin: Awaited<ReturnType<typeof seededPrincipal>>;
 let ceo: Awaited<ReturnType<typeof seededPrincipal>>;
 let ujenziOps: Awaited<ReturnType<typeof seededPrincipal>>;
+let hcm: Awaited<ReturnType<typeof seededPrincipal>>;
 let trustEntityId = "";
 let holdingId = "";
 let countryHoldingId = "";
@@ -70,6 +71,11 @@ beforeAll(async () => {
   admin = await seededPrincipal("admin@beyu.os"); // PLATFORM_ADMIN / RESTRICTED
   ceo = await seededPrincipal("ceo@beyu.os"); // GROUP_CEO / HIGHLY_RESTRICTED
   ujenziOps = await seededPrincipal("ujenzi.ops@beyu.os"); // other tenant
+  // HCM_DIRECTOR: holds the Holograph surface + organization boundary but NO
+  // family:member.read — the canonical fixture for the trust-instrument facet
+  // degradation proof (the platform administrator now carries the Family
+  // Office read side for governed frontend development preview).
+  hcm = await seededPrincipal("hcm@beyu.os");
 
   trustEntityId = `${RUN}-TRUST`;
   holdingId = `${RUN}-HOLD`;
@@ -192,7 +198,7 @@ describe("Family Office spatial view — facet degradation (never to a wider dat
   });
 
   it("trust instrument summaries require family:member.read; without it the facet is UNAVAILABLE with a reason, not an empty wider dataset", async () => {
-    const view = await viewFor(admin); // no family:member.read
+    const view = await viewFor(hcm); // no family:member.read
     expect(view.instruments).toBeNull();
     expect(view.instrumentsAvailable).toBe(false);
     expect(view.instrumentsUnavailableReason).toMatch(/family:member.read/i);

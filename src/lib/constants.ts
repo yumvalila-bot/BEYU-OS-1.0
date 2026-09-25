@@ -118,6 +118,22 @@ export const PERMISSIONS = {
   "platform:registry.read": "Read the OS / source-of-truth registry",
   "platform:registry.manage": "Register or retire an OS",
   //
+  // Governed frontend development preview.
+  //
+  // `platform:frontend.preview` is the explicit, auditable capability behind
+  // the current BEYU administrator's development-preview access to the six
+  // canonical frontend surfaces (Health, Finance, Agriculture, Ujenzi,
+  // Foundation OS and the Family Office capability surface).
+  //
+  // It is a PRESENTATION capability only: it grants no data access of its own,
+  // is not delegable, and is never an authorization input for any page, query
+  // or RLS policy. Every surface it reaches re-runs the EXISTING server-side
+  // authorization (RBAC + ABAC + classification ceiling + tenant/entity
+  // scope + RLS) on the principal's own governed grants. The preview
+  // mechanism can therefore never grant a permission the administrator does
+  // not already possess, and it is visible to no other role.
+  "platform:frontend.preview": "Governed development preview of the canonical BEYU frontend surfaces (presentation only; grants no data access of its own)",
+  //
   // Shared Search (ONE shared BEYU OS capability — kind SHARED_CAPABILITY in
   // os_registry, never a Search OS / Knowledge OS / Documents OS).
   //
@@ -621,6 +637,74 @@ export const ROLES: Record<
       "viz:asset.manage",
       "viz:device.manage",
       "viz:interaction.execute",
+      //
+      // ---- Governed frontend development preview (the six canonical surfaces) ----
+      //
+      // The canonical BEYU administrator (the bootstrap-bound PLATFORM_ADMIN
+      // identity — see scripts/prepare-admin-bootstrap.ts) must be able to open
+      // and inspect the ACTUAL frontend of every canonical surface. The grants
+      // below are the SAME read permissions any other principal earns through a
+      // governed role assignment; the platform administrator is the one role
+      // whose authority spans the whole enterprise, so it carries the READ side
+      // of each surface through the one canonical role catalogue.
+      //
+      // READ-ONLY BY CONSTRUCTION: no .manage/.post/.approve/.commit/.delete
+      // capability of any surface is added here. CAP_POSTING remains
+      // fail-closed locked, no journal can be posted, no grant approved, no
+      // fund moved, and no family/foundation instrument executed. Every ABAC
+      // boundary (tenant subtree, entity scope, classification ceiling, RLS)
+      // still applies to the administrator exactly as to any other principal —
+      // e.g. at the RESTRICTED role ceiling the HIGHLY_RESTRICTED family
+      // registry remains invisible.
+      "platform:frontend.preview",
+      // Noelia / HIVE — the single governed AI identity, advisory only.
+      "ai:noelia.query",
+      // Finance OS (read side: ledger, treasury, capital, waterfall, tax, payments)
+      "finance:ledger.read",
+      "finance:treasury.read",
+      "finance:capital.read",
+      "finance:waterfall.read",
+      "finance:tax.read",
+      "finance:payments.read",
+      // Agriculture OS
+      "agriculture:data.read",
+      // Ujenzi OS
+      "ujenzi:data.read",
+      // Foundation OS (the canonical Foundation read set)
+      "foundation:registry.read",
+      "foundation:formation.read",
+      "foundation:structure.read",
+      "foundation:governance.read",
+      "foundation:tax.read",
+      "foundation:compliance.read",
+      "foundation:donor.read",
+      "foundation:fund.read",
+      "foundation:grant.read",
+      "foundation:program.read",
+      "foundation:beneficiary.read",
+      "foundation:procurement.read",
+      "foundation:asset.read",
+      "foundation:investment.read",
+      "foundation:safeguarding.read",
+      "foundation:impact.read",
+      "foundation:assignment.read",
+      // Family Office — a BEYU capability/domain surface, never an OS
+      "family:member.read",
+      "family:beneficiary.read",
+      "family:vault.read",
+      "familyoffice:capital.read",
+      "familyoffice:obligation.read",
+      "familyoffice:investment.read",
+      "familyoffice:committee.read",
+      "familyoffice:liquidity.read",
+      "familyoffice:intelligence.read",
+      "familyoffice:capitalrequest.read",
+      "familyoffice:protection.read",
+      "familyoffice:claim.read",
+      // Shared capabilities consumed by those surfaces (one canonical
+      // implementation each — never duplicated per OS)
+      "governance:resolution.read",
+      "hcm:employee.read",
     ],
   },
   GROUP_CEO: {
