@@ -49,6 +49,10 @@ export interface CanonicalUserLink {
   beyuPartyId: string | null;
   linkedBy: string;
   linkedAt: string;
+  status: "active" | "revoked" | "expired";
+  source: string;
+  revokedAt: string | null;
+  revokedBy: string | null;
 }
 
 export interface CanonicalTenantLink {
@@ -78,6 +82,7 @@ export class BeyuIdentityBridge {
     beyuUserId: string;
     beyuPartyId?: string | null;
     linkedBy: string;
+    source?: string;
   }): Promise<CanonicalUserLink> {
     if (!args.beyuUserId || !args.beyuUserId.trim()) {
       throw new ConflictException("CANONICAL_USER_REQUIRED");
@@ -89,36 +94,48 @@ export class BeyuIdentityBridge {
     if (sectorUser.length === 0) {
       throw new ConflictException("SECTOR_USER_NOT_FOUND");
     }
-    const byCanonical = await this.conn.query<{ global_user_id: string }>(
-      `select global_user_id from beyu_identity.beyu_identity_links where beyu_user_id = $1`,
+    // Check for conflicts — only active links block re-linking.
+    const byCanonical = await this.conn.query<{ global_user_id: string; status: string }>(
+      `select global_user_id, status from beyu_identity.beyu_identity_links where beyu_user_id = $1`,
       [args.beyuUserId],
     );
     if (
       byCanonical.length > 0 &&
-      byCanonical[0].global_user_id !== args.globalUserId
+      byCanonical[0].global_user_id !== args.globalUserId &&
+      byCanonical[0].status === "active"
     ) {
       throw new ConflictException("CANONICAL_USER_ALREADY_LINKED");
     }
-    const bySector = await this.conn.query<{ beyu_user_id: string }>(
-      `select beyu_user_id from beyu_identity.beyu_identity_links where global_user_id = $1`,
+    const bySector = await this.conn.query<{ beyu_user_id: string; status: string }>(
+      `select beyu_user_id, status from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [args.globalUserId],
     );
-    if (bySector.length > 0 && bySector[0].beyu_user_id !== args.beyuUserId) {
+    if (
+      bySector.length > 0 &&
+      bySector[0].beyu_user_id !== args.beyuUserId &&
+      bySector[0].status === "active"
+    ) {
       throw new ConflictException("SECTOR_USER_ALREADY_LINKED");
     }
+    const source = args.source ?? "manual";
     await this.conn.query(
       `insert into beyu_identity.beyu_identity_links
-         (global_user_id, beyu_user_id, beyu_party_id, linked_by)
-       values ($1, $2, $3, $4)
+         (global_user_id, beyu_user_id, beyu_party_id, linked_by, status, source)
+       values ($1, $2, $3, $4, 'active', $5)
        on conflict (global_user_id) do update
          set beyu_user_id = excluded.beyu_user_id,
              beyu_party_id = excluded.beyu_party_id,
-             linked_by    = excluded.linked_by`,
+             linked_by    = excluded.linked_by,
+             status       = 'active',
+             source       = excluded.source,
+             revoked_at   = null,
+             revoked_by   = null`,
       [
         args.globalUserId,
         args.beyuUserId,
         args.beyuPartyId ?? null,
         args.linkedBy,
+        source,
       ],
     );
     const link = await this.getLink(args.globalUserId);
@@ -134,8 +151,13 @@ export class BeyuIdentityBridge {
       beyu_party_id: string | null;
       linked_by: string;
       linked_at: Date | string;
+      status: string;
+      source: string;
+      revoked_at: Date | string | null;
+      revoked_by: string | null;
     }>(
-      `select global_user_id, beyu_user_id, beyu_party_id, linked_by, linked_at
+      `select global_user_id, beyu_user_id, beyu_party_id, linked_by, linked_at,
+              status, source, revoked_at, revoked_by
          from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [globalUserId],
     );
@@ -150,19 +172,58 @@ export class BeyuIdentityBridge {
         typeof r.linked_at === "string"
           ? r.linked_at
           : r.linked_at.toISOString(),
+      status: r.status as "active" | "revoked" | "expired",
+      source: r.source,
+      revokedAt:
+        r.revoked_at === null
+          ? null
+          : typeof r.revoked_at === "string"
+            ? r.revoked_at
+            : r.revoked_at.toISOString(),
+      revokedBy: r.revoked_by,
     };
   }
 
   /**
-   * Fail-closed session gate: a sector user may only act under a valid
-   * canonical link. No link → denied.
+   * Fail-closed session gate: a sector user may only act under a valid,
+   * ACTIVE canonical link. No link → denied. Revoked → denied. Expired → denied.
    */
   async requireCanonicalLink(globalUserId: string): Promise<CanonicalUserLink> {
     const link = await this.getLink(globalUserId);
     if (!link) {
       throw new ForbiddenException("NO_CANONICAL_IDENTITY_LINK");
     }
+    if (link.status !== "active") {
+      throw new ForbiddenException(
+        `CANONICAL_IDENTITY_LINK_${link.status.toUpperCase()}`,
+      );
+    }
     return link;
+  }
+
+  /**
+   * Revoke a canonical identity link. The link row is preserved for audit
+   * but marked as revoked, so future authorization attempts fail closed.
+   */
+  async revokeLink(args: {
+    globalUserId: string;
+    revokedBy: string;
+  }): Promise<void> {
+    const link = await this.getLink(args.globalUserId);
+    if (!link) {
+      throw new ConflictException("NO_CANONICAL_IDENTITY_LINK_TO_REVOKE");
+    }
+    if (link.status === "revoked") {
+      return; // Idempotent: already revoked.
+    }
+    await this.conn.query(
+      `update beyu_identity.beyu_identity_links
+          set status = 'revoked',
+              revoked_at = now(),
+              revoked_by = $2
+        where global_user_id = $1`,
+      [args.globalUserId, args.revokedBy],
+    );
   }
 
   // ── TENANT BRIDGE (isolation boundary) ─────────────────────────────────────

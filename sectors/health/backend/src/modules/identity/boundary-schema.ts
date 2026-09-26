@@ -53,6 +53,37 @@ CREATE INDEX IF NOT EXISTS idx_tenants_beyu ON beyu_identity.tenants(beyu_tenant
 CREATE INDEX IF NOT EXISTS idx_tenants_country ON beyu_identity.tenants(country_code);
 `;
 
+/** Migration 031 — bridge lifecycle status (up). */
+export const BEYU_BRIDGE_LIFECYCLE_SQL = `
+ALTER TABLE beyu_identity.beyu_identity_links
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'beyu_identity_links_status_check'
+  ) THEN
+    ALTER TABLE beyu_identity.beyu_identity_links
+      ADD CONSTRAINT beyu_identity_links_status_check
+      CHECK (status IN ('active', 'revoked', 'expired'));
+  END IF;
+END $$;
+
+ALTER TABLE beyu_identity.beyu_identity_links
+  ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
+
+ALTER TABLE beyu_identity.beyu_identity_links
+  ADD COLUMN IF NOT EXISTS revoked_by text;
+
+ALTER TABLE beyu_identity.beyu_identity_links
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual';
+
+CREATE INDEX IF NOT EXISTS idx_beyu_links_status
+  ON beyu_identity.beyu_identity_links(status)
+  WHERE status != 'active';
+`;
+
 /** Migration 003 — country/entity isolation boundaries for linked tenants (up). */
 export const HEALTH_ISOLATION_BOUNDARIES_SQL = `
 CREATE OR REPLACE FUNCTION beyu_identity.tenant_matches_boundary(p_tenant uuid)
@@ -100,6 +131,8 @@ export async function ensureBridgeSchema(conn: {
   exec(sql: string): Promise<void>;
 }): Promise<void> {
   await conn.exec(BEYU_IDENTITY_BRIDGE_SQL);
+  // Apply lifecycle columns (migration 031).
+  await conn.exec(BEYU_BRIDGE_LIFECYCLE_SQL);
 }
 
 /** Bring the isolation-boundary upgrade into a connection (idempotent). */
