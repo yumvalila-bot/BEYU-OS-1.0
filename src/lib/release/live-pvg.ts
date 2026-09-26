@@ -20,11 +20,11 @@
  * trustworthy.
  */
 
-import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { verifyEventChain } from "@/lib/audit";
 import { checkCapabilityActivation } from "@/lib/decision-authority";
+import { migrationFingerprintFromChecksums } from "./migration-fingerprint";
 
 export interface LiveMigrationState {
   connected: boolean;
@@ -52,21 +52,23 @@ export async function probeLiveMigrationState(): Promise<LiveMigrationState> {
     await db.execute(sql`select 1`);
     state.connected = true;
 
-    const mig = await db.execute<{ n: number; latest: string; checksums: string }>(sql`
+    const mig = await db.execute<{ n: number; latest: string; checksums: string[] | null }>(sql`
       select count(*)::int as n,
              max(version) as latest,
-             string_agg(checksum, '\n' order by version) as checksums
+             array_agg(checksum order by version) as checksums
       from beyu_migrations
     `);
     const row = mig.rows[0];
     if (row) {
       state.migrationCount = row.n;
       state.latestMigration = row.latest;
-      // sha256 over the ordered ledger checksums — the canonical migration
-      // fingerprint convention (same input the pipeline attests).
-      state.migrationFingerprint = row.checksums
-        ? createHash("sha256").update(row.checksums).digest("hex")
-        : null;
+      // The canonical MIGRATION-LEDGER fingerprint lives in exactly ONE place
+      // (`./migration-fingerprint`): sha256 over the ordered ledger checksums.
+      // `array_agg(checksum order by version)` yields the identical string to
+      // the previous `string_agg(checksum, '\n' order by version)`, so this is
+      // a refactor to the shared implementation, never a second algorithm.
+      // Distinguished from `schemaFingerprint` below (physical schema md5).
+      state.migrationFingerprint = migrationFingerprintFromChecksums(row.checksums);
     }
 
     const fp = await db.execute<{ fingerprint: string }>(sql`

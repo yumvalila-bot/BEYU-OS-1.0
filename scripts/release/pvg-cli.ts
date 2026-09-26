@@ -7,15 +7,41 @@
  *   1. Runtime identity  — GET {production-url}/api/health/identity must return
  *      the allowlisted identity tuple, and its gitSha must match the commit the
  *      pipeline is releasing (expected git sha).
+ *
+ *      The tuple is consumed from the CANONICAL NESTED ENVELOPE the endpoint
+ *      serves — `{ ok, system, identity: { … }, at }` — via
+ *      `extractRuntimeIdentity()` in `src/lib/release/pvg-cli-contract.ts`.
+ *      Reading it from the response ROOT (the pre-repair behaviour) silently
+ *      resolved every field to `UNKNOWN`, made the convergence loop burn its
+ *      full 12-minute window and forced the decisive `release_identity` MISMATCH
+ *      — the gate could never pass for any deployment. The API response is the
+ *      canonical contract and is unchanged; the ADAPTER was wrong.
+ *
  *   2. Runtime health    — GET /api/health must report database UP;
  *      GET /api/health/live must be alive.
+ *
  *   3. Database truth    — beyu_migrations ledger (count/latest/checksum
  *      fingerprint) and the information_schema fingerprint, probed live with
  *      the pipeline's admin authority (the same authority scripts/db-release.ts
  *      uses; read-only here).
+ *
+ *      TWO non-interchangeable fingerprints, TWO separate flags — never
+ *      compared with each other:
+ *        • --expected-migration-fingerprint  LEDGER sha256 over the ordered
+ *          `beyu_migrations.checksum` values (canonical implementation:
+ *          `src/lib/release/migration-fingerprint.ts`; same quantity
+ *          `scripts/db-release.ts` now emits as `ledgerFingerprint`).
+ *        • --expected-schema-fingerprint     PHYSICAL-SCHEMA md5 of `public`
+ *          (the value `scripts/db-release.ts` reports as `fingerprint`).
+ *      The legacy ambiguous `--expected-fingerprint` is REFUSED: it previously
+ *      carried the schema md5 into the migration expectation, which made
+ *      `database_migration_state` and `database_release_compatibility` fail
+ *      deterministically for every release.
+ *
  *   4. Security invariants — CAP_POSTING still LOCKED, RLS enforced in the
  *      schema, no AI principal holding control-plane grants, event chain head
  *      intact.
+ *
  *   5. Compatibility     — expected (scratch-built) fingerprint/latest/count
  *      must equal the live database state, else blocking FAIL.
  *
@@ -24,7 +50,8 @@
  * deterministic ids so pipeline retries are idempotent.
  *
  * FAIL-CLOSED: exit 0 only on PVG PASS. Exit 1 on any FAIL (with sanitized CI
- * annotation). Exit 2 when the environment/database is unreachable. A PVG FAIL
+ * annotation). Exit 2 when the environment/database is unreachable or the CLI is
+ * misconfigured (e.g. the ambiguous legacy fingerprint flag). A PVG FAIL
  * BLOCKS PROMOTION — the state machine refuses DEPLOYED → PROMOTED without
  * PVG_VERIFIED, so a red pipeline can never promote.
  *
@@ -40,11 +67,28 @@ import {
   probeLiveMigrationState,
   probeLiveSecurityState,
   probeLiveEventState,
-} from "../../src/lib/release/live-pvg";import type { ReleaseIdentity, ReleaseTransition } from "../../src/lib/release/types";
+} from "../../src/lib/release/live-pvg";
+import type { ReleaseIdentity, ReleaseTransition } from "../../src/lib/release/types";
 import { isValidTransition } from "../../src/lib/release/state-machine";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import { sanitizeError } from "../lib/sanitize-error";
 import { annotateGateFailures } from "../lib/ci-annotation";
+import {
+  EXPECTED_MIGRATION_FINGERPRINT_FLAG,
+  EXPECTED_SCHEMA_FINGERPRINT_FLAG,
+  LEGACY_AMBIGUOUS_FINGERPRINT_FLAG,
+  buildPvgContext,
+  buildReleaseIdentity,
+  deriveExpectedReleaseIdentity,
+  extractRuntimeIdentity,
+  releaseIdentityMatches,
+  resolveFingerprintExpectations,
+  runningGitShaLabel,
+  runningGitShaMatches,
+  runtimeIdentityOk,
+  type FingerprintExpectations,
+  type RuntimeIdentityFields,
+} from "../../src/lib/release/pvg-cli-contract";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Args
@@ -62,12 +106,56 @@ function hasFlag(flag: string): boolean {
 const productionUrl = argValue("--production-url") ?? process.env.BEYU_PRODUCTION_URL ?? "https://beyu-os-1-0.vercel.app";
 const environment = argValue("--environment") ?? "production";
 const expectedGitSha = argValue("--expected-git-sha") ?? process.env.GITHUB_SHA ?? null;
-const expectedFingerprint = argValue("--expected-fingerprint") ?? null;
 const expectedLatest = argValue("--expected-latest") ?? null;
 const expectedCount = argValue("--expected-count") ? Number(argValue("--expected-count")) : null;
 const persist = hasFlag("--persist");
 const runUrl = process.env.RUN_WORKFLOW_URL ?? null;
 const runId = process.env.RUN_ID ?? "local";
+
+/**
+ * A supplied flag MUST carry a value. Silently treating `--expected-foo` with no
+ * value as "no expectation" would drop a real integrity check without saying so;
+ * a misconfiguration must fail loudly instead (exit 2, config error).
+ */
+function flagValueRequired(flag: string): string | null {
+  if (!args.includes(flag)) return null;
+  const value = argValue(flag);
+  if (value === undefined || value.trim() === "") {
+    console.error(`PVG CLI configuration error: ${flag} requires a value.`);
+    annotateGateFailures("PVG", [`${flag} was supplied without a value`]);
+    process.exit(2);
+  }
+  return value;
+}
+
+// ── Fingerprint expectations (TWO distinct quantities, never compared) ───────
+// The migration-ledger sha256 and the physical-schema md5 are resolved through
+// separate flags. The legacy ambiguous `--expected-fingerprint` is refused by
+// `resolveFingerprintExpectations` (see ./src/lib/release/pvg-cli-contract.ts),
+// because it previously routed a schema md5 into the migration-ledger
+// expectation and deterministically failed two blocking checks. Refusing it —
+// rather than ignoring it — also prevents silently dropping the ledger check.
+function resolveExpectationsOrExit(): FingerprintExpectations {
+  const resolution = resolveFingerprintExpectations({
+    legacyAmbiguousFingerprint: flagValueRequired(LEGACY_AMBIGUOUS_FINGERPRINT_FLAG),
+    expectedMigrationFingerprint: flagValueRequired(EXPECTED_MIGRATION_FINGERPRINT_FLAG),
+    expectedSchemaFingerprint: flagValueRequired(EXPECTED_SCHEMA_FINGERPRINT_FLAG),
+  });
+  if (resolution.ok) {
+    // Resolved to a CONCRETE (non-union) type here: `main()` reads this value
+    // across a closure boundary, where TypeScript does not carry a narrowing
+    // performed at module scope.
+    return {
+      migrationFingerprint: resolution.migrationFingerprint,
+      schemaFingerprint: resolution.schemaFingerprint,
+    };
+  }
+  console.error(`PVG CLI configuration error: ${resolution.error}`);
+  annotateGateFailures("PVG", [resolution.error]);
+  process.exit(2);
+}
+
+const fingerprintExpectations: FingerprintExpectations = resolveExpectationsOrExit();
 
 // The pipeline's admin authority. The application pool reads DATABASE_URL at
 // first query; pointing it at the admin DSN is the SAME authority the deploy
@@ -106,7 +194,8 @@ async function probeJson(url: string, timeoutMs = 15000): Promise<ProbeResult> {
 async function main(): Promise<number> {
   console.log(`PVG target: ${environment} @ ${productionUrl}`);
   console.log(`Expected git sha: ${expectedGitSha ?? "(none provided)"}`);
-  console.log(`Expected migration fingerprint: ${expectedFingerprint ?? "(none provided)"}`);
+  console.log(`Expected migration-ledger fingerprint: ${fingerprintExpectations.migrationFingerprint ?? "(none provided)"}`);
+  console.log(`Expected schema fingerprint: ${fingerprintExpectations.schemaFingerprint ?? "(none provided)"}`);
 
   // ── 1/2. Runtime endpoints ────────────────────────────────────────────────
   // A `main` push starts this pipeline while the platform is still deploying
@@ -116,19 +205,14 @@ async function main(): Promise<number> {
   // artifact is not the released artifact.
   const identityDeadline = Date.now() + 12 * 60 * 1000;
   let identityRes = await probeJson(`${productionUrl}/api/health/identity`);
-  const shaMatches = (b: Record<string, unknown>): boolean =>
-    typeof b.gitSha === "string" &&
-    !!expectedGitSha &&
-    (b.gitSha === expectedGitSha ||
-      b.gitSha.startsWith(expectedGitSha.slice(0, 8)) ||
-      expectedGitSha.startsWith(b.gitSha.slice(0, 8)));
-  const runningShaLabel = (): string => {
-    const b = (identityRes.body ?? {}) as Record<string, unknown>;
-    return typeof b.gitSha === "string" ? b.gitSha.slice(0, 8) : "unavailable";
-  };
+  // The running identity is read from the canonical NESTED envelope on EVERY
+  // probe (`{ ok, system, identity: { … }, at }`) — never from the response
+  // root, and never falling back to the root when the envelope is absent.
+  const currentIdentity = (): RuntimeIdentityFields => extractRuntimeIdentity(identityRes.body);
+  const runningShaLabel = (): string => runningGitShaLabel(currentIdentity());
   while (
     Date.now() < identityDeadline &&
-    !(identityRes.ok && shaMatches((identityRes.body ?? {}) as Record<string, unknown>))
+    !(identityRes.ok && runningGitShaMatches(currentIdentity().gitSha, expectedGitSha))
   ) {
     console.log(
       `Waiting for production to serve the released identity (running: ${runningShaLabel()}; expected: ${expectedGitSha?.slice(0, 8) ?? "?"})…`,
@@ -138,8 +222,8 @@ async function main(): Promise<number> {
   }
   const healthRes = await probeJson(`${productionUrl}/api/health`);
   const liveRes = await probeJson(`${productionUrl}/api/health/live`);
-  const identityBody = (identityRes.body ?? {}) as Record<string, unknown>;
-  const identityOk = identityRes.ok && typeof identityBody.releaseId === "string" && typeof identityBody.gitSha === "string";
+  const identity = extractRuntimeIdentity(identityRes.body);
+  const identityOk = runtimeIdentityOk(identityRes.ok, identity);
   const healthBody = (healthRes.body ?? {}) as { checks?: { database?: string } };
   const runtimeHealth = healthRes.ok && healthBody.checks?.database === "UP";
   const livenessOk = liveRes.ok;
@@ -171,64 +255,46 @@ async function main(): Promise<number> {
   }
 
   // ── Assemble identity ─────────────────────────────────────────────────────
-  const releaseIdentity: ReleaseIdentity = {
-    releaseId: typeof identityBody.releaseId === "string" ? identityBody.releaseId : "UNKNOWN",
-    gitSha: typeof identityBody.gitSha === "string" ? identityBody.gitSha : "UNKNOWN",
-    repository: typeof identityBody.repository === "string" ? identityBody.repository : "unknown",
-    buildId: typeof identityBody.buildId === "string" ? identityBody.buildId : "UNKNOWN",
-    deploymentId: typeof identityBody.deploymentId === "string" ? identityBody.deploymentId : "UNKNOWN",
-    environment: typeof identityBody.environment === "string" ? identityBody.environment : environment,
-    applicationVersion: typeof identityBody.applicationVersion === "string" ? identityBody.applicationVersion : "BEYU-OS/1.0.0",
-    runtimeVersion: typeof identityBody.runtimeVersion === "string" ? identityBody.runtimeVersion : "BEYU-OS/1.0.0",
-    migrationFingerprint: dbState.migrationFingerprint,
-    latestMigration: dbState.latestMigration,
-    migrationCount: dbState.migrationCount,
-    schemaFingerprint: dbState.schemaFingerprint,
-    releaseTimestamp: typeof identityBody.releaseTimestamp === "string" ? identityBody.releaseTimestamp : new Date().toISOString(),
-  };
-
-  const expectedReleaseIdentity = expectedGitSha
-    ? { gitSha: expectedGitSha, environment }
-    : { environment };
+  // Contract logic lives in `src/lib/release/pvg-cli-contract.ts` (pure and
+  // unit-tested), so the adapter defect class that reached production cannot
+  // recur unnoticed.
+  const releaseIdentity: ReleaseIdentity = buildReleaseIdentity({
+    identity,
+    db: dbState,
+    environment,
+  });
 
   // Release-identity mismatch is decisive: if the endpoint did not answer or
   // the running build is not the released commit, the gate FAILS here.
-  const identityMatches = identityOk && expectedGitSha
-    ? releaseIdentity.gitSha.startsWith(expectedGitSha.slice(0, 8)) || expectedGitSha.startsWith(releaseIdentity.gitSha.slice(0, 8))
-    : identityOk;
-
-  const pvgResult = await runPvg({
-    releaseIdentity,
-    expectedReleaseIdentity: identityMatches ? expectedReleaseIdentity : { ...expectedReleaseIdentity, gitSha: "MISMATCH" },
-    expectedMigrationFingerprint: expectedFingerprint,
-    expectedSchemaFingerprint: null,
-    expectedMigrationCount: expectedCount,
-    expectedLatestMigration: expectedLatest,
-    environment,
-    correlationId: `pvg-${runId}`,
-    traceId: `pvg-${runId}`,
-    dbConnected: dbState.connected,
-    migrationCount: dbState.migrationCount,
-    latestMigration: dbState.latestMigration,
-    migrationFingerprint: dbState.migrationFingerprint,
-    migrationFingerprintMatches:
-      expectedFingerprint !== null
-        ? dbState.migrationFingerprint !== null && dbState.migrationFingerprint === expectedFingerprint
-        : null,
-    schemaFingerprint: dbState.schemaFingerprint,
-    schemaMatches: null,
-    runtimeHealth: runtimeHealth && livenessOk,
-    authzChecks: {
-      rbac: security.rbac,
-      abac: security.abac,
-      rls: security.rls,
-      capPostingLocked: security.capPostingLocked,
-      noeliaBoundary: security.noeliaBoundary,
-    },
-    eventOutboxHealthy: events.outboxHealthy,
-    eventChainIntact: events.chainIntact,
-    criticalReadiness: runtimeHealth,
+  const identityMatches = releaseIdentityMatches({
+    identityOk,
+    actualGitSha: identity.gitSha,
+    expectedGitSha,
   });
+
+  const expectedReleaseIdentity = deriveExpectedReleaseIdentity({
+    expectedGitSha,
+    environment,
+    identityMatches,
+  });
+
+  const pvgResult = await runPvg(
+    buildPvgContext({
+      releaseIdentity,
+      expectedReleaseIdentity,
+      environment,
+      correlationId: `pvg-${runId}`,
+      traceId: `pvg-${runId}`,
+      db: dbState,
+      security,
+      events,
+      runtimeHealthy: runtimeHealth && livenessOk,
+      criticalReadiness: runtimeHealth,
+      expectations: fingerprintExpectations,
+      expectedMigrationCount: expectedCount,
+      expectedLatestMigration: expectedLatest,
+    }),
+  );
 
   const evidence = {
     ...pvgResult,

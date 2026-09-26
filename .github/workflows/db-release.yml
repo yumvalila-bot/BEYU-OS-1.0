@@ -87,7 +87,14 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     outputs:
+      # PHYSICAL-SCHEMA md5 (public schema state) — consumed by `db-release
+      # verify` / `db-release drift` and by PVG's --expected-schema-fingerprint.
       expected-fingerprint: ${{ steps.capture.outputs.fingerprint }}
+      # MIGRATION-LEDGER sha256 (ordered beyu_migrations.checksum) — consumed ONLY
+      # by PVG's --expected-migration-fingerprint. Emitted by the canonical
+      # implementation in src/lib/release/migration-fingerprint.ts. It is NOT
+      # interchangeable with the schema md5 above.
+      ledger-fingerprint: ${{ steps.capture.outputs.ledger-fingerprint }}
       expected-latest: ${{ steps.capture.outputs.latest }}
       expected-count: ${{ steps.capture.outputs.count }}
     steps:
@@ -122,11 +129,13 @@ jobs:
         run: |
           npx tsx scripts/db-release.ts drift > preflight-state.json
           {
+            # Two distinct quantities, two distinct outputs — never merged.
             echo "fingerprint=$(jq -r '.fingerprint' preflight-state.json)"
+            echo "ledger-fingerprint=$(jq -r '.ledgerFingerprint' preflight-state.json)"
             echo "latest=$(jq -r '.repository.latest' preflight-state.json)"
             echo "count=$(jq -r '.repository.migrationCount' preflight-state.json)"
           } >> "$GITHUB_OUTPUT"
-          jq '{fingerprint, repository: .repository}' preflight-state.json
+          jq '{fingerprint, ledgerFingerprint, repository: .repository}' preflight-state.json
 
   # ─────────────────────────────────────────────────────────────────────────
   # LIVE PREFLIGHT — read-only inspection of the production database.
@@ -401,7 +410,13 @@ jobs:
         run: npm ci
       - name: Run PVG against production (fail-closed, evidence persisted)
         env:
-          EXPECTED_FINGERPRINT: ${{ needs.preflight-repo.outputs.expected-fingerprint }}
+          # Keep the two fingerprints apart: the schema md5 goes to the schema
+          # expectation, the ledger sha256 goes to the migration expectation.
+          # Supplying the schema md5 as a migration fingerprint made
+          # database_migration_state and database_release_compatibility fail for
+          # every release (a schema md5 can never equal a ledger sha256).
+          EXPECTED_SCHEMA_FINGERPRINT: ${{ needs.preflight-repo.outputs.expected-fingerprint }}
+          EXPECTED_MIGRATION_FINGERPRINT: ${{ needs.preflight-repo.outputs.ledger-fingerprint }}
           EXPECTED_LATEST: ${{ needs.preflight-repo.outputs.expected-latest }}
           EXPECTED_COUNT: ${{ needs.preflight-repo.outputs.expected-count }}
         run: |
@@ -409,7 +424,8 @@ jobs:
             --environment production \
             --production-url "$PRODUCTION_URL" \
             --expected-git-sha "${{ github.sha }}" \
-            --expected-fingerprint "$EXPECTED_FINGERPRINT" \
+            --expected-migration-fingerprint "$EXPECTED_MIGRATION_FINGERPRINT" \
+            --expected-schema-fingerprint "$EXPECTED_SCHEMA_FINGERPRINT" \
             --expected-latest "$EXPECTED_LATEST" \
             --expected-count "$EXPECTED_COUNT" \
             --persist

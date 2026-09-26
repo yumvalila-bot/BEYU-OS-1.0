@@ -62,6 +62,7 @@ import { annotateError, annotateGateFailures, failSanitized } from "./lib/ci-ann
 //     `ALTER ROLE … SUPERUSER|BYPASSRLS` — which defeats RLS just as thoroughly —
 //     went undetected.
 import { scanDestructive } from "../src/lib/migration/integrity";
+import { migrationFingerprintFromChecksums } from "../src/lib/release/migration-fingerprint";
 import { sanitizeError } from "./lib/sanitize-error";
 import { buildPgConnectionConfig } from "../src/db/tls";
 
@@ -208,9 +209,25 @@ async function main() {
     pending: pending.map((m) => m.version),
     unexpectedMigrations: unexpected.map((a) => a.version),
     modifiedMigrations: modified.map((m) => m.version),
+    // PHYSICAL-SCHEMA md5 — the state of the `public` schema (tables, columns,
+    // constraints, indexes, RLS). This is the value `verify`/`drift` compare
+    // against `--expected-fingerprint` (captured from a clean scratch install of
+    // the same revision).
     fingerprint,
     expectedFingerprint: expectedFingerprint ?? null,
     fingerprintMatches: expectedFingerprint ? fingerprint === expectedFingerprint : null,
+    // MIGRATION-LEDGER sha256 over the ordered `beyu_migrations.checksum` values,
+    // produced by the canonical shared implementation
+    // (`src/lib/release/migration-fingerprint.ts`) — the SAME quantity
+    // `src/lib/release/live-pvg.ts` probes as `migrationFingerprint` and the PVG
+    // adapter consumes as `--expected-migration-fingerprint`.
+    //
+    // It is emitted here so the governed pipeline can supply a genuine ledger
+    // fingerprint to PVG instead of routing the schema md5 above into the
+    // migration expectation (a schema md5 can never equal a ledger sha256).
+    // The two fingerprints remain distinct values of distinct concepts and are
+    // never compared with each other.
+    ledgerFingerprint: migrationFingerprintFromChecksums(applied.map((a) => a.checksum)),
     rls: {
       enabledTables: rlsTables.map((t) => t.tablename),
       policyCount: policies.length,
