@@ -95,7 +95,10 @@ export class BeyuIdentityBridge {
       throw new ConflictException("SECTOR_USER_NOT_FOUND");
     }
     // Check for conflicts — only active links block re-linking.
-    const byCanonical = await this.conn.query<{ global_user_id: string; status: string }>(
+    const byCanonical = await this.conn.query<{
+      global_user_id: string;
+      status: string;
+    }>(
       `select global_user_id, status from beyu_identity.beyu_identity_links where beyu_user_id = $1`,
       [args.beyuUserId],
     );
@@ -106,7 +109,10 @@ export class BeyuIdentityBridge {
     ) {
       throw new ConflictException("CANONICAL_USER_ALREADY_LINKED");
     }
-    const bySector = await this.conn.query<{ beyu_user_id: string; status: string }>(
+    const bySector = await this.conn.query<{
+      beyu_user_id: string;
+      status: string;
+    }>(
       `select beyu_user_id, status from beyu_identity.beyu_identity_links where global_user_id = $1`,
       [args.globalUserId],
     );

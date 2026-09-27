@@ -25,7 +25,10 @@ import {
 } from "@nestjs/common";
 import * as fs from "fs";
 import * as path from "path";
-import { createTestDbConnection } from "./test-connection";
+import {
+  createTestDbConnectionWithMigrationRole,
+  type TestDbWithMigrationRole,
+} from "./test-connection";
 import type { DbConnection } from "./db-connection";
 import { IdentityRepository } from "./identity.repository";
 import { SessionService } from "./session.service";
@@ -199,6 +202,7 @@ jest.setTimeout(30000);
 
 describe("IdentityFederationService — canonical identity federation", () => {
   let conn: DbConnection;
+  let dbHandle: TestDbWithMigrationRole;
   let repo: IdentityRepository;
   let bridge: BeyuIdentityBridge;
   let identityAdapter: IdentityAdapter;
@@ -210,7 +214,12 @@ describe("IdentityFederationService — canonical identity federation", () => {
   let savedNodeEnv: string | undefined;
 
   beforeAll(async () => {
-    conn = await createTestDbConnection();
+    // Schema DDL is applied through the privileged migration channel (canonical
+    // separation of DDL authority from the runtime path): migration 032 creates
+    // a database ROLE and must not be replayed through the NOSUPERUSER
+    // application role. The functional path under test stays on `conn`.
+    dbHandle = await createTestDbConnectionWithMigrationRole();
+    conn = dbHandle.conn;
     repo = new IdentityRepository(conn as never);
     await repo.ensureSchema();
     // Apply the real migrations (health.* outbox/circuits tables needed by
@@ -223,16 +232,13 @@ describe("IdentityFederationService — canonical identity federation", () => {
       "database",
       "migrations",
     );
-    const exec = (
-      conn as unknown as { exec: (sql: string) => Promise<unknown> }
-    ).exec;
-    if (exec) {
-      for (const f of fs
-        .readdirSync(migDir)
-        .filter((f) => f.endsWith(".up.sql"))
-        .sort()) {
-        await exec.call(conn, fs.readFileSync(path.join(migDir, f), "utf8"));
-      }
+    for (const f of fs
+      .readdirSync(migDir)
+      .filter((f) => f.endsWith(".up.sql"))
+      .sort()) {
+      await dbHandle.applySchemaSql(
+        fs.readFileSync(path.join(migDir, f), "utf8"),
+      );
     }
     bridge = new BeyuIdentityBridge(conn as never);
     await bridge.ensureBridgeSchema();
@@ -244,7 +250,7 @@ describe("IdentityFederationService — canonical identity federation", () => {
 
   afterAll(async () => {
     await stub.close();
-    await (conn as unknown as { close(): Promise<void> }).close();
+    await dbHandle.close();
   });
 
   /** Build the stack with a given env map (adapter endpoint/token etc.). */

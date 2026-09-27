@@ -85,7 +85,14 @@ export interface MigrationFile {
   sql: string;
 }
 
-export interface LedgerRow {
+// MUST remain a `type` alias (not an `interface`): `DbConnection.query<T>`
+// constrains `T` to `DbQueryRow` (`{ [column: string]: unknown }`), and only
+// type aliases receive TypeScript's implicit index signature that satisfies
+// that constraint. Declaring this as an `interface` fails `tsc` with TS2344
+// ("Index signature for type 'string' is missing") — the exact regression the
+// Health typecheck gate caught at the Phase 3-7 merge. Keep the canonical
+// `tsc --noEmit` gate green when touching this shape.
+export type LedgerRow = {
   id: string;
   checksum: string;
   owner: string;
@@ -93,7 +100,7 @@ export interface LedgerRow {
   mode: string;
   applied_at: Date;
   provenance?: string;
-}
+};
 
 function readMigrations(): MigrationFile[] {
   const dir = path.resolve(__dirname, "..", "..", "database", "migrations");
@@ -174,19 +181,29 @@ async function ensureLedger(conn: PgConnection): Promise<void> {
   const colNames = new Set(cols.map((r) => r.column_name));
 
   if (!colNames.has("checksum")) {
-    await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS checksum text`);
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS checksum text`,
+    );
   }
   if (!colNames.has("owner")) {
-    await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS owner text`);
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS owner text`,
+    );
   }
   if (!colNames.has("sector")) {
-    await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS sector text`);
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS sector text`,
+    );
   }
   if (!colNames.has("mode")) {
-    await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS mode text`);
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS mode text`,
+    );
   }
   if (!colNames.has("provenance")) {
-    await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS provenance text`);
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS provenance text`,
+    );
   }
 }
 
@@ -224,7 +241,9 @@ async function up(conn: PgConnection): Promise<void> {
               provenance = 'checksum_backfilled_${provenance}'
           WHERE id = '${m.id}' AND checksum IS NULL;
         `);
-        console.log(`⚠  ${m.id} — legacy record backfilled with checksum and governance metadata`);
+        console.log(
+          `⚠  ${m.id} — legacy record backfilled with checksum and governance metadata`,
+        );
       }
       console.log(`⏭  ${m.id} already applied`);
       continue;
@@ -235,7 +254,14 @@ async function up(conn: PgConnection): Promise<void> {
       await tx.query(
         `INSERT INTO beyu_migrations (id, checksum, owner, sector, mode, provenance)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [m.id, m.checksum, HEALTH_MIGRATION_OWNER, HEALTH_MIGRATION_SECTOR, "APPLIED", provenance],
+        [
+          m.id,
+          m.checksum,
+          HEALTH_MIGRATION_OWNER,
+          HEALTH_MIGRATION_SECTOR,
+          "APPLIED",
+          provenance,
+        ],
       );
     });
     console.log(`✓  ${m.id} applied (checksum: ${m.checksum.slice(0, 16)}…)`);
@@ -274,14 +300,24 @@ async function status(conn: PgConnection): Promise<void> {
 
   console.log("BEYU Health OS — Migration Status\n");
   console.log(
-    "ID".padEnd(45) + "STATUS".padEnd(12) + "CHECKSUM OK".padEnd(12) + "OWNER".padEnd(10) + "MODE",
+    "ID".padEnd(45) +
+      "STATUS".padEnd(12) +
+      "CHECKSUM OK".padEnd(12) +
+      "OWNER".padEnd(10) +
+      "MODE",
   );
   console.log("─".repeat(90));
 
   for (const m of migs) {
     const record = appliedMap.get(m.id);
     if (!record) {
-      console.log(m.id.padEnd(45) + "PENDING".padEnd(12) + "n/a".padEnd(12) + "n/a".padEnd(10) + "n/a");
+      console.log(
+        m.id.padEnd(45) +
+          "PENDING".padEnd(12) +
+          "n/a".padEnd(12) +
+          "n/a".padEnd(10) +
+          "n/a",
+      );
     } else {
       const checksumOk =
         record.checksum && record.checksum === m.checksum
@@ -313,7 +349,10 @@ async function status(conn: PgConnection): Promise<void> {
   console.log(`Pending: ${migs.length - applied.length}`);
 }
 
-async function run(direction: "up" | "down" | "status", steps: number): Promise<void> {
+async function run(
+  direction: "up" | "down" | "status",
+  steps: number,
+): Promise<void> {
   const conn = new PgConnection({ connectionString: connectionString() });
   try {
     if (direction === "up") await up(conn);

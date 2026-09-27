@@ -27,7 +27,6 @@ import {
   formatReport,
   HEALTH_MIGRATION_OWNER,
   HEALTH_MIGRATION_SECTOR,
-  FINGERPRINT_JOIN,
 } from "./migration-governance";
 
 const MIGRATIONS_DIR = path.resolve(
@@ -65,7 +64,10 @@ describe("Health Migration Governance — Source Integrity", () => {
     // Modify one migration file.
     const upFile = files.find((f) => f.endsWith(".up.sql"))!;
     const content = fs.readFileSync(path.join(tmp, upFile), "utf8");
-    fs.writeFileSync(path.join(tmp, upFile), content + "\n-- governance-test-sentinel");
+    fs.writeFileSync(
+      path.join(tmp, upFile),
+      content + "\n-- governance-test-sentinel",
+    );
 
     const after = verifyGovernance(tmp);
 
@@ -78,19 +80,27 @@ describe("Health Migration Governance — Source Integrity", () => {
   it("all migrations are sequentially numbered without gaps", () => {
     const result = verifyGovernance(MIGRATIONS_DIR);
     expect(result.sequential).toBe(true);
-    expect(result.issues.filter((i) => i.code === "SEQUENCE_GAP")).toHaveLength(0);
-    expect(result.issues.filter((i) => i.code === "SEQUENCE_DUPLICATE")).toHaveLength(0);
+    expect(result.issues.filter((i) => i.code === "SEQUENCE_GAP")).toHaveLength(
+      0,
+    );
+    expect(
+      result.issues.filter((i) => i.code === "SEQUENCE_DUPLICATE"),
+    ).toHaveLength(0);
   });
 
   it("every migration has a matching down file", () => {
     const result = verifyGovernance(MIGRATIONS_DIR);
     expect(result.allDownsPresent).toBe(true);
-    expect(result.issues.filter((i) => i.code === "MISSING_DOWN_FILE")).toHaveLength(0);
+    expect(
+      result.issues.filter((i) => i.code === "MISSING_DOWN_FILE"),
+    ).toHaveLength(0);
   });
 
   it("no migration file is empty", () => {
     const result = verifyGovernance(MIGRATIONS_DIR);
-    expect(result.issues.filter((i) => i.code === "EMPTY_MIGRATION")).toHaveLength(0);
+    expect(
+      result.issues.filter((i) => i.code === "EMPTY_MIGRATION"),
+    ).toHaveLength(0);
     for (const f of result.files) {
       expect(f.byteLength).toBeGreaterThan(0);
     }
@@ -124,7 +134,9 @@ describe("Health Migration Governance — Source Integrity", () => {
   it("formatReport produces a readable governance report", () => {
     const result = verifyGovernance(MIGRATIONS_DIR);
     const report = formatReport(result);
-    expect(report).toContain("BEYU Health OS — Migration Governance Verification");
+    expect(report).toContain(
+      "BEYU Health OS — Migration Governance Verification",
+    );
     expect(report).toContain(`Owner:         ${HEALTH_MIGRATION_OWNER}`);
     expect(report).toContain(`Sector:        ${HEALTH_MIGRATION_SECTOR}`);
     expect(report).toContain("Fingerprint:");
@@ -161,27 +173,17 @@ describe("Health Migration Governance — Fingerprint Mechanics", () => {
 
 describe("Health Migration Governance — Sequential Verification", () => {
   it("verifySequential returns true for correct sequence", () => {
-    const files = [
-      { seq: "001" },
-      { seq: "002" },
-      { seq: "003" },
-    ] as any;
+    const files = [{ seq: "001" }, { seq: "002" }, { seq: "003" }] as any;
     expect(verifySequential(files)).toBe(true);
   });
 
   it("verifySequential returns false for gaps", () => {
-    const files = [
-      { seq: "001" },
-      { seq: "003" },
-    ] as any;
+    const files = [{ seq: "001" }, { seq: "003" }] as any;
     expect(verifySequential(files)).toBe(false);
   });
 
   it("verifySequential returns false for wrong padding", () => {
-    const files = [
-      { seq: "1" },
-      { seq: "2" },
-    ] as any;
+    const files = [{ seq: "1" }, { seq: "2" }] as any;
     expect(verifySequential(files)).toBe(false);
   });
 });
@@ -190,10 +192,15 @@ describe("Health Migration Governance — Detecting Violations", () => {
   it("detects missing down file", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "health-mig-test-"));
     // Create an up migration without a down.
-    fs.writeFileSync(path.join(tmp, "001_test.up.sql"), "CREATE TABLE test (id int);");
+    fs.writeFileSync(
+      path.join(tmp, "001_test.up.sql"),
+      "CREATE TABLE test (id int);",
+    );
 
     const result = verifyGovernance(tmp);
-    expect(result.issues.some((i) => i.code === "MISSING_DOWN_FILE")).toBe(true);
+    expect(result.issues.some((i) => i.code === "MISSING_DOWN_FILE")).toBe(
+      true,
+    );
     expect(result.allDownsPresent).toBe(false);
 
     fs.rmSync(tmp, { recursive: true });
@@ -201,10 +208,16 @@ describe("Health Migration Governance — Detecting Violations", () => {
 
   it("detects sequence gap", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "health-mig-test-"));
-    fs.writeFileSync(path.join(tmp, "001_a.up.sql"), "CREATE TABLE a (id int);");
+    fs.writeFileSync(
+      path.join(tmp, "001_a.up.sql"),
+      "CREATE TABLE a (id int);",
+    );
     fs.writeFileSync(path.join(tmp, "001_a.down.sql"), "DROP TABLE a;");
     // Gap: missing 002.
-    fs.writeFileSync(path.join(tmp, "003_c.up.sql"), "CREATE TABLE c (id int);");
+    fs.writeFileSync(
+      path.join(tmp, "003_c.up.sql"),
+      "CREATE TABLE c (id int);",
+    );
     fs.writeFileSync(path.join(tmp, "003_c.down.sql"), "DROP TABLE c;");
 
     const result = verifyGovernance(tmp);
