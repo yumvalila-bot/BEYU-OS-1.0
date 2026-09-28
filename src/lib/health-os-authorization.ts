@@ -6,10 +6,18 @@
  * which links sector users to canonical BEYU users.
  *
  * The table lives in the beyu_identity schema (created by Health backend migration 002).
+ *
+ * LIFECYCLE (Health migration 031): links carry `status` ∈ {active, revoked,
+ * expired}. Only `active` links authorize — the same rule the Health backend's
+ * own bridge enforces (BeyuIdentityBridge.requireCanonicalLink). Revocation is
+ * a status change, not a row delete, so a gate that ignores `status` would keep
+ * authorizing revoked and expired identities. A database without the 031
+ * column cannot answer the question and therefore fails closed
+ * (AUTHORIZATION_SERVICE_UNAVAILABLE), never open.
  */
 
 import { db } from "@/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { pgSchema, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
 // The beyu_identity schema (Health backend's isolation boundary)
@@ -24,21 +32,27 @@ const beyuIdentityLinks = beyuIdentitySchema.table(
     beyuPartyId: text("beyu_party_id"),
     linkedBy: text("linked_by").notNull(),
     linkedAt: timestamp("linked_at", { withTimezone: true }).notNull().defaultNow(),
+    status: text("status").notNull(),
   }
 );
 
 /**
  * Check if a canonical BEYU user has Health OS authorization.
  *
- * A user is authorized for Health OS if they have a canonical identity link
- * in the beyu_identity.beyu_identity_links table.
+ * A user is authorized for Health OS if they have an ACTIVE canonical identity
+ * link in the beyu_identity.beyu_identity_links table.
  *
  * Returns false if:
  * - No link exists (fail-closed)
+ * - The link is revoked or expired (fail-closed; reported as NOT_LINKED —
+ *   there is no active link)
  * - The table doesn't exist (Health backend not deployed)
  * - Query fails (database error)
  */
 let warnedAuthorizationUnavailable = false;
+
+/** The only lifecycle status that authorizes (Health migration 031). */
+export const ACTIVE_LINK_STATUS = "active";
 
 export async function checkHealthOSAuthorization(beyuUserId: string): Promise<{
   authorized: boolean;
@@ -57,7 +71,12 @@ export async function checkHealthOSAuthorization(beyuUserId: string): Promise<{
       const [row] = await tx
         .select()
         .from(beyuIdentityLinks)
-        .where(eq(beyuIdentityLinks.beyuUserId, beyuUserId))
+        .where(
+          and(
+            eq(beyuIdentityLinks.beyuUserId, beyuUserId),
+            eq(beyuIdentityLinks.status, ACTIVE_LINK_STATUS),
+          ),
+        )
         .limit(1);
       return row;
     });

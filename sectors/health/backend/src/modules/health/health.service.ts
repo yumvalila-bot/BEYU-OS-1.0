@@ -5,9 +5,27 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import * as path from "node:path";
 import { DB_CONNECTION, type DbConnection } from "../identity/db-connection";
 import { AdapterRegistry } from "../integrations/adapter-registry";
 import { OutboxMetricsService } from "../events/outbox-metrics.service";
+import { readMigrationState } from "../../database/migration-ledger";
+
+/**
+ * Committed Health migration source, resolved identically from `src/` (ts-node,
+ * jest) and from the compiled `dist/` tree (`dist/modules/health` →
+ * `<pkg>/database/migrations`). The container image MUST ship this directory
+ * (see Dockerfile) — without it readiness reports MIGRATION_SOURCE_UNAVAILABLE
+ * and stays 503 (fail closed).
+ */
+export const HEALTH_MIGRATIONS_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "database",
+  "migrations",
+);
 
 /**
  * Health endpoints implementing the LIVE / READY / DEPENDENCY distinction.
@@ -92,22 +110,31 @@ export class HealthService {
     }
   }
 
+  /**
+   * Migrations are "up" only when the governed ledger (`beyu_migrations`, the
+   * table migration-runner.ts writes) contains every committed migration with
+   * a matching checksum, nothing unknown, and therefore the expected
+   * fingerprint. Previously this read `health.schema_migrations`, a table
+   * nothing creates, so readiness could never pass (DEP-3).
+   */
   private async checkMigrations() {
     try {
-      // health.schema_migrations is populated by migration-runner; if table
-      // is absent we return "unknown" (not a hard failure in dev).
-      const rows = await this.db.query<{ version: string; applied_at: Date }>(
-        `SELECT version, applied_at FROM health.schema_migrations
-          ORDER BY applied_at DESC NULLS LAST LIMIT 1`,
-      );
-      if (!rows.length)
-        return {
-          status: "unknown" as const,
-          reason: "no migration history recorded",
-        };
-      return { status: "up" as const, latest: rows[0].version };
+      const st = await readMigrationState(this.db, HEALTH_MIGRATIONS_DIR);
+      return {
+        status: st.status,
+        reasons: st.reasons,
+        ledger: st.ledger,
+        committed: st.committed,
+        applied: st.applied,
+        latest: st.latest,
+        expected_fingerprint: st.expectedFingerprint,
+        ledger_fingerprint: st.ledgerFingerprint,
+        ...(st.pending.length ? { pending_sample: st.pending } : {}),
+        ...(st.drift.length ? { drift_sample: st.drift } : {}),
+        ...(st.unknown.length ? { unknown_sample: st.unknown } : {}),
+      };
     } catch (e: any) {
-      return { status: "unknown" as const, error: sanitizeErr(e) };
+      return { status: "down" as const, error: sanitizeErr(e) };
     }
   }
 

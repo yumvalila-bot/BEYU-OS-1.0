@@ -1,3 +1,5 @@
+> **SUPERSEDED — do not follow.** This is a legacy generic guide (TypeORM/Kubernetes) that does not describe this codebase. The governed contract is [`../backend/DEPLOYMENT_CONTRACT.md`](../backend/DEPLOYMENT_CONTRACT.md).
+
 # BEYU Health OS - Deployment and Infrastructure Guide
 
 ## Table of Contents

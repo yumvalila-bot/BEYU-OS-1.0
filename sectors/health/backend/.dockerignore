@@ -1,0 +1,9 @@
+# Keep the build context hermetic and secret-free.
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+*.log
+.git
