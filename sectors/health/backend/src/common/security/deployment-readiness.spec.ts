@@ -52,9 +52,9 @@ describe("Phase 7 — Deployment Configuration Audit", () => {
       COOKIE_SECURE: "true",
     });
     expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.includes("BEYU_IDENTITY_ENDPOINT"))).toBe(
-      true,
-    );
+    expect(
+      result.errors.some((e) => e.includes("BEYU_IDENTITY_ENDPOINT")),
+    ).toBe(true);
   });
 
   it("production boot fails without BEYU_IDENTITY_TOKEN when endpoint is set", () => {
@@ -152,6 +152,8 @@ describe("Phase 7 — Deployment Configuration Audit", () => {
       NODE_ENV: "development",
     });
     // Development should not have the same strict requirements.
-    expect(result.errors.filter((e) => e.includes("production"))).toHaveLength(0);
+    expect(result.errors.filter((e) => e.includes("production"))).toHaveLength(
+      0,
+    );
   });
 });

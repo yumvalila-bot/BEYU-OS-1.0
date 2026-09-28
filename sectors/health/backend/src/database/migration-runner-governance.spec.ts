@@ -25,7 +25,6 @@ import {
   computeFingerprint,
   HEALTH_MIGRATION_OWNER,
   HEALTH_MIGRATION_SECTOR,
-  FINGERPRINT_JOIN,
 } from "./migration-governance";
 
 const MIGRATIONS_DIR = path.resolve(
@@ -53,11 +52,21 @@ async function applyMigrationsGoverned(
   `);
 
   // Add governance columns.
-  await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS checksum text`);
-  await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS owner text`);
-  await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS sector text`);
-  await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS mode text`);
-  await conn.exec(`ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS provenance text`);
+  await conn.exec(
+    `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS checksum text`,
+  );
+  await conn.exec(
+    `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS owner text`,
+  );
+  await conn.exec(
+    `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS sector text`,
+  );
+  await conn.exec(
+    `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS mode text`,
+  );
+  await conn.exec(
+    `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS provenance text`,
+  );
 
   const files = fs
     .readdirSync(migrationsDir)
@@ -92,7 +101,14 @@ async function applyMigrationsGoverned(
           `UPDATE beyu_migrations
            SET checksum = $1, owner = $2, sector = $3, mode = $4, provenance = $5
            WHERE id = $6 AND checksum IS NULL`,
-          [checksum, HEALTH_MIGRATION_OWNER, HEALTH_MIGRATION_SECTOR, "BASELINED_LEGACY", "test-backfill", id],
+          [
+            checksum,
+            HEALTH_MIGRATION_OWNER,
+            HEALTH_MIGRATION_SECTOR,
+            "BASELINED_LEGACY",
+            "test-backfill",
+            id,
+          ],
         );
       }
       continue; // Already applied.
@@ -102,7 +118,14 @@ async function applyMigrationsGoverned(
     await conn.query(
       `INSERT INTO beyu_migrations (id, checksum, owner, sector, mode, provenance)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, checksum, HEALTH_MIGRATION_OWNER, HEALTH_MIGRATION_SECTOR, "APPLIED", "test"],
+      [
+        id,
+        checksum,
+        HEALTH_MIGRATION_OWNER,
+        HEALTH_MIGRATION_SECTOR,
+        "APPLIED",
+        "test",
+      ],
     );
     applied.push(id);
   }
@@ -124,7 +147,10 @@ describe("Health Migration Runner — Ledger Governance", () => {
   });
 
   it("records checksums for every applied migration", async () => {
-    const { applied, checksums } = await applyMigrationsGoverned(conn, MIGRATIONS_DIR);
+    const { applied, checksums } = await applyMigrationsGoverned(
+      conn,
+      MIGRATIONS_DIR,
+    );
     expect(applied.length).toBeGreaterThanOrEqual(30);
 
     // Verify every ledger row has a checksum.
@@ -140,9 +166,11 @@ describe("Health Migration Runner — Ledger Governance", () => {
   });
 
   it("records ownership metadata (owner=health, sector=HEALTH_OS)", async () => {
-    const ledger = await conn.query<{ id: string; owner: string; sector: string }>(
-      `SELECT id, owner, sector FROM beyu_migrations ORDER BY id`,
-    );
+    const ledger = await conn.query<{
+      id: string;
+      owner: string;
+      sector: string;
+    }>(`SELECT id, owner, sector FROM beyu_migrations ORDER BY id`);
 
     for (const row of ledger) {
       expect(row.owner).toBe(HEALTH_MIGRATION_OWNER);
@@ -196,9 +224,9 @@ describe("Health Migration Runner — Ledger Governance", () => {
     await applyMigrationsGoverned(tmpConn, MIGRATIONS_DIR);
 
     // Now attempt to apply the tampered set — should fail on checksum mismatch.
-    await expect(
-      applyMigrationsGoverned(tmpConn, tmp),
-    ).rejects.toThrow(/GOVERNANCE VIOLATION.*Checksum mismatch/);
+    await expect(applyMigrationsGoverned(tmpConn, tmp)).rejects.toThrow(
+      /GOVERNANCE VIOLATION.*Checksum mismatch/,
+    );
 
     await tmpConn.close();
     fs.rmSync(tmp, { recursive: true });
@@ -254,17 +282,21 @@ describe("Health Migration Runner — Legacy Ledger Upgrade", () => {
       "utf8",
     );
     await conn.exec(firstMigSql);
-    await conn.query(
-      `INSERT INTO beyu_migrations (id) VALUES ($1)`,
-      ["001_identity_foundation"],
-    );
+    await conn.query(`INSERT INTO beyu_migrations (id) VALUES ($1)`, [
+      "001_identity_foundation",
+    ]);
 
     // Now run the governed runner — it should detect the legacy record,
     // backfill the checksum, and NOT re-apply the first migration.
     await applyMigrationsGoverned(conn, MIGRATIONS_DIR);
 
     // Verify the legacy record was upgraded.
-    const row = await conn.query<{ id: string; checksum: string; owner: string; sector: string }>(
+    const row = await conn.query<{
+      id: string;
+      checksum: string;
+      owner: string;
+      sector: string;
+    }>(
       `SELECT id, checksum, owner, sector FROM beyu_migrations WHERE id = '001_identity_foundation'`,
     );
 
@@ -281,7 +313,10 @@ describe("Health Migration Runner — Legacy Ledger Upgrade", () => {
 describe("Health Migration Runner — Fail-Closed Properties", () => {
   it("migration files without down files cannot be applied (governance violation)", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "health-mig-nodown-"));
-    fs.writeFileSync(path.join(tmp, "001_test.up.sql"), "CREATE TABLE test (id int);");
+    fs.writeFileSync(
+      path.join(tmp, "001_test.up.sql"),
+      "CREATE TABLE test (id int);",
+    );
     // No down file.
 
     const db = new PGlite();
@@ -290,7 +325,10 @@ describe("Health Migration Runner — Fail-Closed Properties", () => {
     // The governed runner validates down files exist before applying.
     // This is enforced in the production runner's readMigrations().
     // Here we verify the governance module catches it.
-    const files = fs.readdirSync(tmp).filter((f) => f.endsWith(".up.sql")).sort();
+    const files = fs
+      .readdirSync(tmp)
+      .filter((f) => f.endsWith(".up.sql"))
+      .sort();
     for (const file of files) {
       const downFile = file.replace(/\.up\.sql$/, ".down.sql");
       const hasDown = fs.existsSync(path.join(tmp, downFile));

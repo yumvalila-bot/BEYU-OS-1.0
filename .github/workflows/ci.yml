@@ -719,7 +719,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-030 against real PostgreSQL
+      - name: Apply Health migrations 001-032 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -769,7 +769,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-030 are all recorded
+      - name: Verify Health migrations 001-032 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -830,9 +830,15 @@ jobs:
         # Same suite, database URLs set, so createTestDbConnection() returns a real
         # PgConnection against a fresh scratch database. This is where
         # rls-isolation, isolation-boundaries, identity.integration,
-        # migration-consistency, beyu-bridge, auth-wiring and
+        # migration-consistency, beyu-bridge, identity-federation, auth-wiring and
         # auth-context.middleware execute against a genuine PostgreSQL engine
         # rather than an in-process emulation.
+        #
+        # identity-federation is listed explicitly (Phase 8 finding): its
+        # revocation / TTL / link-once / fail-closed claims must hold against a
+        # real server, and its schema setup needs the privileged migration
+        # channel (migration 032 creates a ROLE). Omitting it here let a
+        # real-PG setup breakage hide behind the PGlite step.
         #
         # audit-chain-integrity and outbound-audit-integrity are listed here
         # because their central claims only hold against a real server. The
@@ -846,7 +852,7 @@ jobs:
           set -euo pipefail
           node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand \
             rls-isolation isolation-boundaries identity.integration migration-consistency \
-            beyu-bridge auth-wiring auth-context.middleware \
+            beyu-bridge identity-federation auth-wiring auth-context.middleware \
             audit-chain-integrity outbound-audit-integrity 2>&1 \
             | tee /tmp/health-tests-realpg.log
           grep -qE 'Tests:.*[1-9][0-9]* passed' /tmp/health-tests-realpg.log \

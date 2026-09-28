@@ -104,11 +104,36 @@ export function sha256(input: string): string {
 }
 
 /**
+ * Role-level DDL classification (Phase 8 finding, Phase 5 follow-up).
+ *
+ * Statements that CREATE / ALTER / DROP / COMMENT ON a database ROLE require
+ * CREATEROLE (or superuser) and therefore can NEVER be replayed through the
+ * NOSUPERUSER application role — not in a scratch test database, not anywhere.
+ * Migration 032 (`032_federation_read_grants`) is the canonical example: its
+ * `CREATE ROLE beyu_health_federation_read` / `COMMENT ON ROLE` statements must
+ * be applied by the privileged migration channel, while ordinary table/schema
+ * DDL and owner-level GRANTs stay on the application role so the established
+ * scratch-database ownership model (the app role owns what it creates) is
+ * preserved.
+ *
+ * This predicate is the single source of truth for that routing decision; the
+ * test harness (test-connection.ts) and the role-DDL contract spec both use it.
+ */
+const ROLE_LEVEL_DDL =
+  /\bCREATE\s+ROLE\b|\bALTER\s+ROLE\b|\bDROP\s+ROLE\b|\bCOMMENT\s+ON\s+ROLE\b/i;
+
+export function migrationRequiresPrivilegedRole(sql: string): boolean {
+  return ROLE_LEVEL_DDL.test(sql);
+}
+
+/**
  * Read all Health migration files from the given directory and compute
  * governance metadata. This is the single source of truth for Health
  * migration inventory.
  */
-export function readHealthMigrations(migrationsDir: string): HealthMigrationFile[] {
+export function readHealthMigrations(
+  migrationsDir: string,
+): HealthMigrationFile[] {
   if (!existsSync(migrationsDir)) {
     throw new Error(`Migration directory does not exist: ${migrationsDir}`);
   }
@@ -142,7 +167,9 @@ export function readHealthMigrations(migrationsDir: string): HealthMigrationFile
  * checksums. This matches the convention used by the root BEYU OS migration
  * fingerprint module.
  */
-export function computeFingerprint(orderedChecksums: readonly string[]): string | null {
+export function computeFingerprint(
+  orderedChecksums: readonly string[],
+): string | null {
   if (!orderedChecksums || orderedChecksums.length === 0) return null;
   const joined = orderedChecksums.join(FINGERPRINT_JOIN);
   return createHash("sha256").update(joined).digest("hex");
@@ -164,7 +191,9 @@ export function verifySequential(files: HealthMigrationFile[]): boolean {
  * Run the full governance verification. Returns a complete report of the
  * migration set's compliance with the governance contract.
  */
-export function verifyGovernance(migrationsDir: string): GovernanceVerification {
+export function verifyGovernance(
+  migrationsDir: string,
+): GovernanceVerification {
   const files = readHealthMigrations(migrationsDir);
   const issues: GovernanceIssue[] = [];
 

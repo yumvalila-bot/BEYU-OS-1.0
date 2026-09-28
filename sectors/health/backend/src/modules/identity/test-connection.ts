@@ -30,6 +30,7 @@ import { randomUUID } from "crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { Client } from "pg";
 import { PgConnection, PGliteConnection } from "./db-connection";
+import { migrationRequiresPrivilegedRole } from "../../database/migration-governance";
 
 export type TestDbConnection = PgConnection | PGliteConnection;
 
@@ -54,6 +55,7 @@ function parseConnectionString(url: string): ConnInfo {
 
 async function createScratchDatabase(base: ConnInfo): Promise<{
   url: string;
+  scratchName: string;
   drop: () => Promise<void>;
 }> {
   const scratchName = `test_${randomUUID().replace(/-/g, "")}`;
@@ -87,7 +89,7 @@ async function createScratchDatabase(base: ConnInfo): Promise<{
     }
   };
 
-  return { url, drop };
+  return { url, scratchName, drop };
 }
 
 function wrap(conn: PgConnection, drop: () => Promise<void>): PgConnection {
@@ -133,4 +135,71 @@ export async function createTestSuperuserConnection(): Promise<TestDbConnection>
     return realPg(superUrl);
   }
   return new PGliteConnection(new PGlite());
+}
+
+/**
+ * Application-role test connection paired with a privileged migration channel
+ * on the SAME scratch database.
+ *
+ * WHY: role-level DDL (`CREATE ROLE` / `ALTER ROLE` / `COMMENT ON ROLE` —
+ * e.g. migration 032) requires CREATEROLE and can never run through the
+ * NOSUPERUSER application role; the canonical path (CI's
+ * `npm run migration:identity:up`, production deploys) executes DDL with a
+ * privileged/admin role. `applySchemaSql` routes ONLY role-level DDL to
+ * `TEST_DATABASE_URL_SUPERUSER` and applies everything else through the
+ * application role, preserving the established scratch-database ownership
+ * model (the app role owns the schema objects it creates, so its DML works).
+ * The classification lives in `migrationRequiresPrivilegedRole()`
+ * (src/database/migration-governance.ts) — one source of truth.
+ *
+ * PGlite mode: the in-process engine's default role is already a superuser, so
+ * `applySchemaSql` is just `conn.exec`.
+ */
+export interface TestDbWithMigrationRole {
+  /** Application-role connection (or PGlite) — the functional path under test. */
+  conn: TestDbConnection;
+  /** Apply schema DDL on the same database via the privileged role. */
+  applySchemaSql(sql: string): Promise<void>;
+  /** Close both connections and drop the scratch database. */
+  close(): Promise<void>;
+}
+
+export async function createTestDbConnectionWithMigrationRole(): Promise<TestDbWithMigrationRole> {
+  const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) {
+    const conn = new PGliteConnection(new PGlite());
+    return {
+      conn,
+      applySchemaSql: (sql) => conn.exec(sql),
+      close: () => conn.close(),
+    };
+  }
+  const base = parseConnectionString(url);
+  const {
+    url: scratchUrl,
+    scratchName,
+    drop,
+  } = await createScratchDatabase(base);
+  const conn = wrap(new PgConnection({ connectionString: scratchUrl }), drop);
+  const superInfo = parseConnectionString(
+    process.env.TEST_DATABASE_URL_SUPERUSER || url,
+  );
+  const migrationConn = new PgConnection({
+    connectionString: `postgresql://${encodeURIComponent(
+      superInfo.user,
+    )}:${encodeURIComponent(superInfo.password)}@${superInfo.host}:${
+      superInfo.port
+    }/${scratchName}`,
+  });
+  return {
+    conn,
+    applySchemaSql: (sql) =>
+      migrationRequiresPrivilegedRole(sql)
+        ? migrationConn.exec(sql)
+        : conn.exec(sql),
+    close: async () => {
+      await migrationConn.close();
+      await conn.close(); // wrapped: also drops the scratch database
+    },
+  };
 }

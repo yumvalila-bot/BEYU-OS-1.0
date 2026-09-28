@@ -108,9 +108,9 @@ describe("BEYU Identity Bridge — Lifecycle Governance", () => {
   });
 
   it("revoked links DENY authorization (fail closed)", async () => {
-    await expect(
-      bridge.requireCanonicalLink(SECTOR_USER),
-    ).rejects.toThrow("CANONICAL_IDENTITY_LINK_REVOKED");
+    await expect(bridge.requireCanonicalLink(SECTOR_USER)).rejects.toThrow(
+      "CANONICAL_IDENTITY_LINK_REVOKED",
+    );
   });
 
   it("revocation is idempotent (revoke already-revoked link)", async () => {

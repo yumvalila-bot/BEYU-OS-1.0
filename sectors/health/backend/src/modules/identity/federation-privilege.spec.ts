@@ -17,7 +17,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { PGlite } from "@electric-sql/pglite";
 import { PGliteConnection } from "./db-connection";
-import { ensureBridgeSchema, ensureBoundarySchema } from "./boundary-schema";
 
 const MIGRATIONS_DIR = path.resolve(
   __dirname,
