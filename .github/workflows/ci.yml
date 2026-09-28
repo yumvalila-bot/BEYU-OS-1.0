@@ -862,6 +862,59 @@ jobs:
       - name: Build Health OS backend
         run: npm run build
 
+      - name: Boot compiled backend in production mode and verify readiness
+        # Regression gate for three defects that CI previously could not see
+        # because nothing ever started the built artifact:
+        #   DEP-1  `node dist/main` must load (tsconfig.build.json → CommonJS).
+        #   DEP-2  one DB connection contract: DATABASE_URL only, no DB_* set.
+        #   DEP-3  /health/ready must read the governed beyu_migrations ledger
+        #          and prove ledger fingerprint == committed-source fingerprint.
+        # Runs as the NON-superuser runtime role. Its only added privilege is
+        # SELECT on the ledger — the documented readiness grant. Every secret is
+        # an ephemeral random value generated inside this step; none is stored.
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "GRANT SELECT ON public.beyu_migrations TO beyu_health_runtime"
+          rnd() { openssl rand -hex 32; }
+          env -u DB_HOST -u DB_PORT -u DB_USERNAME -u DB_PASSWORD -u DB_DATABASE \
+            NODE_ENV=production PORT=3900 \
+            JWT_SECRET="$(rnd)" JWT_REFRESH_SECRET="$(rnd)" REFRESH_TOKEN_SECRET="$(rnd)" \
+            CSRF_SECRET="$(rnd)" ENCRYPTION_KEY="$(rnd)" MFA_ENCRYPTION_KEY="$(rnd)" \
+            JWT_ISSUER=beyu-health-os-ci JWT_AUDIENCE=beyu-health-os-ci COOKIE_SECURE=true \
+            CORS_ORIGIN=https://ci.invalid \
+            BEYU_IDENTITY_ENDPOINT=http://127.0.0.1:9 \
+            BEYU_IDENTITY_TOKEN="$(rnd)" \
+            QUEUE_BACKEND=redis REDIS_URL=redis://127.0.0.1:6399 \
+            node dist/main > /tmp/health-boot.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3900/health/live >/dev/null 2>&1; then break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "::error::compiled backend exited during boot"; cat /tmp/health-boot.log; exit 1
+            fi
+            sleep 1
+          done
+          code=$(curl -s -o /tmp/health-ready.json -w '%{http_code}' http://127.0.0.1:3900/health/ready)
+          echo "GET /health/ready -> $code"
+          node -e '
+            const b = JSON.parse(require("fs").readFileSync("/tmp/health-ready.json", "utf8"));
+            const m = (b.checks || {}).migrations || {};
+            console.log(JSON.stringify({ status: b.status, database: (b.checks||{}).database, migrations: m }, null, 2));
+            const ok = b.status === "ready" && m.status === "up" && m.ledger === "HEALTH" &&
+              m.expected_fingerprint && m.ledger_fingerprint === m.expected_fingerprint &&
+              m.applied === m.committed;
+            if (!ok) { console.error("::error::readiness did not prove a complete, fingerprint-matched ledger"); process.exit(1); }
+          '
+          [ "$code" = "200" ] || { echo "::error::/health/ready returned $code"; cat /tmp/health-boot.log; exit 1; }
+          for p in /auth/me /api/patients; do
+            c=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:3900$p")
+            echo "GET $p (unauthenticated) -> $c"
+            [ "$c" = "401" ] || { echo "::error::$p must be 401 without credentials, got $c"; exit 1; }
+          done
+          echo "Compiled production-mode boot, readiness and fingerprint verified."
+
       # SEQUENCED LAST, DELIBERATELY — and it is a hard gate, not a soft one.
       #
       # The Health backend currently carries pre-existing lint debt: 2522 errors,
@@ -917,6 +970,8 @@ jobs:
             /tmp/health-migrate-rerun.log
             /tmp/health-tests-pglite.log
             /tmp/health-tests-realpg.log
+            /tmp/health-boot.log
+            /tmp/health-ready.json
             /tmp/health-lint.log
           if-no-files-found: warn
           retention-days: 14

@@ -235,7 +235,17 @@ export default function App() {
     }
   }, [authStatus, authUser]);
 
-
+  // Every hook MUST run on every render, before any conditional return (Rules
+  // of Hooks). This memo previously sat below the authentication gates, so the
+  // first authenticated render called one more hook than the loading render
+  // and React aborted with error #310 — a blank page after every successful
+  // sign-in or session restore (FE-1).
+  const items = useMemo(() => {
+    if (role === "patient") return navPatient();
+    if (role === "trustee") return navTrustee();
+    if (role === "board") return navBoard();
+    return navMain();
+  }, [role]);
 
   // Authentication gates — the app is only reachable when authenticated.
   if (authStatus === "loading") {
@@ -253,12 +263,6 @@ export default function App() {
     return <Login onBack={() => setStage("landing")} />;
   }
 
-  const items = useMemo(() => {
-    if (role === "patient") return navPatient();
-    if (role === "trustee") return navTrustee();
-    if (role === "board") return navBoard();
-    return navMain();
-  }, [role]);
   const displayName = authUser?.displayName || authUser?.email || "User";
   const roleLabel = ROLES.find((r) => r.id === role)?.label || "User";
   const user = ROLE_USERS[role] || { name: displayName, role: roleLabel };

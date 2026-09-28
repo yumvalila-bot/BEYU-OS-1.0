@@ -39,6 +39,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { createHash } from "node:crypto";
 import { PgConnection } from "../modules/identity/db-connection";
+import { assertNotForeignLedger } from "./migration-ledger";
 
 /**
  * Health OS migration owner tag. Every ledger row written by this runner
@@ -355,6 +356,10 @@ async function run(
 ): Promise<void> {
   const conn = new PgConnection({ connectionString: connectionString() });
   try {
+    // LEDGER COLLISION GUARD (T-2) — before ANY statement (including the
+    // CREATE/ALTER in ensureLedger): if the visible `beyu_migrations` is the
+    // root BEYU OS ledger, refuse. Never alter another authority's ledger.
+    await assertNotForeignLedger(conn);
     if (direction === "up") await up(conn);
     else if (direction === "down") await down(conn, steps);
     else await status(conn);

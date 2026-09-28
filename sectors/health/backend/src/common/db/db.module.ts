@@ -1,19 +1,20 @@
 import { Global, Module, DynamicModule } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PoolConfig } from "pg";
 import {
   DB_CONNECTION,
   DbConnection,
   PgConnection,
 } from "../../modules/identity/db-connection";
+import { buildPgPoolConfig } from "./pg-connection-config";
 
 /**
- * Shared database module. Provides the DB_CONNECTION (PgConnection for
- * production) globally so every domain module can inject the canonical pool.
+ * Shared database module — the ONE provider of DB_CONNECTION for the whole
+ * Health backend (domain modules AND the identity module resolve this same
+ * pool; the identity module no longer builds a second one).
  *
- * Connection parameters are read from the ConfigService (see config/
- * database.config.ts): DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD,
- * DB_DATABASE.
+ * Connection parameters come exclusively from `buildPgPoolConfig`
+ * (./pg-connection-config.ts): `DATABASE_URL` is canonical and required in
+ * production; the legacy DB_* variables are a development-only fallback.
  *
  * The identity module also uses a PGlite in-memory instance for isolated
  * integration tests; that test-only factory remains in identity/db-connection.ts.
@@ -36,23 +37,9 @@ export class DbModule {
             "DB_CONNECTION must be overridden in test modules; use PGliteConnectionFactory.",
           );
         }
-        const pgConfig: PoolConfig = {
-          host: config.get<string>("DB_HOST", "localhost"),
-          port: config.get<number>("DB_PORT", 5432),
-          user: config.get<string>("DB_USERNAME", "postgres"),
-          password: config.get<string>("DB_PASSWORD", "password"),
-          database: config.get<string>("DB_DATABASE", "beyu_health"),
-          max: nodeEnv === "production" ? 20 : 10,
-          idleTimeoutMillis: 30_000,
-          connectionTimeoutMillis: 10_000,
-          // Always require TLS in production when the host is non-localhost.
-          ssl:
-            nodeEnv === "production" &&
-            config.get<string>("DB_HOST", "localhost") !== "localhost"
-              ? { rejectUnauthorized: true }
-              : undefined,
-        };
-        return new PgConnection(pgConfig);
+        return new PgConnection(
+          buildPgPoolConfig((key) => config.get<string>(key)),
+        );
       },
     };
 
