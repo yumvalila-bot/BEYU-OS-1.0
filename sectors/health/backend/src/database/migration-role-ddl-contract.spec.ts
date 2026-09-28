@@ -118,17 +118,13 @@ describe("migration role-DDL privilege contract", () => {
           fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf8"),
         );
       }
-      const rows = await (
-        db.conn as unknown as {
-          query: (sql: string) => Promise<
-            Array<{
-              rolcanlogin: boolean;
-              rolsuper: boolean;
-              rolbypassrls: boolean;
-            }>
-          >;
-        }
-      ).query(
+      // Typed through the shared DbConnection.query<T> contract (same shape
+      // constraint as LedgerRow: a type-alias row shape, no casts).
+      const rows = await db.conn.query<{
+        rolcanlogin: boolean;
+        rolsuper: boolean;
+        rolbypassrls: boolean;
+      }>(
         `SELECT rolcanlogin, rolsuper, rolbypassrls
            FROM pg_roles WHERE rolname = 'beyu_health_federation_read'`,
       );
