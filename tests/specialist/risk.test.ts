@@ -1098,7 +1098,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No specialist truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No specialist truth.
-    expect(n).toBe(71);
+    // + 0071: Federation & Trust shared capability (no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(n).toBe(72);
   });
 
   it("leaves all triggers enabled", async () => {

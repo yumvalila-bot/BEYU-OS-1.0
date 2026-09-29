@@ -945,7 +945,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No audit-substrate change; the ledger stays immutable.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No audit-substrate change; the ledger stays immutable.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(71);  });
+    // + 0071: Federation & Trust shared capability (no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(72);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

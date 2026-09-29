@@ -376,6 +376,89 @@ async function main(): Promise<void> {
       console.log(`revoked DML on tenant_domains for ${runtimeRole} (hostname binding is runtime-immutable)`);
     }
 
+    // 4f. Federation & Trust privileges (mirror of migration 0071).
+    //
+    //     Step 3's blanket grant would otherwise override 0071's revocations.
+    //     The contract:
+    //       - federation registry tables (jurisdictions, domains, evidence,
+    //         legal bases, authorities, services, datasets, schemas,
+    //         credentials, connectors, verifications, capabilities,
+    //         reconciliation runs/results): global reference data —
+    //         runtime-immutable configuration, SELECT only. Authority
+    //         inventory, evidence and verification state change only through
+    //         the governed admin path.
+    //       - operational tables (incidents, agreements, consents, access
+    //         requests, transitions): runtime INSERT/UPDATE, no DELETE
+    //         (federation governance history is never erased by the app).
+    //       - federation_approvals: INSERT/SELECT only — a recorded approval
+    //         decision is final; it is never updated or erased.
+    const fedRegistryTables = [
+      "federation_jurisdictions",
+      "federation_domains",
+      "federation_evidence",
+      "federation_legal_bases",
+      "federation_authorities",
+      "federation_services",
+      "federation_datasets",
+      "federation_schemas",
+      "federation_credentials",
+      "federation_connectors",
+      "federation_verifications",
+      "federation_capabilities",
+      "federation_reconciliation_runs",
+      "federation_reconciliation_results",
+    ];
+    for (const table of fedRegistryTables) {
+      const present = await client.query(`select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table]);
+      if ((present.rowCount ?? 0) === 0) continue; // table doesn't exist yet
+      await execFormat(`'revoke insert, update, delete on public.%I from %I'`, [table, runtimeRole]);
+      const check = await client.query(
+        `select has_table_privilege($1::text, 'public.' || $2, 'INSERT') as i,
+                has_table_privilege($1::text, 'public.' || $2, 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.' || $2, 'DELETE') as d,
+                has_table_privilege($1::text, 'public.' || $2, 'SELECT') as s`,
+        [runtimeRole, table],
+      );
+      const p = check.rows[0];
+      if (p.i || p.u || p.d) {
+        throw new Error(`federation registry table ${table} is still writable by ${runtimeRole} after revocation`);
+      }
+      if (!p.s) {
+        throw new Error(`federation registry table ${table} lost SELECT for ${runtimeRole}; the federation plane could no longer read reference data`);
+      }
+    }
+    console.log(`revoked DML on ${fedRegistryTables.length} federation registry tables for ${runtimeRole} (registry is runtime-immutable)`);
+    for (const table of ["federation_incidents", "federation_agreements", "federation_consents", "federation_access_requests", "federation_transitions"]) {
+      const present = await client.query(`select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table]);
+      if ((present.rowCount ?? 0) === 0) continue;
+      await execFormat(`'revoke delete on public.%I from %I'`, [table, runtimeRole]);
+      const check = await client.query(
+        `select has_table_privilege($1::text, 'public.' || $2, 'DELETE') as d,
+                has_table_privilege($1::text, 'public.' || $2, 'INSERT') as i,
+                has_table_privilege($1::text, 'public.' || $2, 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.' || $2, 'SELECT') as s`,
+        [runtimeRole, table],
+      );
+      const p = check.rows[0];
+      if (p.d) throw new Error(`federation table ${table} is still deletable by ${runtimeRole} after revocation`);
+      if (!p.i || !p.u || !p.s) throw new Error(`federation table ${table} lost required DML for ${runtimeRole}`);
+    }
+    const fedApprovalsPresent = await client.query(`select 1 from pg_tables where schemaname = 'public' and tablename = 'federation_approvals'`);
+    if ((fedApprovalsPresent.rowCount ?? 0) > 0) {
+      await execFormat(`'revoke update, delete on public.federation_approvals from %I'`, [runtimeRole]);
+      const ap = await client.query(
+        `select has_table_privilege($1::text, 'public.federation_approvals', 'DELETE') as d,
+                has_table_privilege($1::text, 'public.federation_approvals', 'UPDATE') as u,
+                has_table_privilege($1::text, 'public.federation_approvals', 'INSERT') as i,
+                has_table_privilege($1::text, 'public.federation_approvals', 'SELECT') as s`,
+        [runtimeRole],
+      );
+      const p = ap.rows[0];
+      if (p.d || p.u) throw new Error(`federation_approvals is still mutable by ${runtimeRole} after revocation`);
+      if (!p.i || !p.s) throw new Error(`federation_approvals lost required DML for ${runtimeRole}`);
+    }
+    console.log(`revoked destructive DML on federation operational tables for ${runtimeRole} (governance history is never erased)`);
+
     // 5. Verification of the runtime role's effective privileges.
     const attrs = await client.query(
       `select rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin, rolreplication, rolbypassrls

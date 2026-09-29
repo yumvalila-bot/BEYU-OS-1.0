@@ -1126,6 +1126,12 @@ describe("compliance module — creates no second truth", () => {
       "contract_obligations",
       "family_obligation_covenants",
       "family_obligations",
+      // 0071: Federation & Trust evidence/provenance registry — evidence rows
+      // that gate trust-plane state changes (who/when/what/result). It is the
+      // federation plane's own evidence register, not compliance-module truth;
+      // attributed here by exact name so this guard still fails if the
+      // compliance module itself ever defines a table.
+      "federation_evidence",
       "foundation_compliance_tasks",
       "foundation_evidence",
       "foundation_obligations",
@@ -1210,7 +1216,8 @@ describe("compliance module — creates no second truth", () => {
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No compliance-substrate change; obligations/evidence tables are untouched.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No compliance-substrate change; obligations/evidence tables are untouched.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(71);  });
+    // + 0071: Federation & Trust shared capability (no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(72);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

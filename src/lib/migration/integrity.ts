@@ -301,6 +301,15 @@ export const KNOWN_METADATA_DEBT = {
     // 0063–0069: the journal entry IS present and the gap is acknowledged and
     // reviewable, not hidden; no snapshot is fabricated.
     "0070",
+    // 0071 is the Federation & Trust shared capability (20 tables: the
+    // jurisdiction-generic registry plane plus the tenant-scoped operational
+    // plane, RLS on all of it, CHECK gates on the evidence-claimed states).
+    // Like every hand-authored migration in this repo it ships as reviewed SQL
+    // + journal entry; P2 policy refuses to synthesise a snapshot that was
+    // never generated, so the gap is registered here deliberately and
+    // visibly — the reviewable act, not silent rot. The applied DDL is
+    // verified against src/db/schema by the schema-drift gate instead.
+    "0071",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */
