@@ -206,6 +206,13 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         visibility: { kind: "permission", permission: "family:member.read" },
       },
       {
+        href: "/os/communications",
+        label: "Communications",
+        description: "World-class governed communications: WhatsApp, SMS, Email, In-App, Internal, unified conversations, routing, templates, consent, analytics, cost intelligence — shared capability, never an OS; CAP_POSTING remains LOCKED.",
+        icon: "bell",
+        visibility: { kind: "permission", permission: "communications:read" },
+      },
+      {
         href: "/os/noelia",
         label: "Noelia / HIVE",
         description: "The single governed BEYU AI identity and its policy-bound tool and workflow runtime; advisory, never self-authorizing.",
