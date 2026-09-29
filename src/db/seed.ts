@@ -14,6 +14,21 @@ import { hashPassword, sha256 } from "@/lib/crypto";
 import { encryptSecret, generateRecoveryCodes, generateTotpSecret, hashRecoveryCode } from "@/lib/mfa";
 import { PERMISSIONS, ROLES, HIGH_RISK_PERMISSIONS } from "@/lib/constants";
 import { runWaterfall } from "@/lib/waterfall";
+import {
+  TZ_JURISDICTION,
+  TZ_DOMAINS,
+  TZ_AUTHORITIES,
+  TZ_REGIONS,
+  TZ_LGAS,
+  TZ_SERVICES,
+  TZ_LEGAL_BASES,
+  toNationalAuthorityRow,
+  toRegionRow,
+  toLgaRow,
+  toLegalBasisRow,
+  toServiceRow,
+  toCapabilityRows,
+} from "./federation-data";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const PRODUCTION_BOOTSTRAP = process.env.NODE_ENV === "production" || process.env.BEYU_ENV === "production";
@@ -1660,6 +1675,87 @@ async function main() {
       { code: "PSSSF", name: "Public Service Social Security Fund", countryCode: "TZ", category: "SOCIAL_SECURITY", consumers: ["HCM"], integrationStatus: "CONTRACT_PENDING", interfaceKind: "PORTAL_ONLY", officialDocsUrl: "https://www.psssf.go.tz", authModel: "UNVERIFIED", credentialRefs: [] },
       { code: "MOCK_GOV_SANDBOX", name: "BEYU Government Sandbox (mock — pipeline verification only)", countryCode: "TZ", category: "OTHER_MDA", consumers: ["TESTS"], integrationStatus: "SANDBOX_READY", interfaceKind: "REST_JSON", authModel: "NONE", credentialRefs: [], sandboxEvidence: "tests/government — gateway pipeline suite (policy, idempotency, fail-closed states, RLS, audit) runs against this adapter in CI." },
     ])
+    .onConflictDoNothing();
+
+  /* ---------------- Federation & Trust (0071) — shared capability, TZ profile ----------------
+   * ONE shared capability; Tanzania is the first JURISDICTION PROFILE. Data lives in
+   * src/db/federation-data (never in federation-core source). Every row is seeded
+   * FAIL-CLOSED: REGISTERED/CLASSIFIED lifecycle, verification REGISTERED, api
+   * UNVERIFIED, cost UNKNOWN_COST, GovESB UNKNOWN, reconciliation PENDING. No
+   * connectors, credentials, agreements, LIVE/FREE_CONFIRMED claims or evidence
+   * are created here — production states are migration- and engine-gated and
+   * require recorded human approval. Cross-plane links (legacyAgencyCode) reuse
+   * the existing 0036 registry; nothing is duplicated.
+   */
+  await adminDb
+    .insert(s.federationJurisdictions)
+    .values([
+      {
+        code: TZ_JURISDICTION.code,
+        name: TZ_JURISDICTION.name,
+        kind: TZ_JURISDICTION.kind,
+        status: TZ_JURISDICTION.status,
+        countryCode: TZ_JURISDICTION.countryCode,
+        governmentStructure: TZ_JURISDICTION.governmentStructure,
+        authorityDirectorySource: TZ_JURISDICTION.authorityDirectorySource,
+        legalFrameworkReferences: [...TZ_JURISDICTION.legalFrameworkReferences],
+        dataProtectionFramework: TZ_JURISDICTION.dataProtectionFramework,
+        identityFramework: TZ_JURISDICTION.identityFramework,
+        integrationRegime: { ...TZ_JURISDICTION.integrationRegime, requirements: [...TZ_JURISDICTION.integrationRegime.requirements] },
+        networkRequirements: [...TZ_JURISDICTION.networkRequirements],
+        trustServices: [...TZ_JURISDICTION.trustServices],
+        dataResidency: { ...TZ_JURISDICTION.dataResidency },
+        crossBorderInterfaces: [...TZ_JURISDICTION.crossBorderInterfaces],
+        profileVersion: TZ_JURISDICTION.profileVersion,
+        notes: TZ_JURISDICTION.notes,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.federationDomains)
+    .values(
+      TZ_DOMAINS.map((d) => ({
+        jurisdictionCode: "TZ",
+        code: d.code,
+        displayName: d.displayName,
+        parentCode: d.parentCode ?? null,
+      })),
+    )
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.federationLegalBases)
+    .values(TZ_LEGAL_BASES.map(toLegalBasisRow))
+    .onConflictDoNothing();
+
+  const fedAuthorityRows = [
+    ...TZ_AUTHORITIES.map(toNationalAuthorityRow),
+    ...TZ_REGIONS.map(toRegionRow),
+    ...TZ_LGAS.map(toLgaRow),
+  ];
+  await adminDb
+    .insert(s.federationAuthorities)
+    .values(fedAuthorityRows)
+    .onConflictDoNothing();
+
+  const fedAuthorityIdByCode = new Map(fedAuthorityRows.map((r) => [r.code, r.id] as const));
+  const fedServiceRows = TZ_SERVICES.flatMap((svc) => {
+    const authorityId = fedAuthorityIdByCode.get(svc.authorityCode);
+    if (!authorityId) {
+      console.warn(`federation seed: skipping service ${svc.code} — unknown authority ${svc.authorityCode}`);
+      return [];
+    }
+    return [toServiceRow(svc, authorityId)];
+  });
+  await adminDb
+    .insert(s.federationServices)
+    .values(fedServiceRows)
+    .onConflictDoNothing();
+
+  await adminDb
+    .insert(s.federationCapabilities)
+    .values(toCapabilityRows())
     .onConflictDoNothing();
 
   await adminDb

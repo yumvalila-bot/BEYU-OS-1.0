@@ -432,6 +432,31 @@ export const PERMISSIONS = {
   // report sent to a government authority is a material external act.
   "government:integration.read": "Read the government integration registry and submission records",
   "government:submission.manage": "Submit governed operations (fiscal, claims, reports, verifications) to government systems through the canonical gateway",
+  // Federation & Trust — ONE shared BEYU OS capability (not an OS; migration
+  // 0071). Extends the Government Integration Fabric: the trust/discovery
+  // plane (authorities, services, evidence, verification, cost/access,
+  // legal basis, consent, agreements, connectors, reconciliation).
+  // Read/manage are split so registry visibility never implies the authority
+  // to mutate trust state. Approve and production.* are HIGH_RISK (MFA
+  // step-up): production activation is a governed human act — no AI role
+  // holds any federation:approve or federation:production.* permission.
+  "federation:read": "Read the federation trust plane (jurisdictions, authorities, services, evidence, coverage)",
+  "federation:manage": "Manage federation records within the governed admin path",
+  "federation:authority.read": "Read the federation authority registry",
+  "federation:authority.manage": "Register and reconcile federation authorities (discovery plane)",
+  "federation:service.read": "Read federation service records",
+  "federation:service.manage": "Register and manage federation services",
+  "federation:connector.read": "Read federation connector and health records",
+  "federation:connector.manage": "Provision, enable and disable federation connectors",
+  "federation:credential.manage": "Manage federation credential lifecycle (env-var references only — never secret values)",
+  "federation:agreement.read": "Read federation agreement records",
+  "federation:agreement.manage": "Record and manage federation agreements (evidence-backed)",
+  "federation:verification.read": "Read federation verification records",
+  "federation:verification.manage": "Record verification outcomes (evidence-gated)",
+  "federation:audit.read": "Read federation audit and incident records",
+  "federation:approve": "Approve or deny federation access requests (governed human approval)",
+  "federation:production.activate": "Activate a federation integration to production (requires recorded approval + evidence)",
+  "federation:production.revoke": "Revoke a production federation integration",
   "audit:log.read": "Read the immutable audit ledger",
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
@@ -542,6 +567,18 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   "blockchain:manage",
   "governance:policy.manage",
   "government:submission.manage",
+  // Federation production activation/revocation is a material external act on
+  // the same footing as a government submission: it changes whether BEYU can
+  // exchange data with an external authority in production. Step-up required.
+  "federation:production.activate",
+  "federation:production.revoke",
+  // Approving a federation access request is the human gate that stands
+  // between a request and protected external-data access.
+  "federation:approve",
+  // Credential lifecycle management touches the references government
+  // credentials are read from; mis-management can expose or break a live
+  // integration. Step-up required.
+  "federation:credential.manage",
   // Administrative user & tenant governance. Removing an identity or a tenant
   // is the irreversible end of an governed lifecycle: even though the rows are
   // retained (audit/legal attribution) and PII is anonymized, the act destroys
@@ -705,6 +742,25 @@ export const ROLES: Record<
       // implementation each — never duplicated per OS)
       "governance:resolution.read",
       "hcm:employee.read",
+      // Federation & Trust (shared capability, 0071): the platform admin
+      // operates the federation plane end-to-end. Production activation
+      // remains gated by a SEPARATE recorded approval (federation:approve,
+      // held by the CGO) plus production evidence — execution ≠ authority.
+      "federation:read",
+      "federation:manage",
+      "federation:authority.read",
+      "federation:authority.manage",
+      "federation:service.read",
+      "federation:service.manage",
+      "federation:connector.read",
+      "federation:connector.manage",
+      "federation:credential.manage",
+      "federation:agreement.read",
+      "federation:agreement.manage",
+      "federation:verification.read",
+      "federation:verification.manage",
+      "federation:production.activate",
+      "federation:production.revoke",
     ],
   },
   GROUP_CEO: {
@@ -854,6 +910,9 @@ export const ROLES: Record<
       "viz:asset.read",
       "viz:interaction.execute",
       "viz:export",
+      // Federation & Trust (shared capability, 0071): read-only visibility —
+      // external authorities consumed by this domain; no mutation, no approval.
+      "federation:read",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -935,6 +994,9 @@ export const ROLES: Record<
       "viz:asset.read",
       "viz:interaction.execute",
       "viz:export",
+      // Federation & Trust (shared capability, 0071): read-only visibility —
+      // external authorities consumed by this domain; no mutation, no approval.
+      "federation:read",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -1021,6 +1083,13 @@ export const ROLES: Record<
       "viz:scene.read",
       "viz:asset.read",
       "viz:interaction.execute",
+      // Federation & Trust (shared capability, 0071): the CGO holds the
+      // governed APPROVAL gate — access requests and production activation
+      // require this role's recorded decision. The CGO does not operate the
+      // plane (no manage verbs): separation of approval from execution.
+      "federation:read",
+      "federation:approve",
+      "federation:audit.read",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -1077,6 +1146,10 @@ export const ROLES: Record<
       "viz:asset.read",
       "viz:interaction.execute",
       "viz:export",
+      // Federation & Trust (shared capability, 0071): read + audit visibility
+      // for security/compliance oversight of the federation plane.
+      "federation:read",
+      "federation:audit.read",
     ],
   },
   FAMILY_OFFICE_PRINCIPAL: {
@@ -1317,6 +1390,11 @@ export const ROLES: Record<
       // legal act; the software records closure, it never assumes it.
       "contracts:read",
       "contracts:manage",
+      // Federation & Trust (shared capability, 0071): counsel reads the
+      // federation plane and its agreement records. Approving or mutating
+      // trust state is not a legal-review act.
+      "federation:read",
+      "federation:agreement.read",
     ],
   },
   /**
@@ -1451,6 +1529,9 @@ export const ROLES: Record<
       "viz:scene.read",
       "viz:asset.read",
       "viz:interaction.execute",
+      // Federation & Trust (shared capability, 0071): read-only visibility —
+      // external authorities consumed by this domain; no mutation, no approval.
+      "federation:read",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1498,6 +1579,9 @@ export const ROLES: Record<
       "viz:asset.manage",
       "viz:interaction.execute",
       "viz:export",
+      // Federation & Trust (shared capability, 0071): read-only visibility —
+      // external authorities consumed by this domain; no mutation, no approval.
+      "federation:read",
     ],
   },
   FOUNDATION_DIRECTOR: {
@@ -1576,6 +1660,9 @@ export const ROLES: Record<
       "viz:scene.read",
       "viz:asset.read",
       "viz:interaction.execute",
+      // Federation & Trust (shared capability, 0071): read-only visibility —
+      // external authorities consumed by this domain; no mutation, no approval.
+      "federation:read",
     ],
   },
   FOUNDATION_OFFICER: {
@@ -1700,6 +1787,11 @@ export const ROLES: Record<
       "viz:asset.read",
       "viz:interaction.execute",
       "viz:export",
+      // Federation & Trust (shared capability, 0071): independent audit
+      // visibility over federation records, incidents and reconciliations.
+      // No mutation and no operational read of the registry contents beyond
+      // what audit requires.
+      "federation:audit.read",
     ],
   },
   /**

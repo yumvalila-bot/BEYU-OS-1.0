@@ -276,6 +276,24 @@ export const ID_PREFIX = {
   vizDevice: "VZQ",
   vizRenderProfile: "VZP",
   vizInteraction: "VZI",
+  /* Federation & Trust — ONE shared BEYU OS capability (migration 0071). */
+  fedAuthority: "FDA",
+  fedService: "FDS",
+  fedConnector: "FDC",
+  fedDataset: "FDD",
+  fedSchema: "FDX",
+  fedCredential: "FDCR",
+  fedAgreement: "FDAG",
+  fedLegalBasis: "FDLB",
+  fedConsent: "FDCN",
+  fedEvidence: "FDEV",
+  fedVerification: "FDVRF",
+  fedIncident: "FDI",
+  fedAccessRequest: "FDAR",
+  fedApproval: "FDAP",
+  fedTransition: "FDTR",
+  fedReconciliationRun: "FDRN",
+  fedReconciliationResult: "FDRR",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
