@@ -21,6 +21,29 @@ export * from "./schema/government";
 export * from "./schema/search";
 
 /*
+ * FEDERATION & TRUST — shared BEYU OS capability (additive, migration 0071).
+ *
+ * ONE shared capability, NOT an OS: the comprehensive external-authority
+ * trust plane (jurisdiction profiles, authority inventory, services,
+ * datasets, schemas, connectors, credentials, agreements, legal bases,
+ * consents, evidence/provenance, verifications, incidents, access
+ * requests/approvals, jurisdiction transitions, capability negotiation,
+ * reconciliation). It EXTENDS the Government Integration Fabric (0036) —
+ * `government_agencies`/`government_submissions` remain the canonical
+ * outbound submission plane, cross-linked by
+ * `federation_authorities.legacy_agency_code` (one identity, two planes).
+ *
+ * Fail-closed by DB invariant (0071): LIVE-family lifecycle states require
+ * production evidence + named approver + approval reference; FREE_CONFIRMED
+ * requires cost evidence; VERIFIED+ verification requires evidence; APPROVED
+ * access requires a distinct approval row. Registry tables are global
+ * reference data (runtime SELECT-only, FORCE RLS); operational tables are
+ * tenant + entity scoped. Credentials carry env-var NAMES only — no secret
+ * value column exists in this module.
+ */
+export * from "./schema/federation";
+
+/*
  * UJENZI OS — construction Sector OS (additive).
  *
  * Projects, sites, phases, milestones, governed BOQ versions, cost records

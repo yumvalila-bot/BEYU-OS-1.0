@@ -498,6 +498,13 @@
       "when": 1790273512265,
       "tag": "0070_ujenzi_service_principal",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1790619112265,
+      "tag": "0071_federation_trust",
+      "breakpoints": true
     }
   ]
 }
