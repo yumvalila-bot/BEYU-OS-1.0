@@ -439,6 +439,13 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         visibility: { kind: "permission", permission: "government:integration.read" },
       },
       {
+        href: "/os/federation",
+        label: "Federation & Trust",
+        description: "Shared cross-jurisdiction capability registry: authorities, services, capabilities, GovESB requirements, cost and access posture — registration/verification only, never a connection claim.",
+        icon: "governance",
+        visibility: { kind: "permission", permission: "federation:read" },
+      },
+      {
         href: "/os/blockchain",
         label: "Blockchain Registry & Evidence",
         description: "Governed smart-contract provenance, evidence anchors and non-authoritative reconciliation.",
