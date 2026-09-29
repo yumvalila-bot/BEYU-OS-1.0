@@ -144,7 +144,7 @@ export async function createContact(input: {
   createdBy: string;
   methods?: { type: ContactMethodType; value: string; label?: string; isPrimary?: boolean }[];
 }): Promise<Contact360> {
-  const id = newId("CONT" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commContact);
   const [contact] = await db
     .insert(communicationContacts)
     .values({
@@ -179,7 +179,7 @@ export async function createContact(input: {
       const [method] = await db
         .insert(communicationContactMethods)
         .values({
-          id: newId("CMTH" as keyof typeof ID_PREFIX),
+          id: newId(ID_PREFIX.commContactMethod),
           contactId: id,
           tenantId: input.tenantId,
           methodType: m.type,
@@ -200,7 +200,7 @@ export async function createContact(input: {
       const [method] = await db
         .insert(communicationContactMethods)
         .values({
-          id: newId("CMTH" as keyof typeof ID_PREFIX),
+          id: newId(ID_PREFIX.commContactMethod),
           contactId: id,
           tenantId: input.tenantId,
           methodType: "PHONE",
@@ -216,7 +216,7 @@ export async function createContact(input: {
       const [method] = await db
         .insert(communicationContactMethods)
         .values({
-          id: newId("CMTH" as keyof typeof ID_PREFIX),
+          id: newId(ID_PREFIX.commContactMethod),
           contactId: id,
           tenantId: input.tenantId,
           methodType: "EMAIL",

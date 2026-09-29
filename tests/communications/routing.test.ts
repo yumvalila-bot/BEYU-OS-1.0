@@ -92,7 +92,7 @@ describe("communications — routing engine", () => {
       channels: ["EMAIL" as const],
       strategy: "SINGLE" as const,
       primaryChannel: "EMAIL" as const,
-      fallbackChannels: [] as const,
+      fallbackChannels: [] as unknown as ("EMAIL" | "WHATSAPP" | "SMS" | "IN_APP" | "INTERNAL" | "PUSH" | "VOICE")[],
       requiresConsent: false,
       reason: "Governance",
     };
@@ -120,7 +120,7 @@ describe("communications — routing engine", () => {
       channels: ["EMAIL" as const],
       strategy: "CONSENT_GATED" as const,
       primaryChannel: "EMAIL" as const,
-      fallbackChannels: [] as const,
+      fallbackChannels: [] as unknown as ("EMAIL" | "WHATSAPP" | "SMS" | "IN_APP" | "INTERNAL" | "PUSH" | "VOICE")[],
       requiresConsent: true,
       reason: "Marketing requires consent",
     };

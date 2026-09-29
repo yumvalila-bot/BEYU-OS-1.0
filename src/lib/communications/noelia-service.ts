@@ -72,7 +72,7 @@ export async function draftWithNoelia(
     subject = `Re: ${request.context.subject ?? request.messageType} — BEYU OS`;
   }
 
-  const decisionId = newId("AID" as keyof typeof ID_PREFIX);
+  const decisionId = newId(ID_PREFIX.aiDecision);
   await db.insert(aiDecisions).values({
     id: decisionId,
     tenantId: request.tenantId,
@@ -164,7 +164,7 @@ export async function recommendChannelWithNoelia(input: {
     reason = "Alert — WhatsApp for immediacy recommended";
   }
 
-  const decisionId = newId("AID" as keyof typeof ID_PREFIX);
+  const decisionId = newId(ID_PREFIX.aiDecision);
   await db.insert(aiDecisions).values({
     id: decisionId,
     tenantId: input.tenantId,
@@ -215,7 +215,7 @@ export async function summarizeConversationWithNoelia(
     messages.slice(-5).map((m) => `[${m.direction}] ${m.body.slice(0, 100)}`).join("\n") +
     "\n\n[Summary by Noelia — advisory, auditable]";
 
-  const decisionId = newId("AID" as keyof typeof ID_PREFIX);
+  const decisionId = newId(ID_PREFIX.aiDecision);
   await db.insert(aiDecisions).values({
     id: decisionId,
     tenantId,

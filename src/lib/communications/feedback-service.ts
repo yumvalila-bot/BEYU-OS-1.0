@@ -36,7 +36,7 @@ export async function createFeedback(input: {
   causationId?: string | null;
   createdBy: string;
 }): Promise<FeedbackRecord> {
-  const id = newId("FDBK" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commFeedback);
   const [row] = await db
     .insert(communicationFeedback)
     .values({

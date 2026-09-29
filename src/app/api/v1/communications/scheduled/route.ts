@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
     async (ctx) => {
       return withIdempotency(ctx, "communications.scheduled.create", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, ScheduleSchema);
-        const id = newId("CSCH" as keyof typeof ID_PREFIX);
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
-        const idempotencyKey = body.idempotencyKey ?? newId("IDEM" as keyof typeof ID_PREFIX);
+        const id = newId(ID_PREFIX.commScheduled);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
+        const idempotencyKey = body.idempotencyKey ?? newId(ID_PREFIX.idempotencyKey);
 
         const [row] = await db
           .insert(communicationScheduled)

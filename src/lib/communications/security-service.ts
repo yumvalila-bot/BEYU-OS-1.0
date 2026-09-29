@@ -39,7 +39,7 @@ export async function recordSecurityEvent(input: {
   ipAddress?: string;
   userAgent?: string;
 }): Promise<SecurityEventRecord> {
-  const id = newId("CSEC" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commSecurityEvent);
   const [row] = await db
     .insert(communicationSecurityEvents)
     .values({
@@ -188,7 +188,7 @@ export async function createRateLimit(input: {
   limitPerHour?: number;
   limitPerDay?: number;
 }): Promise<typeof communicationRateLimits.$inferSelect> {
-  const id = newId("RLIM" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commRateLimit);
   const [row] = await db
     .insert(communicationRateLimits)
     .values({

@@ -108,8 +108,8 @@ export async function POST(request: NextRequest) {
           return { status: 422, body: { error: { code: "BODY_REQUIRED", message: "Either body or templateCode is required" } } };
         }
 
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
-        const idempotencyKey = body.idempotencyKey ?? newId("IDEM" as keyof typeof ID_PREFIX);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
+        const idempotencyKey = body.idempotencyKey ?? newId(ID_PREFIX.idempotencyKey);
         const traceId = ctx.traceId;
 
         const baseIntent: CommunicationIntent = {
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
           recipient: body.recipient,
           channel: body.channel as never,
           messageType: body.messageType as never,
-          priority: body.priority as never,
-          classification: body.classification,
-          purpose: body.purpose as never,
+          priority: (body.priority ?? "NORMAL") as never,
+          classification: body.classification ?? "INTERNAL",
+          purpose: (body.purpose ?? "TRANSACTIONAL") as never,
           templateCode: body.templateCode,
           templateVariables: body.templateVariables,
           subject: body.subject,

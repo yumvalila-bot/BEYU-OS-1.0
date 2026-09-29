@@ -83,9 +83,9 @@ export default async function CommunicationsOverviewPage() {
                   <span className="text-[10.5px] beyu-muted">{m.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span>
                 </div>
                 <p className="mt-1 text-[11.5px] beyu-muted line-clamp-2">{m.body.slice(0, 200)}</p>
-                <div className="mt-1 text-[10px] beyu-muted">
-                  {m.sender} → {m.recipient} · {m.classification} · correlation {m.correlationId.slice(0, 12)} · {m.providerId ? `provider ${m.providerId.slice(0, 8)}` : "no provider"}
-                  {m.aiDrafted && <Badge tone="gold" className="ml-2">AI_DRAFTED</Badge>}
+                <div className="mt-1 flex items-center gap-2 text-[10px] beyu-muted">
+                  <span>{m.sender} → {m.recipient} · {m.classification} · correlation {m.correlationId.slice(0, 12)} · {m.providerId ? `provider ${m.providerId.slice(0, 8)}` : "no provider"}</span>
+                  {m.aiDrafted && <Badge tone="gold">AI_DRAFTED</Badge>}
                 </div>
               </div>
             ))}

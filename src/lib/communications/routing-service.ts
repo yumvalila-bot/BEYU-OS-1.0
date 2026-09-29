@@ -249,7 +249,7 @@ export async function createRoutingRule(input: {
   classification?: string | null;
   createdBy: string;
 }): Promise<RoutingRuleRecord> {
-  const id = newId("ROUTE" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commRoutingRule);
   const [row] = await db
     .insert(communicationRoutingRules)
     .values({

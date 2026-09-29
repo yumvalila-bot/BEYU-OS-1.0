@@ -100,7 +100,7 @@ export async function recordConsent(input: {
   createdBy: string;
   expiresAt?: Date | null;
 }): Promise<ConsentRecord> {
-  const id = newId("CONS" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commConsent);
   const [row] = await db
     .insert(communicationConsents)
     .values({
@@ -198,7 +198,7 @@ export async function setPreference(input: {
   language?: string;
   frequency?: string;
 }): Promise<PreferenceRecord> {
-  const id = newId("PREF" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commPreference);
   const [row] = await db
     .insert(communicationPreferences)
     .values({

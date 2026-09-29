@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
           tenantId: ctx.principal.tenantId,
           contactId: body.contactId,
           messageType: body.messageType,
-          priority: body.priority,
-          purpose: body.purpose,
-          context: body.context,
+          priority: body.priority ?? "NORMAL",
+          purpose: body.purpose ?? "TRANSACTIONAL",
+          context: body.context ?? {},
         });
         return apiOk({ recommendation, note: "Noelia RECOMMENDS, governance DECIDES — advisory only" }, ctx.traceId);
       },
@@ -70,8 +70,8 @@ export async function POST(request: NextRequest) {
           contactId: body.contactId,
           channel: body.channel as never,
           messageType: body.messageType,
-          purpose: body.purpose,
-          context: body.context,
+          purpose: body.purpose ?? "TRANSACTIONAL",
+          context: body.context ?? {},
           originalMessage: body.originalMessage,
           language: body.language,
         },

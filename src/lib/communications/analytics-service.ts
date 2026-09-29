@@ -155,7 +155,7 @@ export async function upsertDailyAnalytics(input: {
   totalActualCost?: number;
   costCurrency?: string;
 }): Promise<AnalyticsRecord> {
-  const id = newId("CANA" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commAnalytics);
   const [row] = await db
     .insert(communicationAnalyticsDaily)
     .values({

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return withIdempotency(ctx, "communications.reports.distribute", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, ReportSchema);
         const { newId, ID_PREFIX } = await import("@/lib/ids");
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         const result = await distributeReport(
           {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
             recipient: body.recipient,
             documentId: body.documentId,
             subject: body.subject,
-            classification: body.classification,
+            classification: body.classification ?? "CONFIDENTIAL",
             countryCode: body.countryCode,
             legalEntityId: body.legalEntityId,
             correlationId,

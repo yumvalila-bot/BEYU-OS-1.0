@@ -59,7 +59,7 @@ export async function createDocumentDelivery(input: {
 
   const doc = accessCheck.document!;
 
-  const id = newId("MATT" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commAttachment);
   const [attachment] = await db
     .insert(communicationAttachments)
     .values({

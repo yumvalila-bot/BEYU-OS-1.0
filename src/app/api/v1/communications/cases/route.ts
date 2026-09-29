@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
     async (ctx) => {
       return withIdempotency(ctx, "communications.cases.create", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, CreateCaseSchema);
-        const id = newId("CASE" as keyof typeof ID_PREFIX);
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const id = newId(ID_PREFIX.commCase);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         const [row] = await db
           .insert(communicationCases)

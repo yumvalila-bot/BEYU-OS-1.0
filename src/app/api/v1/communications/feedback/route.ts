@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       return withIdempotency(ctx, "communications.feedback.create", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, CreateFeedbackSchema);
 
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         const feedback = await createFeedback({
           tenantId: ctx.principal.tenantId,

@@ -14,7 +14,8 @@
 import { db } from "@/db";
 import { recordAudit, publishEvent, recordAuditTx, publishEventTx, type Tx } from "@/lib/audit";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import type { CommunicationIntent, RoutingDecision, DeliveryResult } from "./types";
+import type { CommunicationIntent, DeliveryResult } from "./types";
+import type { RoutingDecision } from "./routing-service";
 import { checkConsentAllowed } from "./consent-service";
 import { resolveContact360, findContactByMethod } from "./contact-service";
 import { evaluateRouting, applyChannelRecommendation, getSlaPolicyForContext } from "./routing-service";
@@ -223,20 +224,17 @@ export async function orchestrateCommunication(
     // Never claim CONNECTED without evidence — check provider status
     if (provider.status === "FAILED" || provider.status === "NOT_CONNECTED") {
       // Try fallback providers
+      let fallbackFound = false;
       for (const fallbackChannel of routingDecision.fallbackChannels) {
         const fallbackProvider = await getDefaultProvider(fallbackChannel, intent.tenantId, intent.countryCode ?? undefined);
         if (fallbackProvider && !["FAILED", "NOT_CONNECTED"].includes(fallbackProvider.status)) {
           routingDecision = { ...routingDecision, primaryChannel: fallbackChannel, reason: `${routingDecision.reason} → fallback ${fallbackChannel} (primary provider ${provider.status})` };
+          fallbackFound = true;
           break;
         }
       }
-      // If still failed, allow SIMULATED for testing
-      if (["FAILED", "NOT_CONNECTED"].includes(provider.status) && provider.status !== "SIMULATED") {
-        // Check if we have any fallback that works, otherwise fail
-        const hasFallback = routingDecision.fallbackChannels.length > 0;
-        if (!hasFallback) {
-          return { success: false, reason: `Provider ${provider.code} status ${provider.status} — no fallback available` };
-        }
+      if (!fallbackFound) {
+        return { success: false, reason: `Provider ${provider.code} status ${provider.status} — no fallback available` };
       }
     }
 

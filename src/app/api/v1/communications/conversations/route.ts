@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       return withIdempotency(ctx, "communications.conversations.create", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, CreateConversationSchema);
 
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         const conversation = await createConversation({
           tenantId: ctx.principal.tenantId,

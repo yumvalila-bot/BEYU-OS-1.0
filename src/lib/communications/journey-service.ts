@@ -42,7 +42,7 @@ export async function createJourney(input: {
   classification?: string;
   createdBy: string;
 }): Promise<JourneyRecord> {
-  const id = newId("JOUR" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commJourney);
   const [row] = await db
     .insert(communicationJourneys)
     .values({
@@ -92,7 +92,7 @@ export async function startJourneyRun(input: {
   causationId?: string | null;
   context?: Record<string, unknown>;
 }): Promise<JourneyRunRecord> {
-  const id = newId("JRUN" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commJourneyRun);
   const [row] = await db
     .insert(communicationJourneyRuns)
     .values({
@@ -259,7 +259,7 @@ export async function handleEventTrigger(
       journeyId: journey.id,
       tenantId,
       contactId,
-      correlationId: newId("CORR" as keyof typeof ID_PREFIX),
+      correlationId: newId(ID_PREFIX.correlationId),
       context,
     });
     runs.push(run);

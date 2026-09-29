@@ -139,7 +139,7 @@ export async function ingestWebhookEvent(input: WebhookIngestInput): Promise<Web
     .limit(1);
 
   if (!provider) {
-    const webhookId = newId("WHIN" as keyof typeof ID_PREFIX);
+    const webhookId = newId(ID_PREFIX.commWebhookEvent);
     await db.insert(communicationWebhookEvents).values({
       id: webhookId,
       providerCode,
@@ -180,7 +180,7 @@ export async function ingestWebhookEvent(input: WebhookIngestInput): Promise<Web
 
   // 2. Payload validation
   if (Buffer.byteLength(rawBody, "utf8") > MAX_PAYLOAD_BYTES) {
-    const webhookId = newId("WHIN" as keyof typeof ID_PREFIX);
+    const webhookId = newId(ID_PREFIX.commWebhookEvent);
     await db.insert(communicationWebhookEvents).values({
       id: webhookId,
       providerId: provider.id,
@@ -228,7 +228,7 @@ export async function ingestWebhookEvent(input: WebhookIngestInput): Promise<Web
   const sigResult = await verifySignature(provider, rawBody, headers);
 
   if (!sigResult.verified && provider.signingSecretRef) {
-    const webhookId = newId("WHIN" as keyof typeof ID_PREFIX);
+    const webhookId = newId(ID_PREFIX.commWebhookEvent);
     const providerEventId = extractProviderEventId(parsed, provider.channelCode);
     await db.insert(communicationWebhookEvents).values({
       id: webhookId,
@@ -293,7 +293,7 @@ export async function ingestWebhookEvent(input: WebhookIngestInput): Promise<Web
   const claimed = await db.execute(
     sql`INSERT INTO communication_webhook_events 
         (id, provider_id, provider_code, channel, tenant_id, event_type, raw_payload, parsed_payload, headers, signature_verified, verification_status, idempotency_key, provider_event_id, status, trace_id, correlation_id, source_ip)
-        VALUES (${newId("WHIN" as keyof typeof ID_PREFIX)}, ${provider.id}, ${providerCode}, ${provider.channelCode}, ${provider.tenantId}, ${((parsed.type as string) ?? (parsed.event as string) ?? "MESSAGE")}, ${rawBody.slice(0, 10000)}, ${JSON.stringify(parsed)}, ${JSON.stringify(headers)}, ${sigResult.verified}, ${sigResult.status}, ${idempotencyKey}, ${providerEventId}, 'RECEIVED', ${traceId}, ${correlationId}, ${sourceIp})
+        VALUES (${newId(ID_PREFIX.commWebhookEvent)}, ${provider.id}, ${providerCode}, ${provider.channelCode}, ${provider.tenantId}, ${((parsed.type as string) ?? (parsed.event as string) ?? "MESSAGE")}, ${rawBody.slice(0, 10000)}, ${JSON.stringify(parsed)}, ${JSON.stringify(headers)}, ${sigResult.verified}, ${sigResult.status}, ${idempotencyKey}, ${providerEventId}, 'RECEIVED', ${traceId}, ${correlationId}, ${sourceIp})
         ON CONFLICT (provider_code, idempotency_key) DO NOTHING
         RETURNING id`,
   );

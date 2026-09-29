@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       return withIdempotency(ctx, "communications.invoice.send", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, InvoiceSchema);
         const { newId, ID_PREFIX } = await import("@/lib/ids");
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         const result = await handleInvoiceEvent(
           {

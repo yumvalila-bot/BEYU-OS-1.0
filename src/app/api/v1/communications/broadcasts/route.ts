@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
     async (ctx) => {
       return withIdempotency(ctx, "communications.broadcasts.create", await request.json().catch(() => ({})), async () => {
         const body = await parseBody(request, CreateBroadcastSchema);
-        const id = newId("BCST" as keyof typeof ID_PREFIX);
-        const correlationId = body.correlationId ?? newId("CORR" as keyof typeof ID_PREFIX);
+        const id = newId(ID_PREFIX.commBroadcast);
+        const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 
         // Broadcast requires authorization, consent, audience definition, rate limiting,
         // scheduling, cancellation, preview, approval where required, deduplication, audit, cost visibility

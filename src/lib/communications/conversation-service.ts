@@ -96,7 +96,7 @@ export async function createConversation(input: {
   createdBy: string;
   metadata?: Record<string, unknown>;
 }): Promise<ConversationRecord> {
-  const id = newId("CONV" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commConversation);
   const [row] = await db
     .insert(communicationConversations)
     .values({

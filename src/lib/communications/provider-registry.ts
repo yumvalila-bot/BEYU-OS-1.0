@@ -116,7 +116,7 @@ export async function createProvider(input: {
   priority?: number;
   createdBy: string;
 }): Promise<ProviderRecord> {
-  const id = newId("PROV" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.provider);
   const [row] = await db
     .insert(communicationProviders)
     .values({

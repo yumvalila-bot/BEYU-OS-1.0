@@ -169,7 +169,7 @@ export async function createTemplate(input: {
   classification?: string;
   createdBy: string;
 }): Promise<TemplateRecord> {
-  const id = newId("TMPL" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commTemplate);
   const [row] = await db
     .insert(communicationTemplates)
     .values({

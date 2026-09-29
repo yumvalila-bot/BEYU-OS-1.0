@@ -80,7 +80,7 @@ export async function createMessage(input: {
     return { message: existing, isDuplicate: true };
   }
 
-  const id = newId("MSG" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commMessage);
 
   // Loop detection
   const loopCheck = await checkLoop(input.tenantId, input.correlationId, input.conversationId ?? null, input.channel);
@@ -129,7 +129,7 @@ export async function createMessage(input: {
 
   // Record loop detection
   await db.insert(communicationLoopDetections).values({
-    id: newId("LOOP" as keyof typeof ID_PREFIX),
+    id: newId(ID_PREFIX.commLoop),
     tenantId: input.tenantId,
     correlationId: input.correlationId,
     conversationId: input.conversationId,
@@ -141,7 +141,7 @@ export async function createMessage(input: {
   // Cost ledger entry (estimated)
   if (input.estimatedCost) {
     await db.insert(communicationCostLedger).values({
-      id: newId("COST" as keyof typeof ID_PREFIX),
+      id: newId(ID_PREFIX.commCost),
       tenantId: input.tenantId,
       messageId: id,
       providerId: input.providerId,
@@ -194,7 +194,7 @@ export async function updateMessageStatus(
   if (row) {
     // Delivery event
     await db.insert(communicationDeliveryEvents).values({
-      id: newId("DLEV" as keyof typeof ID_PREFIX),
+      id: newId(ID_PREFIX.commDeliveryEvent),
       messageId: id,
       tenantId,
       eventType: status,
@@ -280,7 +280,7 @@ export async function attachDocument(input: {
   fileSize?: number;
   accessExpiresAt?: Date | null;
 }): Promise<typeof communicationAttachments.$inferSelect> {
-  const id = newId("MATT" as keyof typeof ID_PREFIX);
+  const id = newId(ID_PREFIX.commAttachment);
   const [row] = await db
     .insert(communicationAttachments)
     .values({

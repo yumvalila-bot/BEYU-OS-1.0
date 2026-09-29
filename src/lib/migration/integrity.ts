@@ -310,6 +310,17 @@ export const KNOWN_METADATA_DEBT = {
     // visibly — the reviewable act, not silent rot. The applied DDL is
     // verified against src/db/schema by the schema-drift gate instead.
     "0071",
+    // 0072 is the Shared Communications Capability (26 tables: channels,
+    // providers, contacts, methods, consent, preferences, templates,
+    // conversations, messages, delivery_events, webhook_events, attachments,
+    // routing_rules, sla_policies, cases, journeys, journey_runs, feedback,
+    // scheduled, analytics_daily, cost_ledger, security_events, rate_limits,
+    // loop_detections, broadcasts, broadcast_recipients — RLS FORCE on all,
+    // closed catalogues, seed 5 channels +5 providers SIMULATED/CONFIGURED
+    // +4 routing rules +3 SLA +5 templates en/sw TZ). Hand-authored SQL +
+    // journal entry, same policy as 0071: no snapshot fabricated, gap
+    // acknowledged reviewably, DDL verified by schema-drift gate.
+    "0072",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

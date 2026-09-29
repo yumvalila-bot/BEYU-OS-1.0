@@ -588,7 +588,8 @@ CREATE TABLE "communication_broadcast_recipients" (
 	"status" text DEFAULT 'PENDING' NOT NULL,
 	"failure_reason" text,
 	"sent_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "communication_broadcast_recipients_broadcast_id_contact_id_pk" PRIMARY KEY("broadcast_id","contact_id")
 );
 --> statement-breakpoint
 
@@ -1256,6 +1257,19 @@ INSERT INTO "communication_sla_policies" ("id", "name", "description", "priority
 ('SLA_HIGH', 'High Priority SLA', 'High priority conversations', 'HIGH', 60, 480, '{"monday": {"start": "08:00", "end": "18:00"}, "tuesday": {"start": "08:00", "end": "18:00"}, "wednesday": {"start": "08:00", "end": "18:00"}, "thursday": {"start": "08:00", "end": "18:00"}, "friday": {"start": "08:00", "end": "18:00"}}', 'UTC', '{"levels": [{"after_minutes": 60, "action": "NOTIFY_SUPERVISOR"}, {"after_minutes": 240, "action": "ESCALATE_MANAGEMENT"}]}', 'SYSTEM'),
 ('SLA_NORMAL', 'Normal SLA', 'Normal priority conversations', 'NORMAL', 240, 1440, '{"monday": {"start": "08:00", "end": "18:00"}, "tuesday": {"start": "08:00", "end": "18:00"}, "wednesday": {"start": "08:00", "end": "18:00"}, "thursday": {"start": "08:00", "end": "18:00"}, "friday": {"start": "08:00", "end": "18:00"}}', 'UTC', '{"levels": [{"after_minutes": 240, "action": "NOTIFY_SUPERVISOR"}, {"after_minutes": 1440, "action": "ESCALATE_MANAGEMENT"}]}', 'SYSTEM')
 ON CONFLICT ("id") DO NOTHING;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- Seed reference countries required for templates (idempotent, safe)
+-- Ensures migration succeeds on fresh DB without seed.ts
+-- ---------------------------------------------------------------------------
+INSERT INTO "countries" ("code", "name", "region", "currency_code", "timezone", "locale", "active") VALUES
+('TZ', 'United Republic of Tanzania', 'East Africa', 'TZS', 'Africa/Dar_es_Salaam', 'sw-TZ', true),
+('KE', 'Republic of Kenya', 'East Africa', 'KES', 'Africa/Nairobi', 'en-KE', true),
+('AE', 'United Arab Emirates', 'Middle East', 'AED', 'Asia/Dubai', 'en-AE', true),
+('GB', 'United Kingdom', 'Europe', 'GBP', 'Europe/London', 'en-GB', true),
+('MU', 'Republic of Mauritius', 'Indian Ocean', 'MUR', 'Indian/Mauritius', 'en-MU', true)
+ON CONFLICT ("code") DO NOTHING;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
