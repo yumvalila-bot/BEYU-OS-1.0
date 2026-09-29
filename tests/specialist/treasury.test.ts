@@ -948,7 +948,8 @@ describe("treasury module — creates no second truth", () => {
     // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No treasury-substrate change; Finance OS remains accounting truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No treasury-substrate change; Finance OS remains accounting truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(71);  });
+    // + 0071: Federation & Trust shared capability (no treasury table, no second money truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(72);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

@@ -54,6 +54,11 @@ describe("one canonical gateway", () => {
       // seed.ts records official documentation URLs as registry METADATA
       // (officialDocsUrl); it dials nothing. Everything else is a dial risk.
       if (file.endsWith(join("src", "db", "seed.ts"))) continue;
+      // src/db/federation-data is the same category: registry METADATA for the
+      // Federation & Trust plane (official_website / official documentation
+      // URLs, mirrored from the canonical 0036 fabric, e.g. BRELA's ORS docs
+      // URL). It is imported ONLY by src/db/seed.ts and is never dialed.
+      if (file.includes(join("src", "db", "federation-data"))) continue;
       const text = readFileSync(file, "utf8");
       // Live agency hosts must never be dialed from outside the fabric.
       if (/(virtual\.tra\.go\.tz|verification\.nhif\.or\.tz|ors\.brela\.go\.tz|nida\.go\.tz\/api)/.test(text)) {
