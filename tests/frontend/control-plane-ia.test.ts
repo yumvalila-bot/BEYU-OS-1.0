@@ -163,6 +163,11 @@ describe("canonical constitutional hierarchy", () => {
       { label: "Roles & Capabilities", href: "/os/administration/roles" },
       { label: "Authority Delegations", href: "/os/administration/delegations" },
       { label: "Administrative Audit", href: "/os/administration/audit" },
+      // BEYU Registry — the unified governed registration console (mission:
+      // canonical identity/organization/family/registration capability).
+      // Deliberate pin update: the administration array grew by exactly ONE
+      // permission-gated, non-OS, unique-href capability entry.
+      { label: "BEYU Registry", href: "/os/registration" },
     ]);
     expect(
       group("administration").items.every(

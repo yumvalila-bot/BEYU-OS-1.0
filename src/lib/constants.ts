@@ -176,6 +176,18 @@ export const PERMISSIONS = {
   "identity:user.remove": "Remove a user identity (irreversible governed act; anonymizes PII and retains attribution)",
   "identity:membership.manage": "Assign or remove a user's membership of a tenant",
   "identity:delegation.manage": "Delegate bounded administrative authority to another administrator, and revoke it",
+  //
+  // Canonical registry (BEYU Registry — unified governed registration).
+  //
+  // `identity:party.register` is genuinely new capability space: before it,
+  // the ONLY runtime paths that could create a canonical Party were user
+  // registration (which always creates a login identity alongside) and the
+  // internal sector provisioning route. A person who is a family member, an
+  // owner or a counterparty — but NOT a BEYU OS user — had no governed
+  // registration path at all. The permission creates a Party ONLY; it grants
+  // no login, no role, no membership and no activation. Reading parties stays
+  // on the existing `identity:user.read` ("Read identity records").
+  "identity:party.register": "Register a canonical person Party (identity master record) without creating a login identity",
   "organization:tenant.register": "Register a tenant in the canonical organization model",
   "organization:tenant.manage": "Transition tenant lifecycle status (activate, suspend, deactivate, reactivate, archive)",
   "organization:tenant.remove": "Remove a tenant from active operation (dependency-checked; retains legal, financial and audit history)",
@@ -195,6 +207,14 @@ export const PERMISSIONS = {
   // Organization & ownership
   "organization:entity.read": "Read corporate structure",
   "organization:entity.manage": "Create or amend legal entities",
+  //
+  // Business / operating-unit registration. An org unit (DIVISION, DEPARTMENT,
+  // BRANCH, TEAM) is neither a legal entity nor a tenant — the canonical model
+  // keeps TENANT ≠ LEGAL ENTITY ≠ BUSINESS — so it gets its own key instead of
+  // overloading `organization:entity.manage` (legal entities) or
+  // `organization:tenant.register` (tenant hierarchy). It creates an
+  // `org_units` row under an existing, in-scope legal entity only.
+  "organization:business.register": "Register a business / operating unit (org unit) under an existing in-scope legal entity",
   "organization:ownership.read": "Read ownership and beneficial ownership",
   "organization:ownership.manage": "Record ownership changes",
   // Governance
@@ -666,11 +686,13 @@ export const ROLES: Record<
       "identity:user.register",
       "identity:user.suspend",
       "identity:user.remove",
+      "identity:party.register",
       "identity:membership.manage",
       "identity:delegation.manage",
       "organization:tenant.register",
       "organization:tenant.manage",
       "organization:tenant.remove",
+      "organization:business.register",
       "organization:tenantdomain.read",
       "organization:tenantdomain.register",
       "organization:tenantdomain.verify",
@@ -852,9 +874,11 @@ export const ROLES: Record<
       // belong.
       "identity:user.register",
       "identity:user.suspend",
+      "identity:party.register",
       "identity:membership.manage",
       "organization:tenant.register",
       "organization:tenant.manage",
+      "organization:business.register",
       // Governed tenant domains: the enterprise executive registers, verifies
       // and operates tenant hostnames day to day, exactly as it registers and
       // manages tenants. Re-pointing an existing hostname at a DIFFERENT tenant

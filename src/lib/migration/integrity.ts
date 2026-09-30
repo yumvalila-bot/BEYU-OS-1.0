@@ -321,6 +321,15 @@ export const KNOWN_METADATA_DEBT = {
     // journal entry, same policy as 0071: no snapshot fabricated, gap
     // acknowledged reviewably, DDL verified by schema-drift gate.
     "0072",
+    // 0073 is the canonical family registry (new `families` entity with the
+    // canonical tenant-isolation RLS policy, plus the governed membership
+    // lifecycle columns and deterministic backfill on `family_members`).
+    // Hand-authored SQL + journal entry, same policy as 0063–0072: P2 refuses
+    // to synthesise a snapshot that was never generated, so the gap is
+    // registered here deliberately and visibly — the reviewable act, not
+    // silent rot. The applied DDL is verified against src/db/schema by the
+    // schema-drift gate instead.
+    "0073",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

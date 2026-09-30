@@ -17,7 +17,7 @@ it.skipIf(!adminUrl)("0054 preserves actual appointment history and blocks unkno
  // current seed's drizzle inserts reference the mirrored search_tsv column, so
  // 0066 belongs in the predecessor baseline. The migration under test (0054)
  // remains the ONLY upgrade step applied after the predecessor state.
- for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && (Number(f.slice(0,4)) <= 53 || f === "0066_shared_search_fulltext.sql" || f === "0071_federation_trust.sql"))) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
+ for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && (Number(f.slice(0,4)) <= 53 || f === "0066_shared_search_fulltext.sql" || f === "0071_federation_trust.sql" || f === "0073_canonical_family_registry.sql"))) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
  const run = (script: string, cwd: string, label: string) => {
   const r = spawnSync(process.execPath, [join(root,"node_modules/tsx/dist/cli.mjs"),join(root,script)], { cwd, env, encoding:"utf8", timeout: 60000 });
   writeFileSync(join(dir,`${label}.log`),(r.stdout ?? "") + (r.stderr ?? ""));
@@ -49,8 +49,8 @@ it.skipIf(!adminUrl)("0054 preserves actual appointment history and blocks unkno
   expect(after.map(({ nominated_by_party_id, approved_by_party_id, ...preserved }) => {
    expect(nominated_by_party_id).toBeNull(); expect(approved_by_party_id).toBeNull(); return preserved;
   })).toEqual(before);
-  // 57 = 0000-0053 (54) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0054 under test (1).
-  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(57);
+  // 58 = 0000-0053 (54) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0073 canonical-family-registry baseline (1, additive on people/family tables — same independent-baseline pattern as 0066/0071; the current seed targets the current drizzle schema) + 0054 under test (1).
+  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(58);
   async function runtimeScope(who: string, fn: () => Promise<void>) {
    await client.query("begin");
    try {

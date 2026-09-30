@@ -113,6 +113,11 @@ describe("UI boundary — the frontend is never the authority", () => {
     "src/app/os/administration/roles/page.tsx",
     "src/app/os/administration/delegations/page.tsx",
     "src/app/os/administration/audit/page.tsx",
+    // BEYU Registry surfaces — deliberately pinned to the same rules: deep-link
+    // re-authorization via requireAccess, reads only, mutations via the API.
+    "src/app/os/registration/page.tsx",
+    "src/app/os/family/families/page.tsx",
+    "src/app/os/family/families/[id]/page.tsx",
   ];
 
   it("every administration page re-authorizes on deep link via requireAccess", () => {
@@ -134,6 +139,7 @@ describe("UI boundary — the frontend is never the authority", () => {
       "src/app/os/administration/user-actions.tsx",
       "src/app/os/administration/tenant-actions.tsx",
       "src/app/os/administration/governance-actions.tsx",
+      "src/app/os/registration/registry-actions.tsx",
     ];
     for (const file of actions) {
       const text = source(...file.split("/"));

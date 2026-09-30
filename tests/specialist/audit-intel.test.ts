@@ -952,7 +952,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No audit-substrate change; the ledger stays immutable.
     // + 0071: Federation & Trust shared capability (no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(73);  });
+    // + 0073: Canonical family registry (families + family_members lifecycle columns; no audit-intel table, no second ledger truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

@@ -59,7 +59,7 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
 
 describe("HCM workforce consumption", () => {
   it("versions are pinned", () => {
-    expect(HCM_VERSION).toBe("hcm-1.3.0");
+    expect(HCM_VERSION).toBe("hcm-1.5.0"); // 1.5.0: adds updateReportingLine — the single sanctioned reporter of manager changes; createEmployment remains the only employee-master INSERT writer
   });
 
   it("POSITIVE: an authorised principal reads the single employee master", async () => {

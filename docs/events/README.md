@@ -30,7 +30,13 @@ use v2 envelope hashing. `verifyEventChain()` verifies both versions.
 | --- | --- | --- | --- |
 | `USER_AUTHENTICATED` | identity | INTERNAL | `{ mfaSatisfied }` |
 | `USER_CREATED` | identity | CONFIDENTIAL | `{ partyId, tenantId }` |
+| `PARTY_REGISTERED` | identity | CONFIDENTIAL | `{ displayName, email, userCreated }` |
+| `FAMILY_REGISTERED` | family-office | HIGHLY_RESTRICTED | `{ code, displayName, partyId }` |
+| `FAMILY_MEMBER_ADDED` | family-office | HIGHLY_RESTRICTED | `{ familyId, partyId, relationship, familyCode }` |
+| `BUSINESS_REGISTERED` | organization | CONFIDENTIAL | `{ code, name, unitType }` |
 | `EMPLOYEE_CREATED` | hcm | RESTRICTED | `{ employeeNo, legalEntityId }` |
+| `EMPLOYMENT_CHANGED` | hcm | RESTRICTED | `{ employeeId, previousManagerEmployeeId, managerEmployeeId }` |
+| `SUBORDINATE_ENROLLED` | hcm | RESTRICTED | `{ employeeId, partyId, managerEmployeeId, roleAssignmentId }` |
 | `ENTITY_CREATED` | organization | CONFIDENTIAL | `{ entityCode, countryCode }` |
 | `OWNERSHIP_CHANGED` | organization | RESTRICTED | `{ ownedEntityId, economicPct, votingPct }` |
 | `BOARD_RESOLUTION_APPROVED` | governance | RESTRICTED | `{ reference, category }` |

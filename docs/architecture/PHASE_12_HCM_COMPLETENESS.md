@@ -144,9 +144,27 @@ calculate tax, or create liabilities. `mayWrite("lib/hcm", journal)` remains fal
 
 ## 11. Audit / events
 
-GET is `guarded()` (authenticated, permissioned, traced). Writes do not exist, so
-no EMPLOYEE_CREATED / EMPLOYMENT_CHANGED is published. That is honest PARTIAL,
-not a second event bus.
+GET is `guarded()` (authenticated, permissioned, traced). Employment REGISTRATION
+is a ratified write: `createEmployment()` in `src/lib/hcm.ts` — THE single
+application writer of `employees` INSERTs — runs inside `withAuditTransaction`
+through the BEYU Registry orchestration, appending the hash-chained
+`EMPLOYMENT_REGISTERED` audit and the declared `EMPLOYEE_CREATED` enterprise
+event atomically with the row.
+
+Superior/subordinate REPORTING LINES are the second ratified write family:
+`updateReportingLine()` in `src/lib/hcm.ts` is THE single sanctioned mutator of
+`employees.manager_employee_id`. It is only reachable through
+`reassignReportingLine()` / `enrollSubordinate()` in the BEYU Registry
+orchestration, which enforce `hcm:employee.manage` + tenant/entity/country
+scope + RESTRICTED classification, refuse cycles, self-management, cross-tenant
+managers and terminated employment fail-closed, and commit the row, its
+`MANAGER_CHANGE` history event, the hash-chained `EMPLOYMENT_MANAGER_CHANGED`
+audit and the declared `EMPLOYMENT_CHANGED` enterprise event as ONE unit.
+Enrollment adds the orchestration audit `SUBORDINATE_ENROLLED`. Reporting lines
+express supervision ONLY — they mint no user, role, permission or
+authorization (MANAGER ≠ ADMINISTRATOR). Other lifecycle transitions remain
+unratified (`recordEmploymentChange()` never writes), so Audit / Events stay
+honest PARTIAL — not a second event bus.
 
 ---
 
@@ -211,15 +229,15 @@ Derived from `hcmCompletenessMatrix()`:
 | Organization structure | PARTIAL | `org_units` master; seed empty | not a second master |
 | Position management | PARTIAL | schema + `listEstablishment` | write unratified |
 | Job architecture | PARTIAL | grade / job family on positions | no separate job catalogue (not required) |
-| Manager hierarchy | PARTIAL | columns + integrity asserts | seed uses position reports-to |
+| Manager hierarchy | PARTIAL | columns + integrity asserts + governed `reassignReportingLine` / enrollment default line | org-chart derivation still via position reports-to |
 | Workforce data governance | COMPLETE | classification + fail-closed clearance | — |
 | Tenant isolation | COMPLETE | employee tenant ∨ entity tenant | — |
 | Entity isolation | COMPLETE | `entityScope` on read | — |
 | RBAC | COMPLETE | `hcm:employee.read` / `.manage` | — |
 | ABAC | COMPLETE | clearance + entity + tenant | — |
 | Compensation boundary | COMPLETE | no financial execution | — |
-| Audit | PARTIAL | guarded GET | no ratified mutation |
-| Events | PARTIAL | registry names only | unratified write |
+| Audit | PARTIAL | guarded GET + hash-chained `EMPLOYMENT_REGISTERED`, `EMPLOYMENT_MANAGER_CHANGED`, `SUBORDINATE_ENROLLED` | lifecycle mutations beyond registration / reporting lines unratified |
+| Events | PARTIAL | registration publishes `EMPLOYEE_CREATED`; reporting-line change publishes `EMPLOYMENT_CHANGED` atomically | remaining lifecycle transitions have no ratified writer |
 | Temporal history | PARTIAL | classifier + events | one row per party |
 | Sector-OS consumption | PARTIAL | API + Noelia consume HCM | Sector OSs not built |
 | Reporting | PARTIAL | KPI-HEADCOUNT definition | not a kernel primitive |

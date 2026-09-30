@@ -70,7 +70,10 @@ export function hcmEvidence(): {
 } {
   const schemaHits = walk("src/db/schema").filter((f) => /pgTable\(\s*"employees"/.test(src(f)));
   const inserts = walk("src").filter((f) => {
-    if (f.includes("seed.ts")) return false;
+    // seed.ts is the constitutional bootstrap; src/lib/hcm.ts is THE sanctioned
+    // single application writer (createEmployment — governed callers only).
+    // Anything ELSE that writes people.employees is a second master and fails.
+    if (f.includes("seed.ts") || f === "src/lib/hcm.ts") return false;
     const t = src(f);
     return /insert\(\s*s?\.?employees/.test(t) || /insert\(employees\)/.test(t);
   });
@@ -125,7 +128,7 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Employee master",
       masterComplete ? "COMPLETE" : "PARTIAL",
-      `ONE people.employees table (${e.employeeTables.join(", ") || "none"}); application writers=${e.employeeInserts.length}.`,
+      `ONE people.employees table (${e.employeeTables.join(", ") || "none"}); application writers outside lib/hcm.ts=${e.employeeInserts.length} (lib/hcm.createEmployment is THE sanctioned writer, reached only through the guarded registry path).`,
       e.employeeInserts.length > 0 ? "A second writer exists" : "—",
     ),
     row(
@@ -155,7 +158,7 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Manager hierarchy",
       e.managerIntegrity ? "PARTIAL" : "NOT_AVAILABLE",
-      "manager_employee_id + reports_to_position_id. Integrity asserts cycle and cross-scope. Seed uses position reports-to.",
+      "manager_employee_id + reports_to_position_id. Integrity asserts cycle and cross-scope. Governed write paths: registry enrollment (default line to the enrolling superior) and reassignReportingLine → updateReportingLine. Seed uses position reports-to.",
       "Employee-level manager edges are not populated in seed",
     ),
     row(
@@ -197,14 +200,14 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Audit",
       "PARTIAL",
-      "GET /api/v1/hcm/employees is guarded() (authenticated read). Writes do not exist.",
-      "No ratified mutation to audit",
+      "GET /api/v1/hcm/employees is guarded() (authenticated read). Governed registration and governed reporting-line changes run inside withAuditTransaction: hash-chained EMPLOYMENT_REGISTERED / EMPLOYMENT_MANAGER_CHANGED / SUBORDINATE_ENROLLED audits + enterprise events, atomically.",
+      "Lifecycle mutations beyond governed registration / reporting lines remain unratified",
     ),
     row(
       "Events",
       "PARTIAL",
-      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. No writer publishes them.",
-      "Unratified write path",
+      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. Governed registration publishes EMPLOYEE_CREATED; governed reporting-line change (updateReportingLine — the single sanctioned manager writer) publishes EMPLOYMENT_CHANGED, atomically with the row.",
+      "Remaining lifecycle transitions have no ratified writer",
     ),
     row(
       "Temporal history",

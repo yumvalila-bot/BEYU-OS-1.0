@@ -6,6 +6,7 @@ import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext, tenantScopeIds } from "@/lib/tenant-scope";
 import { can } from "@/lib/authz";
 import { classificationsAtOrBelow } from "@/lib/constants";
+import Link from "next/link";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { FamilyTrustLogo } from "@/components/family-trust-logo";
 
@@ -148,6 +149,20 @@ export default async function FamilyPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <Panel kicker="Canonical family registry" title="Families & governed memberships">
+          <p className="text-[12.5px] beyu-muted">
+            The governed family entities themselves — one canonical family = one ORGANIZATION party
+            identity plus the families domain row — and their membership relationships. Membership
+            never creates a User, a role or a permission; member ≠ user.
+          </p>
+          <Link
+            href="/os/family/families"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d4af37]/60 bg-[#d4af37]/15 px-3 py-2 text-[12px] font-semibold text-[#8a6d10] transition hover:bg-[#d4af37]/25 dark:text-[#efd98f]"
+          >
+            Open the families registry →
+          </Link>
+        </Panel>
+
         <Panel kicker="Family line · branch · generation" title="Lineage registry with verification provenance">
           <div className="overflow-x-auto">
             <table className="beyu-table">

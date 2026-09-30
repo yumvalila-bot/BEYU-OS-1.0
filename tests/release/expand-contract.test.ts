@@ -144,11 +144,13 @@ describe("P3 expand/contract — P2 integration", () => {
     // 0072 is the Communications Platform shared capability (26 tables, RLS on
     // all, CHECK gates, no column altered on any pre-existing table) — additive,
     // expand-only.
+    // 0073 is the canonical family registry (families + governed family_members
+    // lifecycle columns, deterministic backfill, RLS) — additive, expand-only.
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(73);
+    const result = verifyP2MigrationIntegrity(74);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(73);
+    expect(result.count).toBe(74);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);

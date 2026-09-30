@@ -17,7 +17,7 @@ it.skipIf(!adminUrl)("0053 preserves actual pre-upgrade charter history without 
  // current seed's drizzle inserts reference the mirrored search_tsv column, so
  // 0066 belongs in the predecessor baseline. The migration under test (0053)
  // remains the ONLY upgrade step applied after the predecessor state.
- for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && (Number(f.slice(0,4)) <= 52 || f === "0066_shared_search_fulltext.sql" || f === "0071_federation_trust.sql"))) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
+ for (const f of readdirSync(join(root, "drizzle")).filter((f) => /^\d+.*\.sql$/.test(f) && (Number(f.slice(0,4)) <= 52 || f === "0066_shared_search_fulltext.sql" || f === "0071_federation_trust.sql" || f === "0073_canonical_family_registry.sql"))) copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
  const run = (script: string, cwd: string, label: string) => {
   const r = spawnSync(process.execPath, [join(root,"node_modules/tsx/dist/cli.mjs"),join(root,script)], { cwd, env, encoding:"utf8", timeout: 60000 });
   writeFileSync(join(dir,`${label}.log`),(r.stdout ?? "") + (r.stderr ?? ""));
@@ -38,8 +38,8 @@ it.skipIf(!adminUrl)("0053 preserves actual pre-upgrade charter history without 
   const { authority_body_id, created_by_party_id, ...preserved } = after;
   expect((await client.query("select * from governance_charter_terms where id='GCH_UPGRADE_HISTORY'")).rows[0]).toEqual(originalTerms);
   expect(preserved).toEqual(before); expect(authority_body_id).toBeNull(); expect(created_by_party_id).toBeNull();
-  // 56 = 0000-0052 (53) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0053 under test (1).
-  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(56);
+  // 57 = 0000-0052 (53) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0073 canonical-family-registry baseline (1, additive on people/family tables — same independent-baseline pattern as 0066/0071; the current seed targets the current drizzle schema) + 0053 under test (1).
+  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(57);
   await client.query("begin");
   const tenant = (await client.query("select tenant_id from governance_bodies where id='GOV_GROUP_BOARD'")).rows[0].tenant_id;
   await client.query("set local role beyu_runtime");

@@ -320,6 +320,19 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         icon: "audit",
         visibility: { kind: "permission", permission: "audit:log.read" },
       },
+      {
+        // BEYU REGISTRY — the ONE unified governed registration console over
+        // the EXISTING canonical models (person/family/entity/business/
+        // ownership/employment). A capability of the control plane, never a
+        // separate registry OS; every act still passes its own permission,
+        // scope, audit and RLS checks server-side.
+        href: "/os/registration",
+        label: "BEYU Registry",
+        description:
+          "Unified governed registration over the canonical models — person parties, families, legal entities, business units, ownership and employment — with controlled duplicate-conflict refusal, never silent merges.",
+        icon: "registry",
+        visibility: { kind: "permission", permission: "identity:user.read" },
+      },
     ],
   },
   {

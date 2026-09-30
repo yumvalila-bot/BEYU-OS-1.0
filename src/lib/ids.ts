@@ -87,6 +87,8 @@ export const ID_PREFIX = {
   employmentEvent: "EME",
   workforceRequest: "WRQ",
   familyMember: "FAM",
+  /** Canonical family entity (the `families` registry, migration 0073). */
+  family: "FML",
   beneficiary: "BEN",
   vaultItem: "VLT",
   /* Family Office capital & wealth domain (migration 0036). */
