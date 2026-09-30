@@ -216,3 +216,83 @@ No audit ledger exists besides `audit_log` / `enterprise_events`.
 - No silent merge anywhere: every duplicate path is a 409 with the existing record named.
 - Entity lifecycle transitions beyond registration remain unratified (audit trail stays
   honest PARTIAL in `src/lib/architecture/hcm.ts`).
+
+---
+
+## Phase 2 addendum — superior/subordinate enrollment & reporting lines (2026-09-30)
+
+### SCOPE
+
+Extend the SAME BEYU REGISTRY orchestration (no new OS, no new engine) with the
+governed superior → subordinate capability:
+
+- **`enrollSubordinate()`** — one coherent workflow composing the EXISTING
+  primitives: `registerParty` / `registerUser` (identity lifecycle), `registerEmployment`
+  → `createEmployment` (THE employees writer), `grantRole` (identity:role.grant,
+  MFA step-up, privileged ceiling). Each step re-authorizes itself; the
+  orchestrator adds capability/scope/self-enrollment/ceiling checks and ONE
+  `SUBORDINATE_ENROLLED` audit row + event.
+- **`reassignReportingLine()`** → **`updateReportingLine()`** in `lib/hcm.ts`
+  (THE single sanctioned mutator of `employees.manager_employee_id`, hcm-1.5.0):
+  `MANAGER_CHANGE` history event + `EMPLOYMENT_MANAGER_CHANGED` audit +
+  declared `EMPLOYMENT_CHANGED` enterprise event, atomic.
+- **Graph** — `reportsTo` edges projected from `employees.manager_employee_id`
+  (never inferred from roles/UI), gated by `hcm:employee.read`.
+- **API** — `POST /api/v1/admin/registry/enrollment`,
+  `PATCH /api/v1/admin/registry/employment/[id]/manager`, both `guarded()`.
+- **UI** — `/os/registration` gains enrollment + reporting-line panels,
+  presentation-only, gated by `hcm:employee.manage` visibility (server still
+  re-authorizes every act).
+
+### CANONICAL INVARIANTS PRESERVED
+
+- MANAGER ≠ ADMINISTRATOR: a reporting line mints no User, role, permission or
+  authorization. Role assignment stays inside `grantRole` (privileged roles
+  PLATFORM_ADMIN-only) plus a NEW clearance ceiling: an enroller cannot assign
+  a role whose clearance ceiling exceeds their own clearance.
+- The canonical HCM integrity invariants are REUSED, not re-invented:
+  `assertManagerSameScope` (no self-management; manager stays inside the same
+  tenant AND legal entity) and `assertManagerAcyclic` (acyclic graph) from
+  `lib/hcm.ts`.
+- No duplicate identities: enrollment resolves EXACTLY one of existing-party
+  reuse / new-person registration; duplicate email → controlled 409 naming the
+  existing record; a party never gets a second user; self-enrollment refused.
+- No new permissions: `hcm:employee.manage`, `identity:user.register`,
+  `identity:party.register`, `identity:role.grant` — all pre-existing.
+- One audit ledger (`audit_log`, hash-chained) and one event stream
+  (`enterprise_events`); `EMPLOYMENT_CHANGED` / `SUBORDINATE_ENROLLED` declared
+  in `docs/events/README.md`.
+- Family capability untouched; Noelia untouched; RLS untouched (final DB
+  boundary); federation readiness unchanged (country-neutral core).
+
+### TESTING — Phase 2 (executed)
+
+- `tests/registry/subordinate-enrollment.test.ts` — 12 service-level tests:
+  enrollment happy paths (party/user/role), party reuse, unauthorized refusal
+  (incl. PLATFORM_ADMIN holding NO hcm authority), self-enrollment refusal,
+  ambiguity refusal, role-requires-user, clearance ceiling, privileged-role
+  ceiling, reporting-line reassign (audit/event/history assertions), cycle /
+  self / cross-tenant / cross-entity / terminated / no-op refusals, graph
+  `reportsTo` emission + clearance gating.
+- `tests/registry/registry-http.test.ts` — extended HTTP boundary: 401/403
+  fail-closed, end-to-end enrollment over HTTP, ambiguous 422, governed
+  reassignment, schema refusal.
+- `tests/browser/registry-enrollment.spec.ts` — browser transport: anonymous
+  401, family-office principal 403 despite console rendering (UI ≠ authority),
+  manager console visibility + server-side schema refusal.
+- Full-suite revalidation (executed 2026-09-30, scratch PostgreSQL 16 + CI-parity
+  env + live `next start :3100`):
+  - `npm test` no server: **4883 passed / 0 failed** (279 passed files, 35 skipped files).
+  - `npm test` with live server + `BEYU_TEST_BASE_URL`: **5181 passed / 0 failed**
+    (311 passed files, 11 skipped tests — same skip profile as Phase 1).
+  - typecheck / lint / build: green (1 pre-existing `<img>` warning, unrelated).
+  - Playwright browser suite (incl. the new `registry-enrollment.spec.ts`):
+    not runnable in the sandbox (Playwright CDN blocked — ENVIRONMENT); CI
+    installs chromium and executes the full browser gate.
+
+### HONEST DEBT (unchanged)
+
+- Lifecycle transitions beyond registration / reporting lines remain
+  unratified (termination, suspension, leave). Audit / Events stay PARTIAL in
+  `src/lib/architecture/hcm.ts`.
+- Seed still has no employee-level manager edges (position reports-to only).

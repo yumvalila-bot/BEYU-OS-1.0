@@ -36,10 +36,17 @@ import {
   users,
 } from "@/db/schema";
 import { can, filterByClearance, type Principal } from "@/lib/authz";
+import { classificationRank, ROLE_CLEARANCE } from "@/lib/constants";
 import { withAuditTransaction } from "@/lib/audit";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { tenantScopeIds } from "@/lib/tenant-scope";
-import { createEmployment } from "@/lib/hcm";
+import {
+  assertManagerAcyclic,
+  assertManagerSameScope,
+  createEmployment,
+  HcmIntegrityError,
+  updateReportingLine,
+} from "@/lib/hcm";
 import {
   DESCENT_RELATIONSHIPS,
   isAffinalRelationship,
@@ -50,6 +57,8 @@ import {
   adminAudit,
   adminEvent,
   auditRefusal,
+  grantRole,
+  registerUser,
   requireActionScope,
   requireCapability,
 } from "./governance-service";
@@ -1578,6 +1587,515 @@ export async function registerEmployment(
 }
 
 /* ------------------------------------------------------------------ */
+/* SUPERIOR / SUBORDINATE REPORTING LINES (governed HCM relationship) */
+/* ------------------------------------------------------------------ */
+
+export type ReassignReportingLineInput = {
+  employeeId: string;
+  /** New manager employee, or null to remove the reporting line. */
+  managerEmployeeId: string | null;
+  effectiveFrom?: string;
+  reason: string;
+};
+
+/**
+ * Governed superior/subordinate mutation: reassign (or clear) one employee's
+ * reporting line. SUPERIOR ≠ ADMINISTRATOR — this expresses supervision ONLY:
+ * it mints no User, no role, no permission and no authorization. Every check
+ * below fails closed BEFORE the single sanctioned writer (lib/hcm
+ * `updateReportingLine`) runs inside ONE audited, evented transaction.
+ */
+export async function reassignReportingLine(
+  actor: Principal,
+  input: ReassignReportingLineInput,
+  traceId: string,
+): Promise<{ employeeId: string; managerEmployeeId: string | null }> {
+  const [employee] = await db
+    .select({
+      id: employees.id,
+      tenantId: employees.tenantId,
+      legalEntityId: employees.legalEntityId,
+      managerEmployeeId: employees.managerEmployeeId,
+      countryCode: employees.countryCode,
+      status: employees.status,
+    })
+    .from(employees)
+    .where(eq(employees.id, input.employeeId))
+    .limit(1);
+  if (!employee) {
+    throw new AdminGovernanceError("EMPLOYEE_NOT_FOUND", `Employee ${input.employeeId} was not found.`, 404);
+  }
+
+  requireCapability(actor, "hcm:employee.manage", "registry.reporting.reassign", {
+    classification: "RESTRICTED",
+    entityId: employee.legalEntityId,
+  });
+  await requireActionScope(actor, "hcm:employee.manage", {
+    tenantId: employee.tenantId,
+    legalEntityId: employee.legalEntityId,
+    countryCode: employee.countryCode,
+  });
+
+  if (employee.status !== "ACTIVE") {
+    await auditRefusal(actor, "EMPLOYMENT_MANAGER_CHANGED", "EMPLOYEE", employee.id, "EMPLOYEE_NOT_ACTIVE", traceId);
+    throw new AdminGovernanceError(
+      "EMPLOYEE_NOT_ACTIVE",
+      `Employee ${employee.id} is ${employee.status}; reporting lines are governed only for ACTIVE employment.`,
+      409,
+    );
+  }
+
+  const nextManager = input.managerEmployeeId ?? null;
+  if ((employee.managerEmployeeId ?? null) === nextManager) {
+    await auditRefusal(actor, "EMPLOYMENT_MANAGER_CHANGED", "EMPLOYEE", employee.id, "MANAGER_UNCHANGED", traceId);
+    throw new AdminGovernanceError(
+      "MANAGER_UNCHANGED",
+      `Employee ${employee.id} already reports to ${nextManager ?? "no manager"}; identical reassignment is a controlled no-op refusal.`,
+      409,
+    );
+  }
+
+  if (nextManager) {
+    const [manager] = await db
+      .select({
+        id: employees.id,
+        tenantId: employees.tenantId,
+        legalEntityId: employees.legalEntityId,
+        status: employees.status,
+      })
+      .from(employees)
+      .where(eq(employees.id, nextManager))
+      .limit(1);
+    if (!manager) {
+      throw new AdminGovernanceError("MANAGER_NOT_FOUND", `Manager employee ${nextManager} was not found.`, 404);
+    }
+    if (manager.status !== "ACTIVE") {
+      throw new AdminGovernanceError(
+        "MANAGER_NOT_ACTIVE",
+        `Manager employee ${nextManager} is ${manager.status}; only ACTIVE employees may hold subordinates.`,
+        409,
+      );
+    }
+    // CANONICAL integrity invariants from lib/hcm — reuse, never a second rule
+    // set: no self-management, and a manager edge must stay inside the same
+    // tenant AND legal entity ("a manager who crosses either boundary is a
+    // second, unofficial org chart").
+    try {
+      assertManagerSameScope(
+        { id: employee.id, tenantId: employee.tenantId, legalEntityId: employee.legalEntityId },
+        { id: manager.id, tenantId: manager.tenantId, legalEntityId: manager.legalEntityId },
+      );
+    } catch (err) {
+      if (err instanceof HcmIntegrityError) {
+        const code = err.code === "SELF_MANAGER" ? "SELF_MANAGEMENT_REFUSED" : "MANAGER_OUT_OF_SCOPE";
+        await auditRefusal(actor, "EMPLOYMENT_MANAGER_CHANGED", "EMPLOYEE", employee.id, code, traceId);
+        throw new AdminGovernanceError(
+          code,
+          code === "SELF_MANAGEMENT_REFUSED"
+            ? "An employee cannot be their own manager; the reporting relationship is supervisory, never reflexive."
+            : "The proposed manager is outside this employee's tenant/legal-entity scope; reporting lines never cross either boundary.",
+          409,
+        );
+      }
+      throw err;
+    }
+
+    // CANONICAL acyclicity invariant applied to the projected tenant graph
+    // (the proposed edge substituted in before the check).
+    const graphRows = await db
+      .select({ id: employees.id, managerEmployeeId: employees.managerEmployeeId })
+      .from(employees)
+      .where(eq(employees.tenantId, employee.tenantId))
+      .limit(10_000);
+    const projected = graphRows.map((r) =>
+      r.id === employee.id ? { id: r.id, managerEmployeeId: nextManager } : { id: r.id, managerEmployeeId: r.managerEmployeeId },
+    );
+    if (!projected.some((r) => r.id === employee.id)) {
+      projected.push({ id: employee.id, managerEmployeeId: nextManager });
+    }
+    try {
+      assertManagerAcyclic(projected);
+    } catch (err) {
+      if (err instanceof HcmIntegrityError && err.code === "CIRCULAR_MANAGER") {
+        await auditRefusal(actor, "EMPLOYMENT_MANAGER_CHANGED", "EMPLOYEE", employee.id, "REPORTING_CYCLE_REFUSED", traceId);
+        throw new AdminGovernanceError(
+          "REPORTING_CYCLE_REFUSED",
+          "The proposed manager reports — directly or transitively — to the subordinate. Reporting cycles are refused; the organizational hierarchy must remain acyclic.",
+          409,
+        );
+      }
+      throw err;
+    }
+  }
+
+  const previousManagerEmployeeId = employee.managerEmployeeId ?? null;
+  const employmentEventId = newId(ID_PREFIX.employmentEvent);
+  const effectiveFrom = input.effectiveFrom ?? today();
+
+  await withAuditTransaction(
+    async (tx) => {
+      // THE single application writer of employees.manager_employee_id lives in
+      // lib/hcm — this orchestration layer never writes the master itself.
+      await updateReportingLine(tx, {
+        employeeId: employee.id,
+        managerEmployeeId: nextManager,
+        previousManagerEmployeeId,
+        effectiveFrom,
+        employmentEventId,
+        recordedBy: actor.userId,
+        provenance: "BEYU_REGISTRY",
+      });
+      return { employeeId: employee.id, managerEmployeeId: nextManager };
+    },
+    () =>
+      adminAudit(
+        actor,
+        "EMPLOYMENT_MANAGER_CHANGED",
+        "EMPLOYEE",
+        employee.id,
+        input.reason,
+        { managerEmployeeId: previousManagerEmployeeId },
+        { managerEmployeeId: nextManager, effectiveFrom },
+        "hcm:employee.manage",
+        traceId,
+      ),
+    () =>
+      adminEvent(
+        actor,
+        // Declared os_registry catalogue event (docs/events/README.md).
+        "EMPLOYMENT_CHANGED",
+        "EMPLOYEE",
+        employee.id,
+        { employeeId: employee.id, previousManagerEmployeeId, managerEmployeeId: nextManager, effectiveFrom },
+        "hcm:employee.manage",
+        traceId,
+        "RESTRICTED",
+      ),
+  );
+
+  return { employeeId: employee.id, managerEmployeeId: nextManager };
+}
+
+/* ------------------------------------------------------------------ */
+/* SUPERIOR ENROLLMENT OF SUBORDINATES (one governed orchestration)    */
+/* ------------------------------------------------------------------ */
+
+export type EnrollSubordinateInput = {
+  tenantId: string;
+  legalEntityId: string;
+  countryCode: string;
+  hireDate: string;
+  employeeNo: string;
+  employmentType?: string | null;
+  positionId?: string | null;
+  workEmail?: string | null;
+  /** Enroll an EXISTING canonical Party (never duplicated). */
+  existingPartyId?: string;
+  /** …OR register a NEW canonical person Party through the governed registry. */
+  newPerson?: {
+    displayName: string;
+    givenName?: string | null;
+    familyName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    countryCode?: string | null;
+  };
+  /** Also establish the canonical User (never automatic; requires identity:user.register). */
+  createUser?: boolean;
+  /** Optionally assign ONE authorized role (ceiling-checked; requires identity:role.grant). */
+  roleCode?: string;
+  reason: string;
+};
+
+export type EnrollSubordinateResult = {
+  partyId: string;
+  partyReused: boolean;
+  userId: string | null;
+  userCreated: boolean;
+  employeeId: string;
+  employeeNo: string;
+  managerEmployeeId: string | null;
+  roleAssignmentId: string | null;
+};
+
+/**
+ * THE governed superior → subordinate enrollment workflow. It composes the
+ * EXISTING canonical primitives — no second engine, no second audit ledger:
+ *
+ *   Party   : registerParty / existing-Party reuse (never a duplicate person);
+ *   User    : registerUser (identity:user.register) — only ever optional;
+ *   Employee: registerEmployment → lib/hcm createEmployment (THE writer),
+ *             reporting line defaults to the enrolling superior's own
+ *             employee row when one exists in the tenant;
+ *   Role    : grantRole (identity:role.grant, MFA step-up, privileged-role
+ *             ceiling) — ONLY when explicitly requested, and never above the
+ *             enroller's own clearance ceiling.
+ *
+ * MANAGER ≠ ADMINISTRATOR: enrolling a subordinate expresses supervision and,
+ * at most, the role the enroller is independently authorized to grant. It can
+ * never mint privileges the enroller does not hold.
+ */
+export async function enrollSubordinate(
+  actor: Principal,
+  input: EnrollSubordinateInput,
+  traceId: string,
+): Promise<EnrollSubordinateResult> {
+  requireCapability(actor, "hcm:employee.manage", "registry.enrollment.subordinate", {
+    classification: "RESTRICTED",
+    entityId: input.legalEntityId,
+  });
+  await requireActionScope(actor, "hcm:employee.manage", {
+    tenantId: input.tenantId,
+    legalEntityId: input.legalEntityId,
+    countryCode: input.countryCode,
+  });
+
+  const hasExisting = Boolean(input.existingPartyId);
+  const hasNewPerson = Boolean(input.newPerson);
+  if (hasExisting === hasNewPerson) {
+    throw new AdminGovernanceError(
+      "ENROLLMENT_TARGET_AMBIGUOUS",
+      "Enrollment requires EXACTLY one of existingPartyId (reuse a canonical Party) or newPerson (register one). Never both, never neither — identities are never silently merged or duplicated.",
+      422,
+    );
+  }
+  if (hasExisting && input.createUser) {
+    throw new AdminGovernanceError(
+      "USER_CREATION_REQUIRES_NEW_PERSON",
+      "A canonical User can only be established while registering a NEW person Party. An existing Party keeps its existing identity state — resolve any missing-user conflict through the governed registry.",
+      422,
+    );
+  }
+
+  /* 1 — resolve the canonical Party (reuse or register; never duplicate). */
+  let partyId: string;
+  let partyReused = false;
+  let userId: string | null = null;
+  let userCreated = false;
+
+  if (input.existingPartyId) {
+    const [party] = await db
+      .select({ id: parties.id, type: parties.type, status: parties.status, email: parties.email })
+      .from(parties)
+      .where(eq(parties.id, input.existingPartyId))
+      .limit(1);
+    if (!party) {
+      throw new AdminGovernanceError("PARTY_NOT_FOUND", `Party ${input.existingPartyId} was not found.`, 404);
+    }
+    if (party.type !== "PERSON") {
+      throw new AdminGovernanceError(
+        "PARTY_NOT_PERSON",
+        `Party ${party.id} is ${party.type}; only PERSON parties can be enrolled as employees.`,
+        422,
+      );
+    }
+    if (party.id === actor.partyId || (party.email && party.email.toLowerCase() === actor.email.toLowerCase())) {
+      await auditRefusal(actor, "SUBORDINATE_ENROLLED", "PARTY", party.id, "SELF_ENROLLMENT_REFUSED", traceId);
+      throw new AdminGovernanceError(
+        "SELF_ENROLLMENT_REFUSED",
+        "An enroller cannot enroll themselves as their own subordinate.",
+        403,
+      );
+    }
+    partyId = party.id;
+    partyReused = true;
+    const [existingUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.partyId, party.id))
+      .limit(1);
+    userId = existingUser?.id ?? null;
+  } else {
+    const person = input.newPerson!;
+    if (person.email && person.email.toLowerCase() === actor.email.toLowerCase()) {
+      await auditRefusal(actor, "SUBORDINATE_ENROLLED", "PARTY", person.email, "SELF_ENROLLMENT_REFUSED", traceId);
+      throw new AdminGovernanceError(
+        "SELF_ENROLLMENT_REFUSED",
+        "An enroller cannot enroll themselves as their own subordinate.",
+        403,
+      );
+    }
+    if (input.createUser) {
+      if (!person.email || !person.email.includes("@")) {
+        throw new AdminGovernanceError(
+          "USER_CREATION_REQUIRES_EMAIL",
+          "Establishing a canonical User requires the new person's email address — it is their GlobalUserID anchor.",
+          422,
+        );
+      }
+      // registerUser enforces identity:user.register + scope + email uniqueness
+      // itself and creates the Party and the canonical User atomically.
+      const created = await registerUser(
+        actor,
+        {
+          email: person.email,
+          displayName: person.displayName,
+          givenName: person.givenName ?? null,
+          familyName: person.familyName ?? null,
+          phone: person.phone ?? null,
+          countryCode: person.countryCode ?? null,
+          primaryTenantId: input.tenantId,
+          reason: input.reason,
+        },
+        traceId,
+      );
+      partyId = created.partyId;
+      userId = created.userId;
+      userCreated = true;
+    } else {
+      const created = await registerParty(
+        actor,
+        {
+          displayName: person.displayName,
+          givenName: person.givenName ?? null,
+          familyName: person.familyName ?? null,
+          email: person.email ?? null,
+          phone: person.phone ?? null,
+          countryCode: person.countryCode ?? null,
+          primaryTenantId: input.tenantId,
+          reason: input.reason,
+        },
+        traceId,
+      );
+      partyId = created.partyId;
+    }
+  }
+
+  /* 2 — the enrolling superior is the default reporting line, but ONLY when
+     the canonical same-scope invariant holds (same tenant AND legal entity):
+     a superior in another entity enrolls without a fabricated manager. */
+  const [actorEmployee] = await db
+    .select({ id: employees.id })
+    .from(employees)
+    .where(
+      and(
+        eq(employees.partyId, actor.partyId),
+        eq(employees.tenantId, input.tenantId),
+        eq(employees.legalEntityId, input.legalEntityId),
+        eq(employees.status, "ACTIVE"),
+      ),
+    )
+    .limit(1);
+  const managerEmployeeId = actorEmployee?.id ?? null;
+
+  /* 3 — the governed employment relationship (THE employees writer). */
+  const employment = await registerEmployment(
+    actor,
+    {
+      tenantId: input.tenantId,
+      partyId,
+      legalEntityId: input.legalEntityId,
+      employeeNo: input.employeeNo,
+      hireDate: input.hireDate,
+      countryCode: input.countryCode,
+      employmentType: input.employmentType ?? null,
+      positionId: input.positionId ?? null,
+      workEmail: input.workEmail ?? null,
+      managerEmployeeId,
+      reason: input.reason,
+    },
+    traceId,
+  );
+
+  /* 4 — optional authorized role, ceiling-checked. */
+  let roleAssignmentId: string | null = null;
+  if (input.roleCode) {
+    if (!userId) {
+      await auditRefusal(actor, "SUBORDINATE_ENROLLED", "EMPLOYEE", employment.employeeId, "ROLE_REQUIRES_USER", traceId);
+      throw new AdminGovernanceError(
+        "ROLE_REQUIRES_USER",
+        "Roles attach to canonical Users, never to bare Parties. Enroll with a User (or establish one through the governed registry) before assigning a role.",
+        409,
+      );
+    }
+    const roleClearance = ROLE_CLEARANCE[input.roleCode];
+    if (roleClearance && classificationRank(roleClearance) > classificationRank(actor.clearance)) {
+      await auditRefusal(actor, "SUBORDINATE_ENROLLED", "EMPLOYEE", employment.employeeId, "ROLE_CEILING_EXCEEDED", traceId);
+      throw new AdminGovernanceError(
+        "ROLE_CEILING_EXCEEDED",
+        `Role ${input.roleCode} carries a ${roleClearance} clearance ceiling that exceeds the enroller's ${actor.clearance} clearance. A superior cannot assign a role exceeding their own ceiling.`,
+        403,
+      );
+    }
+    const granted = await grantRole(
+      actor,
+      {
+        userId,
+        roleCode: input.roleCode,
+        tenantId: input.tenantId,
+        legalEntityId: input.legalEntityId,
+        justification: input.reason,
+      },
+      traceId,
+    );
+    roleAssignmentId = granted.assignmentId;
+  }
+
+  /* 5 — ONE orchestration audit row over the composed, already-audited steps. */
+  await withAuditTransaction(
+    async () => ({
+      partyId,
+      partyReused,
+      userId,
+      userCreated,
+      employeeId: employment.employeeId,
+      employeeNo: employment.employeeNo,
+      managerEmployeeId,
+      roleAssignmentId,
+    }),
+    (result) =>
+      adminAudit(
+        actor,
+        "SUBORDINATE_ENROLLED",
+        "ENROLLMENT",
+        result.employeeId,
+        input.reason,
+        null,
+        {
+          partyId: result.partyId,
+          partyReused: result.partyReused,
+          userId: result.userId,
+          userCreated: result.userCreated,
+          employeeId: result.employeeId,
+          managerEmployeeId: result.managerEmployeeId,
+          roleAssignmentId: result.roleAssignmentId,
+          tenantId: input.tenantId,
+          legalEntityId: input.legalEntityId,
+        },
+        "hcm:employee.manage",
+        traceId,
+      ),
+    (result) =>
+      adminEvent(
+        actor,
+        "SUBORDINATE_ENROLLED",
+        "ENROLLMENT",
+        result.employeeId,
+        {
+          employeeId: result.employeeId,
+          partyId: result.partyId,
+          managerEmployeeId: result.managerEmployeeId,
+          roleAssignmentId: result.roleAssignmentId,
+        },
+        "hcm:employee.manage",
+        traceId,
+        "RESTRICTED",
+      ),
+  );
+
+  return {
+    partyId,
+    partyReused,
+    userId,
+    userCreated,
+    employeeId: employment.employeeId,
+    employeeNo: employment.employeeNo,
+    managerEmployeeId,
+    roleAssignmentId,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* READ SURFACES (scoped, clearance-filtered)                          */
 /* ------------------------------------------------------------------ */
 
@@ -1896,7 +2414,7 @@ export type RegistryGraphNode = {
 };
 
 export type RegistryGraphEdge = {
-  type: "contains" | "memberOf" | "personWorksFor" | "personOwns" | "hasUser";
+  type: "contains" | "memberOf" | "personWorksFor" | "personOwns" | "hasUser" | "reportsTo";
   from: string;
   to: string;
   meta?: Record<string, unknown>;
@@ -2024,12 +2542,14 @@ export async function buildRegistryGraph(actor: Principal): Promise<{
   if (can(actor, "hcm:employee.read").allowed) {
     const employmentRows = await db
       .select({
+        id: employees.id,
         partyId: employees.partyId,
         legalEntityId: employees.legalEntityId,
         employeeNo: employees.employeeNo,
         employmentType: employees.employmentType,
         hireDate: employees.hireDate,
         status: employees.status,
+        managerEmployeeId: employees.managerEmployeeId,
       })
       .from(employees)
       .leftJoin(legalEntities, eq(legalEntities.id, employees.legalEntityId))
@@ -2047,6 +2567,26 @@ export async function buildRegistryGraph(actor: Principal): Promise<{
           hireDate: e.hireDate,
           status: e.status,
         },
+      });
+    }
+
+    // Superior → subordinate reporting edges. The authority is the employees
+    // master itself (manager_employee_id): the graph NEVER infers supervision
+    // from roles, org units or UI structure. Both ends must be visible person
+    // nodes; a manager whose party is out of scope contributes no edge.
+    const employeeIdToParty = new Map<string, string>();
+    for (const e of employmentRows) employeeIdToParty.set(e.id, e.partyId);
+    for (const e of employmentRows) {
+      if (!e.managerEmployeeId) continue;
+      const subordinateParty = e.partyId;
+      const managerParty = employeeIdToParty.get(e.managerEmployeeId);
+      if (!subordinateParty || !managerParty) continue;
+      if (!personNode(subordinateParty) || !personNode(managerParty)) continue;
+      edges.push({
+        type: "reportsTo",
+        from: subordinateParty,
+        to: managerParty,
+        meta: { employeeNo: e.employeeNo, managerEmployeeId: e.managerEmployeeId },
       });
     }
   }

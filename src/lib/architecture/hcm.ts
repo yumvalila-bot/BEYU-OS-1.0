@@ -158,7 +158,7 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Manager hierarchy",
       e.managerIntegrity ? "PARTIAL" : "NOT_AVAILABLE",
-      "manager_employee_id + reports_to_position_id. Integrity asserts cycle and cross-scope. Seed uses position reports-to.",
+      "manager_employee_id + reports_to_position_id. Integrity asserts cycle and cross-scope. Governed write paths: registry enrollment (default line to the enrolling superior) and reassignReportingLine → updateReportingLine. Seed uses position reports-to.",
       "Employee-level manager edges are not populated in seed",
     ),
     row(
@@ -200,14 +200,14 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Audit",
       "PARTIAL",
-      "GET /api/v1/hcm/employees is guarded() (authenticated read). The governed employment registration runs inside withAuditTransaction: hash-chained EMPLOYMENT_REGISTERED audit + enterprise event, atomically.",
-      "Lifecycle mutations beyond governed registration remain unratified",
+      "GET /api/v1/hcm/employees is guarded() (authenticated read). Governed registration and governed reporting-line changes run inside withAuditTransaction: hash-chained EMPLOYMENT_REGISTERED / EMPLOYMENT_MANAGER_CHANGED / SUBORDINATE_ENROLLED audits + enterprise events, atomically.",
+      "Lifecycle mutations beyond governed registration / reporting lines remain unratified",
     ),
     row(
       "Events",
       "PARTIAL",
-      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. Governed registration publishes the declared EMPLOYEE_CREATED event atomically with the row.",
-      "EMPLOYMENT_CHANGED (lifecycle) has no ratified writer",
+      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. Governed registration publishes EMPLOYEE_CREATED; governed reporting-line change (updateReportingLine — the single sanctioned manager writer) publishes EMPLOYMENT_CHANGED, atomically with the row.",
+      "Remaining lifecycle transitions have no ratified writer",
     ),
     row(
       "Temporal history",

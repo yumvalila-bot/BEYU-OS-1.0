@@ -16,12 +16,15 @@ import {
 import { listWorkforce } from "@/lib/hcm";
 import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import {
+  EnrollSubordinateForm,
+  ReassignReportingLineForm,
   RegisterBusinessForm,
   RegisterEmploymentForm,
   RegisterEntityForm,
   RegisterFamilyForm,
   RegisterOwnershipForm,
   RegisterPersonForm,
+  type WorkforceOption,
 } from "./registry-actions";
 
 export const dynamic = "force-dynamic";
@@ -206,6 +209,36 @@ export default async function BeyuRegistryPage() {
             ) : null}
           </div>
         </Panel>
+
+        {canEmployment ? (
+          <Panel
+            title="Superior → subordinate enrollment & reporting lines"
+            kicker="manager ≠ administrator · relationship never mints authority"
+          >
+            <div className="grid gap-6 lg:grid-cols-2">
+              <EnrollSubordinateForm
+                tenants={tenantRows}
+                entities={entities.map((e) => ({ id: e.id, code: e.code, legalName: e.legalName, tenantId: e.tenantId }))}
+                persons={personOptions}
+              />
+              <ReassignReportingLineForm
+                employees={
+                  (Array.isArray((workforce as { records?: unknown[] }).records)
+                    ? ((workforce as { records: unknown[] }).records as WorkforceOption[])
+                    : []
+                  )
+                    .filter((r) => Boolean(r?.employeeId))
+                    .map((r) => ({
+                      employeeId: String(r.employeeId),
+                      employeeNo: String(r.employeeNo),
+                      displayName: String(r.displayName ?? r.employeeNo),
+                      managerEmployeeId: r.managerEmployeeId ? String(r.managerEmployeeId) : null,
+                    }))
+                }
+              />
+            </div>
+          </Panel>
+        ) : null}
       </div>
     );
   });

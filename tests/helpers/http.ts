@@ -122,6 +122,27 @@ export async function apiGet(path: string, cookie?: string | null): Promise<{ st
   return { status: res.status, html: await res.text() };
 }
 
+/** PATCH a JSON API route (same envelope as `apiPost`). */
+export async function apiPatch<T = Record<string, unknown>>(
+  path: string,
+  payload: unknown,
+  options: { cookie?: string | null } = {},
+): Promise<ApiResponse<T>> {
+  const res = await fetch(`${baseUrl()}${path}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      ...(options.cookie ? { cookie: options.cookie } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  return {
+    status: res.status,
+    body: (await res.json().catch(() => null)) as T,
+    headers: res.headers,
+  };
+}
+
 /**
  * GET a JSON API route.
  *

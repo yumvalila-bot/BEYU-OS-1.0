@@ -12,7 +12,7 @@ import {
   users,
 } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { apiGetJson, apiPost, login, serverAvailable } from "../helpers/http";
+import { apiGetJson, apiPatch, apiPost, login, serverAvailable } from "../helpers/http";
 
 /**
  * BEYU REGISTRY — HTTP boundary (the canonical guarded() path).
@@ -274,5 +274,131 @@ describe("BEYU Registry HTTP boundary", () => {
       .from(users)
       .where(eq(users.partyId, createdPartyIds[0]!));
     expect(partyUsers).toHaveLength(0);
+  });
+});
+
+describe("BEYU Registry HTTP boundary — enrollment & reporting lines", () => {
+  it.skipIf(!process.env.BEYU_TEST_BASE_URL)("fails closed: unauthenticated → 401, no capability → 403", async () => {
+    const unauthPost = await apiPost(
+      "/api/v1/admin/registry/enrollment",
+      { reason: "Unauthenticated enrollment attempt." },
+      { cookie: null },
+    );
+    expect(unauthPost.status).toBe(401);
+
+    const unauthPatch = await apiPatch(
+      "/api/v1/admin/registry/employment/EMP_WHATEVER/manager",
+      { managerEmployeeId: null, reason: "Unauthenticated reassignment attempt." },
+      { cookie: null },
+    );
+    expect(unauthPatch.status).toBe(401);
+
+    const sectorPost = await apiPost(
+      "/api/v1/admin/registry/enrollment",
+      {
+        tenantId: T.group,
+        legalEntityId: "LEN_BEYU_HOLDINGS",
+        countryCode: "TZ",
+        hireDate: "2026-09-30",
+        employeeNo: "HTTP-ENR-FORBID",
+        newPerson: { displayName: "Forbidden Enrollment", email: "http-forbid@beyu.os" },
+        reason: "Sector operator attempting enrollment over HTTP.",
+      },
+      { cookie: sectorCookie },
+    );
+    expect(sectorPost.status).toBe(403);
+    expect(env(sectorPost).error?.code).toBe("FORBIDDEN");
+
+    const sectorPatch = await apiPatch(
+      "/api/v1/admin/registry/employment/EMP_WHATEVER/manager",
+      { managerEmployeeId: null, reason: "Sector operator attempting reassignment over HTTP." },
+      { cookie: sectorCookie },
+    );
+    expect(sectorPatch.status).toBe(403);
+  });
+
+  it.skipIf(!process.env.BEYU_TEST_BASE_URL)("enrolls a subordinate end-to-end, then governs the reporting line over HTTP", async () => {
+    const stamp = Date.now().toString(36);
+
+    // CEO enrolls a new person — the server composes party + employment and
+    // defaults the reporting line to the enrolling superior.
+    const enrolled = await apiPost(
+      "/api/v1/admin/registry/enrollment",
+      {
+        tenantId: T.group,
+        legalEntityId: "LEN_BEYU_HOLDINGS",
+        countryCode: "TZ",
+        hireDate: "2026-09-30",
+        employeeNo: `HTTP-ENR-${stamp}`.slice(0, 40),
+        newPerson: {
+          displayName: `HTTP Enrolled ${stamp}`,
+          email: `http-enr-${stamp}@beyu.os`,
+          countryCode: "TZ",
+        },
+        reason: "HTTP flow: governed subordinate enrollment.",
+      },
+      { cookie: ceoCookie },
+    );
+    expect(enrolled.status).toBe(201);
+    const data = env(enrolled).data as {
+      employeeId?: string;
+      partyId?: string;
+      managerEmployeeId?: string | null;
+      userCreated?: boolean;
+    };
+    expect(data.employeeId).toBeTruthy();
+    expect(data.partyId).toBeTruthy();
+    expect(data.userCreated).toBe(false);
+    expect(data.managerEmployeeId).toBe("EMP_AMANI_BEYU");
+    createdEmployeeIds.push(data.employeeId!);
+    createdPartyIds.push(data.partyId!);
+
+    // Ambiguous enrollment is a controlled 422 refusal, not a silent write.
+    const ambiguous = await apiPost(
+      "/api/v1/admin/registry/enrollment",
+      {
+        tenantId: T.group,
+        legalEntityId: "LEN_BEYU_HOLDINGS",
+        countryCode: "TZ",
+        hireDate: "2026-09-30",
+        employeeNo: `HTTP-ENR-AMB-${stamp}`.slice(0, 40),
+        reason: "HTTP flow: ambiguous enrollment must be refused.",
+      },
+      { cookie: ceoCookie },
+    );
+    expect(ambiguous.status).toBe(422);
+    expect(env(ambiguous).error?.code).toBe("ENROLLMENT_TARGET_AMBIGUOUS");
+
+    // Reassignment through the HCM Director's capability.
+    const reassigned = await apiPatch(
+      `/api/v1/admin/registry/employment/${data.employeeId}/manager`,
+      {
+        managerEmployeeId: "EMP_DAUDI_MOSHI",
+        reason: "HTTP flow: governed reporting-line reassignment.",
+      },
+      { cookie: hcmCookie },
+    );
+    expect(reassigned.status).toBe(200);
+    const after = env(reassigned).data as { managerEmployeeId?: string | null };
+    expect(after.managerEmployeeId).toBe("EMP_DAUDI_MOSHI");
+    const [row] = await db.select().from(employees).where(eq(employees.id, data.employeeId!));
+    expect(row.managerEmployeeId).toBe("EMP_DAUDI_MOSHI");
+
+    // Self-management and cycles are refused at the boundary.
+    const selfManage = await apiPatch(
+      `/api/v1/admin/registry/employment/${data.employeeId}/manager`,
+      { managerEmployeeId: data.employeeId, reason: "HTTP flow: self-management must be refused." },
+      { cookie: hcmCookie },
+    );
+    expect(selfManage.status).toBe(409);
+    expect(env(selfManage).error?.code).toBe("SELF_MANAGEMENT_REFUSED");
+
+    // Invalid payloads are schema-refused before any authorization side effect.
+    const invalid = await apiPatch(
+      `/api/v1/admin/registry/employment/${data.employeeId}/manager`,
+      { managerEmployeeId: "EMP_DAUDI_MOSHI" },
+      { cookie: hcmCookie },
+    );
+    expect(invalid.status).toBe(422);
   });
 });

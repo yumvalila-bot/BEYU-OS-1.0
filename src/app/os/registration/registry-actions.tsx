@@ -24,19 +24,31 @@ const sectionTitle = "beyu-kicker text-[#b08d1c]";
 
 type ApiError = { code?: string; message?: string; details?: unknown };
 
-async function post(url: string, body: unknown): Promise<{ ok: boolean; message: string }> {
+async function governedRequest(
+  method: "POST" | "PATCH",
+  url: string,
+  body: unknown,
+): Promise<{ ok: boolean; message: string }> {
   const res = await fetch(url, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
   const json = (await res.json().catch(() => ({}))) as { error?: ApiError; data?: unknown };
   if (!res.ok) {
     const code = json?.error?.code ? ` [${json.error.code}]` : "";
-    return { ok: false, message: `${json?.error?.message ?? `The governed registration was refused (${res.status}).`}${code}` };
+    return { ok: false, message: `${json?.error?.message ?? `The governed act was refused (${res.status}).`}${code}` };
   }
-  return { ok: true, message: "Registered through the BEYU Registry — audited, evented, in scope." };
+  return {
+    ok: true,
+    message:
+      method === "POST"
+        ? "Registered through the BEYU Registry — audited, evented, in scope."
+        : "Updated through the BEYU Registry — audited, evented, in scope.",
+  };
 }
+
+const post = (url: string, body: unknown) => governedRequest("POST", url, body);
 
 function useForm(url: string, initial: Record<string, string>, build: (f: Record<string, string>) => unknown, success: (f: Record<string, string>) => string) {
   const router = useRouter();
@@ -52,6 +64,40 @@ function useForm(url: string, initial: Record<string, string>, build: (f: Record
     setError(null);
     setDone(null);
     const result = await post(url, build(form));
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    setDone(success(form));
+    setForm(initial);
+    startTransition(() => router.refresh());
+  }
+  return { form, set, busy, error, done, submit };
+}
+
+/** PATCH variant: the target URL is derived from the live form state. */
+function usePatchForm(
+  urlFor: (f: Record<string, string>) => string | null,
+  initial: Record<string, string>,
+  build: (f: Record<string, string>) => unknown,
+  success: (f: Record<string, string>) => string,
+) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [form, setForm] = useState(initial);
+  const set = (k: string) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function submit() {
+    const url = urlFor(form);
+    if (!url) return;
+    setBusy(true);
+    setError(null);
+    setDone(null);
+    const result = await governedRequest("PATCH", url, build(form));
     setBusy(false);
     if (!result.ok) {
       setError(result.message);
@@ -637,6 +683,237 @@ export function RegisterEmploymentForm({
         onClick={submit}
       >
         {busy ? "Registering…" : "Register employment"}
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Superior → subordinate enrollment (presentation only)               */
+/* ------------------------------------------------------------------ */
+
+export type WorkforceOption = {
+  employeeId: string;
+  employeeNo: string;
+  displayName: string;
+  managerEmployeeId: string | null;
+};
+
+export function EnrollSubordinateForm({
+  tenants,
+  entities,
+  persons,
+}: {
+  tenants: Array<{ id: string; code: string; name: string }>;
+  entities: Array<{ id: string; code: string; legalName: string; tenantId: string }>;
+  persons: Array<{ id: string; displayName: string }>;
+}) {
+  const initial = {
+    mode: "new",
+    tenantId: tenants[0]?.id ?? "",
+    legalEntityId: "",
+    employeeNo: "",
+    hireDate: new Date().toISOString().slice(0, 10),
+    countryCode: "",
+    displayName: "",
+    email: "",
+    createUser: "no",
+    existingPartyId: "",
+    roleCode: "",
+    reason: "",
+  };
+  const { form, set, busy, error, done, submit } = useForm(
+    "/api/v1/admin/registry/enrollment",
+    initial,
+    (f) => ({
+      tenantId: f.tenantId,
+      legalEntityId: f.legalEntityId,
+      employeeNo: f.employeeNo,
+      hireDate: f.hireDate,
+      countryCode: f.countryCode,
+      ...(f.mode === "new"
+        ? { newPerson: { displayName: f.displayName, email: f.email || null, countryCode: f.countryCode || null }, createUser: f.createUser === "yes" }
+        : { existingPartyId: f.existingPartyId }),
+      ...(f.roleCode ? { roleCode: f.roleCode } : {}),
+      reason: f.reason,
+    }),
+    (f) =>
+      `Subordinate ${f.employeeNo} enrolled under governance — reporting line to the enrolling superior, no authority self-issued.`,
+  );
+  const scopedEntities = entities.filter((e) => e.tenantId === form.tenantId);
+  if (tenants.length === 0) return <p className="text-[12px] beyu-muted">No tenant in your scope.</p>;
+  return (
+    <div className="space-y-3">
+      <p className={sectionTitle}>Enroll a subordinate (superior → subordinate)</p>
+      <p className="text-[11.5px] beyu-muted">
+        Composes the canonical primitives: Party (reuse or register), optional User, employment under the
+        enrolling superior, optional ceiling-checked role. Manager ≠ administrator — the server re-authorizes
+        every part; nothing here is authorization.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <span className={label}>Target person</span>
+          <select className={input} value={form.mode} onChange={(e) => set("mode")(e.target.value)}>
+            <option value="new">Register a NEW person</option>
+            <option value="existing">Reuse an EXISTING party</option>
+          </select>
+        </div>
+        <div>
+          <span className={label}>Tenant</span>
+          <select className={input} value={form.tenantId} onChange={(e) => set("tenantId")(e.target.value)}>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.code} — {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span className={label}>Employing legal entity</span>
+          <select className={input} value={form.legalEntityId} onChange={(e) => set("legalEntityId")(e.target.value)}>
+            <option value="">Select an entity…</option>
+            {scopedEntities.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.code} — {e.legalName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span className={label}>Employee number (unique)</span>
+          <input className={input} value={form.employeeNo} onChange={(e) => set("employeeNo")(e.target.value.toUpperCase())} placeholder="BEYU-EMP-00043" />
+        </div>
+        <div>
+          <span className={label}>Hire date</span>
+          <input className={input} type="date" value={form.hireDate} onChange={(e) => set("hireDate")(e.target.value)} />
+        </div>
+        <div>
+          <span className={label}>Country of work</span>
+          <input className={input} value={form.countryCode} onChange={(e) => set("countryCode")(e.target.value.toUpperCase().slice(0, 2))} placeholder="TZ" maxLength={2} />
+        </div>
+        {form.mode === "new" ? (
+          <>
+            <div>
+              <span className={label}>Display name</span>
+              <input className={input} value={form.displayName} onChange={(e) => set("displayName")(e.target.value)} placeholder="Full name" />
+            </div>
+            <div>
+              <span className={label}>Email (optional unless User requested)</span>
+              <input className={input} value={form.email} onChange={(e) => set("email")(e.target.value)} placeholder="name@beyu.os" />
+            </div>
+            <div>
+              <span className={label}>Establish canonical User?</span>
+              <select className={input} value={form.createUser} onChange={(e) => set("createUser")(e.target.value)}>
+                <option value="no">No — person/employee only</option>
+                <option value="yes">Yes — create the canonical User</option>
+              </select>
+            </div>
+          </>
+        ) : (
+          <div>
+            <span className={label}>Existing canonical party</span>
+            <select className={input} value={form.existingPartyId} onChange={(e) => set("existingPartyId")(e.target.value)}>
+              <option value="">Select a person…</option>
+              {persons.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div>
+          <span className={label}>Authorized role (optional, ceiling-checked)</span>
+          <input className={input} value={form.roleCode} onChange={(e) => set("roleCode")(e.target.value.toUpperCase())} placeholder="TENANT_MEMBER" />
+        </div>
+        <div>
+          <span className={label}>Reason (governed, ≥10 chars)</span>
+          <input className={input} value={form.reason} onChange={(e) => set("reason")(e.target.value)} placeholder="Why this enrollment is legitimate" />
+        </div>
+      </div>
+      <Banner error={error} done={done} />
+      <button
+        type="button"
+        className={button}
+        disabled={
+          busy ||
+          !form.legalEntityId ||
+          !form.employeeNo ||
+          !form.countryCode ||
+          !form.reason ||
+          (form.mode === "new" ? !form.displayName : !form.existingPartyId)
+        }
+        onClick={submit}
+      >
+        {busy ? "Enrolling…" : "Enroll subordinate"}
+      </button>
+    </div>
+  );
+}
+
+export function ReassignReportingLineForm({ employees }: { employees: WorkforceOption[] }) {
+  const initial = { employeeId: "", managerEmployeeId: "", reason: "" };
+  const { form, set, busy, error, done, submit } = usePatchForm(
+    (f) => (f.employeeId ? `/api/v1/admin/registry/employment/${f.employeeId}/manager` : null),
+    initial,
+    (f) => ({
+      managerEmployeeId: f.managerEmployeeId === "" ? null : f.managerEmployeeId,
+      reason: f.reason,
+    }),
+    () => "Reporting line governed — MANAGER_CHANGE recorded with audit and event.",
+  );
+  const subordinate = employees.find((e) => e.employeeId === form.employeeId);
+  if (employees.length === 0) return <p className="text-[12px] beyu-muted">No employees are visible in your scope.</p>;
+  return (
+    <div className="space-y-3">
+      <p className={sectionTitle}>Reassign a reporting line</p>
+      <p className="text-[11.5px] beyu-muted">
+        Supervision only — never a user, role or permission. Cycles, self-management and cross-tenant managers
+        are refused server-side; every change is audited with an EMPLOYMENT_CHANGED event.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <span className={label}>Subordinate</span>
+          <select className={input} value={form.employeeId} onChange={(e) => set("employeeId")(e.target.value)}>
+            <option value="">Select an employee…</option>
+            {employees.map((e) => (
+              <option key={e.employeeId} value={e.employeeId}>
+                {e.employeeNo} — {e.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span className={label}>New manager</span>
+          <select className={input} value={form.managerEmployeeId} onChange={(e) => set("managerEmployeeId")(e.target.value)}>
+            <option value="">No manager (clear the line)</option>
+            {employees
+              .filter((e) => e.employeeId !== form.employeeId)
+              .map((e) => (
+                <option key={e.employeeId} value={e.employeeId}>
+                  {e.employeeNo} — {e.displayName}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div>
+          <span className={label}>Reason (governed, ≥10 chars)</span>
+          <input className={input} value={form.reason} onChange={(e) => set("reason")(e.target.value)} placeholder="Why this reassignment is legitimate" />
+        </div>
+        {subordinate ? (
+          <div className="text-[11.5px] beyu-muted">
+            Currently reports to: {subordinate.managerEmployeeId ?? "no manager"}
+          </div>
+        ) : null}
+      </div>
+      <Banner error={error} done={done} />
+      <button
+        type="button"
+        className={button}
+        disabled={busy || !form.employeeId || !form.reason}
+        onClick={submit}
+      >
+        {busy ? "Reassigning…" : "Reassign reporting line"}
       </button>
     </div>
   );

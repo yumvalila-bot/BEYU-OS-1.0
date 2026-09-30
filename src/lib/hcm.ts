@@ -30,7 +30,7 @@ import { globalUserIdsForParties, type GlobalUserID } from "./identity";
 import { tenantScopeIds } from "./tenant-scope";
 import type { Tx } from "@/lib/audit";
 
-export const HCM_VERSION = "hcm-1.4.0";
+export const HCM_VERSION = "hcm-1.5.0";
 
 /**
  * THE governed employee-master write: one employees row + its canonical HIRE
@@ -88,6 +88,49 @@ export async function createEmployment(
   });
 }
 
+/**
+ * THE single sanctioned writer of a reporting-line mutation
+ * (`employees.manager_employee_id`). Governed callers (RBAC + ABAC + tenant /
+ * entity / country scope, cycle and self-management checks, MFA /
+ * classification) validate everything BEFORE reaching this primitive — it
+ * enforces only that the master-row update and its `MANAGER_CHANGE` history
+ * event commit as ONE unit inside the caller-provided transaction.
+ *
+ * Superior ≠ administrator: reassigning this column expresses supervision
+ * only. It mints no user, no role, no permission and no authorization.
+ */
+export async function updateReportingLine(
+  tx: Tx,
+  input: {
+    employeeId: string;
+    /** New manager, or null to remove the reporting line entirely. */
+    managerEmployeeId: string | null;
+    previousManagerEmployeeId: string | null;
+    effectiveFrom: string;
+    employmentEventId: string;
+    recordedBy: string;
+    provenance: string;
+  },
+): Promise<void> {
+  await tx
+    .update(employees)
+    .set({ managerEmployeeId: input.managerEmployeeId })
+    .where(eq(employees.id, input.employeeId));
+  await tx.insert(employmentEvents).values({
+    id: input.employmentEventId,
+    employeeId: input.employeeId,
+    eventType: "MANAGER_CHANGE",
+    effectiveFrom: input.effectiveFrom,
+    details: {
+      registry: "BEYU_REGISTRY",
+      provenance: input.provenance,
+      previousManagerEmployeeId: input.previousManagerEmployeeId,
+      newManagerEmployeeId: input.managerEmployeeId,
+    },
+    recordedBy: input.recordedBy,
+  });
+}
+
 
 export const EMPLOYMENT_STATUS = ["ACTIVE", "ON_LEAVE", "SUSPENDED", "TERMINATED"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUS)[number];
@@ -100,6 +143,10 @@ export const EMPLOYMENT_EVENT_TYPE = [
   "SUSPENSION",
   "TERMINATION",
   "REHIRE",
+  // Governed superior/subordinate reporting-line change. The ONLY sanctioned
+  // mutation of employees.manager_employee_id is `updateReportingLine` below —
+  // no service may reassign a manager outside that primitive.
+  "MANAGER_CHANGE",
 ] as const;
 export type EmploymentEventType = (typeof EMPLOYMENT_EVENT_TYPE)[number];
 

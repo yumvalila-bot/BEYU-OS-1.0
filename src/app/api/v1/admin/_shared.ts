@@ -267,6 +267,47 @@ export const registerEmploymentSchema = z
   })
   .strict();
 
+/** Governed superior/subordinate reporting-line reassignment. */
+export const reassignReportingLineSchema = z
+  .object({
+    /** New manager employee, or null to remove the reporting line. */
+    managerEmployeeId: z.string().min(4).max(60).nullish(),
+    effectiveFrom: z.string().regex(isoDate).nullish(),
+    reason: reasonSchema,
+  })
+  .strict();
+
+/** Governed superior → subordinate enrollment (party / user / employment / role). */
+export const enrollSubordinateSchema = z
+  .object({
+    tenantId: z.string().min(4).max(60),
+    legalEntityId: z.string().min(4).max(60),
+    countryCode: z.string().length(2),
+    hireDate: z.string().regex(isoDate),
+    employeeNo: z.string().trim().min(3).max(40),
+    employmentType: z
+      .enum(["PERMANENT", "FIXED_TERM", "PROBATION", "CONSULTANT", "INTERN"])
+      .nullish(),
+    positionId: z.string().min(4).max(60).nullish(),
+    workEmail: z.string().email().max(320).nullish(),
+    existingPartyId: z.string().min(4).max(60).nullish(),
+    newPerson: z
+      .object({
+        displayName: z.string().trim().min(2).max(160),
+        givenName: z.string().trim().min(1).max(80).nullish(),
+        familyName: z.string().trim().min(1).max(80).nullish(),
+        email: z.string().email().max(320).nullish(),
+        phone: z.string().trim().min(6).max(32).nullish(),
+        countryCode: z.string().length(2).nullish(),
+      })
+      .strict()
+      .nullish(),
+    createUser: z.boolean().nullish(),
+    roleCode: z.string().min(3).max(60).nullish(),
+    reason: reasonSchema,
+  })
+  .strict();
+
 /**
  * Map an expected governed refusal to the canonical error envelope. Unknown
  * errors are NOT mapped — they propagate to guarded()'s 500 boundary so no
