@@ -87,6 +87,7 @@ describe("canonical constitutional hierarchy", () => {
       // forbids " OS").
       "Holograph — Spatial Visualization & Twins",
       "Family Office",
+      "Communications",
       "Noelia / HIVE",
     ]);
     expect(

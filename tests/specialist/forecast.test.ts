@@ -1032,7 +1032,8 @@ describe("forecast service — hostile inputs", () => {
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). Adds no forecast/scenario/assumption table and no specialist truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). Adds no forecast/scenario/assumption table and no specialist truth.
     // + 0071: Federation & Trust shared capability (no forecast table, no second forecast truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(72);
+    // + 0072: Communications Platform shared capability (26 tables, RLS on all, no forecast table, no second forecast truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(73);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

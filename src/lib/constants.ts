@@ -457,6 +457,35 @@ export const PERMISSIONS = {
   "federation:approve": "Approve or deny federation access requests (governed human approval)",
   "federation:production.activate": "Activate a federation integration to production (requires recorded approval + evidence)",
   "federation:production.revoke": "Revoke a production federation integration",
+  // Communications Platform — ONE shared BEYU OS capability, NOT an OS (0072).
+  // Read vs manage split, plus broadcast/approval gates. Marketing requires
+  // consent; no permission here posts money, bypasses RLS, or touches CAP_POSTING.
+  "communications:read": "Read communications: channels, providers, contacts, conversations, messages, delivery, analytics",
+  "communications:contact.read": "Read communication contacts and verified methods (360° view)",
+  "communications:contact.manage": "Create and manage communication contacts and verified methods (explicit identity linking, auditable)",
+  "communications:consent.read": "Read consent and preference records",
+  "communications:consent.manage": "Record and transition consent (opt-in, opt-out, revocation) with evidence",
+  "communications:template.read": "Read communication templates (versioned, localized)",
+  "communications:template.manage": "Create, version and manage communication templates",
+  "communications:template.approve": "Approve communication templates (HIGH-RISK: marketing and customer-facing content)",
+  "communications:conversation.read": "Read conversations and messages within tenant scope",
+  "communications:conversation.manage": "Manage conversations: assign, transition status, human handoff",
+  "communications:message.send": "Send communications through governed channels (requires consent and routing policy)",
+  "communications:message.read": "Read messages and delivery events",
+  "communications:provider.read": "Read provider registry and health",
+  "communications:provider.manage": "Manage provider registry (configuration references only — never secret values; HIGH-RISK)",
+  "communications:routing.read": "Read routing rules and SLA policies",
+  "communications:routing.manage": "Manage routing rules and SLA policies",
+  "communications:broadcast.read": "Read broadcasts and audience",
+  "communications:broadcast.manage": "Create and manage broadcasts (governed audience, consent-gated)",
+  "communications:broadcast.approve": "Approve broadcasts for sending (HIGH-RISK: mass communication)",
+  "communications:case.read": "Read communication cases and feedback",
+  "communications:case.manage": "Manage cases, feedback, assignments and resolution",
+  "communications:journey.read": "Read communication journeys and runs",
+  "communications:journey.manage": "Create and manage communication journeys (triggered, scheduled)",
+  "communications:analytics.read": "Read communications analytics and cost intelligence",
+  "communications:security.read": "Read communications security events and monitoring",
+  "communications:security.manage": "Manage communications security: resolve events, emergency channel disablement",
   "audit:log.read": "Read the immutable audit ledger",
   "audit:event.read": "Read the enterprise event stream",
   "ai:noelia.query": "Query Noelia AI",
@@ -604,6 +633,11 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   // is claimed; FUTURE_HOLOGRAPHIC_DEVICE devices can only ever be
   // REGISTERED/NOT_IMPLEMENTED.)
   "viz:device.manage",
+  // Communications provider management touches external channel credentials
+  // and mass-broadcast approval changes external communication posture.
+  "communications:provider.manage",
+  "communications:broadcast.approve",
+  "communications:template.approve",
 ];
 
 /** Canonical role catalogue with constitutional scope. */
@@ -761,6 +795,33 @@ export const ROLES: Record<
       "federation:verification.manage",
       "federation:production.activate",
       "federation:production.revoke",
+      // Communications Platform (shared capability, 0072): platform admin operates end-to-end
+      "communications:read",
+      "communications:contact.read",
+      "communications:contact.manage",
+      "communications:consent.read",
+      "communications:consent.manage",
+      "communications:template.read",
+      "communications:template.manage",
+      "communications:template.approve",
+      "communications:conversation.read",
+      "communications:conversation.manage",
+      "communications:message.send",
+      "communications:message.read",
+      "communications:provider.read",
+      "communications:provider.manage",
+      "communications:routing.read",
+      "communications:routing.manage",
+      "communications:broadcast.read",
+      "communications:broadcast.manage",
+      "communications:broadcast.approve",
+      "communications:case.read",
+      "communications:case.manage",
+      "communications:journey.read",
+      "communications:journey.manage",
+      "communications:analytics.read",
+      "communications:security.read",
+      "communications:security.manage",
     ],
   },
   GROUP_CEO: {
@@ -913,6 +974,10 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read-only visibility —
       // external authorities consumed by this domain; no mutation, no approval.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
     ] as PermissionCode[],
   },
   GROUP_CFO: {
@@ -997,6 +1062,11 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read-only visibility —
       // external authorities consumed by this domain; no mutation, no approval.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
+      "communications:analytics.read",
     ],
   },
   CHIEF_GOVERNANCE_OFFICER: {
@@ -1088,6 +1158,10 @@ export const ROLES: Record<
       // require this role's recorded decision. The CGO does not operate the
       // plane (no manage verbs): separation of approval from execution.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
       "federation:approve",
       "federation:audit.read",
     ],
@@ -1149,6 +1223,10 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read + audit visibility
       // for security/compliance oversight of the federation plane.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
       "federation:audit.read",
     ],
   },
@@ -1394,6 +1472,10 @@ export const ROLES: Record<
       // federation plane and its agreement records. Approving or mutating
       // trust state is not a legal-review act.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
       "federation:agreement.read",
     ],
   },
@@ -1532,6 +1614,10 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read-only visibility —
       // external authorities consumed by this domain; no mutation, no approval.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1582,6 +1668,10 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read-only visibility —
       // external authorities consumed by this domain; no mutation, no approval.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
     ],
   },
   FOUNDATION_DIRECTOR: {
@@ -1663,6 +1753,10 @@ export const ROLES: Record<
       // Federation & Trust (shared capability, 0071): read-only visibility —
       // external authorities consumed by this domain; no mutation, no approval.
       "federation:read",
+      "communications:read",
+      "communications:contact.read",
+      "communications:conversation.read",
+      "communications:message.read",
     ],
   },
   FOUNDATION_OFFICER: {

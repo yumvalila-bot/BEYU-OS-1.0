@@ -505,6 +505,13 @@
       "when": 1790619112265,
       "tag": "0071_federation_trust",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0072_communications_platform",
+      "breakpoints": true
     }
   ]
 }
