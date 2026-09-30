@@ -157,7 +157,13 @@ jobs:
   root-beyu-os:
     name: Root BEYU OS — PostgreSQL security gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # 45 was chronically too tight: the job executes typecheck, lint, all
+    # 74 migrations + gates, seed, TWO production builds, the full vitest
+    # regression against a live server AND the Playwright suite. Runs (on main
+    # too) were being CANCELLED at the wall clock mid-browser-step while every
+    # executed step had passed. 60 changes no test, no step and no assertion —
+    # it only lets the browser suite finish on shared-runner speed variance.
+    timeout-minutes: 60
 
     services:
       postgres:
