@@ -512,6 +512,13 @@
       "when": 1790700000000,
       "tag": "0072_communications_platform",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1790746331223,
+      "tag": "0073_canonical_family_registry",
+      "breakpoints": true
     }
   ]
 }

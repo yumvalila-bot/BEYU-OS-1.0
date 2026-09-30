@@ -4,9 +4,16 @@
  * HCM is the ONE employee/master. Sector OSs consume this service; they do not
  * hold an independent employee identity.
  *
- * THIS MODULE DOES NOT WRITE THE EMPLOYEE MASTER. Creating or mutating an
- * employee is a governed write. No HCM write capability is ratified, so every
- * mutation path returns REQUIRES_AUTHORITY and leaves the database untouched.
+ * THE SINGLE APPLICATION WRITER. `createEmployment()` below is the one and only
+ * place in `src/` that writes `people.employees` (seed.ts is the constitutional
+ * bootstrap). It is a PURE transaction primitive: no authorization, no audit,
+ * no scope logic — callers must be the governed, guarded path (the BEYU
+ * Registry orchestration runs it inside `withAuditTransaction`, which appends
+ * the hash-chained audit record and the enterprise event atomically). It is
+ * exported for that caller and for nothing else.
+ *
+ * No HCM LIFECYCLE write capability is ratified: `recordEmploymentChange()`
+ * still returns REQUIRES_AUTHORITY and leaves the database untouched.
  *
  * Compensation is classified RESTRICTED and is stripped unless the principal's
  * clearance is a known rank at or above that ceiling.
@@ -21,8 +28,66 @@ import { can, type Principal } from "./authz";
 import { classificationRank, isKnownClassification } from "./constants";
 import { globalUserIdsForParties, type GlobalUserID } from "./identity";
 import { tenantScopeIds } from "./tenant-scope";
+import type { Tx } from "@/lib/audit";
 
-export const HCM_VERSION = "hcm-1.3.0";
+export const HCM_VERSION = "hcm-1.4.0";
+
+/**
+ * THE governed employee-master write: one employees row + its canonical HIRE
+ * employment event, inside the CALLER's transaction.
+ *
+ * Preconditions (party exists, entity operational, duplicates refused, scope
+ * asserted, MFA/classification checked) are validated by the governed caller —
+ * this primitive enforces only that it runs inside a provided transaction so
+ * the row, its event, the audit record and the enterprise event commit or
+ * roll back as ONE unit.
+ */
+export async function createEmployment(
+  tx: Tx,
+  input: {
+    id: string;
+    tenantId: string;
+    employeeNo: string;
+    partyId: string;
+    legalEntityId: string;
+    positionId?: string | null;
+    managerEmployeeId?: string | null;
+    workEmail?: string | null;
+    countryCode: string;
+    employmentType: string;
+    hireDate: string;
+    endDate?: string | null;
+    employmentEventId: string;
+    recordedBy: string;
+    provenance: string;
+  },
+): Promise<void> {
+  await tx.insert(employees).values({
+    id: input.id,
+    tenantId: input.tenantId,
+    employeeNo: input.employeeNo,
+    partyId: input.partyId,
+    legalEntityId: input.legalEntityId,
+    positionId: input.positionId ?? null,
+    managerEmployeeId: input.managerEmployeeId ?? null,
+    workEmail: input.workEmail ?? null,
+    countryCode: input.countryCode,
+    employmentType: input.employmentType,
+    hireDate: input.hireDate,
+    endDate: input.endDate ?? null,
+    status: "ACTIVE",
+    classification: "RESTRICTED",
+  });
+  await tx.insert(employmentEvents).values({
+    id: input.employmentEventId,
+    employeeId: input.id,
+    eventType: "HIRE",
+    effectiveFrom: input.hireDate,
+    details: { registry: "BEYU_REGISTRY", provenance: input.provenance },
+    recordedBy: input.recordedBy,
+  });
+}
+
 
 export const EMPLOYMENT_STATUS = ["ACTIVE", "ON_LEAVE", "SUSPENDED", "TERMINATED"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUS)[number];

@@ -1100,7 +1100,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No specialist truth.
     // + 0071: Federation & Trust shared capability (no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(n).toBe(73);
+    // + 0073: Canonical family registry (families + family_members lifecycle columns; no risk table, no second risk truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(n).toBe(74);
   });
 
   it("leaves all triggers enabled", async () => {

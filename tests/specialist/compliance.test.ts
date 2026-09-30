@@ -1218,7 +1218,8 @@ describe("compliance module — creates no second truth", () => {
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No compliance-substrate change; obligations/evidence tables are untouched.
     // + 0071: Federation & Trust shared capability (no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(73);  });
+    // + 0073: Canonical family registry (families + family_members lifecycle columns; no compliance table, no second compliance truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

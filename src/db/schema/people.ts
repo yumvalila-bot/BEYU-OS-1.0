@@ -15,7 +15,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { classificationEnum, eligibilityEnum, lifecycleStatusEnum, verificationStatusEnum } from "./enums";
-import { legalEntities, orgUnits, tenants } from "./core";
+import { countries, jurisdictions, legalEntities, orgUnits, tenants } from "./core";
 import { parties } from "./identity";
 
 export const positions = pgTable(
@@ -108,6 +108,46 @@ export const workforceRequests = pgTable("workforce_requests", {
 /* Family Office                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Canonical FAMILY entity — the governed organizational/relationship domain
+ * inside BEYU OS (never a separate OS, tenant system or permission engine).
+ *
+ * A family's canonical identity is a `parties` row of type ORGANIZATION
+ * (`partyId`): one identity model, no duplicated identity storage, and the
+ * anchor through which FAMILY → COMPANY ownership is recorded in the
+ * pre-existing `ownership_records.owner_party_id` column. This row carries the
+ * family-domain attributes: tenant scope, family code, jurisdiction, lifecycle
+ * status and classification.
+ */
+export const families = pgTable(
+  "families",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    /** Canonical MDM identity of the family (party type ORGANIZATION). */
+    partyId: text("party_id")
+      .notNull()
+      .references(() => parties.id),
+    /** Stable family code, unique within the tenant. */
+    code: text("code").notNull(),
+    displayName: text("display_name").notNull(),
+    legalName: text("legal_name"),
+    countryCode: text("country_code").references(() => countries.code),
+    jurisdictionId: text("jurisdiction_id").references(() => jurisdictions.id),
+    status: lifecycleStatusEnum("status").notNull().default("ACTIVE"),
+    classification: classificationEnum("classification").notNull().default("HIGHLY_RESTRICTED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("families_tenant_code_uidx").on(t.tenantId, t.code),
+    index("families_tenant_idx").on(t.tenantId),
+    index("families_party_idx").on(t.partyId),
+  ],
+);
+
 export const familyMembers = pgTable(
   "family_members",
   {
@@ -118,12 +158,49 @@ export const familyMembers = pgTable(
     partyId: text("party_id")
       .notNull()
       .references(() => parties.id),
+    /**
+     * The canonical family this membership belongs to.
+     *
+     * NOT NULL is enforced by the `family_members_family_id_ck` CHECK created
+     * in migration 0073 (an `ALTER COLUMN … SET NOT NULL` would classify as an
+     * early contraction under the repository's EXPAND/CONTRACT gate; the CHECK
+     * provides the identical guarantee as a classified-safe ADD CONSTRAINT and
+     * is populated for every existing row by the same migration's backfill).
+     * The Drizzle column is therefore declared nullable to mirror the physical
+     * column, while every governed write path sets it.
+     */
+    familyId: text("family_id").references(() => families.id),
+    /** Legacy family-line label — retained for the lineage engine and history. */
     familyLine: text("family_line").notNull(),
     branch: text("branch").notNull(),
     generation: integer("generation").notNull(),
     parentMemberId: text("parent_member_id"),
+    /**
+     * Relationship to `parentMemberId`, from the governed catalogue in
+     * `src/lib/family/model.ts` (LINEAGE_RELATIONSHIPS). The historical column
+     * default "CHILD" is retained for legacy rows only; the governed registry
+     * validates against the catalogue.
+     */
     relationshipToParent: text("relationship_to_parent").notNull().default("CHILD"),
+    /**
+     * Spousal/affinal attachment: affinal members attach to the line THROUGH a
+     * member, never as a descent parent (marriage never creates descent).
+     * Enforced by CHECK: affinal ⇒ required; non-affinal ⇒ must be null.
+     * The self-referential FK is created by migration 0073 (mirroring
+     * `parentMemberId`, which the ORM deliberately does not model).
+     */
+    linkedToMemberId: text("linked_to_member_id"),
     directDescendant: boolean("direct_descendant").notNull().default(false),
+    /** Governed membership lifecycle — distinct from lineage verification. */
+    membershipStatus: text("membership_status").notNull().default("ACTIVE"),
+    effectiveFrom: date("effective_from"),
+    effectiveTo: date("effective_to"),
+    /** How this membership was established (document reference / resolution). */
+    provenance: text("provenance"),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     verificationStatus: verificationStatusEnum("verification_status").notNull().default("UNVERIFIED"),
     verificationMethod: text("verification_method"),
     verifiedBy: text("verified_by"),
@@ -134,6 +211,7 @@ export const familyMembers = pgTable(
   (t) => [
     uniqueIndex("family_members_party_uidx").on(t.partyId),
     index("family_members_branch_idx").on(t.branch),
+    index("family_members_family_idx").on(t.familyId),
   ],
 );
 

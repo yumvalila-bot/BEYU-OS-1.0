@@ -1025,6 +1025,56 @@ async function main() {
     .onConflictDoNothing();
 
   /* ---------------- family office ---------------- */
+  /*
+   * Canonical family entity (BEYU Registry). The ids MUST equal migration
+   * 0073's deterministic backfill formula:
+   *   'FML_'/'PTY_' || upper(regexp_replace(tenant_id||'_'||family_line,
+   *                                        '[^A-Za-z0-9]+', '_', 'g'))
+   * so a fresh seed and a migration-upgraded database converge on ONE row set
+   * (the inserts are ON CONFLICT DO NOTHING in both paths).
+   */
+  const famLine = "BEYU";
+  const famNaturalKey = `${T.group}_${famLine}`;
+  const famPartyId = fixedId(ID_PREFIX.party, famNaturalKey);
+  const famId = fixedId(ID_PREFIX.family, famNaturalKey);
+  // Schema-resilient, exactly like the tenant_domains bootstrap above: the
+  // migration-upgrade harness seeds PREDECESSOR databases that predate 0073
+  // and therefore have no `families` table (nor family_members.family_id).
+  // On those schemas this block is skipped and the members insert below omits
+  // familyId; on any schema carrying 0073 both converge on the same rows the
+  // migration backfill derives from the identical formula.
+  const familiesTable = await adminDb.execute<{ name: string | null }>(
+    sql`select to_regclass('public.families')::text as name`,
+  );
+  const hasFamiliesTable = Boolean(familiesTable.rows[0]?.name);
+  if (hasFamiliesTable) {
+    await adminDb
+      .insert(s.parties)
+      .values([
+        {
+          id: famPartyId,
+          type: "ORGANIZATION" as const,
+          displayName: famLine,
+          status: "ACTIVE" as const,
+          classification: "CONFIDENTIAL" as const,
+        },
+      ])
+      .onConflictDoNothing();
+
+    await adminDb
+      .insert(s.families)
+      .values([
+        {
+          id: famId,
+          tenantId: T.group,
+          partyId: famPartyId,
+          code: famLine,
+          displayName: famLine,
+        },
+      ])
+      .onConflictDoNothing();
+  }
+
   const fam = [
     { key: "FM_G1_FOUNDER", party: "AMANI_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: true, ver: "VERIFIED" as const },
     { key: "FM_G1_SPOUSE", party: "NEEMA_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: false, ver: "VERIFIED" as const },
@@ -1036,7 +1086,10 @@ async function main() {
         id: fixedId(ID_PREFIX.familyMember, f.key),
         tenantId: T.group,
         partyId: fixedId(ID_PREFIX.party, f.party),
-        familyLine: "BEYU",
+        // Spread so the key is ABSENT (not undefined) on predecessor schemas:
+        // an explicitly-present undefined still reaches the query builder.
+        ...(hasFamiliesTable ? { familyId: famId } : {}),
+        familyLine: famLine,
         branch: f.branch,
         generation: f.gen,
         parentMemberId: f.parent,

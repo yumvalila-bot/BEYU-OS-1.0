@@ -42,7 +42,7 @@ import { newId, ID_PREFIX } from "@/lib/ids";
 import { assertWithinScope, tenantScopeIds } from "@/lib/tenant-scope";
 import { adminDb } from "@/db/admin";
 import { assertDelegationScope, DelegationScopeError } from "./delegation";
-import type { PermissionCode } from "@/lib/constants";
+import type { PermissionCode, Classification } from "@/lib/constants";
 
 export const ADMIN_GOVERNANCE_VERSION = "admin-governance-1.0.0";
 
@@ -63,15 +63,32 @@ export class AdminGovernanceError extends Error {
   }
 }
 
-function requireCapability(actor: Principal, permission: PermissionCode, action: string): void {
-  const decision = can(actor, permission);
+/**
+ * Capability gate — the single RBAC + ABAC check every governed registration
+ * path performs before it may touch the database. Exported for the BEYU
+ * Registry orchestration layer (registry-service.ts), which reuses this same
+ * primitive rather than introducing a second authorization path. The optional
+ * `context` carries ABAC inputs (classification ceiling, entity scope) resolved
+ * from the TARGET record, never from request-controlled authorization data.
+ */
+export function requireCapability(
+  actor: Principal,
+  permission: PermissionCode,
+  action: string,
+  context?: { classification?: Classification; tenantId?: string; entityId?: string },
+): void {
+  const decision = can(actor, permission, context);
   if (!decision.allowed) {
-    throw new AdminGovernanceError("FORBIDDEN", decision.reason, 403);
+    throw new AdminGovernanceError(
+      decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
+      decision.reason,
+      403,
+    );
   }
 }
 
 /** Scope gate: canonical tenant scope + delegation scope, both fail-closed. */
-async function requireActionScope(
+export async function requireActionScope(
   actor: Principal,
   permission: PermissionCode,
   target: { tenantId: string; legalEntityId?: string | null; countryCode?: string | null },
@@ -99,7 +116,7 @@ async function requireActionScope(
 /* Shared audit/event builders                                         */
 /* ------------------------------------------------------------------ */
 
-function adminAudit(
+export function adminAudit(
   actor: Principal,
   action: string,
   objectType: string,
@@ -125,7 +142,7 @@ function adminAudit(
   };
 }
 
-function adminEvent(
+export function adminEvent(
   actor: Principal,
   type: string,
   subjectType: string,
@@ -133,6 +150,7 @@ function adminEvent(
   payload: Record<string, unknown>,
   permission: PermissionCode,
   traceId: string,
+  classification: EventInput["classification"] = "CONFIDENTIAL",
 ): EventInput {
   return {
     type,
@@ -145,7 +163,7 @@ function adminEvent(
     subjectType,
     subjectId,
     actorUserId: actor.userId,
-    classification: "CONFIDENTIAL",
+    classification,
     payload,
     traceId,
     correlationId: traceId,
@@ -161,7 +179,7 @@ function adminEvent(
   };
 }
 
-async function auditRefusal(
+export async function auditRefusal(
   actor: Principal,
   action: string,
   objectType: string,
@@ -1522,6 +1540,14 @@ export const ADMINISTRATIVE_AUDIT_ACTIONS = [
   "ROLE_REVOKED",
   "ADMIN_DELEGATED",
   "ADMIN_DELEGATION_REVOKED",
+  // BEYU Registry — unified governed registration over the canonical models.
+  "PARTY_REGISTERED",
+  "FAMILY_REGISTERED",
+  "FAMILY_MEMBER_ADDED",
+  "LEGAL_ENTITY_REGISTERED",
+  "BUSINESS_REGISTERED",
+  "OWNERSHIP_CREATED",
+  "EMPLOYMENT_REGISTERED",
 ] as const;
 
 /**

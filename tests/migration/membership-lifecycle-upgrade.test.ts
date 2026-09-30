@@ -17,7 +17,7 @@ it.skipIf(!adminUrl)("0057 preserves original membership and decision history an
 // current seed's drizzle inserts reference the mirrored search_tsv column, so
 // 0066 belongs in the predecessor baseline. The migration under test (0057)
 // remains the ONLY upgrade step applied after the predecessor state.
-for(const f of readdirSync(join(root,"drizzle")).filter(f=>/^\d+.*\.sql$/.test(f)&&(Number(f.slice(0,4))<=56||f==="0066_shared_search_fulltext.sql"||f==="0071_federation_trust.sql")))copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
+for(const f of readdirSync(join(root,"drizzle")).filter(f=>/^\d+.*\.sql$/.test(f)&&(Number(f.slice(0,4))<=56||f==="0066_shared_search_fulltext.sql"||f==="0071_federation_trust.sql"||f==="0073_canonical_family_registry.sql")))copyFileSync(join(root,"drizzle",f),join(dir,"drizzle",f));
  const run=(script:string,cwd:string,label:string)=>{const r=spawnSync(process.execPath,[join(root,"node_modules/tsx/dist/cli.mjs"),script],{cwd,env,encoding:"utf8",timeout:90000});writeFileSync(join(dir,`${label}.log`),(r.stdout??"")+(r.stderr??""));expect(r.status,`see ${join(dir,`${label}.log`)}`).toBe(0);};
  const client=new Client({connectionString:admin.href});let created=false;
  try{
@@ -36,8 +36,8 @@ for(const f of readdirSync(join(root,"drizzle")).filter(f=>/^\d+.*\.sql$/.test(f
   after.governance_members=members.map(({lifecycle_status,lifecycle_revision,...original})=>{expect(lifecycle_status).toBe("ACTIVE");expect(lifecycle_revision).toBe(0);return original;});
   expect(after).toEqual(before);
   expect((await client.query("select id from governance_membership_changes")).rowCount).toBe(0);
-  // 60 = 0000-0056 (57) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0057 under test (1).
-  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(60);
+  // 61 = 0000-0056 (57) + 0066 shared-search baseline (1) + 0071 federation-trust baseline (1) + 0073 canonical-family-registry baseline (1, additive on people/family tables — same independent-baseline pattern as 0066/0071; the current seed targets the current drizzle schema) + 0057 under test (1).
+  expect(Number((await client.query("select count(*) as n from beyu_migrations where mode='APPLIED'")).rows[0].n)).toBe(61);
   await client.query("begin");await client.query("set local role beyu_runtime");
   expect((await client.query("select rolsuper,rolbypassrls from pg_roles where rolname=current_user")).rows[0]).toEqual({rolsuper:false,rolbypassrls:false});
   expect((await client.query("select id from governance_membership_changes")).rowCount).toBe(0);

@@ -112,11 +112,15 @@ describe("canonical invariants", () => {
   it("HCM is the only employee master writer in application code", () => {
     expect(HCM_VERSION).toMatch(/^hcm-/);
     const writers = walk("src").filter((f) => {
+      // seed.ts is the constitutional bootstrap. The BEYU Registry registers
+      // employment by delegating to lib/hcm's createEmployment — the one
+      // sanctioned writer (mission-ratified governed HIRE path); it never
+      // writes people.employees itself. Any OTHER file is a second master.
       if (f.includes("seed.ts")) return false;
       const t = readFileSync(f, "utf8");
       return /insert\(\s*s?\.?employees/.test(t) || /insert\(employees\)/.test(t);
     });
-    expect(writers).toEqual([]);
+    expect(writers).toEqual(["src/lib/hcm.ts"]);
   });
 });
 

@@ -70,7 +70,10 @@ export function hcmEvidence(): {
 } {
   const schemaHits = walk("src/db/schema").filter((f) => /pgTable\(\s*"employees"/.test(src(f)));
   const inserts = walk("src").filter((f) => {
-    if (f.includes("seed.ts")) return false;
+    // seed.ts is the constitutional bootstrap; src/lib/hcm.ts is THE sanctioned
+    // single application writer (createEmployment — governed callers only).
+    // Anything ELSE that writes people.employees is a second master and fails.
+    if (f.includes("seed.ts") || f === "src/lib/hcm.ts") return false;
     const t = src(f);
     return /insert\(\s*s?\.?employees/.test(t) || /insert\(employees\)/.test(t);
   });
@@ -125,7 +128,7 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Employee master",
       masterComplete ? "COMPLETE" : "PARTIAL",
-      `ONE people.employees table (${e.employeeTables.join(", ") || "none"}); application writers=${e.employeeInserts.length}.`,
+      `ONE people.employees table (${e.employeeTables.join(", ") || "none"}); application writers outside lib/hcm.ts=${e.employeeInserts.length} (lib/hcm.createEmployment is THE sanctioned writer, reached only through the guarded registry path).`,
       e.employeeInserts.length > 0 ? "A second writer exists" : "—",
     ),
     row(
@@ -197,14 +200,14 @@ export function hcmCompletenessMatrix(): HcmCapabilityRow[] {
     row(
       "Audit",
       "PARTIAL",
-      "GET /api/v1/hcm/employees is guarded() (authenticated read). Writes do not exist.",
-      "No ratified mutation to audit",
+      "GET /api/v1/hcm/employees is guarded() (authenticated read). The governed employment registration runs inside withAuditTransaction: hash-chained EMPLOYMENT_REGISTERED audit + enterprise event, atomically.",
+      "Lifecycle mutations beyond governed registration remain unratified",
     ),
     row(
       "Events",
       "PARTIAL",
-      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. No writer publishes them.",
-      "Unratified write path",
+      "os_registry declares EMPLOYEE_CREATED / EMPLOYMENT_CHANGED. Governed registration publishes the declared EMPLOYEE_CREATED event atomically with the row.",
+      "EMPLOYMENT_CHANGED (lifecycle) has no ratified writer",
     ),
     row(
       "Temporal history",

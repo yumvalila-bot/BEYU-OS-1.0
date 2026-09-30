@@ -144,9 +144,13 @@ calculate tax, or create liabilities. `mayWrite("lib/hcm", journal)` remains fal
 
 ## 11. Audit / events
 
-GET is `guarded()` (authenticated, permissioned, traced). Writes do not exist, so
-no EMPLOYEE_CREATED / EMPLOYMENT_CHANGED is published. That is honest PARTIAL,
-not a second event bus.
+GET is `guarded()` (authenticated, permissioned, traced). Employment REGISTRATION
+is the one ratified write: `createEmployment()` in `src/lib/hcm.ts` — THE single
+application writer of `employees` — runs inside `withAuditTransaction` through the
+BEYU Registry orchestration, appending the hash-chained `EMPLOYMENT_REGISTERED`
+audit and the declared `EMPLOYEE_CREATED` enterprise event atomically with the row.
+Lifecycle transitions remain unratified (`recordEmploymentChange()` never writes),
+so Audit / Events stay honest PARTIAL — not a second event bus.
 
 ---
 
@@ -218,8 +222,8 @@ Derived from `hcmCompletenessMatrix()`:
 | RBAC | COMPLETE | `hcm:employee.read` / `.manage` | — |
 | ABAC | COMPLETE | clearance + entity + tenant | — |
 | Compensation boundary | COMPLETE | no financial execution | — |
-| Audit | PARTIAL | guarded GET | no ratified mutation |
-| Events | PARTIAL | registry names only | unratified write |
+| Audit | PARTIAL | guarded GET + hash-chained `EMPLOYMENT_REGISTERED` on registration | lifecycle mutations beyond registration unratified |
+| Events | PARTIAL | registration publishes `EMPLOYEE_CREATED` atomically with the row | `EMPLOYMENT_CHANGED` (lifecycle) has no ratified writer |
 | Temporal history | PARTIAL | classifier + events | one row per party |
 | Sector-OS consumption | PARTIAL | API + Noelia consume HCM | Sector OSs not built |
 | Reporting | PARTIAL | KPI-HEADCOUNT definition | not a kernel primitive |
