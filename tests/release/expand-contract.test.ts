@@ -141,11 +141,14 @@ describe("P3 expand/contract — P2 integration", () => {
     // 0071 is the Federation & Trust shared capability (20 tables, RLS on all,
     // CHECK gates on the evidence-claimed states) — additive, expand-only, no
     // column altered on any pre-existing table.
+    // 0072 is the Communications Platform shared capability (26 tables, RLS on
+    // all, CHECK gates, no column altered on any pre-existing table) — additive,
+    // expand-only.
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(72);
+    const result = verifyP2MigrationIntegrity(73);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(72);
+    expect(result.count).toBe(73);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
