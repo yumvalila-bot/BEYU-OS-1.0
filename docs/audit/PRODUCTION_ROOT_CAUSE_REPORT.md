@@ -18,7 +18,80 @@ This is explicitly **not** a `BEYU_BOOTSTRAP_SECRET` problem. Bootstrap is the
 
 ---
 
-## F-CORE-1 · Production database never provisioned
+---
+
+## ⚠️ SUPERSEDING UPDATE — 2026-09-08T11:02Z · run `34218504139`
+
+**F-CORE-1 is RESOLVED. The root cause has moved one link down the chain.**
+
+The merge of PR #40 produced a push-event `db-release` run on `main`
+(`84d7439`). For the first time in the repository's history:
+
+| Job | Result |
+|---|---|
+| Migration validation (scratch PostgreSQL 16) | **success** |
+| **Production preflight (read-only)** | **✅ SUCCESS** |
+| Production database deploy + verify | ❌ failure at step 3 |
+| Drift report / release record / runtime verification | skipped |
+
+### What the preflight PASS proves (PRODUCTION-tier evidence)
+
+All six steps of `live-preflight` succeeded, including step 3 (the DSN guard),
+step 5 (`npm ci`) and **step 6, the read-only production preflight itself**.
+`db-release.ts` exits `2` when the database is unreachable and `1` when any
+check fails; the step exited `0`, which by contract means
+`failures.length === 0`. Therefore, against the **real Supabase production
+database**:
+
+- `BEYU_ADMIN_DATABASE_URL` **is correctly configured at REPOSITORY scope** —
+  the long-standing scope hypothesis is now **confirmed correct and closed**.
+- The production database was **reached over TLS and authenticated**.
+- Migration metadata was read; the fingerprint was computed.
+- **No modified migrations** (no checksum drift).
+- **No destructive pending operations** against an existing schema.
+- Artifact `db-live-preflight-34218504139` (154 bytes) was produced — the
+  **first** preflight evidence artifact this repository has ever generated.
+
+### The new blocker: F-CORE-4
+
+`deploy` failed at step 3, "Fail closed if production secrets are not
+configured", which tests **two** variables:
+
+```
+[ -z "$BEYU_ADMIN_DATABASE_URL" ]   # proven present by live-preflight
+[ -z "$BEYU_RUNTIME_DB_PASSWORD" ]  # ← therefore this is the missing one
+```
+
+Since `live-preflight` proved `BEYU_ADMIN_DATABASE_URL` is present and
+repository-scoped, and `deploy` reads both from the same `secrets` context,
+**`BEYU_RUNTIME_DB_PASSWORD` is the single missing secret.**
+
+- **ID:** F-CORE-4 · **Severity:** P0 · **Component:** GITHUB (secret configuration)
+- **Root cause:** the repository secret `BEYU_RUNTIME_DB_PASSWORD` is not
+  configured. `setup-db-role.ts` requires it to provision and set the password
+  for the non-superuser `beyu_runtime` role.
+- **Caveat on scope:** `deploy` **does** declare `environment: Production`
+  (line 185), so it can read both repository-scoped and Production-scoped
+  secrets. Either scope will satisfy it. Repository scope is recommended for
+  consistency with `BEYU_ADMIN_DATABASE_URL`.
+- **Safe autonomous fix:** none — secret creation requires `secrets: write`,
+  and the value must never pass through Arena.
+- **Remaining operator action:** add repository secret
+  `BEYU_RUNTIME_DB_PASSWORD` (a strong generated password for the
+  `beyu_runtime` role), then re-run `db-release`.
+
+### Governance warning — now urgent
+
+With preflight passing, the **only** thing standing between a push to `main`
+and unattended production DDL is the missing `BEYU_RUNTIME_DB_PASSWORD`.
+The `Production` environment still has `protection_rules: []` and
+`can_admins_bypass: true`. **Add a required reviewer BEFORE adding that
+secret**, or the next push to main will execute production migrations with no
+human approval.
+
+---
+
+## F-CORE-1 · Production database never provisioned *(RESOLVED — see update above)*
 
 - **ID:** F-CORE-1 · **Severity:** P0 · **Component:** GITHUB / SUPABASE
 - **Observed symptom:** `/enroll` and `/api/health` cannot be certified; deploy never runs.
