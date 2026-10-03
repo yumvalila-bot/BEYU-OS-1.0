@@ -1,0 +1,628 @@
+BEYU OS 2.0 — POST-MERGE VERIFICATION EVIDENCE
+Captured: 2026-09-07T03:4x UTC, Africa/Dar_es_Salaam, on canonical main = d626fa48eb26958fb349853e11b0e55332dc33d9
+Environment: sandbox re-clone; PostgreSQL 16.14 via scripts/infra/pg16-server.mjs (embedded-postgres),
+  database beyu_os created from repository migrations only (30 applied, then an idempotent re-run),
+  runtime role beyu_runtime provisioned by scripts/setup-db-role.ts, .env recreated from
+  .github/workflows/ci.yml lines 185-206 (CI placeholders, not secrets).
+Redaction: connection-string passwords and the demo signing-secret literal are replaced with
+  *** markers. Nothing else was edited; the run is verbatim otherwise.
+Provenance: stdout/stderr of the command shown below, exit code recorded at the end.
+  This transcript is local evidence about this repository on this machine; it is not a
+  production result and it does not close any finding.
+
+Command: npx tsx scripts/payments-demo.ts --mode=sandbox --failures
+Exit code: 0 (two consecutive runs, both exit 0; this is the captured run)
+
+
+### 1. Ingestion of a TZS 250,000 receipt (authenticated)
+{
+  "httpStatus": 202,
+  "outcome": "INGESTED",
+  "code": "ACCEPTED_AWAITING_RECONCILIATION",
+  "transactionId": "PVT_01K1SVDF2SZG2ME8JRYRDM",
+  "verificationStatus": "VERIFIED",
+  "trustLevel": "AUTHENTICATED",
+  "reconciliationStatus": "RECONCILIATION_REQUIRED",
+  "gaps": [
+    "SETTLEMENT_AMOUNT_ABSENT",
+    "UNKNOWN_PARTY",
+    "PARTY_DIGEST_UNAVAILABLE_NO_KEY"
+  ],
+  "configurationProblems": [],
+  "ledgerEffect": "NONE — an ingest never posts"
+}
+
+### 2. Identical event replayed (durable inbox dedupe)
+{
+  "outcome": "DUPLICATE",
+  "code": "ALREADY_RECEIVED",
+  "transactionId": "PVT_01K1SVDF2SZG2ME8JRYRDM",
+  "sameTransactionReused": true
+}
+
+### 3. Exactly one canonical transaction exists
+{
+  "transactionsForThisProviderId": 1,
+  "expected": 1
+}
+
+### 4. Reconciliation pass (machine only)
+{
+  "status": "DATA_NOT_AVAILABLE",
+  "candidates": 0,
+  "confidence": null,
+  "method": null,
+  "note": "A receipt is not a customer payment until something identifies it as one. This platform has no AR/AP obligation substrate, so the honest answer here is DATA_NOT_AVAILABLE unless a second artefact corroborates it."
+}
+
+### 5. Settlement batch + bank credit corroboration
+{
+  "status": "RECONCILED",
+  "matched": 1,
+  "unmatched": 0,
+  "itemGrossVarianceMinor": 0,
+  "creditVarianceMinor": 0,
+  "trustRaised": 1,
+  "exceptionsRaised": []
+}
+
+### 6. The four status axes after corroboration
+{
+  "verification": "VERIFIED",
+  "trust": "RECONCILED_BANK",
+  "reconciliation": "RECONCILED",
+  "settlement": "SETTLED",
+  "accounting": "NOT_PREPARED",
+  "netBasis": "REPORTED",
+  "amountsMinor": {
+    "gross": "250000",
+    "fee": "0",
+    "net": "250000"
+  }
+}
+
+### 7. Accounting draft (prepared, not posted)
+{
+  "ok": false,
+  "code": "NO_OPEN_PERIOD",
+  "reason": "No financial period covers 2026-09-07 for entity LEN_BEYU_MINING_LTD. Creating one requires finance:period.manage authority and is not this bridge's to exercise."
+}
+
+### 7a. What a production activation would additionally require
+{
+  "missingNow": [
+    "NO_OPEN_PERIOD"
+  ],
+  "stillNeededAfterThat": [
+    "an authorised principal (finance:payments.authorize) calling the review endpoint",
+    "CAP_POSTING unlocked by governance, not by this programme",
+    "a ratified accounting policy, not this sandbox fixture"
+  ]
+}
+
+### 8. Ledger is untouched
+{
+  "journalEntriesForThisTransaction": 0,
+  "expected": 0,
+  "reason": "CAP_POSTING is LOCKED and posting requires a named authorising principal through an authenticated request, not a script."
+}
+
+### 9. Failure and edge demonstrations
+{
+  "F1 unsigned payload": {
+    "webhookEventId": "PWE_01K1SVDF5F40D8X08MWMCR",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 401,
+    "code": "UNSIGNED_PAYLOAD",
+    "message": "The event failed authentication and was recorded as a refusal."
+  },
+  "F2 stale timestamp (replay window)": {
+    "webhookEventId": "PWE_01K1SVDF5SHRWMKMCGVMFG",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 401,
+    "code": "BAD_TIMESTAMP",
+    "message": "The event failed authentication and was recorded as a refusal."
+  },
+  "F3 empty body": {
+    "webhookEventId": null,
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "EMPTY_BODY",
+    "message": "Request body is empty."
+  },
+  "F4 malformed JSON": {
+    "webhookEventId": "PWE_01K1SVDF6CDCBRT8WM102W",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 401,
+    "code": "UNSIGNED_PAYLOAD",
+    "message": "The event failed authentication and was recorded as a refusal."
+  },
+  "F5 missing amount": {
+    "webhookEventId": "PWE_01K1SVDF6QX4M46M6CD8KW",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [
+      "AMOUNT_ABSENT",
+      "FEE_ABSENT",
+      "TAX_ABSENT",
+      "NET_AMOUNT_ABSENT",
+      "GROSS_UNPARSEABLE",
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "AMOUNT_MISSING",
+    "message": "No usable transaction amount could be derived; refusing to record money as zero."
+  },
+  "F6 unknown provider": {
+    "webhookEventId": null,
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "UNKNOWN_PROVIDER",
+    "message": "No adapter is registered for this provider."
+  },
+  "F7 negative amount": {
+    "webhookEventId": "PWE_01K1SVDF76M82MBMJ0MC14",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [
+      "AMOUNT_NEGATIVE_AMOUNT",
+      "FEE_ABSENT",
+      "TAX_ABSENT",
+      "NET_AMOUNT_ABSENT",
+      "GROSS_UNPARSEABLE",
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "AMOUNT_MISSING",
+    "message": "No usable transaction amount could be derived; refusing to record money as zero."
+  },
+  "F8 fractional minor unit for a zero-decimal currency": {
+    "webhookEventId": "PWE_01K1SVDF7ECRM80GHGY4W8",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [
+      "AMOUNT_FRACTIONAL_MINOR_UNIT",
+      "FEE_ABSENT",
+      "TAX_ABSENT",
+      "NET_AMOUNT_ABSENT",
+      "GROSS_UNPARSEABLE",
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "AMOUNT_MISSING",
+    "message": "No usable transaction amount could be derived; refusing to record money as zero."
+  },
+  "F9 unsupported currency": {
+    "webhookEventId": "PWE_01K1SVDF7O7MPCZ8N4C46C",
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [
+      "currency must be a 3-letter ISO code"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "REJECTED",
+    "status": 400,
+    "code": "PAYLOAD_UNPARSEABLE",
+    "message": "The authenticated payload could not be normalized; it was recorded and refused."
+  },
+  "F10 fee greater than gross": {
+    "webhookEventId": "PWE_01K1SVDF81YR1GJCX0V8Z4",
+    "transactionId": "PVT_01K1SVDF86KGZW0CY4EM50",
+    "verificationStatus": "VERIFIED",
+    "trustLevel": "AUTHENTICATED",
+    "reconciliationStatus": "RECONCILIATION_REQUIRED",
+    "gaps": [
+      "NET_AMOUNT_NEGATIVE_AMOUNT",
+      "FEE_AND_TAX_EXCEED_GROSS",
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT",
+      "COUNTERPARTY_REF_ABSENT",
+      "COUNTERPARTY_KEY_ABSENT",
+      "DESTINATION_ACCOUNT_ABSENT"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "INGESTED",
+    "status": 202,
+    "code": "ACCEPTED_AWAITING_RECONCILIATION",
+    "message": "Transaction recorded as an authenticated provider claim. It is not accounting truth and has not been posted."
+  },
+  "F11 amount over the governed per-transaction ceiling (policy max_transaction_minor)": {
+    "webhookEventId": "PWE_01K1SVDF8NCR1C30QMER4G",
+    "transactionId": "PVT_01K1SVDF8TDWMG44RMVCX8",
+    "verificationStatus": "VERIFIED",
+    "trustLevel": "AUTHENTICATED",
+    "reconciliationStatus": "RECONCILIATION_REQUIRED",
+    "gaps": [
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT",
+      "COUNTERPARTY_REF_ABSENT",
+      "COUNTERPARTY_KEY_ABSENT",
+      "DESTINATION_ACCOUNT_ABSENT"
+    ],
+    "riskFindings": [
+      {
+        "signal": "AMOUNT_OVER_POLICY",
+        "severity": "CRITICAL",
+        "score": 0.9,
+        "blocking": true,
+        "evidence": {
+          "amountMinor": 99999999,
+          "policyMaxTransactionMinor": 50000000,
+          "policyVersion": "SANDBOX-DEMO-1.0.0",
+          "currency": "TZS"
+        },
+        "id": "PRK_01K1SVDF94M4ZMGCA06WQG"
+      },
+      {
+        "signal": "UNMATCHED_HIGH_VALUE",
+        "severity": "HIGH",
+        "score": 0.5,
+        "blocking": true,
+        "evidence": {
+          "amountMinor": 99999999,
+          "floorMinor": 1000000,
+          "note": "The floor is a fixed programme constant, not a configured policy value; configuring it is an outstanding decision."
+        },
+        "id": "PRK_01K1SVDF96TMXCQ0WC7GAG"
+      }
+    ],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "INGESTED",
+    "status": 202,
+    "code": "ACCEPTED_AWAITING_RECONCILIATION",
+    "message": "Transaction recorded as an authenticated provider claim. It is not accounting truth and has not been posted."
+  },
+  "F12 same provider transaction id, different amount": {
+    "webhookEventId": "PWE_01K1SVDF9I3RV030S0H008",
+    "transactionId": "PVT_01K1SVDF2SZG2ME8JRYRDM",
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "DUPLICATE",
+    "status": 200,
+    "code": "ALREADY_INGESTED",
+    "message": "This provider transaction was already ingested; no second record was created."
+  },
+  "F13 settlement with a variance": {
+    "settlementId": "PST_01K1SVDFA4SRK06GT0Y8K8",
+    "status": "VARIANCE",
+    "itemCount": 1,
+    "matchedCount": 1,
+    "unmatchedCount": 0,
+    "sumOfItemsMinor": 500000,
+    "itemGrossVarianceMinor": 0,
+    "creditVarianceMinor": 100000,
+    "transactionsRaisedToBankTrust": 0,
+    "exceptionsRaised": [
+      "SETTLEMENT_AMOUNT_MISMATCH",
+      "SETTLEMENT_SHORTFALL"
+    ],
+    "idempotentReplay": false
+  },
+  "F14 settlement item with no matching transaction": {
+    "settlementId": "PST_01K1SVDFAJY08MMM280824",
+    "status": "PARTIAL",
+    "itemCount": 1,
+    "matchedCount": 0,
+    "unmatchedCount": 1,
+    "sumOfItemsMinor": 1000,
+    "itemGrossVarianceMinor": 0,
+    "creditVarianceMinor": 0,
+    "transactionsRaisedToBankTrust": 0,
+    "exceptionsRaised": [
+      "SETTLEMENT_ORPHAN_ITEM"
+    ],
+    "idempotentReplay": false
+  },
+  "F15 duplicate settlement id with different numbers": {
+    "settlementId": "PST_01K1SVDF4DKG2R6MB4PR8R",
+    "status": "DISPUTED",
+    "itemCount": 1,
+    "matchedCount": 1,
+    "unmatchedCount": 0,
+    "sumOfItemsMinor": 0,
+    "itemGrossVarianceMinor": 0,
+    "creditVarianceMinor": null,
+    "transactionsRaisedToBankTrust": 0,
+    "exceptionsRaised": [
+      "SETTLEMENT_AMOUNT_MISMATCH"
+    ],
+    "idempotentReplay": false
+  },
+  "F16 payload over the size ceiling": {
+    "webhookEventId": null,
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 413,
+    "code": "PAYLOAD_TOO_LARGE",
+    "message": "Payload exceeds 262144 bytes."
+  },
+  "F17 provider not registered for this tenant (no enabled connection)": {
+    "webhookEventId": null,
+    "transactionId": null,
+    "verificationStatus": null,
+    "trustLevel": null,
+    "reconciliationStatus": null,
+    "gaps": [],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": null,
+    "outcome": "REJECTED",
+    "status": 503,
+    "code": "NO_ACTIVE_CONNECTION",
+    "message": "No enabled provider connection is available for this endpoint."
+  },
+  "F18 forged tenant inside the payload": {
+    "webhookEventId": "PWE_01K1SVDFBH94ZMV4PGDWF8",
+    "transactionId": "PVT_01K1SVDFBMZGQRJG44BCJ4",
+    "verificationStatus": "VERIFIED",
+    "trustLevel": "AUTHENTICATED",
+    "reconciliationStatus": "RECONCILIATION_REQUIRED",
+    "gaps": [
+      "FEE_ABSENT",
+      "TAX_ABSENT",
+      "NET_AMOUNT_ABSENT",
+      "FEE_NOT_REPORTED_NET_TREATED_AS_GROSS",
+      "MISSING_OR_INVALID_TIMESTAMP_USING_RECEIPT_TIME",
+      "COUNTERPARTY_REF_ABSENT_OR_UNSAFE",
+      "SETTLEMENT_AMOUNT_ABSENT",
+      "COUNTERPARTY_REF_ABSENT",
+      "COUNTERPARTY_KEY_ABSENT",
+      "DESTINATION_ACCOUNT_ABSENT"
+    ],
+    "riskFindings": [],
+    "configurationProblems": [],
+    "correlationId": "corr-DEMOMTQP41MI",
+    "outcome": "INGESTED",
+    "status": 202,
+    "code": "ACCEPTED_AWAITING_RECONCILIATION",
+    "message": "Transaction recorded as an authenticated provider claim. It is not accounting truth and has not been posted."
+  },
+  "F19 cross-tenant read attempt after ingest": {
+    "rowsVisibleToOtherTenant": 0,
+    "expectedInOtherTenant": 0,
+    "rowsVisibleToOwningTenant": 1,
+    "expectedInOwningTenant": 1,
+    "enforcedBy": "ROW LEVEL SECURITY with FORCE, not an application filter"
+  },
+  "F20 posting attempt through the bridge (no principal, no capability)": {
+    "outcome": "BLOCKED",
+    "blockers": [
+      "NO_OPEN_PERIOD"
+    ],
+    "reason": "No financial period covers 2026-09-07 for entity LEN_BEYU_MINING_LTD. Creating one requires finance:period.manage authority and is not this bridge's to exercise."
+  }
+}
+
+### 10. Installation and enforcement self-test
+{
+  "status": "BLOCKED",
+  "ok": true,
+  "checks": [
+    {
+      "id": "migration",
+      "status": "PASS",
+      "measured": "version=0028_payment_banking_core mode=APPLIED"
+    },
+    {
+      "id": "tables",
+      "status": "PASS",
+      "measured": "14/14 present"
+    },
+    {
+      "id": "rls",
+      "status": "PASS",
+      "measured": "14/14 enabled+forced"
+    },
+    {
+      "id": "config-write:payment_providers",
+      "status": "PASS",
+      "measured": "payment_providers: refused by privilege revocation on code — SQLSTATE 42501 permission denied"
+    },
+    {
+      "id": "config-write:payment_provider_connections",
+      "status": "PASS",
+      "measured": "payment_provider_connections: refused by privilege revocation on id — SQLSTATE 42501 permission denied"
+    },
+    {
+      "id": "config-write:payment_accounts",
+      "status": "PASS",
+      "measured": "payment_accounts: refused by privilege revocation on id — SQLSTATE 42501 permission denied"
+    },
+    {
+      "id": "config-write:payment_account_mappings",
+      "status": "PASS",
+      "measured": "payment_account_mappings: refused by privilege revocation on id — SQLSTATE 42501 permission denied"
+    },
+    {
+      "id": "config-write:payment_policies",
+      "status": "PASS",
+      "measured": "payment_policies: refused by privilege revocation on id — SQLSTATE 42501 permission denied"
+    },
+    {
+      "id": "append-only",
+      "status": "PASS",
+      "measured": "DELETE refused (42501) by the immutability trigger: payment state history is append-only; DELETE on payment_transaction_states is forbidden"
+    },
+    {
+      "id": "signature",
+      "status": "PASS",
+      "measured": "invalid→refused; valid→accepted; detail=SIGNATURE_MISMATCH"
+    },
+    {
+      "id": "state-machine",
+      "status": "PASS",
+      "measured": "terminal=true; unknown-state-yields-no-transitions=true; vocabulary={\"aligned\":true,\"missing\":[],\"extra\":[]}"
+    },
+    {
+      "id": "posting-authority",
+      "status": "BLOCKED",
+      "measured": "CAP_POSTING not executable: CAP_POSTING is locked pending P1, P6, P7, P9. (blocked by P1,P6,P7,P9)"
+    },
+    {
+      "id": "provider-status",
+      "status": "PASS",
+      "measured": "9 providers assessed; live claims: 0; violations: 0"
+    }
+  ],
+  "blockedOn": [
+    "REAL_PROVIDER_INTEGRATION = BLOCKED_EXTERNAL_DEPENDENCY (no credential, no signed agreement, no verified API documentation in this environment)",
+    "PRODUCTION_SETTLEMENT = BLOCKED_EXTERNAL_DEPENDENCY",
+    "AUTONOMOUS_POSTING = BLOCKED_BY_CAP_POSTING",
+    "PRODUCTION_ACTIVATION = BLOCKED (platform launch gates remain FAILED/BLOCKED)"
+  ]
+}
+
+### 11. Exceptions raised by this run
+{
+  "exceptions": [
+    {
+      "code": "AMOUNT_MISSING",
+      "n": 3
+    },
+    {
+      "code": "LIMIT_EXCEEDED",
+      "n": 1
+    },
+    {
+      "code": "PAYLOAD_UNPARSEABLE",
+      "n": 1
+    },
+    {
+      "code": "PERIOD_CLOSED",
+      "n": 1
+    },
+    {
+      "code": "UNKNOWN_PARTY",
+      "n": 4
+    }
+  ],
+  "interpretation": "Exceptions are the expected output of a pipeline that refuses to guess. They are not failures of the pipeline."
+}
+
+=== DEMO SUMMARY ===
+{
+  "run": "DEMOMTQP41MI",
+  "mode": "sandbox",
+  "selfTest": "BLOCKED",
+  "postingAttempted": false,
+  "productionActivation": "BLOCKED",
+  "fixtureCleanup": {
+    "mode": "cleanup",
+    "refused": false,
+    "removed": {
+      "accountMappings": 4,
+      "policies": 1,
+      "paymentAccounts": 1,
+      "connections": 1,
+      "ledgerAccounts": 4
+    },
+    "purged": {
+      "ok": true,
+      "prefixes": [
+        "DEMOMTQP41MI"
+      ],
+      "removed": {
+        "journalLines": 0,
+        "settlementItems": 3,
+        "settlements": 3,
+        "corrections": 0,
+        "matches": 0,
+        "states": 13,
+        "riskSignals": 2,
+        "exceptions": 12,
+        "transactions": 4,
+        "journalEntries": 0,
+        "webhookEvents": 12
+      },
+      "guardsEnabledAfter": true
+    },
+    "demoAccountsRemovable": 0,
+    "demoAccountsRemoved": 0,
+    "demoAccountsRetained": 0
+  }
+}
