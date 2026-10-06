@@ -3,7 +3,7 @@
 **Repository:** `yumvalila-bot/BEYU-OS-1.0`
 **Branch:** `arena/25add342-beyu-os-1-0`
 **Base commit (main):** `08dfe70234ed795cd30fc806ac0a275349a1e86b`
-**Head commit:** `747c03e5254b5d9373af43de605fc82f2eb3e6a2`
+**Feature commit:** `747c03e5254b5d9373af43de605fc82f2eb3e6a2` · **Report commit:** `1b1b44a`
 **Pull request:** [#97](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/97)
 **Merge readiness:** READY FOR HUMAN REVIEW — **not** merged, **not** promoted to production. The merge gate is human-controlled and remains closed until a person opens it.
 **Date:** 2026-10-06
@@ -183,13 +183,13 @@ a mislabelled margin is *rejected by PostgreSQL*, not merely by the engine.
 
 | Suite | Tests | Focus |
 |---|---|---|
-| `tests/finance/enterprise-intelligence.test.ts` | 28 | Metric arithmetic, all refusals above, DCF, fingerprints, sensitivity axes |
-| `tests/finance/lbo-model.test.ts` | 15 | S&U balance, leverage/covenant refusals, sweep effect, sensitivity cells |
-| `tests/pricing/pricing-and-profitability.test.ts` | 22 | 100/125 ⇒ 25%/20%, undefined rates, discount impact, exact allocation, ladder |
-| `tests/hcm/compensation-and-fiduciary-controls.test.ts` | 23 | SoD, lifecycle, bonus NO_AWARD vs REFUSED, credit schedule, welfare evidence, capital origins |
+| `tests/finance/enterprise-intelligence.test.ts` | 25 | Metric arithmetic, all refusals above, DCF, fingerprints, sensitivity axes |
+| `tests/finance/lbo-model.test.ts` | 10 | S&U balance, leverage/covenant refusals, sweep effect, sensitivity cells |
+| `tests/pricing/pricing-and-profitability.test.ts` | 18 | 100/125 ⇒ 25%/20%, undefined rates, discount impact, exact allocation, ladder |
+| `tests/hcm/compensation-and-fiduciary-controls.test.ts` | 25 | SoD, lifecycle, bonus NO_AWARD vs REFUSED, credit schedule, welfare evidence, capital origins |
 | `tests/security/enterprise-intelligence-rls-isolation.test.ts` | 10 | Runtime-role RLS on 7 new tables, cross-tenant write refusal, DB-enforced markup/margin |
 
-**Result:** 98 new tests, all passing. Plus the pre-existing architecture gate `tests/architecture` 142/142
+**Result:** **88 new tests, all passing** (25 + 10 + 18 + 25 + 10). Plus the pre-existing architecture gate `tests/architecture` 142/142
 and the Noelia tool-registry contract suite, which validates every registered tool — including the seven
 added here — against the mandated governed contract.
 
@@ -202,7 +202,7 @@ added here — against the mandated governed contract.
 | Migration integrity | `npx tsx scripts/migration/integrity.ts` | **PASS** (0 blocking; no new acknowledged debt) |
 | Migration apply | `npm run migrate` | **PASS** — `0074_enterprise_intelligence_expansion` recorded |
 | RLS after apply | runtime-role probe | 386 tables with RLS; 34/34 new tables enabled; 64 `<table>_tenant_scope` policies; runtime grants present |
-| New test suites | `npx vitest run <5 new files>` | **PASS** (98/98) |
+| New test suites | `npx vitest run <5 new files>` | **PASS** (88/88) |
 | Architecture gates | `npx vitest run tests/architecture` | **PASS** (142/142) |
 | Full suite | `npx vitest run` | see §10 |
 
@@ -214,7 +214,7 @@ added here — against the mandated governed contract.
 * After this change: the full-suite run was still executing when this report was written (the local embedded
   PostgreSQL was also serving the new RLS, migration and Noelia suites in the same window). Its result is
   reported on the pull request thread. What is already established: the suites this change touches are green
-  — `tests/architecture` 142/142, `tests/noelia` tool-registry contract, and the five new suites 98/98.
+  — `tests/architecture` 142/142, `tests/noelia` tool-registry contract, and the five new suites 88/88 (counted per file: 25/10/18/25/10).
   The residual failures observed in the same environment are in the RLS/privilege-area suites that require
   per-table runtime grants in the local database (`permission denied for table noelia_routing_decisions`,
   `noelia_evidence`, `knowledge_sources`) and in suites that expect a fully certified production
@@ -302,7 +302,7 @@ npx vitest run tests/finance tests/pricing tests/hcm tests/security/enterprise-i
 > **Risk:** low/additive. No posting path, no destructive migration, no new identity or audit system.
 > RLS and runtime grants asserted by an adversarial runtime-role test.
 >
-> **Verification:** typecheck clean; migration integrity clean; 98 new tests pass; architecture gates pass;
+> **Verification:** typecheck clean; migration integrity clean; 88 new tests pass; architecture gates pass;
 > full-suite residual failures are pre-existing environment/privilege suites (see report §10).
 >
 > **Not included:** API routes and UI for the new tables; feature-flag seeding; per-engine calculation-version
