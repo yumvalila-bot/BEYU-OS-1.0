@@ -80,7 +80,7 @@ describe("the register cannot pay itself", () => {
       base({
         status: "PAID",
         approvalChain: [
-          { stage: "FINAL_APPROVAL", actorPrincipalId: "USR_MANAGER", actedAt: "2026-01-02T00:00:00.000Z", note: "ok" },
+          { stage: "FINAL_APPROVAL", actorPrincipalId: "USR_MANAGER", at: "2026-01-02T00:00:00.000Z", note: "ok" },
         ],
       }),
     );
