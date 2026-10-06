@@ -293,7 +293,7 @@ npx vitest run tests/finance tests/pricing tests/hcm tests/security/enterprise-i
 > Fiduciary Capital, Pricing and HCM Compensation
 >
 > **What:** additive capabilities inside FINANCE_OS, the HCM shared capability and a new shared pricing
-> capability; 9 engines, 34 tables, 1 forward-only migration, 7 governed Noelia tools, 98 new tests.
+> capability; 9 engines, 34 tables, 1 forward-only migration, 7 governed Noelia tools, 88 new tests.
 >
 > **Why:** the enterprise had no governed way to value a business, model a buyout, track entrusted capital
 > separately from its own, price with an enforced markup/margin distinction, or record a compensation
