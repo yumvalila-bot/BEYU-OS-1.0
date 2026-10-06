@@ -3,7 +3,7 @@
 **Repository:** `yumvalila-bot/BEYU-OS-1.0`
 **Branch:** `arena/25add342-beyu-os-1-0`
 **Base commit (main):** `08dfe70234ed795cd30fc806ac0a275349a1e86b`
-**Feature commit:** `69ec455fc2dcf3cfa0f71551a93a607caed388dd` · **Report commit:** `df6aa91`
+**Feature commit:** `a66039f` (on top of the reviewed branch history) · **Report commit:** branch head
 **Pull request:** [#97](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/97)
 **Merge readiness:** READY FOR HUMAN REVIEW — **not** merged, **not** promoted to production. The merge gate is human-controlled and remains closed until a person opens it.
 **Date:** 2026-10-06
@@ -188,8 +188,10 @@ a mislabelled margin is *rejected by PostgreSQL*, not merely by the engine.
 | `tests/pricing/pricing-and-profitability.test.ts` | 18 | 100/125 ⇒ 25%/20%, undefined rates, discount impact, exact allocation, ladder |
 | `tests/hcm/compensation-and-fiduciary-controls.test.ts` | 25 | SoD, lifecycle, bonus NO_AWARD vs REFUSED, credit schedule, welfare evidence, capital origins |
 | `tests/security/enterprise-intelligence-rls-isolation.test.ts` | 10 | Runtime-role RLS on 7 new tables, cross-tenant write refusal, DB-enforced markup/margin |
+| `tests/finance/private-capital-refusals.test.ts` | 27 | DPI/MOIC/TVPI/RVPI states, "not measurable" IRR, fund aggregation, capital-origin separation, per-engine version stamping |
+| `tests/hcm/compensation-source-of-truth.test.ts` | 8 | Base-pay ownership boundary, self-approval refusal, cost-summary semantics, mixed-currency refusal |
 
-**Result:** **88 new tests, all passing** (25 + 10 + 18 + 25 + 10). Plus the pre-existing architecture gate `tests/architecture` 142/142
+**Result:** **123 new tests, all passing** (25 + 10 + 18 + 25 + 10 + 27 + 8 — six new suites). Plus the pre-existing architecture gate `tests/architecture` 142/142
 and the Noelia tool-registry contract suite, which validates every registered tool — including the seven
 added here — against the mandated governed contract.
 
