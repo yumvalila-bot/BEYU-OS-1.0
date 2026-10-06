@@ -54,6 +54,16 @@ import {
 import type { MetricInput, MetricOutcome, MetricSeedBase } from "../intelligence/provenance";
 import { calculated, estimated, forecasted, invalid, missing, provenance as buildProvenance, seedFor, valueOrNull } from "../intelligence/provenance";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own private-capital-metrics calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: PRIVATE_CAPITAL_METRICS_VERSION,
+  });
+
 export const PRIVATE_CAPITAL_METRICS_VERSION = "private-capital-metrics-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -257,7 +267,7 @@ export type PrivateCapitalRatio = { scaled: number };
  */
 export function paidInCapitalRatio(params: { seed: MetricSeedBase; aggregate: FundAggregate }): MetricOutcome<number> {
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.PIC", "PIC = Called (paid-in) capital ÷ Total commitment", inputList(params.aggregate), {
+    seedForEngine(params.seed, "FIN.PE.PIC", "PIC = Called (paid-in) capital ÷ Total commitment", inputList(params.aggregate), {
       period: null,
       currency: params.aggregate.currency,
       quality: "MANAGEMENT",
@@ -278,7 +288,7 @@ export function paidInCapitalRatio(params: { seed: MetricSeedBase; aggregate: Fu
  */
 export function dpi(params: { seed: MetricSeedBase; aggregate: FundAggregate }): MetricOutcome<number> {
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.DPI", "DPI = Cumulative distributions ÷ Paid-in capital", inputList(params.aggregate), {
+    seedForEngine(params.seed, "FIN.PE.DPI", "DPI = Cumulative distributions ÷ Paid-in capital", inputList(params.aggregate), {
       period: null,
       currency: params.aggregate.currency,
       quality: "MANAGEMENT",
@@ -299,7 +309,7 @@ export function dpi(params: { seed: MetricSeedBase; aggregate: FundAggregate }):
  */
 export function rvpi(params: { seed: MetricSeedBase; aggregate: FundAggregate; markConfidence?: number | null }): MetricOutcome<number> {
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.RVPI", "RVPI = Current unrealized value ÷ Paid-in capital (a mark, not a realized figure)", inputList(params.aggregate), {
+    seedForEngine(params.seed, "FIN.PE.RVPI", "RVPI = Current unrealized value ÷ Paid-in capital (a mark, not a realized figure)", inputList(params.aggregate), {
       period: null,
       currency: params.aggregate.currency,
       quality: "MANAGEMENT",
@@ -321,7 +331,7 @@ export function rvpi(params: { seed: MetricSeedBase; aggregate: FundAggregate; m
  */
 export function tvpi(params: { seed: MetricSeedBase; aggregate: FundAggregate; markConfidence?: number | null }): MetricOutcome<number> {
   const seed = () =>
-    seedFor(
+    seedForEngine(
       params.seed,
       "FIN.PE.TVPI",
       "TVPI = (Cumulative distributions + Current unrealized value) ÷ Paid-in capital",
@@ -348,7 +358,7 @@ export function tvpi(params: { seed: MetricSeedBase; aggregate: FundAggregate; m
  */
 export function moic(params: { seed: MetricSeedBase; aggregate: FundAggregate; markConfidence?: number | null }): MetricOutcome<number> {
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.MOIC", "MOIC = Total value (realized + unrealized) ÷ Invested capital", inputList(params.aggregate), {
+    seedForEngine(params.seed, "FIN.PE.MOIC", "MOIC = Total value (realized + unrealized) ÷ Invested capital", inputList(params.aggregate), {
       period: null,
       currency: params.aggregate.currency,
       quality: "MANAGEMENT",
@@ -409,7 +419,7 @@ export function fundIrr(params: {
     { name: "distributionsMinor", value: String(distributions), unit: params.currency, kind: "DERIVED", source: "private-capital-metrics", period: null, currency: params.currency },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.IRR", `IRR over the investor's net cash-flow stream (per ${params.periodBasis.toLowerCase()} period)`, inputs, {
+    seedForEngine(params.seed, "FIN.PE.IRR", `IRR over the investor's net cash-flow stream (per ${params.periodBasis.toLowerCase()} period)`, inputs, {
       period: null,
       currency: params.currency,
       quality: "MANAGEMENT",
@@ -501,7 +511,7 @@ export function managementFee(params: {
     { name: "periodFractionBps", value: String(params.periodFractionBps ?? BPS_BASE), unit: "BASIS_POINTS", kind: "POLICY", source: "fee period definition", period: null, currency: null },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.MANAGEMENT_FEE", `Management fee = ${params.basis} base × annual rate × period fraction`, inputs, {
+    seedForEngine(params.seed, "FIN.PE.MANAGEMENT_FEE", `Management fee = ${params.basis} base × annual rate × period fraction`, inputs, {
       period: null,
       currency: params.currency,
       quality: "MANAGEMENT",
@@ -551,7 +561,7 @@ export function carriedInterest(params: {
     { name: "waterfallForm", value: "EUROPEAN_WHOLE_FUND", unit: "ENUM", kind: "POLICY", source: "this function implements the whole-fund form only", period: null, currency: null },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.PE.CARRIED_INTEREST", "Carried interest = GP share of profit above the preferred return (European whole-fund waterfall)", inputs, {
+    seedForEngine(params.seed, "FIN.PE.CARRIED_INTEREST", "Carried interest = GP share of profit above the preferred return (European whole-fund waterfall)", inputs, {
       period: null,
       currency: params.currency,
       quality: "MANAGEMENT",

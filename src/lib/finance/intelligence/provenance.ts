@@ -240,7 +240,13 @@ export function seedFor(
   metricCode: string,
   method: string,
   inputs: MetricInput[],
-  extra: { period?: string | null; currency?: string | null; sourceTimestamp?: string | null; quality?: SourceQuality } = {},
+  extra: {
+    period?: string | null;
+    currency?: string | null;
+    sourceTimestamp?: string | null;
+    quality?: SourceQuality;
+    calculationVersion?: string | null;
+  } = {},
 ): ProvenanceSeed {
   return {
     metricId: base.nextId(),
@@ -254,6 +260,7 @@ export function seedFor(
     sourceTimestamp: extra.sourceTimestamp ?? null,
     dataTimestamp: base.dataTimestamp,
     quality: extra.quality,
+    calculationVersion: extra.calculationVersion ?? null,
   };
 }
 
@@ -275,6 +282,8 @@ export type ProvenanceSeed = {
   sourceTimestamp?: string | null;
   dataTimestamp?: string | null;
   quality?: SourceQuality;
+  /** Engine provenance: the calculation version that produced the outcome. */
+  calculationVersion?: string | null;
 };
 
 /**
@@ -307,7 +316,7 @@ export function provenance(
     state,
     epistemic: epistemicClass(state),
     method: seed.method,
-    calculationVersion: FINANCE_INTELLIGENCE_VERSION,
+    calculationVersion: seed.calculationVersion ?? FINANCE_INTELLIGENCE_VERSION,
     inputs: seed.inputs,
     sourceTimestamp: seed.sourceTimestamp ?? null,
     dataTimestamp: seed.dataTimestamp ?? null,

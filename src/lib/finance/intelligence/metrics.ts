@@ -63,6 +63,16 @@ import {
   toMinorUnits,
 } from "./arithmetic";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own finance-intelligence-metrics calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: FINANCE_METRICS_VERSION,
+  });
+
 export const FINANCE_METRICS_VERSION = "finance-metrics-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -240,7 +250,7 @@ export function marketCapitalization(params: MarketCapParams): MetricOutcome<num
     ...(params.asOf ? [effectiveDateInput(params.asOf)] : []),
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.MARKET.MARKET_CAP", "Market Capitalization = Share Price × Shares Outstanding", inputs, {
+    seedForEngine(params.seed, "FIN.MARKET.MARKET_CAP", "Market Capitalization = Share Price × Shares Outstanding", inputs, {
       period: params.period ?? null,
       currency: params.currency ?? params.sharePrice.currency ?? null,
       sourceTimestamp: params.sharePrice.sourceTimestamp ?? null,
@@ -297,7 +307,7 @@ export function priceEarnings(params: EarningsMultipleParams): MetricOutcome<num
     perShareInput(basis === "TRAILING" ? "trailingEps" : "forwardEps", params.earningsPerShare),
   ];
   const seed = () =>
-    seedFor(
+    seedForEngine(
       params.seed,
       code,
       `${basis === "TRAILING" ? "Trailing" : "Forward"} P/E = Market Price / ${basis === "TRAILING" ? "Trailing" : "Forward"} EPS`,
@@ -395,7 +405,7 @@ export function pegRatio(params: PegParams): MetricOutcome<number> {
     },
   ];
   const seed = () =>
-    seedFor(
+    seedForEngine(
       params.seed,
       "FIN.PEG",
       `PEG = ${basis === "TRAILING" ? "Trailing" : "Forward"} P/E ÷ earnings growth under the ${params.growthConvention} convention`,
@@ -472,7 +482,7 @@ export function priceToSales(params: PriceToSalesParams): MetricOutcome<number> 
     moneyInput("revenue", params.revenue),
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.PS", "Price/Sales = Market Capitalization ÷ Revenue", inputs, {
+    seedForEngine(params.seed, "FIN.PS", "Price/Sales = Market Capitalization ÷ Revenue", inputs, {
       period: params.period ?? params.revenue.period ?? null,
       currency: params.currency ?? params.revenue.currency ?? null,
       sourceTimestamp: params.revenue.sourceTimestamp ?? null,
@@ -540,7 +550,7 @@ export function enterpriseValue(params: { seed: MetricSeedBase; values: Enterpri
     ...reportingCurrencyInput(params.currency, params.period),
   ];
   const seed = () =>
-    seedFor(
+    seedForEngine(
       params.seed,
       "FIN.EV",
       "Enterprise Value = Market Cap + Total Debt + Preferred Equity + Minority Interest − Cash & Cash Equivalents",
@@ -597,7 +607,7 @@ export function evToEbitda(params: EvToEbitdaParams): MetricOutcome<number> {
   const ev = enterpriseValue({ seed: { ...params.seed, nextId: silentIdFactory() }, values: params.values, period: params.period, currency: params.currency });
   const inputs = [moneyInput("ebitda", params.ebitda)];
   const seed = () =>
-    seedFor(params.seed, "FIN.EV_EBITDA", "EV/EBITDA = Enterprise Value ÷ EBITDA", inputs, {
+    seedForEngine(params.seed, "FIN.EV_EBITDA", "EV/EBITDA = Enterprise Value ÷ EBITDA", inputs, {
       period: params.period ?? params.ebitda.period ?? null,
       currency: params.currency ?? params.ebitda.currency ?? null,
       sourceTimestamp: params.ebitda.sourceTimestamp ?? null,
@@ -666,7 +676,7 @@ export function freeCashFlowYield(params: FcfYieldParams): MetricOutcome<number>
     },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.FCF_YIELD", `FCF Yield = ${params.basis} Free Cash Flow ÷ Market Capitalization, expressed in basis points`, inputs, {
+    seedForEngine(params.seed, "FIN.FCF_YIELD", `FCF Yield = ${params.basis} Free Cash Flow ÷ Market Capitalization, expressed in basis points`, inputs, {
       period: params.period ?? params.freeCashFlow.period ?? null,
       currency: params.currency ?? params.freeCashFlow.currency ?? null,
       sourceTimestamp: params.freeCashFlow.sourceTimestamp ?? null,
@@ -791,7 +801,7 @@ type MarginParams = {
 function marginRatio(params: MarginParams): MetricOutcome<number> {
   const inputs = [moneyInput(params.numeratorName, params.numerator), moneyInput(params.denominatorName, params.denominator)];
   const seed = () =>
-    seedFor(params.seed, params.metricCode, `${params.method}, expressed in basis points`, inputs, {
+    seedForEngine(params.seed, params.metricCode, `${params.method}, expressed in basis points`, inputs, {
       period: params.period ?? null,
       currency: params.currency ?? params.denominator.currency ?? null,
       sourceTimestamp: params.denominator.sourceTimestamp ?? null,
@@ -846,7 +856,7 @@ export function netDebt(params: NetDebtParams): MetricOutcome<number> {
     moneyInput("cashAndCashEquivalents", params.cashAndEquivalents),
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.NET_DEBT", "Net Debt = Total Debt − Cash & Cash Equivalents", inputs, {
+    seedForEngine(params.seed, "FIN.NET_DEBT", "Net Debt = Total Debt − Cash & Cash Equivalents", inputs, {
       period: params.period ?? null,
       currency: params.currency ?? params.totalDebt.currency ?? null,
       sourceTimestamp: params.totalDebt.sourceTimestamp ?? null,
@@ -889,7 +899,7 @@ function leverageRatio(
     moneyInput(denominatorName, denominator),
   ];
   const seed = () =>
-    seedFor(params.seed, metricCode, method, inputs, {
+    seedForEngine(params.seed, metricCode, method, inputs, {
       period: params.period ?? denominator.period ?? null,
       currency: params.currency ?? denominator.currency ?? null,
       sourceTimestamp: denominator.sourceTimestamp ?? null,
@@ -949,7 +959,7 @@ export function revenueGrowth(params: RevenueGrowthParams): MetricOutcome<number
   ];
   const label = params.comparison === "YOY" ? "Year-over-year" : params.comparison === "QOQ" ? "Quarter-over-quarter" : "Period-over-period";
   const seed = () =>
-    seedFor(params.seed, `FIN.REVENUE_GROWTH.${params.comparison}`, `${label} revenue growth = (Current Revenue − Prior Revenue) ÷ Prior Revenue, in basis points`, inputs, {
+    seedForEngine(params.seed, `FIN.REVENUE_GROWTH.${params.comparison}`, `${label} revenue growth = (Current Revenue − Prior Revenue) ÷ Prior Revenue, in basis points`, inputs, {
       period: params.period ?? params.current.period ?? null,
       currency: params.currency ?? params.current.currency ?? null,
       sourceTimestamp: params.current.sourceTimestamp ?? null,
@@ -1012,7 +1022,7 @@ export function revenueCagr(params: RevenueCagrParams): MetricOutcome<number> {
     },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.REVENUE_CAGR", "Revenue CAGR = (End Revenue ÷ Start Revenue)^(1 ÷ years) − 1, in basis points", inputs, {
+    seedForEngine(params.seed, "FIN.REVENUE_CAGR", "Revenue CAGR = (End Revenue ÷ Start Revenue)^(1 ÷ years) − 1, in basis points", inputs, {
       period: params.period ?? null,
       currency: params.currency ?? params.end.currency ?? null,
       sourceTimestamp: params.end.sourceTimestamp ?? null,
@@ -1150,7 +1160,7 @@ export function roic(params: RoicParams): MetricOutcome<number> {
     },
   ];
   const seed = () =>
-    seedFor(
+    seedForEngine(
       params.seed,
       "FIN.ROIC",
       `ROIC = NOPAT ÷ Invested Capital (${params.basis}), in basis points. NOPAT = EBIT × (1 − effective tax rate) unless NOPAT is supplied directly.`,

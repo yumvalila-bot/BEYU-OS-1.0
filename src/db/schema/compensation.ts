@@ -165,6 +165,15 @@ export const compensationEntitlements = pgTable(
     calculation: jsonb("calculation").$type<Record<string, unknown>>(),
     /** Finance OS pointer to the posted payment, when one exists. Never a posting. */
     financeReferenceId: text("finance_reference_id"),
+    /**
+     * The CANONICAL employment record this entitlement derives from.
+     *
+     * Contracted base pay is owned by the employee registry (`employees.base_salary`) — not by this
+     * table. A BASE_COMPENSATION entitlement is a governed PRESENTATION of that registry row (with its
+     * own approval chain), so it must cite the record it mirrors. Without the reference the two could
+     * diverge silently and the compensation register would become a second source of truth for pay.
+     */
+    employmentRelationshipRef: text("employment_relationship_ref"),
     raisedBy: text("raised_by")
       .notNull()
       .references(() => users.id),
@@ -193,6 +202,10 @@ export const compensationEntitlements = pgTable(
       sql`data_state IN ('VERIFIED','CALCULATED','ESTIMATED','FORECAST')`,
     ),
     check("compensation_entitlements_amount_check", sql`amount_minor >= 0`),
+    check(
+      "compensation_entitlements_base_source_check",
+      sql`kind <> 'BASE_COMPENSATION' OR employment_relationship_ref IS NOT NULL`,
+    ),
     check("compensation_entitlements_currency_check", sql`char_length(currency) = 3`),
     check("compensation_entitlements_reason_check", sql`char_length(reason) >= 3 AND char_length(eligibility) >= 3`),
     check(

@@ -432,6 +432,13 @@ describe("forecast engines — reproducible version identity", () => {
         -- not forecast-engine persistence; excluded by exact name so this guard still
         -- fails if the forecast engine ever persists anything.
           and table_name <> 'dilution_scenarios'
+        -- valuation_assumption_sets and valuation_runs (drizzle/0074, Enterprise Intelligence
+        -- Expansion) are the VALUATION engine's versioned assumption/model registers: an
+        -- assumption set is an immutable, fingerprinted input version and a run is reproducible
+        -- from it, so nothing is overwritten and no forecast-engine persistence is involved.
+        -- Excluded by exact name so this guard still fails if the forecast engine ever persists
+        -- anything of its own.
+          and table_name not in ('valuation_assumption_sets', 'valuation_runs')
         order by table_name
       `)
     ).map((r) => r.table_name);
@@ -1034,7 +1041,11 @@ describe("forecast service — hostile inputs", () => {
     // + 0071: Federation & Trust shared capability (no forecast table, no second forecast truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no forecast table, no second forecast truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0073: Canonical family registry (families + family_members lifecycle columns; no forecast/scenario/assumption table, no second forecast truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);
+    // + 0074: Enterprise Intelligence Expansion (34 tables). It adds forecasting MODEL registers
+    //   (valuation_assumption_sets, lbo_models, lbo_model_runs) — versions of assumptions, never a
+    //   second forecast truth: a run is reproducible from its fingerprinted assumption set, and the
+    //   specialist forecast substrate is untouched. Snapshot chained 0062 -> 0074 (no metadata debt).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);
     // The only %scenario% match is the attributed Foundation OS table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

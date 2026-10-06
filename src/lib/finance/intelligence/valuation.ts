@@ -46,6 +46,16 @@ import {
 import type { MetricInput, MetricOutcome, MetricSeedBase, SourceQuality } from "./provenance";
 import { calculated, estimated, invalid, missing, notApplicable, seedFor } from "./provenance";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own valuation calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: VALUATION_ENGINE_VERSION,
+  });
+
 export const VALUATION_ENGINE_VERSION = "valuation-engine-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -350,7 +360,7 @@ export function discountedCashFlow(params: {
   ];
 
   const seed = () =>
-    seedFor(params.seed, "FIN.VALUATION.DCF", method, inputList, {
+    seedForEngine(params.seed, "FIN.VALUATION.DCF", method, inputList, {
       period: `${inputs.revenueGrowthBps.length}Y forecast`,
       currency: params.currency,
       sourceTimestamp: params.assumptions.authoredAt,
@@ -523,7 +533,7 @@ export function multiplesValuation(params: MultiplesValuationParams): MetricOutc
     { name: "sharesOutstanding", value: String(params.sharesOutstanding), unit: "SHARES", kind: "OBSERVED", source: "share register", period: null, currency: null },
   ];
   const seed = () =>
-    seedFor(params.seed, `FIN.VALUATION.MULTIPLES.${params.metric}`, `${params.basis} ${params.metric} multiple applied to the subject's ${params.metric} metric`, inputs, {
+    seedForEngine(params.seed, `FIN.VALUATION.MULTIPLES.${params.metric}`, `${params.basis} ${params.metric} multiple applied to the subject's ${params.metric} metric`, inputs, {
       period: params.period ?? null,
       currency: params.currency,
       quality: params.quality,
@@ -594,7 +604,7 @@ export function comparablesMultiple(params: {
     { name: "peers", value: usable.map((p) => `${p.peerId}:${p.multipleScaled}`).join(";"), unit: "SET", kind: "OBSERVED", source: "supplied comparable set", period: null, currency: null },
   ];
   const seed = () =>
-    seedFor(params.seed, `FIN.VALUATION.COMPARABLES.${params.metric}`, `${params.basis} comparable ${params.metric} multiple: median of the usable peer set`, inputs, {
+    seedForEngine(params.seed, `FIN.VALUATION.COMPARABLES.${params.metric}`, `${params.basis} comparable ${params.metric} multiple: median of the usable peer set`, inputs, {
       period: null,
       currency: null,
       quality: "MANAGEMENT",

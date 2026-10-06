@@ -1101,7 +1101,11 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0071: Federation & Trust shared capability (no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0073: Canonical family registry (families + family_members lifecycle columns; no risk table, no second risk truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(n).toBe(74);
+    // + 0074: Enterprise Intelligence Expansion (34 tables). No risk table and no second risk truth;
+    //   the expansion reads governed inputs and refuses (MISSING/INVALID/NOT_APPLICABLE) where an
+    //   input is absent rather than modelling a risk number of its own.
+    //   Snapshot chained 0062 -> 0074 (no metadata debt added).
+    expect(n).toBe(75);
   });
 
   it("leaves all triggers enabled", async () => {

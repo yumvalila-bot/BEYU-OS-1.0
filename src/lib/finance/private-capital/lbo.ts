@@ -46,6 +46,16 @@ import type { MetricInput, MetricOutcome, MetricSeedBase, SourceQuality } from "
 import { calculated, invalid, missing, seedFor } from "../intelligence/provenance";
 import { assumptionFingerprint, type ValuationAssumptionSet } from "../intelligence/valuation";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own lbo calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: LBO_ENGINE_VERSION,
+  });
+
 export const LBO_ENGINE_VERSION = "lbo-engine-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -327,7 +337,7 @@ function modelInputs(model: LboModel): MetricInput[] {
  */
 export function runLboModel(model: LboModel): MetricOutcome<LboResult> {
   const seed = () =>
-    seedFor(
+    seedForEngine(
       model.seed,
       "FIN.LBO.MODEL",
       "LBO: sources & uses → operating forecast → debt schedule with cash sweep → exit at the declared method → sponsor MOIC and IRR",

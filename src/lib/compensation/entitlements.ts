@@ -41,6 +41,16 @@ import { BPS_BASE, FinanceArithmeticError, assertMoney, assertPercent, multiple 
 import type { MetricInput, MetricOutcome, MetricSeedBase } from "@/lib/finance/intelligence/provenance";
 import { calculated, invalid, missing, seedFor } from "@/lib/finance/intelligence/provenance";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own compensation calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: COMPENSATION_ENGINE_VERSION,
+  });
+
 export const COMPENSATION_ENGINE_VERSION = "compensation-engine-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -197,6 +207,15 @@ export function assertApprovalChain(params: {
 /* Entitlement base                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Entitlement kinds.
+ *
+ * `BASE_COMPENSATION` is the one kind that does NOT originate here: contracted base pay is owned by the
+ * canonical employee registry (`employees.base_salary` / the employment relationship). An entitlement of
+ * this kind is a governed presentation of that record — it carries the approval chain and the payroll
+ * treatment — and it must cite the employment relationship it mirrors (`employmentRelationshipId`).
+ * Every other kind is genuinely created by this engine.
+ */
 export const ENTITLEMENT_KIND = [
   "BASE_COMPENSATION",
   "PERFORMANCE_BONUS",
@@ -291,6 +310,11 @@ export function validateEntitlement(e: EntitlementBase): string[] {
   }
   if (!e.policyRef) {
     findings.push(`Entitlement ${e.id} cites no policy. An entitlement without a policy is discretionary by another name.`);
+  }
+  if (e.kind === "BASE_COMPENSATION" && !e.employmentRelationshipId) {
+    findings.push(
+      `Entitlement ${e.id} states BASE_COMPENSATION without citing the canonical employment record it mirrors. Contracted base pay is owned by the employee registry; this register presents it, so an unlinked base-pay row would be a silent second source of truth for the same money.`,
+    );
   }
   if (e.status === "APPROVED" || e.status === "PAID") {
     const hasApproval = e.approvalChain.some((stage) => stage.stage === "FINAL_APPROVAL");
@@ -640,7 +664,7 @@ export function calculateAllowance(params: {
     { name: "priorPeriodTotalMinor", value: params.priorPeriodTotalMinor === null || params.priorPeriodTotalMinor === undefined ? null : String(params.priorPeriodTotalMinor), unit: params.currency, kind: "OBSERVED", source: "this employee's other allowances of the same type", period: null, currency: params.currency },
   ];
   const seed = () =>
-    seedFor(params.seed, "HCM.ALLOWANCE", `Allowance = ${params.policy.frequency} ${params.policy.type} entitlement per policy ${params.policy.id} v${params.policy.version}`, inputs, {
+    seedForEngine(params.seed, "HCM.ALLOWANCE", `Allowance = ${params.policy.frequency} ${params.policy.type} entitlement per policy ${params.policy.id} v${params.policy.version}`, inputs, {
       period: null,
       currency: params.currency,
       quality: "MANAGEMENT",
@@ -1135,6 +1159,15 @@ export function summariseCompensationCost(params: { entitlements: readonly Entit
   currencies: string[];
 } {
   const currencies = [...new Set(params.entitlements.map((e) => e.currency.toUpperCase()))].sort();
+  if (currencies.length > 1) {
+    // Summing across currencies would produce a number that is denominated in nothing. The caller
+    // converts with a governed FX rate and summarizes again, or asks per currency.
+    throw new FinanceArithmeticError(
+      "INVALID_MONEY",
+      `Compensation cost cannot be summarized across currencies (${currencies.join(", ")}). Convert with a governed FX rate and summarize per currency.`,
+      { currencies },
+    );
+  }
   const currency = currencies.length === 1 ? currencies[0] : "";
   let cost = 0;
   let receivable = 0;

@@ -29197,6 +29197,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "employment_relationship_ref": {
+          "name": "employment_relationship_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "raised_by": {
           "name": "raised_by",
           "type": "text",
@@ -29388,6 +29394,10 @@
         "compensation_entitlements_amount_check": {
           "name": "compensation_entitlements_amount_check",
           "value": "amount_minor >= 0"
+        },
+        "compensation_entitlements_base_source_check": {
+          "name": "compensation_entitlements_base_source_check",
+          "value": "kind <> 'BASE_COMPENSATION' OR employment_relationship_ref IS NOT NULL"
         },
         "compensation_entitlements_currency_check": {
           "name": "compensation_entitlements_currency_check",
@@ -87209,6 +87219,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "dd7a8bcc-0e64-4ee0-a51c-32ba4418832d",
+  "id": "dc591f0d-b0ee-4e94-96e9-d7a3709e2ca9",
   "prevId": "51a2d623-c81b-4bd4-a2a3-17822f769ebe"
 }

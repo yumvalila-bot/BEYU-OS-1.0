@@ -195,46 +195,57 @@ added here — against the mandated governed contract.
 
 ## 9. Verification evidence
 
+Every result below was produced in this branch, on a **disposable local PostgreSQL 16** (never production),
+using the repository's own CI commands.
+
 | Check | Command | Result |
 |---|---|---|
-| Typecheck | `NODE_OPTIONS=--max-old-space-size=7168 npx tsc --noEmit` | **PASS** (0 errors) |
-| Lint (new files) | `npx eslint <new paths>` | **PASS** (0 findings) |
+| Typecheck | `NODE_OPTIONS=--max-old-space-size=7168 npm run typecheck` | **PASS** (0 errors) |
+| Lint | `npm run lint` | **PASS** (0 errors; 1 pre-existing `<img>` warning in `noelia-cross-os-visual.tsx`) |
 | Migration integrity | `npx tsx scripts/migration/integrity.ts` | **PASS** (0 blocking; no new acknowledged debt) |
-| Migration apply | `npm run migrate` | **PASS** — `0074_enterprise_intelligence_expansion` recorded |
-| RLS after apply | runtime-role probe | 386 tables with RLS; 34/34 new tables enabled; 64 `<table>_tenant_scope` policies; runtime grants present |
-| New test suites | `npx vitest run <5 new files>` | **PASS** (88/88) |
-| Architecture gates | `npx vitest run tests/architecture` | **PASS** (142/142) |
-| Full suite | `npx vitest run` | see §10 |
+| Migration integrity + ledger | `npx tsx scripts/migration/integrity.ts --with-ledger` | **PASS** (75/75 recorded, checksums match) |
+| Migration apply | `npm run migrate` | **PASS** — fingerprint `f304a5178e44e0dd91e539161064b8d9` |
+| Expand/contract safety | `npx tsx scripts/migration/expand-contract.ts` | **PASS** — 75 migrations · 74 EXPAND · 1 CONTRACT |
+| Drift-gate self-test | `npx tsx scripts/migration/gate-selftest.ts` | **PASS** — 8/8 cases |
+| Schema drift | `npx tsx scripts/migration/schema-drift.ts` | **PASS** — applied migrations and `src/db/schema` agree |
+| Disaster-recovery drill | `npx tsx scripts/dr-drill.ts` | **PASS** — 463 tables restored with count parity, 386 RLS tables preserved, audit chain intact |
+| Runtime role | `npx tsx scripts/setup-db-role.ts` + `pg_roles` | **PASS** — NOSUPERUSER / NOBYPASSRLS / NOCREATEROLE / NOCREATEDB |
+| RLS (runtime role) | direct probes, §20 | **PASS** — 34/34 new tables RLS-enabled, 64 policies, foreign tenant invisible, `row_security=off` refused |
+| New suites | `npx vitest run <new files>` | **PASS** — private-capital refusals 27/27, compensation source-of-truth 8/8, committed suites 88/88 |
+| Inventory + specialist gates | `npx vitest run tests/specialist tests/release` | **PASS** — 705/705 |
+| Security + Noelia | `npx vitest run tests/security tests/noelia` | **PASS** — 738 passed / 0 failed / 16 skipped |
+| **Full suite** | `npx vitest run` | **PASS** — **5 006 passed / 0 failed / 309 skipped** (321 files: 286 passed, 35 skipped) |
 
-## 10. Full-suite status — baselines and honesty about failures
+The 309 skips are the HTTP/E2E transport layer, which needs a running server; CI executes that layer against
+`next start` and asserts the skip count stays ≤ 15. The production build cannot run in this 3.9 GB sandbox
+(V8 OOM after "Compiled successfully") — CI steps 21–22, both builds including the deployment-parity build
+with no runtime secrets, **passed** on this branch.
 
-* Pre-seed baseline (before `npm run seed`): 579 failed / 2 967 passed / 1 646 skipped of 5 192 — an artefact of
-  unseeded user fixtures, not of application code.
-* Post-seed baseline (before this change): 145 failed / 4 492 passed / 555 skipped of 5 192.
-* After this change (measured, this branch, seeded local PostgreSQL 16):
+## 10. Full-suite status — baselines and the corrected record
 
-  ```
-  npx vitest run tests/authority tests/architecture tests/noelia \
-                 tests/finance tests/pricing tests/hcm tests/security --reporter=basic
+* Pre-seed baseline (before `npm run seed`, historical): 579 failed / 2 967 passed / 1 646 skipped of 5 192
+  — an artefact of unseeded fixtures, not of application code.
+* Post-seed baseline (historical, before this change): 145 failed / 4 492 passed / 555 skipped of 5 192.
+* **After this change, on the amended branch: 5 006 passed / 0 failed / 309 skipped of 5 315.**
 
-  Test Files  15 failed | 81 passed | 6 skipped (102)
-       Tests  73 failed | 1 239 passed | 175 skipped (1 487)
-  ```
+Two earlier observations were recorded during this work and are corrected here rather than left standing:
 
-  **Every one of the 73 failures is the same environment defect, and none of them is in a suite this change
-  touches.** The error in all 15 files is PostgreSQL `permission denied for table <legacy table>` raised by the
-  runtime role — i.e. the local seeded database has not been granted privileges on those pre-existing tables
-  (`journal_entries`, `ledger_accounts`, `legal_entities`, `documents`, `resolutions`, `resolution_votes`,
-  `tasks`, `evidence`, `approvals`, `governance_charters`, `governance_charter_terms`, `governance_bodies`,
-  `governance_members`, `noelia_routing_decisions`, `noelia_evidence`, `knowledge_sources`). The affected files
-  are the pre-existing `tests/security/*-rls.test.ts` harnesses plus two `tests/noelia` suites. The same class
-  of failure is present on the pre-change baseline (145F/4 492P/555S over the whole repository), where the
-  seeded root had not been granted those privileges either. No new table, policy or grant in this change is
-  involved: all 34 new tables were probed with the runtime role and all 64 new policies behave as designed.
-* Green in this same run: `tests/architecture` (all files), the five new suites (88/88: 25 + 10 + 18 + 25 + 10),
-  the new adversarial runtime-role RLS suite (10/10), and the Noelia tool-registry contract.
-  **No failure caused by this change remains:** the one class this change did introduce (the CI migration-range
-  label) was found by the architecture gate and fixed in this branch.
+1. **An earlier "73 residual failures (`permission denied for table …`)" reading was wrong.** It came from an
+   ad-hoc local harness that ran `migrate → seed` while skipping the repository's own
+   `npx tsx scripts/setup-db-role.ts` step, so the runtime role held no privileges on 0074's predecessors.
+   Under the exact CI order (`migrate → runtime-role provisioning → seed`) those suites pass **738/738**.
+   No repository change was needed and none was made.
+2. **Nine failures in a later local run resolved to eight stale inventory pins plus one local artefact.**
+   The eight pins are the repository's deliberate inventory guards, which must be extended (with attribution
+   comments) whenever a migration is added: the five `tests/specialist/*` migration-count pins, the
+   audit-module and forecast-module table-name guards, and the `tests/release/expand-contract` P2 inventory.
+   They were updated to 75 with explicit 0074 attributions. The ninth was a `BEYU_ENV=local` line in my own
+   gitignored local `.env`, which overrode vitest's `NODE_ENV=test` and made the PVG environment check fail;
+   removing it restored 10/10 without touching the repository.
+
+**The one CI failure on this PR has the same root cause as class 2 and is fixed by it** — see §21 for the
+step-by-step CI record and for the dependency-audit finding, which is **not** caused by this branch (no
+dependency manifest or lockfile change exists in the diff).
 
 ## 11. What was deliberately NOT built, and why
 
@@ -265,10 +276,11 @@ added here — against the mandated governed contract.
 
 ## 13. Known limitations and follow-ups
 
-1. **Per-engine calculation-version stamping.** All engines record the shared
-   `finance-intelligence-1.0.0` calculation version; each engine also exports its own version constant
-   (`valuation-engine-1.0.0`, `lbo-engine-1.0.0`, `pricing-engine-1.0.0`, …) that is not yet written into
-   provenance. Wiring them in is a small, isolated follow-up.
+1. ~~**Per-engine calculation-version stamping.**~~ **DONE in this branch.** Every outcome now records the
+   version of the engine that produced it — `finance-metrics-1.0.0`, `valuation-engine-1.0.0`,
+   `private-capital-metrics-1.0.0`, `lbo-engine-1.0.0`, `entrusted-capital-1.0.0`, `pricing-engine-1.0.0`,
+   `compensation-engine-1.0.0` — and `tests/finance/private-capital-refusals.test.ts` pins one assertion per
+   engine so a future refactor cannot silently collapse them back into a shared string.
 2. **No API routes yet for the new tables.** The capability is reachable through the Noelia tool layer and the
    engines; REST routes under `/api/v1/finance/**`, `/api/v1/pricing/**`, `/api/v1/hcm/compensation/**` are
    the next increment. Until they exist, no UI surface can read the new tables.
@@ -277,47 +289,271 @@ added here — against the mandated governed contract.
 4. **Records/filing and cockpit** build on existing substrate (`documents`, `retentionPolicies`,
    `metricDefinitions`) and are partially delivered: the permission and the read model exist, the filing
    workflow does not.
-5. **Private-capital unit tests** cover the engine through the LBO/fund fixtures; dedicated DPI/TVPI/RVPI
-   refusal tests are scheduled as a follow-up rather than claimed here.
+5. ~~**Dedicated DPI/TVPI/RVPI refusal tests.**~~ **DONE in this branch.** `tests/finance/
+   private-capital-refusals.test.ts` (27 tests) pins DPI as CALCULATED, RVPI as **always** ESTIMATED, TVPI as
+   ESTIMATED while anything is unrealized and CALCULATED only when truly realized, "not measurable" IRR as
+   NOT_APPLICABLE (never 0), MISSING on a zero paid-in denominator, and a hard refusal to sum capital accounts
+   across currencies.
+6. **Base-compensation ownership boundary.** Found by the duplicate audit (§17) and closed structurally:
+   `employment_relationship_ref` + a database CHECK + an engine finding, so base pay cannot be restated here
+   as a second source of truth.
 
 ## 14. Merge readiness
 
-* Additive only; forward-only migration; no destructive operation; no rename; no data loss path.
-* All gates that can run locally are green (§9). CI must confirm on the PR.
-* The residual database-privilege failures described in §10 are environment-bound and pre-existing.
+* **Additive only**; forward-only migration; no destructive operation; no rename; no data-loss path. The
+  destructive scanner classifies 0074 `EXPAND` and the expand/contract gate passed.
+* **All gates that can run locally are green** (§9), including a full suite of 5 006 passing tests with zero
+  failures on the amended branch.
+* **The one CI failure on this PR is explained and fixed in this branch** (§21): eight stale inventory pins
+  that a new migration is required to extend, plus an unrelated, time-dependent dependency advisory that is
+  reported rather than masked.
+* **Nothing has been applied to production.** The production deploy path is skipped on pull requests and
+  requires a human (`push` to `main` or a manual dispatch under the `Production` environment).
 * **Recommendation: ready for human review and merge.** This branch does not merge itself and does not
-  promote to production.
+  promote to production. The final decision, and the production migration, remain human-controlled.
 
 ## 15. Reproducing this work
 
 ```bash
 npm ci
-node scripts/infra/pg16-server.mjs start --fresh
-cp .env.example .env   # point DATABASE_URL/ADMIN_URL at the local instance
-npm run migrate        # applies 0000–0074
+node scripts/infra/pg16-server.mjs start --fresh        # disposable local PostgreSQL 16
+# .env: loopback DSNs only — runtime role (beyu_runtime) + admin role (postgres)
+npm run migrate                                          # applies 0000-0074
+npx tsx scripts/setup-db-role.ts                         # runtime role: NOSUPERUSER/NOBYPASSRLS
 npm run seed
-npx tsx scripts/migration/integrity.ts
-NODE_OPTIONS=--max-old-space-size=7168 npx tsc --noEmit
-npx vitest run tests/finance tests/pricing tests/hcm tests/security/enterprise-intelligence-rls-isolation.test.ts
+npx tsx scripts/migration/integrity.ts --with-ledger     # ledger + checksums
+npx tsx scripts/migration/expand-contract.ts             # expand-only proof
+npx tsx scripts/migration/gate-selftest.ts               # gate separates valid from drift
+npx tsx scripts/migration/schema-drift.ts                # migrations vs src/db/schema
+npx tsx scripts/dr-drill.ts                              # replay + restore + validation
+NODE_OPTIONS=--max-old-space-size=7168 npm run typecheck
+npm run lint
+npx vitest run                                           # full suite (no server: HTTP layer skips)
 ```
+
+`npx tsx scripts/setup-db-role.ts` is **not optional**: skipping it leaves the runtime role without
+privileges and produces a large, misleading population of `permission denied` failures (§10).
 
 ## 16. PR description (per §57)
 
 > **Title:** Enterprise Intelligence Expansion — Finance Intelligence, Valuation, Private Capital, LBO,
 > Fiduciary Capital, Pricing and HCM Compensation
 >
-> **What:** additive capabilities inside FINANCE_OS, the HCM shared capability and a new shared pricing
-> capability; 9 engines, 34 tables, 1 forward-only migration, 7 governed Noelia tools, 88 new tests.
+> **What:** additive capabilities inside FINANCE_OS, the HCM shared capability and a shared pricing
+> capability: 9 engine files, 34 governed tables, 1 forward-only migration (0074), 7 governed Noelia tools,
+> 16 documented permissions, and 123 new tests across six new suites.
 >
 > **Why:** the enterprise had no governed way to value a business, model a buyout, track entrusted capital
 > separately from its own, price with an enforced markup/margin distinction, or record a compensation
 > entitlement that one person cannot approve alone.
 >
-> **Risk:** low/additive. No posting path, no destructive migration, no new identity or audit system.
-> RLS and runtime grants asserted by an adversarial runtime-role test.
+> **Risk:** low/additive. No posting path, no destructive migration, no new identity, ledger or audit system.
+> RLS and runtime grants are asserted by an adversarial runtime-role suite, and the markup/margin and
+> segregation-of-duties rules are enforced by CHECK constraints, not only by application code.
 >
-> **Verification:** typecheck clean; migration integrity clean; 88 new tests pass; architecture gates pass;
-> full-suite residual failures are pre-existing environment/privilege suites (see report §10).
+> **Verification:** typecheck 0 errors · lint 0 errors · migration integrity, expand/contract, drift-gate
+> self-test, schema-drift and DR-drill all PASS on a disposable PostgreSQL 16 · **full suite 5 006 passed /
+> 0 failed** · CI's builds and migration gates pass; the one failing CI step was the full regression, whose
+> eight inventory pins are updated in this branch with attribution (§21).
 >
-> **Not included:** API routes and UI for the new tables; feature-flag seeding; per-engine calculation-version
-> stamping (report §13).
+> **Not included:** REST routes and UI for the new tables; feature-flag seeding; records/filing workflow and
+> cockpit screens (report §13).
+
+## 17. Duplicate-functionality audit (constraint #2 — no duplicate OS, ledger, identity or table)
+
+Every table added by 0074 was checked against the **429 tables created by migrations 0000–0073** before it was
+written, and again after apply. **Name collisions: none.** The look-alikes that a reader would reasonably
+suspect were opened and compared column by column:
+
+| New table(s) | Closest pre-existing object | Verdict |
+|---|---|---|
+| `private_funds`, `private_fund_participants`, `private_capital_calls`, `private_fund_distributions` | `funds` (0035, Foundation OS) | **Not a duplicate.** `funds` is a *philanthropic* fund of a foundation (`foundation_id`, `fund_type`, `purpose`, `source`, `reporting_obligations`) — restricted charitable money with a reporting duty. `private_funds` is an investment vehicle with GP/LP capital accounts. Different owner, different money, different law. The Foundation fund register remains authoritative for Foundation funds. |
+| `valuation_models`, `valuation_assumption_sets`, `valuation_runs` | `family_investment_valuations` (0037, Family Office) | **Complementary, not duplicate — and the boundary is stated.** 0037 is a *mark register*: one row per investment per date with a basis and a valuation document. 0074 is a *model register*: versioned, fingerprinted assumption sets and the runs computed from them (a DCF output is a scenario, not a mark). The two were deliberately NOT merged: a family office mark is evidence about an asset, a model run is an analysis of a business. Where a model run informs a mark, the mark stays in 0037 and cites its basis; nothing in 0074 writes a mark. |
+| `financial_metric_observations` | `sector_metrics` (0000), `metric_definitions` (0000) | **Different classes of record, stated explicitly.** `metric_definitions` is the metadata registry (code, definition, owner, calculation, unit); `financial_metric_observations` holds governed *values* with a full provenance envelope (state, method, inputs, source timestamp, calculation version). `sector_metrics` holds operational KPI telemetry ingested `numeric(18,4)` from source systems with no provenance state; it is NOT a financial-metric register and no engine in this change writes to it. |
+| `entrusted_capital_arrangements`, `capital_formation_positions` | `capital_requests` (0000), `family_capital_allocations` (0036) | **Different objects.** `capital_requests` is an approval request for money (expected IRR/NPV/payback/risk score, resolved by a governance resolution); `family_capital_allocations` allocates family capital across purposes. `entrusted_capital_arrangements` records money BEYU holds *for someone else*, by origin, with the restriction set. None of the three can be derived from another. |
+| `compensation_entitlements` | `employees.base_salary` (0000) | **A real overlap, found by this audit and fixed structurally.** Contracted base pay is owned by the employee registry. 0074 had introduced a `BASE_COMPENSATION` entitlement kind without a link to that record, which would have allowed a second, divergent statement of the same pay. Fixed in this branch: `employment_relationship_ref` (a reference to the canonical employment record) plus the CHECK `kind <> 'BASE_COMPENSATION' OR employment_relationship_ref IS NOT NULL`, and the engine finding that states the boundary. Proven live: an insert with a NULL reference is rejected by PostgreSQL (`23514`). |
+| `price_lists`, `cost_allocation_*`, `profitability_*` | nothing | **No pre-existing pricing/margin capability existed.** Pricing was performed in spreadsheets. This is the one capability in the change with no prior substrate to extend. |
+| `lbo_models`, `lbo_debt_tranches`, `lbo_model_runs` | `family_real_estate_financing_models` (0036) | **Not a duplicate.** The Family Office model is property financing (rent rolls, LTV); 0074 is a buyout model (sources & uses, debt schedule, sweep, exit, MOIC/IRR). |
+| `pe_investment_committee_decisions` | `resolutions` / `resolution_votes` (0000) | **Linked, not duplicated.** The IC record captures the deal-specific proposer/decider split that the general governance resolution does not; a decision cites its resolution rather than replacing it. |
+
+**No second ledger.** Nothing in 0074 posts. `journal_entries` / `journal_lines` remain the sole booked truth
+(`FINANCIAL_TRUTH`), `CAP_POSTING` remains LOCKED, and every table added is an analysis, model, mark,
+arrangement or entitlement register — never a posting.
+
+**No second identity.** Every person is referenced by the canonical `GlobalUserID` / party id; the IC and
+approval tables reference real principals, and `employees` remains the employee registry (no auth identity is
+created).
+
+## 18. Permission review (constraint #4 — no proliferation, no duplicates)
+
+`src/lib/constants.ts` declares **255 permission codes**. Sixteen were added by this change, each with a
+description in the registry (the same file), and each checked against the existing set for semantic
+equivalence before being introduced:
+
+| Permission | Action | Resource | Roles granted |
+|---|---|---|---|
+| `finance:intelligence.read` | read | governed financial metrics with provenance | GROUP_CFO, INVESTMENT_OFFICER, TREASURY_OFFICER, CHIEF_RISK_COMPLIANCE |
+| `finance:valuation.read` / `.manage` | read / author | valuation models, assumption versions, runs | GROUP_CFO, INVESTMENT_OFFICER |
+| `finance:privatecapital.read` / `.manage` | read / maintain | funds, participants, calls, distributions, portfolio, DD, IC | GROUP_CFO, INVESTMENT_OFFICER |
+| `finance:lbo.read` / `.manage` | read / author | LBO models, tranches, runs | GROUP_CFO, INVESTMENT_OFFICER |
+| `finance:capitalformation.read` / `.manage` | read / maintain | entrusted-capital arrangements by origin | read: GROUP_CFO, INVESTMENT_OFFICER, TREASURY_OFFICER, CHIEF_RISK_COMPLIANCE · manage: GROUP_CFO |
+| `pricing:read` / `.manage` / `.approve` | read / maintain / approve | price lists, margin analyses, decision approval | read+manage: GROUP_CFO, SECTOR_OPERATOR · read: INVESTMENT_OFFICER · approve: GROUP_CFO only |
+| `compensation:read` / `.manage` / `.approve` | read / raise / approve | entitlements, policies, credit facilities, welfare cases | HCM_DIRECTOR (all three) |
+| `cockpit:read` | read | management cockpit and cross-enterprise analytics | GROUP_CFO, INVESTMENT_OFFICER, HCM_DIRECTOR, TREASURY_OFFICER, SECTOR_OPERATOR, CHIEF_RISK_COMPLIANCE |
+
+Notes on non-duplication:
+* `finance:capitalformation.*` was checked against the existing `finance:capital.read` / `.manage` (capital
+  governance and capital requests): **different resource**, different route, different data. The existing
+  codes are untouched.
+* The `pricing:*` and `compensation:*` namespaces did not exist before this change; the pre-existing HCM
+  namespace holds only `hcm:employee.read` / `.manage`.
+* **No role gained posting authority.** `finance:ledger.post` and `CAP_POSTING` are unchanged, and no new
+  code is a posting capability.
+* `pricing:approve` and `compensation:approve` were granted to exactly one role each, and the database refuses
+  self-approval structurally (`compensation_approval_stages_sod_check`, IC proposer ≠ decider).
+
+## 19. Noelia enterprise-tool review (constraint #3)
+
+The seven §26 tools live in `src/lib/noelia/enterprise-intelligence-tools.ts` and are registered into the ONE
+existing registry from `src/lib/noelia/default-tools.ts` (line 1410). Each was reviewed against the tool
+contract and against the "never bypass governance" rules:
+
+| Tool | Permission | Classification | Risk | sideEffects |
+|---|---|---|---|---|
+| `finance.intelligence.market_capitalization` | `finance:intelligence.read` | CONFIDENTIAL | LOW | NONE |
+| `finance.intelligence.price_earnings` | `finance:intelligence.read` | CONFIDENTIAL | LOW | NONE |
+| `finance.private_capital.fund_positions` | `finance:privatecapital.read` | HIGHLY_RESTRICTED | LOW | NONE |
+| `finance.capital_formation.positions_by_origin` | `finance:capitalformation.read` | HIGHLY_RESTRICTED | LOW | NONE |
+| `pricing.markup_margin.analyse` | `pricing:read` | INTERNAL | LOW | NONE |
+| `hcm.compensation.entitlement_summary` | `compensation:read` | CONFIDENTIAL | LOW | NONE |
+| `finance.valuation.assumption_fingerprint` | `finance:valuation.read` | CONFIDENTIAL | LOW | NONE |
+
+Evidence, from the source itself:
+* **No parallel authorization system.** Every tool declares exactly one `permission` from the canonical
+  registry; the registry's existing gate enforces GlobalUserID, role, tenant, entity, clearance and
+  classification before `execute` is reachable. No new authorization path exists.
+* **No unrestricted database access and no SQL tool.** The module contains **zero** `insert` / `update` /
+  `delete` calls and no generic query tool. It imports the canonical `db` client bound to the runtime role.
+* **No service-role credentials.** Zero references to service_role/SUPABASE/createClient; no credential
+  material is read anywhere in the module.
+* **No RLS bypass.** `requireContext()` throws unless `hasDatabaseTransactionContext()` is true, so a tool
+  cannot execute outside the caller's RLS-scoped transaction — an invocation without tenant context refuses
+  rather than reading more.
+* **No self-approval, no permission grants, no governance mutation.** All seven declare
+  `approvalRequirements: null` and `sideEffects: "NONE"`; the module exposes no capability to approve,
+  grant, post or pay.
+* **Audited.** Each tool declares `auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType:
+  "AI_DECISION" }`, so every invocation lands in the existing audit chain.
+* **Honest epistemics.** Metric states map through `canonicalStatus` (VERIFIED → OBSERVED, CALCULATED →
+  DERIVED, ESTIMATED → ASSUMPTION/INFERENCE, MISSING/NOT_APPLICABLE → UNAVAILABLE, INVALID → UNCERTAINTY).
+  Missing inputs are returned as `MISSING — not supplied and not read from a governed source`, never as zero.
+
+## 20. RLS verification (runtime role, disposable local database)
+
+Verified with `psql`/`pg` as **`beyu_runtime`** (NOSUPERUSER, NOBYPASSRLS) against the local instance — the
+same role the application uses:
+
+| Probe | Result |
+|---|---|
+| Role attributes (`pg_roles`) | `rolsuper=false rolbypassrls=false rolcreaterole=false rolcreatedb=false` |
+| New tables with RLS enabled (sampled 8 of 34) | 8 / 8 |
+| `<table>_tenant_scope` policies on those tables | 8 / 8 (64 across the 34 new tables) |
+| `select count(*)` with **no** tenant GUC set | 0 rows (not an error, not everything: the predicate matched nothing) |
+| Same query with a **foreign** tenant id | 0 rows |
+| `set row_security = off` as the runtime role | rejected: `42501 insufficient_privilege` |
+| Cross-tenant INSERT as the runtime role | rejected by the policy (`WITH CHECK`), covered by the committed adversarial suite `tests/security/enterprise-intelligence-rls-isolation.test.ts` (10/10) |
+| BASE_COMPENSATION insert with a NULL canonical reference | rejected: `23514 compensation_entitlements_base_source_check` |
+
+The isolation suite is adversarial by construction: it issues statements **directly through the runtime
+client with no application predicate**, so a leak cannot be explained by a forgotten `where` clause in a
+service.
+
+## 21. CI status, and what is NOT verified
+
+**This branch's CI run on PR #97 (attempt 1), step by step** — the authoritative record:
+
+| Step | Result |
+|---|---|
+| Committed secret scan | success |
+| Migration integrity · PostgreSQL readiness · typecheck · lint | success |
+| Apply migrations 0000-0074 · ledger reconciliation · determinism re-run | success |
+| Expand/contract safety | success |
+| Drift-gate self-test | success |
+| Schema drift (migrations vs `src/db/schema`) | success |
+| Disaster-recovery drill | success |
+| Runtime-role provisioning + constraint assertion | success |
+| Seed · **production build** · **build without runtime secrets** | success |
+| Start application · `/api/health` reports database UP | success |
+| **Full root regression (PostgreSQL-backed + HTTP/E2E)** | **failure** — see below |
+| Browser/E2E steps | skipped (they depend on the failed step) |
+| P3 Release Governance — DB-free verification | **failure** — see below |
+| Production dependency audit (root, health-backend) | **failure** — see below |
+| Production database deploy / PVG / runtime verification / drift report | **skipped — never ran on this PR** |
+
+Root causes, each identified precisely and each either fixed or reported rather than masked:
+
+1. **Full root regression + P3 governance job — stale inventory pins (fixed in this branch).** The failing
+   tests were the repository's own inventory guards, which must be extended, with attribution, whenever a
+   migration is added: `tests/specialist/{audit-intel,compliance,forecast,risk,treasury}.test.ts` (migration
+   count pinned at 74; the audit-module and forecast-module table-name guards had not been told about
+   `pe_exit_events` and `valuation_assumption_sets`/`valuation_runs`) and
+   `tests/release/expand-contract.test.ts` (P2 inventory pinned at 74). Each has been updated to 75 with an
+   explicit 0074 attribution comment, in the style the surrounding comments require.
+2. **Production dependency audit — NOT caused by this branch (reported, not masked).** The audit fails on a
+   **critical** advisory published for `tinypool` (GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr), a transitive
+   dependency of `vitest`. `git diff` proves this branch changes **no** dependency manifest or lockfile, and
+   `tinypool` is present in main's lockfile too — the check is time-dependent (a new advisory against
+   unchanged code). The remediation (`npm audit fix --force` → vitest 5.0.3) is a **breaking** dependency
+   change and is deliberately left to a human decision rather than smuggled into this branch.
+3. **A local-only artefact, for completeness.** An initial full-suite run in my sandbox showed 73
+   `permission denied for table …` failures. They were caused by my ad-hoc harness skipping
+   `npx tsx scripts/setup-db-role.ts`; under the exact CI harness (`migrate → setup-db-role → seed`) the same
+   suites pass 738/738. No repository change was needed for them, and none was made.
+
+**What is verified, exactly as measured on the amended branch (local, disposable PostgreSQL 16):**
+
+* `npm run migrate` — 75/75 APPLIED, fingerprint `f304a5178e44e0dd91e539161064b8d9`.
+* `npx tsx scripts/migration/integrity.ts --with-ledger` — PASSED, 0 blocking, **no new acknowledged debt**.
+* `npx tsx scripts/migration/expand-contract.ts` — PASSED (75 migrations · 74 EXPAND · 1 CONTRACT).
+* `npx tsx scripts/migration/gate-selftest.ts` — PASSED 8/8.
+* `npm run typecheck` — 0 errors. `npm run lint` — 0 errors (1 pre-existing `<img>` warning).
+* **Full suite: 5 006 passed / 0 failed / 309 skipped (321 files: 286 passed, 35 skipped).**
+  The 309 skips are the HTTP/E2E transport layer, which requires a running server; CI runs them against
+  `next start` and asserts the skip count stays ≤ 15.
+* New and amended suites: `tests/finance/private-capital-refusals.test.ts` 27/27 · `tests/hcm/
+  compensation-source-of-truth.test.ts` 8/8 · `tests/specialist` + `tests/release` 705/705 ·
+  `tests/security` + `tests/noelia` 738 passed / 0 failed.
+
+**What is NOT verified here, stated plainly:**
+* The **production build** cannot run in this 3.9 GB sandbox (V8 OOM after "Compiled successfully"); CI steps
+  21–22 (both builds, including the deployment-parity build with no runtime secrets) **passed** on this
+  branch, which is the build evidence.
+* The **HTTP/E2E/browser layer** was not executed locally (no server); it is executed by CI.
+* The **schema-drift gate and DR drill** were re-run locally after the amendment; results in §9.
+
+## 22. Production-safety statement (migration is a repository artefact)
+
+* **No production database was contacted at any point.** Every DSN used in this work is loopback
+  (`127.0.0.1`) and belongs to a **disposable embedded PostgreSQL 16** created by
+  `scripts/infra/pg16-server.mjs` and destroyed with the sandbox. No Supabase host or credential appears in
+  any local environment file.
+* **No destructive SQL anywhere.** 0074 is EXPAND-only (CREATE TABLE, CREATE INDEX, ADD CONSTRAINT,
+  CREATE POLICY, ENABLE RLS). No DROP, no TRUNCATE, no DELETE, no column narrowing, no rename, no policy
+  removal. The repository's destructive scanner classifies it `EXPAND` and the expand/contract gate passed.
+* **Production apply remains a human-gated, separate step.** `db-release.yml`'s deploy job runs only on
+  `push` to `main` or a manual `workflow_dispatch mode=deploy` under the `environment: Production`
+  protection; on a pull request those jobs are **skipped** (recorded above). Merging this PR does not deploy
+  it; a human must dispatch the deploy, and the production migration remains unapplied until they do.
+
+## 23. Readiness verdicts (reported separately, exactly as required)
+
+| Verdict | State | Evidence |
+|---|---|---|
+| **CODE READY** | **YES** | Typecheck 0 errors, lint 0 errors, 9 engine files + 5 schema/test modules compile and pass 123 new tests; no `any`-driven shortcuts, no floating-point money. |
+| **DATABASE MIGRATION READY** | **YES (repository artefact)** | 0074 is EXPAND-only, checksummed, chained (snapshot 0062 → 0074), integrity + ledger + expand/contract + gate self-test + schema-drift + DR-drill all PASS on a disposable PostgreSQL 16. It has **not** been applied to production and must not be until a human dispatches the gated deploy. |
+| **RLS VERIFIED** | **YES (local, runtime role)** | 34/34 new tables RLS-enabled with the canonical `beyu_tenant_ids()` predicate, 64 policies; as `beyu_runtime` a foreign tenant sees 0 rows, no-context sees 0 rows, `row_security=off` is refused (`42501`), and 10/10 adversarial isolation tests pass. |
+| **TESTS PASSED** | **YES** | Full suite **5 006 passed / 0 failed / 309 skipped** (the skips are the HTTP/E2E layer, which needs a live server and runs in CI). New suites: 88 committed + 27 private-capital refusals + 8 compensation source-of-truth. |
+| **SECURITY VERIFIED** | **YES, with one reported exception** | Runtime role constrained and re-asserted; no secrets committed (secret-scan green); no service-role credential anywhere; Noelia tools read-only, permission-gated, RLS-scoped, no SQL tool, no approval path; segregation of duties enforced by CHECK constraints. **Exception, reported not hidden:** the dependency audit fails on a new critical advisory against unchanged `tinypool`/vitest — remediation is a breaking dependency bump left to a human (§21.2). |
+| **PRODUCTION MIGRATION PENDING HUMAN APPROVAL** | **YES — PENDING** | No production database was contacted; the deploy job is skipped on pull requests and requires `push` to `main` or a manual dispatch under the `Production` environment. |
+| **PR READY FOR HUMAN REVIEW** | **YES** | PR #97, branch `arena/25add342-beyu-os-1-0`, 34 tables, 1 migration, 6 test suites, this report. The merge gate stays closed until a person opens it. |
+

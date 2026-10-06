@@ -45,6 +45,16 @@ import { BPS_BASE, FinanceArithmeticError, assertMoney, assertPercent, multiple,
 import type { MetricInput, MetricOutcome, MetricSeedBase } from "@/lib/finance/intelligence/provenance";
 import { calculated, invalid, missing, seedFor } from "@/lib/finance/intelligence/provenance";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own pricing calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: PRICING_ENGINE_VERSION,
+  });
+
 export const PRICING_ENGINE_VERSION = "pricing-engine-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -775,7 +785,7 @@ export function pricedMarginOutcome(params: {
     { name: "priceMinor", value: String(params.priceMinor), unit: params.currency, kind: "OBSERVED", source: "price book", period: params.period, currency: params.currency },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.PRICING.MARKUP_AND_MARGIN", "Profit = Price − Cost; Markup = Profit ÷ Cost; Margin = Profit ÷ Revenue; Margin = Markup ÷ (1 + Markup)", inputs, {
+    seedForEngine(params.seed, "FIN.PRICING.MARKUP_AND_MARGIN", "Profit = Price − Cost; Markup = Profit ÷ Cost; Margin = Profit ÷ Revenue; Margin = Markup ÷ (1 + Markup)", inputs, {
       period: params.period,
       currency: params.currency,
       quality: "MANAGEMENT",

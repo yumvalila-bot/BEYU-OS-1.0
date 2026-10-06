@@ -83,6 +83,7 @@ CREATE TABLE "compensation_entitlements" (
 	"status" text DEFAULT 'DRAFT' NOT NULL,
 	"calculation" jsonb,
 	"finance_reference_id" text,
+	"employment_relationship_ref" text,
 	"raised_by" text NOT NULL,
 	"raised_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -92,6 +93,7 @@ CREATE TABLE "compensation_entitlements" (
 	CONSTRAINT "compensation_entitlements_status_check" CHECK (status IN ('DRAFT','PENDING','APPROVED','REJECTED','PAID','CANCELLED','EXPIRED')),
 	CONSTRAINT "compensation_entitlements_state_check" CHECK (data_state IN ('VERIFIED','CALCULATED','ESTIMATED','FORECAST')),
 	CONSTRAINT "compensation_entitlements_amount_check" CHECK (amount_minor >= 0),
+	CONSTRAINT "compensation_entitlements_base_source_check" CHECK (kind <> 'BASE_COMPENSATION' OR employment_relationship_ref IS NOT NULL),
 	CONSTRAINT "compensation_entitlements_currency_check" CHECK (char_length(currency) = 3),
 	CONSTRAINT "compensation_entitlements_reason_check" CHECK (char_length(reason) >= 3 AND char_length(eligibility) >= 3),
 	CONSTRAINT "compensation_entitlements_paid_check" CHECK (status <> 'PAID' OR finance_reference_id IS NOT NULL)

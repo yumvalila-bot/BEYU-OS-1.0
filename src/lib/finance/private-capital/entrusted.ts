@@ -33,6 +33,16 @@ import { FinanceArithmeticError, assertMoney, assertPercent, multiple } from "..
 import type { MetricInput, MetricOutcome, MetricSeedBase } from "../intelligence/provenance";
 import { calculated, invalid, missing, seedFor } from "../intelligence/provenance";
 
+/**
+ * Provenance stamp for this engine: every outcome records the engine's own entrusted-capital calculation version,
+ * so a stored metric can always be traced back to the code and assumptions that produced it.
+ */
+const seedForEngine = (...args: Parameters<typeof seedFor>) =>
+  seedFor(args[0], args[1], args[2], args[3], {
+    ...(args[4] ?? {}),
+    calculationVersion: ENTRUSTED_CAPITAL_VERSION,
+  });
+
 export const ENTRUSTED_CAPITAL_VERSION = "entrusted-capital-1.0.0";
 
 /* ------------------------------------------------------------------ */
@@ -214,6 +224,11 @@ export function validateArrangement(arrangement: CapitalArrangement): string[] {
       `Arrangement ${arrangement.id} is ${origin} capital but declares no use restrictions. Fiduciary and project capital must state what it may be used for.`,
     );
   }
+  if (origin === "GUARANTEED" && arrangement.commitmentMinor === 0 && arrangement.drawnMinor === 0) {
+    findings.push(
+      `Arrangement ${arrangement.id} is a guarantee with no face value recorded. A guarantee must state the amount it could be called for; zero is not a notional.`,
+    );
+  }
   if (arrangement.status === "ACTIVE" && !arrangement.approvalRef) {
     findings.push(`Arrangement ${arrangement.id} is ACTIVE without an approval reference. Every active capital arrangement must cite the authority that approved it.`);
   }
@@ -329,14 +344,23 @@ export function aggregateCapitalPortfolio(params: {
   }
 
   const totals = [...byOrigin.values()].sort((a, b) => (a.origin < b.origin ? -1 : 1));
-  const pick = (origin: CapitalOrigin): number => byOrigin.get(origin)?.drawnMinor ?? 0;
+  const pickDrawn = (origin: CapitalOrigin): number => byOrigin.get(origin)?.drawnMinor ?? 0;
+  // A guarantee's contingent exposure is its FACE VALUE, not what has been drawn. Reporting the drawn
+  // amount would show every live guarantee as zero until the day it is called — the single moment the
+  // number matters most. `max(commitment, drawn)` keeps the figure correct for an undrawn guarantee
+  // (commitment), for a partially called one (commitment) and for a defensive record that only carries
+  // the called amount (drawn).
+  const guaranteedNotionalMinor = params.arrangements
+    .filter((a) => a.currency.toUpperCase() === params.reportingCurrency.toUpperCase())
+    .filter((a) => classifyCapitalOrigin(a.instrument) === "GUARANTEED")
+    .reduce((sum, a) => sum + Math.max(a.commitmentMinor, a.drawnMinor), 0);
   const portfolio: CapitalPortfolio = {
     currency: params.reportingCurrency,
     totals,
-    ownDrawnMinor: pick("OWN"),
-    fiduciaryDrawnMinor: pick("FIDUCIARY"),
-    projectDrawnMinor: pick("PROJECT"),
-    guaranteedNotionalMinor: pick("GUARANTEED"),
+    ownDrawnMinor: pickDrawn("OWN"),
+    fiduciaryDrawnMinor: pickDrawn("FIDUCIARY"),
+    projectDrawnMinor: pickDrawn("PROJECT"),
+    guaranteedNotionalMinor,
     findings,
     excluded,
   };
@@ -399,7 +423,7 @@ export function fiduciaryReport(params: FiduciaryReportParams): MetricOutcome<{ 
     { name: "managementFeesEarnedMinor", value: String(params.managementFeesEarnedMinor), unit: params.portfolio.currency, kind: "OBSERVED", source: "management fee ledger", period: params.period, currency: params.portfolio.currency },
   ];
   const seed = () =>
-    seedFor(params.seed, "FIN.CAPITAL.FIDUCIARY_REPORT", "Fiduciary capital report: managed capital, returns payable to capital providers, and the management fee earned on the mandate", inputs, {
+    seedForEngine(params.seed, "FIN.CAPITAL.FIDUCIARY_REPORT", "Fiduciary capital report: managed capital, returns payable to capital providers, and the management fee earned on the mandate", inputs, {
       period: params.period,
       currency: params.portfolio.currency,
       quality: "MANAGEMENT",
