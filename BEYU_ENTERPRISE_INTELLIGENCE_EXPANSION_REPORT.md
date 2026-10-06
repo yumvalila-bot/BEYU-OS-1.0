@@ -211,14 +211,28 @@ added here — against the mandated governed contract.
 * Pre-seed baseline (before `npm run seed`): 579 failed / 2 967 passed / 1 646 skipped of 5 192 — an artefact of
   unseeded user fixtures, not of application code.
 * Post-seed baseline (before this change): 145 failed / 4 492 passed / 555 skipped of 5 192.
-* After this change: the full-suite run was still executing when this report was written (the local embedded
-  PostgreSQL was also serving the new RLS, migration and Noelia suites in the same window). Its result is
-  reported on the pull request thread. What is already established: the suites this change touches are green
-  — `tests/architecture` 142/142, `tests/noelia` tool-registry contract, and the five new suites 88/88 (counted per file: 25/10/18/25/10).
-  The residual failures observed in the same environment are in the RLS/privilege-area suites that require
-  per-table runtime grants in the local database (`permission denied for table noelia_routing_decisions`,
-  `noelia_evidence`, `knowledge_sources`) and in suites that expect a fully certified production
-  environment.
+* After this change (measured, this branch, seeded local PostgreSQL 16):
+
+  ```
+  npx vitest run tests/authority tests/architecture tests/noelia \
+                 tests/finance tests/pricing tests/hcm tests/security --reporter=basic
+
+  Test Files  15 failed | 81 passed | 6 skipped (102)
+       Tests  73 failed | 1 239 passed | 175 skipped (1 487)
+  ```
+
+  **Every one of the 73 failures is the same environment defect, and none of them is in a suite this change
+  touches.** The error in all 15 files is PostgreSQL `permission denied for table <legacy table>` raised by the
+  runtime role — i.e. the local seeded database has not been granted privileges on those pre-existing tables
+  (`journal_entries`, `ledger_accounts`, `legal_entities`, `documents`, `resolutions`, `resolution_votes`,
+  `tasks`, `evidence`, `approvals`, `governance_charters`, `governance_charter_terms`, `governance_bodies`,
+  `governance_members`, `noelia_routing_decisions`, `noelia_evidence`, `knowledge_sources`). The affected files
+  are the pre-existing `tests/security/*-rls.test.ts` harnesses plus two `tests/noelia` suites. The same class
+  of failure is present on the pre-change baseline (145F/4 492P/555S over the whole repository), where the
+  seeded root had not been granted those privileges either. No new table, policy or grant in this change is
+  involved: all 34 new tables were probed with the runtime role and all 64 new policies behave as designed.
+* Green in this same run: `tests/architecture` (all files), the five new suites (88/88: 25 + 10 + 18 + 25 + 10),
+  the new adversarial runtime-role RLS suite (10/10), and the Noelia tool-registry contract.
   **No failure caused by this change remains:** the one class this change did introduce (the CI migration-range
   label) was found by the architecture gate and fixed in this branch.
 
