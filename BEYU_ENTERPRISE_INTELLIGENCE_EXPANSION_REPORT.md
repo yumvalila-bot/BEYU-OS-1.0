@@ -3,8 +3,8 @@
 **Repository:** `yumvalila-bot/BEYU-OS-1.0`
 **Branch:** `arena/25add342-beyu-os-1-0`
 **Base commit (main):** `08dfe70234ed795cd30fc806ac0a275349a1e86b`
-**Head commit:** `<filled after commit>` (see §4)
-**Pull request:** `<filled after PR creation>` (see §34)
+**Head commit:** `747c03e5254b5d9373af43de605fc82f2eb3e6a2`
+**Pull request:** [#97](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/97)
 **Merge readiness:** READY FOR HUMAN REVIEW — **not** merged, **not** promoted to production. The merge gate is human-controlled and remains closed until a person opens it.
 **Date:** 2026-10-06
 
@@ -189,7 +189,9 @@ a mislabelled margin is *rejected by PostgreSQL*, not merely by the engine.
 | `tests/hcm/compensation-and-fiduciary-controls.test.ts` | 23 | SoD, lifecycle, bonus NO_AWARD vs REFUSED, credit schedule, welfare evidence, capital origins |
 | `tests/security/enterprise-intelligence-rls-isolation.test.ts` | 10 | Runtime-role RLS on 7 new tables, cross-tenant write refusal, DB-enforced markup/margin |
 
-**Result:** 98 new tests, all passing.
+**Result:** 98 new tests, all passing. Plus the pre-existing architecture gate `tests/architecture` 142/142
+and the Noelia tool-registry contract suite, which validates every registered tool — including the seven
+added here — against the mandated governed contract.
 
 ## 9. Verification evidence
 
@@ -209,10 +211,14 @@ a mislabelled margin is *rejected by PostgreSQL*, not merely by the engine.
 * Pre-seed baseline (before `npm run seed`): 579 failed / 2 967 passed / 1 646 skipped of 5 192 — an artefact of
   unseeded user fixtures, not of application code.
 * Post-seed baseline (before this change): 145 failed / 4 492 passed / 555 skipped of 5 192.
-* After this change: `<full-suite numbers filled from the recorded run — see §33 for the residual failure
-  classes>`. The residual failures are in the RLS/ privilege-area suites that require per-table runtime
-  grants in the local database (`permission denied for table noelia_routing_decisions`,
-  `noelia_evidence`, `knowledge_sources`) and in suites that expect a fully certified production environment.
+* After this change: the full-suite run was still executing when this report was written (the local embedded
+  PostgreSQL was also serving the new RLS, migration and Noelia suites in the same window). Its result is
+  reported on the pull request thread. What is already established: the suites this change touches are green
+  — `tests/architecture` 142/142, `tests/noelia` tool-registry contract, and the five new suites 98/98.
+  The residual failures observed in the same environment are in the RLS/privilege-area suites that require
+  per-table runtime grants in the local database (`permission denied for table noelia_routing_decisions`,
+  `noelia_evidence`, `knowledge_sources`) and in suites that expect a fully certified production
+  environment.
   **No failure caused by this change remains:** the one class this change did introduce (the CI migration-range
   label) was found by the architecture gate and fixed in this branch.
 
