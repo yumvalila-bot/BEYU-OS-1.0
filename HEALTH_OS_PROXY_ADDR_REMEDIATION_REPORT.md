@@ -132,8 +132,23 @@ This change has no production effect until a human-approved release installs the
 
 ## 12. Merge recommendation
 
-**Recommendation:** merge only after the canonical real-PostgreSQL Health OS CI/security gates pass and a human reviewer approves. The scoped `proxy-addr` advisory is fixed and locally verified; the broad audit still contains the pre-existing findings listed above, so this report does **not** claim that the entire dependency tree is vulnerability-free. Do not auto-merge or deploy.
+**NOT READY for overall PR merge as of the CI update below.** The Health OS `proxy-addr` fix and Health OS-specific PostgreSQL/security gates pass, but a separate repository-root critical dependency audit fails and the root BEYU OS PostgreSQL gate remains in progress. That root tree is unchanged from `origin/main` and is the separate Vitest/tinypool dependency tree explicitly outside this remediation. It must be handled through its own scoped security work; it is not changed here. Do not auto-merge or deploy.
 
-## 13. Merge-gate status
+## 13. Merge-gate status — PR #98 CI update
 
-**Pending PR CI:** the local PGlite/API/security suite, typecheck, lint, build, dependency resolution, and critical production audit passed. The real-PostgreSQL gates could not run in this sandbox and remain a required PR check. Final readiness must be based on those required GitHub checks and human review.
+PR: <https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/98>
+
+CI run: <https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37590261102>
+
+**Dependency-change commit tested:** `6db44b4a6726758727c2d7b66b9cb61c32fe12af`. The follow-up report update changes no dependency or runtime files.
+
+At the time of this report update:
+
+- **Health OS backend — real PostgreSQL gate: PASS.** The GitHub job completed typecheck, migration application/verification/idempotence, PGlite regression, real-PostgreSQL security suite (including RLS/auth/integration), build, compiled production-mode readiness/unauthenticated API checks, and non-mutating lint.
+- **Health OS production critical dependency audit: PASS.**
+- Health OS frontend verification, migration scratch-PostgreSQL validation, secret scan, and P3 release-governance checks: **PASS**.
+- **Separate root BEYU OS production dependency audit: FAIL.** Running that root audit against the unchanged root manifest/lock reports 5 vulnerable package entries (1 moderate, 2 high, 2 critical); the critical entries are `tinypool` and `vitest`. `package.json` and the root `package-lock.json` are identical to `origin/main`. This is not the Health OS backend tree and is not addressed by this PR.
+- **Root BEYU OS — PostgreSQL security gate: PENDING** at the time of this update.
+- Production database deploy/verify and production verification jobs: **SKIPPED**; no production action was taken.
+
+The Health OS remediation itself is verified, but the PR is classified **NOT READY** while the repository-wide required root audit is failing and the root PostgreSQL gate is pending. Final merge remains a human decision after required checks are green.
