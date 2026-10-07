@@ -115,3 +115,26 @@ export * from "./schema/governance-calendar";
  * documents, workflow, Noelia. CAP_POSTING remains LOCKED.
  */
 export * from "./schema/communications";
+
+/*
+ * FINANCE INTELLIGENCE EXPANSION — valuation, private equity, LBO, fiduciary capital (additive).
+ *
+ * EXTENSION of FINANCE_OS, never a new OS. Analysis, models and marks only: the ONE ledger
+ * (journal_entries + journal_lines) remains untouched and CAP_POSTING remains LOCKED.
+ * Every monetary column is exact numeric minor units with a currency; every metric carries its
+ * provenance; every assumption set is versioned and fingerprinted.
+ */
+export * from "./schema/finance-intelligence";
+
+/*
+ * HCM COMPENSATION, BENEFITS & EMPLOYEE WELFARE — entitlement, approval, credit and welfare records
+ * (additive). HCM is a SHARED CAPABILITY, never an HR OS: these tables extend the existing people
+ * domain and record ENTITLEMENTS, not payments and not postings.
+ */
+export * from "./schema/compensation";
+
+/*
+ * SHARED PRICING, MARGIN & PROFITABILITY — price lists, pricing decisions, exact cost allocation and
+ * the §12 profitability ladder (additive). A shared enterprise capability, never a PRICING_OS.
+ */
+export * from "./schema/pricing";

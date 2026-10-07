@@ -14,6 +14,7 @@ import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
 import { registerFamilyOfficeTools } from "@/lib/family/office/noelia-tools";
 import { registerAgricultureExportTools } from "@/lib/noelia/agriculture-export-tools";
 import { registerVizTools } from "@/lib/viz/noelia-tools";
+import { registerEnterpriseIntelligenceTools } from "@/lib/noelia/enterprise-intelligence-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1401,6 +1402,12 @@ export function createDefaultNoeliaToolRegistry(
    * remain human-governed. CAP_POSTING stays LOCKED.
    */
   registerVizTools(registry);
+  /**
+   * Enterprise intelligence expansion (§26) — governed FINANCE intelligence and valuation, private
+   * capital, capital formation, PRICING and HCM compensation capability. Every tool is sideEffects
+   * NONE: approval, posting and payment have no Noelia tool path and remain human-governed.
+   */
+  registerEnterpriseIntelligenceTools(registry);
 
   return registry;
 }

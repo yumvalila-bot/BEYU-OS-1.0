@@ -519,6 +519,13 @@
       "when": 1790746331223,
       "tag": "0073_canonical_family_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1791327797626,
+      "tag": "0074_enterprise_intelligence_expansion",
+      "breakpoints": true
     }
   ]
 }

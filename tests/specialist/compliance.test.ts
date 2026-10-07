@@ -1219,7 +1219,11 @@ describe("compliance module — creates no second truth", () => {
     // + 0071: Federation & Trust shared capability (no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0073: Canonical family registry (families + family_members lifecycle columns; no compliance table, no second compliance truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);  });
+    // + 0074: Enterprise Intelligence Expansion (34 tables: finance intelligence, valuation, private
+    //   capital, LBO, entrusted capital, pricing, HCM compensation). No compliance-substrate change:
+    //   obligations/evidence tables are untouched and no second compliance truth is created.
+    //   Snapshot chained 0062 -> 0074 by scripts/migration/snapshot.ts (no metadata debt added).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

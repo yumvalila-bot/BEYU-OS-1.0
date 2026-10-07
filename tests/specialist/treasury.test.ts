@@ -951,7 +951,11 @@ describe("treasury module — creates no second truth", () => {
     // + 0071: Federation & Trust shared capability (no treasury table, no second money truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no treasury table, no second money truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0073: Canonical family registry (families + family_members lifecycle columns; no treasury table, no second money truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);  });
+    // + 0074: Enterprise Intelligence Expansion (34 tables). No treasury table and no second money
+    //   truth: entrusted-capital, fund and LBO registers record ARRANGEMENTS and MODELS, never a
+    //   posting; journal_entries/journal_lines remain the only booked truth and CAP_POSTING stays
+    //   LOCKED. Snapshot chained 0062 -> 0074 (no metadata debt added).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

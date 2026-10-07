@@ -146,11 +146,16 @@ describe("P3 expand/contract — P2 integration", () => {
     // expand-only.
     // 0073 is the canonical family registry (families + governed family_members
     // lifecycle columns, deterministic backfill, RLS) — additive, expand-only.
+    // 0074 is the Enterprise Intelligence Expansion (34 tables: finance intelligence & metric
+    // provenance, valuation, private capital, LBO, entrusted capital, pricing/margin, HCM
+    // compensation) — additive, expand-only, no column altered on any pre-existing table. Its
+    // snapshot was chained 0062 -> 0074 by scripts/migration/snapshot.ts rather than fabricated,
+    // so the metadata debt does not grow.
     // Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(74);
+    const result = verifyP2MigrationIntegrity(75);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(74);
+    expect(result.count).toBe(75);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);

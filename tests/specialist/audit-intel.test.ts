@@ -851,7 +851,11 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- domain's own append-only event ledgers, not audit ledgers; excluded
       -- by exact name so this guard still fails if the audit module ever
       -- defines a table.
-        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry', 'governance_calendar_events', 'communication_delivery_events', 'communication_security_events', 'communication_webhook_events')
+      -- pe_exit_events (drizzle/0074, Enterprise Intelligence Expansion) is the private-capital
+      -- domain's deal-exit ledger: a per-deal disposition record keyed to portfolio companies, an
+      -- operational event, not an audit ledger, and it writes nothing to audit_log. Excluded by
+      -- exact name so this guard still fails if the audit module itself ever defines a table.
+        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry', 'governance_calendar_events', 'communication_delivery_events', 'communication_security_events', 'communication_webhook_events', 'pe_exit_events')
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -953,7 +957,13 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0071: Federation & Trust shared capability (no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0072: Communications Platform shared capability (26 tables, RLS on all, no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
     // + 0073: Canonical family registry (families + family_members lifecycle columns; no audit-intel table, no second ledger truth; no snapshot fabricated — see KNOWN_METADATA_DEBT).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(74);  });
+    // + 0074: Enterprise Intelligence Expansion (finance intelligence/valuation/private capital/LBO/
+    //   entrusted capital/pricing/HCM compensation, 34 tables). Adds NO audit-intel table and no second
+    //   ledger truth: every table is an analysis, model, mark or entitlement register, and the audit
+    //   chain stays the one owned by recordAudit. (pe_exit_events is a private-capital deal ledger —
+    //   excluded by exact name in the table-name guard above, like the other domain event ledgers.)
+    //   Snapshot chained 0062 -> 0074 by scripts/migration/snapshot.ts (no metadata debt added).
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

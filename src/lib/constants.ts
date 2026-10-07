@@ -148,6 +148,30 @@ export const PERMISSIONS = {
   // Scope (tenant/entity/country) and the classification ceiling are always
   // resolved from the authenticated principal, never from request input.
   "platform:search.read": "Query the governed shared cross-OS search (read-only; surfaces only records already readable through each source's own permission)",
+  //
+  // ENTERPRISE INTELLIGENCE EXPANSION — FINANCE INTELLIGENCE, VALUATION, PRIVATE CAPITAL, LBO,
+  // CAPITAL FORMATION, PRICING AND HCM COMPENSATION.
+  //
+  // These extend the EXISTING permission catalogue; they do not create a second authorization model.
+  // None of them confers posting authority: CAP_POSTING remains LOCKED and has its own permission.
+  // Financial intelligence reads are separated from their manage counterparts so that a role can
+  // analyse without being able to change an assumption set or a price.
+  "finance:intelligence.read": "Read governed financial metrics with their provenance (state, method, inputs, source, calculation version)",
+  "finance:valuation.read": "Read valuation models, versioned assumption sets and runs",
+  "finance:valuation.manage": "Author valuation models, assumption-set versions and runs",
+  "finance:privatecapital.read": "Read private-capital funds, participants, calls, distributions and portfolio holdings",
+  "finance:privatecapital.manage": "Maintain private-capital funds, participants, portfolio companies, due diligence and IC records",
+  "finance:lbo.read": "Read LBO models, tranches and runs",
+  "finance:lbo.manage": "Author LBO models, financing tranches and runs",
+  "finance:capitalformation.read": "Read entrusted/capital-formation arrangements by origin (own, fiduciary, project, guaranteed)",
+  "finance:capitalformation.manage": "Maintain entrusted-capital arrangements and drawdowns",
+  "pricing:read": "Read prices, cost and margin analyses and profitability ladders",
+  "pricing:manage": "Maintain price lists, price items and allocation rule sets",
+  "pricing:approve": "Approve a pricing decision (never the proposer's own)",
+  "compensation:read": "Read HCM compensation entitlements, policies and welfare cases",
+  "compensation:manage": "Raise and maintain HCM compensation entitlements, credit facilities and welfare cases",
+  "compensation:approve": "Approve a compensation entitlement or welfare case (never the beneficiary or the raiser)",
+  "cockpit:read": "Read the enterprise management cockpit and its cross-enterprise analytics",
   // Identity
   "identity:user.read": "Read identity records",
   "identity:user.manage": "Create, suspend or revoke identities",
@@ -1010,6 +1034,19 @@ export const ROLES: Record<
     scope: "ENTERPRISE",
     privileged: true,
     permissions: [
+      "finance:intelligence.read",
+      "finance:valuation.read",
+      "finance:valuation.manage",
+      "finance:privatecapital.read",
+      "finance:privatecapital.manage",
+      "finance:lbo.read",
+      "finance:lbo.manage",
+      "finance:capitalformation.read",
+      "finance:capitalformation.manage",
+      "pricing:read",
+      "pricing:manage",
+      "pricing:approve",
+      "cockpit:read",
       "platform:dashboard.read",
       // Shared Search: read-only; each source remains behind its own permission.
       "platform:search.read",
@@ -1196,6 +1233,9 @@ export const ROLES: Record<
     scope: "ENTERPRISE",
     privileged: false,
     permissions: [
+      "finance:intelligence.read",
+      "finance:capitalformation.read",
+      "cockpit:read",
       "platform:dashboard.read",
       // Shared Search: read-only; each source remains behind its own permission.
       "platform:search.read",
@@ -1388,6 +1428,16 @@ export const ROLES: Record<
     scope: "ENTITY",
     privileged: false,
     permissions: [
+      "finance:intelligence.read",
+      "finance:valuation.read",
+      "finance:valuation.manage",
+      "finance:privatecapital.read",
+      "finance:privatecapital.manage",
+      "finance:lbo.read",
+      "finance:lbo.manage",
+      "finance:capitalformation.read",
+      "pricing:read",
+      "cockpit:read",
       "organization:entity.read",
       "familyoffice:capital.read",
       "familyoffice:investment.read",
@@ -1416,6 +1466,9 @@ export const ROLES: Record<
     scope: "ENTITY",
     privileged: false,
     permissions: [
+      "finance:intelligence.read",
+      "finance:capitalformation.read",
+      "cockpit:read",
       "organization:entity.read",
       "finance:treasury.read",
       "familyoffice:capital.read",
@@ -1612,6 +1665,10 @@ export const ROLES: Record<
     scope: "ENTERPRISE",
     privileged: false,
     permissions: [
+      "compensation:read",
+      "compensation:manage",
+      "compensation:approve",
+      "cockpit:read",
       "platform:dashboard.read",
       // Shared Search: read-only; each source remains behind its own permission.
       "platform:search.read",
@@ -1650,6 +1707,9 @@ export const ROLES: Record<
     scope: "SECTOR",
     privileged: false,
     permissions: [
+      "pricing:read",
+      "pricing:manage",
+      "cockpit:read",
       "platform:dashboard.read",
       // Shared Search: read-only; each source remains behind its own permission.
       "platform:search.read",
