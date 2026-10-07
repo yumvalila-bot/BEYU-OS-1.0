@@ -512,9 +512,10 @@ Two failures were found on the first run of this branch and both are now account
    **critical** advisory published for `tinypool` (GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr), a transitive
    dependency of `vitest`. This branch changes **no** dependency manifest or lockfile, and `tinypool` is in
    main's lockfile too; main's own last CI run was on 30 September, before the advisory. The check is
-   therefore time-dependent, not branch-caused. The remediation (`npm audit fix --force` → vitest 5.0.3) is a
-   **breaking** dependency change and is deliberately left to a human decision rather than smuggled into this
-   branch.
+   therefore time-dependent, not branch-caused. **Fully investigated in §24**: not reachable in production,
+   not loaded in any production-credentialed job, and remediated properly by a dedicated vitest 4 upgrade
+   rather than by `npm audit fix --force`. The advisory is formally accepted, temporarily and with an expiry,
+   in §24.7 — dependencies in this branch remain unchanged.
 3. **A local-only artefact, for completeness.** An initial full-suite run in my sandbox showed 73
    `permission denied for table …` failures. They were caused by my ad-hoc harness skipping
    `npx tsx scripts/setup-db-role.ts`; under the exact CI harness (`migrate → setup-db-role → seed`) the same
@@ -563,7 +564,133 @@ Two failures were found on the first run of this branch and both are now account
 | **DATABASE MIGRATION READY** | **YES (repository artefact)** | 0074 is EXPAND-only, checksummed, chained (snapshot 0062 → 0074), integrity + ledger + expand/contract + gate self-test + schema-drift + DR-drill all PASS on a disposable PostgreSQL 16. It has **not** been applied to production and must not be until a human dispatches the gated deploy. |
 | **RLS VERIFIED** | **YES (local, runtime role)** | 34/34 new tables RLS-enabled with the canonical `beyu_tenant_ids()` predicate, 64 policies; as `beyu_runtime` a foreign tenant sees 0 rows, no-context sees 0 rows, `row_security=off` is refused (`42501`), and 10/10 adversarial isolation tests pass. |
 | **TESTS PASSED** | **YES** | Locally **5 006 passed / 0 failed / 309 skipped**; in CI the full regression ran **with** a live server and the HTTP/E2E and browser layers, and passed, along with the skip-count guard that proves no suite was silently skipped. New suites: 88 committed + 27 private-capital refusals + 8 compensation source-of-truth. |
-| **SECURITY VERIFIED** | **YES, with one reported exception** | Runtime role constrained and re-asserted; no secrets committed (secret-scan green); no service-role credential anywhere; Noelia tools read-only, permission-gated, RLS-scoped, no SQL tool, no approval path; segregation of duties enforced by CHECK constraints. **Exception, reported not hidden:** the dependency audit fails on a new critical advisory against unchanged `tinypool`/vitest — remediation is a breaking dependency bump left to a human (§21.2). |
+| **SECURITY VERIFIED** | **YES, with one reported exception** | Runtime role constrained and re-asserted; no secrets committed (secret-scan green); no service-role credential anywhere; Noelia tools read-only, permission-gated, RLS-scoped, no SQL tool, no approval path; segregation of duties enforced by CHECK constraints. **Exception, reported not hidden:** the dependency audit fails on a new critical advisory against unchanged `tinypool`/vitest. It is not reachable in production and not loaded in any production-credentialed job; it is investigated in full in **§24** and formally accepted, temporarily and with an expiry, in **§24.7**. No dependency was changed. |
 | **PRODUCTION MIGRATION PENDING HUMAN APPROVAL** | **YES — PENDING** | No production database was contacted; the deploy job is skipped on pull requests and requires `push` to `main` or a manual dispatch under the `Production` environment. |
 | **PR READY FOR HUMAN REVIEW** | **YES** | PR #97, branch `arena/25add342-beyu-os-1-0`, 34 tables, 1 migration, 6 test suites, this report, CI green on the head apart from the two audit jobs described in §21. The merge gate stays closed until a person opens it. |
+
+## 24. Tinypool critical advisory — final dependency security review
+
+**Scope:** current `main` (`08dfe70`) and PR #97 head. This was a **read-only investigation**: `package.json`
+and `package-lock.json` are byte-for-byte unchanged and no dependency was upgraded.
+
+### 24.1 The advisories
+
+| Advisory | CVE | Severity | Weakness | tinypool range | First patched |
+|---|---|---|---|---|---|
+| **GHSA-5gmw-xhrv-c9v3** — Prototype Pollution gadget in worker options → RCE | CVE-2026-104848 | critical | CWE-1321 | `<= 2.1.0` | **2.1.1** |
+| **GHSA-85c8-ppgw-ccpr** — Prototype Pollution gadget to RCE in `run()` options | CVE-2026-104849 | critical | CWE-94, CWE-1321 | `< 2.1.2` | **2.1.2** |
+
+Both were published on 2026-10-05. npm's own resolution reports the effective vulnerable range as
+`tinypool <= 2.1.1`, so the effective fix is **≥ 2.1.2** (latest 2.2.0).
+
+### 24.2 Installed versions and introduction path
+
+* **Installed: tinypool 1.1.1** — identical in `main`'s lockfile and PR #97's lockfile.
+* **Introduced by: `vitest@3.2.7`**, the only dependent of tinypool in the entire lockfile
+  (`node_modules/vitest → tinypool ^1.1.1`). vitest's only dependent is the repository root.
+* **`vitest@3.2.7` is the final 3.x release.** The 3.x line has no later patch, and there is **no 1.x fix**:
+  the 1.x line ends at 1.1.1 and the patched versions exist only in the 2.x line.
+* Both vulnerabilities' vulnerable code is present **verbatim** in the installed 1.1.1 build:
+  the constructor's options spread (`this.options = { ...kDefaultOptions, ...options, … }`, so an unset key
+  resolves through a polluted `Object.prototype`) and `runTask`'s `let { filename, name } = options;`, which
+  vitest calls with `{ name, channel }` — an options object with no own `filename`.
+
+### 24.3 Reachability
+
+* **Production runtime — NOT reachable.** tinypool's only dependent is vitest; vitest's only dependent is the
+  repository root; no file under `src/`, `scripts/`, or the build scripts imports either (grep-verified).
+  Next.js bundles the application's import graph, so neither package can be loaded by the deployed app.
+* **Production-credentialed CI (`db-release.yml`, `environment: Production`) — installed but never loaded.**
+  `npm ci` installs it, but no job in that workflow executes vitest.
+* **CI test jobs — loaded.** vitest 3's **default pool is `forks`**, and the forks pool constructs
+  `new Tinypool(options)` (verified in the vendored `dist/chunks/coverage.DfSpMS-b.js`). BEYU configures no
+  `pool`, so this is the active path for all 321 test files.
+* **Exploitation additionally requires a prototype-pollution primitive in the same Node process.** No such
+  primitive exists in the tree today — the only prototype-pollution advisories present are tinypool's own.
+  The exposure is therefore a *gadget awaiting a primitive*: real in CI/dev, not currently triggered.
+* **PR #97 reachability = main's.** The branch changes no dependency manifest or lockfile.
+
+### 24.4 Classification
+
+tinypool is a **test-only dependency**. It is declared as a production dependency only transitively, because
+root `package.json` lists `vitest` under `dependencies` rather than `devDependencies` (its sibling
+`sectors/health/package.json` already places vitest in `devDependencies`). Nothing in the repository installs
+with `--omit=dev` — the only occurrence of that flag is the audit command itself — and no production or build
+path imports vitest.
+
+### 24.5 Remediation options
+
+| Option | Effect on the advisory | Verdict |
+|---|---|---|
+| `npm audit fix` (non-force) | No fix exists in vitest 3's range | **No effect** |
+| Patch within vitest 3.x | Impossible — 3.2.7 is the last 3.x and no tinypool 1.x fix exists | **Not available** |
+| Override `tinypool` → ≥ 2.1.2 | Closes both gadgets | **Measured, but unsupported** (§24.6) |
+| **Upgrade to vitest 4.1.11** | **tinypool removed entirely**; also fixes the moderate `@vitest/mocker` advisory | **Correct remedy — major upgrade, separate change** |
+| Upgrade to vitest 5.0.3 | Same, with a higher Node floor and a larger breaking surface | Larger jump than necessary |
+
+Upgrade requirements for vitest 4.1.11: engines `^20 || ^22 || >=24` — the repository runs Node 22 everywhere
+(verified in both workflows; local v22.22.3), so **no Node upgrade**; peer vite `^6 || ^7 || ^8` against an
+installed vite 7.3.6, so **no Vite upgrade**. It is nonetheless a **major Vitest upgrade** (3 → 4) and must be
+validated by a full CI run; the config surface BEYU uses (`environment`, `include`, `setupFiles`,
+`fileParallelism`) carries forward, so the change is small in appearance — but that is an assertion to prove in
+its own pull request, not in this one.
+
+### 24.6 The override was measured, not assumed
+
+`npm ci` (pristine, tinypool 1.1.1) → surgical swap of **only** `node_modules/tinypool` for the registry 2.2.0
+build → full suite; then `npm ci` restore → full suite again:
+
+| | tinypool 1.1.1 (control) | tinypool 2.2.0 (override) |
+|---|---|---|
+| Test Files | 141 failed / 133 passed / 47 skipped (321) | **identical** |
+| Tests | 668 failed / 2847 passed / 1800 skipped (5315) | **identical** |
+| Failure causes | 778 × `DATABASE_URL is required`, 14 × ECONNREFUSED | **identical** |
+
+The two runs are identical in outcome: the whole suite collects and executes through the overridden pool. The
+failures are environmental — the disposable PostgreSQL cluster does not survive a sandbox restart, so this
+differential ran without a database; that does not affect pool behaviour, which is what was being compared.
+tinypool 2.2.0 closes both gadgets at the root (`withNullPrototype(...)` in the constructor and at the
+`run()`/`runTask()` entry points).
+
+It is still **not applied**, deliberately: it forces a version outside vitest 3.2.7's declared range
+(`^1.1.1`), raises tinypool's Node floor to ≥ 20 (dropping Node 18 for every contributor), and hides a
+maintainer-trajectory change — vitest 4 abandoned tinypool altogether. It is a viable emergency option, with
+the evidence above, but it belongs to a deliberate dependency decision, not to a feature pull request.
+
+### 24.7 Formal temporary acceptance — the recommendation
+
+Accepted, documented and time-boxed; **dependencies in PR #97 remain unchanged**, because the exposure is
+bounded and none of the available fixes is both safe and in scope:
+
+* not reachable in the deployed application;
+* not loaded in any production-credentialed job;
+* requires a prototype-pollution primitive that does not exist anywhere in the tree;
+* reachable only in the CI/dev test environment, whose jobs hold ephemeral local database credentials rather
+  than production secrets.
+
+**Owner:** repository maintainer. **Expiry:** the vitest 4 upgrade pull request, which removes the package.
+**Revocation trigger:** a prototype-pollution advisory in any other dependency of the root tree, or any change
+that puts production credentials in the environment where the test suite runs.
+
+### 24.8 Separate finding — a different advisory, different lockfile
+
+The second failing audit job (`health-os-backend`) is **not** the tinypool advisory. Its lockfile contains no
+vitest and no tinypool; it fails on `proxy-addr` IP spoofing (GHSA-jqcg-44mw-7w3h, critical) with `uuid`
+(moderate, via `bull`). It is pre-existing on `main`, untouched by this branch, and reported here only so the
+two red checks are not conflated. Its own remediation (`npm audit fix`) is non-breaking for `proxy-addr` but is
+a separate decision.
+
+### 24.9 The required verdict format
+
+| Field | Answer |
+|---|---|
+| **ADVISORY** | GHSA-5gmw-xhrv-c9v3 (CVE-2026-104848) and GHSA-85c8-ppgw-ccpr (CVE-2026-104849) — both critical |
+| **AFFECTED PACKAGE** | `tinypool@1.1.1` (installed; lockfile identical on `main` and PR #97) |
+| **INTRODUCTION PATH** | repo root `package.json` → `dependencies.vitest ^3.2.7` → `vitest@3.2.7` → `tinypool ^1.1.1` |
+| **FIXED VERSION** | tinypool ≥ 2.1.2 (2.1.1 / 2.1.2 patches; no 1.x backport exists). The package disappears entirely in vitest 4.x |
+| **PRODUCTION REACHABILITY** | **None.** Never imported by application, script or build code; never loaded in a production-credentialed job |
+| **PR REACHABILITY** | Same as `main`. PR #97 changes no dependency manifest or lockfile |
+| **SAFE REMEDIATION** | None that is both non-breaking and in scope. The maintained fix is the **vitest 4.1.11 major upgrade** (removes tinypool; also fixes the moderate `@vitest/mocker` advisory) with no Node or Vite upgrade required |
+| **BREAKING-CHANGE RISK** | vitest 4 = major test-runner upgrade (own PR, full CI). The tinypool override is measured working but forces an out-of-range major and raises the Node floor to ≥ 20. `npm audit fix --force` → vitest 5.0.3 is a larger jump than needed and must not be used here |
+| **RECOMMENDED ACTION** | **Leave dependencies unchanged. Formally accept the advisory temporarily (§24.7) and remediate via a dedicated vitest 4 upgrade PR.** No further PR is created by this investigation |
 
