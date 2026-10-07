@@ -306,9 +306,11 @@ dependency manifest or lockfile change exists in the diff).
   destructive scanner classifies 0074 `EXPAND` and the expand/contract gate passed.
 * **All gates that can run locally are green** (§9), including a full suite of 5 006 passing tests with zero
   failures on the amended branch.
-* **The one CI failure on this PR is explained and fixed in this branch** (§21): eight stale inventory pins
-  that a new migration is required to extend, plus an unrelated, time-dependent dependency advisory that is
-  reported rather than masked.
+* **CI is green on the head of this branch.** The root PostgreSQL security gate passed all 30 steps,
+  including the full regression run against a live server, the browser suites and the skip-count guard; the
+  P3 governance job, the migration validation job and the secret scan all passed. The only red checks are the
+  two dependency-audit jobs, which fail on a time-dependent advisory against unchanged dependencies and are
+  reported rather than masked (§21).
 * **Nothing has been applied to production.** The production deploy path is skipped on pull requests and
   requires a human (`push` to `main` or a manual dispatch under the `Production` environment).
 * **Recommendation: ready for human review and merge.** This branch does not merge itself and does not
@@ -472,41 +474,47 @@ service.
 
 ## 21. CI status, and what is NOT verified
 
-**This branch's CI run on PR #97 (attempt 1), step by step** — the authoritative record:
+**Final CI state on the head of this branch (PR #97, run `37549499196`, 53 m 10 s):**
 
-| Step | Result |
+| Job | Result |
 |---|---|
-| Committed secret scan | success |
+| **Root BEYU OS — PostgreSQL security gate** (30 steps) | **SUCCESS — every step green** |
 | Migration integrity · PostgreSQL readiness · typecheck · lint | success |
-| Apply migrations 0000-0074 · ledger reconciliation · determinism re-run | success |
-| Expand/contract safety | success |
-| Drift-gate self-test | success |
-| Schema drift (migrations vs `src/db/schema`) | success |
-| Disaster-recovery drill | success |
-| Runtime-role provisioning + constraint assertion | success |
-| Seed · **production build** · **build without runtime secrets** | success |
+| Apply migrations 0000-0074 · ledger cross-check · determinism re-run | success |
+| Expand/contract · drift-gate self-test · schema drift · DR drill | success |
+| Runtime-role provisioning + constraint assertion · seed | success |
+| **Production build** · **build without runtime secrets** | success |
 | Start application · `/api/health` reports database UP | success |
-| **Full root regression (PostgreSQL-backed + HTTP/E2E)** | **failure** — see below |
-| Browser/E2E steps | skipped (they depend on the failed step) |
-| P3 Release Governance — DB-free verification | **failure** — see below |
-| Production dependency audit (root, health-backend) | **failure** — see below |
-| Production database deploy / PVG / runtime verification / drift report | **skipped — never ran on this PR** |
+| **Full root regression (PostgreSQL-backed + HTTP/E2E)** | **success — the step that was red is now green** |
+| Chromium install · browser history/keyboard/responsive/identity suites | success |
+| Assert no suite was silently skipped for want of a server | success |
+| P3 Release Governance — DB-free verification | **success** |
+| Committed secret scan · Health OS frontend · Health OS backend gate | success |
+| Migration validation (scratch PostgreSQL 16) · Vercel | success |
+| Production dependency audit (root, health-backend) | **failure — see below** |
+| Production deploy / PVG / runtime verification / drift report / Supabase branch | **skipped — by design on a pull request** |
 
-Root causes, each identified precisely and each either fixed or reported rather than masked:
+Two failures were found on the first run of this branch and both are now accounted for:
 
-1. **Full root regression + P3 governance job — stale inventory pins (fixed in this branch).** The failing
-   tests were the repository's own inventory guards, which must be extended, with attribution, whenever a
+1. **The full root regression and the P3 governance job — stale inventory pins, FIXED and verified by CI.**
+   The failing tests were the repository's own guards, which must be extended, with attribution, whenever a
    migration is added: `tests/specialist/{audit-intel,compliance,forecast,risk,treasury}.test.ts` (migration
    count pinned at 74; the audit-module and forecast-module table-name guards had not been told about
    `pe_exit_events` and `valuation_assumption_sets`/`valuation_runs`) and
-   `tests/release/expand-contract.test.ts` (P2 inventory pinned at 74). Each has been updated to 75 with an
-   explicit 0074 attribution comment, in the style the surrounding comments require.
+   `tests/release/expand-contract.test.ts` (P2 inventory pinned at 74). Each is now pinned at 75 with an
+   explicit 0074 attribution comment, in the style the surrounding comments require. **Both jobs are green on
+   the current head**, which is the confirmation that the diagnosis was correct rather than merely plausible.
+   A related, later catch is worth recording: the CI typecheck rejected the new source-of-truth suite for
+   using a non-existent `ApprovalStage` field (`actedAt`; the type's field is `at`). The suite had passed at
+   runtime and the mistake survived my local run order — CI caught it, it is fixed, and local `tsc --noEmit`
+   is now clean.
 2. **Production dependency audit — NOT caused by this branch (reported, not masked).** The audit fails on a
    **critical** advisory published for `tinypool` (GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr), a transitive
-   dependency of `vitest`. `git diff` proves this branch changes **no** dependency manifest or lockfile, and
-   `tinypool` is present in main's lockfile too — the check is time-dependent (a new advisory against
-   unchanged code). The remediation (`npm audit fix --force` → vitest 5.0.3) is a **breaking** dependency
-   change and is deliberately left to a human decision rather than smuggled into this branch.
+   dependency of `vitest`. This branch changes **no** dependency manifest or lockfile, and `tinypool` is in
+   main's lockfile too; main's own last CI run was on 30 September, before the advisory. The check is
+   therefore time-dependent, not branch-caused. The remediation (`npm audit fix --force` → vitest 5.0.3) is a
+   **breaking** dependency change and is deliberately left to a human decision rather than smuggled into this
+   branch.
 3. **A local-only artefact, for completeness.** An initial full-suite run in my sandbox showed 73
    `permission denied for table …` failures. They were caused by my ad-hoc harness skipping
    `npx tsx scripts/setup-db-role.ts`; under the exact CI harness (`migrate → setup-db-role → seed`) the same
@@ -554,8 +562,8 @@ Root causes, each identified precisely and each either fixed or reported rather 
 | **CODE READY** | **YES** | Typecheck 0 errors, lint 0 errors, 9 engine files + 5 schema/test modules compile and pass 123 new tests; no `any`-driven shortcuts, no floating-point money. |
 | **DATABASE MIGRATION READY** | **YES (repository artefact)** | 0074 is EXPAND-only, checksummed, chained (snapshot 0062 → 0074), integrity + ledger + expand/contract + gate self-test + schema-drift + DR-drill all PASS on a disposable PostgreSQL 16. It has **not** been applied to production and must not be until a human dispatches the gated deploy. |
 | **RLS VERIFIED** | **YES (local, runtime role)** | 34/34 new tables RLS-enabled with the canonical `beyu_tenant_ids()` predicate, 64 policies; as `beyu_runtime` a foreign tenant sees 0 rows, no-context sees 0 rows, `row_security=off` is refused (`42501`), and 10/10 adversarial isolation tests pass. |
-| **TESTS PASSED** | **YES** | Full suite **5 006 passed / 0 failed / 309 skipped** (the skips are the HTTP/E2E layer, which needs a live server and runs in CI). New suites: 88 committed + 27 private-capital refusals + 8 compensation source-of-truth. |
+| **TESTS PASSED** | **YES** | Locally **5 006 passed / 0 failed / 309 skipped**; in CI the full regression ran **with** a live server and the HTTP/E2E and browser layers, and passed, along with the skip-count guard that proves no suite was silently skipped. New suites: 88 committed + 27 private-capital refusals + 8 compensation source-of-truth. |
 | **SECURITY VERIFIED** | **YES, with one reported exception** | Runtime role constrained and re-asserted; no secrets committed (secret-scan green); no service-role credential anywhere; Noelia tools read-only, permission-gated, RLS-scoped, no SQL tool, no approval path; segregation of duties enforced by CHECK constraints. **Exception, reported not hidden:** the dependency audit fails on a new critical advisory against unchanged `tinypool`/vitest — remediation is a breaking dependency bump left to a human (§21.2). |
 | **PRODUCTION MIGRATION PENDING HUMAN APPROVAL** | **YES — PENDING** | No production database was contacted; the deploy job is skipped on pull requests and requires `push` to `main` or a manual dispatch under the `Production` environment. |
-| **PR READY FOR HUMAN REVIEW** | **YES** | PR #97, branch `arena/25add342-beyu-os-1-0`, 34 tables, 1 migration, 6 test suites, this report. The merge gate stays closed until a person opens it. |
+| **PR READY FOR HUMAN REVIEW** | **YES** | PR #97, branch `arena/25add342-beyu-os-1-0`, 34 tables, 1 migration, 6 test suites, this report, CI green on the head apart from the two audit jobs described in §21. The merge gate stays closed until a person opens it. |
 
