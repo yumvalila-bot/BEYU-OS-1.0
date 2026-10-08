@@ -18,13 +18,13 @@
  *     without a storage reference and a content hash is refused: an honest
  *     "we do not have this object" beats a registry entry that 404s later.
  */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   ResourceDomainService,
   ResourceRepository,
   ResourceSpec,
 } from "../../common/db/resource-kit";
-import { DbConnection } from "../identity/db-connection";
+import { DB_CONNECTION, DbConnection } from "../identity/db-connection";
 import { TenantContext } from "../../common/security/tenant-context";
 import { AuditService } from "../audit/audit.service";
 import { EventOutboxService } from "../events/event-outbox.service";
@@ -56,7 +56,12 @@ const TASK_TRANSITIONS: Record<string, Set<string>> = {
 
 const FOLLOWUP_TRANSITIONS: Record<string, Set<string>> = {
   scheduled: new Set(["contacted", "completed", "cancelled", "no_shown"]),
-  contacted: new Set(["completed", "cancelled", "no_shown", "lost_to_follow_up"]),
+  contacted: new Set([
+    "completed",
+    "cancelled",
+    "no_shown",
+    "lost_to_follow_up",
+  ]),
   no_shown: new Set(["scheduled", "lost_to_follow_up", "completed"]),
 };
 
@@ -88,7 +93,11 @@ const oneOf = (
   value: unknown,
   allowed: readonly string[],
 ) => {
-  if (value !== undefined && value !== null && !allowed.includes(String(value))) {
+  if (
+    value !== undefined &&
+    value !== null &&
+    !allowed.includes(String(value))
+  ) {
     errors[field] = [`must be one of ${allowed.join(", ")}`];
   }
 };
@@ -96,7 +105,11 @@ const oneOf = (
 @Injectable()
 export class ContinuityService extends ResourceDomainService {
   constructor(
-    db: DbConnection,
+    // @Inject is load-bearing, not decoration: DbConnection is an
+    // interface, so without the token Nest cannot resolve the provider and the
+    // whole application fails to boot (the real-PostgreSQL CI gate catches this;
+    // a PGlite unit spec that constructs the service by hand does not).
+    @Inject(DB_CONNECTION) db: DbConnection,
     private readonly ctx: TenantContext,
     audit: AuditService,
     private readonly events: EventOutboxService,
@@ -184,7 +197,11 @@ export class ContinuityService extends ResourceDomainService {
         // The returned object is what `atomicWrite` records as the audit
         // `after` payload, so the signer and prior status are captured without
         // emitting a second audit row for the same mutation.
-        return { ...updated, signed_by: this.requireActor().userId, previous_status: row.status };
+        return {
+          ...updated,
+          signed_by: this.requireActor().userId,
+          previous_status: row.status,
+        };
       },
       () => planId,
     );
@@ -217,7 +234,11 @@ export class ContinuityService extends ResourceDomainService {
       "od",
       "weekly",
     ]);
-    if (input.recurrence && input.recurrence !== "none" && !input.interval_minutes) {
+    if (
+      input.recurrence &&
+      input.recurrence !== "none" &&
+      !input.interval_minutes
+    ) {
       // Without an interval the successor's due time would be a guess, so the
       // standard clinical frequency is used instead of silently skipping.
       input.recurrence = String(input.recurrence);
@@ -255,18 +276,28 @@ export class ContinuityService extends ResourceDomainService {
     if (!reason || !String(reason).trim())
       throw DomainError.validation("skip_reason is required to skip a task");
     return this.transitionTask(taskId, "skipped", (tx) =>
-      this.tasks.patch(tx, taskId, { skip_reason: reason }, {
-        forceStatus: "skipped",
-        literalSet: ["completed_at = now()"],
-      }),
+      this.tasks.patch(
+        tx,
+        taskId,
+        { skip_reason: reason },
+        {
+          forceStatus: "skipped",
+          literalSet: ["completed_at = now()"],
+        },
+      ),
     );
   }
 
   cancelTask(taskId: string, reason?: string) {
     return this.transitionTask(taskId, "cancelled", (tx) =>
-      this.tasks.patch(tx, taskId, { outcome_note: reason ?? null }, {
-        forceStatus: "cancelled",
-      }),
+      this.tasks.patch(
+        tx,
+        taskId,
+        { outcome_note: reason ?? null },
+        {
+          forceStatus: "cancelled",
+        },
+      ),
     );
   }
 
@@ -298,7 +329,9 @@ export class ContinuityService extends ResourceDomainService {
   }
 
   /** Worklist for an assignee or role, ordered by urgency then due time. */
-  async taskWorklist(opts: { assignee?: string; role?: string; wardId?: string } = {}) {
+  async taskWorklist(
+    opts: { assignee?: string; role?: string; wardId?: string } = {},
+  ) {
     return this.query(
       `SELECT t.*, p.title AS plan_title, p.category AS plan_category,
               (t.due_at < now()) AS is_overdue
@@ -312,7 +345,12 @@ export class ContinuityService extends ResourceDomainService {
         ORDER BY CASE t.priority WHEN 'stat' THEN 0 WHEN 'urgent' THEN 1 ELSE 2 END,
                  t.due_at ASC NULLS LAST
         LIMIT 200`,
-      [this.tenantId, opts.assignee ?? null, opts.role ?? null, opts.wardId ?? null],
+      [
+        this.tenantId,
+        opts.assignee ?? null,
+        opts.role ?? null,
+        opts.wardId ?? null,
+      ],
     );
   }
 
@@ -376,7 +414,9 @@ export class ContinuityService extends ResourceDomainService {
         const row = await this.summaries.findById(summaryId, tx);
         if (!row) throw DomainError.notFound("discharge_summary", summaryId);
         if (row.status !== "draft")
-          throw DomainError.conflict(`Summary is ${row.status}; only a draft can be signed`);
+          throw DomainError.conflict(
+            `Summary is ${row.status}; only a draft can be signed`,
+          );
         // Explicit SQL because `signed_by`/`signed_at` are attribution columns
         // that the spec whitelist keeps out of reach of a request body.
         const signed = await tx.query<any>(
@@ -387,7 +427,8 @@ export class ContinuityService extends ResourceDomainService {
           [summaryId, this.requireActor().userId, this.tenantId],
         );
         const updated = signed[0] ?? null;
-        if (!updated) throw DomainError.notFound("discharge_summary", summaryId);
+        if (!updated)
+          throw DomainError.notFound("discharge_summary", summaryId);
         await this.events.publish({
           idempotencyKey: `beyu-evt:discharge_summary:signed:${summaryId}`,
           sectorEventId: `health-discharge_summary-signed-${summaryId}`,
@@ -421,9 +462,12 @@ export class ContinuityService extends ResourceDomainService {
         const row = await this.summaries.findById(summaryId, tx);
         if (!row) throw DomainError.notFound("discharge_summary", summaryId);
         if (row.status !== "signed")
-          throw DomainError.conflict("Only a signed summary is amended by supersession");
+          throw DomainError.conflict(
+            "Only a signed summary is amended by supersession",
+          );
         const voided = await this.summaries.softDelete(tx, summaryId);
-        if (!voided) throw DomainError.invalidState("Summary vanished during amendment");
+        if (!voided)
+          throw DomainError.invalidState("Summary vanished during amendment");
         const replacement = await this.summaries.insertWith(tx, {
           ...this.pickForAmend(row, changes),
           encounter_id: row.encounter_id,
@@ -484,9 +528,18 @@ export class ContinuityService extends ResourceDomainService {
     if (!FOLLOWUP_TRANSITIONS[to] && !this.followupAllowed(followupId, to)) {
       // the async check below repeats inside the transaction; this fast path
       // exists only to give a 400 for an unknown status name.
-      const known = ["scheduled", "contacted", "completed", "cancelled", "no_shown", "lost_to_follow_up"];
+      const known = [
+        "scheduled",
+        "contacted",
+        "completed",
+        "cancelled",
+        "no_shown",
+        "lost_to_follow_up",
+      ];
       if (!known.includes(to))
-        throw DomainError.validation(`status must be one of ${known.join(", ")}`);
+        throw DomainError.validation(
+          `status must be one of ${known.join(", ")}`,
+        );
     }
     return this.atomic(
       `followup.${to}`,
@@ -501,10 +554,15 @@ export class ContinuityService extends ResourceDomainService {
         const literalSet: string[] = [];
         if (to === "contacted") literalSet.push("contacted_at = now()");
         if (to === "completed") literalSet.push("completed_at = now()");
-        return this.followups.patch(tx, followupId, { note: note ?? null }, {
-          forceStatus: to,
-          literalSet,
-        });
+        return this.followups.patch(
+          tx,
+          followupId,
+          { note: note ?? null },
+          {
+            forceStatus: to,
+            literalSet,
+          },
+        );
       },
       () => followupId,
     );
@@ -550,9 +608,14 @@ export class ContinuityService extends ResourceDomainService {
           "required when available = true — file the object in governed storage first",
         ];
       if (!input.content_sha256)
-        errors.content_sha256 = ["required so a later retrieval can be verified"];
+        errors.content_sha256 = [
+          "required so a later retrieval can be verified",
+        ];
     }
-    if (typeof input.content_sha256 === "string" && input.content_sha256.length !== 64)
+    if (
+      typeof input.content_sha256 === "string" &&
+      input.content_sha256.length !== 64
+    )
       errors.content_sha256 = ["must be a 64-character hex sha256"];
     oneOf(errors, "doc_type", input.doc_type, [
       "referral_letter",
@@ -570,13 +633,18 @@ export class ContinuityService extends ResourceDomainService {
       "other",
     ]);
     if (Object.keys(errors).length) throw DomainError.validation(errors);
-    return this.createVia(this.documents, CLINICAL_DOCUMENT_SPEC, "clinical_document.create", {
-      ...input,
-      // `storage_ref` is opaque by contract: a signed URL would expire in the
-      // registry and silently break the record, so the caller must never put one
-      // here and the service will not mint one either.
-      status: "filed",
-    });
+    return this.createVia(
+      this.documents,
+      CLINICAL_DOCUMENT_SPEC,
+      "clinical_document.create",
+      {
+        ...input,
+        // `storage_ref` is opaque by contract: a signed URL would expire in the
+        // registry and silently break the record, so the caller must never put one
+        // here and the service will not mint one either.
+        status: "filed",
+      },
+    );
   }
 
   /** New version of an existing document; the parent stays in the chain. */
@@ -586,7 +654,8 @@ export class ContinuityService extends ResourceDomainService {
       "clinical_document",
       async (tx) => {
         const parent = await this.documents.findById(documentId, tx);
-        if (!parent) throw DomainError.notFound("clinical_document", documentId);
+        if (!parent)
+          throw DomainError.notFound("clinical_document", documentId);
         if (parent.status === "voided")
           throw DomainError.conflict("A voided document cannot be revised");
         const row = await this.documents.insertWith(tx, {
@@ -624,9 +693,14 @@ export class ContinuityService extends ResourceDomainService {
       async (tx) => {
         const row = await this.documents.findById(documentId, tx);
         if (!row) throw DomainError.notFound("clinical_document", documentId);
-        const updated = await this.documents.patch(tx, documentId, {
-          available: false,
-        }, { forceStatus: "voided" });
+        const updated = await this.documents.patch(
+          tx,
+          documentId,
+          {
+            available: false,
+          },
+          { forceStatus: "voided" },
+        );
         return {
           ...(updated as object),
           previous_status: row.status,
@@ -646,7 +720,10 @@ export class ContinuityService extends ResourceDomainService {
       [this.tenantId, patientId],
     );
     const superseded = new Set(
-      rows.map((r) => r.parent_document_id).filter(Boolean).map(String),
+      rows
+        .map((r) => r.parent_document_id)
+        .filter(Boolean)
+        .map(String),
     );
     return rows.map((r) => ({
       ...r,
@@ -696,7 +773,9 @@ export class ContinuityService extends ResourceDomainService {
         const from = String(row.status);
         const allowed = TASK_TRANSITIONS[from] ?? new Set<string>();
         if (!allowed.has(to))
-          throw DomainError.conflict(`care_plan_task ${from} → ${to} is not allowed`);
+          throw DomainError.conflict(
+            `care_plan_task ${from} → ${to} is not allowed`,
+          );
         const updated = await work(tx);
         if (!updated) throw DomainError.notFound("care_plan_task", taskId);
         await this.events.publish({
@@ -744,7 +823,9 @@ export class ContinuityService extends ResourceDomainService {
       priority: done.priority,
       recurrence,
       interval_minutes: minutes,
-      due_at: new Date(new Date(done.due_at).getTime() + minutes * 60_000).toISOString(),
+      due_at: new Date(
+        new Date(done.due_at).getTime() + minutes * 60_000,
+      ).toISOString(),
       assigned_to: done.assigned_to,
       assigned_role: done.assigned_role,
       status: "open",
@@ -752,7 +833,14 @@ export class ContinuityService extends ResourceDomainService {
   }
 
   private followupAllowed(_id: string, to: string) {
-    const known = ["scheduled", "contacted", "completed", "cancelled", "no_shown", "lost_to_follow_up"];
+    const known = [
+      "scheduled",
+      "contacted",
+      "completed",
+      "cancelled",
+      "no_shown",
+      "lost_to_follow_up",
+    ];
     return known.includes(to);
   }
 
@@ -806,7 +894,18 @@ export class ContinuityService extends ResourceDomainService {
     ]) {
       if (out[k] === undefined && row[k] !== undefined) out[k] = row[k];
     }
-    for (const k of ["title", "doc_type", "mime_type", "size_bytes", "content_sha256", "storage_backend", "storage_ref", "source_system", "classification", "available"]) {
+    for (const k of [
+      "title",
+      "doc_type",
+      "mime_type",
+      "size_bytes",
+      "content_sha256",
+      "storage_backend",
+      "storage_ref",
+      "source_system",
+      "classification",
+      "available",
+    ]) {
       if (out[k] === undefined && row[k] !== undefined) out[k] = row[k];
     }
     return out;

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -56,7 +57,7 @@ export class EmergencyController {
   })
   @RequiresClinicalSafety("general")
   reassess(
-    @Param("assessmentId") assessmentId: string,
+    @Param("assessmentId", ParseUUIDPipe) assessmentId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.reassess(assessmentId, dto);
@@ -69,7 +70,7 @@ export class EmergencyController {
   })
   @RequiresClinicalSafety("general")
   disposition(
-    @Param("assessmentId") assessmentId: string,
+    @Param("assessmentId", ParseUUIDPipe) assessmentId: string,
     @Body() dto: { outcome_action: string },
   ) {
     return this.svc.dispose(assessmentId, dto?.outcome_action);
@@ -77,7 +78,7 @@ export class EmergencyController {
 
   @Get("clinical/assessments/encounter/:encounterId")
   @RequirePermission("triage:read")
-  timeline(@Param("encounterId") encounterId: string) {
+  timeline(@Param("encounterId", ParseUUIDPipe) encounterId: string) {
     return this.svc.assessmentTimeline(encounterId);
   }
 
@@ -117,7 +118,7 @@ export class EmergencyController {
   @Post("clinical/escalations/:escalationId/acknowledge")
   @RequirePermission("escalation:respond")
   @RequiresClinicalSafety("general")
-  acknowledge(@Param("escalationId") escalationId: string) {
+  acknowledge(@Param("escalationId", ParseUUIDPipe) escalationId: string) {
     return this.svc.acknowledgeEscalation(escalationId);
   }
 
@@ -125,7 +126,7 @@ export class EmergencyController {
   @RequirePermission("escalation:respond")
   @RequiresClinicalSafety("general")
   action(
-    @Param("escalationId") escalationId: string,
+    @Param("escalationId", ParseUUIDPipe) escalationId: string,
     @Body() dto: { note: string },
   ) {
     return this.svc.actionEscalation(escalationId, dto?.note);
@@ -135,7 +136,7 @@ export class EmergencyController {
   @RequirePermission("escalation:respond")
   @RequiresClinicalSafety("general")
   resolve(
-    @Param("escalationId") escalationId: string,
+    @Param("escalationId", ParseUUIDPipe) escalationId: string,
     @Body() dto: { note: string },
   ) {
     return this.svc.resolveEscalation(escalationId, dto?.note);
@@ -145,7 +146,7 @@ export class EmergencyController {
   @RequirePermission("escalation:respond")
   @RequiresClinicalSafety("general")
   cancel(
-    @Param("escalationId") escalationId: string,
+    @Param("escalationId", ParseUUIDPipe) escalationId: string,
     @Body() dto: { note: string },
   ) {
     return this.svc.cancelEscalation(escalationId, dto?.note);
@@ -162,7 +163,7 @@ export class EmergencyController {
   @Post("clinical/handovers/:handoverId/accept")
   @RequirePermission("handover:accept")
   @RequiresClinicalSafety("general")
-  accept(@Param("handoverId") handoverId: string) {
+  accept(@Param("handoverId", ParseUUIDPipe) handoverId: string) {
     return this.svc.acceptHandover(handoverId);
   }
 
@@ -170,7 +171,7 @@ export class EmergencyController {
   @RequirePermission("handover:accept")
   @RequiresClinicalSafety("general")
   decline(
-    @Param("handoverId") handoverId: string,
+    @Param("handoverId", ParseUUIDPipe) handoverId: string,
     @Body() dto: { reason: string },
   ) {
     return this.svc.declineHandover(handoverId, dto?.reason);
@@ -180,7 +181,7 @@ export class EmergencyController {
   @RequirePermission("handover:write")
   @RequiresClinicalSafety("general")
   supersede(
-    @Param("handoverId") handoverId: string,
+    @Param("handoverId", ParseUUIDPipe) handoverId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.supersedeHandover(handoverId, dto);
@@ -206,14 +207,20 @@ export class EmergencyController {
   @Post("clinical/resus/:recordId/note")
   @RequirePermission("resus:document")
   @RequiresClinicalSafety("general")
-  note(@Param("recordId") recordId: string, @Body() dto: { note: string }) {
+  note(
+    @Param("recordId", ParseUUIDPipe) recordId: string,
+    @Body() dto: { note: string },
+  ) {
     return this.svc.noteResus(recordId, dto?.note);
   }
 
   @Post("clinical/resus/:recordId/shock")
   @RequirePermission("resus:document")
   @RequiresClinicalSafety("general")
-  shock(@Param("recordId") recordId: string, @Body() dto: { count?: number }) {
+  shock(
+    @Param("recordId", ParseUUIDPipe) recordId: string,
+    @Body() dto: { count?: number },
+  ) {
     return this.svc.recordShocks(recordId, dto?.count ?? 1);
   }
 
@@ -221,7 +228,7 @@ export class EmergencyController {
   @RequirePermission("resus:document")
   @RequiresClinicalSafety("general")
   epinephrine(
-    @Param("recordId") recordId: string,
+    @Param("recordId", ParseUUIDPipe) recordId: string,
     @Body() dto: { count?: number },
   ) {
     return this.svc.recordEpinephrine(recordId, dto?.count ?? 1);
@@ -231,7 +238,7 @@ export class EmergencyController {
   @RequirePermission("resus:document")
   @RequiresClinicalSafety("general")
   close(
-    @Param("recordId") recordId: string,
+    @Param("recordId", ParseUUIDPipe) recordId: string,
     @Body()
     dto: { outcome: string; ended_at?: string; reversible_causes?: string },
   ) {
@@ -247,7 +254,7 @@ export class EmergencyController {
     scope: ["clinical:write", "emergency:resus"],
   })
   @RequiresClinicalSafety("general")
-  attest(@Param("recordId") recordId: string) {
+  attest(@Param("recordId", ParseUUIDPipe) recordId: string) {
     return this.svc.signResus(recordId);
   }
 
@@ -255,7 +262,7 @@ export class EmergencyController {
   @RequirePermission("resus:document")
   @RequiresClinicalSafety("general")
   updateResus(
-    @Param("recordId") recordId: string,
+    @Param("recordId", ParseUUIDPipe) recordId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.updateResusClinical(recordId, dto);
@@ -265,7 +272,7 @@ export class EmergencyController {
   @RequirePermission("triage:write")
   @RequiresClinicalSafety("general")
   updateAssessment(
-    @Param("assessmentId") assessmentId: string,
+    @Param("assessmentId", ParseUUIDPipe) assessmentId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.update(assessmentId, dto);

@@ -3,7 +3,6 @@
 BEGIN;
 DROP TABLE IF EXISTS health.noelia_recommendations;
 DROP TABLE IF EXISTS health.noelia_tool_grants;
-DELETE FROM health.noelia_tools WHERE tenant_id IS NULL;
 DROP TABLE IF EXISTS health.noelia_tools;
 
 DO $$

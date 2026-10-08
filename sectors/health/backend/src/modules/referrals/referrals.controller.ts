@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -46,7 +47,7 @@ export class ReferralController {
   @Post(":referralId/counter")
   @RequirePermission("referral:write")
   counter(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.createCounterReferral(referralId, dto);
@@ -54,14 +55,14 @@ export class ReferralController {
 
   @Get(":referralId")
   @RequirePermission("referral:write")
-  get(@Param("referralId") referralId: string) {
+  get(@Param("referralId", ParseUUIDPipe) referralId: string) {
     return this.svc.getReferral(referralId);
   }
 
   @Patch(":referralId")
   @RequirePermission("referral:write")
   update(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.updateReferral(referralId, dto);
@@ -70,7 +71,7 @@ export class ReferralController {
   @Post(":referralId/send")
   @RequirePermission("referral:send")
   send(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { channel?: string; reference?: string },
   ) {
     return this.svc.send(referralId, dto ?? {});
@@ -79,7 +80,7 @@ export class ReferralController {
   @Post(":referralId/transmission")
   @RequirePermission("referral:send")
   transmission(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { outcome: "sent" | "failed"; detail?: string },
   ) {
     return this.svc.recordTransmissionOutcome(
@@ -93,7 +94,7 @@ export class ReferralController {
   @RequirePermission("referral:send")
   @RequiresClinicalSafety("general")
   consent(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { consent_id: string },
   ) {
     return this.svc.verifyConsent(referralId, dto?.consent_id);
@@ -101,20 +102,20 @@ export class ReferralController {
 
   @Post(":referralId/acknowledge")
   @RequirePermission("referral:review")
-  acknowledge(@Param("referralId") referralId: string) {
+  acknowledge(@Param("referralId", ParseUUIDPipe) referralId: string) {
     return this.svc.acknowledge(referralId);
   }
 
   @Post(":referralId/accept")
   @RequirePermission("referral:review")
-  accept(@Param("referralId") referralId: string) {
+  accept(@Param("referralId", ParseUUIDPipe) referralId: string) {
     return this.svc.accept(referralId);
   }
 
   @Post(":referralId/decline")
   @RequirePermission("referral:review")
   decline(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { reason: string },
   ) {
     return this.svc.decline(referralId, dto?.reason);
@@ -123,7 +124,7 @@ export class ReferralController {
   @Post(":referralId/book")
   @RequirePermission("referral:review")
   book(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { appointment_id: string },
   ) {
     return this.svc.book(referralId, dto?.appointment_id);
@@ -131,14 +132,14 @@ export class ReferralController {
 
   @Post(":referralId/seen")
   @RequirePermission("referral:review")
-  seen(@Param("referralId") referralId: string) {
+  seen(@Param("referralId", ParseUUIDPipe) referralId: string) {
     return this.svc.markSeen(referralId);
   }
 
   @Post(":referralId/complete")
   @RequirePermission("referral:review")
   complete(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { outcome_summary: string },
   ) {
     return this.svc.complete(referralId, dto?.outcome_summary);
@@ -147,7 +148,7 @@ export class ReferralController {
   @Post(":referralId/cancel")
   @RequirePermission("referral:review")
   cancel(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { reason: string },
   ) {
     return this.svc.cancel(referralId, dto?.reason);
@@ -155,14 +156,17 @@ export class ReferralController {
 
   @Post(":referralId/chase")
   @RequirePermission("referral:write")
-  chase(@Param("referralId") referralId: string, @Body() dto: { note: string }) {
+  chase(
+    @Param("referralId", ParseUUIDPipe) referralId: string,
+    @Body() dto: { note: string },
+  ) {
     return this.svc.chase(referralId, dto?.note);
   }
 
   @Post(":referralId/documents")
   @RequirePermission("referral:write")
   documents(
-    @Param("referralId") referralId: string,
+    @Param("referralId", ParseUUIDPipe) referralId: string,
     @Body() dto: { document_id: string },
   ) {
     return this.svc.attachDocument(referralId, dto?.document_id);
@@ -170,13 +174,13 @@ export class ReferralController {
 
   @Get(":referralId/history")
   @RequirePermission("referral:write")
-  trail(@Param("referralId") referralId: string) {
+  trail(@Param("referralId", ParseUUIDPipe) referralId: string) {
     return this.svc.trail(referralId);
   }
 
   @Get("patient/:patientId")
   @RequirePermission("referral:write")
-  forPatient(@Param("patientId") patientId: string) {
+  forPatient(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.listForPatient(patientId);
   }
 

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -48,7 +49,7 @@ export class ContinuityController {
   @Get("plans/patient/:patientId")
   @RequirePermission("careplan:write")
   plansForPatient(
-    @Param("patientId") patientId: string,
+    @Param("patientId", ParseUUIDPipe) patientId: string,
     @Query("include_closed") includeClosed?: string,
   ) {
     return this.svc.listPlansForPatient(
@@ -59,14 +60,14 @@ export class ContinuityController {
 
   @Get("plans/:planId")
   @RequirePermission("careplan:write")
-  getPlan(@Param("planId") planId: string) {
+  getPlan(@Param("planId", ParseUUIDPipe) planId: string) {
     return this.svc.getPlan(planId);
   }
 
   @Patch("plans/:planId")
   @RequirePermission("careplan:write")
   updatePlan(
-    @Param("planId") planId: string,
+    @Param("planId", ParseUUIDPipe) planId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.updatePlan(planId, dto);
@@ -75,7 +76,7 @@ export class ContinuityController {
   @Post("plans/:planId/transition")
   @RequirePermission("careplan:write")
   transitionPlan(
-    @Param("planId") planId: string,
+    @Param("planId", ParseUUIDPipe) planId: string,
     @Body() dto: { to: string },
   ) {
     return this.svc.transitionPlan(planId, dto?.to);
@@ -87,20 +88,20 @@ export class ContinuityController {
     scope: ["clinical:write"],
   })
   @RequiresClinicalSafety("general")
-  attestPlan(@Param("planId") planId: string) {
+  attestPlan(@Param("planId", ParseUUIDPipe) planId: string) {
     return this.svc.signPlan(planId);
   }
 
   @Get("plans/:planId/tasks")
   @RequirePermission("task:read")
-  listTasks(@Param("planId") planId: string) {
+  listTasks(@Param("planId", ParseUUIDPipe) planId: string) {
     return this.svc.listTasksForPlan(planId);
   }
 
   @Post("plans/:planId/tasks")
   @RequirePermission("careplan:write")
   addTask(
-    @Param("planId") planId: string,
+    @Param("planId", ParseUUIDPipe) planId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.addTask(planId, dto);
@@ -125,14 +126,14 @@ export class ContinuityController {
 
   @Post("tasks/:taskId/start")
   @RequirePermission("task:complete")
-  startTask(@Param("taskId") taskId: string) {
+  startTask(@Param("taskId", ParseUUIDPipe) taskId: string) {
     return this.svc.startTask(taskId);
   }
 
   @Post("tasks/:taskId/complete")
   @RequirePermission("task:complete")
   completeTask(
-    @Param("taskId") taskId: string,
+    @Param("taskId", ParseUUIDPipe) taskId: string,
     @Body() dto: { outcome_note?: string },
   ) {
     return this.svc.completeTask(taskId, dto?.outcome_note);
@@ -141,7 +142,7 @@ export class ContinuityController {
   @Post("tasks/:taskId/skip")
   @RequirePermission("task:complete")
   skipTask(
-    @Param("taskId") taskId: string,
+    @Param("taskId", ParseUUIDPipe) taskId: string,
     @Body() dto: { reason: string },
   ) {
     return this.svc.skipTask(taskId, dto?.reason);
@@ -150,7 +151,7 @@ export class ContinuityController {
   @Post("tasks/:taskId/cancel")
   @RequirePermission("task:complete")
   cancelTask(
-    @Param("taskId") taskId: string,
+    @Param("taskId", ParseUUIDPipe) taskId: string,
     @Body() dto: { reason?: string },
   ) {
     return this.svc.cancelTask(taskId, dto?.reason);
@@ -169,14 +170,14 @@ export class ContinuityController {
 
   @Get("discharge/:summaryId")
   @RequirePermission("discharge:write")
-  getSummary(@Param("summaryId") summaryId: string) {
+  getSummary(@Param("summaryId", ParseUUIDPipe) summaryId: string) {
     return this.svc.getSummary(summaryId);
   }
 
   @Patch("discharge/:summaryId")
   @RequirePermission("discharge:write")
   updateSummary(
-    @Param("summaryId") summaryId: string,
+    @Param("summaryId", ParseUUIDPipe) summaryId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.updateSummary(summaryId, dto);
@@ -188,7 +189,7 @@ export class ContinuityController {
     scope: ["clinical:write"],
   })
   @RequiresClinicalSafety("general")
-  attestSummary(@Param("summaryId") summaryId: string) {
+  attestSummary(@Param("summaryId", ParseUUIDPipe) summaryId: string) {
     return this.svc.signSummary(summaryId);
   }
 
@@ -199,7 +200,7 @@ export class ContinuityController {
   })
   @RequiresClinicalSafety("general")
   amendSummary(
-    @Param("summaryId") summaryId: string,
+    @Param("summaryId", ParseUUIDPipe) summaryId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.amendSummary(summaryId, dto);
@@ -207,7 +208,7 @@ export class ContinuityController {
 
   @Get("discharge/encounter/:encounterId/versions")
   @RequirePermission("discharge:write")
-  summaryVersions(@Param("encounterId") encounterId: string) {
+  summaryVersions(@Param("encounterId", ParseUUIDPipe) encounterId: string) {
     return this.svc.summaryVersions(encounterId);
   }
 
@@ -226,14 +227,14 @@ export class ContinuityController {
 
   @Get("followups/patient/:patientId")
   @RequirePermission("careplan:write")
-  followupsForPatient(@Param("patientId") patientId: string) {
+  followupsForPatient(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.listFollowupsForPatient(patientId);
   }
 
   @Post("followups/:followupId/transition")
   @RequirePermission("task:complete")
   transitionFollowup(
-    @Param("followupId") followupId: string,
+    @Param("followupId", ParseUUIDPipe) followupId: string,
     @Body() dto: { to: string; note?: string },
   ) {
     return this.svc.transitionFollowup(followupId, dto?.to, dto?.note);
@@ -248,14 +249,14 @@ export class ContinuityController {
 
   @Get("documents/patient/:patientId")
   @RequirePermission("document:read")
-  documentsForPatient(@Param("patientId") patientId: string) {
+  documentsForPatient(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.documentsForPatient(patientId);
   }
 
   @Post("documents/:documentId/revise")
   @RequirePermission("document:write")
   reviseDocument(
-    @Param("documentId") documentId: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.reviseDocument(documentId, dto);
@@ -270,7 +271,7 @@ export class ContinuityController {
   @Delete("documents/:documentId")
   @RequirePermission("document:write")
   voidDocument(
-    @Param("documentId") documentId: string,
+    @Param("documentId", ParseUUIDPipe) documentId: string,
     @Query("reason") reason: string,
   ) {
     return this.svc.voidDocument(documentId, reason);
@@ -278,7 +279,7 @@ export class ContinuityController {
 
   @Get("snapshot/patient/:patientId")
   @RequirePermission("task:read")
-  board(@Param("patientId") patientId: string) {
+  board(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.planBoard(patientId);
   }
 }

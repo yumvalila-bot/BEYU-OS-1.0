@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CapacityService } from "./capacity.service";
 import { JwtAuthGuard } from "../auth/guards/jwt.guard";
@@ -36,7 +45,7 @@ export class CapacityController {
 
   @Get("beds/ward/:wardId")
   @RequirePermission("bed:read")
-  listBedsForWard(@Param("wardId") wardId: string) {
+  listBedsForWard(@Param("wardId", ParseUUIDPipe) wardId: string) {
     return this.svc.listBeds(wardId);
   }
 
@@ -54,7 +63,7 @@ export class CapacityController {
 
   @Get("allocations/patient/:patientId")
   @RequirePermission("bed:read")
-  patientHistory(@Param("patientId") patientId: string) {
+  patientHistory(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.historyForPatient(patientId);
   }
 
@@ -66,7 +75,7 @@ export class CapacityController {
 
   @Get("flow/encounter/:encounterId")
   @RequirePermission("flow:read")
-  flowForEncounter(@Param("encounterId") encounterId: string) {
+  flowForEncounter(@Param("encounterId", ParseUUIDPipe) encounterId: string) {
     return this.svc.flowForEncounter(encounterId);
   }
 
@@ -86,7 +95,7 @@ export class CapacityController {
   @Patch("beds/:bedId/status")
   @RequirePermission("bed:manage")
   setBedStatus(
-    @Param("bedId") bedId: string,
+    @Param("bedId", ParseUUIDPipe) bedId: string,
     @Body() dto: { status: string },
   ) {
     return this.svc.setBedStatus(bedId, dto?.status);
@@ -110,14 +119,14 @@ export class CapacityController {
 
   @Post("allocations/:allocationId/occupy")
   @RequirePermission("bed:allocate")
-  occupy(@Param("allocationId") allocationId: string) {
+  occupy(@Param("allocationId", ParseUUIDPipe) allocationId: string) {
     return this.svc.markOccupied(allocationId);
   }
 
   @Post("allocations/:allocationId/transfer")
   @RequirePermission("bed:allocate")
   transfer(
-    @Param("allocationId") allocationId: string,
+    @Param("allocationId", ParseUUIDPipe) allocationId: string,
     @Body() dto: { to_bed_id: string; note?: string },
   ) {
     return this.svc.transfer(allocationId, dto?.to_bed_id, dto?.note);
@@ -125,14 +134,14 @@ export class CapacityController {
 
   @Post("allocations/:allocationId/pending-discharge")
   @RequirePermission("bed:allocate")
-  pendingDischarge(@Param("allocationId") allocationId: string) {
+  pendingDischarge(@Param("allocationId", ParseUUIDPipe) allocationId: string) {
     return this.svc.requestDischarge(allocationId);
   }
 
   @Post("allocations/:allocationId/release")
   @RequirePermission("bed:allocate")
   release(
-    @Param("allocationId") allocationId: string,
+    @Param("allocationId", ParseUUIDPipe) allocationId: string,
     @Body() dto: { reason?: string },
   ) {
     return this.svc.discharge(allocationId, dto?.reason);
@@ -147,7 +156,9 @@ export class CapacityController {
 
   @Post("turnarounds/:turnaroundId/complete")
   @RequirePermission("bed:manage")
-  completeTurnaround(@Param("turnaroundId") turnaroundId: string) {
+  completeTurnaround(
+    @Param("turnaroundId", ParseUUIDPipe) turnaroundId: string,
+  ) {
     return this.svc.completeTurnaround(turnaroundId);
   }
 

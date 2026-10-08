@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -40,7 +41,7 @@ export class InsuranceController {
 
   @Get("profiles/owner/:patientId")
   @RequirePermission("insurance:read")
-  forPatient(@Param("patientId") patientId: string) {
+  forPatient(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.profilesForPatient(patientId);
   }
 
@@ -48,7 +49,7 @@ export class InsuranceController {
   @RequirePermission("insurance:write")
   @RequiresMfaStepUp("insurance:write")
   verify(
-    @Param("profileId") profileId: string,
+    @Param("profileId", ParseUUIDPipe) profileId: string,
     @Body()
     dto: { evidence: string; outcome?: "verified" | "verification_failed" },
   ) {
@@ -58,7 +59,7 @@ export class InsuranceController {
   @Post("profiles/:profileId/benefits")
   @RequirePermission("insurance:write")
   benefits(
-    @Param("profileId") profileId: string,
+    @Param("profileId", ParseUUIDPipe) profileId: string,
     @Body()
     dto: { annual_used?: number; deductible_used?: number; note: string },
   ) {
@@ -68,14 +69,14 @@ export class InsuranceController {
   // ── eligibility ───────────────────────────────────────────────────────────────
   @Post("profiles/:profileId/eligibility")
   @RequirePermission("insurance:read")
-  runCheck(@Param("profileId") profileId: string) {
+  runCheck(@Param("profileId", ParseUUIDPipe) profileId: string) {
     return this.svc.runEligibilityCheck(profileId);
   }
 
   @Post("profiles/:profileId/eligibility/record")
   @RequirePermission("insurance:write")
   recordCheck(
-    @Param("profileId") profileId: string,
+    @Param("profileId", ParseUUIDPipe) profileId: string,
     @Body()
     dto: {
       result: "eligible" | "partially_eligible" | "ineligible";
@@ -91,7 +92,7 @@ export class InsuranceController {
 
   @Get("profiles/:profileId/eligibility/latest")
   @RequirePermission("insurance:read")
-  latestCheck(@Param("profileId") profileId: string) {
+  latestCheck(@Param("profileId", ParseUUIDPipe) profileId: string) {
     return this.svc.latestEligibility(profileId);
   }
 
@@ -112,7 +113,7 @@ export class InsuranceController {
   @RequirePermission("preauth:write")
   @RequiresGovernance("insurance.preauth.decide", "medium")
   decide(
-    @Param("preauthId") preauthId: string,
+    @Param("preauthId", ParseUUIDPipe) preauthId: string,
     @Body()
     dto: {
       decision:
@@ -137,7 +138,7 @@ export class InsuranceController {
   @RequirePermission("claim:submit")
   @RequiresGovernance("insurance.claim.generate", "medium")
   generate(
-    @Param("invoiceId") invoiceId: string,
+    @Param("invoiceId", ParseUUIDPipe) invoiceId: string,
     @Body()
     dto: { profile_id: string; preauth_id?: string; eligibility_id?: string },
   ) {
@@ -146,20 +147,20 @@ export class InsuranceController {
 
   @Get("claims/:claimId")
   @RequirePermission("claim:read")
-  ledger(@Param("claimId") claimId: string) {
+  ledger(@Param("claimId", ParseUUIDPipe) claimId: string) {
     return this.svc.claimLedger(claimId);
   }
 
   @Get("claims/:claimId/lines")
   @RequirePermission("claim:read")
-  lines(@Param("claimId") claimId: string) {
+  lines(@Param("claimId", ParseUUIDPipe) claimId: string) {
     return this.svc.claimLines(claimId);
   }
 
   @Post("claims/:claimId/ready")
   @RequirePermission("claim:submit")
   ready(
-    @Param("claimId") claimId: string,
+    @Param("claimId", ParseUUIDPipe) claimId: string,
     @Body() dto: { due_submission_date?: string },
   ) {
     return this.svc.readyClaim(claimId, dto?.due_submission_date);
@@ -170,7 +171,7 @@ export class InsuranceController {
   @RequiresMfaStepUp("claim:submit")
   @RequiresGovernance("insurance.claim.submit", "high")
   submit(
-    @Param("claimId") claimId: string,
+    @Param("claimId", ParseUUIDPipe) claimId: string,
     @Body() dto?: { external_reference: string; submitted_at?: string },
   ) {
     return this.svc.submitClaim(
@@ -181,14 +182,20 @@ export class InsuranceController {
 
   @Post("claims/:claimId/reject")
   @RequirePermission("claim:reconcile")
-  reject(@Param("claimId") claimId: string, @Body() dto: { reason: string }) {
+  reject(
+    @Param("claimId", ParseUUIDPipe) claimId: string,
+    @Body() dto: { reason: string },
+  ) {
     return this.svc.rejectClaim(claimId, dto?.reason);
   }
 
   @Post("claims/:claimId/resubmit")
   @RequirePermission("claim:submit")
   @RequiresGovernance("insurance.claim.resubmit", "medium")
-  resubmit(@Param("claimId") claimId: string, @Body() dto: { reason: string }) {
+  resubmit(
+    @Param("claimId", ParseUUIDPipe) claimId: string,
+    @Body() dto: { reason: string },
+  ) {
     return this.svc.resubmitClaim(claimId, dto?.reason);
   }
 
@@ -198,7 +205,7 @@ export class InsuranceController {
   @RequiresMfaStepUp("claim:reconcile")
   @RequiresGovernance("insurance.remittance.post", "high")
   remit(
-    @Param("claimId") claimId: string,
+    @Param("claimId", ParseUUIDPipe) claimId: string,
     @Body() dto: Parameters<InsuranceService["recordRemittance"]>[1],
   ) {
     return this.svc.recordRemittance(claimId, dto);

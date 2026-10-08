@@ -101,7 +101,14 @@ export const REFERRAL_EVENT_SPEC: ResourceSpec = {
 };
 
 const URGENCIES = ["routine", "urgent", "emergent"] as const;
-const CHANNELS = ["internal", "letter", "email", "fax", "fhir", "portal"] as const;
+const CHANNELS = [
+  "internal",
+  "letter",
+  "email",
+  "fax",
+  "fhir",
+  "portal",
+] as const;
 const EXTERNAL_CHANNELS = ["letter", "email", "fax", "fhir", "portal"] as const;
 /** Waiting list clock: how long a referral may sit before it is chased. */
 const CHASE_AFTER_DAYS: Record<string, number> = {
@@ -112,28 +119,34 @@ const CHASE_AFTER_DAYS: Record<string, number> = {
 
 @Injectable()
 export class ReferralRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, REFERRAL_SPEC);
   }
 }
 
 @Injectable()
 export class ReferralEventRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, REFERRAL_EVENT_SPEC);
   }
 }
 
 const REFERRAL_TRANSITIONS: Record<string, Set<string>> = {
   draft: new Set(["sent", "cancelled"]),
-  sent: new Set(["acknowledged", "accepted", "declined", "cancelled", "expired"]),
-  acknowledged: new Set(["accepted", "declined", "booked", "cancelled", "expired"]),
+  sent: new Set([
+    "acknowledged",
+    "accepted",
+    "declined",
+    "cancelled",
+    "expired",
+  ]),
+  acknowledged: new Set([
+    "accepted",
+    "declined",
+    "booked",
+    "cancelled",
+    "expired",
+  ]),
   accepted: new Set(["booked", "seen", "completed", "cancelled", "expired"]),
   booked: new Set(["seen", "completed", "cancelled"]),
   seen: new Set(["completed", "cancelled"]),
@@ -146,7 +159,11 @@ const REFERRAL_TRANSITIONS: Record<string, Set<string>> = {
 @Injectable()
 export class ReferralService extends ResourceDomainService {
   constructor(
-    db: DbConnection,
+    // @Inject is load-bearing, not decoration: DbConnection is an
+    // interface, so without the token Nest cannot resolve the provider and the
+    // whole application fails to boot (the real-PostgreSQL CI gate catches this;
+    // a PGlite unit spec that constructs the service by hand does not).
+    @Inject(DB_CONNECTION) db: DbConnection,
     private readonly ctx: TenantContext,
     audit: AuditService,
     private readonly events: EventOutboxService,
@@ -175,7 +192,11 @@ export class ReferralService extends ResourceDomainService {
             errors.transmission_channel = [
               `must be one of ${CHANNELS.join(", ")}`,
             ];
-          if (input.is_external && !input.to_facility_id && !input.to_organization_name)
+          if (
+            input.is_external &&
+            !input.to_facility_id &&
+            !input.to_organization_name
+          )
             errors.to_organization_name = [
               "an external referral must name the receiving organisation or facility",
             ];
@@ -183,7 +204,9 @@ export class ReferralService extends ResourceDomainService {
             input.counter_referral_of !== undefined &&
             input.counter_referral_of === null
           )
-            errors.counter_referral_of = ["must reference an existing referral"];
+            errors.counter_referral_of = [
+              "must reference an existing referral",
+            ];
           if (Object.keys(errors).length) throw DomainError.validation(errors);
         },
         afterCreate: async (tx, row) => {
@@ -207,7 +230,11 @@ export class ReferralService extends ResourceDomainService {
 
   // ── creation ────────────────────────────────────────────────────────────────
   createReferral(input: Record<string, unknown>) {
-    return super.create({ ...input, status: "draft", transmission_state: "not_sent" });
+    return super.create({
+      ...input,
+      status: "draft",
+      transmission_state: "not_sent",
+    });
   }
 
   getReferral(referralId: string) {
@@ -236,10 +263,7 @@ export class ReferralService extends ResourceDomainService {
    * by `counter_referral_of` rather than a status on the original, because the
    * response is its own clinical act with its own consent gate and transport.
    */
-  createCounterReferral(
-    originId: string,
-    input: Record<string, unknown>,
-  ) {
+  createCounterReferral(originId: string, input: Record<string, unknown>) {
     return this.inTx(async (tx) => {
       const origin = await this.referrals.findById(originId, tx);
       if (!origin) throw DomainError.notFound("referral", originId);
@@ -269,15 +293,23 @@ export class ReferralService extends ResourceDomainService {
         const row = await this.referrals.findById(referralId, tx);
         if (!row) throw DomainError.notFound("referral", referralId);
         if (row.status !== "draft")
-          throw DomainError.conflict(`Referral is ${row.status}; only a draft can be sent`);
-        const channel = String(receipt?.channel ?? row.transmission_channel ?? "internal");
+          throw DomainError.conflict(
+            `Referral is ${row.status}; only a draft can be sent`,
+          );
+        const channel = String(
+          receipt?.channel ?? row.transmission_channel ?? "internal",
+        );
         if (!CHANNELS.includes(channel as any))
-          throw DomainError.validation(`channel must be one of ${CHANNELS.join(", ")}`);
+          throw DomainError.validation(
+            `channel must be one of ${CHANNELS.join(", ")}`,
+          );
         if (row.is_external && !row.consent_verified)
           throw DomainError.conflict(
             "An external referral cannot leave the facility until its consent is verified",
           );
-        const isExternalTransport = (EXTERNAL_CHANNELS as readonly string[]).includes(channel);
+        const isExternalTransport = (
+          EXTERNAL_CHANNELS as readonly string[]
+        ).includes(channel);
         const confirmed = isExternalTransport && !!receipt?.reference;
         const transmission = isExternalTransport
           ? confirmed
@@ -350,20 +382,26 @@ export class ReferralService extends ResourceDomainService {
             `Transmission is ${row.transmission_state}; there is no external submission awaiting an outcome`,
           );
         const nextStatus = outcome === "failed" ? "draft" : String(row.status);
-        const updated = (
-          await tx.query<any>(
-            `UPDATE health.referrals
+        const updated =
+          (
+            await tx.query<any>(
+              `UPDATE health.referrals
                 SET transmission_state = $2, status = $3,
                     sent_at = CASE WHEN $2 = 'sent' THEN coalesce(sent_at, now()) ELSE sent_at END
               WHERE referral_id = $1 AND tenant_id = $4 AND voided_at IS NULL
             RETURNING *`,
-            [referralId, outcome, nextStatus, this.tenantId],
-          )
-        )[0] ?? null;
-        await this.track(tx, referralId, outcome === "failed" ? "cancelled" : "sent", {
-          outcome,
-          detail: detail ?? null,
-        });
+              [referralId, outcome, nextStatus, this.tenantId],
+            )
+          )[0] ?? null;
+        await this.track(
+          tx,
+          referralId,
+          outcome === "failed" ? "cancelled" : "sent",
+          {
+            outcome,
+            detail: detail ?? null,
+          },
+        );
         return updated;
       },
       () => referralId,
@@ -372,7 +410,9 @@ export class ReferralService extends ResourceDomainService {
 
   // ── downstream lifecycle ────────────────────────────────────────────────────
   acknowledge(referralId: string) {
-    return this.advance(referralId, "acknowledged", {}, ["acknowledged_at = now()"]);
+    return this.advance(referralId, "acknowledged", {}, [
+      "acknowledged_at = now()",
+    ]);
   }
 
   accept(referralId: string) {
@@ -382,17 +422,16 @@ export class ReferralService extends ResourceDomainService {
   decline(referralId: string, reason: string) {
     if (!reason || !String(reason).trim())
       throw DomainError.validation("decline_reason is required");
-    return this.advance(
-      referralId,
-      "declined",
-      { decline_reason: reason },
-      ["declined_at = now()"],
-    );
+    return this.advance(referralId, "declined", { decline_reason: reason }, [
+      "declined_at = now()",
+    ]);
   }
 
   book(referralId: string, appointmentId: string) {
     if (!appointmentId)
-      throw DomainError.validation("appointment_id is required to book a referral");
+      throw DomainError.validation(
+        "appointment_id is required to book a referral",
+      );
     return this.advance(referralId, "booked", {
       booked_appointment_id: appointmentId,
     });
@@ -404,7 +443,9 @@ export class ReferralService extends ResourceDomainService {
 
   complete(referralId: string, outcomeSummary: string) {
     if (!outcomeSummary || !String(outcomeSummary).trim())
-      throw DomainError.validation("outcome_summary is required to complete a referral");
+      throw DomainError.validation(
+        "outcome_summary is required to complete a referral",
+      );
     return this.advance(
       referralId,
       "completed",
@@ -416,12 +457,9 @@ export class ReferralService extends ResourceDomainService {
   cancel(referralId: string, reason: string) {
     if (!reason || !String(reason).trim())
       throw DomainError.validation("cancel_reason is required");
-    return this.advance(
-      referralId,
-      "cancelled",
-      { cancel_reason: reason },
-      ["cancelled_at = now()"],
-    );
+    return this.advance(referralId, "cancelled", { cancel_reason: reason }, [
+      "cancelled_at = now()",
+    ]);
   }
 
   /** Chase a waiting referral — an action with a trail, not a phone call that vanishes. */
@@ -433,8 +471,14 @@ export class ReferralService extends ResourceDomainService {
       async (tx) => {
         const row = await this.referrals.findById(referralId, tx);
         if (!row) throw DomainError.notFound("referral", referralId);
-        if (["completed", "cancelled", "declined", "expired"].includes(String(row.status)))
-          throw DomainError.conflict(`Referral is ${row.status}; there is nothing to chase`);
+        if (
+          ["completed", "cancelled", "declined", "expired"].includes(
+            String(row.status),
+          )
+        )
+          throw DomainError.conflict(
+            `Referral is ${row.status}; there is nothing to chase`,
+          );
         await this.track(tx, referralId, "chased", { note });
         return { referral_id: referralId, chased: true, note };
       },
@@ -457,21 +501,24 @@ export class ReferralService extends ResourceDomainService {
       async (tx) => {
         const row = await this.referrals.findById(referralId, tx);
         if (!row) throw DomainError.notFound("referral", referralId);
-        const consent = (
-          await tx.query<any>(
-            `SELECT consent_id, status, purpose, recipient, effective_until, voided_at
+        const consent =
+          (
+            await tx.query<any>(
+              `SELECT consent_id, status, purpose, recipient, effective_until, voided_at
               FROM health.consents
              WHERE consent_id = $2 AND tenant_id = $1 AND voided_at IS NULL`,
-            [this.tenantId, consentId],
-          )
-        )[0] ?? null;
-        if (!consent)
-          throw DomainError.notFound("consent", consentId);
+              [this.tenantId, consentId],
+            )
+          )[0] ?? null;
+        if (!consent) throw DomainError.notFound("consent", consentId);
         if (consent.status !== "active")
           throw DomainError.conflict(
             `Consent is ${consent.status}; only an active consent authorises disclosure`,
           );
-        if (consent.effective_until && new Date(consent.effective_until) < new Date())
+        if (
+          consent.effective_until &&
+          new Date(consent.effective_until) < new Date()
+        )
           throw DomainError.conflict("Consent has expired");
         const recipient = consent.recipient
           ? String(consent.recipient).trim().toLowerCase()
@@ -483,15 +530,16 @@ export class ReferralService extends ResourceDomainService {
           throw DomainError.conflict(
             `Consent names recipient "${consent.recipient}", not "${row.to_organization_name}"`,
           );
-        const updated = (
-          await tx.query<any>(
-            `UPDATE health.referrals
+        const updated =
+          (
+            await tx.query<any>(
+              `UPDATE health.referrals
                 SET consent_id = $2, consent_verified = true
               WHERE referral_id = $1 AND tenant_id = $3 AND voided_at IS NULL
             RETURNING *`,
-            [referralId, consentId, this.tenantId],
-          )
-        )[0] ?? null;
+              [referralId, consentId, this.tenantId],
+            )
+          )[0] ?? null;
         await this.track(tx, referralId, "created", {
           note: `consent ${consentId} verified for disclosure`,
         });
@@ -513,15 +561,15 @@ export class ReferralService extends ResourceDomainService {
       async (tx) => {
         const referral = await this.referrals.findById(referralId, tx);
         if (!referral) throw DomainError.notFound("referral", referralId);
-        const doc = (
-          await tx.query<any>(
-            `SELECT document_id, available FROM health.clinical_documents
+        const doc =
+          (
+            await tx.query<any>(
+              `SELECT document_id, available FROM health.clinical_documents
               WHERE document_id = $1 AND tenant_id = $2 AND voided_at IS NULL`,
-            [documentId, this.tenantId],
-          )
-        )[0] ?? null;
-        if (!doc)
-          throw DomainError.notFound("clinical_document", documentId);
+              [documentId, this.tenantId],
+            )
+          )[0] ?? null;
+        if (!doc) throw DomainError.notFound("clinical_document", documentId);
         if (!doc.available)
           throw DomainError.conflict(
             "The document's object is not retrievable, so it cannot be disclosed with the referral",
@@ -532,8 +580,14 @@ export class ReferralService extends ResourceDomainService {
            ON CONFLICT (referral_id, document_id) DO NOTHING`,
           [referralId, documentId, this.tenantId, this.requireActor().userId],
         );
-        await this.track(tx, referralId, "document_attached", { document_id: documentId });
-        return { referral_id: referralId, document_id: documentId, attached: true };
+        await this.track(tx, referralId, "document_attached", {
+          document_id: documentId,
+        });
+        return {
+          referral_id: referralId,
+          document_id: documentId,
+          attached: true,
+        };
       },
       () => referralId,
     );
@@ -654,10 +708,13 @@ export class ReferralService extends ResourceDomainService {
         // not be able to set them on an arbitrary patch. This operation owns
         // them, so it binds them itself as parameters.
         const names = Object.keys(columns);
-        const params: unknown[] = [referralId, to, this.tenantId, this.requireActor().userId];
-        const sets = names.map(
-          (n, i) => `${n} = $${params.length + i + 1}`,
-        );
+        const params: unknown[] = [
+          referralId,
+          to,
+          this.tenantId,
+          this.requireActor().userId,
+        ];
+        const sets = names.map((n, i) => `${n} = $${params.length + i + 1}`);
         for (const n of names) params.push(columns[n]);
         const sql = `UPDATE health.referrals
                         SET status = $2, updated_by = $4${

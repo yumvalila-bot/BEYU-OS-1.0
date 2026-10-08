@@ -21,9 +21,9 @@
  *   Occupancy is always DERIVED from the open allocation, never copied onto
  *   `beds.status`, so the capacity board and the ward cannot disagree.
  */
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ResourceDomainService } from "../../common/db/resource-kit";
-import { DbConnection } from "../identity/db-connection";
+import { DB_CONNECTION, DbConnection } from "../identity/db-connection";
 import { TenantContext } from "../../common/security/tenant-context";
 import { AuditService } from "../audit/audit.service";
 import { EventOutboxService } from "../events/event-outbox.service";
@@ -68,7 +68,11 @@ const FLOW_STEPS = [
 @Injectable()
 export class CapacityService extends ResourceDomainService {
   constructor(
-    db: DbConnection,
+    // @Inject is load-bearing, not decoration: DbConnection is an
+    // interface, so without the token Nest cannot resolve the provider and the
+    // whole application fails to boot (the real-PostgreSQL CI gate catches this;
+    // a PGlite unit spec that constructs the service by hand does not).
+    @Inject(DB_CONNECTION) db: DbConnection,
     private readonly ctx: TenantContext,
     audit: AuditService,
     private readonly events: EventOutboxService,
@@ -216,7 +220,9 @@ export class CapacityService extends ResourceDomainService {
       );
     }
     if (await this.openAllocationForBed(String(input.bed_id))) {
-      throw DomainError.conflict("Bed is already occupied by an open allocation");
+      throw DomainError.conflict(
+        "Bed is already occupied by an open allocation",
+      );
     }
     const openForPatient = await this.openAllocationForPatient(
       String(input.patient_id),
@@ -294,11 +300,17 @@ export class CapacityService extends ResourceDomainService {
       "bed_allocation.transfer",
       "bed_allocation",
       async (tx) => {
-        const closed = await this.allocations.patch(tx, allocationId, undefined, {
-          forceStatus: "moved",
-          literalSet: ["closed_at = now()"],
-        });
-        if (!closed) throw DomainError.invalidState("Allocation vanished mid-transfer");
+        const closed = await this.allocations.patch(
+          tx,
+          allocationId,
+          undefined,
+          {
+            forceStatus: "moved",
+            literalSet: ["closed_at = now()"],
+          },
+        );
+        if (!closed)
+          throw DomainError.invalidState("Allocation vanished mid-transfer");
         const opened = await this.allocations.insertWith(tx, {
           bed_id: target.bed_id,
           ward_id: target.ward_id,
@@ -309,7 +321,9 @@ export class CapacityService extends ResourceDomainService {
           transfer_from_allocation_id: allocationId,
         });
         // The freed bed is not available until it has been turned around.
-        await this.beds.patch(tx, String(current.bed_id), { status: "cleaning" });
+        await this.beds.patch(tx, String(current.bed_id), {
+          status: "cleaning",
+        });
         await this.turnarounds.insertWith(tx, {
           resource_type: "bed",
           resource_id: current.bed_id,
@@ -370,7 +384,11 @@ export class CapacityService extends ResourceDomainService {
   async discharge(allocationId: string, closedReason?: string) {
     const current = await this.allocations.findById(allocationId);
     if (!current) throw DomainError.notFound("bed_allocation", allocationId);
-    if (!["occupied", "pending_discharge", "allocated"].includes(String(current.status))) {
+    if (
+      !["occupied", "pending_discharge", "allocated"].includes(
+        String(current.status),
+      )
+    ) {
       throw DomainError.invalidState(
         `Discharge requires an open allocation (currently ${current.status})`,
       );
@@ -386,7 +404,9 @@ export class CapacityService extends ResourceDomainService {
           { forceStatus: "discharged", literalSet: ["closed_at = now()"] },
         );
         if (!row) throw DomainError.notFound("bed_allocation", allocationId);
-        await this.beds.patch(tx, String(current.bed_id), { status: "cleaning" });
+        await this.beds.patch(tx, String(current.bed_id), {
+          status: "cleaning",
+        });
         await this.turnarounds.insertWith(tx, {
           resource_type: "bed",
           resource_id: current.bed_id,
@@ -430,13 +450,14 @@ export class CapacityService extends ResourceDomainService {
   // ── turnaround ──────────────────────────────────────────────────────────────
   requestTurnaround(input: Record<string, unknown>) {
     if (!input.resource_id || !input.resource_type) {
-      throw DomainError.validation("resource_type and resource_id are required");
+      throw DomainError.validation(
+        "resource_type and resource_id are required",
+      );
     }
     return this.atomic(
       "turnaround.request",
       "service_turnaround",
-      (tx) =>
-        this.turnarounds.insert(tx, { ...input, status: "requested" }),
+      (tx) => this.turnarounds.insert(tx, { ...input, status: "requested" }),
       (r: any) => String(r.turnaround_id),
     );
   }
@@ -466,7 +487,8 @@ export class CapacityService extends ResourceDomainService {
         const row = await this.turnarounds.patch(tx, turnaroundId, undefined, {
           literalSet: ["completed_at = now()", "status = 'completed'"],
         });
-        if (!row) throw DomainError.notFound("service_turnaround", turnaroundId);
+        if (!row)
+          throw DomainError.notFound("service_turnaround", turnaroundId);
         if (String(tu.resource_type) === "bed") {
           await this.beds.patch(tx, String(tu.resource_id), {
             status: String(tu.target_status ?? "available"),

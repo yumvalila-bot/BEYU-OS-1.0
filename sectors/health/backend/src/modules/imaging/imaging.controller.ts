@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -42,14 +43,14 @@ export class ImagingController {
 
   @Get("studies/:studyId")
   @RequirePermission("report:read")
-  getStudy(@Param("studyId") studyId: string) {
+  getStudy(@Param("studyId", ParseUUIDPipe) studyId: string) {
     return this.svc.getStudy(studyId);
   }
 
   @Patch("studies/:studyId")
   @RequirePermission("study:import")
   updateStudy(
-    @Param("studyId") studyId: string,
+    @Param("studyId", ParseUUIDPipe) studyId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.update(studyId, dto);
@@ -57,14 +58,17 @@ export class ImagingController {
 
   @Post("studies/:studyId/status")
   @RequirePermission("study:import")
-  status(@Param("studyId") studyId: string, @Body() dto: { to: string }) {
+  status(
+    @Param("studyId", ParseUUIDPipe) studyId: string,
+    @Body() dto: { to: string },
+  ) {
     return this.svc.transitionStudy(studyId, dto?.to);
   }
 
   @Post("studies/:studyId/validate")
   @RequirePermission("study:import")
   validate(
-    @Param("studyId") studyId: string,
+    @Param("studyId", ParseUUIDPipe) studyId: string,
     @Body() dto: { result: string; errors?: string[] },
   ) {
     return this.svc.validateStudy(
@@ -78,7 +82,7 @@ export class ImagingController {
   @RequirePermission("study:import")
   @RequiresClinicalSafety("radiology")
   reconcile(
-    @Param("studyId") studyId: string,
+    @Param("studyId", ParseUUIDPipe) studyId: string,
     @Body() dto: { patient_id: string; decision: "matched" | "rejected" },
   ) {
     return this.svc.matchStudy(studyId, dto?.patient_id, dto?.decision);
@@ -86,14 +90,14 @@ export class ImagingController {
 
   @Get("studies/owner/:patientId")
   @RequirePermission("report:read")
-  studiesForPatient(@Param("patientId") patientId: string) {
+  studiesForPatient(@Param("patientId", ParseUUIDPipe) patientId: string) {
     return this.svc.studiesForPatient(patientId);
   }
 
   @Post("studies/:studyId/series")
   @RequirePermission("study:import")
   addSeries(
-    @Param("studyId") studyId: string,
+    @Param("studyId", ParseUUIDPipe) studyId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.addSeries(studyId, dto);
@@ -101,7 +105,7 @@ export class ImagingController {
 
   @Get("studies/:studyId/series")
   @RequirePermission("report:read")
-  listSeries(@Param("studyId") studyId: string) {
+  listSeries(@Param("studyId", ParseUUIDPipe) studyId: string) {
     return this.svc.listSeries(studyId);
   }
 
@@ -110,7 +114,7 @@ export class ImagingController {
   @RequirePermission("report:addendum")
   @RequiresClinicalSafety("radiology")
   addAddendum(
-    @Param("reportId") reportId: string,
+    @Param("reportId", ParseUUIDPipe) reportId: string,
     @Body() dto: { content: string; reason?: string },
   ) {
     return this.svc.addAddendum(reportId, dto);
@@ -118,14 +122,14 @@ export class ImagingController {
 
   @Get("reports/:reportId/addenda")
   @RequirePermission("report:read")
-  listAddenda(@Param("reportId") reportId: string) {
+  listAddenda(@Param("reportId", ParseUUIDPipe) reportId: string) {
     return this.svc.listAddenda(reportId);
   }
 
   @Post("addenda/:addendumId/attest")
   @RequirePermission("radiology:verify")
   @RequiresClinicalSafety("radiology")
-  signAddendum(@Param("addendumId") addendumId: string) {
+  signAddendum(@Param("addendumId", ParseUUIDPipe) addendumId: string) {
     return this.svc.signAddendum(addendumId);
   }
 
@@ -146,7 +150,7 @@ export class ImagingController {
   @Post("critical-findings/:findingId/notify")
   @RequirePermission("critical:write")
   notify(
-    @Param("findingId") findingId: string,
+    @Param("findingId", ParseUUIDPipe) findingId: string,
     @Body() dto: { channel?: string; delivered?: boolean },
   ) {
     return this.svc.notifyCriticalFinding(findingId, dto ?? {});
@@ -156,7 +160,7 @@ export class ImagingController {
   @RequirePermission("critical:ack")
   @RequiresClinicalSafety("radiology")
   acknowledge(
-    @Param("findingId") findingId: string,
+    @Param("findingId", ParseUUIDPipe) findingId: string,
     @Body()
     dto: {
       method: "read_back" | "verbal" | "electronic";
@@ -173,7 +177,7 @@ export class ImagingController {
   @Post("critical-findings/:findingId/escalate")
   @RequirePermission("critical:write")
   escalate(
-    @Param("findingId") findingId: string,
+    @Param("findingId", ParseUUIDPipe) findingId: string,
     @Body() dto: { note: string },
   ) {
     return this.svc.escalateCriticalFinding(findingId, dto?.note);
@@ -181,7 +185,10 @@ export class ImagingController {
 
   @Post("critical-findings/:findingId/close")
   @RequirePermission("critical:ack")
-  close(@Param("findingId") findingId: string, @Body() dto: { note: string }) {
+  close(
+    @Param("findingId", ParseUUIDPipe) findingId: string,
+    @Body() dto: { note: string },
+  ) {
     return this.svc.closeCriticalFinding(findingId, dto?.note);
   }
 
@@ -203,20 +210,20 @@ export class ImagingController {
 
   @Post("worklist/:worklistItemId/claim")
   @RequirePermission("order:imaging")
-  claim(@Param("worklistItemId") worklistItemId: string) {
+  claim(@Param("worklistItemId", ParseUUIDPipe) worklistItemId: string) {
     return this.svc.claimWorklistItem(worklistItemId);
   }
 
   @Post("worklist/:worklistItemId/release")
   @RequirePermission("order:imaging")
-  release(@Param("worklistItemId") worklistItemId: string) {
+  release(@Param("worklistItemId", ParseUUIDPipe) worklistItemId: string) {
     return this.svc.releaseWorklistItem(worklistItemId);
   }
 
   @Post("worklist/:worklistItemId/perform")
   @RequirePermission("study:import")
   @RequiresClinicalSafety("radiology")
-  perform(@Param("worklistItemId") worklistItemId: string) {
+  perform(@Param("worklistItemId", ParseUUIDPipe) worklistItemId: string) {
     return this.svc.completeWorklistItem(worklistItemId);
   }
 }

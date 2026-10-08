@@ -293,7 +293,11 @@ export class AnaesthesiaRepository extends ResourceRepository {
 @Injectable()
 export class TheatreService extends ResourceDomainService {
   constructor(
-    db: DbConnection,
+    // @Inject is load-bearing, not decoration: DbConnection is an
+    // interface, so without the token Nest cannot resolve the provider and the
+    // whole application fails to boot (the real-PostgreSQL CI gate catches this;
+    // a PGlite unit spec that constructs the service by hand does not).
+    @Inject(DB_CONNECTION) db: DbConnection,
     private readonly ctx: TenantContext,
     audit: AuditService,
     private readonly events: EventOutboxService,

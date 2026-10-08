@@ -248,21 +248,30 @@ describe("authorization — operator-only surface", () => {
     ).rejects.toThrow("OUTBOX_REPAIR_FORBIDDEN");
   });
 
-  it("source: both endpoints declare @RequirePermission; permissions granted only to admin + trustee", () => {
+  it("source: both endpoints declare @RequirePermission; outbox ops are admin-only", () => {
     const ctl = fs.readFileSync(
       path.resolve(__dirname, "outbox-ops.controller.ts"),
       "utf8",
     );
     expect(ctl).toMatch(/@RequirePermission\("outbox:replay"\)/);
     expect(ctl).toMatch(/@RequirePermission\("outbox:reconcile"\)/);
-    const holders = ROLE_DEFINITIONS.filter((r) =>
-      r.permissions.includes("outbox:replay"),
+    // Replay and reconciliation re-publish events into live consumer channels:
+    // they are operational writes, not oversight reads. Migration
+    // 045_operational_permissions closed that loop — the two ids had been
+    // *promised* to `trustee` in code while beyu_identity.role_permissions never
+    // granted them, so the catalogue dropped the promise instead of minting a
+    // privilege nobody had asked for. Asserting the complete holder set (and an
+    // explicit negative for the oversight role) is stricter than the older
+    // "admin + trustee" expectation this replaces.
+    const holders = ROLE_DEFINITIONS.filter(
+      (r) =>
+        r.permissions.includes("outbox:replay") ||
+        r.permissions.includes("outbox:reconcile"),
     ).map((r) => r.id);
-    expect(holders.sort()).toEqual(["admin", "trustee"]);
-    const reconcileHolders = ROLE_DEFINITIONS.filter((r) =>
-      r.permissions.includes("outbox:reconcile"),
-    ).map((r) => r.id);
-    expect(reconcileHolders.sort()).toEqual(["admin", "trustee"]);
+    expect(holders.sort()).toEqual(["admin"]);
+    const trustee = ROLE_DEFINITIONS.find((r) => r.id === "trustee");
+    expect(trustee?.permissions).not.toContain("outbox:replay");
+    expect(trustee?.permissions).not.toContain("outbox:reconcile");
   });
 });
 

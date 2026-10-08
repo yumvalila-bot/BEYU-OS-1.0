@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -47,7 +48,7 @@ export class TheatreController {
   @Post("theatres/:theatreId/status")
   @RequirePermission("bed:manage")
   theatreStatus(
-    @Param("theatreId") theatreId: string,
+    @Param("theatreId", ParseUUIDPipe) theatreId: string,
     @Body() dto: { status: string },
   ) {
     return this.svc.setTheatreStatus(theatreId, dto?.status);
@@ -55,7 +56,7 @@ export class TheatreController {
 
   @Post("theatres/:theatreId/clean-complete")
   @RequirePermission("bed:manage")
-  cleanComplete(@Param("theatreId") theatreId: string) {
+  cleanComplete(@Param("theatreId", ParseUUIDPipe) theatreId: string) {
     return this.svc.markTheatreClean(theatreId);
   }
 
@@ -75,14 +76,14 @@ export class TheatreController {
 
   @Get("cases/:caseId")
   @RequirePermission("theatre:read")
-  getCase(@Param("caseId") caseId: string) {
+  getCase(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.getCase(caseId);
   }
 
   @Post("cases/:caseId/book")
   @RequirePermission("theatre:book")
   book(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body()
     dto: {
       theatre_id: string;
@@ -95,14 +96,17 @@ export class TheatreController {
 
   @Post("cases/:caseId/cancel")
   @RequirePermission("theatre:book")
-  cancel(@Param("caseId") caseId: string, @Body() dto: { reason: string }) {
+  cancel(
+    @Param("caseId", ParseUUIDPipe) caseId: string,
+    @Body() dto: { reason: string },
+  ) {
     return this.svc.cancelCase(caseId, dto?.reason);
   }
 
   @Post("cases/:caseId/postpone")
   @RequirePermission("theatre:book")
   postpone(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: { until: string; note?: string },
   ) {
     return this.svc.postponeCase(caseId, dto?.until, dto?.note);
@@ -112,7 +116,7 @@ export class TheatreController {
   @RequirePermission("theatre:document")
   @RequiresClinicalSafety("general")
   consent(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: { consent_id: string },
   ) {
     return this.svc.verifyConsent(caseId, dto?.consent_id);
@@ -121,13 +125,16 @@ export class TheatreController {
   @Post("cases/:caseId/transition")
   @RequirePermission("theatre:book")
   @RequiresClinicalSafety("general")
-  transition(@Param("caseId") caseId: string, @Body() dto: { to: string }) {
+  transition(
+    @Param("caseId", ParseUUIDPipe) caseId: string,
+    @Body() dto: { to: string },
+  ) {
     return this.svc.transition(caseId, dto?.to);
   }
 
   @Get("cases/:caseId/readiness")
   @RequirePermission("theatre:read")
-  readiness(@Param("caseId") caseId: string) {
+  readiness(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.readiness(caseId);
   }
 
@@ -136,7 +143,7 @@ export class TheatreController {
   @RequireHcmPractitioner("theatre.case.start", { scope: ["clinical:write"] })
   @RequiresClinicalSafety("general")
   start(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: { consent_waiver_reason?: string },
   ) {
     return this.svc.startCase(caseId, dto ?? {});
@@ -146,7 +153,7 @@ export class TheatreController {
   @RequirePermission("theatre:document")
   @RequiresClinicalSafety("general")
   recovery(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: { recovery_bed_id: string },
   ) {
     return this.svc.moveToRecovery(caseId, dto?.recovery_bed_id);
@@ -155,7 +162,7 @@ export class TheatreController {
   @Post("cases/:caseId/complete")
   @RequirePermission("theatre:document")
   @RequiresClinicalSafety("general")
-  complete(@Param("caseId") caseId: string) {
+  complete(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.completeCase(caseId);
   }
 
@@ -163,7 +170,7 @@ export class TheatreController {
   @Post("cases/:caseId/team")
   @RequirePermission("theatre:book")
   addMember(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.addTeamMember(caseId, dto);
@@ -171,13 +178,13 @@ export class TheatreController {
 
   @Get("cases/:caseId/team")
   @RequirePermission("theatre:read")
-  team(@Param("caseId") caseId: string) {
+  team(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.listTeam(caseId);
   }
 
   @Post("team/:teamMemberId/confirm")
   @RequirePermission("theatre:read")
-  confirm(@Param("teamMemberId") teamMemberId: string) {
+  confirm(@Param("teamMemberId", ParseUUIDPipe) teamMemberId: string) {
     return this.svc.confirmTeamMember(teamMemberId);
   }
 
@@ -185,7 +192,7 @@ export class TheatreController {
   @Post("cases/:caseId/checklist")
   @RequirePermission("theatre:document")
   startChecklist(
-    @Param("caseId") caseId: string,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
     @Body() dto: { template?: string },
   ) {
     return this.svc.startChecklist(caseId, dto?.template);
@@ -193,14 +200,14 @@ export class TheatreController {
 
   @Get("checklists/:checklistId")
   @RequirePermission("theatre:read")
-  checklist(@Param("checklistId") checklistId: string) {
+  checklist(@Param("checklistId", ParseUUIDPipe) checklistId: string) {
     return this.svc.checklist(checklistId);
   }
 
   @Post("checklist-items/:itemId/check")
   @RequirePermission("checklist:sign")
   checkItem(
-    @Param("itemId") itemId: string,
+    @Param("itemId", ParseUUIDPipe) itemId: string,
     @Body() dto: { checked: boolean; note?: string },
   ) {
     return this.svc.checkItem(itemId, dto?.checked, dto?.note);
@@ -209,7 +216,7 @@ export class TheatreController {
   @Post("checklists/:checklistId/attest")
   @RequirePermission("checklist:sign")
   @RequiresClinicalSafety("general")
-  attest(@Param("checklistId") checklistId: string) {
+  attest(@Param("checklistId", ParseUUIDPipe) checklistId: string) {
     return this.svc.signChecklist(checklistId);
   }
 
@@ -226,20 +233,20 @@ export class TheatreController {
 
   @Get("cases/:caseId/anaesthesia")
   @RequirePermission("theatre:read")
-  anaesthesiaForCase(@Param("caseId") caseId: string) {
+  anaesthesiaForCase(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.anaesthesiaForCase(caseId);
   }
 
   @Get("cases/:caseId/anaesthesia/history")
   @RequirePermission("theatre:read")
-  anaesthesiaHistory(@Param("caseId") caseId: string) {
+  anaesthesiaHistory(@Param("caseId", ParseUUIDPipe) caseId: string) {
     return this.svc.anaesthesiaHistory(caseId);
   }
 
   @Patch("anaesthesia/:recordId")
   @RequirePermission("theatre:document")
   updateAnaesthesia(
-    @Param("recordId") anaesthesiaId: string,
+    @Param("recordId", ParseUUIDPipe) anaesthesiaId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.updateAnaesthesia(anaesthesiaId, dto);
@@ -251,7 +258,7 @@ export class TheatreController {
     scope: ["clinical:write"],
   })
   @RequiresClinicalSafety("general")
-  attestAnaesthesia(@Param("recordId") anaesthesiaId: string) {
+  attestAnaesthesia(@Param("recordId", ParseUUIDPipe) anaesthesiaId: string) {
     return this.svc.signAnaesthesia(anaesthesiaId);
   }
 
@@ -259,7 +266,7 @@ export class TheatreController {
   @RequirePermission("theatre:document")
   @RequiresClinicalSafety("general")
   amendAnaesthesia(
-    @Param("recordId") anaesthesiaId: string,
+    @Param("recordId", ParseUUIDPipe) anaesthesiaId: string,
     @Body() dto: Record<string, unknown>,
   ) {
     return this.svc.amendAnaesthesia(anaesthesiaId, dto);

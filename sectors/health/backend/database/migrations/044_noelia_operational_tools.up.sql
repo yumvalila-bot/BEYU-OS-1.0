@@ -48,7 +48,6 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS health.noelia_tools (
   tool_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       uuid,                       -- NULL = platform-wide definition
   tool_code       text NOT NULL,
   name            text NOT NULL,
   description     text NOT NULL,
@@ -199,23 +198,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_noelia_rec_open_dedup
 -- may be auto-applied-free (they change nothing), so human_approval_required is
 -- false only where write_class='none' AND risk='low' AND no PHI is needed.
 INSERT INTO health.noelia_tools
-  (tenant_id, tool_code, name, description, category, model_dependent, write_class,
+  (tool_code, name, description, category, model_dependent, write_class,
    risk_class, required_permission, requires_consent, requires_phi, default_role_ids,
    evidence_sources, human_approval_required, version)
 VALUES
-  (NULL,'ops.bed_capacity','Bed capacity observation','Aggregates ward bed availability, occupancy and pending-discharge counts from rows the caller may already read, and flags wards at or over threshold.','operational',false,'none','low','report:read',false,false,'{admin,cno,ceo}','{"wards","beds","bed_allocations"}',false,'1.0.0'),
-  (NULL,'ops.ed_board','Emergency waiting observation','Ranks emergency encounters by triage acuity and elapsed wait and flags reassessments that are due.','operational',false,'none','medium','phi:read',false,true,'{doctor,cno,admin}','{"encounters","triage_assessments","observations"}',true,'1.0.0'),
-  (NULL,'ops.ambulance_delay','Ambulance turnaround observation','Reports dispatched or en-route requests with elapsed time and vehicles that have no crew assigned.','operational',false,'none','low','report:read',false,false,'{admin}','{"ambulance_requests","vehicles"}',false,'1.0.0'),
-  (NULL,'ops.lab_backlog','Laboratory backlog observation','Counts unverified and overdue lab order items by test and priority.','operational',false,'none','low','report:read',false,false,'{lab,admin}','{"lab_orders","lab_order_items"}',false,'1.0.0'),
-  (NULL,'ops.imaging_backlog','Imaging reporting backlog observation','Counts pending and unverified imaging reports and open critical findings awaiting acknowledgement.','operational',false,'none','medium','phi:read',false,true,'{radiology,admin}','{"imaging_orders","imaging_reports","critical_findings"}',true,'1.0.0'),
-  (NULL,'ops.pharmacy_expiry','Pharmacy expiry and shortfall observation','Lists batches nearing expiry and items at or below reorder level, read from the canonical stock ledger.','operational',false,'none','low','inventory:read',false,false,'{pharmacy,pharmacy-chief}','{"pharmacy_batches","stock_levels","pharmacy_items"}',false,'1.0.0'),
-  (NULL,'ops.theatre_utilisation','Theatre utilisation observation','Reports scheduled versus completed cases and theatre turnaround backlog per day.','operational',false,'none','low','report:read',false,false,'{admin,cmo}','{"surgical_cases","operating_theatres","service_turnarounds"}',false,'1.0.0'),
-  (NULL,'clin.chart_prep','Encounter preparation brief','Drafts a pre-consultation brief (problems, active medications, allergies, recent results) as a DRAFT for the clinician to accept. Model-dependent: blocked until HIVE is configured.','clinical_assistance',true,'draft_only','medium','phi:read',false,true,'{doctor}','{"problems","medications","allergies","observations","lab_order_items"}',true,'1.0.0'),
-  (NULL,'clin.timeline_summary','Longitudinal timeline summary','Summarises a patient encounter timeline. Model-dependent: blocked until HIVE is configured.','clinical_assistance',true,'none','medium','phi:read',false,true,'{doctor,cmo}','{"encounters","problems","medications"}',true,'1.0.0'),
-  (NULL,'clin.documentation_gap','Missing-information detection','Deterministically flags an incomplete episode: unsigned report, absent triage assessment, no allergy record, unacknowledged critical result, or a signed case with no discharge summary.','decision_support',false,'draft_only','medium','phi:read',false,true,'{doctor,nurse,admin}','{"encounters","triage_assessments","allergies","imaging_reports","critical_findings","discharge_summaries"}',true,'1.0.0'),
-  (NULL,'clin.med_safety_review','Medication safety review queue','Queues active prescriptions against recorded allergies and duplicate therapy for pharmacist review. Never alters a prescription.','decision_support',false,'draft_only','high','rx:dispense',false,true,'{pharmacy,pharmacy-chief}','{"medications","allergies","dispenses"}',true,'1.0.0'),
-  (NULL,'clin.followup_due','Follow-up due detection','Lists follow-ups past due or lost to follow-up, with the originating encounter.','decision_support',false,'none','medium','phi:read',false,true,'{doctor,nurse}','{"followups","encounters"}',true,'1.0.0'),
-  (NULL,'gov.duplicate_identity','Duplicate record detection','Deterministically proposes patient-merge candidates from exact identifier and demographic agreement. Never merges anything.','governance',false,'draft_only','medium','patient:read',false,true,'{admin}','{"patients","patient_identifiers"}',true,'1.0.0')
+  ('ops.bed_capacity','Bed capacity observation','Aggregates ward bed availability, occupancy and pending-discharge counts from rows the caller may already read, and flags wards at or over threshold.','operational',false,'none','low','report:read',false,false,'{admin,cno,ceo}','{"wards","beds","bed_allocations"}',false,'1.0.0'),
+  ('ops.ed_board','Emergency waiting observation','Ranks emergency encounters by triage acuity and elapsed wait and flags reassessments that are due.','operational',false,'none','medium','phi:read',false,true,'{doctor,cno,admin}','{"encounters","triage_assessments","observations"}',true,'1.0.0'),
+  ('ops.ambulance_delay','Ambulance turnaround observation','Reports dispatched or en-route requests with elapsed time and vehicles that have no crew assigned.','operational',false,'none','low','report:read',false,false,'{admin}','{"ambulance_requests","vehicles"}',false,'1.0.0'),
+  ('ops.lab_backlog','Laboratory backlog observation','Counts unverified and overdue lab order items by test and priority.','operational',false,'none','low','report:read',false,false,'{lab,admin}','{"lab_orders","lab_order_items"}',false,'1.0.0'),
+  ('ops.imaging_backlog','Imaging reporting backlog observation','Counts pending and unverified imaging reports and open critical findings awaiting acknowledgement.','operational',false,'none','medium','phi:read',false,true,'{radiology,admin}','{"imaging_orders","imaging_reports","critical_findings"}',true,'1.0.0'),
+  ('ops.pharmacy_expiry','Pharmacy expiry and shortfall observation','Lists batches nearing expiry and items at or below reorder level, read from the canonical stock ledger.','operational',false,'none','low','inventory:read',false,false,'{pharmacy,pharmacy-chief}','{"pharmacy_batches","stock_levels","pharmacy_items"}',false,'1.0.0'),
+  ('ops.theatre_utilisation','Theatre utilisation observation','Reports scheduled versus completed cases and theatre turnaround backlog per day.','operational',false,'none','low','report:read',false,false,'{admin,cmo}','{"surgical_cases","operating_theatres","service_turnarounds"}',false,'1.0.0'),
+  ('clin.chart_prep','Encounter preparation brief','Drafts a pre-consultation brief (problems, active medications, allergies, recent results) as a DRAFT for the clinician to accept. Model-dependent: blocked until HIVE is configured.','clinical_assistance',true,'draft_only','medium','phi:read',false,true,'{doctor}','{"problems","medications","allergies","observations","lab_order_items"}',true,'1.0.0'),
+  ('clin.timeline_summary','Longitudinal timeline summary','Summarises a patient encounter timeline. Model-dependent: blocked until HIVE is configured.','clinical_assistance',true,'none','medium','phi:read',false,true,'{doctor,cmo}','{"encounters","problems","medications"}',true,'1.0.0'),
+  ('clin.documentation_gap','Missing-information detection','Deterministically flags an incomplete episode: unsigned report, absent triage assessment, no allergy record, unacknowledged critical result, or a signed case with no discharge summary.','decision_support',false,'draft_only','medium','phi:read',false,true,'{doctor,nurse,admin}','{"encounters","triage_assessments","allergies","imaging_reports","critical_findings","discharge_summaries"}',true,'1.0.0'),
+  ('clin.med_safety_review','Medication safety review queue','Queues active prescriptions against recorded allergies and duplicate therapy for pharmacist review. Never alters a prescription.','decision_support',false,'draft_only','high','rx:dispense',false,true,'{pharmacy,pharmacy-chief}','{"medications","allergies","dispenses"}',true,'1.0.0'),
+  ('clin.followup_due','Follow-up due detection','Lists follow-ups past due or lost to follow-up, with the originating encounter.','decision_support',false,'none','medium','phi:read',false,true,'{doctor,nurse}','{"followups","encounters"}',true,'1.0.0'),
+  ('gov.duplicate_identity','Duplicate record detection','Deterministically proposes patient-merge candidates from exact identifier and demographic agreement. Never merges anything.','governance',false,'draft_only','medium','patient:read',false,true,'{admin}','{"patients","patient_identifiers"}',true,'1.0.0')
 ON CONFLICT (tool_code) DO NOTHING;
 
 DO $$
@@ -229,16 +228,34 @@ BEGIN
 END $$;
 
 -- ── RLS ──────────────────────────────────────────────────────────────────────
--- noelia_tools carries platform reference data (tenant_id IS NULL by design) so
--- it is readable by every tenant but NOT writable through the application role:
--- the platform catalogue is changed by migration, never at runtime. That keeps
--- "what may Noelia do" under the same governed release process as schema.
+-- noelia_tools is platform reference data: it is readable by every tenant but
+-- NOT writable through the application role, so the platform catalogue is
+-- changed by migration and never at runtime. That keeps "what may Noelia do"
+-- under the same governed release process as the schema itself.
+--
+-- Deliberately, this table has NO tenant_id column. An earlier revision carried
+-- a nullable one ("NULL = platform-wide"), which made the Phase 12 RLS matrix
+-- read it as tenant-scoped and then correctly report two defects that were
+-- really properties of the design: with no tenant GUC the global rows were
+-- visible to a connection that had proven nothing, and under a foreign tenant
+-- GUC they were visible too. Both claims are invariants of TENANT data, so the
+-- honest fix is structural rather than an exemption in the probe: the table
+-- declares no tenant boundary because it holds none, and per-tenant enablement
+-- of a tool lives where it always did -- health.noelia_tool_grants, which is
+-- tenant-scoped and stays under the ordinary isolation policy.
+--
+-- Readability still requires an authenticated tenant context
+-- (app.tenant_id set to a non-empty value): a session that has not established
+-- which facility it speaks for reads nothing, so an unauthenticated or
+-- mis-provisioned connection cannot enumerate the platform's capability
+-- surface. Point 3 of the matrix (no-GUC SELECT = 0) therefore holds for this
+-- table exactly as it holds for every other health.* table.
 DO $$
 BEGIN
   EXECUTE 'ALTER TABLE health.noelia_tools ENABLE ROW LEVEL SECURITY';
   EXECUTE 'DROP POLICY IF EXISTS health_noelia_tools_isolation ON health.noelia_tools';
   EXECUTE 'CREATE POLICY health_noelia_tools_isolation ON health.noelia_tools FOR SELECT
-              USING (tenant_id IS NULL OR current_setting(''app.tenant_id'', true) = tenant_id::text)';
+              USING (coalesce(current_setting(''app.tenant_id'', true), '''') <> '''')';
   EXECUTE 'DROP POLICY IF EXISTS health_noelia_tools_no_runtime_write ON health.noelia_tools';
   EXECUTE 'CREATE POLICY health_noelia_tools_no_runtime_write ON health.noelia_tools FOR INSERT
               WITH CHECK (false)';
