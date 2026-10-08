@@ -16,6 +16,7 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 import { sha256 } from "@/lib/crypto";
 import { loadGrants, permissionsForRoles } from "@/lib/authz";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -140,43 +141,51 @@ export async function GET(request: Request): Promise<NextResponse> {
     resolvedAt: new Date().toISOString(),
   };
 
-  // Audit the authorization context resolution
-  await recordAudit({
-    actorUserId: session.userId,
-    action: "AUTHORIZATION_CONTEXT_RESOLVED_MOBILE",
-    objectType: "USER",
-    objectId: session.userId,
-    outcome: "SUCCESS",
-    reason: `Resolved authorization context (mobile): ${authorizedCount} OSs authorized`,
-    tenantId: session.tenantId,
-    traceId,
-  });
+  // Audit the authorization context resolution.
+  //
+  // Both ledger writes run inside the connection-pinned, transaction-local RLS
+  // context of the VALIDATED session's tenant (never a client-supplied value).
+  // Without it the `audit_log` / `enterprise_events` policies refuse the rows and
+  // the endpoint fails closed with an unhelpful 500 — the same defect the web
+  // twin had. The tenant set is finite and comes from the session row only.
+  await withDatabaseRlsContext([session.tenantId], false, async () => {
+    await recordAudit({
+      actorUserId: session.userId,
+      action: "AUTHORIZATION_CONTEXT_RESOLVED_MOBILE",
+      objectType: "USER",
+      objectId: session.userId,
+      outcome: "SUCCESS",
+      reason: `Resolved authorization context (mobile): ${authorizedCount} OSs authorized`,
+      tenantId: session.tenantId,
+      traceId,
+    });
 
-  // Record event
-  await publishEvent({
-    type: "authorization.context.resolved.mobile",
-    source: "beyu-os/identity/mobile",
-    domain: "identity",
-    operation: "authorization.context.resolve.mobile",
-    destinationDomain: null,
-    tenantId: session.tenantId,
-    legalEntityId: null,
-    subjectType: "USER",
-    subjectId: session.userId,
-    actorUserId: session.userId,
-    actorType: "HUMAN",
-    classification: "INTERNAL",
-    payload: {
-      authorizedCount,
-      authorizedOSs: authorizedOSs.map((os) => os.osCode),
-      routingRecommendation,
-      clientType: "MOBILE",
-    },
-    traceId,
-    correlationId: traceId,
-    causationId: null,
-    authorityContext: null,
-    policyVersion: null,
+    // Record event
+    await publishEvent({
+      type: "authorization.context.resolved.mobile",
+      source: "beyu-os/identity/mobile",
+      domain: "identity",
+      operation: "authorization.context.resolve.mobile",
+      destinationDomain: null,
+      tenantId: session.tenantId,
+      legalEntityId: null,
+      subjectType: "USER",
+      subjectId: session.userId,
+      actorUserId: session.userId,
+      actorType: "HUMAN",
+      classification: "INTERNAL",
+      payload: {
+        authorizedCount,
+        authorizedOSs: authorizedOSs.map((os) => os.osCode),
+        routingRecommendation,
+        clientType: "MOBILE",
+      },
+      traceId,
+      correlationId: traceId,
+      causationId: null,
+      authorityContext: null,
+      policyVersion: null,
+    });
   });
 
   return apiOk(context, traceId);
