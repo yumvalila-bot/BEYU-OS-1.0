@@ -18,7 +18,21 @@ export type BootstrapIdentity = { email: string; role: string };
  * `identities` defaults to empty so the control fails CLOSED: if a caller ever
  * forgets the prop, the result is a missing convenience, never a disclosure.
  */
-export function SignInForm({ identities = [] }: { identities?: BootstrapIdentity[] }) {
+/**
+ * `landing` is the route to open after a successful sign-in. It is computed
+ * SERVER-SIDE by the page from the trusted canonical host contract (`/os/health`
+ * on `health.beyu.co.tz`, `/os` everywhere else) and passed in as a prop. It is
+ * never read from the URL, a query string or any client-controlled input, so
+ * the form cannot be turned into an open redirector — and the landing route
+ * itself re-runs the full server-side gate, so it grants nothing.
+ */
+export function SignInForm({
+  identities = [],
+  landing = "/os",
+}: {
+  identities?: BootstrapIdentity[];
+  landing?: string;
+}) {
   const router = useRouter();
   // Pre-filling a privileged username is a provisioning convenience, and in
   // production it is also a disclosure: the value is serialised into the
@@ -45,7 +59,9 @@ export function SignInForm({ identities = [] }: { identities?: BootstrapIdentity
         setError(json?.error?.message ?? "Authentication failed.");
         return;
       }
-      router.push("/os");
+      // Same-origin, server-computed route only (see `landing`): a single
+      // leading slash, never a scheme-relative or absolute URL.
+      router.push(/^\/(?!\/)/.test(landing) ? landing : "/os");
       router.refresh();
     } catch {
       setError("The control plane is unreachable. Try again.");

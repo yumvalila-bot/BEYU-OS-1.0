@@ -3,6 +3,7 @@ import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
+import { sectorHostForRequest } from "@/lib/sector-host";
 
 export const dynamic = "force-dynamic";
 
@@ -57,11 +58,30 @@ const PILLARS = [
 
 export default async function SignInPage() {
   const principal = await resolvePrincipal();
-  
+
+  /*
+   * Canonical Sector OS host (presentation only).
+   *
+   * On `health.beyu.co.tz` this page is the Health OS entry: the sign-in form
+   * is titled for that OS and, after sign-in, lands on `/os/health`. The host
+   * is resolved SERVER-SIDE through the one canonical contract
+   * (`src/lib/sector-domains.ts`); it is never an authorization input. Reaching
+   * a sector host authorizes nothing: the authenticated branch below redirects
+   * to the sector home ONLY when the existing `authorizedOperatingSystems()`
+   * resolver — session → tenant → classification → RBAC/ABAC → OS
+   * authorization — already lists that Sector OS, and the home re-runs its own
+   * gate on arrival. Otherwise the pre-existing routing applies unchanged.
+   */
+  const sectorHost = await sectorHostForRequest();
+  const sector = sectorHost.kind === "SECTOR" ? sectorHost.os : null;
+
   if (principal) {
     // Smart routing resolves the one BEYU control plane and each authorised
     // Sector OS independently. A session alone never creates OS access.
     const destinations = await authorizedOperatingSystems(principal);
+    if (sector && destinations.some((destination) => destination.code === sector.code)) {
+      redirect(sector.href);
+    }
     if (destinations.length > 1) redirect("/launcher");
     if (destinations.length === 1) redirect(destinations[0].href);
     // With no authorised destination, retain the sign-in surface rather than
@@ -120,7 +140,9 @@ export default async function SignInPage() {
               </span>
               <div>
                 <div className="text-[15px] font-semibold">Welcome</div>
-                <div className="text-[11.5px] text-white/60">Sign in to the control plane</div>
+                <div className="text-[11.5px] text-white/60">
+                  {sector ? `Sign in to ${sector.name} — governed by BEYU OS` : "Sign in to the control plane"}
+                </div>
               </div>
             </div>
             <div className="beyu-gold-rule my-5" />
@@ -135,7 +157,10 @@ export default async function SignInPage() {
               The decision is made SERVER-SIDE and passed in as a prop, so no
               environment value is ever exposed to the client bundle.
             */}
-            <SignInForm identities={isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES} />
+            <SignInForm
+              identities={isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES}
+              landing={sector ? sector.href : "/os"}
+            />
             <p className="mt-6 text-[10.5px] leading-relaxed text-white/45">
               Access is least-privilege and fully audited. High-risk capabilities require step-up
               authentication. Unauthorised access attempts are recorded in the immutable audit ledger.

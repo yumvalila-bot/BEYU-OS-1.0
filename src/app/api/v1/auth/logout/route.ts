@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { recordAudit } from "@/lib/audit";
 import { apiOk } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/constants";
+import { sessionCookieClearTargets } from "@/lib/session-cookie";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { resolvePrincipal, revokeSession } from "@/lib/session";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
@@ -34,6 +35,12 @@ export async function POST(): Promise<NextResponse> {
     });
   }
 
-  jar.delete(SESSION_COOKIE);
+  // Clear EVERY variant the cookie may have been issued with for this host —
+  // host-only always, plus the canonical-domain variant when session sharing
+  // is configured — so sign-out works on www and on every Sector OS subdomain.
+  const h = await headers();
+  for (const target of sessionCookieClearTargets(h.get("host"))) {
+    jar.delete(target);
+  }
   return apiOk({ authenticated: false }, traceId);
 }
