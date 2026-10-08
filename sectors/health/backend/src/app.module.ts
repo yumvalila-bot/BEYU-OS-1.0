@@ -41,6 +41,13 @@ import { RadiologyModule } from "./modules/radiology/radiology.module";
 import { OphthalmologyModule } from "./modules/ophthalmology/ophthalmology.module";
 import { BillingModule } from "./modules/billing/billing.module";
 import { AmbulanceModule } from "./modules/ambulance/ambulance.module";
+import { CapacityModule } from "./modules/capacity/capacity.module";
+import { ContinuityModule } from "./modules/continuity/continuity.module";
+import { ReferralModule } from "./modules/referrals/referrals.module";
+import { EmergencyModule } from "./modules/emergency/emergency.module";
+import { TheatreModule } from "./modules/theatre/theatre.module";
+import { ImagingModule } from "./modules/imaging/imaging.module";
+import { InsuranceModule } from "./modules/insurance/insurance.module";
 import { TelehealthModule } from "./modules/telehealth/telehealth.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { AuditModule } from "./modules/audit/audit.module";
@@ -106,6 +113,13 @@ import { BeyuIntegrationModule } from "./integrations/beyu/beyu.module";
     OphthalmologyModule,
     BillingModule,
     AmbulanceModule,
+    CapacityModule,
+    ContinuityModule,
+    ReferralModule,
+    EmergencyModule,
+    TheatreModule,
+    ImagingModule,
+    InsuranceModule,
     TelehealthModule,
     NotificationsModule,
     AuditModule,

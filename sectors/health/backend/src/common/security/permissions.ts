@@ -88,7 +88,67 @@ export type Permission =
   | "ophthalmology:sign"
   | "rx:prescribe"
   | "clinical:write"
-  | "patient:register";
+  | "patient:register"
+  // ── Operational domains (migrations 033-045) ────────────────────────────
+  // Capacity / patient flow
+  | "bed:read"
+  | "bed:allocate"
+  | "bed:manage"
+  | "flow:read"
+  | "flow:write"
+  // Continuity of care
+  | "careplan:write"
+  | "careplan:sign"
+  | "task:read"
+  | "task:complete"
+  | "document:read"
+  | "document:write"
+  | "discharge:write"
+  // Referrals
+  | "referral:write"
+  | "referral:send"
+  | "referral:review"
+  // Emergency operations
+  | "triage:read"
+  | "triage:write"
+  | "escalation:raise"
+  | "escalation:respond"
+  | "handover:write"
+  | "handover:accept"
+  | "handover:read"
+  | "resus:document"
+  // Theatre
+  | "theatre:read"
+  | "theatre:book"
+  | "theatre:document"
+  | "checklist:sign"
+  // Insurance / revenue cycle
+  | "insurance:read"
+  | "insurance:write"
+  | "preauth:write"
+  | "claim:read"
+  | "claim:reconcile"
+  // Imaging / DICOM metadata
+  | "study:import"
+  | "report:addendum"
+  | "critical:write"
+  | "critical:ack"
+  // Workforce
+  | "roster:read"
+  | "roster:write"
+  // Patient portal
+  | "portal:read_own"
+  | "portal:release"
+  // Identity reconciliation
+  | "identifier:write"
+  | "patient:merge"
+  // Governed virtual care
+  | "telehealth:manage"
+  | "message:send"
+  | "message:read"
+  // Noelia governed operations
+  | "noelia:review"
+  | "noelia:tool_grant";
 
 export type RoleId =
   | "trustee"
@@ -147,8 +207,6 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "audit:export",
       "ai:killswitch",
       "trustee:veto",
-      "outbox:replay",
-      "outbox:reconcile",
       "contract:sign",
       "contract:anchor",
       "rbac:read",
@@ -192,6 +250,11 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "breakglass:request",
       "breakglass:approve",
       "contract:sign",
+
+      "bed:read",
+      "flow:read",
+      "noelia:review",
+      "roster:read",
     ],
   },
   {
@@ -219,6 +282,140 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "ai:configure",
       "audit:read",
       "breakglass:approve",
+
+      "bed:allocate",
+      "bed:manage",
+      "bed:read",
+      "careplan:sign",
+      "careplan:write",
+      "checklist:sign",
+      "claim:read",
+      "critical:ack",
+      "discharge:write",
+      "document:read",
+      "document:write",
+      "escalation:raise",
+      "escalation:respond",
+      "flow:read",
+      "flow:write",
+      "handover:accept",
+      "handover:write",
+      "identifier:write",
+      "message:read",
+      "message:send",
+      "noelia:review",
+      "noelia:tool_grant",
+      "portal:release",
+      "referral:send",
+      "referral:write",
+      "report:addendum",
+      "resus:document",
+      "roster:read",
+      "roster:write",
+      "study:import",
+      "task:complete",
+      "task:read",
+      "telehealth:manage",
+      "theatre:book",
+      "theatre:document",
+      "theatre:read",
+      "triage:read",
+      "triage:write",
+      "handover:read",
+    ],
+  },
+  {
+    id: "cno",
+    label: "Chief Nursing Officer",
+    cadre: "Executive",
+    description:
+      "Nursing leadership. Ward capacity, assignments and escalation authority; no prescribing.",
+    permissions: [
+      "bed:allocate",
+      "bed:manage",
+      "bed:read",
+      "breakglass:approve",
+      "careplan:sign",
+      "careplan:write",
+      "critical:ack",
+      "discharge:write",
+      "document:read",
+      "document:write",
+      "escalation:raise",
+      "escalation:respond",
+      "flow:read",
+      "flow:write",
+      "handover:accept",
+      "handover:write",
+      "identifier:write",
+      "message:read",
+      "message:send",
+      "note:sign",
+      "note:write",
+      "patient:read",
+      "phi:read",
+      "phi:write",
+      "portal:release",
+      "resus:document",
+      "roster:read",
+      "roster:write",
+      "rx:dispense",
+      "task:complete",
+      "task:read",
+      "theatre:read",
+      "triage:read",
+      "triage:write",
+
+      "handover:read",
+    ],
+  },
+  {
+    id: "cfo",
+    label: "Chief Financial Officer",
+    cadre: "Executive",
+    description:
+      "Finance leadership. Revenue cycle, claims reconciliation and read access to financial documents.",
+    permissions: [
+      "audit:read",
+      "billing:read",
+      "billing:write",
+      "claim:submit",
+      "payment:receive",
+    ],
+  },
+  {
+    id: "cto",
+    label: "Chief Technology Officer",
+    cadre: "Executive",
+    description:
+      "Platform ownership. AI configuration and kill-switch; no PHI access.",
+    permissions: [
+      "ai:configure",
+      "ai:killswitch",
+      "audit:read",
+      "noelia:tool_grant",
+      "rbac:read",
+    ],
+  },
+  {
+    id: "cro",
+    label: "Chief Risk Officer",
+    cadre: "Executive",
+    description:
+      "Risk and assurance. Audit read/export, AI kill-switch; no PHI access.",
+    permissions: ["ai:killswitch", "audit:export", "audit:read", "rbac:read"],
+  },
+  {
+    id: "general-counsel",
+    label: "General Counsel",
+    cadre: "Governance",
+    description:
+      "Legal authority. Contract signing/anchoring and audit read; no PHI access.",
+    permissions: [
+      "audit:read",
+      "contract:anchor",
+      "contract:sign",
+      "rbac:read",
     ],
   },
   {
@@ -246,6 +443,41 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "breakglass:request",
       "tenant:switch",
       "report:read",
+
+      "bed:allocate",
+      "bed:read",
+      "careplan:sign",
+      "careplan:write",
+      "checklist:sign",
+      "critical:ack",
+      "discharge:write",
+      "document:read",
+      "document:write",
+      "escalation:raise",
+      "flow:read",
+      "flow:write",
+      "handover:accept",
+      "handover:write",
+      "identifier:write",
+      "message:read",
+      "message:send",
+      "noelia:review",
+      "patient:register",
+      "portal:release",
+      "referral:send",
+      "referral:write",
+      "report:addendum",
+      "resus:document",
+      "roster:read",
+      "study:import",
+      "task:complete",
+      "task:read",
+      "telehealth:manage",
+      "theatre:document",
+      "theatre:read",
+      "triage:read",
+      "triage:write",
+      "handover:read",
     ],
   },
   {
@@ -265,6 +497,29 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "encounter:start",
       "encounter:complete",
       "breakglass:request",
+
+      "bed:allocate",
+      "bed:read",
+      "careplan:write",
+      "critical:ack",
+      "document:read",
+      "escalation:raise",
+      "flow:read",
+      "flow:write",
+      "handover:accept",
+      "handover:write",
+      "identifier:write",
+      "message:read",
+      "message:send",
+      "portal:release",
+      "resus:document",
+      "roster:read",
+      "task:complete",
+      "task:read",
+      "theatre:read",
+      "triage:read",
+      "triage:write",
+      "handover:read",
     ],
   },
   {
@@ -279,6 +534,12 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "inventory:read",
       "inventory:write",
       "note:write",
+
+      "document:read",
+      "message:read",
+      "message:send",
+      "task:complete",
+      "task:read",
     ],
   },
   {
@@ -310,6 +571,11 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "order:lab",
       "note:write",
       "inventory:read",
+
+      "critical:write",
+      "message:read",
+      "task:complete",
+      "task:read",
     ],
   },
   {
@@ -324,6 +590,13 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "order:imaging",
       "note:write",
       "note:sign",
+
+      "critical:ack",
+      "critical:write",
+      "message:read",
+      "report:addendum",
+      "study:import",
+      "task:read",
     ],
   },
   {
@@ -341,6 +614,13 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "appointment:cancel",
       "billing:read",
       "payment:receive",
+
+      "bed:read",
+      "flow:read",
+      "flow:write",
+      "referral:write",
+      "message:send",
+      "identifier:write",
     ],
   },
   {
@@ -363,6 +643,34 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "breakglass:request",
       "outbox:replay",
       "outbox:reconcile",
+
+      "bed:allocate",
+      "bed:manage",
+      "bed:read",
+      "claim:read",
+      "critical:ack",
+      "document:read",
+      "document:write",
+      "escalation:raise",
+      "flow:read",
+      "flow:write",
+      "identifier:write",
+      "insurance:read",
+      "insurance:write",
+      "noelia:review",
+      "patient:merge",
+      "portal:release",
+      "preauth:write",
+      "referral:review",
+      "referral:send",
+      "referral:write",
+      "roster:read",
+      "roster:write",
+      "task:read",
+      "telehealth:manage",
+      "theatre:book",
+      "theatre:read",
+      "triage:read",
     ],
   },
   {
@@ -378,6 +686,9 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "rbac:read",
       "contract:sign",
       "tenant:switch",
+
+      "roster:read",
+      "roster:write",
     ],
   },
   {
@@ -391,6 +702,11 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "claim:submit",
       "payment:receive",
       "inventory:read",
+
+      "claim:read",
+      "claim:reconcile",
+      "document:read",
+      "insurance:read",
     ],
   },
   {
@@ -412,6 +728,8 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "audit:read",
       "audit:export",
       "rbac:read",
+
+      "noelia:tool_grant",
     ],
   },
   {
@@ -425,6 +743,12 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
       "rbac:read",
       "billing:read",
       "tenant:switch",
+
+      "bed:read",
+      "claim:read",
+      "flow:read",
+      "theatre:read",
+      "triage:read",
     ],
   },
   {
@@ -432,7 +756,13 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
     label: "Patient (Citizen App)",
     cadre: "External",
     description: "Sees only own record + grants consents.",
-    permissions: ["patient:read", "phi:read"],
+    permissions: [
+      "patient:read",
+      "phi:read",
+      "message:read",
+      "message:send",
+      "portal:read_own",
+    ],
   },
   {
     id: "moh-official",

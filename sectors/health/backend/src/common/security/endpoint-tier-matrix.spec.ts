@@ -290,7 +290,7 @@ describe("Endpoint security tier matrix (Phase 12 Wave 1)", () => {
     }
   });
 
-  it("CI-fail: every endpoint is PASS (zero implementable GAPs across all 95 routes)", () => {
+  it("CI-fail: every endpoint is PASS (zero implementable GAPs across all discovered routes)", () => {
     const implementableGaps = rows
       .filter((r) => r.status === "GAP")
       .map(
