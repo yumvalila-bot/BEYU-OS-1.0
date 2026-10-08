@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { osRegistry } from "@/db/schema";
 import { type Principal } from "@/lib/authz";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
-import { destinationHrefForRequest } from "@/lib/sector-host";
+import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { Badge } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";

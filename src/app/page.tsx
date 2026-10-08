@@ -3,7 +3,9 @@ import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
-import { sectorHostForRequest } from "@/lib/sector-host";
+import { canonicalHostForRequest } from "@/lib/canonical-host";
+import { canonicalContextOf } from "@/lib/canonical-hosts";
+import { can } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
@@ -60,27 +62,47 @@ export default async function SignInPage() {
   const principal = await resolvePrincipal();
 
   /*
-   * Canonical Sector OS host (presentation only).
+   * Canonical destination host (presentation only).
    *
-   * On `health.beyu.co.tz` this page is the Health OS entry: the sign-in form
-   * is titled for that OS and, after sign-in, lands on `/os/health`. The host
-   * is resolved SERVER-SIDE through the one canonical contract
-   * (`src/lib/sector-domains.ts`); it is never an authorization input. Reaching
-   * a sector host authorizes nothing: the authenticated branch below redirects
-   * to the sector home ONLY when the existing `authorizedOperatingSystems()`
-   * resolver — session → tenant → classification → RBAC/ABAC → OS
-   * authorization — already lists that Sector OS, and the home re-runs its own
-   * gate on arrival. Otherwise the pre-existing routing applies unchanged.
+   * Every canonical OS/subdomain is an INDEPENDENT USER ENTRY POINT: on
+   * `health.beyu.co.tz` this page is the Health OS entry, on
+   * `foundation.beyu.co.tz` the Foundation entry, on `familyoffice.beyu.co.tz`
+   * the Family Office capability entry and on `noelia.beyu.co.tz` the governed
+   * Noelia AI entry. The sign-in form is titled for that destination and, after
+   * sign-in, lands on its canonical route. The host is resolved SERVER-SIDE
+   * through the one canonical contract (`src/lib/canonical-hosts.ts`); it is
+   * never an authorization input, and the browser URL stays on the canonical
+   * hostname — no redirect through `beyu.co.tz`.
+   *
+   * Reaching a destination host authorizes nothing. The authenticated branch
+   * below redirects only through the destination's OWN server-side gate:
+   *   • a Sector OS → `authorizedOperatingSystems()` (session → tenant →
+   *     classification → RBAC/ABAC → federation/OS authorization) must already
+   *     list it;
+   *   • a shared surface (Family Office capability, Noelia AI) → the
+   *     destination's own declared guard permission must already be granted;
+   * and the destination re-runs that gate on arrival regardless. Otherwise the
+   * pre-existing routing applies unchanged.
    */
-  const sectorHost = await sectorHostForRequest();
-  const sector = sectorHost.kind === "SECTOR" ? sectorHost.os : null;
+  const canonicalHost = await canonicalHostForRequest();
+  // The control plane and neutral hosts keep the pre-existing copy and landing.
+  const requestedContext =
+    canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
+      ? canonicalContextOf(canonicalHost)
+      : null;
 
   if (principal) {
     // Smart routing resolves the one BEYU control plane and each authorised
     // Sector OS independently. A session alone never creates OS access.
     const destinations = await authorizedOperatingSystems(principal);
-    if (sector && destinations.some((destination) => destination.code === sector.code)) {
-      redirect(sector.href);
+    if (canonicalHost.kind === "SECTOR_OS" && destinations.some((destination) => destination.code === canonicalHost.os.code)) {
+      redirect(canonicalHost.os.href);
+    }
+    // A shared surface is entered only when the destination's own guard would
+    // already allow it (the same honesty rule the launcher and capability map
+    // follow). It grants nothing: the page re-checks server-side.
+    if (canonicalHost.kind === "SURFACE" && can(principal, canonicalHost.surface.entryPermission).allowed) {
+      redirect(canonicalHost.surface.href);
     }
     if (destinations.length > 1) redirect("/launcher");
     if (destinations.length === 1) redirect(destinations[0].href);
@@ -141,7 +163,9 @@ export default async function SignInPage() {
               <div>
                 <div className="text-[15px] font-semibold">Welcome</div>
                 <div className="text-[11.5px] text-white/60">
-                  {sector ? `Sign in to ${sector.name} — governed by BEYU OS` : "Sign in to the control plane"}
+                  {requestedContext
+                    ? `Sign in to ${requestedContext.name} — governed by BEYU OS`
+                    : "Sign in to the control plane"}
                 </div>
               </div>
             </div>
@@ -159,7 +183,7 @@ export default async function SignInPage() {
             */}
             <SignInForm
               identities={isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES}
-              landing={sector ? sector.href : "/os"}
+              landing={requestedContext ? requestedContext.href : "/os"}
             />
             <p className="mt-6 text-[10.5px] leading-relaxed text-white/45">
               Access is least-privilege and fully audited. High-risk capabilities require step-up

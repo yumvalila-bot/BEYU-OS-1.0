@@ -11,7 +11,7 @@ import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
-import { destinationHrefForRequest } from "@/lib/sector-host";
+import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { Badge } from "@/components/brand";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { GlobalSearch } from "@/components/global-search";
@@ -40,7 +40,7 @@ async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
   const destinations = await authorizedOperatingSystems(principal);
   const operatingSystemHrefs = new Set(destinations.map((destination) => destination.href));
   // Sector OS entries render their canonical subdomain URL when the deployment
-  // is configured for it (see src/lib/sector-domains.ts); visibility above is
+  // is configured for it (see src/lib/canonical-hosts.ts); visibility above is
   // still decided by the canonical route and the authorization resolver.
   const hrefFor = await destinationHrefForRequest();
   const renderedHref = new Map(destinations.map((destination) => [destination.href, hrefFor(destination)]));

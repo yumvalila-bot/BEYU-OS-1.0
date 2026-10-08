@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
 import { operatingSystemTenantInScope } from "@/lib/operating-systems";
-import { requestIsOnForeignSectorHost } from "@/lib/sector-host";
+import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 
 /** Every Agriculture deep link must resolve the canonical Agriculture tenant. */
 export const metadata: Metadata = { title: "Agriculture OS" };
@@ -18,7 +18,7 @@ export default async function AgricultureLayout({
   // Agriculture OS is never served on another Sector OS's canonical subdomain
   // (`health.beyu.co.tz/os/agriculture`). Host → refusal only; the tenant /
   // classification gate below is unchanged and still decides access.
-  if (await requestIsOnForeignSectorHost("AGRICULTURE")) notFound();
+  if (await requestIsOnForeignOSHost("AGRICULTURE")) notFound();
   const agricultureInScope = await operatingSystemTenantInScope(
     principal,
     "BEYU-AGRI",

@@ -11,20 +11,21 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { can } from "@/lib/authz";
 import { resolvePrincipal } from "@/lib/session";
-import { destinationHrefForRequest } from "@/lib/sector-host";
+import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { SignOutButton } from "../os/sign-out-button";
 import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
+import { canonicalSurface } from "@/lib/operating-system-catalog";
 
 /**
  * The sixth canonical frontend surface. Family Office is a BEYU
  * capability/domain surface inside the control plane — deliberately NOT a
- * Sector OS — so it does not appear in `SECTOR_OPERATING_SYSTEMS`. Its route
- * is the existing canonical Family Office frontend page.
+ * Sector OS — so it does not appear in `SECTOR_OPERATING_SYSTEMS`. Its route,
+ * name, icon and declared guard permission come from the canonical shared-
+ * surface registry (`CANONICAL_SURFACES`), and its canonical entry point is
+ * `familyoffice.<apex>` (an independent entry, never an OS).
  */
 const FAMILY_OFFICE_SURFACE = {
-  name: "Family Office",
-  href: "/os/family",
-  icon: "family" as const,
+  ...canonicalSurface("FAMILY_OFFICE"),
   note: "BEYU capability/domain surface — never an OS",
 };
 
@@ -134,7 +135,7 @@ export default async function LauncherPage() {
    * the URL says. Regular users never see this section.
    */
   const frontendPreview = can(principal, "platform:frontend.preview").allowed;
-  const familyOfficeReadable = can(principal, "family:member.read").allowed;
+  const familyOfficeReadable = can(principal, FAMILY_OFFICE_SURFACE.entryPermission).allowed;
   const previewSurfaces: Array<{
     name: string;
     href: string;
@@ -156,8 +157,9 @@ export default async function LauncherPage() {
     })),
     {
       ...FAMILY_OFFICE_SURFACE,
+      href: hrefFor(FAMILY_OFFICE_SURFACE),
       authorized: familyOfficeReadable,
-      stateLabel: "family:member.read not granted",
+      stateLabel: `${FAMILY_OFFICE_SURFACE.entryPermission} not granted`,
     },
   ];
 

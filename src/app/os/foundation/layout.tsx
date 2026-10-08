@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
+import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 import { requirePrincipal } from "@/lib/guard";
 import { operatingSystemTenantInScope } from "@/lib/operating-systems";
 
@@ -19,6 +21,12 @@ export default async function FoundationLayout({
   children: ReactNode;
 }) {
   const principal = await requirePrincipal();
+  // Foundation OS is never served on another canonical host: not on a sibling
+  // OS's host (`finance.beyu.co.tz/os/foundation`) and not on a shared-surface
+  // host (`familyoffice.beyu.co.tz`, `noelia.beyu.co.tz`). Host → refusal only;
+  // the tenant / classification / entity-scope gates below are unchanged and
+  // still decide access. `foundation.beyu.co.tz` itself passes through.
+  if (await requestIsOnForeignOSHost("FOUNDATION")) notFound();
   const foundationInScope = await operatingSystemTenantInScope(
     principal,
     "BEYU-FOUNDATION",
