@@ -472,8 +472,8 @@ jobs:
       # becomes ready.
       - name: Start application for end-to-end tests
         # BEYU_CANONICAL_DOMAIN activates the canonical Sector OS host contract
-        # (src/lib/sector-domains.ts + src/proxy.ts) so the subdomain HTTP suite
-        # exercises the real proxy instead of skipping. Requests still arrive on
+        # (src/lib/canonical-hosts.ts + src/proxy.ts) so the canonical-host HTTP
+        # suite exercises the real proxy instead of skipping. Requests still arrive on
         # 127.0.0.1; the suite sets the Host header explicitly. Unset, every host
         # is "neutral" and the proxy is inert.
         shell: bash
@@ -512,7 +512,7 @@ jobs:
         env:
           BEYU_TEST_BASE_URL: http://127.0.0.1:3100
           # Must match the server's BEYU_CANONICAL_DOMAIN above; gates the
-          # host-specific cases in tests/sector-domains/sector-subdomain-http.test.ts.
+          # host-specific cases in tests/sector-domains/canonical-host-http.test.ts.
           BEYU_TEST_CANONICAL_DOMAIN: beyu.co.tz
         shell: bash
         run: |
