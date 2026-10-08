@@ -226,50 +226,35 @@ export const CLINICAL_DOCUMENT_SPEC: ResourceSpec = {
 
 @Injectable()
 export class CarePlanRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, CARE_PLAN_SPEC);
   }
 }
 
 @Injectable()
 export class CareTaskRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, CARE_TASK_SPEC);
   }
 }
 
 @Injectable()
 export class DischargeSummaryRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, DISCHARGE_SUMMARY_SPEC);
   }
 }
 
 @Injectable()
 export class FollowupRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, FOLLOWUP_SPEC);
   }
 }
 
 @Injectable()
 export class ClinicalDocumentRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, CLINICAL_DOCUMENT_SPEC);
   }
 }

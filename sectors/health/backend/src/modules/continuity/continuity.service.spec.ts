@@ -86,7 +86,10 @@ describe("ContinuityService", () => {
         status: "draft",
       })) as any;
       expect(draft.status).toBe("draft");
-      const activated = (await svc.transitionPlan(draft.plan_id, "active")) as any;
+      const activated = (await svc.transitionPlan(
+        draft.plan_id,
+        "active",
+      )) as any;
       expect(activated.status).toBe("active");
       await expect(
         svc.transitionPlan(draft.plan_id, "completed"),
@@ -164,14 +167,21 @@ describe("ContinuityService", () => {
     bed.run(async () => {
       const p = await newPatient();
       const cp = await plan(p.patient_id);
-      const task = (await svc.addTask(cp.plan_id, { title: "Check drain" })) as any;
+      const task = (await svc.addTask(cp.plan_id, {
+        title: "Check drain",
+      })) as any;
       await svc.completeTask(task.task_id);
-      await expect(svc.completeTask(task.task_id)).rejects.toBeInstanceOf(DomainError);
-      const t2 = (await svc.addTask(cp.plan_id, { title: "Physio" })) as any;
-      await expect(Promise.resolve().then(() => svc.skipTask(t2.task_id, ""))).rejects.toThrow(
-        /skip_reason/,
+      await expect(svc.completeTask(task.task_id)).rejects.toBeInstanceOf(
+        DomainError,
       );
-      const skipped = (await svc.skipTask(t2.task_id, "Patient refused")) as any;
+      const t2 = (await svc.addTask(cp.plan_id, { title: "Physio" })) as any;
+      await expect(
+        Promise.resolve().then(() => svc.skipTask(t2.task_id, "")),
+      ).rejects.toThrow(/skip_reason/);
+      const skipped = (await svc.skipTask(
+        t2.task_id,
+        "Patient refused",
+      )) as any;
       expect(skipped.status).toBe("skipped");
       expect(skipped.skip_reason).toBe("Patient refused");
     }));
@@ -199,9 +209,11 @@ describe("ContinuityService", () => {
       expect(overdue.status).toBe("overdue");
       expect(ok.is_overdue).toBe(false);
       // Only open work appears on a worklist.
-      expect(list.every((t) => ["open", "in_progress", "overdue"].includes(t.status))).toBe(
-        true,
-      );
+      expect(
+        list.every((t) =>
+          ["open", "in_progress", "overdue"].includes(t.status),
+        ),
+      ).toBe(true);
     }));
 
   it("keeps one live discharge summary per encounter and amends by supersession", () =>
@@ -228,7 +240,9 @@ describe("ContinuityService", () => {
       // Editing after attestation is refused; supersession is the only path.
       await svc.signSummary(created.summary_id);
       await expect(
-        svc.updateSummary(created.summary_id, { diagnosis_summary: "rewritten" }),
+        svc.updateSummary(created.summary_id, {
+          diagnosis_summary: "rewritten",
+        }),
       ).rejects.toThrow(/cannot be edited/i);
 
       const signed = (await svc.getSummary(created.summary_id)) as any;
@@ -242,7 +256,9 @@ describe("ContinuityService", () => {
       expect(amended.superseded).toBe(created.summary_id);
       expect(amended.replacement.status).toBe("draft");
       expect(amended.replacement.parent_summary_id).toBe(created.summary_id);
-      expect(amended.replacement.diagnosis_summary).toBe("Appendicitis, appendectomy");
+      expect(amended.replacement.diagnosis_summary).toBe(
+        "Appendicitis, appendectomy",
+      );
 
       const versions = (await svc.summaryVersions(enc)) as any[];
       expect(versions).toHaveLength(2);
@@ -270,11 +286,15 @@ describe("ContinuityService", () => {
         source: "discharge",
         channel: "phone",
         reason: "Post-discharge call",
-        due_date: new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10),
+        due_date: new Date(Date.now() - 3 * 86400_000)
+          .toISOString()
+          .slice(0, 10),
       })) as any;
       const future = (await svc.scheduleFollowup({
         patient_id: p.patient_id,
-        due_date: new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10),
+        due_date: new Date(Date.now() + 30 * 86400_000)
+          .toISOString()
+          .slice(0, 10),
       })) as any;
 
       const list = (await svc.dueFollowups()) as any[];
@@ -282,12 +302,20 @@ describe("ContinuityService", () => {
       expect(mine).toBeTruthy();
       expect(mine.is_overdue).toBe(true);
       expect(Number(mine.days_overdue)).toBeGreaterThanOrEqual(3);
-      expect(list.some((f) => f.followup_id === future.followup_id)).toBe(false);
+      expect(list.some((f) => f.followup_id === future.followup_id)).toBe(
+        false,
+      );
 
       await expect(
-        svc.transitionFollowup(due.followup_id, "completed", "Reached, took meds"),
+        svc.transitionFollowup(
+          due.followup_id,
+          "completed",
+          "Reached, took meds",
+        ),
       ).resolves.toBeTruthy();
-      const completed = (await svc.listFollowupsForPatient(p.patient_id)) as any[];
+      const completed = (await svc.listFollowupsForPatient(
+        p.patient_id,
+      )) as any[];
       const row = completed.find((f) => f.followup_id === due.followup_id);
       expect(row.status).toBe("completed");
       expect(row.completed_at).toBeTruthy();
@@ -360,9 +388,14 @@ describe("ContinuityService", () => {
       expect(child.is_current).toBe(true);
 
       // Voiding keeps the metadata row: it can be listed, and its hash retained.
-      await svc.voidDocument(v2.document_id, "uploaded to the wrong patient chart");
+      await svc.voidDocument(
+        v2.document_id,
+        "uploaded to the wrong patient chart",
+      );
       const after = (await svc.documentsForPatient(p.patient_id)) as any[];
-      expect(after.find((d) => d.document_id === v2.document_id).status).toBe("voided");
+      expect(after.find((d) => d.document_id === v2.document_id).status).toBe(
+        "voided",
+      );
       expect(
         after.find((d) => d.document_id === v2.document_id).content_sha256,
       ).toBe("b".repeat(64));

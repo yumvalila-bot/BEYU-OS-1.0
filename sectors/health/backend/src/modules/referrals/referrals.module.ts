@@ -1,6 +1,10 @@
 import { Module } from "@nestjs/common";
 import { ReferralController } from "./referrals.controller";
-import { ReferralService, ReferralEventRepository, ReferralRepository } from "./referrals.service";
+import {
+  ReferralService,
+  ReferralEventRepository,
+  ReferralRepository,
+} from "./referrals.service";
 import { IdentityModule } from "../identity/identity.module";
 import { AuthModule } from "../auth/auth.module";
 import { AuditModule } from "../audit/audit.module";

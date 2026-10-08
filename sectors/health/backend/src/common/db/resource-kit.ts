@@ -38,10 +38,7 @@ import { DbConnection } from "../../modules/identity/db-connection";
 import { atomicWrite, atomicTransition, inTx } from "./crud-factory";
 import { AuditService } from "../../modules/audit/audit.service";
 import { TenantContext } from "../security/tenant-context";
-import {
-  EventOutboxService,
-  GovernedEventInput,
-} from "../../modules/events/event-outbox.service";
+import { EventOutboxService } from "../../modules/events/event-outbox.service";
 
 /** Columns that are never client-settable, whatever a spec author writes. */
 export const FORBIDDEN_CLIENT_COLUMNS: ReadonlySet<string> = new Set([

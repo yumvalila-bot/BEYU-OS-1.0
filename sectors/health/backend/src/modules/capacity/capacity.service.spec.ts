@@ -91,7 +91,10 @@ describe("CapacityService", () => {
 
       await svc.markOccupied(alloc.allocation_id);
       await svc.requestDischarge(alloc.allocation_id);
-      const done = (await svc.discharge(alloc.allocation_id, "medically fit")) as any;
+      const done = (await svc.discharge(
+        alloc.allocation_id,
+        "medically fit",
+      )) as any;
       expect(done.status).toBe("discharged");
       expect(done.closed_at).toBeTruthy();
 
@@ -206,7 +209,6 @@ describe("CapacityService", () => {
       )) as any[];
       expect(trace.map((t) => t.step)).toContain("transfer");
       expect(trace.map((t) => t.step)).toContain("bed_freed");
-
     }));
 
   it("idempotency key returns the same allocation instead of a second one", () =>
@@ -236,9 +238,9 @@ describe("CapacityService", () => {
       const row = snap.find((r) => r.ward_id === w.ward_id);
       expect(row).toBeTruthy();
       expect(row.total_beds).toBe(2);
-      expect(row.available + row.occupied + row.cleaning + row.maintenance).toBeLessThanOrEqual(
-        row.total_beds,
-      );
+      expect(
+        row.available + row.occupied + row.cleaning + row.maintenance,
+      ).toBeLessThanOrEqual(row.total_beds);
     }));
 
   it("emits exactly one governed outbox event per allocation create", () =>

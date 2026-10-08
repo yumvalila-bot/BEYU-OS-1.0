@@ -27,7 +27,6 @@ describe("InsuranceService", () => {
   let svc: InsuranceService;
   let patientId: string;
   let profileId: string;
-  let invoiceId: string;
   let invoiceNo: string;
   let seq = 0;
 
@@ -93,7 +92,6 @@ describe("InsuranceService", () => {
         (await newProfile({ primary_coverage: true })).profile_id,
       );
       const inv = await newInvoice(120_000, 2);
-      invoiceId = String(inv.invoice_id);
       invoiceNo = inv.invoice_no;
     });
   });

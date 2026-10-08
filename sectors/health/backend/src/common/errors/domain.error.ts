@@ -63,7 +63,9 @@ export class DomainError extends Error {
     // crosses several boundaries (audit detail, outbox payload) where only the
     // message survives.
     const summary = Object.entries(errors)
-      .map(([field, reasons]) => `${field} ${(reasons ?? []).join(", ")}`.trim())
+      .map(([field, reasons]) =>
+        `${field} ${(reasons ?? []).join(", ")}`.trim(),
+      )
       .join("; ");
     return new DomainError(
       "VALIDATION",

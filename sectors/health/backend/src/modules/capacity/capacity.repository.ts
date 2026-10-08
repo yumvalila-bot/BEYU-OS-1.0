@@ -9,10 +9,7 @@
  * by a caller.
  */
 import { Injectable } from "@nestjs/common";
-import {
-  ResourceRepository,
-  ResourceSpec,
-} from "../../common/db/resource-kit";
+import { ResourceRepository, ResourceSpec } from "../../common/db/resource-kit";
 import { DbConnection, DB_CONNECTION } from "../identity/db-connection";
 import { TenantContext } from "../../common/security/tenant-context";
 import { Inject } from "@nestjs/common";
@@ -147,50 +144,35 @@ export const FLOW_SPEC: ResourceSpec = {
 
 @Injectable()
 export class WardRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, WARD_SPEC);
   }
 }
 
 @Injectable()
 export class BedRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, BED_SPEC);
   }
 }
 
 @Injectable()
 export class BedAllocationRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, ALLOCATION_SPEC);
   }
 }
 
 @Injectable()
 export class ServiceTurnaroundRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, TURNAROUND_SPEC);
   }
 }
 
 @Injectable()
 export class PatientFlowRepository extends ResourceRepository {
-  constructor(
-    @Inject(DB_CONNECTION) db: DbConnection,
-    ctx: TenantContext,
-  ) {
+  constructor(@Inject(DB_CONNECTION) db: DbConnection, ctx: TenantContext) {
     super(db, ctx, FLOW_SPEC);
   }
 }

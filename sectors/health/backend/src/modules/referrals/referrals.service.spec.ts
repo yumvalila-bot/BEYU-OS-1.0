@@ -73,7 +73,9 @@ describe("ReferralService", () => {
       const trail = (await svc.trail(r.referral_id)) as any[];
       expect(trail.map((t) => t.step)).toEqual(["created", "sent"]);
       // Every tracking step names the actor from the credential.
-      expect(trail[1].actor_global_user_id).toBe(bed.tenantCtx.require().userId);
+      expect(trail[1].actor_global_user_id).toBe(
+        bed.tenantCtx.require().userId,
+      );
     }));
 
   it("an external send stays pending until an adapter confirms it", () =>
@@ -125,7 +127,9 @@ describe("ReferralService", () => {
       expect(failed.transmission_state).toBe("failed");
       expect(failed.status).toBe("draft");
       // …and it can legitimately be re-sent by another channel.
-      const again = (await svc.send(r.referral_id, { channel: "letter" })) as any;
+      const again = (await svc.send(r.referral_id, {
+        channel: "letter",
+      })) as any;
       expect(again.status).toBe("sent");
       expect(again.transmission_state).toBe("pending_external");
       const confirmed = (await svc.recordTransmissionOutcome(
@@ -216,7 +220,10 @@ describe("ReferralService", () => {
       expect(ack.previous_status).toBe("sent");
       await svc.accept(r.referral_id);
       await svc.markSeen(r.referral_id);
-      const done = (await svc.complete(r.referral_id, "Medical management started")) as any;
+      const done = (await svc.complete(
+        r.referral_id,
+        "Medical management started",
+      )) as any;
       expect(done.status).toBe("completed");
       expect(done.outcome_summary).toBe("Medical management started");
       const trail = (await svc.trail(r.referral_id)) as any[];
@@ -243,16 +250,24 @@ describe("ReferralService", () => {
       await expect(
         svc.updateReferral(r.referral_id, { reason: "changed my mind" }),
       ).rejects.toThrow(/left draft/i);
-      const d = (await svc.decline(r.referral_id, "No cardiology capacity until March")) as any;
+      const d = (await svc.decline(
+        r.referral_id,
+        "No cardiology capacity until March",
+      )) as any;
       expect(d.status).toBe("declined");
       expect(d.decline_reason).toBe("No cardiology capacity until March");
       // A declined referral is terminal.
-      await expect(svc.accept(r.referral_id)).rejects.toBeInstanceOf(DomainError);
+      await expect(svc.accept(r.referral_id)).rejects.toBeInstanceOf(
+        DomainError,
+      );
     }));
 
   it("chases a waiting referral and exposes an ageing clock", () =>
     bed.run(async () => {
-      const r = await make({ transmission_channel: "internal", urgency: "routine" });
+      const r = await make({
+        transmission_channel: "internal",
+        urgency: "routine",
+      });
       await svc.send(r.referral_id);
       // Age it in the database rather than trusting a client-supplied date.
       await (bed.conn as any).exec(
@@ -264,7 +279,10 @@ describe("ReferralService", () => {
       const row = waiting.find((w) => w.referral_id === r.referral_id);
       expect(row.waiting_days).toBeGreaterThanOrEqual(29);
       expect(row.chase_due).toBe(true);
-      const chased = (await svc.chase(r.referral_id, "Called the secretary")) as any;
+      const chased = (await svc.chase(
+        r.referral_id,
+        "Called the secretary",
+      )) as any;
       expect(chased.chased).toBe(true);
       const trail = (await svc.trail(r.referral_id)) as any[];
       expect(trail.some((t) => t.step === "chased")).toBe(true);
@@ -274,7 +292,9 @@ describe("ReferralService", () => {
     bed.run(async () => {
       const r = await make({
         transmission_channel: "internal",
-        valid_until: new Date(Date.now() - 86400_000).toISOString().slice(0, 10),
+        valid_until: new Date(Date.now() - 86400_000)
+          .toISOString()
+          .slice(0, 10),
       });
       await svc.send(r.referral_id);
       const sweep = (await svc.sweepExpired()) as any;
@@ -323,14 +343,22 @@ describe("ReferralService", () => {
 
   it("counts the open pipeline per specialty server-side", () =>
     bed.run(async () => {
-      const a = await make({ transmission_channel: "internal", urgency: "urgent" });
-      const b = await make({ transmission_channel: "internal", urgency: "routine" });
+      const a = await make({
+        transmission_channel: "internal",
+        urgency: "urgent",
+      });
+      const b = await make({
+        transmission_channel: "internal",
+        urgency: "routine",
+      });
       await svc.send(a.referral_id);
       await svc.send(b.referral_id);
       const rows = (await svc.board()) as any[];
       const cardiology = rows.filter((r) => r.to_specialty === "cardiology");
       expect(cardiology.length).toBeGreaterThanOrEqual(1);
-      expect(cardiology.reduce((n, r) => n + r.open_referrals, 0)).toBeGreaterThanOrEqual(2);
+      expect(
+        cardiology.reduce((n, r) => n + r.open_referrals, 0),
+      ).toBeGreaterThanOrEqual(2);
     }));
 
   it("referral tracking steps are append-only: no void, no edit", () =>
