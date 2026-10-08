@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
 import { operatingSystemTenantInScope } from "@/lib/operating-systems";
-import { requestIsOnForeignSectorHost } from "@/lib/sector-host";
+import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 
 /**
  * Every Ujenzi deep link must resolve the canonical Ujenzi tenant
@@ -24,7 +24,7 @@ export default async function UjenziLayout({
   // Ujenzi OS is never served on another Sector OS's canonical subdomain
   // (`finance.beyu.co.tz/os/ujenzi`). Host → refusal only; the tenant /
   // classification / entity-scope gates below are unchanged and still decide.
-  if (await requestIsOnForeignSectorHost("UJENZI")) notFound();
+  if (await requestIsOnForeignOSHost("UJENZI")) notFound();
   const ujenziInScope = await operatingSystemTenantInScope(
     principal,
     "BEYU-UJENZI",

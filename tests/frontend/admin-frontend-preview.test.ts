@@ -60,6 +60,7 @@ import {
   SECTOR_OPERATING_SYSTEMS,
   UJENZI_OS_READ_PERMISSIONS,
 } from "@/lib/operating-systems";
+import { CANONICAL_SURFACES } from "@/lib/operating-system-catalog";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { CAPABILITY_IA } from "@/app/os/capabilities";
@@ -362,10 +363,15 @@ describe("the current BEYU admin previews all six frontend surfaces", () => {
     const launcher = source("src", "app", "launcher", "page.tsx");
     // The section is gated by the governed capability, never by a URL input.
     expect(code(launcher)).toContain('can(principal, "platform:frontend.preview")');
-    // Sector surfaces come from the canonical registry; the sixth surface is
-    // the existing canonical Family Office capability route.
+    // Sector surfaces come from the canonical registry; the sixth surface comes
+    // from the canonical SHARED-surface registry (`CANONICAL_SURFACES`), whose
+    // Family Office entry IS the existing canonical capability route.
     expect(launcher).toContain("SECTOR_OPERATING_SYSTEMS");
-    expect(launcher).toContain('href: "/os/family"');
+    const familyOffice = CANONICAL_SURFACES.find((surface) => surface.code === "FAMILY_OFFICE");
+    expect(familyOffice?.href).toBe("/os/family");
+    expect(familyOffice?.kind).toBe("SHARED_CAPABILITY");
+    expect(launcher).toContain('canonicalSurface("FAMILY_OFFICE")');
+    expect(launcher).toContain('note: "BEYU capability/domain surface — never an OS"');
     expect(launcher).toContain("The six canonical frontend surfaces");
     expect(launcher).toContain("BEYU Admin — Frontend Preview");
   });

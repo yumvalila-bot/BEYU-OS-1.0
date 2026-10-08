@@ -1,12 +1,14 @@
 /**
- * Canonical Sector OS subdomains — security contract (source-level, pure).
+ * CANONICAL HOST CONTRACT — security contract (source-level, pure).
  *
- * The subdomains are PRESENTATION boundaries. These gates pin that no file in
- * the change turns a hostname into authority, that every server-side gate the
- * four Sector OSs already had is still there and still runs first, that the
- * proxy is a thin adapter over the tested pure decision, that no second
- * application / registry / Noelia identity appeared, and that session scope
- * is handled by one helper on both the issue and the clear side.
+ * The canonical hostnames are PRESENTATION boundaries. These gates pin that no
+ * file in the change turns a hostname into authority, that every server-side
+ * gate each OS already had is still there and still runs first, that the proxy
+ * is a thin adapter over the tested pure decision, that the SHARED surfaces
+ * (Family Office capability, NOELIA_AI) are never modelled as operating
+ * systems, that no second application / registry / Noelia identity appeared,
+ * and that session scope is handled by one helper on both the issue and the
+ * clear side.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -28,8 +30,9 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const contract = source("src", "lib", "sector-domains.ts");
-const serverHelper = source("src", "lib", "sector-host.ts");
+const contract = source("src", "lib", "canonical-hosts.ts");
+const catalogue = source("src", "lib", "operating-system-catalog.ts");
+const serverHelper = source("src", "lib", "canonical-host.ts");
 const proxy = source("src", "proxy.ts");
 const cookie = source("src", "lib", "session-cookie.ts");
 const mount = source("src", "app", "os", "health", "mount.ts");
@@ -48,32 +51,85 @@ describe("1. the hostname contract is pure and reuses the one normaliser", () =>
     expect(c).toContain('from "./operating-system-catalog"');
   });
 
-  it("has no string-inference of an OS from host text", () => {
+  it("has no string-inference of a destination from host text", () => {
     const c = code(contract);
-    expect(c).not.toMatch(/includes\("health"\)|includes\("finance"\)|includes\("agriculture"\)|includes\("ujenzi"\)/);
+    for (const label of ["health", "finance", "agriculture", "ujenzi", "foundation", "familyoffice", "noelia"]) {
+      expect(c, label).not.toMatch(new RegExp(`includes\\("${label}"\\)`));
+    }
     expect(c).not.toMatch(/host(name)?\.(includes|indexOf|match)\(/);
   });
 
   it("derives labels from the canonical catalogue, not a parallel table", () => {
-    const catalogue = source("src", "lib", "operating-system-catalog.ts");
     expect(catalogue).toContain('subdomain: "health"');
     expect(catalogue).toContain('subdomain: "finance"');
     expect(catalogue).toContain('subdomain: "agriculture"');
     expect(catalogue).toContain('subdomain: "ujenzi"');
-    expect(catalogue.match(/subdomain: "/g)?.length).toBe(4);
-    expect(code(contract)).toContain("SECTOR_OPERATING_SYSTEMS.filter(");
-    expect(code(contract)).not.toMatch(/"health\.beyu|"finance\.beyu|"agriculture\.beyu|"ujenzi\.beyu|beyu\.co\.tz"/);
+    expect(catalogue).toContain('subdomain: "foundation"');
+    expect(catalogue).toContain('subdomain: "familyoffice"');
+    expect(catalogue).toContain('subdomain: "noelia"');
+    // The OS labels live on the OS entries; the surface labels on the SURFACES.
+    expect(source("src", "lib", "canonical-hosts.ts")).toContain("SECTOR_OPERATING_SYSTEMS.filter(");
+    expect(code(contract)).not.toMatch(/"[a-z]+\.beyu|\bhealth\.beyu|\bnoelia\.beyu|beyu\.co\.tz"/);
+    // No hardcoded apex anywhere in the routing code (it is configuration).
+    expect(code(contract)).not.toContain("beyu.co.tz");
+  });
+
+  it("keeps ONE hostname-resolution module: nothing else builds a hostname from a label", () => {
+    const offenders = walk(path.join(ROOT, "src")).filter((file) => {
+      const text = code(readFileSync(file, "utf8"));
+      return /`\$\{[a-zA-Z.]*subdomain\}\.\$\{|\$\{.*subdomain\}\.\${\w*apex/.test(text);
+    });
+    expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
   });
 });
 
-describe("2. the proxy is an adapter: no session, no database, no authority", () => {
+describe("2. the SHARED surfaces are never operating systems", () => {
+  it("declares Family Office and Noelia as surfaces, outside the OS catalogue", () => {
+    const c = code(catalogue);
+    // No invented OS identity for either surface.
+    expect(c).not.toMatch(/FAMILY_OFFICE_OS|NOELIA_OS|HEALTH_NOELIA|FINANCE_NOELIA|AGRICULTURE_NOELIA|UJENZI_NOELIA|FOUNDATION_NOELIA/);
+    expect(c).toContain("SHARED_CAPABILITY");
+    expect(c).toContain("GOVERNED_AI_INTERFACE");
+    expect(c).toContain('code: "FAMILY_OFFICE"');
+    expect(c).toContain('code: "NOELIA_AI"');
+    // The OS list itself contains no shared capability: slice the declared array.
+    const osList = c.slice(c.indexOf("SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = ["), c.indexOf("export const CANONICAL_SURFACES"));
+    expect(osList).not.toMatch(/FAMILY_OFFICE|NOELIA/);
+    expect(osList).toContain('code: "FOUNDATION"');
+    // The single canonical AI identity is NOELIA_AI, nowhere sector-qualified.
+    expect(source("src", "lib", "noelia", "canonical-identity.ts")).toContain("NOELIA_AI");
+  });
+
+  it("declares each surface's entry permission as the destination's OWN guard", () => {
+    // A declared permission that drifted from the page's guard would make the
+    // routing promise something the page refuses (or hide something it allows).
+    const c = code(catalogue);
+    expect(c).toContain('entryPermission: "family:member.read"');
+    expect(c).toContain('entryPermission: "ai:noelia.query"');
+    expect(code(source("src", "app", "os", "family", "page.tsx"))).toContain('requireAccess("family:member.read")');
+    expect(code(source("src", "app", "os", "noelia", "page.tsx"))).toContain('requireAccess("ai:noelia.query")');
+  });
+
+  it("does not add a Noelia navigation module or a sector-specific Noelia surface", () => {
+    const ia = code(source("src", "app", "os", "capabilities.ts"));
+    // Exactly the pre-existing Noelia/HIVE capability entries.
+    const noeliaHrefs = [...ia.matchAll(/href: "(\/os\/noelia[^"]*)"/g)].map((m) => m[1]);
+    expect(noeliaHrefs).toEqual(["/os/noelia", "/os/noelia/governance"]);
+    expect(ia).toContain('label: "Noelia / HIVE"');
+  });
+});
+
+describe("3. the proxy is an adapter: no session, no database, no authority", () => {
   it("exists as the single Next.js proxy and delegates to the pure decision", () => {
     expect(existsSync(path.join(ROOT, "src", "middleware.ts"))).toBe(false);
     expect(existsSync(path.join(ROOT, "middleware.ts"))).toBe(false);
     expect(existsSync(path.join(ROOT, "proxy.ts"))).toBe(false);
     expect(proxy).toMatch(/export function proxy\(/);
     expect(code(proxy)).toContain("decideProxyAction(");
-    expect(code(proxy)).toContain("sectorDomainOptionsFromEnvironment()");
+    expect(code(proxy)).toContain("canonicalHostOptionsFromEnvironment()");
+    // The superseded module names are gone: ONE contract, no leftover twin.
+    expect(existsSync(path.join(ROOT, "src", "lib", "sector-domains.ts"))).toBe(false);
+    expect(existsSync(path.join(ROOT, "src", "lib", "sector-host.ts"))).toBe(false);
   });
 
   it("reads no cookie and touches no session, database or authorization module", () => {
@@ -98,10 +154,10 @@ describe("2. the proxy is an adapter: no session, no database, no authority", ()
   });
 });
 
-describe("3. every Sector OS keeps its own server-side gate; the host can only refuse", () => {
-  it("Health mount refuses a foreign sector host BEFORE the federation gate and BEFORE the document", () => {
+describe("4. every OS keeps its own server-side gate; the host can only refuse", () => {
+  it("Health mount refuses a foreign OS/surface host BEFORE the federation gate and BEFORE the document", () => {
     const c = code(mount);
-    const foreign = c.indexOf('isForeignSectorHost(request.host, "HEALTH")');
+    const foreign = c.indexOf('isForeignOSHost(request.host, "HEALTH")');
     expect(foreign).toBeGreaterThan(-1);
     expect(foreign).toBeGreaterThan(c.indexOf("resolvePrincipal()"));
     expect(foreign).toBeLessThan(c.indexOf("checkHealthOSAuthorization("));
@@ -116,18 +172,20 @@ describe("3. every Sector OS keeps its own server-side gate; the host can only r
     expect(c).not.toMatch(/pathname|searchParams|request\.headers|x-forwarded/i);
   });
 
-  it("Agriculture, Ujenzi and Finance refuse a foreign sector host after the session gate and keep their scope gates", () => {
+  it("Agriculture, Ujenzi, Finance and Foundation refuse a foreign host after the session gate and keep their scope gates", () => {
     const agriculture = code(source("src", "app", "os", "agriculture", "layout.tsx"));
     const ujenzi = code(source("src", "app", "os", "ujenzi", "layout.tsx"));
     const finance = code(source("src", "app", "os", "finance", "layout.tsx"));
+    const foundation = code(source("src", "app", "os", "foundation", "layout.tsx"));
 
     for (const [text, codeName] of [
       [agriculture, "AGRICULTURE"],
       [ujenzi, "UJENZI"],
       [finance, "FINANCE"],
+      [foundation, "FOUNDATION"],
     ] as const) {
       const session = text.indexOf("requirePrincipal()");
-      const foreign = text.indexOf(`requestIsOnForeignSectorHost("${codeName}")`);
+      const foreign = text.indexOf(`requestIsOnForeignOSHost("${codeName}")`);
       expect(session, codeName).toBeGreaterThan(-1);
       expect(foreign, codeName).toBeGreaterThan(session);
       expect(text.slice(foreign, foreign + 120), codeName).toContain("notFound()");
@@ -135,7 +193,9 @@ describe("3. every Sector OS keeps its own server-side gate; the host can only r
     // Existing tenant/classification gates are untouched.
     expect(agriculture).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-AGRI",');
     expect(ujenzi).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-UJENZI",');
+    expect(foundation).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-FOUNDATION",');
     expect(ujenzi).toContain("principal.entityScope.length > 0");
+    expect(foundation).toContain("principal.entityScope.length > 0");
     // The Finance layout grants nothing: the pages keep their own capability guard.
     expect(finance).not.toMatch(/\bcan\(|requireAccess\(/);
     expect(source("src", "app", "os", "finance", "page.tsx")).toContain('requireAccess("finance:ledger.read")');
@@ -146,7 +206,10 @@ describe("3. every Sector OS keeps its own server-side gate; the host can only r
     const c = code(serverHelper);
     expect(c).toContain('h.get("host")');
     expect(c).not.toMatch(/x-forwarded|cookies\(|resolvePrincipal|from "@\/db|\bcan\(/);
-    expect(c).toContain('resolution.kind === "SECTOR" && resolution.os.code !== code');
+    // Another OS's host refuses; a canonical SHARED-surface host refuses too (it
+    // carries no OS identity), while neutral hosts and the OS's own host pass.
+    expect(c).toContain("if (resolution.kind === \"SECTOR_OS\") return resolution.os.code !== code;");
+    expect(c).toContain("return resolution.kind === \"SURFACE\";");
   });
 
   it("the control-plane shell and the OS resolver are unchanged as authorization boundaries", () => {
@@ -154,34 +217,67 @@ describe("3. every Sector OS keeps its own server-side gate; the host can only r
     expect(layout).toContain("checkBeyuOSAuthorization(principal).authorized");
     expect(layout).toContain('redirect("/launcher")');
     const operatingSystems = code(source("src", "lib", "operating-systems.ts"));
-    expect(operatingSystems).not.toMatch(/host|subdomain|sector-domains/i);
+    expect(operatingSystems).not.toMatch(/host|subdomain|canonical-hosts/i);
   });
 });
 
-describe("4. reaching a subdomain authorizes nothing", () => {
-  it("the sign-in page redirects to the sector home only through authorizedOperatingSystems()", () => {
+describe("5. reaching a canonical host authorizes nothing", () => {
+  it("the sign-in page redirects to an OS home only through authorizedOperatingSystems()", () => {
     const c = code(signIn);
     const resolver = c.indexOf("authorizedOperatingSystems(principal)");
-    const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === sector.code)");
+    const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     expect(resolver).toBeGreaterThan(-1);
     expect(sectorRedirect).toBeGreaterThan(resolver);
-    // The existing routing is preserved after the sector branch.
+    // The existing routing is preserved after the host branch.
     expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(c).toContain("if (destinations.length === 1) redirect(destinations[0].href);");
+    expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
     // Host is read through the one server helper; never from a query string.
-    expect(c).toContain("sectorHostForRequest()");
+    expect(c).toContain("canonicalHostForRequest()");
     expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
   });
 
+  it("a SHARED-surface host redirects only through that destination's own declared guard", () => {
+    const c = code(signIn);
+    const surfaceRedirect = c.indexOf("can(principal, canonicalHost.surface.entryPermission).allowed");
+    expect(surfaceRedirect).toBeGreaterThan(-1);
+    // It reuses the canonical registry's declared permission — not a literal and
+    // not a second permission table.
+    expect(c).toContain("canonicalHost.surface.entryPermission");
+    expect(c).not.toMatch(/can\(principal, "family:member\.read"\)/);
+    expect(c).not.toMatch(/can\(principal, "ai:noelia\.query"\)/);
+  });
+
   it("the post-login landing is server-computed and same-origin only", () => {
-    expect(code(signIn)).toContain('landing={sector ? sector.href : "/os"}');
+    expect(code(signIn)).toContain('landing={requestedContext ? requestedContext.href : "/os"}');
     const form = code(signInForm);
     expect(form).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/os"');
     expect(form).not.toMatch(/window\.location\.search|URLSearchParams|searchParams/);
   });
+
+  it("no layout, page or route reads a canonical host for anything but presentation/refusal", () => {
+    // A hostname may only ever be read through the ONE server helper, and the
+    // helper's consumers are enumerated here: the sign-in page, the launcher
+    // hrefs, the OS layouts and the Health mount. A new consumer must be a
+    // deliberate, reviewed addition.
+    const consumers = walk(path.join(ROOT, "src"))
+      .filter((file) => /from "@\/lib\/canonical-host"/.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(ROOT, file).split(path.sep).join("/"))
+      .sort();
+    expect(consumers).toEqual([
+      "src/app/launcher/page.tsx",
+      "src/app/os/agriculture/layout.tsx",
+      "src/app/os/capability-map.tsx",
+      "src/app/os/finance/layout.tsx",
+      "src/app/os/foundation/layout.tsx",
+      "src/app/os/health/mount.ts",
+      "src/app/os/layout.tsx",
+      "src/app/os/ujenzi/layout.tsx",
+      "src/app/page.tsx",
+    ]);
+  });
 });
 
-describe("5. session scope — one helper, both sides", () => {
+describe("6. session scope — one helper, both sides", () => {
   it("login sets the cookie through the helper with the request host; logout clears every variant", () => {
     expect(code(login)).toContain('sessionCookieAttributes(h.get("host"))');
     expect(code(login)).not.toMatch(/sameSite:|httpOnly:|secure:/);
@@ -209,10 +305,10 @@ describe("5. session scope — one helper, both sides", () => {
   });
 });
 
-describe("6. one application, one registry, one Noelia", () => {
+describe("7. one application, one registry, one Noelia, no duplicate identities", () => {
   it("creates no sector-specific Noelia identity and no duplicate OS identity", () => {
     const files = walk(path.join(ROOT, "src"));
-    const forbidden = /HEALTH_NOELIA|FINANCE_NOELIA|AGRICULTURE_NOELIA|UJENZI_NOELIA|FAMILY_OFFICE_OS|HCM_OS/;
+    const forbidden = /HEALTH_NOELIA|FINANCE_NOELIA|AGRICULTURE_NOELIA|UJENZI_NOELIA|FAMILY_OFFICE_OS|HCM_OS|CONSTRUCTION_OS|HEALTH_PLATFORM/;
     const offenders = files.filter((file) => forbidden.test(readFileSync(file, "utf8")));
     expect(offenders.map((f) => path.relative(ROOT, f))).toEqual([]);
     expect(source("src", "lib", "noelia", "canonical-identity.ts")).toContain("NOELIA_AI");
@@ -225,10 +321,10 @@ describe("6. one application, one registry, one Noelia", () => {
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
     expect(journal.entries.at(-1)?.tag).toBe("0074_enterprise_intelligence_expansion");
-    expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain/i.test(f) && f > "0074")).toBe(false);
+    expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 
-  it("documents the two configuration variables without committing any value", () => {
+  it("documents the configuration variables without committing any value", () => {
     const env = source(".env.example");
     expect(env).toContain("BEYU_CANONICAL_DOMAIN");
     expect(env).toContain("BEYU_SESSION_COOKIE_DOMAIN");

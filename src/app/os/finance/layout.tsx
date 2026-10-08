@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { requirePrincipal } from "@/lib/guard";
-import { requestIsOnForeignSectorHost } from "@/lib/sector-host";
+import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 
 /**
  * Finance OS canonical-host boundary.
@@ -15,6 +15,6 @@ import { requestIsOnForeignSectorHost } from "@/lib/sector-host";
  */
 export default async function FinanceLayout({ children }: { children: ReactNode }) {
   await requirePrincipal();
-  if (await requestIsOnForeignSectorHost("FINANCE")) notFound();
+  if (await requestIsOnForeignOSHost("FINANCE")) notFound();
   return children;
 }

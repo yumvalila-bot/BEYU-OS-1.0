@@ -7,10 +7,11 @@
  * `Secure` in production, `Path=/`, HOST-ONLY (no `Domain`).
  *
  * CANONICAL-DOMAIN SESSION SHARING (opt-in, narrow)
- *   BEYU OS now has four canonical Sector OS subdomains beneath the apex. A
- *   host-only cookie is NOT sent to a sibling host, so "sign in once at
- *   www.beyu.co.tz, launch Health OS at health.beyu.co.tz" needs the cookie
- *   scoped to the apex. That broadening happens ONLY when every one of these
+ *   BEYU OS has canonical OS/capability subdomains beneath the apex
+ *   (`health`/`finance`/`agriculture`/`ujenzi`/`foundation`, plus the
+ *   `familyoffice` and `noelia` surfaces). A host-only cookie is NOT sent to a
+ *   sibling host, so "sign in once at www.beyu.co.tz, launch Health OS at
+ *   health.beyu.co.tz" needs the cookie scoped to the apex. That broadening happens ONLY when every one of these
  *   holds, and otherwise the cookie stays host-only:
  *
  *     1. `BEYU_SESSION_COOKIE_DOMAIN` is configured;
@@ -29,7 +30,7 @@
  * where the token travels, never what it may do.
  */
 import { SESSION_COOKIE } from "./constants";
-import { parseCanonicalDomain } from "./sector-domains";
+import { parseCanonicalDomain } from "./canonical-hosts";
 import { normalizeHostname } from "./tenant-domain/hostname";
 
 export type SessionCookieAttributes = {

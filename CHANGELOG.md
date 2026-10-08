@@ -1,5 +1,60 @@
 # Changelog
 
+## [Unreleased] — Canonical OS / capability entry hosts — every OS independently addressable — 2026-10-08
+
+Extends PR #100 (baseline `main` = `d6848e73`) so that EVERY canonical destination is an independent
+user entry point, not only the four Sector OS hosts. Additive and backward-compatible: the ONE
+application, OS catalogue, authentication, authorization, tenant isolation, RLS, audit and
+Noelia/HIVE architecture are unchanged, and BEYU OS remains the constitutional control plane
+underneath. Design, security model, DNS/Vercel plan and rollback:
+`docs/architecture/SECTOR_OS_SUBDOMAINS.md`.
+
+- Host map completed (`src/lib/canonical-hosts.ts`, renamed from `sector-domains.ts` because it now
+  resolves the control plane, the five OS hosts AND the two shared-surface hosts):
+  `foundation.<apex>` → FOUNDATION (the already-registered `FOUNDATION_OS` — no new or renamed
+  identity), `familyoffice.<apex>` → FAMILY OFFICE capability (`SHARED_FAMILY_OFFICE`, never an OS,
+  no `FAMILY_OFFICE_OS`), `noelia.<apex>` → NOELIA_AI (the single governed AI identity; no
+  sector-specific Noelia). `beyu.co.tz`/`www` stay the central BEYU OS experience, never a mandatory
+  gateway.
+- The two shared surfaces are declared in the canonical catalogue (`CANONICAL_SURFACES`) with the
+  destination's OWN guard permission (`family:member.read`, `ai:noelia.query`) so routing and the
+  governed launcher never promise a surface the backend would deny. Nothing grants authority: the
+  pages still call `requireAccess(...)` themselves.
+- `src/lib/canonical-host.ts` (renamed from `sector-host.ts`): `isForeignOSHost` now also refuses a
+  canonical SHARED-surface host for an OS surface, and the FOUNDATION layout gains the same refusal
+  the other OS layouts already had. Pre-existing gates (session, federation link, tenant/
+  classification/entity scope, `requireAccess`, RLS) are untouched.
+- Proxy: the cross-OS redirect now treats Foundation as the independently addressable OS it is
+  (`health.beyu.co.tz/os/foundation` → `foundation.beyu.co.tz/os/foundation`) and applies the
+  ownership rule on the shared-surface hosts as well; the apex/`www` still never redirects, and no
+  destination host ever redirects to `beyu.co.tz`. Targets remain built from catalogue +
+  configuration only — one hop, no loop, no open redirect.
+- Sign-in page: titled and landed for the resolved destination (OS **or** shared surface); an
+  authenticated principal is redirected only through the destination's own gate
+  (`authorizedOperatingSystems()` for an OS, the declared surface guard for a capability/AI host),
+  and the landing stays a relative, server-computed path. The launcher's sixth surface now comes from
+  `CANONICAL_SURFACES` instead of a duplicated local literal.
+- Tests (`tests/sector-domains/`): `canonical-host-contract.test.ts`, `canonical-entry-points.test.ts`
+  (acceptance matrix A–J: every host real, served in place, no apex hop, no loop, gates intact),
+  `canonical-host-security.test.ts` (source-level invariants incl. "shared surfaces are never OSes",
+  the declared guard equals the page's guard, and a repository-wide "no second hostname builder"
+  scan) and `canonical-host-http.test.ts` (real server, all eight hosts, cross-OS redirects, hostile
+  Host values, and a byte-identical `/api/v1/authorization/context` across hosts as the tenant-
+  isolation proof). `tests/frontend/admin-frontend-preview.test.ts` tracks the launcher's move to the
+  canonical surface registry.
+- Defect found by the entry-point audit and fixed here (pre-existing, not introduced by the host
+  contract): `GET /api/v1/authorization/context` and its mobile twin ran their audit/event writes
+  (and their tenant-scoped reads) on a bare pooled connection, so the `audit_log` RLS policy refused
+  the row and EVERY authenticated call returned 500. Both routes now run inside the same
+  connection-pinned, transaction-local tenant context `guarded()` establishes (derived from the
+  resolved principal / the validated session only). Verified end-to-end in
+  `tests/sector-domains/canonical-host-http.test.ts` (200, and byte-identical governed facts on every
+  canonical host).
+- Human-controlled, NOT done here: adding the seven domains to the existing Vercel project, the
+  seven CNAME records at the registrar, HTTPS issuance, setting the two environment variables,
+  promotion. No DNS record, certificate, Vercel domain, secret or production change was made by this
+  work; no migration was added.
+
 ## [Unreleased] — Canonical Sector OS subdomains — 2026-10-08
 
 Additive, backward-compatible routing of the four canonical Sector OS experiences to their own BEYU
