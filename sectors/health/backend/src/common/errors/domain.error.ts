@@ -55,12 +55,20 @@ export class DomainError extends Error {
   }
 
   static validation(errors: Record<string, string[]> | string): DomainError {
-    const detail =
-      typeof errors === "string" ? { message: errors } : { fields: errors };
+    if (typeof errors === "string") {
+      return new DomainError("VALIDATION", errors, { message: errors });
+    }
+    // The message names the offending fields. A flat "Validation failed" is
+    // correct but useless in a log line or a non-JSON client, and this error
+    // crosses several boundaries (audit detail, outbox payload) where only the
+    // message survives.
+    const summary = Object.entries(errors)
+      .map(([field, reasons]) => `${field} ${(reasons ?? []).join(", ")}`.trim())
+      .join("; ");
     return new DomainError(
       "VALIDATION",
-      typeof errors === "string" ? errors : "Validation failed",
-      detail,
+      summary ? `Validation failed: ${summary}` : "Validation failed",
+      { fields: errors },
     );
   }
 
