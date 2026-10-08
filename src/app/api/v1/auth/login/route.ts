@@ -9,6 +9,7 @@ import { decryptSecret, hashRecoveryCode, verifyTotp } from "@/lib/mfa";
 import { recordAudit, recordAuditTx, publishEventTx } from "@/lib/audit";
 import { apiError, apiOk, rateLimit } from "@/lib/api";
 import { SESSION_COOKIE } from "@/lib/constants";
+import { sessionCookieAttributes } from "@/lib/session-cookie";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { LOGIN_RATE_LIMIT, loginRateLimitKeys, newSessionValues, trustedClientIp } from "@/lib/session";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
@@ -20,10 +21,6 @@ const LoginSchema = z.object({
   password: z.string().min(8).max(200),
   mfaCode: z.string().min(6).max(16).optional(),
 });
-
-function productionMode() {
-  return process.env.NODE_ENV === "production" || process.env.BEYU_ENV === "production";
-}
 
 /** Credential authentication with real TOTP step-up, replay prevention, lockout and atomic audit. */
 export async function POST(request: Request): Promise<NextResponse> {
@@ -304,12 +301,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     }),
   );
 
+  // ONE cookie policy (src/lib/session-cookie.ts): host-only by default;
+  // scoped to the canonical apex only when the deployment opts in AND the
+  // request host is under that apex. Logout clears the same variants.
   const jar = await cookies();
   jar.set(SESSION_COOKIE, rawToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: productionMode(),
-    path: "/",
+    ...sessionCookieAttributes(h.get("host")),
     expires: expiresAt,
   });
 

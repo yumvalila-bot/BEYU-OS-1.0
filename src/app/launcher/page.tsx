@@ -11,6 +11,7 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { can } from "@/lib/authz";
 import { resolvePrincipal } from "@/lib/session";
+import { destinationHrefForRequest } from "@/lib/sector-host";
 import { SignOutButton } from "../os/sign-out-button";
 import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
 
@@ -27,7 +28,22 @@ const FAMILY_OFFICE_SURFACE = {
   note: "BEYU capability/domain surface — never an OS",
 };
 
-function DestinationCard({ destination, authorized }: { destination: OperatingSystemDestination; authorized: boolean }) {
+/**
+ * `href` is resolved by the page from the canonical host contract: the Sector
+ * OS's canonical subdomain URL when the deployment is configured for it (shared
+ * session across the canonical apex) and the current request is already on a
+ * canonical BEYU host; otherwise the pre-existing relative route. Presentation
+ * only — the destination re-runs its gate on arrival whichever URL is used.
+ */
+function DestinationCard({
+  destination,
+  authorized,
+  href,
+}: {
+  destination: OperatingSystemDestination;
+  authorized: boolean;
+  href: string;
+}) {
   const content = (
     <>
       <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${authorized ? "bg-[#0b1f4d] text-[#e7c45c]" : "bg-slate-100 text-slate-400"}`}>
@@ -64,7 +80,7 @@ function DestinationCard({ destination, authorized }: { destination: OperatingSy
 
   return (
     <Link
-      href={destination.href}
+      href={href}
       className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-[#d4a017]/60 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017]"
     >
       {content}
@@ -78,6 +94,8 @@ export default async function LauncherPage() {
 
   const destinations = await authorizedOperatingSystems(principal);
   if (destinations.length === 1) redirect(destinations[0].href);
+  // Canonical Sector OS subdomain links (presentation only; see DestinationCard).
+  const hrefFor = await destinationHrefForRequest();
 
   if (destinations.length === 0) {
     return (
@@ -127,7 +145,7 @@ export default async function LauncherPage() {
   }> = [
     ...SECTOR_OPERATING_SYSTEMS.map((destination) => ({
       name: destination.name,
-      href: destination.href,
+      href: hrefFor(destination),
       icon: destination.icon,
       note: "Sector OS",
       authorized: authorizedCodes.has(destination.code),
@@ -185,7 +203,7 @@ export default async function LauncherPage() {
             </div>
             <div className="grid gap-5 lg:grid-cols-2">
               {controlPlane.map((destination) => (
-                <DestinationCard key={destination.code} destination={destination} authorized />
+                <DestinationCard key={destination.code} destination={destination} authorized href={hrefFor(destination)} />
               ))}
             </div>
           </section>
@@ -204,7 +222,12 @@ export default async function LauncherPage() {
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             {SECTOR_OPERATING_SYSTEMS.map((destination) => (
-              <DestinationCard key={destination.code} destination={destination} authorized={authorizedCodes.has(destination.code)} />
+              <DestinationCard
+                key={destination.code}
+                destination={destination}
+                authorized={authorizedCodes.has(destination.code)}
+                href={hrefFor(destination)}
+              />
             ))}
           </div>
         </section>

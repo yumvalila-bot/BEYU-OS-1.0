@@ -27,7 +27,10 @@ export function NavLink({
   variant?: "sidebar" | "chip";
 }) {
   const pathname = usePathname();
-  const active = href === "/os" ? pathname === "/os" : pathname.startsWith(href);
+  // A canonical Sector OS entry may carry its absolute subdomain URL; current-page
+  // semantics compare its path only (presentation — never a routing decision).
+  const route = /^https?:\/\//i.test(href) ? new URL(href).pathname : href;
+  const active = route === "/os" ? pathname === "/os" : pathname.startsWith(route);
 
   if (variant === "chip") {
     return (

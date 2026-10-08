@@ -62,6 +62,7 @@
 import { NextResponse } from "next/server";
 import { healthSpaHtml } from "@/app/health/os/spa-content";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { isForeignSectorHost } from "@/lib/sector-host";
 import { resolvePrincipal } from "@/lib/session";
 import {
   hostnameDenialResponse,
@@ -98,6 +99,16 @@ export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise
       status: 307,
       headers: { Location: "/" },
     });
+  }
+
+  // Gate 3a — CANONICAL SECTOR HOST. Health OS is never served on another
+  // Sector OS's canonical subdomain (`finance.beyu.co.tz/os/health`). The
+  // canonical contract (`src/lib/sector-domains.ts`) resolves the host from
+  // configuration and the catalogue only, and here it can only REFUSE: the
+  // Health host itself, www/apex, a preview host, localhost and a missing host
+  // all pass through to the gates below unchanged.
+  if (isForeignSectorHost(request.host, "HEALTH")) {
+    return hostnameDenialResponse();
   }
 
   // Gate 3 (evaluated before the federation gate because it is the cheapest and

@@ -26,6 +26,17 @@ This document records (a) what the repository actually implements, (b) what is
 **not** implemented and must never be claimed as done, and (c) exactly what a
 human operator must do at the DNS and deployment-platform layers.
 
+> **Related (2026-10-08):** the four canonical Sector OS **entry** subdomains on
+> the production apex — `health.beyu.co.tz`, `finance.beyu.co.tz`,
+> `agriculture.beyu.co.tz`, `ujenzi.beyu.co.tz` — are a separate,
+> presentation-only contract documented in
+> [`SECTOR_OS_SUBDOMAINS.md`](./SECTOR_OS_SUBDOMAINS.md). They are resolved
+> pre-authentication from configuration + the canonical catalogue and select a
+> *home*; this registry remains the post-authentication authority for governed
+> *tenant* hostnames and only ever narrows. The two agree by construction: a
+> tenant hostname (`<tenant>.health.<apex>`) is never a sector entry host, and
+> a sector entry host carries no tenant context.
+
 The principle chain, unchanged and non-negotiable:
 
 ```

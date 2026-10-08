@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { osRegistry } from "@/db/schema";
 import { type Principal } from "@/lib/authz";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
+import { destinationHrefForRequest } from "@/lib/sector-host";
 import { Badge } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
@@ -20,10 +21,10 @@ const SECTOR_REGISTRY_CODE: Record<string, string> = {
   "/os/foundation": "FOUNDATION_OS",
 };
 
-function Card({ item, lifecycle }: { item: CapabilityItem; lifecycle?: string }) {
+function Card({ item, lifecycle, href }: { item: CapabilityItem; lifecycle?: string; href?: string }) {
   return (
     <Link
-      href={item.href}
+      href={href ?? item.href}
       className="beyu-panel group flex items-start gap-3 px-4 py-3.5 transition hover:border-[#d4af37]/60"
     >
       <span className="mt-[1px] flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d4af37]/35 bg-[#d4af37]/10 text-[#8a6d10] dark:text-[#efd98f]">
@@ -60,11 +61,11 @@ function Card({ item, lifecycle }: { item: CapabilityItem; lifecycle?: string })
  *   exposing anything about the restricted surfaces themselves.
  */
 export async function CapabilityMap({ principal }: { principal: Principal }) {
-  const operatingSystemHrefs = new Set(
-    (await authorizedOperatingSystems(principal)).map((destination) =>
-      destination.href,
-    ),
-  );
+  const destinations = await authorizedOperatingSystems(principal);
+  const operatingSystemHrefs = new Set(destinations.map((destination) => destination.href));
+  // Canonical Sector OS subdomain links when configured (presentation only).
+  const hrefFor = await destinationHrefForRequest();
+  const renderedHref = new Map(destinations.map((destination) => [destination.href, hrefFor(destination)]));
   const registryRows = await db
     .select({ code: osRegistry.code, lifecycle: osRegistry.lifecycle })
     .from(osRegistry)
@@ -105,6 +106,7 @@ export async function CapabilityMap({ principal }: { principal: Principal }) {
                 <Card
                   key={`${item.href}:${item.label}`}
                   item={item}
+                  href={group.id === "sector" ? renderedHref.get(item.href) : undefined}
                   lifecycle={
                     group.id === "sector"
                       ? lifecycleByCode.get(SECTOR_REGISTRY_CODE[item.href] ?? "") ?? undefined

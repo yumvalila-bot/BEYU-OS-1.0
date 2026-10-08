@@ -1,5 +1,45 @@
 # Changelog
 
+## [Unreleased] — Canonical Sector OS subdomains — 2026-10-08
+
+Additive, backward-compatible routing of the four canonical Sector OS experiences to their own BEYU
+subdomains, inside the ONE existing application, OS catalogue, authentication, authorization, tenant
+isolation, RLS, audit and Noelia/HIVE architecture. Baseline `main` = `2965aa77`. Design, security
+model, DNS/Vercel plan and rollback: `docs/architecture/SECTOR_OS_SUBDOMAINS.md`.
+
+- Domain contract (`src/lib/sector-domains.ts`, pure): `health.<apex>` → HEALTH_OS, `finance.<apex>` →
+  FINANCE_OS, `agriculture.<apex>` → AGRICULTURE_OS, `ujenzi.<apex>` → UJENZI_OS. Labels live on the
+  canonical catalogue (`operating-system-catalog.ts` → `subdomain`); the apex is deployment configuration
+  (`BEYU_CANONICAL_DOMAIN`, unset by default → no host resolves to a sector). Exact-match resolution
+  through the ONE existing hostname normaliser; look-alike, suffix, nested, unknown, IP, preview and
+  malformed hosts resolve to no sector. `<label>.localhost` resolves outside production for `next dev`.
+- `src/proxy.ts` (Next.js 16 proxy; first hostname-aware layer in the repository): (1) refuses unsafe-
+  method requests with a foreign `Origin` (CSRF hardening; no CORS header is ever added), (2) on a
+  sector host, 307-redirects paths owned by ANOTHER canonical sector to that sector's canonical host
+  (target built from catalogue + configuration, never from input; cannot loop), (3) passes everything
+  else through. Reads no cookie, no session, no database.
+- Sign-in page is sector-aware on a sector host (title, server-computed post-login landing); an
+  authenticated principal is sent to the sector home ONLY when `authorizedOperatingSystems()` already
+  lists that OS. Reaching a subdomain authorizes nothing.
+- Server-side refusals (defence in depth): Health mount (`404`, before the federation gate), Agriculture
+  / Ujenzi layouts and a new host-only Finance layout (`notFound()`) refuse a FOREIGN sector host. All
+  pre-existing gates (session, federation link, tenant/classification scope, entity scope,
+  `requireAccess`, RLS) unchanged.
+- Session cookie: ONE helper (`src/lib/session-cookie.ts`) now used by login and logout. Defaults
+  unchanged (host-only, httpOnly, Lax, Secure in production). Opt-in sharing across the canonical apex
+  via `BEYU_SESSION_COOKIE_DOMAIN` (must equal `BEYU_CANONICAL_DOMAIN`; applied only for requests under
+  the apex; forces Secure). Logout clears both the host-only and domain-scoped variants.
+- Launcher, `/os` sidebar and capability map render the canonical subdomain URL for the four Sector OS
+  entries ONLY when session sharing is configured and the request is on a canonical BEYU host; otherwise
+  the existing relative routes. `www`/apex, `/launcher`, `/os/*` and all deep links keep working.
+- No migration, no Vercel project file, no second application, no sector-specific Noelia identity.
+- Tests: `tests/sector-domains/` — domain contract (mapping, normalisation, hostile hosts, path
+  ownership, proxy routing + loop proof, Origin check), session-cookie policy, source-level security
+  contract, and an HTTP suite (skips without a server) covering sign-in, authorized/unauthorized landing,
+  cross-sector redirects, hostile hosts and the Origin check.
+- Human-controlled, NOT done here: adding the four domains to the existing Vercel project, the four
+  CNAME records at DUHosting, HTTPS issuance, setting the two environment variables, promotion.
+
 ## [Unreleased] — Universal Dimensional Graphics, Visualization, Simulation, Digital Twin & Future XR Foundation — 2026-09-22
 
 Additive, backward-compatible introduction of **ONE shared BEYU capability** (NOT an OS, NOT a sector):

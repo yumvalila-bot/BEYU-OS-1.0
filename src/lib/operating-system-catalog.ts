@@ -8,7 +8,18 @@ export type OperatingSystemDestination = {
   description: string;
   href: string;
   icon: IconName;
+  /**
+   * Canonical Sector OS subdomain LABEL (`health` → `health.<apex>`), present
+   * only on the four Sector OSs that have a canonical subdomain. The apex is
+   * deployment configuration (`BEYU_CANONICAL_DOMAIN`), resolved by
+   * `src/lib/sector-domains.ts`. Presentation/routing identity only: a host
+   * selects a home, never a tenant, role, permission or OS authorization.
+   */
+  subdomain?: SectorSubdomainLabel;
 };
+
+/** The only labels that may ever appear on a canonical subdomain. */
+export type SectorSubdomainLabel = "health" | "finance" | "agriculture" | "ujenzi";
 
 export const BEYU_CONTROL_PLANE: OperatingSystemDestination = {
   code: "BEYU",
@@ -28,6 +39,7 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     description: "Canonical financial authority for ledger, periods, treasury, tax and reconciliation.",
     href: "/os/finance",
     icon: "finance",
+    subdomain: "finance",
   },
   {
     code: "HEALTH",
@@ -41,6 +53,7 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     // aliases — no second implementation, no second shell.
     href: "/os/health",
     icon: "health",
+    subdomain: "health",
   },
   {
     code: "AGRICULTURE",
@@ -49,6 +62,7 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     description: "Farms, crops, livestock, traceability and export operations under BEYU governance.",
     href: "/os/agriculture",
     icon: "agriculture",
+    subdomain: "agriculture",
   },
   {
     code: "FOUNDATION",
@@ -65,5 +79,6 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, site operations, quality, HSE, variations, claims, payment certificates and handover.",
     href: "/os/ujenzi",
     icon: "ujenzi",
+    subdomain: "ujenzi",
   },
 ];
