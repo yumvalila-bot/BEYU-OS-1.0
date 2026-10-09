@@ -167,7 +167,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Verified Docker Official Image mirror. Avoids Docker Hub pull outages
+        # without changing the PostgreSQL image, major version, or any gate.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           # Ephemeral, run-scoped. This container is destroyed when the job ends.
           POSTGRES_USER: postgres
@@ -666,7 +668,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Verified mirror of the same Docker Official PostgreSQL image used by
+        # the root gate; this is registry resilience, not a test substitution.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

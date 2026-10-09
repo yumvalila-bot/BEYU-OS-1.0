@@ -17,7 +17,7 @@ This section supersedes every older disposition below. Historical sections remai
 - The validated executable head is `95c56441a42902227a65df4500db50b4d740231d` on the existing PR #96 branch, with exact-current-main integration commit `ab09460c8023528d522c60b0e6830dc9941e88c6` and base/parent `86dc7e7748e48d0fecd3d465a1a60ad1826a7c13`.
 - Immediately after fresh CI completed, fetched `origin/main` remained exactly `86dc7e7748e48d0fecd3d465a1a60ad1826a7c13`; no newer mainline delta was outstanding.
 - GitHub reported PR #96 open, non-draft, `MERGEABLE`, and `CLEAN` on the validated head. No human review decision was recorded.
-- The only repository change after the validated executable head is this Markdown evidence update; it changes no executable source, workflow, migration, test, dependency, or generated artifact.
+- Later repository changes comprise this Markdown evidence update and a registry-only CI resilience correction described below; no application source, migration, test assertion, dependency, database behavior, or generated artifact changed.
 
 ### -2.2 Browser-gate diagnosis and correction
 
@@ -54,6 +54,8 @@ Every other job in the same run also passed: committed-secret scan, P3 release g
 Database-release run [`37987540865`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540865) also passed its scratch-PostgreSQL migration-validation job [`114013160731`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540865/job/114013160731) in 1m4s: clean installation, zero-pending/no-drift preflight, finite application-role provisioning, and expected schema/security-state capture all succeeded. Production deploy, production preflight/drift, runtime verification, release record, and PVG were intentionally skipped for the pull-request event. Therefore **PRODUCTION MIGRATION NOT VERIFIED** remains explicit; no production operation was performed.
 
 The only CI annotations were GitHub's Node.js action-runtime deprecation notices. They were not test, security, migration, audit, or build failures.
+
+After this evidence section was added, repeated final-head runs failed before checkout because GitHub Actions could not pull `postgres:16` from Docker Hub; the annotations explicitly reported `Docker pull failed with exit code 1` during `Initialize containers`. No repository command, migration, or test executed in those failed jobs. The three PostgreSQL service declarations now use `public.ecr.aws/docker/library/postgres:16`, Amazon ECR Public's verified Docker-account mirror of the same Docker Official PostgreSQL image and major-version tag. This changes only the registry transport: the PostgreSQL image family/version, health check, credentials, ports, jobs, gates, and assertions are unchanged.
 
 ### -2.4 Final disposition
 
