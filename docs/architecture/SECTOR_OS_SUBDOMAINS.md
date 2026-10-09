@@ -113,6 +113,22 @@ permissions, navigation) — a convenient index, **never a prerequisite**.
   destination's own governed denial (`Authorisation denied`, the Foundation
   scope denial, or the Health entry/denial page). A hostname never adds access.
 
+> **Repair 2026-10-09.** The code did not match this contract for the
+> authenticated / not-authorized case: the sign-in/routing page consulted the
+> destination contract only for the sign-in copy and the already-authorized
+> fast-path, and otherwise fell through to the control-plane routing — so
+> `health.beyu.co.tz/` rendered the generic BEYU OS launcher on the canonical
+> Health host (the shipped state of every seeded database, because Health
+> authority needs an ACTIVE `beyu_identity.beyu_identity_links` row and the seed
+> creates none). `authenticatedEntryRoute()` (`src/lib/canonical-hosts.ts`) is
+> now the one pure contract for "which frontend does this hostname select", and
+> the page consumes it — so a destination host always reaches that destination's
+> own surface, workspace when authorized and its own governed denial when not,
+> and never the launcher. The control plane and neutral hosts keep the
+> pre-existing routing. Nothing was widened: the target is a catalogue `href`
+> (root-relative, never derived from the request, so no open redirect) and the
+> destination re-runs its complete server-side gate on arrival.
+
 ---
 
 ## 3. Routing behaviour (`src/proxy.ts` + server components)

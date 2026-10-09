@@ -4,8 +4,7 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
-import { canonicalContextOf } from "@/lib/canonical-hosts";
-import { can } from "@/lib/authz";
+import { authenticatedEntryRoute, canonicalContextOf } from "@/lib/canonical-hosts";
 
 export const dynamic = "force-dynamic";
 
@@ -75,14 +74,14 @@ export default async function SignInPage() {
    * hostname — no redirect through `beyu.co.tz`.
    *
    * Reaching a destination host authorizes nothing. The authenticated branch
-   * below redirects only through the destination's OWN server-side gate:
-   *   • a Sector OS → `authorizedOperatingSystems()` (session → tenant →
-   *     classification → RBAC/ABAC → federation/OS authorization) must already
-   *     list it;
-   *   • a shared surface (Family Office capability, Noelia AI) → the
-   *     destination's own declared guard permission must already be granted;
-   * and the destination re-runs that gate on arrival regardless. Otherwise the
-   * pre-existing routing applies unchanged.
+   * below routes the visitor to the destination's OWN canonical route, which
+   * re-runs that destination's complete server-side gate on arrival — session →
+   * tenant → entity → country → classification → RBAC/ABAC → permission →
+   * policy → OS authorization → RLS, plus the Health mount's identity
+   * federation check — and renders either the workspace or that destination's
+   * own governed denial. It never falls back to the generic control-plane
+   * launcher on a destination host. On the control plane and on neutral hosts
+   * (preview, localhost, unknown) the pre-existing routing applies unchanged.
    */
   const canonicalHost = await canonicalHostForRequest();
   // The control plane and neutral hosts keep the pre-existing copy and landing.
@@ -90,20 +89,39 @@ export default async function SignInPage() {
     canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
       ? canonicalContextOf(canonicalHost)
       : null;
+  // The canonical route an authenticated visitor on this host is resolved to —
+  // that destination's own route, or null on the control plane / a neutral host
+  // where the pre-existing control-plane routing applies.
+  const entryRoute = authenticatedEntryRoute(canonicalHost);
 
   if (principal) {
-    // Smart routing resolves the one BEYU control plane and each authorised
-    // Sector OS independently. A session alone never creates OS access.
+    /*
+     * A canonical destination host resolves to THAT destination's own governed
+     * surface — whether or not this visitor is authorized for it — and never to
+     * the control-plane launcher. See `authenticatedEntryRoute()`.
+     *
+     * Before this, the destination was consulted only for the sign-in copy and
+     * for the ALREADY-authorized fast-path; an authenticated visitor who was
+     * not authorized fell through to the control-plane routing below and was
+     * served the GENERIC BEYU OS launcher on, e.g., `health.beyu.co.tz` — the
+     * canonical Health entry point rendering the control plane's OS-selection
+     * grid, i.e. the destination contract consumed as a label rather than as
+     * the frontend. Every destination already renders its own governed outcome
+     * at its own canonical route (the Health entry/denial page through the
+     * governed mount, or the destination's `Authorisation denied` panel), so
+     * routing there is correct in both states.
+     *
+     * It grants nothing: `redirect()` is presentation, and the destination
+     * re-runs its complete server-side gate on arrival. The target is a
+     * catalogue href — root-relative, never derived from the request — so there
+     * is no open redirect.
+     */
+    if (entryRoute) redirect(entryRoute);
+
+    // The control plane and neutral hosts keep the pre-existing smart routing:
+    // it resolves the one BEYU control plane and each authorised Sector OS
+    // independently. A session alone never creates OS access.
     const destinations = await authorizedOperatingSystems(principal);
-    if (canonicalHost.kind === "SECTOR_OS" && destinations.some((destination) => destination.code === canonicalHost.os.code)) {
-      redirect(canonicalHost.os.href);
-    }
-    // A shared surface is entered only when the destination's own guard would
-    // already allow it (the same honesty rule the launcher and capability map
-    // follow). It grants nothing: the page re-checks server-side.
-    if (canonicalHost.kind === "SURFACE" && can(principal, canonicalHost.surface.entryPermission).allowed) {
-      redirect(canonicalHost.surface.href);
-    }
     if (destinations.length > 1) redirect("/launcher");
     if (destinations.length === 1) redirect(destinations[0].href);
     // With no authorised destination, retain the sign-in surface rather than

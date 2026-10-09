@@ -1,5 +1,56 @@
 # Changelog
 
+## [Unreleased] — Fix: a canonical destination host now serves that destination's own frontend, never the generic launcher — 2026-10-09
+
+Repairs the canonical hostname→destination frontend selection introduced by the entry-host work
+below. Routing, security, session, catalogue and identity architecture are unchanged; no registry,
+auth system, sector identity, migration or second application is added.
+
+- **Defect.** `src/app/page.tsx` — the server-rendered frontend that owns `/` on every host —
+  consulted the canonical destination contract only for the sign-in copy and for the
+  ALREADY-authorized fast-path. An authenticated visitor who was *not* authorized for the resolved
+  destination fell through to the control-plane routing (`destinations.length > 1 → /launcher`), so
+  `health.beyu.co.tz/` served the **generic BEYU OS launcher** — the control plane's OS-selection
+  grid — on the canonical Health host. That is the shipped state of every seeded database, because
+  Health authority requires an ACTIVE `beyu_identity.beyu_identity_links` row and the seed creates
+  none. It also contradicted the documented contract for that host
+  (`docs/architecture/SECTOR_OS_SUBDOMAINS.md` §2, "Authorized vs. unauthorized entry": an
+  authenticated visitor who is not authorized receives *"the destination's own governed denial
+  (`Authorisation denied`, the Foundation scope denial, or the Health entry/denial page)"*). The
+  same fall-through applied to all eight hosts.
+- **Repair.** `authenticatedEntryRoute()` (`src/lib/canonical-hosts.ts`) is the single pure contract
+  for "which frontend does this hostname select": a Sector OS or shared-surface host resolves to that
+  destination's own canonical `href`; the control plane and every neutral host resolve to `null` and
+  keep the pre-existing control-plane routing. `src/app/page.tsx` consumes it, so a destination host
+  now reaches the correct surface in both states — the workspace when authorized, that destination's
+  OWN governed refusal when not — and never the generic launcher. Verified against a production
+  build: `health.beyu.co.tz/` → `307 /os/health` → `200` with the real compiled Health OS SPA
+  (1,032,807 bytes, `BEYU Health OS — Enterprise Healthcare Operating Platform`) for a principal with
+  an ACTIVE federation link, and the truthful `/health` denial page for one without.
+- **Security: nothing was widened.** The redirect target is a catalogue `href` — root-relative,
+  composed from the catalogue and `BEYU_CANONICAL_DOMAIN`, never from the request — so it cannot
+  become an open redirect, and no query parameter, client state or cookie is read. `redirect()` is
+  presentation only: the destination re-runs its complete server-side gate on arrival (session →
+  tenant → entity → country → classification → RBAC/ABAC → permission → policy → OS authorization →
+  RLS), and the Health mount additionally re-checks the identity federation link and the governed
+  tenant-domain registry. A hostname still selects context and grants nothing; changing the hostname
+  still cannot widen access — it only changes which destination's own refusal or workspace renders.
+  The removed `authorizedOperatingSystems()` / `can()` calls on this page were an honesty
+  pre-filter, not an authorization boundary; `authorizedOperatingSystems()` is retained for the
+  control-plane/neutral path.
+- **Tests.** `canonical-entry-points.test.ts` gains 4 pure cases (every destination host resolves to
+  its own route and never `/launcher`; the selected route is a real destination of the ONE app;
+  hostile/unknown/localhost/null hosts select nothing; Health resolves to the real mount, not a
+  Health-labelled launcher). `canonical-host-http.test.ts` gains a 4-case A/B regression block that
+  drives a real server and FOLLOWS the redirect chain, asserting the terminal document is a Health
+  surface and that the launcher's destination grid (`sector-os-heading`) never appears — plus a real
+  sign-in on `health.beyu.co.tz` returning the visitor to the Health destination on the same host
+  with the ONE cookie policy. Three pre-existing assertions that pinned the old `/launcher`
+  fall-through (two OS cases, the auditor/Noelia case, the shared-surface and Foundation
+  conditionals) were updated to the corrected contract; the source-level invariants in
+  `canonical-host-security.test.ts` were rewritten to assert the same security property under the
+  new mechanism (one contract, catalogue-only target, no host literal, no open redirect).
+
 ## [Unreleased] — Canonical OS / capability entry hosts — every OS independently addressable — 2026-10-08
 
 Extends PR #100 (baseline `main` = `d6848e73`) so that EVERY canonical destination is an independent

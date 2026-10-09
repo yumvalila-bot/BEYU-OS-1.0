@@ -32,6 +32,7 @@ import { describe, expect, it } from "vitest";
 import { BEYU_CONTROL_PLANE, CANONICAL_SURFACES, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
 import {
   CANONICAL_OS_HOSTS,
+  authenticatedEntryRoute,
   canonicalContextOf,
   decideProxyAction,
   osOwningPath,
@@ -115,6 +116,83 @@ describe("B/C. direct access — no BEYU landing hop, no host-granted authority"
         expect(decideProxyAction(facts({ host: entry.host, pathname }), PROD).kind, `${entry.host}${pathname}`).toBe("NEXT");
       }
     }
+  });
+
+  /*
+   * THE DEFECT THIS BLOCK EXISTS TO PREVENT FROM RETURNING
+   *
+   * `health.beyu.co.tz` used to resolve an authenticated visitor to the GENERIC
+   * BEYU OS launcher whenever they were not already authorized for Health — the
+   * canonical Health entry point rendering the control plane's OS-selection grid
+   * instead of a Health surface. The destination contract was consumed as a
+   * label and an already-authorized fast-path, not by the frontend the host is
+   * supposed to serve. These tests pin the corrected contract: a canonical
+   * destination host always resolves to that destination's own route, whether
+   * or not the visitor is authorized for it, and only the control plane and
+   * neutral hosts fall back to the control-plane routing.
+   */
+  it("an authenticated request on a destination host resolves to THAT destination's own route — never the launcher", () => {
+    for (const entry of ENTRY_POINTS) {
+      const resolution = resolveCanonicalHost(entry.host, PROD);
+      const route = authenticatedEntryRoute(resolution);
+      if (entry.home === "/os") {
+        // The apex/`www` IS the control plane: it keeps the pre-existing
+        // control-plane routing (launcher, or the single authorised destination).
+        expect(route, entry.host).toBeNull();
+        continue;
+      }
+      expect(route, entry.host).toBe(entry.home);
+      // The launcher is the control plane's OS-selection surface. It is never
+      // the answer for a canonical destination host — that is the regression.
+      expect(route, entry.host).not.toBe("/launcher");
+    }
+  });
+
+  it("no destination host selects the generic launcher for ANY of the eight destinations", () => {
+    const destinations = [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, ...CANONICAL_SURFACES];
+    expect(destinations).toHaveLength(8);
+    for (const entry of ENTRY_POINTS) {
+      const route = authenticatedEntryRoute(resolveCanonicalHost(entry.host, PROD));
+      if (route === null) continue; // control plane: routing decided elsewhere
+      // The selected route is always a REAL destination route of the ONE app.
+      expect(route).toMatch(/^\/(?!\/)/);
+      expect(destinations.some((destination) => destination.href === route), `${entry.host} → ${route}`).toBe(true);
+      expect(route).not.toBe("/launcher");
+    }
+  });
+
+  it("a hostile or unknown host selects no destination, so the control-plane routing still applies", () => {
+    for (const host of [
+      "health.beyu.co.tz.evil.example",
+      "evil-health.beyu.co.tz",
+      "unknown.beyu.co.tz",
+      "family-office.beyu.co.tz",
+      "x.foundation.beyu.co.tz",
+      "mwanza.health.beyu.co.tz",
+      "127.0.0.1",
+      "localhost",
+      null,
+    ]) {
+      expect(authenticatedEntryRoute(resolveCanonicalHost(host, PROD)), String(host)).toBeNull();
+    }
+  });
+
+  it("Health resolves to the REAL Health OS route, not to a Health-labelled launcher", () => {
+    const route = authenticatedEntryRoute(resolveCanonicalHost("health.beyu.co.tz", PROD));
+    expect(route).toBe("/os/health");
+    // `/os/health` is the governed mount that serves the compiled sector SPA
+    // (and 307s to the truthful `/health` denial page when the federation gate
+    // fails closed) — asserted against the file system, not against a heading.
+    expect(existsSync(path.join(ROOT, "src", "app", "os", "health", "route.ts"))).toBe(true);
+    expect(existsSync(path.join(ROOT, "src", "app", "os", "health", "mount.ts"))).toBe(true);
+    const mount = code(source("src", "app", "os", "health", "mount.ts"));
+    expect(mount).toContain("healthSpaHtml");
+    expect(mount).toContain("checkHealthOSAuthorization");
+    // The routing page consumes the contract rather than inlining a host check.
+    const page = code(source("src", "app", "page.tsx"));
+    expect(page).toContain("authenticatedEntryRoute(canonicalHost)");
+    expect(page).toContain("if (entryRoute) redirect(entryRoute)");
+    expect(page).not.toMatch(/host\.includes\(|hostname\.includes\(|beyu\.co\.tz/);
   });
 
   it("the sign-in landing is the resolved context's route, computed server-side", () => {

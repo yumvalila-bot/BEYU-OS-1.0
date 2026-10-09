@@ -221,6 +221,46 @@ export function canonicalContextOf(resolution: CanonicalHostResolution): Canonic
 }
 
 /**
+ * The route an ALREADY-AUTHENTICATED request on a canonical destination host is
+ * resolved to: that destination's OWN canonical route for a Sector OS or a
+ * shared-surface host, and `null` for the control plane and every neutral host
+ * (where the pre-existing control-plane routing — launcher, or the single
+ * authorised destination — applies unchanged).
+ *
+ * WHY THIS IS A CONTRACT AND NOT AN INLINE `if`
+ *   "Which frontend does this hostname select?" is a routing question, and this
+ *   module is the one place hostnames become routing identities. Keeping the
+ *   answer here means the sign-in/routing page consumes the destination rather
+ *   than merely labelling itself with it, and the mapping is unit-testable for
+ *   all eight hosts (and for every hostile host) without a server.
+ *
+ * WHY THE ROUTE IS RETURNED WHETHER OR NOT THE VISITOR IS AUTHORIZED
+ *   Each destination renders its OWN governed outcome at its own canonical
+ *   route: the workspace when authorized, that destination's own refusal when
+ *   not (the Health entry/denial page via the governed mount, or the
+ *   `Authorisation denied` panel of the four other OS layouts and the two
+ *   shared-surface pages). Sending an unauthorized visitor to the generic
+ *   control-plane launcher instead would render the control plane's OS-selection
+ *   grid on a destination host — the destination contract consumed as a label,
+ *   not as the frontend — and is what this function exists to prevent.
+ *
+ *   It grants nothing: `redirect()` to this route is presentation, and the
+ *   destination re-runs its complete server-side gate on arrival. The value is
+ *   a catalogue `href` (root-relative, from configuration + catalogue), never
+ *   derived from the request, so it cannot become an open redirect.
+ */
+export function authenticatedEntryRoute(resolution: CanonicalHostResolution): string | null {
+  switch (resolution.kind) {
+    case "SECTOR_OS":
+      return resolution.os.href;
+    case "SURFACE":
+      return resolution.surface.href;
+    default:
+      return null;
+  }
+}
+
+/**
  * The canonical Sector OS whose route namespace contains `pathname` (all five,
  * Foundation included — it is an independently addressable OS), or null when the
  * path belongs to the control plane, a shared capability/surface, the API, or
