@@ -45,6 +45,7 @@ import { loadDraftContext, loadTransactionForDraft, prepareOrPost } from "@/lib/
 import { SANDBOX_DEMO_APPROVAL_REFERENCE, SANDBOX_DEMO_POLICY_VERSION, upsertPolicy } from "@/lib/payments/config-write";
 import { FIXTURE_RESET_CONFIRM_TOKEN, removeDemoPaymentRows } from "@/lib/payments/fixture-reset";
 import { MOCK_PROVIDER_CODE } from "@/lib/payments/providers/mock";
+import { assertDisposablePaymentsTarget } from "@/lib/payments/disposable-target";
 import type { Principal } from "@/lib/authz";
 import { ROLES } from "@/lib/constants";
 
@@ -145,6 +146,7 @@ async function lockedCount(): Promise<number> {
  * away with an elevated capability, which would be a worse outcome than not testing.
  */
 async function withActivatedPosting<T>(run: () => Promise<T>): Promise<{ value: T; lockedBefore: number; lockedAfterRestore: number }> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments DR fixture");
   const decisions = ["P1", "P5", "P6", "P7", "P9"];
   const [approved] = (await adminPool.query(`select id from public.resolutions where status = 'APPROVED' limit 1`)).rows as { id: string }[];
   if (!approved) throw new Error("[payments-dr] no APPROVED resolution exists, so CAP_POSTING cannot legitimately be activated");
@@ -183,6 +185,7 @@ async function withActivatedPosting<T>(run: () => Promise<T>): Promise<{ value: 
  * in a restored database, including the exact payload bytes so the replay is identical.
  */
 export async function createPaymentFixture(input: { tag: string; quiet?: boolean }): Promise<PaymentFixture> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments DR fixture");
   process.env.BEYU_MOCK_WEBHOOK_SECRET = SECRET;
   const tag = input.tag;
 
@@ -340,6 +343,7 @@ export type PaymentRestoreCheck = { name: string; ok: boolean; source?: unknown;
  * anything (e.g. zero rows on both sides) is still visible as a number.
  */
 export async function verifyPaymentRestore(dst: Client, f: PaymentFixture, source: Client): Promise<PaymentRestoreCheck[]> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments DR fixture");
   const checks: PaymentRestoreCheck[] = [];
   const compare = async (name: string, sqlText: string, params: unknown[] = []) => {
     const [a, b] = [await source.query(sqlText, params), await dst.query(sqlText, params)];
@@ -403,6 +407,7 @@ const UNWIND_TABLES = [
 const DRILL_TAG = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
 
 async function unwindDrillRows(tags: string[]): Promise<Record<string, number | string>> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments DR fixture");
   if (tags.length === 0) throw new Error("[payments-dr] unwind requires at least one exact run tag");
   for (const tag of tags) if (!DRILL_TAG.test(tag)) throw new Error(`[payments-dr] "${tag}" is not an exact run tag; refusing to unwind`);
   const client = new Client({ connectionString: process.env.BEYU_ADMIN_DATABASE_URL });
@@ -634,6 +639,7 @@ async function purge(tags: string[]): Promise<number> {
 
 /** Remove everything this file created, through the audited tag-scoped path. */
 export async function removePaymentFixture(f: PaymentFixture): Promise<Record<string, unknown>> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments DR fixture");
   let rows: Record<string, unknown> = (await removeDemoPaymentRows({ prefixes: [f.tag], confirm: FIXTURE_RESET_CONFIRM_TOKEN })) as unknown as Record<string, unknown>;
   if (rows.ok !== true && typeof rows.refused === "string" && rows.refused.includes("POSTED")) {
     // The posting this drill performed is itself drill output. Undo it with the

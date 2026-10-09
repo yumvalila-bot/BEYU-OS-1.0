@@ -30,6 +30,9 @@ async function main(): Promise<number> {
     return 2;
   }
   const target = args.get("role") === "admin" ? admin : (process.env.BEYU_RUNTIME_DATABASE_URL ?? admin);
+  // Refuse anything but a local disposable database before any pool is built (audit H-3).
+  const { assertDisposablePaymentsTarget } = await import("@/lib/payments/disposable-target");
+  assertDisposablePaymentsTarget(target, "payments DR replay");
   // Select the target BEFORE any module that builds a pool is loaded.
   process.env.DATABASE_URL = target;
   process.env.BEYU_ADMIN_DATABASE_URL = target;

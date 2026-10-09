@@ -26,6 +26,7 @@ import { prepareOrPost, buildDraft, loadDraftContext, loadTransactionForDraft } 
 import { runPaymentsSelfTest } from "@/lib/payments/selftest";
 import { MOCK_PROVIDER_CODE } from "@/lib/payments/providers/mock";
 import { majorUnitsString } from "@/lib/payments/money";
+import { assertDisposablePaymentsTarget } from "@/lib/payments/disposable-target";
 
 const SECRET = process.env.BEYU_MOCK_WEBHOOK_SECRET ?? "demo-only-secret-not-a-real-credential";
 const RUN = `DEMO${Date.now().toString(36).toUpperCase()}`;
@@ -93,6 +94,8 @@ async function step(label: string, payload: unknown): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  assertDisposablePaymentsTarget(process.env.DATABASE_URL, "payments demonstration");
+  if (process.env.BEYU_ADMIN_DATABASE_URL) assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments demonstration");
   const mode = process.argv.includes("--mode=sandbox") ? "sandbox" : "governed-stop";
   const failures = process.argv.includes("--failures");
   const tenantId = "TEN_BEYU_TZ";

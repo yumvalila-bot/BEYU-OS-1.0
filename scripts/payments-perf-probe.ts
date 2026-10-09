@@ -25,6 +25,7 @@
  */
 import "dotenv/config";
 import { createHmac } from "node:crypto";
+import { assertDisposablePaymentsTarget } from "@/lib/payments/disposable-target";
 import { execFileSync } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import { Client } from "pg";
@@ -167,6 +168,8 @@ async function explain(client: Client, label: string, sqlText: string, params: u
 }
 
 async function main(): Promise<number> {
+  assertDisposablePaymentsTarget(process.env.DATABASE_URL, "payments performance probe");
+  if (process.env.BEYU_ADMIN_DATABASE_URL) assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payments performance probe");
   process.env.BEYU_MOCK_WEBHOOK_SECRET = SECRET;
   const report: Record<string, unknown> = {
     run: RUN,
