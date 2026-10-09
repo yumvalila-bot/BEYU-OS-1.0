@@ -62,6 +62,16 @@ function send(
 const getWithHost = (path: string, host: string, cookie?: string) =>
   send("GET", path, { host, ...(cookie ? { cookie } : {}) });
 
+/**
+ * React SSR splits adjacent text nodes with `<!-- -->` (and marks Suspense
+ * boundaries with `<!--$-->`), so a sentence composed from several JSX
+ * expressions does not appear contiguously in the raw body. Collapsing those
+ * markers reconstructs the rendered text and makes copy assertions test the
+ * contract rather than React's serialisation. No real content is an HTML
+ * comment this short.
+ */
+const text = (body: string) => body.replace(/<!--[^>]{0,8}-->/g, "");
+
 /** Every canonical host, with the sign-in copy and canonical home it must own. */
 const CANONICAL_HOSTS = [
   { host: "health.beyu.co.tz", home: "/os/health", copy: "Sign in to Health OS — governed by BEYU OS" },
@@ -179,9 +189,15 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
       expect([200, 307]).toContain(page.status);
       if (page.status === 307) expect(page.location ?? "").not.toMatch(/beyu\.co\.tz/);
       const root = await getWithHost("/", "foundation.beyu.co.tz", foundationCookie);
-      expect(root.status).toBe(307);
-      if (page.status === 200) expect(root.location).toBe("/os/foundation");
-      else expect(root.location).not.toBe("/os/foundation");
+      // Either the Foundation director holds Foundation access and the root
+      // redirects (relatively) to the Foundation home, or it renders the governed
+      // Foundation denial on this host. Never another OS, never the apex.
+      expect([200, 307]).toContain(root.status);
+      if (page.status === 200 && root.status === 307) expect(root.location).toBe("/os/foundation");
+      if (root.status === 307) expect(root.location).not.toBe("/launcher");
+      if (root.status === 200) {
+        expect(text(root.body)).toContain("You are signed in, but you are not authorized for Foundation OS");
+      }
     },
   );
 
@@ -253,11 +269,26 @@ describe("C/G. a hostname is not an authorization", () => {
       expect(health.body).not.toContain("healthSpaHtml");
 
       // An Agriculture principal on ujenzi.beyu.co.tz is not a Ujenzi principal:
-      // the root uses the pre-existing routing (launcher), and the Ujenzi gate
+      // the root renders the governed denial on this host, and the Ujenzi gate
       // renders its own governed denial rather than the workspace.
+      //
+      // CONTRACT CHANGE (deliberate, requirement-driven, security-preserving).
+      // This destination root used to fall through to the pre-existing
+      // control-plane routing and 307 a signed-in identity WITHOUT the
+      // destination's access to `/launcher` — off the host it asked for, into
+      // the shared BEYU launcher, from which a single-destination identity is
+      // redirected on to a DIFFERENT OS. The governed state is now rendered ON
+      // this host instead: 200 + an explicit, truthful denial that separates the
+      // destination's GLOBAL status (ACTIVE) from THIS identity's access (not
+      // authorized). The property this test exists for is unchanged and is now
+      // asserted more directly: the hostname granted nothing, no workspace was
+      // served, and the identity was not silently moved to another OS.
       const ujenziRoot = await getWithHost("/", "ujenzi.beyu.co.tz", agriCookie);
-      expect(ujenziRoot.status).toBe(307);
-      expect(ujenziRoot.location).toBe("/launcher");
+      expect(ujenziRoot.status).toBe(200);
+      expect(ujenziRoot.location).toBeUndefined();
+      expect(text(ujenziRoot.body)).toContain("You are signed in, but you are not authorized for Ujenzi OS");
+      expect(text(ujenziRoot.body)).not.toContain("Sign in to the control plane");
+      expect(ujenziRoot.body).not.toContain('id="beyu-signin-password"');
       const ujenzi = await getWithHost("/os/ujenzi", "ujenzi.beyu.co.tz", agriCookie);
       expect([200, 307]).toContain(ujenzi.status);
       if (ujenzi.status === 200) expect(ujenzi.body).toContain("Authorisation denied");
@@ -265,18 +296,21 @@ describe("C/G. a hostname is not an authorization", () => {
       // And the mirror image: the Foundation director gains nothing on
       // agriculture.beyu.co.tz.
       const agriRoot = await getWithHost("/", "agriculture.beyu.co.tz", foundationCookie);
-      expect(agriRoot.status).toBe(307);
-      expect(agriRoot.location).toBe("/launcher");
+      expect(agriRoot.status).toBe(200);
+      expect(agriRoot.location).toBeUndefined();
+      expect(text(agriRoot.body)).toContain("You are signed in, but you are not authorized for Agriculture OS");
       const agri = await getWithHost("/os/agriculture", "agriculture.beyu.co.tz", foundationCookie);
       expect([200, 307]).toContain(agri.status);
       if (agri.status === 200) expect(agri.body).toContain("Authorisation denied");
 
       // A SHARED-surface host grants nothing either: the auditor holds no
-      // `ai:noelia.query`, so noelia.beyu.co.tz routes them to the launcher and
-      // the console answers with the page's own governed denial.
+      // `ai:noelia.query`, so noelia.beyu.co.tz renders the governed denial on
+      // this host and the console answers with the page's own governed denial.
       const noeliaRoot = await getWithHost("/", "noelia.beyu.co.tz", auditorCookie);
-      expect(noeliaRoot.status).toBe(307);
-      expect(noeliaRoot.location).toBe("/launcher");
+      expect(noeliaRoot.status).toBe(200);
+      expect(noeliaRoot.location).toBeUndefined();
+      expect(text(noeliaRoot.body)).toContain("You are signed in, but you are not authorized for Noelia AI");
+      expect(text(noeliaRoot.body)).toContain("ai:noelia.query");
       const noelia = await getWithHost("/os/noelia", "noelia.beyu.co.tz", auditorCookie);
       expect(noelia.status).toBe(200);
       expect(noelia.body).toContain("Authorisation denied");

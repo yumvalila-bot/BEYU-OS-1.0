@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
+import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedOperatingSystems } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
-import { canonicalContextOf } from "@/lib/canonical-hosts";
+import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
+import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +60,24 @@ const PILLARS = [
   { title: "Impact", copy: "Capital, waterfall and foundation allocation, fully explainable." },
 ];
 
+/**
+ * The canonical BEYU entry surface, on EVERY canonical host.
+ *
+ *   • a DESTINATION host (`health.`/`finance.`/`agriculture.`/`ujenzi.`/
+ *     `foundation.`/`familyoffice.`/`noelia.`) renders that destination's OWN
+ *     first-class frontend and sign-in (`GovernedSignIn`), or its governed
+ *     access-denied state (`DestinationDenied`) for a signed-in identity that
+ *     does not hold access;
+ *   • the apex, `www` and every NEUTRAL host (preview, unconfigured apex,
+ *     unknown subdomain, malformed Host, governed tenant hostname) render the
+ *     pre-existing BEYU control-plane surface exactly as before — its copy,
+ *     layout, smart routing and bootstrap-identity gate are untouched, and the
+ *     only addition is the shared expired-session notice the destination
+ *     surfaces also carry.
+ *
+ * `/sign-in` is the SAME implementation on the same hosts — see
+ * `src/app/sign-in/page.tsx`. There is one sign-in, not eight.
+ */
 export default async function SignInPage() {
   const principal = await resolvePrincipal();
 
@@ -82,14 +102,20 @@ export default async function SignInPage() {
    *   • a shared surface (Family Office capability, Noelia AI) → the
    *     destination's own declared guard permission must already be granted;
    * and the destination re-runs that gate on arrival regardless. Otherwise the
-   * pre-existing routing applies unchanged.
+   * governed DENIAL below is rendered on this host: a session is identity, not
+   * access, and a signed-in visitor is never silently sent to a different OS.
    */
   const canonicalHost = await canonicalHostForRequest();
+  const hostDestination = destinationForResolution(canonicalHost);
   // The control plane and neutral hosts keep the pre-existing copy and landing.
   const requestedContext =
     canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
       ? canonicalContextOf(canonicalHost)
       : null;
+  // A cookie the database no longer honours is the truthful "session expired"
+  // state, distinct from a first-time visitor. Presence only — never validity.
+  const sessionExpired = !principal && (await sessionCookiePresent());
+  const identities = isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES;
 
   if (principal) {
     // Smart routing resolves the one BEYU control plane and each authorised
@@ -104,10 +130,51 @@ export default async function SignInPage() {
     if (canonicalHost.kind === "SURFACE" && can(principal, canonicalHost.surface.entryPermission).allowed) {
       redirect(canonicalHost.surface.href);
     }
+    /*
+     * GOVERNED DENIAL ON THE DESTINATION HOST.
+     *
+     * The identity is valid and the destination is ACTIVE, but this identity
+     * does not hold access to it. Previously this fell through to the
+     * control-plane routing below and silently sent the visitor to `/launcher`
+     * or to whichever OTHER OS they did hold — which both hides the real answer
+     * and forces a destination host through the BEYU launcher. The truthful
+     * state is rendered here, on the host that was asked for: global OS status
+     * and this identity's access are stated separately and never conflated.
+     *
+     * It grants nothing and exposes nothing — no destination data, no admin
+     * control, no hidden route — and the destination's own gate still runs for
+     * any direct deep link.
+     */
+    if (hostDestination && requestedContext) {
+      return (
+        <DestinationDenied
+          destination={hostDestination}
+          displayName={principal.displayName}
+          email={principal.email}
+        />
+      );
+    }
     if (destinations.length > 1) redirect("/launcher");
     if (destinations.length === 1) redirect(destinations[0].href);
     // With no authorised destination, retain the sign-in surface rather than
     // advertising an unusable control plane.
+  }
+
+  /*
+   * UNAUTHENTICATED ON A DESTINATION HOST — that destination's own first-class
+   * frontend and sign-in. Shared BEYU identity underneath: the same form, the
+   * same `/api/v1/auth/login`, the same session cookie, the same MFA and the
+   * same audit ledger. Only the presentation names the destination.
+   */
+  if (!principal && hostDestination && requestedContext) {
+    return (
+      <GovernedSignIn
+        destination={hostDestination}
+        identities={identities}
+        sessionExpired={sessionExpired}
+        landing={requestedContext ? requestedContext.href : "/os"}
+      />
+    );
   }
 
   return (
@@ -182,7 +249,8 @@ export default async function SignInPage() {
               environment value is ever exposed to the client bundle.
             */}
             <SignInForm
-              identities={isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES}
+              identities={identities}
+              sessionExpired={sessionExpired}
               landing={requestedContext ? requestedContext.href : "/os"}
             />
             <p className="mt-6 text-[10.5px] leading-relaxed text-white/45">

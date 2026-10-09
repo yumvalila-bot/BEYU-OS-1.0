@@ -24,6 +24,21 @@ import type { PermissionCode } from "@/lib/constants";
  * deployment apex), and it selects a HOME. It never selects a tenant, role,
  * permission, entity, country or classification, and it never grants access:
  * every route re-runs its own server-side gate on every request, on every host.
+ *
+ * DESTINATION PRESENTATION (added for the first-class canonical frontends)
+ *   Each entry also carries the facts its OWN frontend needs — constitutional
+ *   registry code, destination class, global operating status, entry headline,
+ *   contextual accent and three honest highlights — so the eight canonical
+ *   entry surfaces are driven by ONE registry instead of eight copies. See
+ *   `docs/architecture/CANONICAL_DESTINATION_FRONTENDS.md`.
+ *
+ *   `status` is the GLOBAL operating state of the destination itself. It is
+ *   never a statement about any individual identity: whether a signed-in user
+ *   may enter is answered only by the pre-existing server-side authorization
+ *   (`authorizedOperatingSystems()` in `src/lib/operating-systems.ts` for a
+ *   Sector OS, the destination's own declared guard for a shared surface,
+ *   `checkBeyuOSAuthorization()` for the control plane). An ACTIVE destination
+ *   and a user who does not hold access to it are both true at the same time.
  */
 
 /** A destination that is independently addressable on its own canonical host. */
@@ -39,7 +54,62 @@ export type SectorSubdomainLabel = "health" | "finance" | "agriculture" | "ujenz
 /** The canonical host labels of the SHARED surfaces (never OS labels). */
 export type SurfaceHostLabel = "familyoffice" | "noelia";
 
-export type OperatingSystemDestination = {
+/**
+ * The GLOBAL operating state of a canonical destination.
+ *
+ * Mirrors the constitutional charter column `os_registry.lifecycle`, whose
+ * canonical seed already reads `ACTIVE` for `BEYU_OS`, `FINANCE_OS`,
+ * `HEALTH_OS`, `AGRICULTURE_OS`, `FOUNDATION_OS` and `UJENZI_OS`
+ * (`src/db/seed.ts`) — the only `DRAFT` charter in that seed is the proposed
+ * mining OS, which is deliberately absent from this catalogue because it has no
+ * host, no frontend and no entry point. Nothing here was flipped to make a
+ * destination look live.
+ */
+export type CanonicalDestinationStatus = "ACTIVE" | "DRAFT" | "RETIRED";
+
+/**
+ * Destination CLASS — kept explicit in code and documentation so the ecosystem
+ * is never flattened into "OS". Exactly four destinations are `SECTOR_OS`.
+ *
+ *   CORE          the one constitutional control plane (BEYU OS).
+ *   SECTOR_OS     HEALTH_OS, FINANCE_OS, AGRICULTURE_OS, UJENZI_OS.
+ *   NONPROFIT     Foundation — a separate nonprofit SISTER ORGANISATION to the
+ *                 BEYU Holding Company, strategically governed through BEYU OS.
+ *                 It is not a Sector LLC. It keeps its already-registered
+ *                 constitutional identity (`FOUNDATION_OS`, `os_registry.kind =
+ *                 SECTOR_OS`, authority scope `NONPROFIT_OPERATIONS`); this
+ *                 class records the organisational distinction that the
+ *                 registry `kind` cannot express, and invents nothing.
+ *   CAPABILITY    Family Office — a shared capability/domain, never an OS. It is
+ *                 given no OS-suffixed identity of its own, here or anywhere.
+ *   AI_INTERFACE  NOELIA_AI — the single governed AI identity on the HIVE
+ *                 runtime. No sector-specific Noelia exists.
+ */
+export type DestinationType = "CORE" | "SECTOR_OS" | "NONPROFIT" | "CAPABILITY" | "AI_INTERFACE";
+
+/** The facts a destination's OWN first-class frontend renders. */
+export type CanonicalDestinationPresentation = {
+  /** Constitutional charter code in `os_registry` (documentation/UI identity). */
+  registryCode: string;
+  /** Destination class — see `DestinationType`. */
+  destinationType: DestinationType;
+  /** GLOBAL operating state. Never a statement about any individual identity. */
+  status: CanonicalDestinationStatus;
+  /** Headline of the destination's own entry surface. */
+  headline: string;
+  /**
+   * Contextual accent for the destination's own surface. The canonical BEYU
+   * identity is preserved regardless: navy `#0B1F4D`, gold `#D4A017`, the
+   * shared `BeyuOsLogo`, the motto "Bridging Care. Building Trust." and the
+   * pillars Trust · Care · Integrity · Innovation · Impact. No destination- or
+   * tenant-specific BEYU logo exists or may be created.
+   */
+  accent: string;
+  /** Three honest highlights. They must not claim ungoverned capability. */
+  highlights: readonly string[];
+};
+
+export type OperatingSystemDestination = CanonicalDestinationPresentation & {
   code: "BEYU" | "FINANCE" | "HEALTH" | "AGRICULTURE" | "FOUNDATION" | "UJENZI";
   name: string;
   level: "CONTROL_PLANE" | "SECTOR_OS";
@@ -66,16 +136,17 @@ export type OperatingSystemDestination = {
  * `requireAccess(<entryPermission>)` itself, and a test pins that the declared
  * code and the page's guard are identical.
  */
-export type CanonicalSurfaceDestination = CanonicalHostedDestination & {
-  code: "FAMILY_OFFICE" | "NOELIA_AI";
-  name: string;
-  kind: "SHARED_CAPABILITY" | "GOVERNED_AI_INTERFACE";
-  description: string;
-  href: string;
-  icon: IconName;
-  subdomain: SurfaceHostLabel;
-  entryPermission: PermissionCode;
-};
+export type CanonicalSurfaceDestination = CanonicalHostedDestination &
+  CanonicalDestinationPresentation & {
+    code: "FAMILY_OFFICE" | "NOELIA_AI";
+    name: string;
+    kind: "SHARED_CAPABILITY" | "GOVERNED_AI_INTERFACE";
+    description: string;
+    href: string;
+    icon: IconName;
+    subdomain: SurfaceHostLabel;
+    entryPermission: PermissionCode;
+  };
 
 export const BEYU_CONTROL_PLANE: OperatingSystemDestination = {
   code: "BEYU",
@@ -84,6 +155,16 @@ export const BEYU_CONTROL_PLANE: OperatingSystemDestination = {
   description: "Global constitutional control plane, enterprise kernel and governed intelligence layer.",
   href: "/os",
   icon: "command",
+  registryCode: "BEYU_OS",
+  destinationType: "CORE",
+  status: "ACTIVE",
+  headline: "The constitutional control plane of the BEYU ecosystem.",
+  accent: "#d4af37",
+  highlights: [
+    "One constitution, one authority model, one audit truth.",
+    "Identity, governance, risk, capital, workforce and AI governed once.",
+    "Least privilege, hash-chained audit, human accountability.",
+  ],
 };
 
 /** Canonical Sector OS order. Shared capabilities never belong in this list. */
@@ -96,6 +177,16 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/finance",
     icon: "finance",
     subdomain: "finance",
+    registryCode: "FINANCE_OS",
+    destinationType: "SECTOR_OS",
+    status: "ACTIVE",
+    headline: "Finance OS — the canonical financial authority of the BEYU ecosystem.",
+    accent: "#e0b64c",
+    highlights: [
+      "Ledger, periods, treasury, capital, waterfall, tax and reconciliation.",
+      "Financial history is never overwritten.",
+      "CAP_POSTING stays a separately governed capability — an ACTIVE Finance OS does not enable posting.",
+    ],
   },
   {
     code: "HEALTH",
@@ -110,6 +201,16 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/health",
     icon: "health",
     subdomain: "health",
+    registryCode: "HEALTH_OS",
+    destinationType: "SECTOR_OS",
+    status: "ACTIVE",
+    headline: "Health OS — federated care operations under canonical BEYU identity.",
+    accent: "#5ec8b4",
+    highlights: [
+      "Care delivery, clinical operations and health federation.",
+      "The highest data tier, safeguarding and evidence trails.",
+      "Health federation is resolved server-side on every request.",
+    ],
   },
   {
     code: "AGRICULTURE",
@@ -119,6 +220,16 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/agriculture",
     icon: "agriculture",
     subdomain: "agriculture",
+    registryCode: "AGRICULTURE_OS",
+    destinationType: "SECTOR_OS",
+    status: "ACTIVE",
+    headline: "Agriculture OS — farms, crops, livestock, traceability and export operations.",
+    accent: "#8dc63f",
+    highlights: [
+      "Land, crop cycles, inputs, livestock, harvests and field tasks.",
+      "Traceability and export compliance, end to end.",
+      "The canonical Agriculture scope is resolved server-side on every request.",
+    ],
   },
   {
     code: "FOUNDATION",
@@ -134,6 +245,19 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/foundation",
     icon: "foundation",
     subdomain: "foundation",
+    registryCode: "FOUNDATION_OS",
+    // NONPROFIT, not SECTOR_OS: the Foundation is a separate nonprofit SISTER
+    // ORGANISATION to the BEYU Holding Company, strategically governed through
+    // BEYU OS. Its constitutional identity above is unchanged.
+    destinationType: "NONPROFIT",
+    status: "ACTIVE",
+    headline: "Foundation — the nonprofit sister organisation of the BEYU Holding Company.",
+    accent: "#9aa7f0",
+    highlights: [
+      "A nonprofit sister organisation — not a Sector LLC.",
+      "Formation, structures, governance, donors, funds, grants and programs.",
+      "Safeguarding, beneficiaries and impact under shared controls.",
+    ],
   },
   {
     code: "UJENZI",
@@ -143,6 +267,16 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     href: "/os/ujenzi",
     icon: "ujenzi",
     subdomain: "ujenzi",
+    registryCode: "UJENZI_OS",
+    destinationType: "SECTOR_OS",
+    status: "ACTIVE",
+    headline: "Ujenzi OS — the governed engineering and construction operating system.",
+    accent: "#f0913a",
+    highlights: [
+      "Projects, sites, phases, milestones and governed BOQ versions.",
+      "Cost control, procurement, materials, equipment, quality and HSE.",
+      "An ACTIVE Ujenzi OS does not certify every capability: BIM, engineering calculations and government links keep their own governed state.",
+    ],
   },
 ];
 
@@ -165,6 +299,16 @@ export const CANONICAL_SURFACES: CanonicalSurfaceDestination[] = [
     subdomain: "familyoffice",
     // The Family Office page's own guard (`src/app/os/family/page.tsx`).
     entryPermission: "family:member.read",
+    registryCode: "SHARED_FAMILY_OFFICE",
+    destinationType: "CAPABILITY",
+    status: "ACTIVE",
+    headline: "Family Office — the shared family governance and wealth capability.",
+    accent: "#e7c45c",
+    highlights: [
+      "A shared capability/domain inside BEYU OS — never an OS.",
+      "Family governance, lineage, beneficiaries and succession.",
+      "Wealth, capital and protection under highly restricted grants.",
+    ],
   },
   {
     code: "NOELIA_AI",
@@ -176,6 +320,16 @@ export const CANONICAL_SURFACES: CanonicalSurfaceDestination[] = [
     subdomain: "noelia",
     // The Noelia page's own guard (`src/app/os/noelia/page.tsx`).
     entryPermission: "ai:noelia.query",
+    registryCode: "NOELIA_AI",
+    destinationType: "AI_INTERFACE",
+    status: "ACTIVE",
+    headline: "Noelia — the single governed BEYU AI identity on the HIVE runtime.",
+    accent: "#7ee0f5",
+    highlights: [
+      "ONE governed AI identity — never a sector-specific manifestation.",
+      "Policy-bound on the HIVE runtime, audited end to end.",
+      "Advisory by design: material decisions keep human accountability.",
+    ],
   },
 ];
 
@@ -184,3 +338,24 @@ export function canonicalSurface(code: CanonicalSurfaceDestination["code"]): Can
   if (!surface) throw new Error(`unknown canonical surface: ${code}`);
   return surface;
 }
+
+/**
+ * The ONE sign-in sub-line for a canonical destination:
+ * `Sign in to Health OS — governed by BEYU OS`.
+ *
+ * Authentication is shared; only the presentation names the destination that
+ * asked for it. Defined once here so the root entry surface, the `/sign-in`
+ * route and any future destination surface cannot drift apart.
+ */
+export function destinationSignInSubtitle(destination: Pick<OperatingSystemDestination, "name">): string {
+  return `Sign in to ${destination.name} — governed by BEYU OS`;
+}
+
+/** The destination class label shown on a destination's own entry surface. */
+export const DESTINATION_TYPE_LABEL: Record<DestinationType, string> = {
+  CORE: "Constitutional control plane",
+  SECTOR_OS: "Sector operating system",
+  NONPROFIT: "Nonprofit sister organisation",
+  CAPABILITY: "Shared capability / domain",
+  AI_INTERFACE: "Governed AI interface",
+};

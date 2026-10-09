@@ -5,6 +5,15 @@ Status: **IMPLEMENTED IN THE REPOSITORY (routing, security, session, tests, docs
 ATTACHMENT** · baseline `main` = `d6848e7308ccef87a904c151a2928013959ad111`
 (PR #100) · updated 2026-10-08
 
+> **THIS DOCUMENT OWNS HOST RESOLUTION, SESSION SCOPE AND THE PROXY CONTRACT.**
+> The user-facing FRONTEND and SIGN-IN each canonical host renders — including
+> the root-cause audit of why a correctly-resolving host used to serve the
+> generic BEYU surface, the `/sign-in` route, the governed access-denied state,
+> the destination presentation model, global OS status vs. the current
+> identity's grant, and the Sector OS activation boundary — is
+> **[`CANONICAL_DESTINATION_FRONTENDS.md`](./CANONICAL_DESTINATION_FRONTENDS.md)**.
+> Read the two together; neither duplicates the other.
+
 ---
 
 ## 0. The principle (locked into the implementation)
@@ -109,9 +118,18 @@ permissions, navigation) — a convenient index, **never a prerequisite**.
 * Unauthenticated deep link → one `307` to `/` **on the same host**.
 * Authenticated, authorized (resolved by the destination's own gate) → the
   destination home.
-* Authenticated, **not** authorized → the pre-existing routing and the
-  destination's own governed denial (`Authorisation denied`, the Foundation
-  scope denial, or the Health entry/denial page). A hostname never adds access.
+* Authenticated, **not** authorized → the governed DESTINATION denial, rendered
+  on the host that was asked for: *"You are signed in, but you are not authorized
+  for Health OS."*, with the destination's GLOBAL status (`ACTIVE`) and THIS
+  identity's access (`Not authorized`) stated separately. The visitor is **not**
+  redirected to `/launcher` and **not** forwarded to a different OS they do hold.
+  Any deep link still meets the destination's own governed denial
+  (`Authorisation denied`, the Foundation scope denial, or the Health
+  entry/denial page). A hostname never adds access.
+
+  *(This replaced the earlier behaviour, in which a destination host fell through
+  to the control-plane routing and `307`-ed the visitor to `/launcher`. See
+  `CANONICAL_DESTINATION_FRONTENDS.md` §1.2 (4).)*
 
 ---
 

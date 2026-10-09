@@ -1,5 +1,96 @@
 # Changelog
 
+## [Unreleased] — First-class canonical destination frontends + destination-aware sign-in — 2026-10-08
+
+Extends PR #101 (baseline `main` = `2bcff13b`). The canonical host contract already RESOLVED every
+destination hostname correctly; what a visitor actually received on `health.beyu.co.tz` was still the
+generic BEYU control-plane landing with one Health-flavoured sentence, `/sign-in` did not exist on any
+host, a signed-in visitor without the destination's access was silently bounced to `/launcher` (or on
+to a different OS), and the launcher showed only the per-user grant — never the global OS status.
+Root cause, design, acceptance matrix and the activation boundary:
+`docs/architecture/CANONICAL_DESTINATION_FRONTENDS.md`.
+
+ROOT CAUSE (audited, not guessed): `decideProxyAction()` has no host-driven action for `/` — and
+deliberately so, because the proxy reads no cookie and touches no database, and rewriting `/` to
+`/os/health` would loop against the Health mount's unauthenticated 307 back to `/`. Destination
+selection therefore belongs in the page layer, which can resolve the session. `src/app/page.tsx` was
+that layer and used the host for two strings only.
+
+- Canonical catalogue (`src/lib/operating-system-catalog.ts`) — still ONE registry, no parallel table.
+  Each destination now carries its own frontend contract: `registryCode` (the `os_registry` charter
+  code), `destinationType` (`CORE` / `SECTOR_OS` / `NONPROFIT` / `CAPABILITY` / `AI_INTERFACE`),
+  `status`, `headline`, `accent` and three honest `highlights`, plus `destinationSignInSubtitle()` and
+  `DESTINATION_TYPE_LABEL`. Destination classes stay distinct and are never flattened into "OS":
+  exactly four `SECTOR_OS` (HEALTH, FINANCE, AGRICULTURE, UJENZI), Foundation stays `NONPROFIT`
+  (a separate nonprofit sister organisation to the Holding Company — while its ALREADY-registered
+  `FOUNDATION_OS` / `SECTOR_OS` charter identity is untouched), Family Office stays `CAPABILITY`
+  (no `FAMILY_OFFICE_OS`), Noelia stays `AI_INTERFACE` (no sector-specific Noelia).
+- `destinationForResolution()` (`src/lib/canonical-hosts.ts`) — resolves a host resolution to the
+  complete destination frontend contract. Pure, presentation-only, and identity-equal to the catalogue
+  entry so a hostname still cannot carry a grant, a scope or a decision with it. A NEUTRAL host
+  (hostile, unknown, preview, malformed, unconfigured apex, governed tenant hostname) resolves to
+  NO destination frontend — the fail-safe direction.
+- `GovernedSignIn` + `DestinationDenied` (`src/app/governed-sign-in.tsx`) — the ONE shared,
+  destination-aware sign-in foundation and the governed access-denied state. FRONTEND SEPARATION ≠
+  AUTHENTICATION SEPARATION: only the presentation names the destination (headline, class, registry
+  code, global status, contextual accent, accessible form name, submit label). Authentication is the
+  shared BEYU identity — the same `SignInForm`, the same `/api/v1/auth/login`, the same session-cookie
+  policy, the same MFA step-up, the same audit ledger. The authoritative `BeyuOsLogo` is rendered on
+  every destination surface; no destination- or tenant-specific BEYU logo was created.
+- `/sign-in` (`src/app/sign-in/page.tsx`) — the canonical sign-in route on all eight hosts. It renders
+  the SAME page component as `/`, so one implementation serves two canonical URLs and the hostname →
+  destination resolution, the post-auth landing, the denial state and the expired-session state cannot
+  drift between them. No second sign-in, no second host resolver, no second authorization opinion.
+- Governed denial instead of a silent hop (`src/app/page.tsx`): a signed-in identity without the
+  destination's access now receives "You are signed in, but you are not authorized for Health OS." ON
+  that host, with the destination's GLOBAL status and THIS identity's access stated separately. It is
+  never redirected to `/launcher` or to a different OS, and the denial exposes no destination data and
+  no admin control. The apex/`www`/NEUTRAL control-plane routing is preserved unchanged.
+- Session-expired handling (`src/lib/session-state.ts`): `sessionCookiePresent()` supplies the
+  presence fact, so a cookie the database no longer honours is announced as an expired session
+  (`role="status"`) rather than presenting a first-visit form. Validity remains exclusively
+  `resolvePrincipal()`'s answer; the cookie VALUE is never read.
+- Launcher (`src/app/launcher/page.tsx`) — OS ACTIVE ≠ USER AUTHORIZED. Each card now renders the
+  destination's GLOBAL status chip and this identity's access as two separately labelled facts
+  (`ACTIVE` + `ACCESS: AUTHORISED` / `ACCESS: NOT IN CURRENT GRANT`), and the kicker shows the charter
+  code and destination class (`HEALTH_OS · Sector operating system`,
+  `FOUNDATION_OS · Nonprofit sister organisation`). Global status is a literal on the registry entry —
+  it is never derived from the user's grant. Launcher visibility is still not authority.
+- Sector OS activation is REAL, not a label flip: `os_registry.lifecycle` already read `ACTIVE` for
+  `BEYU_OS`, `FINANCE_OS`, `HEALTH_OS`, `AGRICULTURE_OS`, `FOUNDATION_OS` and `UJENZI_OS` in the
+  canonical seed (only the proposed mining charter is `DRAFT`, and it stays out of the catalogue
+  because it has no host, no frontend and no entry). No migration, no enum change, no capability was
+  activated: `CAP_POSTING` stays separately governed and fail-closed, and Ujenzi's BIM / engineering
+  calculations / government links keep their own real states.
+- NO `loading.tsx` on `/` or `/sign-in` — a route-level Suspense boundary commits the HTTP 200 before
+  the page runs and degrades the server-side 307 to the destination home into a client-side
+  navigation, which the architecture forbids. Observed and caught by the HTTP suite
+  (`/sign-in` returned 200 where `/` returned 307 for the same identity on the same host); the
+  boundary was removed and its absence is pinned by a test. The authentication loading state lives in
+  the shared form (`aria-busy`, "Authenticating…", assertive error live region).
+- Unchanged and re-verified: the proxy stays an adapter (no cookie, no session, no database, no
+  authority); every OS route keeps its own gate (`requirePrincipal` → `requestIsOnForeignOSHost` →
+  `operatingSystemTenantInScope` → `Denied`, the Health mount's session + tenant-domain + federation
+  gates, `requireAccess(<declared guard>)` on both shared surfaces); `withTenantDatabaseContext` and
+  the authorization-context endpoints keep executing inside the correct RLS context; no separate Vercel
+  project, no `vercel.json`, no DNS change, no new dependency, no secret.
+- Tests: NEW `tests/sector-domains/destination-frontends.test.ts` (32 pure/source-level assertions —
+  the host → destination → type → frontend → sign-in matrix, destination classes, ACTIVE status
+  reconciled against the charter seed, one shared login call site, no destination-specific identity
+  store, `/sign-in` is the same implementation, landing computed server-side only, denial ordered
+  before the control-plane routing, deep-link gates intact, status ≠ grant, one registry, no
+  migration) and NEW `tests/sector-domains/destination-signin-http.test.ts` (15 HTTP assertions driving
+  the real production server across all eight hosts × seven identities: destination frontends at `/`
+  and `/sign-in`, apex unchanged, hostile hosts select nothing, 307-to-home XOR governed denial, no
+  apex bounce, OS ACTIVE ≠ USER AUTHORIZED, cross-host sessions re-evaluated independently with no
+  forced re-entry, deep-link gates, old launcher paths are not a bypass, one login endpoint and one
+  cookie name, no privileged identity or secret published).
+  UPDATED `tests/sector-domains/canonical-host-http.test.ts`: three assertions encoded the OLD
+  behaviour (authenticated-without-access at a destination root → 307 `/launcher`). They now assert the
+  governed denial ON the destination host. The security property is unchanged and asserted more
+  directly — the hostname granted nothing, no workspace was served, and the identity was not silently
+  moved to another OS.
+
 ## [Unreleased] — Canonical OS / capability entry hosts — every OS independently addressable — 2026-10-08
 
 Extends PR #100 (baseline `main` = `d6848e73`) so that EVERY canonical destination is an independent
