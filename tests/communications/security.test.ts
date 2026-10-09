@@ -1,149 +1,59 @@
 /**
- * Communications — security, RLS, RBAC/ABAC, webhook security, idempotency, loops
+ * Communications — security model, consent, Noelia boundary, internationalization.
+ *
+ * Placeholder assertions (`expect(true).toBe(true)`) have been removed. They
+ * passed without testing anything.
+ *
+ * Webhook security is covered by real tests, not listed here:
+ *   tests/communications/webhook-signature.test.ts  scheme, secret and signature verification (known-answer vectors)
+ *   tests/communications/webhook-ingest.test.ts     forgery, replay, duplicates, conflicts, tenant spoofing (PostgreSQL)
+ *   tests/communications/webhook-route.test.ts      the public HTTP boundary and its uniform refusals
+ *
+ * Every remaining item below is an `it.todo`. It is listed so the gap stays visible.
+ * It is not a passing test.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it } from "vitest";
 
 describe("communications — security model", () => {
-  it("preserves GlobalUserID, RBAC, ABAC, RLS, tenant/entity/country/classification", () => {
-    expect(true).toBe(true);
-  });
-
-  it("webhook security: signature verification → payload validation → provider resolution → idempotency → canonical event", () => {
-    expect(true).toBe(true);
-  });
-
-  it("never trust tenant/entity IDs from external payloads — resolved from provider connection", () => {
-    expect(true).toBe(true);
-  });
-
-  it("protects against forged requests, replay, duplicates, malformed payloads, provider spoofing", () => {
-    expect(true).toBe(true);
-  });
-
-  it("idempotency prevents duplicate messages, orders, feedback, invoices, notifications", () => {
-    expect(true).toBe(true);
-  });
-
-  it("uses provider + provider account + provider event/message ID for idempotency", () => {
-    expect(true).toBe(true);
-  });
-
-  it("message loop protection via correlation_id, causation_id, origin channel, automation depth", () => {
-    expect(true).toBe(true);
-  });
-
-  it("prevents WhatsApp→BEYU→SMS→BEYU→Email infinite loop", () => {
-    expect(true).toBe(true);
-  });
-
-  it("classifies failures: TRANSIENT, PERMANENT, AUTHENTICATION, RATE_LIMIT, INVALID_RECIPIENT, PROVIDER_OUTAGE, POLICY_REJECTION", () => {
-    expect(true).toBe(true);
-  });
-
-  it("does not retry permanent failures forever, does not cause duplicate delivery", () => {
-    expect(true).toBe(true);
-  });
-
-  it("provider failover preserves idempotency, audit, avoids duplicate delivery", () => {
-    expect(true).toBe(true);
-  });
-
-  it("CAP_POSTING remains LOCKED — communications cannot post journals, move funds", () => {
-    expect(true).toBe(true);
-  });
-
-  it("document security via canonical Documents with authorization, classification, tenant, entity, country, retention, legal hold, access audit", () => {
-    expect(true).toBe(true);
-  });
-
-  it("no second storage system for documents", () => {
-    expect(true).toBe(true);
-  });
-
-  it("secret management: never commit WhatsApp tokens, SMS API keys, email keys, webhook secrets", () => {
-    expect(true).toBe(true);
-  });
-
-  it("uses env-var NAMES only — no secret value column", () => {
-    expect(true).toBe(true);
-  });
-
-  it("simulation mode: SIMULATED messages must not reach real providers, visibly labeled, testable", () => {
-    expect(true).toBe(true);
-  });
-
-  it("abuse/anti-spam: tenant rate limits, endpoint limits, recipient limits, provider quotas, automation limits, loop detection, emergency disablement", () => {
-    expect(true).toBe(true);
-  });
-
-  it("accessibility: accessible HTML email, plain-text fallback, readable documents, screen-reader-friendly UI, localization, notification center", () => {
-    expect(true).toBe(true);
-  });
-
-  it("internationalization: country configuration externalized, not hard-coded Tanzania", () => {
-    expect(true).toBe(true);
-  });
-
-  it("Tanzania as initial configuration data, not hard-coded engine", () => {
-    expect(true).toBe(true);
-  });
+  it.todo("preserves GlobalUserID, RBAC, ABAC, RLS, tenant/entity/country/classification");
+  it.todo("malformed payloads other than oversize (non-object JSON, invalid form data) are refused or recorded without business writes");
+  it.todo("idempotency for entities other than messages: orders, feedback, invoices, notifications");
+  it.todo("message loop protection via correlation_id, causation_id, origin channel, automation depth");
+  it.todo("prevents WhatsApp→BEYU→SMS→BEYU→Email infinite loop");
+  it.todo("classifies failures: TRANSIENT, PERMANENT, AUTHENTICATION, RATE_LIMIT, INVALID_RECIPIENT, PROVIDER_OUTAGE, POLICY_REJECTION");
+  it.todo("does not retry permanent failures forever, does not cause duplicate delivery");
+  it.todo("provider failover preserves idempotency, audit, avoids duplicate delivery");
+  it.todo("CAP_POSTING remains LOCKED — communications cannot post journals, move funds");
+  it.todo("document security via canonical Documents with authorization, classification, tenant, entity, country, retention, legal hold, access audit");
+  it.todo("no second storage system for documents");
+  it.todo("secret management: never commit WhatsApp tokens, SMS API keys, email keys, webhook secrets");
+  it.todo("uses env-var NAMES only — no secret value column");
+  it.todo("simulation mode: SIMULATED messages must not reach real providers, visibly labeled, testable");
+  it.todo("abuse/anti-spam: tenant rate limits, endpoint limits, recipient limits, provider quotas, automation limits, loop detection, emergency disablement");
+  it.todo("accessibility: accessible HTML email, plain-text fallback, readable documents, screen-reader-friendly UI, localization, notification center");
+  it.todo("internationalization: country configuration externalized, not hard-coded Tanzania");
+  it.todo("Tanzania as initial configuration data, not hard-coded engine");
 });
 
 describe("communications — consent", () => {
-  it("opt-in, opt-out, revocation, timestamp, source, purpose, evidence preserved", () => {
-    expect(true).toBe(true);
-  });
-
-  it("marketing must never be sent without appropriate consent", () => {
-    expect(true).toBe(true);
-  });
-
-  it("does not infer marketing consent from transactional interaction", () => {
-    expect(true).toBe(true);
-  });
-
-  it("transactional, operational, security are always permitted (with policy checks)", () => {
-    expect(true).toBe(true);
-  });
+  it.todo("opt-in, opt-out, revocation, timestamp, source, purpose, evidence preserved");
+  it.todo("marketing must never be sent without appropriate consent");
+  it.todo("does not infer marketing consent from transactional interaction");
+  it.todo("transactional, operational, security are always permitted (with policy checks)");
 });
 
 describe("communications — Noelia security", () => {
-  it("Noelia is one governed identity NOELIA_AI", () => {
-    expect(true).toBe(true);
-  });
-
-  it("never creates NOELIA_WHATSAPP, NOELIA_SMS, NOELIA_EMAIL, NOELIA_COMMUNICATIONS", () => {
-    expect(true).toBe(true);
-  });
-
-  it("Noelia MUST NOT grant permissions, change roles, bypass RLS/RBAC/ABAC, override consent, approve financial, post journals, move money, disable audit, impersonate human", () => {
-    expect(true).toBe(true);
-  });
-
-  it("AI analysis remains attributable and auditable, does not silently alter original feedback", () => {
-    expect(true).toBe(true);
-  });
-
-  it("prompt injection protection", () => {
-    expect(true).toBe(true);
-  });
+  it.todo("Noelia is one governed identity NOELIA_AI");
+  it.todo("never creates NOELIA_WHATSAPP, NOELIA_SMS, NOELIA_EMAIL, NOELIA_COMMUNICATIONS");
+  it.todo("Noelia MUST NOT grant permissions, change roles, bypass RLS/RBAC/ABAC, override consent, approve financial, post journals, move money, disable audit, impersonate human");
+  it.todo("AI analysis remains attributable and auditable, does not silently alter original feedback");
+  it.todo("prompt injection protection");
 });
 
 describe("communications — internationalization", () => {
-  it("supports Tanzania: sw, en, TZS, +255 as configuration", () => {
-    expect(true).toBe(true);
-  });
-
-  it("supports another country configuration fixture", () => {
-    expect(true).toBe(true);
-  });
-
-  it("supports language, country, timezone, date/number/currency/phone formatting, localized templates", () => {
-    expect(true).toBe(true);
-  });
-
-  it("country-specific providers via provider registry", () => {
-    expect(true).toBe(true);
-  });
+  it.todo("supports Tanzania: sw, en, TZS, +255 as configuration");
+  it.todo("supports another country configuration fixture");
+  it.todo("supports language, country, timezone, date/number/currency/phone formatting, localized templates");
+  it.todo("country-specific providers via provider registry");
 });
