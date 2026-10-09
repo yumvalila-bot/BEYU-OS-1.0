@@ -21,7 +21,11 @@
  *   • hostile Host values select nothing at all.
  */
 import { request as httpRequest } from "node:http";
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { decryptSecret, generateTotpCode } from "@/lib/mfa";
 import { apiGet, baseUrl, login, serverAvailable } from "../helpers/http";
 
 const enabled = Boolean(process.env.BEYU_TEST_BASE_URL);
@@ -178,15 +182,16 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
       // never another OS's payload, never a bounce to the apex.
       expect([200, 307]).toContain(page.status);
       if (page.status === 307) expect(page.location ?? "").not.toMatch(/beyu\.co\.tz/);
+      // The host resolves to the Foundation destination's own route whatever the
+      // outcome; that route's own gate (tenant scope + capability) then decides.
       const root = await getWithHost("/", "foundation.beyu.co.tz", foundationCookie);
       expect(root.status).toBe(307);
-      if (page.status === 200) expect(root.location).toBe("/os/foundation");
-      else expect(root.location).not.toBe("/os/foundation");
+      expect(root.location).toBe("/os/foundation");
     },
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "a shared-surface host enters its surface route exactly when that route's own gate allows it",
+    "a shared-surface host always resolves to its own surface route, and that route's own gate decides what is rendered",
     async () => {
       for (const [host, home, cookie] of [
         ["familyoffice.beyu.co.tz", "/os/family", ceoCookie],
@@ -197,11 +202,11 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
         const root = await getWithHost("/", host, cookie);
         expect(root.status, host).toBe(307);
         // Relative Location only: the sign-in/routing never sends the browser to
-        // another host. The surface home is chosen iff the surface is servable.
+        // another host — and it never falls back to the generic control-plane
+        // launcher. The host selects the surface; the surface re-gates.
         expect(root.location ?? "", host).toMatch(/^\/(?!\/)/);
         expect(root.location, host).not.toMatch(/beyu\.co\.tz/);
-        if (surface.status === 200) expect(root.location, host).toBe(home);
-        else expect(root.location, host).not.toBe(home);
+        expect(root.location, host).toBe(home);
       }
     },
   );
@@ -253,11 +258,12 @@ describe("C/G. a hostname is not an authorization", () => {
       expect(health.body).not.toContain("healthSpaHtml");
 
       // An Agriculture principal on ujenzi.beyu.co.tz is not a Ujenzi principal:
-      // the root uses the pre-existing routing (launcher), and the Ujenzi gate
-      // renders its own governed denial rather than the workspace.
+      // the root resolves to the UJENZI destination's own route (never the
+      // generic control-plane launcher), and the Ujenzi gate renders its own
+      // governed denial rather than the workspace.
       const ujenziRoot = await getWithHost("/", "ujenzi.beyu.co.tz", agriCookie);
       expect(ujenziRoot.status).toBe(307);
-      expect(ujenziRoot.location).toBe("/launcher");
+      expect(ujenziRoot.location).toBe("/os/ujenzi");
       const ujenzi = await getWithHost("/os/ujenzi", "ujenzi.beyu.co.tz", agriCookie);
       expect([200, 307]).toContain(ujenzi.status);
       if (ujenzi.status === 200) expect(ujenzi.body).toContain("Authorisation denied");
@@ -266,17 +272,18 @@ describe("C/G. a hostname is not an authorization", () => {
       // agriculture.beyu.co.tz.
       const agriRoot = await getWithHost("/", "agriculture.beyu.co.tz", foundationCookie);
       expect(agriRoot.status).toBe(307);
-      expect(agriRoot.location).toBe("/launcher");
+      expect(agriRoot.location).toBe("/os/agriculture");
       const agri = await getWithHost("/os/agriculture", "agriculture.beyu.co.tz", foundationCookie);
       expect([200, 307]).toContain(agri.status);
       if (agri.status === 200) expect(agri.body).toContain("Authorisation denied");
 
       // A SHARED-surface host grants nothing either: the auditor holds no
-      // `ai:noelia.query`, so noelia.beyu.co.tz routes them to the launcher and
-      // the console answers with the page's own governed denial.
+      // `ai:noelia.query`, so noelia.beyu.co.tz resolves to the Noelia
+      // destination's own route and the console answers with the page's own
+      // governed denial — not with the control-plane launcher.
       const noeliaRoot = await getWithHost("/", "noelia.beyu.co.tz", auditorCookie);
       expect(noeliaRoot.status).toBe(307);
-      expect(noeliaRoot.location).toBe("/launcher");
+      expect(noeliaRoot.location).toBe("/os/noelia");
       const noelia = await getWithHost("/os/noelia", "noelia.beyu.co.tz", auditorCookie);
       expect(noelia.status).toBe(200);
       expect(noelia.body).toContain("Authorisation denied");
@@ -305,6 +312,166 @@ describe("C/G. a hostname is not an authorization", () => {
         }
       }
     },
+  );
+});
+
+/*
+ * A/B REGRESSION — the canonical Health entry point must serve a HEALTH
+ * frontend, never the generic BEYU OS launcher.
+ *
+ * `health.beyu.co.tz` used to resolve an authenticated visitor to `/launcher`
+ * whenever the visitor was not already Health-authorized (i.e. for every
+ * identity in a database without an ACTIVE `beyu_identity.beyu_identity_links`
+ * row — the shipped seeded state). The canonical Health entry point therefore
+ * rendered the control plane's OS-selection grid: the destination contract
+ * consumed as a sign-in LABEL rather than by the frontend the host serves.
+ *
+ * These assertions are structural, not headings: they follow the redirect chain
+ * the browser would follow and require the terminal document to be the real
+ * Health surface (the governed sector SPA mount, or the truthful `/health`
+ * entry/denial page) — and they fail if the launcher's destination grid
+ * (`sector-os-heading`) appears anywhere in the chain.
+ */
+describe("A/B regression. the Health host serves a Health frontend, never the generic launcher", () => {
+  /** Stable structural marker of the control-plane launcher's destination grid. */
+  const LAUNCHER_GRID = 'id="sector-os-heading"';
+
+  /** Follow same-host redirects the way a browser does, collecting every hop. */
+  async function follow(path: string, host: string, cookie?: string) {
+    const hops: string[] = [];
+    let current = path;
+    for (let i = 0; i < 6; i += 1) {
+      const res = await getWithHost(current, host, cookie);
+      hops.push(`${res.status} ${current}`);
+      if (res.status < 300 || res.status >= 400) return { res, hops };
+      const location = res.location ?? "";
+      // A cross-host Location would itself be a contract violation here.
+      if (!location.startsWith("/")) return { res, hops, crossHost: location };
+      current = location;
+    }
+    throw new Error(`redirect loop on ${host}${path}: ${hops.join(" → ")}`);
+  }
+
+  it.skipIf(!enabled || !routingConfigured)(
+    "the Health host root resolves to the Health destination for EVERY authenticated identity, authorized or not",
+    async () => {
+      for (const [email, cookie] of [
+        ["ceo@beyu.os", ceoCookie],
+        ["health.ops@beyu.os", healthCookie],
+        ["agri.ops@beyu.os", agriCookie],
+        ["auditor@beyu.os", auditorCookie],
+      ] as const) {
+        const root = await getWithHost("/", "health.beyu.co.tz", cookie);
+        expect(root.status, email).toBe(307);
+        // The destination's own canonical route — never the control-plane launcher.
+        expect(root.location, email).toBe("/os/health");
+      }
+    },
+  );
+
+  it.skipIf(!enabled || !routingConfigured)(
+    "following the chain lands on a real Health surface and never on the launcher grid",
+    async () => {
+      for (const [email, cookie] of [
+        ["ceo@beyu.os", ceoCookie],
+        ["health.ops@beyu.os", healthCookie],
+        ["agri.ops@beyu.os", agriCookie],
+        ["auditor@beyu.os", auditorCookie],
+      ] as const) {
+        const { res, hops, crossHost } = await follow("/", "health.beyu.co.tz", cookie);
+        expect(crossHost, `${email}: ${hops.join(" → ")}`).toBeUndefined();
+        // Terminal document is a Health surface: the governed sector SPA (an
+        // ACTIVE federation link) or the truthful Health entry/denial page.
+        expect(res.status, `${email}: ${hops.join(" → ")}`).toBe(200);
+        const isHealthSurface =
+          res.body.includes("BEYU Health OS") ||
+          res.body.includes("Health OS access denied") ||
+          res.body.includes("Health OS authorization unavailable");
+        expect(isHealthSurface, `${email}: ${hops.join(" → ")}`).toBe(true);
+        // THE regression: the generic launcher's destination grid must not be
+        // rendered on the Health host at any point in the chain.
+        expect(res.body, `${email}: ${hops.join(" → ")}`).not.toContain(LAUNCHER_GRID);
+        expect(res.body, `${email}: ${hops.join(" → ")}`).not.toContain("Select a governed destination");
+      }
+    },
+  );
+
+  it.skipIf(!enabled || !routingConfigured)(
+    "the Health host's unauthenticated deep link and its sign-in surface stay on the Health host",
+    async () => {
+      const deep = await getWithHost("/os/health", "health.beyu.co.tz");
+      expect(deep.status).toBe(307);
+      // Relative: the visitor is returned to sign-in ON the canonical Health host.
+      expect(deep.location).toBe("/");
+      const signin = await getWithHost("/", "health.beyu.co.tz");
+      expect(signin.status).toBe(200);
+      expect(signin.body).toContain("Sign in to Health OS — governed by BEYU OS");
+      // The post-sign-in landing is the Health route, computed server-side from
+      // the host contract (never from a query string) and root-relative. The
+      // RSC payload escapes quotes, so match either form.
+      expect(signin.body).toMatch(/\\?"landing\\?":\\?"\/os\/health\\?"/);
+      expect(signin.body).not.toContain(LAUNCHER_GRID);
+    },
+  );
+
+  it.skipIf(!enabled || !routingConfigured)(
+    "signing in ON the Health host returns the visitor to the Health destination on the same host",
+    async () => {
+      const password = process.env.BEYU_BOOTSTRAP_PASSWORD;
+      if (!password) throw new Error("BEYU_BOOTSTRAP_PASSWORD is required for HTTP tests");
+
+      // A real end-to-end callback: authenticate with the Health host as the
+      // request Host (so the session cookie is issued for the canonical apex),
+      // then replay what the browser does next — GET / on the same host.
+      //
+      // TOTP replay prevention rejects a step `beforeAll` already consumed for
+      // this identity, so a fresh 30s window is awaited when a code is refused
+      // (the same convention as tests/helpers/http.ts `login`).
+      let loginOnHealthHost: Reply | null = null;
+      for (let attempt = 0; attempt < 3 && !loginOnHealthHost; attempt += 1) {
+        const [user] = await db.select().from(users).where(eq(users.email, "ceo@beyu.os")).limit(1);
+        if (!user) throw new Error("seed user ceo@beyu.os is missing — run npm run seed");
+        const mfaCode = user.mfaSecretEncrypted
+          ? generateTotpCode(decryptSecret(user.mfaSecretEncrypted), Date.now())
+          : undefined;
+        const attemptRes = await send(
+          "POST",
+          "/api/v1/auth/login",
+          { host: "health.beyu.co.tz", origin: "http://health.beyu.co.tz", "content-type": "application/json" },
+          JSON.stringify({ email: "ceo@beyu.os", password, mfaCode }),
+        );
+        if (attemptRes.status === 200) loginOnHealthHost = attemptRes;
+        else await new Promise((r) => setTimeout(r, 31_000));
+      }
+      if (!loginOnHealthHost) throw new Error("could not authenticate ceo@beyu.os on health.beyu.co.tz");
+      // The ONE cookie policy (src/lib/session-cookie.ts): HttpOnly + SameSite
+      // always; scoped to the canonical apex only when the deployment opts in,
+      // otherwise host-only. Either way it is never scoped to a foreign domain,
+      // and its scope is never an authorization.
+      for (const cookie of loginOnHealthHost.setCookie) {
+        const lower = cookie.toLowerCase();
+        expect(lower).toContain("httponly");
+        expect(lower).toContain("samesite=lax");
+        const domain = /;\s*domain=([^;]+)/i.exec(cookie)?.[1]?.trim();
+        if (domain) expect(domain).toBe("beyu.co.tz");
+      }
+      const sessionCookie = loginOnHealthHost.setCookie.map((c) => c.split(";")[0]).join("; ");
+
+      const { res: landed, hops, crossHost } = await follow("/", "health.beyu.co.tz", sessionCookie);
+      // No hop ever leaves the canonical Health hostname.
+      expect(crossHost, hops.join(" → ")).toBeUndefined();
+      expect(landed.status, hops.join(" → ")).toBe(200);
+      // The visitor arrives at a Health surface, never the control-plane grid.
+      expect(landed.body, hops.join(" → ")).not.toContain(LAUNCHER_GRID);
+      expect(
+        landed.body.includes("BEYU Health OS") ||
+          landed.body.includes("Health OS access denied") ||
+          landed.body.includes("Health OS authorization unavailable"),
+        hops.join(" → "),
+      ).toBe(true);
+      // A fresh TOTP window can cost up to 31s per attempt.
+    },
+    150_000,
   );
 });
 

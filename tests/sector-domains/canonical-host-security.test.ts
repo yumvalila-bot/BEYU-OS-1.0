@@ -222,29 +222,56 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
 });
 
 describe("5. reaching a canonical host authorizes nothing", () => {
-  it("the sign-in page redirects to an OS home only through authorizedOperatingSystems()", () => {
+  /*
+   * "Reaching a canonical host authorizes nothing" is a SECURITY property, and
+   * it is now enforced one step further down than it used to be.
+   *
+   * Previously this page gated the destination redirect on the destination's
+   * own resolver/permission and fell back to the control-plane routing
+   * (`/launcher`) when that gate would deny — which put the generic control
+   * plane on the canonical destination host. The page now routes the visitor to
+   * the destination's OWN canonical route unconditionally and lets that
+   * destination's complete server-side gate decide (workspace, or that
+   * destination's own governed denial). Authorization therefore still never
+   * comes from the hostname — it is decided by the destination route, which
+   * re-runs its full gate on every request, on every host.
+   */
+  it("the sign-in page routes a destination host through the ONE contract, and preserves the control-plane routing", () => {
     const c = code(signIn);
-    const resolver = c.indexOf("authorizedOperatingSystems(principal)");
-    const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
-    expect(resolver).toBeGreaterThan(-1);
-    expect(sectorRedirect).toBeGreaterThan(resolver);
-    // The existing routing is preserved after the host branch.
-    expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
-    // Host is read through the one server helper; never from a query string.
+    // The host is read through the one server helper; never from a query string.
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
+    // The routing decision is the canonical contract's, not an inline literal.
+    const contractCall = c.indexOf("authenticatedEntryRoute(canonicalHost)");
+    const destinationRedirect = c.indexOf("if (entryRoute) redirect(entryRoute);");
+    expect(contractCall).toBeGreaterThan(-1);
+    expect(destinationRedirect).toBeGreaterThan(contractCall);
+    // No hardcoded host or route literal decides the destination here.
+    expect(c).not.toMatch(/host\.includes\(|hostname\.includes\(|endsWith\("health/);
+    expect(c).not.toMatch(/redirect\("\/os\/(health|finance|agriculture|ujenzi|foundation|family|noelia)"\)/);
+    // The pre-existing control-plane routing is preserved for the apex/neutral
+    // hosts, where `entryRoute` is null.
+    expect(c).toContain("authorizedOperatingSystems(principal)");
+    expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
+    expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
   });
 
-  it("a SHARED-surface host redirects only through that destination's own declared guard", () => {
+  it("the destination route comes from the canonical registry — never a literal, never a second route table", () => {
     const c = code(signIn);
-    const surfaceRedirect = c.indexOf("can(principal, canonicalHost.surface.entryPermission).allowed");
-    expect(surfaceRedirect).toBeGreaterThan(-1);
-    // It reuses the canonical registry's declared permission — not a literal and
-    // not a second permission table.
-    expect(c).toContain("canonicalHost.surface.entryPermission");
+    // A SHARED surface and a Sector OS are both resolved by the same contract,
+    // from the catalogue's own `href` (see authenticatedEntryRoute()).
     expect(c).not.toMatch(/can\(principal, "family:member\.read"\)/);
     expect(c).not.toMatch(/can\(principal, "ai:noelia\.query"\)/);
+    const contract = code(source("src", "lib", "canonical-hosts.ts"));
+    const fn = contract.slice(
+      contract.indexOf("export function authenticatedEntryRoute"),
+      contract.indexOf("export function authenticatedEntryRoute") + 700,
+    );
+    expect(fn).toContain("return resolution.os.href;");
+    expect(fn).toContain("return resolution.surface.href;");
+    // Both branches yield a root-relative route, so the page cannot be turned
+    // into an open redirector by a Host header.
+    expect(fn).not.toMatch(/https?:|new URL|request|header/i);
   });
 
   it("the post-login landing is server-computed and same-origin only", () => {
