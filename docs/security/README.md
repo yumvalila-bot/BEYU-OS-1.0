@@ -74,6 +74,18 @@ sealed after use (replay/CSRF/race resistant, DB-enforced terminality). See:
 - [`PRODUCTION_SECRET_CONFIGURATION.md`](PRODUCTION_SECRET_CONFIGURATION.md) — required secrets.
 - [`../runbooks/RB-024-initial-administrator-enrollment.md`](../runbooks/RB-024-initial-administrator-enrollment.md) — owner runbook.
 
+## Supply chain
+
+The dependency gate is scoped deliberately: `npm audit --omit=dev --audit-level=critical` across the
+root package and both Health OS packages (`docs/ci/README.md`). Dev-only advisories in build tooling
+are triaged deliberately; a critical vulnerability in shipped runtime code reddens the pipeline.
+That scope is only meaningful if the manifests tell the truth about what ships.
+
+- [`PRODUCTION_DEPENDENCY_AUDIT_REMEDIATION.md`](PRODUCTION_DEPENDENCY_AUDIT_REMEDIATION.md) — the
+  2026-10-05 critical advisories (`tinypool`, `proxy-addr`), the measured production exposure of
+  each, the remediation applied, what it explicitly does **not** fix, and the owner decision that
+  remains open (Vitest 3 → 4). Pinned by `tests/security/production-dependency-boundary.test.ts`.
+
 ## Non-claims
 
 BEYU OS **does not** claim certification against ISO 27001, SOC 2, GDPR or any other framework.

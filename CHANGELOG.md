@@ -1,5 +1,66 @@
 # Changelog
 
+## [Unreleased] — Production dependency audit remediation — the two red supply-chain gates — 2026-10-09
+
+Both `Production dependency audit (critical only)` jobs have been red on `main` since two critical
+advisories were published upstream on 2026-10-05, against manifests and lockfiles this repository had
+not changed. Investigated from a clean checkout of `main` (`2bcff13b`) and remediated with the
+smallest change that is actually supported. Orthogonal to the canonical-destination entry below: no
+source, schema, migration, workflow, secret, authentication, authorization, RLS, MFA, session,
+tenant-isolation, audit or canonical-host routing code is touched. Full evidence, exposure analysis
+and the rejected alternatives: `docs/security/PRODUCTION_DEPENDENCY_AUDIT_REMEDIATION.md`.
+
+- **Root manifest corrected (`package.json`, `package-lock.json`).** `vitest` moved from
+  `dependencies` to `devDependencies` at the same declared range (`^3.2.7`). It was the only path by
+  which `tinypool@1.1.1` — critical, GHSA-5gmw-xhrv-c9v3 / CVE-2026-104848 and GHSA-85c8-ppgw-ccpr /
+  CVE-2026-104849, prototype pollution to RCE — entered the production graph. The lockfile
+  regeneration changes **no resolved version**: 643 entries before and after, none added or removed,
+  101 scope flags corrected. `npm ci --omit=dev` at the root now installs 53 packages instead of 106
+  and no longer ships the test runner; `scripts/supply-chain/sbom.mjs`, which derives `scope` from the
+  lockfile's `dev` flag, stops publishing `vitest`/`tinypool` as `required` components.
+- **`tsx` deliberately stays in `dependencies`.** `.github/workflows/db-release.yml`'s
+  `environment: Production` deploy job runs `npm ci` and then `npx tsx scripts/migrate.ts`,
+  `npx tsx scripts/setup-db-role.ts` and `npx tsx scripts/db-release.ts verify` against the
+  production database (as do the `pvg` and `drift-report` jobs). It is production-release tooling for
+  this repository and carries no advisory.
+- **Health OS backend patched (`sectors/health/backend/package-lock.json`).** `proxy-addr`
+  `2.0.7 → 2.0.8`, critical GHSA-jqcg-44mw-7w3h / CVE-2026-90711 (IP spoofing via IPv4-mapped IPv6
+  trust subnet). Unlike the root finding this one genuinely ships and genuinely loads: the backend
+  `Dockerfile` builds its runtime image with `npm ci --omit=dev`, express requires `proxy-addr`
+  unconditionally, and `req.ip` — read by the auth, MFA, CSRF and audit-correlation paths — calls it
+  on every request. `2.0.8` is inside express's own declared `~2.0.7`, so the fix is lockfile-only
+  and non-breaking: 934 entries before and after, one version changed, 7 insertions, 3 deletions, no
+  manifest edit. The patched code (IPv4-mapped canonicalisation plus the cross-family guards) is
+  verified present in the installed module.
+- **Gate result.** `npm audit --omit=dev --audit-level=critical` now exits 0 in all three matrix
+  paths: root 5 vulnerabilities (2 of them critical) → 2 high, 0 critical; Health OS backend 26
+  (1 critical) → 25, 0 critical; Health OS frontend unchanged at 0. The gate itself is untouched —
+  no threshold change, no allowlist, no `continue-on-error`, no `npm audit fix --force`.
+- **Not claimed: `tinypool` is not fixed.** It remains installed as a development dependency and is
+  still loaded by vitest's `forks` pool wherever the suite runs; the root full-tree audit is
+  unchanged at 16 vulnerabilities (2 critical). There is no patched `tinypool` inside
+  `vitest@3.2.7`'s declared `^1.1.1` range — the 1.x line ends at 1.1.1 and 3.2.7 is the last 3.x —
+  so eliminating it means the **Vitest 4.1.11 major upgrade**, which drops the package entirely, also
+  fixes the moderate `@vitest/mocker` advisory, needs no Node or Vite upgrade, and is left as an
+  explicit owner decision rather than being performed here. The backend's dev-scoped `handlebars`
+  critical, the root's `sharp`/`source-map-js` highs and the backend's unused `express-rate-limit`
+  are inventoried with their follow-ups in §8.1 of the evidence record.
+- **Guard added:** `tests/security/production-dependency-boundary.test.ts` (pure, DB-free, 13 tests)
+  pins test tooling out of the root production graph, pins known-critical versions out of both
+  production graphs, records why `tsx` stays, and pins the CI audit command, its threshold and its
+  three-package matrix so the gate cannot be weakened silently. Verified discriminating: 7 of its 13
+  assertions fail against the unremediated `main` manifests and all 13 pass after.
+- **Verified** in an isolated worktree at `origin/main` and re-verified on the combined tree:
+  `npm ci` reproducible at the root (448 packages) and in the backend image path (`--omit=dev`, 445
+  packages); migration integrity, `npm run typecheck` (0 errors), `npm run lint` (0 errors, 1
+  pre-existing warning), `npm run migrate` (75/75, fingerprint `f304a5178e44e0dd91e539161064b8d9`
+  unchanged), runtime role still NOSUPERUSER/NOBYPASSRLS/NOCREATEROLE/NOCREATEDB, `npm run build`
+  (the real command, byte-identical `spa-content.ts`), `/api/health` reporting `database: UP`, the
+  Finance CAP_POSTING / journal POST / ledger-write regression at 16 files / 431 tests, the full root
+  regression at 323 files / 5398 tests passed / 0 failed, and the backend at `npm ci` 927 packages,
+  typecheck 0, `nest build` 0 and 31 security/e2e suites / 194 tests passed. No production system,
+  DNS record, Vercel project or Supabase instance was contacted.
+
 ## [Unreleased] — First-class canonical destination frontends + destination-aware sign-in — 2026-10-08
 
 Extends PR #101 (baseline `main` = `2bcff13b`). The canonical host contract already RESOLVED every
