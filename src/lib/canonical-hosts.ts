@@ -63,6 +63,7 @@ import {
   BEYU_CONTROL_PLANE,
   CANONICAL_SURFACES,
   SECTOR_OPERATING_SYSTEMS,
+  destinationSignInSubtitle,
   type CanonicalHostedDestination,
   type CanonicalSurfaceDestination,
   type OperatingSystemDestination,
@@ -218,6 +219,51 @@ export function canonicalContextOf(resolution: CanonicalHostResolution): Canonic
     default:
       return null;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Destination frontend                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The complete frontend contract of the destination a host selected: the
+ * catalogue entry (which carries the registry code, destination class, global
+ * operating status, headline, accent and highlights) plus the sign-in sub-line
+ * for that destination.
+ *
+ * PRESENTATION ONLY. There is no authorization fact in this type and none may be
+ * added: `status` is the GLOBAL operating state of the destination, never a
+ * statement about the requesting identity, and whether a signed-in user may
+ * enter is answered exclusively by the pre-existing server-side authorization
+ * (`authorizedOperatingSystems()` for a Sector OS, the destination's own declared
+ * guard for a shared surface). An ACTIVE destination and a user who does not hold
+ * access to it are both true at the same time.
+ */
+export type CanonicalDestination = {
+  /** Which class of canonical host selected this destination. */
+  hostKind: "CONTROL_PLANE" | "SECTOR_OS" | "SURFACE";
+  /** The ONE catalogue entry — every presentation fact comes from it. */
+  context: CanonicalContext;
+  /** `Sign in to <destination> — governed by BEYU OS`. */
+  signInSubtitle: string;
+};
+
+/**
+ * Resolve a host resolution to its destination frontend contract, or null for a
+ * NEUTRAL host (a preview host, localhost without configuration, an unknown
+ * subdomain, a malformed Host, a governed tenant hostname). A NEUTRAL host
+ * selects no destination and keeps the pre-existing control-plane surface —
+ * which is the fail-safe direction: an attacker-controlled host can never
+ * select a first-class destination frontend, privileged or otherwise.
+ */
+export function destinationForResolution(resolution: CanonicalHostResolution): CanonicalDestination | null {
+  const context = canonicalContextOf(resolution);
+  if (!context) return null;
+  return {
+    hostKind: resolution.kind === "SURFACE" ? "SURFACE" : resolution.kind === "SECTOR_OS" ? "SECTOR_OS" : "CONTROL_PLANE",
+    context,
+    signInSubtitle: destinationSignInSubtitle(context),
+  };
 }
 
 /**

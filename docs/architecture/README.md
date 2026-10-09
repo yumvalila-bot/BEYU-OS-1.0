@@ -69,7 +69,20 @@ PostgreSQL via Drizzle ORM as the authoritative transactional store. The domain 
 NestJS services, workers or Lambda handlers without change, preserving cloud portability.
 
 Sector OS architecture: [`agriculture-os.md`](./agriculture-os.md) (Agriculture OS — operational
-truth under the BEYU kernel; Finance OS remains the only journal writer).
+truth under the BEYU kernel; Finance OS remains the only journal writer),
+[`foundation-os.md`](./foundation-os.md) (the nonprofit sister organisation's OS).
+
+Canonical entry hosts — the two documents that together define how a visitor reaches a governed
+destination, and what they are served when they do:
+
+* [`SECTOR_OS_SUBDOMAINS.md`](./SECTOR_OS_SUBDOMAINS.md) — hostname → destination resolution, the
+  proxy contract, session scope across the apex, hostile-host handling, DNS/Vercel plan.
+* [`CANONICAL_DESTINATION_FRONTENDS.md`](./CANONICAL_DESTINATION_FRONTENDS.md) — the first-class
+  frontend and destination-aware sign-in each canonical host renders, `/sign-in`, the governed
+  access-denied state, destination types, **global OS status vs. the current identity's grant**, and
+  the Sector OS activation boundary (an ACTIVE OS does not activate its capabilities).
+
+Both are governed by one sentence: **HOSTNAME IDENTIFIES CONTEXT. AUTHORIZATION GRANTS ACCESS.**
 
 See `docs/adr/` for the recorded architectural decisions and `docs/domain-model/README.md` for the
 entity model. Phase completion records: `PHASE_9_CANONICAL_ARCHITECTURE.md`,

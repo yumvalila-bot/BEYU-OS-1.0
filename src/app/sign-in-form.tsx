@@ -25,13 +25,34 @@ export type BootstrapIdentity = { email: string; role: string };
  * never read from the URL, a query string or any client-controlled input, so
  * the form cannot be turned into an open redirector — and the landing route
  * itself re-runs the full server-side gate, so it grants nothing.
+ *
+ * `destinationName` is PRESENTATION ONLY: the canonical destination that asked
+ * for this sign-in (`Health OS` on `health.beyu.co.tz`, `Noelia AI` on
+ * `noelia.beyu.co.tz`). It is resolved SERVER-SIDE from the `Host` header
+ * through the one canonical contract and passed in as a prop — never read from
+ * the URL or any client-controlled input. It changes the accessible name of the
+ * form and the label of the submit button and NOTHING else: this is still the
+ * one shared BEYU sign-in, posting to the one `/api/v1/auth/login`, setting the
+ * one session cookie. It defaults to `BEYU OS`, so a caller that passes nothing
+ * renders exactly the control-plane form this component has always rendered.
  */
 export function SignInForm({
   identities = [],
   landing = "/os",
+  destinationName = "BEYU OS",
+  sessionExpired = false,
 }: {
   identities?: BootstrapIdentity[];
   landing?: string;
+  destinationName?: string;
+  /**
+   * True when the request carried a session cookie the server no longer honours
+   * — expired, revoked, or an inactive user. Decided SERVER-SIDE from cookie
+   * PRESENCE plus a null principal (`src/lib/session-state.ts`); validity is
+   * still only `resolvePrincipal()`'s answer. Presentation only: it grants
+   * nothing and never relaxes the form.
+   */
+  sessionExpired?: boolean;
 }) {
   const router = useRouter();
   // Pre-filling a privileged username is a provisioning convenience, and in
@@ -74,7 +95,22 @@ export function SignInForm({
     "w-full rounded-lg border border-white/15 bg-[#050f22]/60 px-3 py-2.5 text-[13px] text-white placeholder-white/30 outline-none focus:border-[#d4af37]/70 focus-visible:ring-2 focus-visible:ring-[#d4af37]/60";
 
   return (
-    <form onSubmit={submit} className="space-y-4" aria-label="Sign in to BEYU OS">
+    <form onSubmit={submit} className="space-y-4" aria-label={`Sign in to ${destinationName}`}>
+      {sessionExpired && (
+        /*
+         * A returning identity whose session lapsed is told so, instead of being
+         * shown a first-visit form. This is a STATE, not a form error, so it is
+         * a polite live region rather than the assertive `beyu-signin-error`
+         * region below — which stays reserved for an authentication failure.
+         */
+        <p
+          role="status"
+          className="rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2 text-[11.5px] leading-relaxed text-white/70"
+        >
+          Your previous BEYU session has expired or was signed out. Sign in again to continue to{" "}
+          {destinationName}.
+        </p>
+      )}
       <div>
         <label className="beyu-kicker text-white/55" htmlFor="beyu-signin-email">
           Identity
@@ -152,7 +188,7 @@ export function SignInForm({
         aria-busy={busy}
         className="w-full rounded-lg bg-[#d4af37] px-4 py-2.5 text-[13px] font-semibold text-[#0b1d3a] transition hover:bg-[#e2c25f] disabled:opacity-60"
       >
-        {busy ? "Authenticating…" : "Enter BEYU OS"}
+        {busy ? "Authenticating…" : `Enter ${destinationName}`}
       </button>
 
       {identities.length > 0 && (

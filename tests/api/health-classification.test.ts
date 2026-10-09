@@ -22,7 +22,7 @@
  * `tests/api/health-integration.test.ts`, which runs wherever DATABASE_URL is
  * provisioned (CI service container, embedded pg16, production-shaped envs).
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -67,7 +67,11 @@ function healthyClient() {
   connectMock.mockResolvedValue({ query: queryMock, release: releaseMock });
 }
 
-let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+// Vitest 4 types `vi.spyOn` as three generic overloads, so the un-instantiated
+// `ReturnType<typeof vi.spyOn>` no longer resolves to a concrete mock type and
+// `.mock.calls` loses its parameter types (TS7006 under `strict`). Name the
+// spied procedure instead — this is more precise than the Vitest 3 form was.
+let consoleErrorSpy: MockInstance<typeof console.error>;
 let savedEnv: Record<string, string | undefined>;
 
 function loggedText(): string {

@@ -14,7 +14,7 @@ import { resolvePrincipal } from "@/lib/session";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { SignOutButton } from "../os/sign-out-button";
 import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
-import { canonicalSurface } from "@/lib/operating-system-catalog";
+import { DESTINATION_TYPE_LABEL, canonicalSurface } from "@/lib/operating-system-catalog";
 
 /**
  * The sixth canonical frontend surface. Family Office is a BEYU
@@ -35,6 +35,20 @@ const FAMILY_OFFICE_SURFACE = {
  * session across the canonical apex) and the current request is already on a
  * canonical BEYU host; otherwise the pre-existing relative route. Presentation
  * only — the destination re-runs its gate on arrival whichever URL is used.
+ *
+ * TWO FACTS, DELIBERATELY NEVER CONFLATED
+ *   `destination.status` is the GLOBAL operating state of the destination itself
+ *   (the canonical catalogue mirroring `os_registry.lifecycle`): HEALTH_OS,
+ *   FINANCE_OS, AGRICULTURE_OS and UJENZI_OS are all ACTIVE. `authorized` is
+ *   THIS identity's access, resolved server-side by
+ *   `authorizedOperatingSystems()`. Both are rendered, separately labelled,
+ *   because an ACTIVE OS and a user who is not authorized for it are true at the
+ *   same time — and user-specific authorization must never be presented as the
+ *   global activation state (or vice versa).
+ *
+ *   Global status is also NOT a capability statement: an ACTIVE OS keeps its
+ *   individually governed capabilities (CAP_POSTING, BIM, engineering
+ *   calculations, government links…), each with its own real state.
  */
 function DestinationCard({
   destination,
@@ -52,20 +66,33 @@ function DestinationCard({
       </span>
       <span className="mt-5 flex flex-wrap items-start justify-between gap-3">
         <span>
-          <span className="block text-[11px] font-semibold tracking-[0.16em] text-slate-500">
-            {destination.code} · {destination.level === "CONTROL_PLANE" ? "CONSTITUTIONAL CONTROL PLANE" : "SECTOR OS"}
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            {destination.registryCode} · {DESTINATION_TYPE_LABEL[destination.destinationType]}
           </span>
           <span className={`mt-1 block text-xl font-semibold tracking-tight ${authorized ? "text-[#0b1f4d]" : "text-slate-500"}`}>{destination.name}</span>
         </span>
-        <span
-          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${authorized ? "border-emerald-600/25 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-500"}`}
-        >
-          {authorized ? "AUTHORISED" : "NOT IN CURRENT GRANT"}
+        <span className="flex flex-wrap items-center justify-end gap-2">
+          {/* GLOBAL operating state of the destination — a fact about the OS,
+              never about this identity. */}
+          <span
+            className="rounded-full border border-[#0b1f4d]/25 bg-[#0b1f4d]/5 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-[#0b1f4d]"
+            title="Global operating state of this destination (canonical registry status). It says nothing about your access."
+          >
+            {destination.status}
+          </span>
+          {/* THIS identity's access — the only authorization-shaped fact here,
+              resolved server-side by the canonical resolver. */}
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${authorized ? "border-emerald-600/25 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-500"}`}
+            title="Your access to this destination, resolved server-side. A session is identity, not access."
+          >
+            {authorized ? "ACCESS: AUTHORISED" : "ACCESS: NOT IN CURRENT GRANT"}
+          </span>
         </span>
       </span>
       <span className="mt-3 block text-[13px] leading-relaxed text-slate-600">{destination.description}</span>
       <span className={`mt-5 flex items-center justify-between text-[12px] font-semibold ${authorized ? "text-[#9b7410]" : "text-slate-500"}`}>
-        {authorized ? "Open governed destination" : "Access unavailable for this identity"}
+        {authorized ? "Open governed destination" : `Destination is ${destination.status} — access unavailable for this identity`}
         {authorized && (
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 transition group-hover:translate-x-1">
             <path d="m9 5 7 7-7 7" />
@@ -218,8 +245,11 @@ export default async function LauncherPage() {
               Sector operating systems
             </h2>
             <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
-              Only Sector OSs covered by your current grants or canonical federation link are launchable.
-              Every destination rechecks authority on entry.
+              Every registered destination below is <strong className="font-semibold text-[#0b1f4d]">ACTIVE</strong> —
+              that is the GLOBAL operating state of the OS itself. Whether <em>you</em> may open one is a separate
+              question, answered server-side from your current grants and canonical federation links. An ACTIVE OS
+              does not mean every capability inside it is active, and launcher visibility is not authority: every
+              destination rechecks on entry.
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
