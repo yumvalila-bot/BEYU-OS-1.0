@@ -53,6 +53,8 @@ export const documents = pgTable(
     entityScope: text("entity_scope"),
     jurisdictionCode: text("jurisdiction_code"),
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
+    // Uploaded documents are evidence candidates, not self-authorizing policy.
+    // A verified human/governance transition must make them authoritative.
     authorityStatus: authorityStatusEnum("authority_status").notNull().default("UNDER_REVIEW"),
     supersedesId: text("supersedes_id"),
     supersededById: text("superseded_by_id"),
@@ -219,6 +221,9 @@ export const aiDecisions = pgTable(
   {
     id: text("id").primaryKey(),
     tenantId: text("tenant_id").references(() => tenants.id),
+    legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    countryCode: text("country_code").references(() => countries.code),
+    classification: classificationEnum("classification").notNull().default("INTERNAL"),
     userId: text("user_id").references(() => users.id),
     agent: text("agent").notNull().default("NOELIA"),
     runtime: text("runtime").notNull().default("HIVE"),
@@ -248,7 +253,11 @@ export const aiDecisions = pgTable(
     latencyMs: integer("latency_ms").notNull().default(0),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("ai_decisions_tenant_idx").on(t.tenantId)],
+  (t) => [
+    index("ai_decisions_tenant_idx").on(t.tenantId),
+    index("ai_decisions_entity_idx").on(t.legalEntityId),
+    index("ai_decisions_country_idx").on(t.countryCode),
+  ],
 );
 
 export type AiSource = {
@@ -280,6 +289,9 @@ export const noeliaActionRequests = pgTable(
     approvalId: text("approval_id").references(() => approvals.id),
     toolName: text("tool_name").notNull(),
     input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+    inputDigest: text("input_digest").default("LEGACY_INVALIDATED").notNull(),
+    inputVersion: integer("input_version").notNull().default(1),
+    requiredApproverRole: text("required_approver_role").default("__NO_VALID_APPROVER_ROLE__").notNull(),
     // Requested target is evidence, not a resolved FK: retaining an unknown or
     // out-of-scope identifier must not create an existence oracle or roll back
     // denial evidence. Tool authorization resolves it independently.
@@ -318,7 +330,7 @@ export const knowledgeSources = pgTable(
     legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
     countryCode: text("country_code").references(() => countries.code),
     version: text("version").notNull().default("1.0.0"),
-    authorityStatus: authorityStatusEnum("authority_status").notNull().default("AUTHORITATIVE"),
+    authorityStatus: authorityStatusEnum("authority_status").notNull().default("UNDER_REVIEW"),
     provenance: text("provenance").notNull(),
     classification: classificationEnum("classification").notNull().default("INTERNAL"),
     effectiveFrom: date("effective_from").notNull(),
@@ -733,8 +745,19 @@ export const noeliaWorkflows = pgTable(
       .notNull()
       .references(() => tenants.id),
     goal: text("goal").notNull(),
-    status: text("status").notNull(), // PLANNED | VALIDATED | AUTHORIZED | RUNNING | COMPLETED | ESCALATED | STOPPED | FAILED | CANCELLED | TIMED_OUT
-    plan: jsonb("plan").$type<Array<{ step: number; toolName: string; input: Record<string, unknown> }>>().notNull().default([]),
+    status: text("status").notNull(), // PLANNED | VALIDATED (legacy) | WAITING_FOR_HUMAN_AUTHORITY | AUTHORIZED | RUNNING | COMPLETED | ESCALATED | STOPPED | FAILED | CANCELLED | TIMED_OUT
+    plan: jsonb("plan").$type<Array<{ step: number; toolName: string; capabilityId: string | null; toolVersion: string | null; input: Record<string, unknown>; requiresApproval: boolean; approverRole: string | null }>>().notNull().default([]),
+    // Nullable only for rolling compatibility with pre-0074 writers. Every new
+    // workflow writes both values and execution fails closed when either is absent.
+    planDigest: text("plan_digest"),
+    planVersion: integer("plan_version").notNull().default(1),
+    targetTenantId: text("target_tenant_id").references(() => tenants.id),
+    targetLegalEntityId: text("target_legal_entity_id").references(() => legalEntities.id),
+    targetCountryCode: text("target_country_code").references(() => countries.code),
+    approvalRequired: boolean("approval_required").notNull().default(true),
+    requiredApproverRoles: jsonb("required_approver_roles").$type<string[]>().notNull().default([]),
+    executionClaimId: text("execution_claim_id"),
+    executionLeaseExpiresAt: timestamp("execution_lease_expires_at", { withTimezone: true }),
     maxSteps: integer("max_steps").notNull().default(8),
     currentStep: integer("current_step").notNull().default(0),
     timeoutMs: integer("timeout_ms").notNull().default(60000),

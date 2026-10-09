@@ -9,6 +9,54 @@ import type { NoeliaEvidenceInput, NoeliaEvidencePort, NoeliaPolicyPort } from "
 export const NOELIA_MODEL = "beyu-hive-deterministic-analyst";
 export const NOELIA_MODEL_VERSION = "2026.02";
 
+export type NoeliaEvidenceDimensions = {
+  tenantId: string;
+  legalEntityId: string | null;
+  countryCode: string | null;
+};
+
+/**
+ * Resolve the database partition for decision evidence from the canonical
+ * finite scope, never from the requested target alone. The original requested
+ * target remains in `inputs.target`, including unknown/out-of-scope values, so
+ * a denial is still auditable without turning that untrusted identifier into a
+ * tenant/entity/country grant or a foreign RLS partition.
+ */
+export function resolveNoeliaEvidenceDimensions(
+  input: Pick<NoeliaEvidenceInput, "principal" | "scope" | "target">,
+): NoeliaEvidenceDimensions {
+  const tenantAuthorized = input.scope.tenantIds.includes(input.target.tenantId);
+  const legalEntityAuthorized = Boolean(
+    tenantAuthorized &&
+      input.target.legalEntityId &&
+      input.scope.entities.some(
+        (entity) => entity.id === input.target.legalEntityId && entity.tenantId === input.target.tenantId,
+      ),
+  );
+  const countryAuthorized = Boolean(
+    tenantAuthorized &&
+      input.target.countryCode &&
+      (input.target.legalEntityId
+        ? legalEntityAuthorized &&
+          input.scope.entities.some(
+            (entity) =>
+              entity.id === input.target.legalEntityId &&
+              entity.tenantId === input.target.tenantId &&
+              entity.countryCode === input.target.countryCode,
+          )
+        : input.scope.tenantCountries.some(
+            (item) =>
+              item.tenantId === input.target.tenantId && item.countryCode === input.target.countryCode,
+          )),
+  );
+
+  return {
+    tenantId: tenantAuthorized ? input.target.tenantId : input.principal.tenantId,
+    legalEntityId: legalEntityAuthorized ? input.target.legalEntityId : null,
+    countryCode: countryAuthorized ? input.target.countryCode : null,
+  };
+}
+
 /** Policy remains a BEYU OS authority service, not HIVE-owned logic. */
 export class BeyuNoeliaPolicyService implements NoeliaPolicyPort {
   async evaluate(input: Parameters<NoeliaPolicyPort["evaluate"]>[0]) {
@@ -40,12 +88,15 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
     const modelKind = input.modelKind ?? "DETERMINISTIC_ANALYST";
     const requestId = input.requestId ?? null;
     const routingDecisionId = input.routingDecisionId ?? null;
+    const evidenceDimensions = resolveNoeliaEvidenceDimensions(input);
 
     await db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as typeof db;
       await tx.insert(aiDecisions).values({
         id: decisionId,
-        tenantId: input.principal.tenantId,
+        tenantId: evidenceDimensions.tenantId,
+        legalEntityId: evidenceDimensions.legalEntityId,
+        countryCode: evidenceDimensions.countryCode,
         userId: input.principal.userId,
         agent: NOELIA_IDENTITY,
         runtime: HIVE_RUNTIME,
@@ -65,6 +116,7 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
           roles: input.principal.roles,
           clearance: input.principal.clearance,
           target: input.target,
+          resolvedEvidenceScope: evidenceDimensions,
         },
         retrievedSources: input.answer.sources,
         toolsUsed: input.answer.toolsUsed,
@@ -110,8 +162,8 @@ export class BeyuNoeliaEvidenceService implements NoeliaEvidencePort {
         domain: "AI",
         operation: "NOELIA_QUERY",
         destinationDomain: null,
-        tenantId: input.principal.tenantId,
-        legalEntityId: input.target.legalEntityId,
+        tenantId: evidenceDimensions.tenantId,
+        legalEntityId: evidenceDimensions.legalEntityId,
         subjectType: "AI_DECISION",
         subjectId: decisionId,
         actorUserId: input.principal.userId,

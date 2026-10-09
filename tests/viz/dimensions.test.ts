@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   CANONICAL_DIMENSIONS,
   CANONICAL_DIMENSION_IDS,
-  VIZ_SECTOR_CODES,
+  VIZ_DOMAIN_CODES,
   dimensionsForSector,
   extensionToDefinition,
   normalizeCombination,
@@ -49,7 +49,7 @@ describe("canonical registry (1D–8D + XD)", () => {
   });
 
   it("lists UJENZI as an equal sector consumer — the foundation is never a Ujenzi subsystem", () => {
-    expect(VIZ_SECTOR_CODES).toEqual(["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"]);
+    expect(VIZ_DOMAIN_CODES).toEqual(["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"]);
     for (const d of CANONICAL_DIMENSIONS) {
       expect(d.sectorApplicability === "*" || d.sectorApplicability.includes("UJENZI")).toBe(true);
     }

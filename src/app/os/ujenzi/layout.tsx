@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
-import { operatingSystemTenantInScope } from "@/lib/operating-systems";
+import { governedTenantInScope } from "@/lib/operating-systems";
 import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 
 /**
@@ -25,7 +25,7 @@ export default async function UjenziLayout({
   // (`finance.beyu.co.tz/os/ujenzi`). Host → refusal only; the tenant /
   // classification / entity-scope gates below are unchanged and still decide.
   if (await requestIsOnForeignOSHost("UJENZI")) notFound();
-  const ujenziInScope = await operatingSystemTenantInScope(
+  const ujenziInScope = await governedTenantInScope(
     principal,
     "BEYU-UJENZI",
   );

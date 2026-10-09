@@ -19,24 +19,33 @@ import {
   syntheticAuthority,
   type SimulationInput,
 } from "@/lib/execution/simulate";
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
 
 const TRACE = "SIM-TRACE-0001";
 const ASOF = "2026-02-15";
 
 function principal(over: Partial<Principal> = {}): Principal {
   const roles = over.roles ?? ["GROUP_CFO"];
+  const tenantId = over.tenantId ?? "TEN_SYNTH";
+  const entityScope = over.entityScope ?? [];
   return {
     userId: "USR_SYNTH_001",
     partyId: "PTY_SYNTH",
     email: "synth@example.test",
     displayName: "Synthetic Principal",
-    tenantId: "TEN_SYNTH",
+    tenantId,
     tenantCode: "SYNTH",
     tenantType: "ENTERPRISE",
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: testRoleAuthorityGrants({
+      roles,
+      tenantId,
+      legalEntityId: entityScope.length === 1 ? entityScope[0] : null,
+      sourceIdPrefix: "SIMULATION_TEST_ROLE",
+    }),
     clearance: "RESTRICTED",
-    entityScope: [],
+    entityScope,
     mfaSatisfied: true,
     sessionId: "SES_SYNTH",
     riskScore: 0,

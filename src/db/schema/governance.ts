@@ -24,7 +24,7 @@ import {
   policyLevelEnum,
   versionStatusEnum,
 } from "./enums";
-import { legalEntities, tenants } from "./core";
+import { countries, legalEntities, tenants } from "./core";
 import { parties, users } from "./identity";
 import { tsvector } from "./search";
 
@@ -225,6 +225,15 @@ export const approvals = pgTable(
     approverRole: text("approver_role").notNull(),
     approverUserId: text("approver_user_id").references(() => users.id),
     decision: approvalDecisionEnum("decision").notNull().default("PENDING"),
+    payloadDigest: text("payload_digest"),
+    payloadVersion: integer("payload_version"),
+    targetTenantId: text("target_tenant_id").references(() => tenants.id),
+    targetLegalEntityId: text("target_legal_entity_id").references(() => legalEntities.id),
+    targetCountryCode: text("target_country_code").references(() => countries.code),
+    mfaVerified: boolean("mfa_verified").notNull().default(false),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: text("revoked_by").references(() => users.id),
+    revokeReason: text("revoke_reason"),
     policyId: text("policy_id").references(() => policies.id),
     requestedBy: text("requested_by").notNull(),
     requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),

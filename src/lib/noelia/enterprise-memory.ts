@@ -6,6 +6,7 @@ import {
   knowledgeSources,
 } from "@/db/schema";
 import { recordAuditTx, publishEventTx } from "@/lib/audit";
+import { can } from "@/lib/authz";
 import {
   CLASSIFICATION_ORDER,
   classificationRank,
@@ -13,6 +14,7 @@ import {
   NOELIA_IDENTITY,
   type Classification,
 } from "@/lib/constants";
+import { checksumOf } from "@/lib/crypto";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import type { NoeliaToolOutput, NoeliaAuthorizedScope, ToolInvocationContext } from "./types";
 
@@ -117,14 +119,30 @@ export class BeyuNoeliaMemoryService {
       jurisdictionCode: z.string().length(2).optional(),
       scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
       classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
-      authorityStatus: z.enum(["AUTHORITATIVE", "UNDER_REVIEW", "SUPERSEDED", "EXPIRED", "REJECTED"]).default("UNDER_REVIEW"),
+      version: z.string().min(1).max(40).default("1.0.0"),
       effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-      supersedesCode: z.string().nullable().optional(),
       provenance: z.string().min(3).max(500),
       keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
     }).strict().parse(input);
+
+    const authorityTarget = parsed.scopeType === "GLOBAL"
+      ? { tenantId: null, entityId: null, countryCode: null }
+      : {
+          tenantId: context.target.tenantId,
+          entityId: parsed.scopeType === "ENTITY" ? context.target.legalEntityId : null,
+          countryCode: parsed.scopeType === "COUNTRY" ? (parsed.jurisdictionCode ?? context.target.countryCode) : null,
+        };
+    const authority = can(context.principal, "ai:knowledge.ingest", authorityTarget);
+    if (!authority.allowed || (parsed.scopeType === "ENTITY" && !context.target.legalEntityId) || (parsed.scopeType === "COUNTRY" && !authorityTarget.countryCode)) {
+      return {
+        headline: "Knowledge registration denied: complete scoped authority is required.",
+        findings: [{ label: "Knowledge ingest", value: "SCOPE_DENIED", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        humanReviewRequired: true,
+        confidence: 1,
+      };
+    }
 
     if (classificationRank(parsed.classification) > classificationRank(context.principal.clearance)) {
       return {
@@ -140,31 +158,32 @@ export class BeyuNoeliaMemoryService {
       };
     }
 
+    // Serialize duplicate-code admission before checking. The unique index is
+    // the final database backstop; this lock keeps the common duplicate path a
+    // deterministic governed denial instead of an unclassified constraint race.
+    await db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${parsed.code}, 0))`);
     const [existing] = await db
       .select({ id: knowledgeSources.id })
       .from(knowledgeSources)
       .where(eq(knowledgeSources.code, parsed.code))
       .limit(1);
-
-    // Supercession: registering a source that supersedes an existing one marks
-    // the old source SUPERSEDED (never deleted) and keeps both windows intact.
-    let supersededCode: string | null = null;
-    if (parsed.supersedesCode) {
-      const [superseded] = await db
-        .select({ code: knowledgeSources.code })
-        .from(knowledgeSources)
-        .where(eq(knowledgeSources.code, parsed.supersedesCode))
-        .limit(1);
-      if (superseded) {
-        supersededCode = superseded.code;
-        await db
-          .update(knowledgeSources)
-          .set({ authorityStatus: "SUPERSEDED", supersedesCode: parsed.code })
-          .where(eq(knowledgeSources.code, superseded.code));
-      }
+    if (existing) {
+      return {
+        headline: "Knowledge registration denied: immutable code already exists.",
+        findings: [{ label: "Knowledge ingest", value: "VERSION_CONFLICT", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        humanReviewRequired: true,
+        confidence: 1,
+      };
     }
 
-    const id = existing?.id ?? newId(ID_PREFIX.knowledge);
+    const id = newId(ID_PREFIX.knowledge);
+    const contentDigest = checksumOf({
+      code: parsed.code,
+      version: parsed.version,
+      scopeType: parsed.scopeType,
+      classification: parsed.classification,
+      content: parsed.content,
+    });
     const row = {
       id,
       code: parsed.code,
@@ -174,28 +193,25 @@ export class BeyuNoeliaMemoryService {
       ownerRole: context.principal.roles[0] ?? "UNKNOWN",
       jurisdictionCode: parsed.jurisdictionCode ?? null,
       scopeType: parsed.scopeType,
-      tenantId: context.target.tenantId,
+      tenantId: parsed.scopeType === "GLOBAL" ? null : context.target.tenantId,
       legalEntityId: parsed.scopeType === "ENTITY" ? context.target.legalEntityId : null,
       countryCode: parsed.scopeType === "COUNTRY" ? (parsed.jurisdictionCode ?? context.target.countryCode) : null,
-      version: "1.0.0",
-      authorityStatus: parsed.authorityStatus,
+      version: parsed.version,
+      authorityStatus: "UNDER_REVIEW" as const,
       provenance: parsed.provenance,
       classification: parsed.classification,
       effectiveFrom: parsed.effectiveFrom,
       reviewDate: parsed.reviewDate,
       expiresAt: parsed.expiresAt ?? null,
-      supersedesCode: supersededCode,
+      supersedesCode: null,
       content: parsed.content,
+      contentDigest,
       keywords: parsed.keywords,
     };
 
     await db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as typeof db;
-      if (existing) {
-        await tx.update(knowledgeSources).set(row).where(eq(knowledgeSources.id, existing.id));
-      } else {
-        await tx.insert(knowledgeSources).values(row);
-      }
+      await tx.insert(knowledgeSources).values(row);
       await recordAuditTx(tx, {
         tenantId: context.target.tenantId,
         actorUserId: context.principal.userId,
@@ -206,7 +222,7 @@ export class BeyuNoeliaMemoryService {
         reason: `Knowledge source ${parsed.code} registered (${parsed.scopeType}/${parsed.classification}).`,
         aiVersion: NOELIA_IDENTITY,
         traceId: context.traceId,
-        newValue: { code: parsed.code, domain: parsed.domain, authorityStatus: parsed.authorityStatus, supersedesCode: supersededCode },
+        newValue: { code: parsed.code, domain: parsed.domain, authorityStatus: "UNDER_REVIEW", supersedesCode: null },
       });
       await publishEventTx(tx, {
         type: "NOELIA_KNOWLEDGE_INGESTED",
@@ -221,7 +237,7 @@ export class BeyuNoeliaMemoryService {
         actorUserId: context.principal.userId,
         actorType: "HUMAN",
         classification: parsed.classification,
-        payload: { code: parsed.code, domain: parsed.domain, authorityStatus: parsed.authorityStatus, supersedesCode: supersededCode },
+        payload: { code: parsed.code, domain: parsed.domain, authorityStatus: "UNDER_REVIEW", supersedesCode: null },
         traceId: context.traceId,
         correlationId: context.traceId,
         causationId: null,
@@ -234,7 +250,7 @@ export class BeyuNoeliaMemoryService {
       headline: `Knowledge source ${parsed.code} registered.`,
       findings: [{
         label: "Knowledge source",
-        value: `${parsed.code} · ${parsed.scopeType} · ${parsed.authorityStatus} · effective ${parsed.effectiveFrom}`,
+        value: `${parsed.code} · ${parsed.scopeType} · ${"UNDER_REVIEW"} · effective ${parsed.effectiveFrom}`,
         kind: "FACT",
         status: "OBSERVED",
       }],
@@ -242,10 +258,168 @@ export class BeyuNoeliaMemoryService {
         kind: "KNOWLEDGE_SOURCE",
         ref: parsed.code,
         label: parsed.title,
-        authority: parsed.authorityStatus,
+        authority: "UNDER_REVIEW",
       }],
-      metadata: { knowledgeSourceId: id, supersedesCode: supersededCode },
+      metadata: { knowledgeSourceId: id, supersedesCode: null },
       confidence: 0.9,
+    };
+  }
+
+  async prepareReplacement(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const parsed = z.object({
+      supersedesCode: z.string().min(3).max(64),
+      expectedDigest: z.string().length(64),
+      expectedVersion: z.string().min(1).max(40),
+      replacement: z.record(z.unknown()),
+    }).strict().parse(input);
+    // Lock the exact predecessor before validating it. This serializes
+    // replacement preparation with publication/supersession and prevents a
+    // stale authoritative observation from authorizing a new branch.
+    await db.execute(sql`select id from knowledge_sources where code = ${parsed.supersedesCode} for update`);
+    const [current] = await db.select().from(knowledgeSources)
+      .where(eq(knowledgeSources.code, parsed.supersedesCode)).limit(1);
+    if (!current || current.contentDigest !== parsed.expectedDigest || current.version !== parsed.expectedVersion || current.authorityStatus !== "AUTHORITATIVE") {
+      return {
+        headline: "Knowledge replacement denied: authoritative source version/digest mismatch.",
+        findings: [{ label: "Knowledge replacement", value: "DIGEST_VERSION_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        humanReviewRequired: true,
+        confidence: 1,
+      };
+    }
+    const [activeReplacement] = await db.select({ id: knowledgeSources.id })
+      .from(knowledgeSources)
+      .where(and(
+        eq(knowledgeSources.supersedesCode, parsed.supersedesCode),
+        inArray(knowledgeSources.authorityStatus, ["UNDER_REVIEW", "AUTHORITATIVE"]),
+      ))
+      .limit(1);
+    if (activeReplacement) {
+      return {
+        headline: "Knowledge replacement denied: an active replacement already binds this predecessor.",
+        findings: [{ label: "Knowledge replacement", value: "ACTIVE_REPLACEMENT_EXISTS", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        humanReviewRequired: true,
+        confidence: 1,
+      };
+    }
+    const replacementCode = typeof parsed.replacement.code === "string" ? parsed.replacement.code : "";
+    if (!replacementCode || replacementCode === parsed.supersedesCode) {
+      throw new Error("A replacement requires a new immutable knowledge code.");
+    }
+    const result = await this.ingestKnowledge(context, parsed.replacement);
+    const replacementId = result.metadata?.knowledgeSourceId;
+    if (typeof replacementId !== "string") return result;
+    const bound = await db.update(knowledgeSources).set({ supersedesCode: parsed.supersedesCode })
+      .where(and(eq(knowledgeSources.id, replacementId), eq(knowledgeSources.authorityStatus, "UNDER_REVIEW")))
+      .returning({ id: knowledgeSources.id });
+    if (bound.length !== 1) throw new Error("Knowledge replacement binding was not committed exactly once.");
+    return {
+      ...result,
+      headline: `Replacement ${replacementCode} registered UNDER_REVIEW; ${parsed.supersedesCode} remains authoritative until separately published.`,
+      metadata: { ...(result.metadata ?? {}), supersedesCode: parsed.supersedesCode },
+    };
+  }
+
+  async publishKnowledge(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
+    requireCanonicalContext();
+    const parsed = z.object({
+      code: z.string().min(3).max(64),
+      expectedDigest: z.string().length(64),
+      expectedVersion: z.string().min(1).max(40),
+      expectedSupersededDigest: z.string().length(64).optional(),
+      expectedSupersededVersion: z.string().min(1).max(40).optional(),
+    }).strict().parse(input);
+    // Re-read only after acquiring a row lock. Concurrent publication or
+    // replacement transitions must observe the winner's committed state and
+    // fail closed rather than both reporting success from stale snapshots.
+    await db.execute(sql`select id from knowledge_sources where code = ${parsed.code} for update`);
+    const [source] = await db.select().from(knowledgeSources).where(eq(knowledgeSources.code, parsed.code)).limit(1);
+    const recomputed = source ? checksumOf({
+      code: source.code,
+      version: source.version,
+      scopeType: source.scopeType,
+      classification: source.classification,
+      content: source.content,
+    }) : null;
+    if (
+      !source ||
+      source.authorityStatus !== "UNDER_REVIEW" ||
+      source.version !== parsed.expectedVersion ||
+      source.contentDigest !== parsed.expectedDigest ||
+      recomputed !== parsed.expectedDigest
+    ) {
+      return {
+        headline: "Knowledge publication denied: UNDER_REVIEW source version/digest mismatch.",
+        findings: [{ label: "Knowledge publication", value: "DIGEST_VERSION_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        humanReviewRequired: true,
+        confidence: 1,
+      };
+    }
+    const authorityTarget = source.scopeType === "GLOBAL"
+      ? { tenantId: null, entityId: null, countryCode: null }
+      : { tenantId: source.tenantId, entityId: source.legalEntityId, countryCode: source.countryCode };
+    if (!can(context.principal, "ai:knowledge.ingest", authorityTarget).allowed) {
+      throw new Error("Knowledge publication requires one live authority tuple matching the source scope.");
+    }
+
+    let superseded: typeof source | null = null;
+    if (source.supersedesCode) {
+      await db.execute(sql`select id from knowledge_sources where code = ${source.supersedesCode} for update`);
+      [superseded] = await db.select().from(knowledgeSources).where(eq(knowledgeSources.code, source.supersedesCode)).limit(1);
+      if (
+        !superseded ||
+        superseded.authorityStatus !== "AUTHORITATIVE" ||
+        !parsed.expectedSupersededDigest ||
+        !parsed.expectedSupersededVersion ||
+        superseded.contentDigest !== parsed.expectedSupersededDigest ||
+        superseded.version !== parsed.expectedSupersededVersion ||
+        checksumOf({ code: superseded.code, version: superseded.version, scopeType: superseded.scopeType, classification: superseded.classification, content: superseded.content }) !== parsed.expectedSupersededDigest
+      ) {
+        return {
+          headline: "Knowledge publication denied: replacement target version/digest mismatch.",
+          findings: [{ label: "Knowledge publication", value: "SUPERSEDED_DIGEST_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+          humanReviewRequired: true,
+          confidence: 1,
+        };
+      }
+    }
+
+    await db.transaction(async (rawTx) => {
+      const tx = rawTx as unknown as typeof db;
+      if (superseded) {
+        const predecessorTransition = await tx.update(knowledgeSources).set({ authorityStatus: "SUPERSEDED" })
+          .where(and(
+            eq(knowledgeSources.id, superseded.id),
+            eq(knowledgeSources.contentDigest, parsed.expectedSupersededDigest!),
+            eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
+          ))
+          .returning({ id: knowledgeSources.id });
+        if (predecessorTransition.length !== 1) throw new Error("Knowledge predecessor was not superseded exactly once.");
+      }
+      const publication = await tx.update(knowledgeSources).set({ authorityStatus: "AUTHORITATIVE" })
+        .where(and(eq(knowledgeSources.id, source.id), eq(knowledgeSources.contentDigest, parsed.expectedDigest), eq(knowledgeSources.authorityStatus, "UNDER_REVIEW")))
+        .returning({ id: knowledgeSources.id });
+      if (publication.length !== 1) throw new Error("Knowledge source was not published exactly once.");
+      await recordAuditTx(tx, {
+        tenantId: source.tenantId,
+        actorUserId: context.principal.userId,
+        actorType: "HUMAN",
+        action: "ai.noelia.knowledge.publish",
+        objectType: "KNOWLEDGE_SOURCE",
+        objectId: source.id,
+        reason: `Knowledge ${source.code}@${source.version} published after bound digest approval.`,
+        approvalRef: context.approval?.approvalId,
+        aiVersion: NOELIA_IDENTITY,
+        traceId: context.traceId,
+        newValue: { code: source.code, version: source.version, digest: parsed.expectedDigest, supersedesCode: source.supersedesCode },
+      });
+    });
+    return {
+      headline: `Knowledge source ${source.code}@${source.version} is AUTHORITATIVE.`,
+      findings: [{ label: "Knowledge publication", value: parsed.expectedDigest, kind: "FACT", status: "OBSERVED" }],
+      sources: [{ kind: "KNOWLEDGE_SOURCE", ref: source.code, label: source.title, authority: "AUTHORITATIVE" }],
+      metadata: { knowledgeSourceId: source.id, digest: parsed.expectedDigest, supersedesCode: source.supersedesCode },
+      confidence: 1,
     };
   }
 

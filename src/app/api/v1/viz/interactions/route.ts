@@ -17,13 +17,13 @@ import { z } from "zod";
 import { guarded, parseBody } from "@/lib/api";
 import { listInteractions, requestInteraction } from "@/lib/viz/interactions";
 import { VIZ_INTERACTION_OUTCOMES, VIZ_INTERACTION_TARGET_DOMAINS, VIZ_INTERACTION_TYPES } from "@/db/schema/visualization";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import { vizActor, vizErrorResponse } from "../_shared";
 
 const RequestSchema = z
   .object({
     interactionType: z.enum(VIZ_INTERACTION_TYPES as unknown as [string, ...string[]]),
-    sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]).optional(),
+    sector: z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]]).optional(),
     sceneId: z.string().trim().min(1).max(200).nullish(),
     twinId: z.string().trim().min(1).max(200).nullish(),
     objectRef: z.string().trim().min(1).max(300).nullish(),
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         const result = await requestInteraction(
           {
             interactionType: body.interactionType as (typeof VIZ_INTERACTION_TYPES)[number],
-            sector: body.sector as (typeof VIZ_SECTOR_CODES)[number] | undefined,
+            sector: body.sector as (typeof VIZ_DOMAIN_CODES)[number] | undefined,
             sceneId: body.sceneId ?? null,
             twinId: body.twinId ?? null,
             objectRef: body.objectRef ?? null,

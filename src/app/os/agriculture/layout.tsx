@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
 import { requirePrincipal } from "@/lib/guard";
-import { operatingSystemTenantInScope } from "@/lib/operating-systems";
+import { governedTenantInScope } from "@/lib/operating-systems";
 import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
 
 /** Every Agriculture deep link must resolve the canonical Agriculture tenant. */
@@ -19,7 +19,7 @@ export default async function AgricultureLayout({
   // (`health.beyu.co.tz/os/agriculture`). Host → refusal only; the tenant /
   // classification gate below is unchanged and still decides access.
   if (await requestIsOnForeignOSHost("AGRICULTURE")) notFound();
-  const agricultureInScope = await operatingSystemTenantInScope(
+  const agricultureInScope = await governedTenantInScope(
     principal,
     "BEYU-AGRI",
   );

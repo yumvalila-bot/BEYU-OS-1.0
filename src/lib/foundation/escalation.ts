@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — compliance escalation policy (pure, deterministic).
+ * BEYU Foundation organization — compliance escalation policy (pure, deterministic).
  *
  * RESPONSIBLE OFFICER → SUPERVISOR → COMPLIANCE OFFICER → EXECUTIVE →
  * BOARD / COMMITTEE → AUTHORIZED GOVERNANCE AUTHORITY.

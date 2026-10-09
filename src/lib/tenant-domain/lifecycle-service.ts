@@ -51,8 +51,8 @@
  *     FRESH challenge, so a re-pointed name must prove DNS control again before
  *     it can resolve.
  */
-import { and, eq, inArray } from "drizzle-orm";
-import { adminDb } from "@/db/admin";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { governanceDb } from "@/db/governance";
 import { db } from "@/db";
 import { countries, legalEntities, osRegistry, tenantDomains, tenants } from "@/db/schema";
 import { AdminGovernanceError } from "@/lib/admin/governance-service";
@@ -92,7 +92,7 @@ export const TENANT_DOMAIN_AUDIT_ACTIONS = [
   "DOMAIN_REASSIGNED",
 ] as const;
 
-type AdminTx = Parameters<Parameters<typeof adminDb.transaction>[0]>[0];
+type AdminTx = Parameters<Parameters<typeof governanceDb.transaction>[0]>[0];
 
 /* ------------------------------------------------------------------ */
 /* Shared governed-mutation scaffolding                                */
@@ -221,9 +221,20 @@ async function committedMutation<T>(
   mutate: (tx: Tx) => Promise<T>,
   audit: AuditInput,
   event: EventInput,
+  additionalPersistedTenantIds: readonly string[] = [],
 ): Promise<T> {
   try {
-    return await adminDb.transaction(async (rawTx) => {
+    const tenantId = event.tenantId ?? audit.tenantId;
+    if (!tenantId) throw new AdminGovernanceError("MISSING_TENANT_SCOPE", "A governed domain mutation requires an immutable target tenant.", 403);
+    const transactionTenantIds = [...new Set([tenantId, ...additionalPersistedTenantIds])];
+    return await governanceDb.transaction(async (rawTx) => {
+      // The governance role is NOBYPASSRLS. Establish only persisted tenants
+      // whose exact authority was checked before entering this transaction.
+      // Reassignment needs both persisted source and destination so RLS can see
+      // the old row and validate the new owner atomically.
+      await rawTx.execute(sql`select set_config('beyu.current_tenant_ids', ${transactionTenantIds.join(",")}, true)`);
+      await rawTx.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
+      await rawTx.execute(sql`select set_config('beyu.actor_user_id', ${audit.actorUserId ?? ""}, true)`);
       const tx = rawTx as unknown as Tx;
       const outcome = await mutate(tx);
       await recordAuditTx(tx, audit);
@@ -283,7 +294,7 @@ async function loadDomainInScope(actor: Principal, domainId: string): Promise<Do
   if (!scoped) {
     throw new AdminGovernanceError("DOMAIN_NOT_FOUND", `Tenant domain ${domainId} was not found.`, 404);
   }
-  const [row] = await adminDb.select().from(tenantDomains).where(eq(tenantDomains.id, domainId)).limit(1);
+  const [row] = await db.select().from(tenantDomains).where(eq(tenantDomains.id, domainId)).limit(1);
   if (!row) throw new AdminGovernanceError("DOMAIN_NOT_FOUND", `Tenant domain ${domainId} was not found.`, 404);
   return row;
 }
@@ -291,7 +302,7 @@ async function loadDomainInScope(actor: Principal, domainId: string): Promise<Do
 type TenantRow = typeof tenants.$inferSelect;
 
 async function loadTenant(tenantId: string): Promise<TenantRow> {
-  const [row] = await adminDb.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
+  const [row] = await db.select().from(tenants).where(eq(tenants.id, tenantId)).limit(1);
   if (!row) throw new AdminGovernanceError("TENANT_NOT_FOUND", `Tenant ${tenantId} was not found.`, 404);
   if (row.status !== "ACTIVE") {
     throw new AdminGovernanceError(
@@ -314,7 +325,7 @@ async function loadTenant(tenantId: string): Promise<TenantRow> {
  * can never be given an OS base and an OS can never be given a capability base.
  */
 async function requireGovernedOS(code: string): Promise<{ code: string; kind: string }> {
-  const [row] = await adminDb
+  const [row] = await db
     .select({ code: osRegistry.code, kind: osRegistry.kind })
     .from(osRegistry)
     .where(
@@ -349,7 +360,7 @@ function baseTypeForRegistryKind(kind: string): "OS_BASE" | "CAPABILITY_BASE" {
 async function requirePlatformBaseDomain(code: string): Promise<{ hostname: string }> {
   const authority = await requireGovernedOS(code);
   const expectedType = baseTypeForRegistryKind(authority.kind);
-  const [base] = await adminDb
+  const [base] = await db
     .select({ hostname: tenantDomains.hostname })
     .from(tenantDomains)
     .where(
@@ -371,7 +382,7 @@ async function requirePlatformBaseDomain(code: string): Promise<{ hostname: stri
 }
 
 async function requireCountry(countryCode: string): Promise<void> {
-  const [row] = await adminDb
+  const [row] = await db
     .select({ code: countries.code })
     .from(countries)
     .where(eq(countries.code, countryCode))
@@ -386,7 +397,7 @@ async function requireCountry(countryCode: string): Promise<void> {
 }
 
 async function requireEntityOfTenant(entityId: string, tenantId: string): Promise<void> {
-  const [row] = await adminDb
+  const [row] = await db
     .select({ id: legalEntities.id, tenantId: legalEntities.tenantId, status: legalEntities.status })
     .from(legalEntities)
     .where(eq(legalEntities.id, entityId))
@@ -409,7 +420,7 @@ async function requireEntityOfTenant(entityId: string, tenantId: string): Promis
 
 /** Global hostname uniqueness — the database index is the authority; this is the governed refusal. */
 async function requireHostnameAvailable(hostname: string, exceptDomainId?: string): Promise<void> {
-  const rows = await adminDb
+  const rows = await db
     .select({ id: tenantDomains.id, tenantId: tenantDomains.tenantId, hostname: tenantDomains.hostname })
     .from(tenantDomains)
     .where(eq(tenantDomains.hostname, hostname))
@@ -543,7 +554,7 @@ export async function registerTenantDomain(
       );
     }
     hostname = candidate.hostname;
-    const bases = await adminDb
+    const bases = await db
       .select({ hostname: tenantDomains.hostname, os: tenantDomains.os })
       .from(tenantDomains)
       .where(
@@ -606,6 +617,7 @@ export async function registerTenantDomain(
       },
       permission,
       traceId,
+      tenant.id,
     ),
     domainEvent(
       actor,
@@ -614,6 +626,7 @@ export async function registerTenantDomain(
       { hostname, tenantId: tenant.id, os: input.os, domainType: input.domainType },
       permission,
       traceId,
+      tenant.id,
     ),
   );
 
@@ -1033,6 +1046,7 @@ export async function reassignTenantDomain(
       traceId,
       targetTenant.id,
     ),
+    [domain.tenantId],
   );
 
   return {

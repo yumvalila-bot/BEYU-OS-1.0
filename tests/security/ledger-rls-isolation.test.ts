@@ -274,10 +274,10 @@ describe("Financial ledger RLS isolation (runtime role, real PostgreSQL)", () =>
     expect(Number(r.rowCount)).toBe(0);
   });
 
-  it("DELETE: a foreign tenant's journal entry cannot be deleted (0 rows affected)", async () => {
+  it("DELETE: runtime has no journal-entry deletion authority", async () => {
     await setContext(rt, TENANT_A);
-    const r = await rt.query(`delete from journal_entries where id = '${ENTRY_B}'`);
-    expect(Number(r.rowCount)).toBe(0);
+    await expect(rt.query(`delete from journal_entries where id = '${ENTRY_B}'`))
+      .rejects.toMatchObject({ code: "42501" });
   });
 
   it("UPDATE: an OWN entry is append-only — the DB immutability trigger rejects the edit", async () => {

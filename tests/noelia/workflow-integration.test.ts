@@ -1,9 +1,19 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// Workflow claim/checkpoint semantics are tested here. The live session/kill-
+// switch gate has its own adversarial suite and is mocked only at the final tool
+// boundary so these tests do not fabricate an authenticated database session.
+vi.mock("../../src/lib/noelia/execution-control", () => ({
+  assertNoeliaExecutionAllowed: vi.fn(async () => undefined),
+  ExecutionStoppedError: class ExecutionStoppedError extends Error {},
+}));
+
 import { and, eq, inArray } from "drizzle-orm";
 import { db, pool } from "../../src/db";
 import { approvals, noeliaWorkflowSteps, noeliaWorkflows } from "../../src/db/schema";
 import { BeyuNoeliaWorkflowService } from "../../src/lib/noelia/workflows";
 import { createDefaultNoeliaToolRegistry } from "../../src/lib/noelia/default-tools";
+import { NoeliaToolRegistry } from "../../src/lib/noelia/tool-registry";
 import { seededPrincipal } from "./db-fixtures";
 
 const workflowIds: string[] = [];
@@ -21,6 +31,30 @@ async function row(workflowId: string) {
     .where(eq(noeliaWorkflowSteps.workflowId, workflowId))
     .orderBy(noeliaWorkflowSteps.stepIndex);
   return { workflow, steps };
+}
+
+function versionedToolRegistry(version: string, execute: () => Promise<Record<string, unknown>>): NoeliaToolRegistry {
+  return new NoeliaToolRegistry().register({
+    name: "finance.version-bound.probe",
+    permission: "finance:treasury.read",
+    risk: "LOW",
+    description: "Immutable tool-version binding probe.",
+    metadata: {
+      stableId: "cap-finance-version-bound-probe",
+      version,
+      ownerRole: "GROUP_CFO",
+      domain: "FINANCE",
+      sideEffects: "DOMAIN_WRITE",
+      idempotent: false,
+      timeoutMs: 8_000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+    },
+    execute: async () => ({ metadata: await execute() }),
+  });
 }
 
 beforeAll(async () => {
@@ -47,13 +81,13 @@ afterAll(async () => {
 const trace = () => `TRACE_WF_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 
 describe("Noelia governed agentic workflow loop", () => {
-  it("runs the full PLAN → VALIDATE → AUTHORIZE → EXECUTE loop with audit evidence", async () => {
+  it("runs the autonomous PLAN → VALIDATE → EXECUTE loop with audit evidence", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
-    const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
 
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -77,28 +111,12 @@ describe("Noelia governed agentic workflow loop", () => {
       workflowId: planned.workflowId!,
       traceId: trace(),
     });
-    expect(validated.status).toBe("VALIDATED");
+    // Read-only, pre-authorized work remains autonomous; validation may move
+    // directly to AUTHORIZED without manufacturing a blanket human approval.
+    expect(validated.status).toBe("AUTHORIZED");
+    expect(validated.approvalId).toBeNull();
 
-    // Maker/checker: the requester cannot authorize their own workflow. The
-    // CFO lacks ai:workflow.approve entirely, so the denial is RBAC; the
-    // maker/checker branch is exercised below with the CEO.
-    const selfAuthorized = await service.authorize({
-      principal: cfo,
-      workflowId: planned.workflowId!,
-      traceId: trace(),
-    });
-    expect(selfAuthorized.code).toBe("AUTHORIZATION_DENIED");
-
-    const authorized = await remember(await service.authorize({
-      principal: governance,
-      workflowId: planned.workflowId!,
-      traceId: trace(),
-      comment: "Approved for the evidence pack.",
-    }));
-    expect(authorized.status).toBe("AUTHORIZED");
-    expect(authorized.approvalId).toBeTruthy();
-
-    // Approval is not execution: nothing has run yet.
+    // Authorization is not execution: nothing has run yet.
     const afterAuthorization = await row(planned.workflowId!);
     expect(afterAuthorization.steps.filter((step) => step.status === "COMPLETED")).toHaveLength(0);
 
@@ -123,11 +141,11 @@ describe("Noelia governed agentic workflow loop", () => {
 
   it("resumes idempotently after a crash: committed steps never run twice", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
-    const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
 
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -140,7 +158,6 @@ describe("Noelia governed agentic workflow loop", () => {
       },
     }));
     await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
-    await remember(await service.authorize({ principal: governance, workflowId: planned.workflowId!, traceId: trace() }));
     const first = await service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
     expect(first.status).toBe("COMPLETED");
 
@@ -153,6 +170,7 @@ describe("Noelia governed agentic workflow loop", () => {
     // committed. Resumption must skip the committed step and complete step 2
     // exactly once.
     const secondWorkflow = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -165,7 +183,6 @@ describe("Noelia governed agentic workflow loop", () => {
       },
     }));
     await service.validate({ principal: cfo, registry, workflowId: secondWorkflow.workflowId!, traceId: trace() });
-    await remember(await service.authorize({ principal: governance, workflowId: secondWorkflow.workflowId!, traceId: trace() }));
     // Crash: status RUNNING, first step COMPLETED, second step still PENDING.
     await db.update(noeliaWorkflows).set({ status: "RUNNING" }).where(eq(noeliaWorkflows.id, secondWorkflow.workflowId!));
     const [step1] = await db.select().from(noeliaWorkflowSteps)
@@ -177,7 +194,7 @@ describe("Noelia governed agentic workflow loop", () => {
     const resumed = await service.execute({ principal: cfo, registry, workflowId: secondWorkflow.workflowId!, traceId: trace() });
     expect(resumed.status).toBe("COMPLETED");
     expect(resumed.stepResults).toHaveLength(2);
-    expect(resumed.stepResults![0].code).toBe("RESUMED");
+    expect(resumed.stepResults![0].code).toBe("CHECKPOINT_PRESENT");
     expect(resumed.stepResults![1].code).toBe("COMPLETED");
 
     const steps = await db.select().from(noeliaWorkflowSteps)
@@ -185,11 +202,107 @@ describe("Noelia governed agentic workflow loop", () => {
     expect(steps.filter((step) => step.status === "COMPLETED")).toHaveLength(2);
   });
 
+  it("atomically admits only one concurrent executor for a non-idempotent effect", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const service = new BeyuNoeliaWorkflowService();
+    let effectCount = 0;
+    let enterHandler!: () => void;
+    let releaseHandler!: () => void;
+    const handlerEntered = new Promise<void>((resolve) => { enterHandler = resolve; });
+    const handlerReleased = new Promise<void>((resolve) => { releaseHandler = resolve; });
+    const registry = new NoeliaToolRegistry().register({
+      name: "finance.concurrent.non-idempotent-effect",
+      permission: "finance:treasury.read",
+      risk: "LOW",
+      description: "Concurrency-only non-idempotent effect probe.",
+      metadata: {
+        stableId: "cap-finance-concurrent-effect",
+        version: "1.0.0",
+        ownerRole: "GROUP_CFO",
+        domain: "FINANCE",
+        sideEffects: "DOMAIN_WRITE",
+        idempotent: false,
+        timeoutMs: 8_000,
+        retryPolicy: null,
+        jurisdictionRestrictions: null,
+        entityRestrictions: "SCOPED",
+        approvalRequirements: null,
+        auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      },
+      execute: async () => {
+        effectCount += 1;
+        enterHandler();
+        await handlerReleased;
+        return { metadata: { effectCount } };
+      },
+    });
+
+    const planned = await remember(await service.create({
+      registry,
+      principal: cfo,
+      traceId: trace(),
+      plan: {
+        goal: "Concurrency probe: a protected effect may execute at most once.",
+        target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
+        steps: [{ toolName: "finance.concurrent.non-idempotent-effect", input: {} }],
+      },
+    }));
+    await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+
+    const firstPromise = service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    await handlerEntered;
+    const second = await service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    releaseHandler();
+    const first = await firstPromise;
+
+    expect(first.status).toBe("COMPLETED");
+    expect(second.code).toBe("EXECUTION_ALREADY_CLAIMED");
+    expect(effectCount).toBe(1);
+  });
+
+  it("denies execution when a registered tool version changes after validation", async () => {
+    const cfo = await seededPrincipal("cfo@beyu.os");
+    const service = new BeyuNoeliaWorkflowService();
+    let effectCount = 0;
+    const plannedRegistry = versionedToolRegistry("1.0.0", async () => ({ effectCount: ++effectCount }));
+    const changedRegistry = versionedToolRegistry("2.0.0", async () => ({ effectCount: ++effectCount }));
+    const planned = await remember(await service.create({
+      registry: plannedRegistry,
+      principal: cfo,
+      traceId: trace(),
+      plan: {
+        goal: "Version probe: execution must remain bound to the validated tool contract.",
+        target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
+        steps: [{ toolName: "finance.version-bound.probe", input: { amount: 10 } }],
+      },
+    }));
+    const validated = await service.validate({
+      principal: cfo,
+      registry: plannedRegistry,
+      workflowId: planned.workflowId!,
+      traceId: trace(),
+    });
+    expect(validated.status).toBe("AUTHORIZED");
+
+    const denied = await service.execute({
+      principal: cfo,
+      registry: changedRegistry,
+      workflowId: planned.workflowId!,
+      traceId: trace(),
+    });
+    expect(denied.status).toBe("STOPPED");
+    expect(denied.code).toBe("STOPPED");
+    expect(denied.reason).toContain("immutable approved plan");
+    expect(denied.stepResults?.[0]).toMatchObject({ status: "DENIED", code: "CAPABILITY_BINDING_MISMATCH" });
+    expect(effectCount).toBe(0);
+  });
+
   it("stops at validation when a step capability is denied", async () => {
     const hcm = await seededPrincipal("hcm@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
     const planned = await remember(await service.create({
+      registry,
       principal: hcm,
       traceId: trace(),
       plan: {
@@ -216,27 +329,31 @@ describe("Noelia governed agentic workflow loop", () => {
     expect(steps[1].denialCode).toBe("PERMISSION_DENIED");
   });
 
-  it("refuses execution without a valid separate human authorization", async () => {
-    const cfo = await seededPrincipal("cfo@beyu.os");
+  it("refuses high-risk execution without a valid separate human authorization", async () => {
+    const cfo = await seededPrincipal("ceo@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
         goal: "Negative probe: no authorization means no execution.",
         target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
-        steps: [{ toolName: "risk.analysis", input: {} }],
+        steps: [{ toolName: "knowledge.ingest", input: {} }],
       },
     }));
-    await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    const validation = await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    expect(validation.status).toBe("WAITING_FOR_HUMAN_AUTHORITY");
+    expect(validation.code).toBe("WAITING_FOR_HUMAN_AUTHORITY");
     const executed = await service.execute({
       principal: cfo,
       registry,
       workflowId: planned.workflowId!,
       traceId: trace(),
     });
-    expect(executed.code).toBe("EXECUTION_DENIED");
+    expect(executed.code).toBe("QUORUM_NOT_MET");
+    expect(executed.status).toBe("WAITING_FOR_HUMAN_AUTHORITY");
     const steps = await db.select().from(noeliaWorkflowSteps)
       .where(eq(noeliaWorkflowSteps.workflowId, planned.workflowId!));
     expect(steps.every((step) => step.status === "PENDING")).toBe(true);
@@ -244,10 +361,10 @@ describe("Noelia governed agentic workflow loop", () => {
 
   it("cancels a workflow before execution and skips remaining steps", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
-    const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -257,9 +374,9 @@ describe("Noelia governed agentic workflow loop", () => {
       },
     }));
     await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
-    await remember(await service.authorize({ principal: governance, workflowId: planned.workflowId!, traceId: trace() }));
     const cancelled = await service.cancel({ principal: cfo, workflowId: planned.workflowId!, traceId: trace() });
-    expect(cancelled.status).toBe("CANCELLED");
+    expect(cancelled.status).toBe("STOPPED");
+    expect(cancelled.code).toBe("HUMAN_STOPPED");
     const executed = await service.execute({
       principal: cfo,
       registry,
@@ -267,15 +384,16 @@ describe("Noelia governed agentic workflow loop", () => {
       traceId: trace(),
     });
     expect(executed.status).toBe("STOPPED");
-    expect(executed.reason).toContain("Cancellation");
+    expect(executed.code).toBe("EXECUTION_DENIED");
+    expect(executed.reason).toContain("STOPPED");
   });
 
   it("escalates when a step output requires human review", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
-    const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -288,7 +406,6 @@ describe("Noelia governed agentic workflow loop", () => {
       },
     }));
     await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
-    await remember(await service.authorize({ principal: governance, workflowId: planned.workflowId!, traceId: trace() }));
     const executed = await service.execute({
       principal: cfo,
       registry,
@@ -303,7 +420,9 @@ describe("Noelia governed agentic workflow loop", () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
     const healthOps = await seededPrincipal("health.ops@beyu.os"); // separate tenant
     const service = new BeyuNoeliaWorkflowService();
+    const registry = createDefaultNoeliaToolRegistry();
     const planned = await remember(await service.create({
+      registry,
       principal: cfo,
       traceId: trace(),
       plan: {
@@ -323,12 +442,13 @@ describe("Noelia governed agentic workflow loop", () => {
     // GROUP_CEO holds both ai:workflow.run and ai:workflow.approve — yet the
     // requesting human can never authorize their own workflow.
     const planned = await remember(await service.create({
+      registry,
       principal: ceo,
       traceId: trace(),
       plan: {
         goal: "Maker/checker probe: the requester cannot self-authorize even with approval authority.",
         target: { tenantId: ceo.tenantId, legalEntityId: null, countryCode: null },
-        steps: [{ toolName: "finance.cash.position", input: {} }],
+        steps: [{ toolName: "knowledge.ingest", input: {} }],
       },
     }));
     await service.validate({ principal: ceo, registry, workflowId: planned.workflowId!, traceId: trace() });
@@ -338,6 +458,6 @@ describe("Noelia governed agentic workflow loop", () => {
       traceId: trace(),
     });
     expect(selfAuthorized.code).toBe("AUTHORIZATION_DENIED");
-    expect(selfAuthorized.reason).toContain("requesting human");
+    expect(selfAuthorized.reason).toContain("request maker");
   });
 });

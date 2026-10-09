@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/lib/noelia/execution-control", () => ({
+  assertNoeliaExecutionAllowed: vi.fn(async () => undefined),
+  ExecutionStoppedError: class ExecutionStoppedError extends Error {},
+}));
+
 import { NoeliaRuntime, routeEngine } from "../../src/lib/noelia/runtime";
 import { NoeliaToolRegistry } from "../../src/lib/noelia/tool-registry";
 import type { NoeliaEvidencePort, NoeliaPolicyPort } from "../../src/lib/noelia/types";
@@ -121,7 +127,10 @@ describe("Noelia deterministic runtime", () => {
     const tools = registry();
     const ledger = evidence();
     const denied = input();
-    denied.principal = principal({ permissions: new Set(["ai:noelia.query"]) });
+    denied.principal = principal({
+      permissions: new Set(["ai:noelia.query"]),
+      authorityGrants: principal().authorityGrants?.filter((grant) => grant.permission === "ai:noelia.query"),
+    });
     const answer = await new NoeliaRuntime(tools.value, allowPolicy, ledger).ask(denied);
 
     expect(answer.outputClass).toBe("REQUIRES_HUMAN_REVIEW");

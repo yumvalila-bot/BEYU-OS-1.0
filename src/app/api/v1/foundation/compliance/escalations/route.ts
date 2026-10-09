@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — escalation queue.
+ * BEYU Foundation organization — escalation queue.
  *
  * GET   /api/v1/foundation/compliance/escalations
  * PATCH /api/v1/foundation/compliance/escalations { id } — acknowledge

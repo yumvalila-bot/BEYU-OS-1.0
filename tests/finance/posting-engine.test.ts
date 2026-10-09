@@ -25,6 +25,7 @@ import { CapabilityLockedError } from "@/lib/decision-authority";
 import { postJournal, trialBalance, validateJournalStructure, PostingError } from "@/lib/finance/posting-engine";
 import type { Principal } from "@/lib/authz";
 import { ROLES } from "@/lib/constants";
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
 
 const RUN = `PE${Date.now()}`;
 const ACC_A = `LA_${RUN}_A`;
@@ -37,18 +38,26 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     const def = (ROLES as Record<string, { permissions?: readonly string[] }>)[role];
     for (const p of def?.permissions ?? []) permissions.add(p as never);
   }
+  const principalTenantId = overrides.tenantId ?? tenantId ?? "TEN_BEYU_GROUP";
+  const entityScope = overrides.entityScope ?? [];
   return {
     userId: "USR_TEST_POSTER",
     partyId: "p",
     email: "t@example.test",
     displayName: "Test",
-    tenantId: tenantId || "TEN_BEYU_GROUP",
+    tenantId: principalTenantId,
     tenantCode: "BEYU",
     tenantType: "GROUP",
     roles,
     permissions,
+    authorityGrants: testRoleAuthorityGrants({
+      roles,
+      tenantId: principalTenantId,
+      legalEntityId: entityScope.length === 1 ? entityScope[0] : null,
+      sourceIdPrefix: "POSTING_ENGINE_TEST_ROLE",
+    }),
     clearance: "RESTRICTED",
-    entityScope: [],
+    entityScope,
     mfaSatisfied: true,
     sessionId: "s",
     riskScore: 0,
@@ -359,7 +368,7 @@ describe("posting engine — authority present, other controls still enforced", 
           currency: "USD",
           lines: [line(ACC_A, "10.00", "0"), line(ACC_B, "0", "10.00")],
         }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      ).rejects.toMatchObject({ code: "DENIED" });
     });
   });
 
@@ -376,7 +385,7 @@ describe("posting engine — authority present, other controls still enforced", 
           currency: "USD",
           lines: [line(ACC_A, "10.00", "0"), line(ACC_B, "0", "10.00")],
         }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      ).rejects.toMatchObject({ code: "DENIED" });
     });
   });
 

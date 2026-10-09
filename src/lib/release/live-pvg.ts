@@ -25,6 +25,7 @@ import { db } from "@/db";
 import { verifyEventChain } from "@/lib/audit";
 import { checkCapabilityActivation } from "@/lib/decision-authority";
 import { migrationFingerprintFromChecksums } from "./migration-fingerprint";
+import { SECURITY_FINGERPRINT_SQL } from "./security-fingerprint";
 
 export interface LiveMigrationState {
   connected: boolean;
@@ -71,20 +72,11 @@ export async function probeLiveMigrationState(): Promise<LiveMigrationState> {
       state.migrationFingerprint = migrationFingerprintFromChecksums(row.checksums);
     }
 
-    const fp = await db.execute<{ fingerprint: string }>(sql`
-      select md5(string_agg(item, '\n' order by item)) as fingerprint
-      from (
-        select 'table:'||table_name as item from information_schema.tables where table_schema='public'
-        union all
-        select 'column:'||table_name||'.'||column_name||':'||data_type||':'||is_nullable from information_schema.columns where table_schema='public'
-        union all
-        select 'constraint:'||conname||':'||contype::text from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public'
-        union all
-        select 'index:'||indexname||':'||indexdef from pg_indexes where schemaname='public'
-        union all
-        select 'rls:'||c.relname||':'||c.relrowsecurity::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
-      ) s
-    `);
+    // The live PVG and release pipeline execute the exact same canonical
+    // security-semantic fingerprint query. Keeping this as one imported value
+    // prevents policy/ACL/function drift from being measured differently by
+    // build-time and runtime verification.
+    const fp = await db.execute<{ fingerprint: string }>(sql.raw(SECURITY_FINGERPRINT_SQL));
     state.schemaFingerprint = fp.rows[0]?.fingerprint ?? null;
   } catch {
     // Connectivity or probe failure: return the partially-filled state with

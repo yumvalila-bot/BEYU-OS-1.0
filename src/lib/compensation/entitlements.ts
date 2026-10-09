@@ -24,7 +24,7 @@
  * §17 requires the three sponsorship categories to stay apart, and they are three separate types here:
  *
  *   EmployeeSponsorship   HCM → Learning & Development. A benefit to a worker.
- *   CommunitySponsorship  Foundation / CSR. A charitable disbursement. Owned by Foundation OS.
+ *   CommunitySponsorship  Foundation / CSR. A charitable disbursement owned by Foundation operations.
  *   InvestmentSponsorship FINANCE_OS. Capital deployed for a financial return.
  *
  * They have different owners, different authorities and different accounting. A single "sponsorship"
@@ -1064,8 +1064,8 @@ export type EmployeeSponsorship = {
  * A community or public-interest sponsorship. Foundation / CSR capability — NOT HCM's.
  *
  * `ownerCapability` is fixed to `FOUNDATION` by the type, so an HCM caller cannot construct one of these
- * as though it were a staff benefit. Foundation OS owns the relationship; this type exists here only so
- * that the three categories are visible side by side and cannot be conflated.
+ * as though it were a staff benefit. The Foundation operations capability owns the relationship; this
+ * type exists here only so that the three categories stay visible and cannot be conflated.
  */
 export type CommunitySponsorship = {
   domain: "COMMUNITY";
@@ -1204,5 +1204,3 @@ export function summariseCompensationCost(params: { entitlements: readonly Entit
     currencies,
   };
 }
-
-

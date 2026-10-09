@@ -154,10 +154,10 @@ const DESTINATIONS = [
   {
     host: "foundation.beyu.co.tz",
     home: "/os/foundation",
-    name: "Foundation OS",
-    copy: "Sign in to Foundation OS — governed by BEYU OS",
-    headline: "Foundation — the nonprofit sister organisation of the BEYU Holding Company.",
-    registry: "FOUNDATION_OS",
+    name: "BEYU Foundation",
+    copy: "Sign in to BEYU Foundation — governed by BEYU OS",
+    headline: "Foundation — the nonprofit sister organization governed alongside the BEYU ecosystem.",
+    registry: "SHARED_FOUNDATION_OPERATIONS",
   },
   {
     host: "familyoffice.beyu.co.tz",
@@ -571,14 +571,14 @@ describe("59/54. the launcher separates GLOBAL OS status from THIS identity's ac
         "FINANCE_OS",
         "AGRICULTURE_OS",
         "UJENZI_OS",
-        "FOUNDATION_OS",
+        "SHARED_FOUNDATION_OPERATIONS",
       ]) {
         expect(body, registry).toContain(registry);
       }
       // …with its destination class kept distinct (never flattened into "OS").
       expect(body).toContain("Constitutional control plane");
       expect(body).toContain("Sector operating system");
-      expect(body).toContain("Nonprofit sister organisation");
+      expect(body).toContain("Nonprofit sister organization");
 
       // TWO separately labelled facts, both present in the same render.
       expect(body).toContain("Global operating state of this destination");

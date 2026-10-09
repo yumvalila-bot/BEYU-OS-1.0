@@ -113,7 +113,7 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 70-migration inventory and rejects the stale baseline", async () => {
+  it("requires the exact 75-migration inventory and rejects stale baselines", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
@@ -130,7 +130,7 @@ describe("P3 expand/contract — P2 integration", () => {
     // Holograph registries (0067 created the tables but carried no grants;
     // the runtime role is the RLS-subject role and must hold the DML set for
     // the governed routes to function — RLS remains the boundary).
-    // 0069 closes the Foundation OS Row Level Security gap on
+    // 0069 closes the Foundation organization Row Level Security gap on
     // `foundation_programs`: the one Foundation substrate created by the 0000
     // kernel baseline and therefore missed by 0035's RLS block, which
     // enumerated only the 39 tables it created. One ENABLE ROW LEVEL SECURITY +
@@ -149,13 +149,14 @@ describe("P3 expand/contract — P2 integration", () => {
     // 0074 is the Enterprise Intelligence Expansion (34 tables: finance intelligence & metric
     // provenance, valuation, private capital, LBO, entrusted capital, pricing/margin, HCM
     // compensation) — additive, expand-only, no column altered on any pre-existing table. Its
-    // snapshot was chained 0062 -> 0074 by scripts/migration/snapshot.ts rather than fabricated,
-    // so the metadata debt does not grow.
-    // Historical SQL stays byte-exact.
+    // snapshot was generated from source and chained 0062 -> 0074.
+    // 0075 adds nullable/defaulted Noelia authority bindings, command-specific RLS,
+    // immutable evidence triggers, and security controls without breaking a
+    // concurrently running pre-0075 writer. Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(75);
+    const result = verifyP2MigrationIntegrity(76);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(75);
+    expect(result.count).toBe(76);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
@@ -174,6 +175,11 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(67).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(68).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(69).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(70).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(71).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(72).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(73).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(74).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {

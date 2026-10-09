@@ -184,8 +184,10 @@ export const entityAppointments = pgTable("entity_appointments", {
 });
 
 /**
- * Sector / Future OS registry — no OS may exist in the ecosystem without a
- * registered constitutional charter here.
+ * Canonical operating-system and shared-capability registry. `SECTOR_OS` is a
+ * closed classification containing exactly Health, Finance, Agriculture and
+ * Ujenzi; organizational/legal-entity identity remains in the tenant and legal
+ * entity registries.
  */
 export const osRegistry = pgTable(
   "os_registry",

@@ -13,7 +13,7 @@ export default async function FoundationRegistryPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation OS · Registry</div>
+          <div className="beyu-kicker text-[#b08d1c]">Foundation organization · Registry</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Foundation Registry</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Every foundation in scope, across tenants, entities and jurisdictions. Lifecycle transitions

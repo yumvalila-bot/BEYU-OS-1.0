@@ -184,7 +184,10 @@ export async function postJournal(
   await requireCapability("CAP_POSTING");
 
   // --- 2. IDENTITY / RBAC ---
-  const decision = can(principal, "finance:ledger.post");
+  const decision = can(principal, "finance:ledger.post", {
+    tenantId: input.tenantId,
+    entityId: input.legalEntityId,
+  });
   if (!decision.allowed) {
     throw new PostingError("DENIED", "You do not hold authority to post to the ledger.");
   }
@@ -205,10 +208,6 @@ export async function postJournal(
   if (!entity || entity.tenantId !== input.tenantId) {
     throw new PostingError("NOT_FOUND", "The target entity was not found.");
   }
-  if (principal.entityScope.length > 0 && !principal.entityScope.includes(entity.id)) {
-    throw new PostingError("NOT_FOUND", "The target entity was not found.");
-  }
-
   // --- 5. ACCOUNTING INVARIANTS (policy-independent) ---
   const structure = validateJournalStructure(input);
   if (!structure.valid) {
@@ -365,7 +364,7 @@ export async function trialBalance(
   tenantId: string,
   legalEntityId: string,
 ): Promise<Array<{ accountId: string; debit: string; credit: string; balance: string }>> {
-  if (!can(principal, "finance:ledger.read").allowed) {
+  if (!can(principal, "finance:ledger.read", { tenantId, entityId: legalEntityId }).allowed) {
     throw new PostingError("DENIED", "You do not hold authority to read the ledger.");
   }
   if (principal.tenantId !== tenantId) {

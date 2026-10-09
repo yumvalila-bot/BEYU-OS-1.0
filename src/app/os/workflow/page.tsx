@@ -98,7 +98,7 @@ export default async function WorkflowPage() {
 
     const running = instances.filter((i) => i.state === "RUNNING" || i.state === "WAITING");
     const hiveActive = hiveRows.filter((w) => !["COMPLETED", "FAILED", "CANCELLED", "STOPPED", "TIMED_OUT"].includes(w.status));
-    const awaitingApproval = hiveRows.filter((w) => ["PLANNED", "VALIDATED", "ESCALATED"].includes(w.status));
+    const awaitingApproval = hiveRows.filter((w) => ["PLANNED", "VALIDATED", "WAITING_FOR_HUMAN_AUTHORITY", "ESCALATED"].includes(w.status));
 
     return (
       <div className="space-y-6">

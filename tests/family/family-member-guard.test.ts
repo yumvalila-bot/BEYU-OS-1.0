@@ -3,7 +3,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { familyMembers, parties, users } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import { clearanceForRoles, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
 import { registerFamilyMember, registerParty } from "../../src/lib/admin/registry-service";
 import { AdminGovernanceError } from "../../src/lib/admin/governance-service";
 
@@ -36,6 +36,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: "ENTERPRISE",
     roles: roleCodes,
     permissions: permissionsForRoles(roleCodes),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roleCodes),
     entityScope: [],
     mfaSatisfied: true,

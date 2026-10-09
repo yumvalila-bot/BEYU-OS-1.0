@@ -313,6 +313,9 @@ describe("K. No Duplicate OS", () => {
     expect(sectorCodes).toContain("FINANCE");
     expect(sectorCodes).toContain("HEALTH");
     expect(sectorCodes).toContain("AGRICULTURE");
+    expect(sectorCodes).toHaveLength(4);
+    expect(sectorCodes).not.toContain("FOUNDATION");
+    expect(sectorCodes).not.toContain("MINING");
 
     // Prohibit duplicate OS definitions
     expect(sectorCodes).not.toContain("ENGINEERING");

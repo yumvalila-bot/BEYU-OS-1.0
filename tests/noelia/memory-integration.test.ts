@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, inArray, ne } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { db, pool } from "../../src/db";
 import { countries, knowledgeSources, legalEntities, tenants } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
@@ -8,6 +8,7 @@ import { resolveNoeliaAuthorizedScope } from "../../src/lib/noelia/scope-service
 import { withTenantDatabaseContext } from "../../src/lib/tenant-scope";
 import { seededPrincipal } from "./db-fixtures";
 
+const RUN = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const CODES = [
   "NOELIA_TEST_GLOBAL",
   "NOELIA_TEST_ENTERPRISE",
@@ -16,8 +17,8 @@ const CODES = [
   "NOELIA_TEST_ENTITY",
   "NOELIA_TEST_COUNTRY",
   "NOELIA_TEST_CLASSIFIED",
-];
-const KEYWORD = "noeliaprobealpha";
+].map((code) => `${code}_${RUN}`);
+const KEYWORD = `noeliaprobealpha${RUN.replace(/[^a-z0-9]/gi, "")}`;
 
 let enterpriseTenantId = "";
 let healthTenantId = "";
@@ -27,12 +28,7 @@ let otherEntityId = "";
 let healthCountry = "";
 let otherCountry = "";
 
-async function cleanup() {
-  await db.delete(knowledgeSources).where(inArray(knowledgeSources.code, CODES));
-}
-
 beforeAll(async () => {
-  await cleanup();
   const allTenants = await db.select().from(tenants);
   const enterprise = allTenants.find((tenant) => tenant.type === "ENTERPRISE");
   const health = allTenants.find((tenant) => tenant.code === "BEYU-HEALTH");
@@ -76,7 +72,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await cleanup();
+  // Knowledge evidence is intentionally immutable, including to the table
+  // owner. The disposable test database is discarded as a whole after CI.
   await pool.end();
 });
 
@@ -96,31 +93,37 @@ function refs(rows: Awaited<ReturnType<typeof retrieve>>) {
 describe("Noelia memory integration with live PostgreSQL", () => {
   it("Tenant A -> Tenant B is DENY at query level", async () => {
     const rows = refs(await retrieve("health.ops@beyu.os"));
-    expect(rows).toContain("NOELIA_TEST_HEALTH");
-    expect(rows).not.toContain("NOELIA_TEST_OTHER_TENANT");
+    expect(rows).toContain(CODES[2]);
+    expect(rows).not.toContain(CODES[3]);
   });
 
   it("authorized global scope is ALLOW while enterprise memory is not global", async () => {
     const sectorRows = refs(await retrieve("health.ops@beyu.os"));
-    expect(sectorRows).toContain("NOELIA_TEST_GLOBAL");
-    expect(sectorRows).not.toContain("NOELIA_TEST_ENTERPRISE");
+    expect(sectorRows).toContain(CODES[0]);
+    expect(sectorRows).not.toContain(CODES[1]);
 
     const enterpriseRows = refs(await retrieve("governance@beyu.os"));
-    expect(enterpriseRows).toContain("NOELIA_TEST_GLOBAL");
-    expect(enterpriseRows).toContain("NOELIA_TEST_ENTERPRISE");
+    expect(enterpriseRows).toContain(CODES[0]);
+    expect(enterpriseRows).toContain(CODES[1]);
   });
 
   it("unauthorized entity memory is DENY even for an enterprise principal", async () => {
     const rows = refs(await retrieve("governance@beyu.os", (principal) => {
       principal.entityScope = [healthEntityId];
+      principal.authorityGrants = (principal.authorityGrants ?? []).map((grant) => ({
+        ...grant,
+        tenantId: healthTenantId,
+        legalEntityId: healthEntityId,
+        countryCode: healthCountry,
+      }));
     }));
-    expect(rows).not.toContain("NOELIA_TEST_ENTITY");
+    expect(rows).not.toContain(CODES[4]);
   });
 
   it("unauthorized country and above-clearance memory are DENY", async () => {
     const rows = refs(await retrieve("health.ops@beyu.os"));
     expect(healthCountry).not.toBe(otherCountry);
-    expect(rows).not.toContain("NOELIA_TEST_COUNTRY");
-    expect(rows).not.toContain("NOELIA_TEST_CLASSIFIED");
+    expect(rows).not.toContain(CODES[5]);
+    expect(rows).not.toContain(CODES[6]);
   });
 });

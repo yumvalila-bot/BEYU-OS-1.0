@@ -13,7 +13,7 @@ import {
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "../../src/lib/authz";
@@ -60,6 +60,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -351,13 +352,41 @@ describe("capital governance — linkage integrity", () => {
     const cap = await makeCapitalRequest(r.id, { entityId: "LEN_BEYU_HEALTH_LTD" });
 
     const base = await principalFor(CFO);
-    const scoped = { ...base, entityScope: ["LEN_BEYU_AGRI_LTD"] };
+    const scoped: Principal = {
+      ...base,
+      entityScope: ["LEN_BEYU_AGRI_LTD"],
+      authorityGrants: (base.authorityGrants ?? []).map((grant) =>
+        grant.permission === "finance:capital.manage"
+          ? {
+              ...grant,
+              tenantId: "TEN_BEYU_GROUP",
+              legalEntityId: "LEN_BEYU_AGRI_LTD",
+            }
+          : grant,
+      ),
+    };
     await expect(
       authorizeCapitalRequestGovernance(scoped, { capitalRequestId: cap.id }, ctx),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringMatching(/authority grant/i),
+    });
 
-    // Correctly scoped, the same principal succeeds.
-    const inScope = { ...base, entityScope: ["LEN_BEYU_HEALTH_LTD"] };
+    // Correctly scoped on the same inseparable tenant/entity tuples, the same
+    // principal succeeds.
+    const inScope: Principal = {
+      ...base,
+      entityScope: ["LEN_BEYU_HEALTH_LTD"],
+      authorityGrants: (base.authorityGrants ?? []).map((grant) =>
+        grant.permission === "finance:capital.manage"
+          ? {
+              ...grant,
+              tenantId: "TEN_BEYU_GROUP",
+              legalEntityId: "LEN_BEYU_HEALTH_LTD",
+            }
+          : grant,
+      ),
+    };
     const ok = await authorizeCapitalRequestGovernance(inScope, { capitalRequestId: cap.id }, ctx);
     expect(ok.status).toBe(CAPITAL_STATUS.GOVERNANCE_AUTHORIZED);
   });

@@ -4,7 +4,7 @@
  * The current BEYU administrator (the bootstrap-bound canonical
  * PLATFORM_ADMIN identity) must be able to preview and develop the six
  * canonical frontend surfaces — Health OS, Finance OS, Agriculture OS,
- * Ujenzi OS, Foundation OS and the Family Office capability surface —
+ * Ujenzi OS, Foundation organization and the Family Office capability surface —
  * WITHOUT weakening any existing authorization boundary. This suite pins
  * the 14 mandated proofs:
  *
@@ -49,6 +49,7 @@ import {
   clearanceForRoles,
   loadGrants,
   permissionsForRoles,
+  roleAuthorityGrants,
   type Principal,
 } from "@/lib/authz";
 import { ADMIN_DELEGATABLE_PERMISSIONS } from "@/lib/admin/delegation";
@@ -56,7 +57,7 @@ import { HIGH_RISK_PERMISSIONS, PERMISSIONS, ROLES } from "@/lib/constants";
 import {
   BEYU_CONTROL_PLANE,
   FINANCE_OS_READ_PERMISSIONS,
-  FOUNDATION_OS_READ_PERMISSIONS,
+  FOUNDATION_READ_PERMISSIONS,
   SECTOR_OPERATING_SYSTEMS,
   UJENZI_OS_READ_PERMISSIONS,
 } from "@/lib/operating-systems";
@@ -84,16 +85,15 @@ const code = (text: string) =>
 const available = await serverAvailable();
 
 /**
- * The six canonical frontend surfaces. Five are Sector OSs in the canonical
- * registry; the sixth is the Family Office capability/domain surface (a BEYU
- * capability — never an OS).
+ * The six canonical frontend surfaces: four Sector OSs, the separately
+ * governed nonprofit Foundation context, and the Family Office capability.
  */
 const SIX_SURFACES = [
   { name: "Health OS", href: "/os/health" },
   { name: "Finance OS", href: "/os/finance" },
   { name: "Agriculture OS", href: "/os/agriculture" },
   { name: "Ujenzi OS", href: "/os/ujenzi" },
-  { name: "Foundation OS", href: "/os/foundation" },
+  { name: "BEYU Foundation", href: "/os/foundation" },
   { name: "Family Office", href: "/os/family" },
 ] as const;
 
@@ -193,7 +193,7 @@ describe("the preview grants are the read side of the six surfaces only", () => 
       expect(adminPermissions).toContain(permission);
     }
     expect(adminPermissions).toContain("agriculture:data.read");
-    for (const permission of FOUNDATION_OS_READ_PERMISSIONS) {
+    for (const permission of FOUNDATION_READ_PERMISSIONS) {
       expect(adminPermissions, `Foundation read side missing ${permission}`).toContain(permission);
     }
     for (const permission of [
@@ -269,10 +269,10 @@ describe("the six surfaces keep their server-side entry guards", () => {
 
     // Finance OS: the page's own ledger capability gate.
     expect(source("src", "app", "os", "finance", "page.tsx")).toContain('requireAccess("finance:ledger.read")');
-    // Agriculture / Ujenzi / Foundation: the canonical Sector OS tenant scope
-    // guard in the layout + the page capability gate.
+    // Agriculture/Ujenzi Sector OSs and the Foundation organization all use the
+    // canonical target-tenant guard plus their page capability gate.
     for (const sector of ["agriculture", "ujenzi", "foundation"]) {
-      expect(source("src", "app", "os", sector, "layout.tsx")).toContain("operatingSystemTenantInScope");
+      expect(source("src", "app", "os", sector, "layout.tsx")).toContain("governedTenantInScope");
       expect(source("src", "app", "os", sector, "layout.tsx")).toContain("requirePrincipal");
     }
     expect(source("src", "app", "os", "agriculture", "page.tsx")).toContain('requireAccess("agriculture:data.read")');
@@ -363,10 +363,10 @@ describe("the current BEYU admin previews all six frontend surfaces", () => {
     const launcher = source("src", "app", "launcher", "page.tsx");
     // The section is gated by the governed capability, never by a URL input.
     expect(code(launcher)).toContain('can(principal, "platform:frontend.preview")');
-    // Sector surfaces come from the canonical registry; the sixth surface comes
-    // from the canonical SHARED-surface registry (`CANONICAL_SURFACES`), whose
-    // Family Office entry IS the existing canonical capability route.
+    // Four Sector surfaces and the separate Foundation organization come from
+    // their canonical catalogues; Family Office remains a shared capability.
     expect(launcher).toContain("SECTOR_OPERATING_SYSTEMS");
+    expect(launcher).toContain("FOUNDATION_ORGANIZATION");
     const familyOffice = CANONICAL_SURFACES.find((surface) => surface.code === "FAMILY_OFFICE");
     expect(familyOffice?.href).toBe("/os/family");
     expect(familyOffice?.kind).toBe("SHARED_CAPABILITY");
@@ -465,6 +465,7 @@ describe("preview access does not widen the data boundaries", () => {
       tenantType: "ENTERPRISE",
       roles: roleCodes,
       permissions: permissionsForRoles(roleCodes),
+      authorityGrants: roleAuthorityGrants(grants),
       clearance: clearanceForRoles(roleCodes),
       entityScope: [],
       mfaSatisfied: true,
@@ -504,6 +505,7 @@ describe("preview access does not widen the data boundaries", () => {
       tenantType: "ENTERPRISE",
       roles: ceoCodes,
       permissions: permissionsForRoles(ceoCodes),
+      authorityGrants: roleAuthorityGrants(ceoGrants),
       clearance: clearanceForRoles(ceoCodes),
       entityScope: [],
       mfaSatisfied: true,
@@ -537,6 +539,7 @@ describe("preview access does not widen the data boundaries", () => {
       tenantType: "ENTERPRISE",
       roles: roleCodes,
       permissions: permissionsForRoles(roleCodes),
+      authorityGrants: roleAuthorityGrants(grants),
       clearance: clearanceForRoles(roleCodes),
       entityScope: [],
       mfaSatisfied: true,
@@ -571,7 +574,7 @@ describe("preview access does not widen the data boundaries", () => {
   it("entity/country authorization: entity-scoped grants are still refused by the Sector OS surfaces", () => {
     // Ujenzi and Foundation refuse entity-scoped principals at the layout
     // boundary; Agriculture does it at the page boundary (its layout delegates
-    // tenant/classification scoping to operatingSystemTenantInScope).
+    // tenant/classification scoping to governedTenantInScope).
     const ujenziLayout = code(source("src", "app", "os", "ujenzi", "layout.tsx"));
     expect(ujenziLayout, "ujenzi layout must keep the entity-scope refusal").toMatch(
       /entityScope\.length\s*>\s*0/,
@@ -622,8 +625,8 @@ describe("service-role credentials never reach the browser", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* 11+12+13+14. Canonical structure: one OS, five Sector/Foundation     */
-/* surfaces, one Family Office capability, shared Tax/HCM               */
+/* 11+12+13+14. Canonical structure: one control plane, four Sector OSs */
+/* one Foundation organization, one Family Office capability, Tax/HCM   */
 /* ------------------------------------------------------------------ */
 
 describe("the canonical structure is preserved", () => {
@@ -635,22 +638,24 @@ describe("the canonical structure is preserved", () => {
     }
   }
 
-  it("exactly ONE control plane + FIVE Sector OSs; no Family Office OS", () => {
+  it("exactly ONE control plane + FOUR Sector OSs; Foundation and Family Office are not OSs", () => {
     expect(BEYU_CONTROL_PLANE.code).toBe("BEYU");
     expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).toEqual([
       "FINANCE",
       "HEALTH",
       "AGRICULTURE",
-      "FOUNDATION",
       "UJENZI",
     ]);
+    expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).not.toContain("FOUNDATION");
     expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).not.toContain("FAMILY_OFFICE");
+    expect(CAPABILITY_IA.find((g) => g.id === "sister-organization")?.items)
+      .toEqual([expect.objectContaining({ label: "BEYU Foundation" })]);
   });
 
-  it("no FAMILY_OFFICE_OS / TAX_OS / HCM_OS exists anywhere in the source tree", () => {
+  it("no Foundation, Mining, Family Office, Tax or HCM OS exists in current source", () => {
     for (const file of walk(path.join(ROOT, "src"))) {
       const text = readFileSync(file, "utf8");
-      expect(text, `${file} must not invent a new OS`).not.toMatch(/FAMILY_OFFICE_OS|TAX_OS|HCM_OS/);
+      expect(text, `${file} must not invent a new OS`).not.toMatch(/FOUNDATION_OS|MINING_OS|FAMILY_OFFICE_OS|TAX_OS|HCM_OS/);
     }
   });
 

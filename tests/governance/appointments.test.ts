@@ -22,7 +22,7 @@ describe("governed appointment → consent → canonical membership", () => {
   for (const extra of [{ seatRole: "KING" }, { appointedOn: "2026-02-30" }, { status: "ACTIVE" }, { seatRole: "OBSERVER", votingRights: true }, { retiredOn: "1900-01-01" }]) expect(NominateMemberSchema.safeParse(appointmentInput("USER", extra)).success).toBe(false);
  });
  it.each(["mfa", "scope", "permission"])("requires current %s presiding authority", async (kind) => {
-  const p = { ...f.chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "scope" ? { entityScope: ["WRONG"] } : { permissions: new Set<never>() }) };
+  const p = { ...f.chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "scope" ? { entityScope: ["WRONG"] } : { permissions: new Set<never>(), authorityGrants: [] }) };
   await expect(create({}, p)).rejects.toHaveProperty("code");
  });
  it("does not combine another entity's approval grant with a local read grant", async () => {

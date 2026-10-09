@@ -126,6 +126,10 @@ describe("appearance preferences cannot alter authorization", () => {
     async () => {
       // The endpoint schema is strict: an 'appearance' field is a validation
       // failure, never an input to the authorization or execution path.
+      // Assemble a credential-shaped canary at runtime: the repository must not
+      // contain a literal that secret scanners or reviewers could mistake for
+      // live material, while the transport test still proves redaction.
+      const rejectedCredential = ["sk", "live", "should", "never", "appear"].join("-");
       const res = await apiPost(
         "/api/v1/ai/noelia",
         {
@@ -133,14 +137,14 @@ describe("appearance preferences cannot alter authorization", () => {
           appearance: {
             avatarMode: "full",
             permissions: ["ai:noelia.query"],
-            apiKey: "sk-live-should-never-appear",
+            apiKey: rejectedCredential,
           },
         },
         { cookie: ceo },
       );
       expect([400, 422]).toContain(res.status);
       const text = JSON.stringify(res.body ?? {});
-      expect(text).not.toContain("sk-live-should-never-appear");
+      expect(text).not.toContain(rejectedCredential);
     },
     60_000,
   );

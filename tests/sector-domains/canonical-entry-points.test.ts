@@ -29,7 +29,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BEYU_CONTROL_PLANE, CANONICAL_SURFACES, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
+import { BEYU_CONTROL_PLANE, CANONICAL_NON_OS_DESTINATIONS, CANONICAL_SURFACES, FOUNDATION_ORGANIZATION, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
 import {
   CANONICAL_OS_HOSTS,
   canonicalContextOf,
@@ -47,12 +47,12 @@ const code = (text: string) =>
 
 const PROD: CanonicalHostOptions = { canonicalDomain: "beyu.co.tz", allowLocalhost: false };
 
-/** The eight canonical entry points: apex + five OS hosts + two surface hosts. */
+/** Eight experiences: apex/www + four OSs + Foundation + two shared surfaces. */
 const ENTRY_POINTS = [
   { host: "beyu.co.tz", home: "/os", label: "BEYU OS" },
   { host: "www.beyu.co.tz", home: "/os", label: "BEYU OS" },
   ...CANONICAL_OS_HOSTS.map((os) => ({ host: `${os.subdomain}.beyu.co.tz`, home: os.href, label: os.name })),
-  ...CANONICAL_SURFACES.map((surface) => ({ host: `${surface.subdomain}.beyu.co.tz`, home: surface.href, label: surface.name })),
+  ...CANONICAL_NON_OS_DESTINATIONS.map((surface) => ({ host: `${surface.subdomain}.beyu.co.tz`, home: surface.href, label: surface.name })),
 ] as const;
 
 const facts = (over: Partial<ProxyRequestFacts>): ProxyRequestFacts => ({
@@ -96,9 +96,9 @@ describe("A. every canonical entry point exists and is REAL", () => {
     for (const entry of [
       { file: ["src", "app", "os", "health", "mount.ts"], gate: "checkHealthOSAuthorization(" },
       { file: ["src", "app", "os", "finance", "layout.tsx"], gate: "requestIsOnForeignOSHost(" },
-      { file: ["src", "app", "os", "agriculture", "layout.tsx"], gate: "operatingSystemTenantInScope(" },
-      { file: ["src", "app", "os", "ujenzi", "layout.tsx"], gate: "operatingSystemTenantInScope(" },
-      { file: ["src", "app", "os", "foundation", "layout.tsx"], gate: "operatingSystemTenantInScope(" },
+      { file: ["src", "app", "os", "agriculture", "layout.tsx"], gate: "governedTenantInScope(" },
+      { file: ["src", "app", "os", "ujenzi", "layout.tsx"], gate: "governedTenantInScope(" },
+      { file: ["src", "app", "os", "foundation", "layout.tsx"], gate: "governedTenantInScope(" },
     ] as const) {
       expect(code(source(...entry.file)), entry.file.join("/")).toContain(entry.gate);
     }
@@ -136,7 +136,7 @@ describe("B/C. direct access — no BEYU landing hop, no host-granted authority"
         expect(resolution.kind === "SECTOR_OS" ? resolution.os : resolution.surface).toBe(
           resolution.kind === "SECTOR_OS"
             ? SECTOR_OPERATING_SYSTEMS.find((os) => os.code === resolution.os.code)
-            : CANONICAL_SURFACES.find((surface) => surface.code === resolution.surface.code),
+            : CANONICAL_NON_OS_DESTINATIONS.find((surface) => surface.code === resolution.surface.code),
         );
       }
     }
@@ -187,20 +187,21 @@ describe("F/G. switching between OS domains", () => {
     // No per-OS session machinery exists: switching cannot create a login loop
     // because there is nothing to re-authenticate against.
     const layout = code(source("src", "app", "os", "layout.tsx"));
-    expect(layout).toContain("authorizedOperatingSystems(principal)");
+    expect(layout).toContain("authorizedGovernedDestinations(principal)");
     expect(layout).toContain("checkBeyuOSAuthorization(principal).authorized");
     const nav = code(source("src", "app", "os", "os-navigation.tsx"));
     expect(nav).toContain('href="/launcher"');
     expect(nav).toContain("Switch operating system");
   });
 
-  it("the shared surfaces are not OS switches: they are entered as capabilities", () => {
-    for (const surface of CANONICAL_SURFACES) {
+  it("the non-OS destinations are not OS switches", () => {
+    for (const surface of CANONICAL_NON_OS_DESTINATIONS) {
       expect(surface.href.startsWith("/os/")).toBe(true);
       expect(osOwningPath(surface.href)).toBeNull();
       expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.href)).not.toContain(surface.href);
       expect(BEYU_CONTROL_PLANE.href).not.toBe(surface.href);
     }
+    expect(FOUNDATION_ORGANIZATION.level).toBe("SISTER_ORGANIZATION");
   });
 });
 

@@ -27,7 +27,7 @@
  */
 import type { Principal } from "@/lib/authz";
 import type { Classification } from "@/lib/constants";
-import type { VizFeatureStatus, VizSectorCode } from "../dimensions";
+import type { VizFeatureStatus, VizDomainCode } from "../dimensions";
 import type { QuantityPoint } from "../engines/quantity";
 import type { LifecycleEvent } from "../engines/lifecycle";
 import type { PerformanceSample } from "../engines/performance";
@@ -49,7 +49,7 @@ export type AdapterRequest = {
 };
 
 export type AdapterDataset = {
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   /** Honest adapter status for THIS collection. */
   status: "OK" | "NOT_AVAILABLE" | "PARTIAL";
   /** Why data is absent/partial — surfaced to governed users, never to
@@ -67,7 +67,7 @@ export type AdapterDataset = {
 };
 
 export type AdapterDescriptor = {
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   /** Adapter implementation status (honest, §45). */
   status: VizFeatureStatus;
   /** Dimensions the adapter can supply today. */
@@ -80,7 +80,7 @@ export type AdapterDescriptor = {
 };
 
 export type SectorVisualizationAdapter = {
-  readonly sector: VizSectorCode;
+  readonly sector: VizDomainCode;
   describe(): AdapterDescriptor;
   /**
    * Collect the authorized visualization dataset for a principal.
@@ -92,7 +92,7 @@ export type SectorVisualizationAdapter = {
 };
 
 /** Shared empty dataset (fail-closed shape). */
-export function emptyDataset(sector: VizSectorCode, systemOfRecord: string, reason?: string): AdapterDataset {
+export function emptyDataset(sector: VizDomainCode, systemOfRecord: string, reason?: string): AdapterDataset {
   return {
     sector,
     status: reason ? "NOT_AVAILABLE" : "OK",

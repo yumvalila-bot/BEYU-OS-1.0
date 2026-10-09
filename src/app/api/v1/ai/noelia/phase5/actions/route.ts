@@ -16,8 +16,7 @@ export const dynamic = "force-dynamic";
 const Phase5ActionsSchema = z.object({
   action: z.enum([
     "hive.context",
-    "knowledge.register",
-    "knowledge.verify-digest",
+      "knowledge.verify-digest",
     "knowledge.retrieve",
     "telemetry.record",
     "telemetry.summary",
@@ -136,32 +135,6 @@ export async function POST(request: Request) {
                 approvalState: optStr(p, "approvalState") ?? undefined,
                 residencyConstraint: optStr(p, "residencyConstraint") ?? "BEYU_CONTROLLED",
                 permission: "ai:noelia.query",
-              });
-            case "knowledge.register":
-              return new BeyuNoeliaKnowledgeFabric().registerDocument({
-                principal: ctx.principal,
-                traceId: ctx.traceId,
-                code: str(p, "code"),
-                title: str(p, "title"),
-                domain: str(p, "domain"),
-                sourceUri: (optStr(p, "sourceUri") ?? null) as string | null,
-                osId: optStr(p, "osId"),
-                sourceType: optStr(p, "sourceType") ?? "GOVERNED_DOCUMENT",
-                ownerRole: str(p, "ownerRole"),
-                jurisdictionCode: (optStr(p, "jurisdictionCode") ?? null) as string | null,
-                scopeType: str(p, "scopeType") as "ENTERPRISE" | "COUNTRY" | "GLOBAL" | "TENANT" | "ENTITY",
-                tenantId: (optStr(p, "tenantId") ?? null) as string | null,
-                legalEntityId: (optStr(p, "legalEntityId") ?? null) as string | null,
-                countryCode: (optStr(p, "countryCode") ?? null) as string | null,
-                version: optStr(p, "version") ?? undefined,
-                authorityStatus: (optStr(p, "authorityStatus") ?? "UNDER_REVIEW") as "AUTHORITATIVE" | "UNDER_REVIEW" | "SUPERSEDED" | "EXPIRED" | "REJECTED",
-                provenance: str(p, "provenance"),
-                classification: str(p, "classification") as "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED" | "HIGHLY_RESTRICTED",
-                effectiveFrom: str(p, "effectiveFrom"),
-                reviewDate: str(p, "reviewDate"),
-                expiresAt: (optStr(p, "expiresAt") ?? null) as string | null,
-                content: str(p, "content"),
-                keywords: Array.isArray(p.keywords) ? (p.keywords.filter((v): v is string => typeof v === "string") ?? []) : [],
               });
             case "knowledge.verify-digest":
               return new BeyuNoeliaKnowledgeFabric().verifyDigest({

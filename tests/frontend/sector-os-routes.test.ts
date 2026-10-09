@@ -2,8 +2,9 @@
  * Canonical Sector OS routes — contract certification.
  *
  * PHASE 15 of the canonical Sector OS routing work. Pins the invariants that
- * make `/os/health`, `/os/finance`, `/os/agriculture`, `/os/ujenzi` and
- * `/os/foundation` correct on top of the EXISTING application:
+ * make the four Sector OS routes (`/os/health`, `/os/finance`,
+ * `/os/agriculture`, `/os/ujenzi`) and the separate Foundation organization
+ * route correct on top of the EXISTING application:
  *
  *   A. Canonical route resolution — every route resolves through the ONE
  *      canonical OS registry (`src/lib/operating-system-catalog.ts`) to its
@@ -31,12 +32,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   BEYU_CONTROL_PLANE,
+  FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
 } from "@/lib/operating-system-catalog";
 import {
-  NOELIA_OS_CONTEXT_BY_OS_CODE,
+  NOELIA_OS_CONTEXT_BY_DESTINATION_CODE,
   noeliaOSContextForPath,
-  operatingSystemForPath,
+  governedDestinationForPath,
 } from "@/lib/os-context";
 import {
   NOELIA_ASSET_MAPPING,
@@ -73,7 +75,6 @@ const CANONICAL_ROUTES = [
   { code: "FINANCE", name: "Finance OS", href: "/os/finance", noelia: "FINANCE_OS" },
   { code: "HEALTH", name: "Health OS", href: "/os/health", noelia: "HEALTH_OS" },
   { code: "AGRICULTURE", name: "Agriculture OS", href: "/os/agriculture", noelia: "AGRICULTURE_OS" },
-  { code: "FOUNDATION", name: "Foundation OS", href: "/os/foundation", noelia: "FOUNDATION_OS" },
   { code: "UJENZI", name: "Ujenzi OS", href: "/os/ujenzi", noelia: "UJENZI_OS" },
 ] as const;
 
@@ -88,7 +89,7 @@ const sectorGroup = () => {
 /* ------------------------------------------------------------------ */
 
 describe("A. canonical Sector OS route resolution", () => {
-  it("declares exactly the five canonical Sector OS routes, beneath /os", () => {
+  it("declares exactly the four canonical Sector OS routes, beneath /os", () => {
     expect(SECTOR_OPERATING_SYSTEMS.map(({ code, name, href }) => ({ code, name, href }))).toEqual(
       CANONICAL_ROUTES.map(({ code, name, href }) => ({ code, name, href })),
     );
@@ -102,20 +103,28 @@ describe("A. canonical Sector OS route resolution", () => {
 
   it("resolves each route to its registered OS identity, including nested paths", () => {
     for (const route of CANONICAL_ROUTES) {
-      expect(operatingSystemForPath(route.href).code).toBe(route.code);
-      expect(operatingSystemForPath(route.href).name).toBe(route.name);
-      expect(operatingSystemForPath(`${route.href}/nested`).code).toBe(route.code);
+      expect(governedDestinationForPath(route.href).code).toBe(route.code);
+      expect(governedDestinationForPath(route.href).name).toBe(route.name);
+      expect(governedDestinationForPath(`${route.href}/nested`).code).toBe(route.code);
     }
     // The control plane, and anything that is not a declared sector route.
-    expect(operatingSystemForPath("/os").code).toBe("BEYU");
-    expect(operatingSystemForPath("/os/unknown").code).toBe("BEYU");
-    expect(operatingSystemForPath(null).code).toBe("BEYU");
+    expect(governedDestinationForPath("/os").code).toBe("BEYU");
+    expect(governedDestinationForPath("/os/unknown").code).toBe("BEYU");
+    expect(governedDestinationForPath(null).code).toBe("BEYU");
+  });
+
+  it("resolves Foundation as a sister organization, never as a Sector OS", () => {
+    expect(governedDestinationForPath("/os/foundation")).toEqual(FOUNDATION_ORGANIZATION);
+    expect(governedDestinationForPath("/os/foundation/grants").level).toBe("SISTER_ORGANIZATION");
+    expect(SECTOR_OPERATING_SYSTEMS.map(({ code }) => code)).not.toContain("FOUNDATION");
   });
 
   it("keeps one registry: the sidebar IA cannot drift from the catalogue", () => {
     expect(
       sectorGroup().items.map(({ label, href }) => ({ label, href })),
     ).toEqual(CANONICAL_ROUTES.map(({ name, href }) => ({ label: name, href })));
+    expect(CAPABILITY_IA.find((entry) => entry.id === "sister-organization")?.items)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ href: FOUNDATION_ORGANIZATION.href })]));
   });
 
   it("mounts a real route for every canonical Sector OS route", () => {
@@ -174,7 +183,7 @@ describe("B. invalid OS routes fail safely", () => {
   });
 
   it("never falls back to a Sector OS for an unknown OS route", () => {
-    const unknown = operatingSystemForPath("/os/unknown");
+    const unknown = governedDestinationForPath("/os/unknown");
     expect(unknown.level).toBe("CONTROL_PLANE");
     expect(unknown.code).toBe("BEYU");
     expect(SECTOR_OPERATING_SYSTEMS.map(({ code }) => code)).not.toContain(unknown.code);
@@ -216,18 +225,18 @@ describe("C. the URL is never an authorization boundary", () => {
     }
   });
 
-  it("keeps the four pre-existing Sector OS deep links on their own server guards", () => {
-    // Agriculture, Ujenzi and Foundation gate the CANONICAL TENANT of the
-    // sector inside the principal's tenant/classification scope; Finance gates
+  it("keeps Sector OS and Foundation organization deep links on their own server guards", () => {
+    // Agriculture, Ujenzi and Foundation gate the canonical target tenant
+    // inside the principal's tenant/classification scope; Finance gates
     // the ledger capability. A URL alone proves nothing.
     expect(source("src", "app", "os", "agriculture", "layout.tsx")).toContain(
-      "operatingSystemTenantInScope",
+      "governedTenantInScope",
     );
     expect(source("src", "app", "os", "ujenzi", "layout.tsx")).toContain(
-      "operatingSystemTenantInScope",
+      "governedTenantInScope",
     );
     expect(source("src", "app", "os", "foundation", "layout.tsx")).toContain(
-      "operatingSystemTenantInScope",
+      "governedTenantInScope",
     );
     expect(source("src", "app", "os", "finance", "page.tsx")).toContain(
       'requireAccess("finance:ledger.read")',
@@ -323,14 +332,14 @@ describe("E. navigation advertises only canonical OS routes", () => {
   it("keeps the launcher driven by the same registry and resolver", () => {
     const launcher = source("src", "app", "launcher", "page.tsx");
     expect(launcher).toContain("SECTOR_OPERATING_SYSTEMS");
-    expect(launcher).toContain("authorizedOperatingSystems");
+    expect(launcher).toContain("authorizedGovernedDestinations");
     // No hard-coded OS list of its own.
     expect(launcher).not.toMatch(/\/os\/(finance|health|agriculture|ujenzi|foundation)"/);
   });
 
   it("keeps the operating-surface label catalogue-driven", () => {
     const brand = source("src", "app", "os", "os-brand.tsx");
-    expect(brand).toContain("SECTOR_OPERATING_SYSTEMS");
+    expect(brand).toContain("GOVERNED_ROUTE_DESTINATIONS");
     expect(brand).not.toMatch(/\/os\/(finance|health|agriculture|ujenzi|foundation)"/);
   });
 });
@@ -346,33 +355,29 @@ describe("F. Noelia receives the correct OS context", () => {
     expect(noeliaOSContextForPath("/os/finance")).toBe("FINANCE_OS");
     expect(noeliaOSContextForPath("/os/agriculture")).toBe("AGRICULTURE_OS");
     expect(noeliaOSContextForPath("/os/ujenzi")).toBe("UJENZI_OS");
-    expect(noeliaOSContextForPath("/os/foundation")).toBe("FOUNDATION_OS");
+    expect(noeliaOSContextForPath("/os/foundation")).toBe("BEYU_OS");
     // Nested routes keep their sector context; unknown routes stay on BEYU OS.
     expect(noeliaOSContextForPath("/os/ujenzi/projects")).toBe("UJENZI_OS");
     expect(noeliaOSContextForPath("/os/unknown")).toBe("BEYU_OS");
-    expect(Object.keys(NOELIA_OS_CONTEXT_BY_OS_CODE)).toHaveLength(6);
+    expect(Object.keys(NOELIA_OS_CONTEXT_BY_DESTINATION_CODE)).toHaveLength(6);
   });
 
-  it("feeds the existing appearance engine a supported context for every sector with a manifestation", () => {
+  it("feeds the existing appearance engine a supported context for every sector", () => {
     for (const route of CANONICAL_ROUTES) {
       const appearance = resolveNoeliaContextualAppearance(noeliaOSContextForPath(route.href));
-      // Identity is invariant; only the manifestation changes.
       expect(appearance.identityId).toBe(NOELIA_CANONICAL_ID.canonical_id);
       expect(appearance.status).not.toBe("DENIED");
-      if (route.code === "FOUNDATION") {
-        // Foundation is a canonical Sector OS with NO registered Noelia
-        // manifestation: the engine normalizes that context to BEYU_OS and
-        // serves the canonical BEYU OS manifestation rather than a fabricated
-        // Foundation asset.
-        expect(NOELIA_ASSET_MAPPING.FOUNDATION_OS).toBeUndefined();
-        expect(appearance.osContext).toBe("BEYU_OS");
-        expect(appearance.assetPath).toBe(NOELIA_ASSET_MAPPING.BEYU_OS.path);
-        expect(appearance.status).toBe("AUTHORITATIVE");
-      } else {
-        expect(appearance.osContext).toBe(route.noelia);
-        expect(SUPPORTED_NOELIA_OS_CONTEXTS).toContain(appearance.osContext);
-      }
+      expect(appearance.osContext).toBe(route.noelia);
+      expect(SUPPORTED_NOELIA_OS_CONTEXTS).toContain(appearance.osContext);
     }
+  });
+
+  it("uses canonical NOELIA_AI and the BEYU manifestation for Foundation", () => {
+    const appearance = resolveNoeliaContextualAppearance(noeliaOSContextForPath("/os/foundation"));
+    expect(appearance.identityId).toBe("NOELIA_AI");
+    expect(appearance.osContext).toBe("BEYU_OS");
+    expect(appearance.assetPath).toBe(NOELIA_ASSET_MAPPING.BEYU_OS.path);
+    expect(Object.keys(NOELIA_ASSET_MAPPING)).not.toContain("FOUNDATION_ORGANIZATION");
   });
 
   it("binds the shell to the active route without adding a second Noelia", () => {

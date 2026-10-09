@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — timely compliance sweep.
+ * BEYU Foundation organization — timely compliance sweep.
  *
  * POST /api/v1/foundation/compliance/sweep { todayIso?, channels? }
  *

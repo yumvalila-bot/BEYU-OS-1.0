@@ -1,8 +1,8 @@
 /**
- * BEYU Foundation OS — canonical event vocabulary.
+ * BEYU Foundation organization — canonical event vocabulary.
  *
  * Events are published to the enterprise `enterprise_events` ledger via
- * lib/audit publishEventTx; Foundation OS introduces no parallel event store.
+ * lib/audit publishEventTx; Foundation organization introduces no parallel event store.
  */
 import { publishEventTx, type Tx } from "@/lib/audit";
 
@@ -60,10 +60,10 @@ export async function publishFoundationEvent(
 ): Promise<void> {
   await publishEventTx(tx, {
     type: input.type,
-    domain: "FOUNDATION_OS",
+    domain: "FOUNDATION_ORGANIZATION",
     operation: input.type,
     destinationDomain: null,
-    source: "FOUNDATION_OS",
+    source: "FOUNDATION_ORGANIZATION",
     tenantId: input.tenantId,
     legalEntityId: input.legalEntityId ?? null,
     subjectType: input.subjectType,

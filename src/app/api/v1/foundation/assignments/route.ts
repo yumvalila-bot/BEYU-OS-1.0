@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — workforce assignments (contextual; HCM owns the worker).
+ * BEYU Foundation organization — workforce assignments (contextual; HCM owns the worker).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

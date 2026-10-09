@@ -723,7 +723,7 @@ export const SEARCH_SOURCES: SearchSource[] = [
       return r?.n ?? 0;
     },
   },
-  /* -------------------------- Foundation OS -------------------------- */
+  /* -------------------------- Foundation organization -------------------------- */
   {
     type: "FOUNDATION",
     os: "FOUNDATION",

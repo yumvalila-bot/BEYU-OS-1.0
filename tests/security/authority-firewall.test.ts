@@ -51,6 +51,18 @@ function principalWith(roles: string[]): Principal {
     sessionId: "s",
     riskScore: 0,
     emergencyPermissions: [],
+    authorityGrants: roles.flatMap((role) =>
+      [...((ROLES as Record<string, { permissions?: readonly string[] }>)[role]?.permissions ?? [])].map((permission) => ({
+        sourceId: `test-assignment-${role}`,
+        source: "ROLE_ASSIGNMENT" as const,
+        role,
+        permission: permission as never,
+        tenantId: "TEN_BEYU_GROUP",
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      }))),
   } as unknown as Principal;
 }
 

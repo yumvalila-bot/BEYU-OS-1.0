@@ -56,7 +56,7 @@ export default async function FoundationPage() {
       ),
   );
   if (!hasWorkspace) {
-    return <Denied reason="No Foundation OS read capability is authorized" capability="foundation:registry.read" />;
+    return <Denied reason="No Foundation organization read capability is authorized" capability="foundation:registry.read" />;
   }
 
   return withTenantDatabaseContext(principal, async () => {
@@ -101,7 +101,7 @@ export default async function FoundationPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation OS — one institutional OS under BEYU OS</div>
+          <div className="beyu-kicker text-[#b08d1c]">BEYU Foundation — separate nonprofit sister organization</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Foundation Executive Dashboard</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Foundations, formation, governance, tax, timely compliance, donors, funds, grants, programs and
@@ -144,7 +144,7 @@ export default async function FoundationPage() {
           </div>
         </Panel>}
 
-        <Panel kicker="Workspace" title="Foundation OS areas">
+        <Panel kicker="Workspace" title="Foundation organization areas">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visibleSections.map((section) => (
               <Link key={section.href} href={section.href} className="group rounded-xl border border-[color:var(--beyu-line)] p-4 transition hover:border-[#b08d1c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]">
@@ -159,7 +159,7 @@ export default async function FoundationPage() {
                 </div>
               </Link>
             ))}
-            {visibleSections.length === 0 && <EmptyState message="No Foundation OS areas are available within your authorized scope." />}
+            {visibleSections.length === 0 && <EmptyState message="No Foundation organization areas are available within your authorized scope." />}
           </div>
         </Panel>
       </div>

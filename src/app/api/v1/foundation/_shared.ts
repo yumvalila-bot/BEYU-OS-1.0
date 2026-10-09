@@ -1,5 +1,5 @@
 /**
- * Foundation OS API — shared route helpers.
+ * Foundation organization API — shared route helpers.
  *
  * Maps FoundationError to the canonical API error envelope so domain
  * failures (403/404/409/422) never surface as 500s and never leak

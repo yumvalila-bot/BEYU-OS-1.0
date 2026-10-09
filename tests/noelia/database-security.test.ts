@@ -34,10 +34,13 @@ describe("Noelia PostgreSQL security boundary", () => {
     const result = await db.execute<{ tablename: string; policyname: string }>(sql`
       select tablename, policyname from pg_policies
       where tablename in ('knowledge_sources', 'noelia_action_requests')
-      order by tablename
+      order by tablename, policyname
     `);
     expect(result.rows).toEqual([
+      { tablename: "knowledge_sources", policyname: "knowledge_sources_scope_delete" },
+      { tablename: "knowledge_sources", policyname: "knowledge_sources_scope_insert" },
       { tablename: "knowledge_sources", policyname: "knowledge_sources_scope_isolation" },
+      { tablename: "knowledge_sources", policyname: "knowledge_sources_scope_update" },
       { tablename: "noelia_action_requests", policyname: "noelia_action_tenant_isolation" },
     ]);
   });

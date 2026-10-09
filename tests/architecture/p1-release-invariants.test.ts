@@ -7,7 +7,7 @@
  * and prevents regressions, without introducing any new runtime mechanism:
  *
  *   1. ONE BEYU OS — the control plane is a constant, never registered as a
- *      sector; the sector catalogue is exactly the six canonical OSs.
+ *      sector; the sector catalogue is exactly the four canonical Sector OSs.
  *   2. DEPLOYED ≠ VERIFIED ≠ PROMOTED — the release contract records the four
  *      governed verbs; no P1 artefact may claim an implemented Blue-Green or
  *      Canary, because neither exists yet.
@@ -27,20 +27,40 @@ import { join } from "node:path";
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 
-describe("P1 — one control plane, six canonical OSs, shared capabilities", () => {
+describe("P1 — one control plane, four canonical Sector OSs, shared capabilities", () => {
   const os = read("src/lib/operating-system-catalog.ts");
 
-  it("the sector catalogue is exactly the six canonical OSs", () => {
-    expect(os).toContain('code: "FINANCE"');
-    expect(os).toContain('code: "HEALTH"');
-    expect(os).toContain('code: "AGRICULTURE"');
-    expect(os).toContain('code: "FOUNDATION"');
-    expect(os).toContain('code: "UJENZI"');
+  it("the sector catalogue is exactly Finance, Health, Agriculture and Ujenzi", async () => {
+    const { SECTOR_OPERATING_SYSTEMS } = await import("@/lib/operating-system-catalog");
+    expect(SECTOR_OPERATING_SYSTEMS.map(({ code }) => code)).toEqual([
+      "FINANCE",
+      "HEALTH",
+      "AGRICULTURE",
+      "UJENZI",
+    ]);
+  });
+
+  it("models Foundation separately and never models Foundation or Mining as a Sector OS", () => {
+    expect(os).toContain('level: "SISTER_ORGANIZATION"');
+    expect(os).toContain('name: "BEYU Foundation"');
+    const sectorLiteral = os.slice(
+      os.indexOf("SECTOR_OPERATING_SYSTEMS"),
+      os.indexOf("FOUNDATION_ORGANIZATION"),
+    );
+    expect(sectorLiteral).not.toMatch(/FOUNDATION|MINING/);
   });
 
   it("the control plane is a constant, distinct from the sector catalogue", () => {
     expect(os).toContain("BEYU_CONTROL_PLANE");
     expect(os).toContain("SECTOR_OPERATING_SYSTEMS");
+  });
+
+  it("pins Foundation as a root legal-entity tenant and its operations as an existing shared-capability kind", () => {
+    const seed = read("src/db/seed.ts");
+    expect(seed).toContain('code: "BEYU-FOUNDATION", name: "BEYU Foundation", type: "LEGAL_ENTITY", parentTenantId: null');
+    expect(seed).toContain('code: "SHARED_FOUNDATION_OPERATIONS"');
+    expect(seed).toContain('code: "SHARED_MINING_GOVERNANCE"');
+    expect(seed).not.toMatch(/code: "(?:FOUNDATION|MINING)_OS"/);
   });
 
   it("no capability is registered as an operating system", () => {

@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Formation case detail + review transitions.
+ * BEYU Foundation organization — Formation case detail + review transitions.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

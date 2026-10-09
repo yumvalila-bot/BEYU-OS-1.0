@@ -63,7 +63,7 @@ export const HOLOGRAPH_IS_NOT = [
   "an authorization system (the canonical can() RBAC/ABAC kernel is the only authorization model)",
   "a database authority (sector truth remains in each Sector OS; adapters re-check the sector boundary on every request)",
   "a transaction engine (no journal, treasury, ledger or posting state exists in this capability; CAP_POSTING remains LOCKED)",
-  "a replacement for Governance, Finance OS, Health OS, Ujenzi OS, Foundation OS or Agriculture OS",
+  "a replacement for Governance, Finance OS, Health OS, Ujenzi OS, Foundation organization or Agriculture OS",
   "a replacement for Noelia (Noelia is the governed AI identity; Holograph is one possible spatial manifestation, never an independent AI authority)",
   "an independent approval authority (spatial interactions delegate to existing governed workflows; human approval is preserved)",
   "a lending platform, an insurance underwriter or a legal decision-maker",
@@ -95,16 +95,18 @@ export const HOLOGRAPH_AUTHORIZATION_ORDER = [
   "RENDERER",
 ] as const;
 
-/** The canonical Sector OS set Holograph may consume governed views from.
- * Mirrors VIZ_SECTOR_CODES: the five Sector OSs plus the BEYU control plane.
- * Holograph and Family Office themselves are NOT in this set — they are
- * capabilities. */
-export const HOLOGRAPH_SECTOR_CONSUMERS = [
+/**
+ * Governed domain contexts Holograph may consume views from: the four Sector
+ * OSs plus the separate Foundation organization. The legacy visualization
+ * `sector` field is only a projection discriminator; it grants no authority and
+ * does not classify Foundation as a Sector OS.
+ */
+export const HOLOGRAPH_GOVERNED_CONSUMERS = [
   "Health OS",
   "Finance OS",
   "Agriculture OS",
   "Ujenzi OS",
-  "Foundation OS",
+  "Foundation organization",
 ] as const;
 
 /**

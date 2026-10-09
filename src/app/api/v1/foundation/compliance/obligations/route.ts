@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — compliance obligation registry.
+ * BEYU Foundation organization — compliance obligation registry.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

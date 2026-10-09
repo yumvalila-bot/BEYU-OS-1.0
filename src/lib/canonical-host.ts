@@ -15,6 +15,7 @@ import {
   canonicalDestinationHref,
   canonicalHostOptionsFromEnvironment,
   resolveCanonicalHost,
+  type CanonicalContext,
   type CanonicalHostResolution,
 } from "./canonical-hosts";
 import { sessionSharedAcrossCanonicalDomain } from "./session-cookie";
@@ -26,21 +27,26 @@ export async function canonicalHostForRequest(): Promise<CanonicalHostResolution
 }
 
 /**
- * True when `rawHost` is a canonical host that is NOT the OS `code`: another
- * Sector OS's host, or a canonical SHARED-surface host (`familyoffice`,
- * `noelia`) — a capability / AI-interface host carries no OS identity, so an OS
- * surface is never served on it either. A neutral host (www, apex, preview,
- * localhost, no Host) and the OS's own host both return false. Callers use this
- * to REFUSE — never to grant — so a hostname can never carry one OS's surface
- * onto another's.
+ * True when `rawHost` selects a canonical destination other than `code`.
+ * Neutral/control-plane hosts return false. This function only refuses cross-
+ * destination rendering; it never grants authority.
  */
+export function isForeignCanonicalHost(
+  rawHost: string | null | undefined,
+  code: CanonicalContext["code"],
+): boolean {
+  const resolution = resolveCanonicalHost(rawHost, canonicalHostOptionsFromEnvironment());
+  if (resolution.kind === "SECTOR_OS") return resolution.os.code !== code;
+  if (resolution.kind === "SURFACE") return resolution.surface.code !== code;
+  return false;
+}
+
+/** OS-typed compatibility wrapper for Sector OS layouts. */
 export function isForeignOSHost(
   rawHost: string | null | undefined,
   code: OperatingSystemDestination["code"],
 ): boolean {
-  const resolution = resolveCanonicalHost(rawHost, canonicalHostOptionsFromEnvironment());
-  if (resolution.kind === "SECTOR_OS") return resolution.os.code !== code;
-  return resolution.kind === "SURFACE";
+  return isForeignCanonicalHost(rawHost, code);
 }
 
 /** `isForeignOSHost` for the current request. */
@@ -49,6 +55,14 @@ export async function requestIsOnForeignOSHost(
 ): Promise<boolean> {
   const h = await headers();
   return isForeignOSHost(h.get("host"), code);
+}
+
+/** Generic current-request refusal for a Sector OS or non-OS destination. */
+export async function requestIsOnForeignCanonicalHost(
+  code: CanonicalContext["code"],
+): Promise<boolean> {
+  const h = await headers();
+  return isForeignCanonicalHost(h.get("host"), code);
 }
 
 /**

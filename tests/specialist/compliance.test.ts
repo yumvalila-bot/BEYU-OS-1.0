@@ -49,6 +49,8 @@ import {
   readObligations,
 } from "@/lib/specialist/compliance/service";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `CP${Date.now()}`;
 let n = 0;
 const trace = () => `${RUN}-${String(++n).padStart(3, "0")}`;
@@ -119,6 +121,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "ENTERPRISE",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance: "RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,
@@ -974,7 +980,10 @@ describe("compliance service — hostile inputs", () => {
     (forged.permissions as Set<string>).add("compliance:obligation.read");
     await expect(
       assessCompliance({ principal: forged, tenantId: foreignTenantId, legalEntityId: null, traceId: trace() }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    ).rejects.toMatchObject({
+      code: "DENIED",
+      message: expect.stringMatching(/authority/i),
+    });
   });
 
   it("rejects malformed trace ids", async () => {
@@ -1096,9 +1105,9 @@ describe("compliance module — creates no second truth", () => {
     ).map((r) => r.table_name);
     // The two pre-existing registers from the 0000 baseline plus the Phase 4
     // tamper-evident Noelia evidence registry (governance evidence, not a
-    // second compliance-truth ledger), plus the three governed Foundation OS
-    // compliance tables from 0035_foundation_os (a Sector OS compliance
-    // registry under BEYU OS governance — attributed here, still exact), plus
+    // second compliance-truth ledger), plus the three governed Foundation
+    // compliance tables from legacy migration 0035_foundation_os (the migration
+    // name is historical; Foundation is a separate nonprofit organization), plus
     // the two Family Office obligation tables from
     // 0037_family_office_capital_wealth. The Family Office obligation register
     // answers "who owes whom" between family members, entities and external
@@ -1159,7 +1168,7 @@ describe("compliance module — creates no second truth", () => {
 // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
-// + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+// + 0035_foundation_os (Foundation organization registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
@@ -1213,7 +1222,7 @@ describe("compliance module — creates no second truth", () => {
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). No compliance register, no second truth.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    // + 0069: Foundation organization RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No compliance-substrate change; obligations/evidence tables are untouched.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No compliance-substrate change; obligations/evidence tables are untouched.
     // + 0071: Federation & Trust shared capability (no compliance table, no second compliance truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
@@ -1222,8 +1231,9 @@ describe("compliance module — creates no second truth", () => {
     // + 0074: Enterprise Intelligence Expansion (34 tables: finance intelligence, valuation, private
     //   capital, LBO, entrusted capital, pricing, HCM compensation). No compliance-substrate change:
     //   obligations/evidence tables are untouched and no second compliance truth is created.
-    //   Snapshot chained 0062 -> 0074 by scripts/migration/snapshot.ts (no metadata debt added).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
+    // + 0075: Noelia authority/execution hardening reuses the canonical compliance evidence/audit
+    //   architecture and creates no second compliance truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

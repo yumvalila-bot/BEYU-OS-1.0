@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { employees, tenants, users } from "@/db/schema";
-import { clearanceForRoles, filterByClearance, loadGrants, permissionsForRoles, type Principal } from "@/lib/authz";
+import { clearanceForRoles, filterByClearance, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "@/lib/authz";
 import {
   HcmError,
   HcmIntegrityError,
@@ -47,6 +47,7 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,

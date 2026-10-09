@@ -37,6 +37,8 @@ import {
 } from "@/lib/specialist/fpna/service";
 import type { Assumption, Driver, FpnaObservation, Scenario } from "@/lib/specialist/fpna/model";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `FP${Date.now()}`;
 let tenantId = "";
 let entityId = "";
@@ -59,6 +61,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "GROUP",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance: "RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,

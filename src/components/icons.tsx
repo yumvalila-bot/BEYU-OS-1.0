@@ -316,7 +316,7 @@ const GLYPHS: Record<IconName, ReactNode> = {
       <path d="M7.5 20.6h9" />
     </>
   ),
-  /* Foundation OS — community institution */
+  /* Foundation organization — community institution */
   foundation: (
     <>
       <path d="M4 9.4L12 4l8 5.4" />

@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Organization Structure Designer.
+ * BEYU Foundation organization — Organization Structure Designer.
  *
  * GET  /api/v1/foundation/structures — list proposals
  * POST /api/v1/foundation/structures — author a CURRENT/PROPOSED proposal

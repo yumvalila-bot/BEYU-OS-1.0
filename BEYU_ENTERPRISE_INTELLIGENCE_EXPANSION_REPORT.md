@@ -693,4 +693,3 @@ a separate decision.
 | **SAFE REMEDIATION** | None that is both non-breaking and in scope. The maintained fix is the **vitest 4.1.11 major upgrade** (removes tinypool; also fixes the moderate `@vitest/mocker` advisory) with no Node or Vite upgrade required |
 | **BREAKING-CHANGE RISK** | vitest 4 = major test-runner upgrade (own PR, full CI). The tinypool override is measured working but forces an out-of-range major and raises the Node floor to ≥ 20. `npm audit fix --force` → vitest 5.0.3 is a larger jump than needed and must not be used here |
 | **RECOMMENDED ACTION** | **Leave dependencies unchanged. Formally accept the advisory temporarily (§24.7) and remediate via a dedicated vitest 4 upgrade PR.** No further PR is created by this investigation |
-

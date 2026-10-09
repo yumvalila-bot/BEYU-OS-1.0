@@ -8,8 +8,9 @@
  *
  * WHAT THIS IS NOT
  * ────────────────
- *   • NOT a new operating system. The canonical Sector OS set remains
- *     Health OS, Finance OS, Agriculture OS and Ujenzi OS (plus Foundation OS).
+ *   • NOT a new operating system. The canonical Sector OS set remains exactly
+ *     Health OS, Finance OS, Agriculture OS and Ujenzi OS. The separate
+ *     Foundation organization is a governed visualization consumer, not an OS.
  *     There is no "BIM OS", "GIS OS", "Digital Twin OS", "Graphics OS" or
  *     "XR OS" — those are capabilities inside this shared foundation.
  *   • NOT an authorization layer. Dimensions are metadata; every activation
@@ -60,11 +61,13 @@ export type DimensionLifecycleState = (typeof DIMENSION_LIFECYCLE_STATES)[number
 export const CANONICAL_DIMENSION_IDS = ["1D", "2D", "3D", "4D", "5D", "6D", "7D", "8D", "XD"] as const;
 export type CanonicalDimensionId = (typeof CANONICAL_DIMENSION_IDS)[number];
 
-/** Sector OS codes this shared capability serves. UJENZI IS A SECTOR OS —
- * it appears here as an equal consumer, never as the owner of the graphics
- * foundation, and the foundation is never a Ujenzi subsystem. */
-export const VIZ_SECTOR_CODES = ["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"] as const;
-export type VizSectorCode = (typeof VIZ_SECTOR_CODES)[number];
+/**
+ * Governed domain projection codes served by this capability. This list is not
+ * an OS catalogue and grants no authority: BEYU is the control plane,
+ * FOUNDATION is a sister organization, and the other four are Sector OSs.
+ */
+export const VIZ_DOMAIN_CODES = ["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"] as const;
+export type VizDomainCode = (typeof VIZ_DOMAIN_CODES)[number];
 
 export type DimensionDefinition = {
   /** Stable dimension identifier ("1D".."8D", "XD", or a governed 9D+ code). */
@@ -87,7 +90,7 @@ export type DimensionDefinition = {
    * no dimension ever widens a sector permission. */
   permissions: PermissionCode[];
   /** Sector applicability ("*" = every current and future Sector OS). */
-  sectorApplicability: VizSectorCode[] | "*";
+  sectorApplicability: VizDomainCode[] | "*";
   /** Actual repository state — never aspirational. */
   lifecycleState: DimensionLifecycleState;
   /** Honest implementation status of the dimension machinery. */
@@ -294,7 +297,7 @@ export type DimensionExtensionRecord = {
   dataRequirements: string[];
   renderingRequirements: string[];
   requiredPermissions: PermissionCode[];
-  sectorApplicability: VizSectorCode[] | "*";
+  sectorApplicability: VizDomainCode[] | "*";
   lifecycleState: DimensionLifecycleState;
   provenance: { registeredBy: string; rationale: string; registeredAt: string };
   classification: string;
@@ -427,11 +430,11 @@ export function normalizeCombination(
 }
 
 /** Whether a definition applies to a sector OS (or the control plane). */
-export function dimensionAppliesToSector(definition: DimensionDefinition, sector: VizSectorCode): boolean {
+export function dimensionAppliesToSector(definition: DimensionDefinition, sector: VizDomainCode): boolean {
   return definition.sectorApplicability === "*" || definition.sectorApplicability.includes(sector);
 }
 
 /** Dimensions usable by a sector, given the resolved registry. */
-export function dimensionsForSector(registry: DimensionRegistry, sector: VizSectorCode): DimensionDefinition[] {
+export function dimensionsForSector(registry: DimensionRegistry, sector: VizDomainCode): DimensionDefinition[] {
   return registry.dimensions.filter((d) => dimensionAppliesToSector(d, sector));
 }

@@ -58,7 +58,7 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os/noelia", label: "Noelia / HIVE" },
   { href: "/os/finance", label: "Finance OS" },
   { href: "/os/agriculture", label: "Agriculture OS" },
-  { href: "/os/foundation", label: "Foundation OS" },
+  { href: "/os/foundation", label: "Foundation organization" },
   { href: "/os/settings", label: "Settings" },
   // Existing focused workspaces remain protected and discoverable beneath
   // their canonical capabilities.
@@ -221,7 +221,7 @@ describe("OS shell accessibility (authenticated)", () => {
       "Settings",
       "Finance OS",
       "Agriculture OS",
-      "Foundation OS",
+      "Foundation organization",
       "Bridging Care. Building Trust.",
     ]) {
       expect(html).toContain(label);

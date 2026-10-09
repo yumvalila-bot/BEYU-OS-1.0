@@ -8,11 +8,14 @@
  * What it does (and the complete list of what it does):
  *   1. refuses unsafe-method requests whose `Origin` is foreign (CSRF
  *      hardening across the canonical hosts; no CORS header is ever added);
- *   2. on a canonical OS/surface host, redirects paths owned by a DIFFERENT
+ *   2. returns an information-free 404 for the Foundation organization route
+ *      on another canonical destination host (Foundation is never treated as
+ *      an OS-owned path);
+ *   3. on a canonical OS/surface host, redirects paths owned by a DIFFERENT
  *      canonical Sector OS to that OS's canonical host — same path, target
  *      host built from the catalogue + `BEYU_CANONICAL_DOMAIN`, never from the
  *      request; cannot loop because the target host owns the path;
- *   3. passes everything else through unchanged.
+ *   4. passes everything else through unchanged.
  *
  * What it never does: it reads no cookie, resolves no session, touches no
  * database, and grants nothing. A hostname selects a home; the route's own
@@ -44,6 +47,12 @@ export function proxy(request: NextRequest): NextResponse {
       // Uniform and information-free: no detail about which origins are trusted.
       return new NextResponse("Forbidden", {
         status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+      });
+    case "NOT_FOUND":
+      // Uniform and information-free: no route, session, or authority detail.
+      return new NextResponse("Not Found", {
+        status: 404,
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
       });
     case "REDIRECT": {

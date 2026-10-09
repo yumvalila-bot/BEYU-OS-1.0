@@ -1,6 +1,6 @@
 /**
- * BEYU Foundation OS — canonical Finance bridge (capital requests).
- * Foundation OS requests; Finance OS governs and executes.
+ * BEYU Foundation organization — canonical Finance bridge (capital requests).
+ * Foundation organization requests; Finance OS governs and executes.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

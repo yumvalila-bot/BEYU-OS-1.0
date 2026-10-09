@@ -143,6 +143,7 @@ describe("Noelia governed scheduler (OUTBOX → consumer → idempotency → aud
 
   it("marks a schedule SUSPENDED and stops emitting runs", async () => {
     const cfo = await seededPrincipal("cfo@beyu.os");
+    const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaSchedulerService();
     const past = new Date(Date.now() - 60_000).toISOString();
 
@@ -163,7 +164,7 @@ describe("Noelia governed scheduler (OUTBOX → consumer → idempotency → aud
     expect(created.status).toBe("CREATED");
 
     const suspended = await service.setStatus({
-      principal: cfo,
+      principal: governance,
       scheduleId: created.scheduleId!,
       status: "SUSPENDED",
       traceId: trace(),

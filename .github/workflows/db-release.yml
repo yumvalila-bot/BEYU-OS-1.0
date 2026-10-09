@@ -72,6 +72,9 @@ jobs:
     name: Migration validation (scratch PostgreSQL 16)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      BEYU_RUNTIME_DB_PASSWORD: ci_runtime_db_password_not_a_secret
+      BEYU_GOVERNANCE_DB_PASSWORD: ci_governance_db_password_not_a_secret
     services:
       postgres:
         image: postgres:16
@@ -122,7 +125,13 @@ jobs:
         env:
           BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
         run: npx tsx scripts/db-release.ts preflight
-      - name: Capture expected schema state for this revision
+      - name: Provision finite-privilege application roles in scratch
+        env:
+          BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
+        run: |
+          npx tsx scripts/setup-db-role.ts
+          npm run db:setup-governance-role
+      - name: Capture expected schema and security state for this revision
         id: capture
         env:
           BEYU_ADMIN_DATABASE_URL: ${{ env.SCRATCH_ADMIN_URL }}
@@ -203,6 +212,7 @@ jobs:
     env:
       BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
       BEYU_RUNTIME_DB_PASSWORD: ${{ secrets.BEYU_RUNTIME_DB_PASSWORD }}
+      BEYU_GOVERNANCE_DB_PASSWORD: ${{ secrets.BEYU_GOVERNANCE_DB_PASSWORD }}
     outputs:
       fingerprint: ${{ steps.verify.outputs.fingerprint }}
       applied-count: ${{ steps.verify.outputs.applied-count }}
@@ -229,10 +239,14 @@ jobs:
             echo "::error::EXTERNAL_BLOCKED — secret BEYU_RUNTIME_DB_PASSWORD is not configured."
             missing=1
           fi
+          if [ -z "$BEYU_GOVERNANCE_DB_PASSWORD" ]; then
+            echo "::error::EXTERNAL_BLOCKED — secret BEYU_GOVERNANCE_DB_PASSWORD is not configured."
+            missing=1
+          fi
           if [ "$missing" = "1" ]; then
             exit 1
           fi
-          echo "Production secret guard passed: BEYU_ADMIN_DATABASE_URL and BEYU_RUNTIME_DB_PASSWORD are both present (values not printed)."
+          echo "Production secret guard passed: admin, runtime, and least-privilege governance credentials are present (values not printed)."
       - name: Use Node.js 22
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -244,6 +258,8 @@ jobs:
         run: npx tsx scripts/migrate.ts
       - name: Provision / constrain the NOSUPERUSER runtime role
         run: npx tsx scripts/setup-db-role.ts
+      - name: Provision / constrain the NOBYPASSRLS governed-mutation role
+        run: npm run db:setup-governance-role
       - name: Verify schema fingerprint · migrations recorded · RLS · role constraints
         id: verify
         run: |

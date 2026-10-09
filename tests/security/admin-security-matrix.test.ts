@@ -10,11 +10,14 @@ import {
 } from "../../src/db/schema";
 import { fixedId, ID_PREFIX, newId } from "../../src/lib/ids";
 import {
+  activeDelegatedAuthorityGrants,
   activeDelegatedPermissions,
+  activeEmergencyAuthorityGrants,
   can,
   clearanceForRoles,
   loadGrants,
   permissionsForRoles,
+  roleAuthorityGrants,
   type Principal,
 } from "../../src/lib/authz";
 import { registerUser, transitionUserStatus, AdminGovernanceError } from "../../src/lib/admin/governance-service";
@@ -54,6 +57,9 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
   if (!u) throw new Error(`seed user ${userKey} missing — run npm run seed`);
   const grants = await loadGrants(u.id, u.primaryTenantId);
   const roleCodes = [...new Set(grants.map((g) => g.code))];
+  const emergencyAuthorityGrants = await activeEmergencyAuthorityGrants(u.id, u.primaryTenantId);
+  const delegatedAuthorityGrants = await activeDelegatedAuthorityGrants(u.id);
+  const authorityGrants = [...roleAuthorityGrants(grants), ...emergencyAuthorityGrants, ...delegatedAuthorityGrants];
   return {
     userId: u.id,
     partyId: u.partyId,
@@ -65,12 +71,16 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
     roles: roleCodes,
     permissions: permissionsForRoles(roleCodes),
     clearance: clearanceForRoles(roleCodes),
-    entityScope: [],
+    entityScope: [...new Set(grants.map((grant) => grant.entityId).filter((id): id is string => Boolean(id)))],
+    countryScope: [...new Set(authorityGrants.map((grant) => grant.countryCode).filter((code): code is string => Boolean(code)))],
     mfaSatisfied: true,
     sessionId: "TEST",
     riskScore: 0,
     emergencyPermissions: [],
-    delegatedPermissions: [],
+    delegatedPermissions: [...new Set(delegatedAuthorityGrants.map((grant) => grant.permission))],
+    authorityGrants,
+    accountStatus: u.status,
+    isServiceAccount: u.isServiceAccount,
     ...overrides,
   };
 }
@@ -129,6 +139,17 @@ describe("SECURITY MATRIX 1 — cross-tenant denial", () => {
     const withCap: Principal = {
       ...crossPrincipal,
       permissions: new Set([...permissionsForRoles(["SECTOR_OPERATOR"]), "identity:user.suspend" as const]),
+      authorityGrants: [{
+        sourceId: "ADL_MATRIX_HEALTH_ONLY",
+        source: "DELEGATION",
+        role: "DELEGATED_AUTHORITY",
+        permission: "identity:user.suspend",
+        tenantId: T.health,
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      }],
     };
     await expect(assertWithinScope(withCap, T.agri)).rejects.toThrow();
     await expect(assertWithinScope(withCap, T.tz)).rejects.toThrow();
@@ -146,6 +167,17 @@ describe("SECURITY MATRIX 1 — cross-tenant denial", () => {
         ...permissionsForRoles(["FOUNDATION_DIRECTOR"]),
         "identity:user.suspend" as const,
       ]),
+      authorityGrants: [{
+        sourceId: "RAS_MATRIX_FOUNDATION_ONLY",
+        source: "ROLE_ASSIGNMENT",
+        role: "FOUNDATION_DIRECTOR",
+        permission: "identity:user.suspend",
+        tenantId: T.foundation,
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      }],
       clearance: ROLE_CLEARANCE.FOUNDATION_DIRECTOR,
     };
     await expect(
@@ -275,7 +307,6 @@ describe("SECURITY MATRIX 4/5 — no self-escalation, no unrestricted delegation
     createdPartyIds.push(partyId);
     await transitionUserStatus(admin, userId, "activate", "Fixture active.", TRACE);
 
-    const delegated = await activeDelegatedPermissions;
     const delegatee: Principal = {
       userId,
       partyId,
@@ -293,6 +324,17 @@ describe("SECURITY MATRIX 4/5 — no self-escalation, no unrestricted delegation
       riskScore: 0,
       emergencyPermissions: [],
       delegatedPermissions: ["identity:user.suspend"],
+      authorityGrants: [{
+        sourceId: "ADL_MATRIX_SUSPEND_ONLY",
+        source: "DELEGATION",
+        role: "DELEGATED_AUTHORITY",
+        permission: "identity:user.suspend",
+        tenantId: T.tz,
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: new Date(Date.now() - 60_000),
+        validTo: new Date(Date.now() + 60_000),
+      }],
     };
 
     // Only the delegated capability passes the SAME primitive…
@@ -357,6 +399,66 @@ describe("SECURITY MATRIX 4/5 — no self-escalation, no unrestricted delegation
     const effective = await adminActionTenantScope(delegatee, "identity:user.suspend");
     expect(effective).toEqual([]);
     expect(can(delegatee, "identity:user.suspend", { tenantId: T.health }).allowed).toBe(false);
+  });
+
+  it("resolves delegation arrays into canonical entity-country tuples without a Cartesian grant", async () => {
+    const admin = await principalFor("PLATFORM_ADMIN");
+    const { userId, partyId } = await registerUser(admin, {
+      email: `matrix-tuple-${Date.now()}@beyu.os`,
+      displayName: "Delegation Tuple Fixture",
+      primaryTenantId: T.group,
+      reason: "Delegation tuple integrity fixture.",
+    }, TRACE);
+    createdUserIds.push(userId);
+    createdPartyIds.push(partyId);
+    await transitionUserStatus(admin, userId, "activate", "Fixture active.", TRACE);
+
+    const id = newId(ID_PREFIX.adminDelegation);
+    await db.insert(adminAuthorityDelegations).values({
+      id,
+      tenantId: T.group,
+      delegatorUserId: admin.userId,
+      delegateeUserId: userId,
+      permissions: ["identity:user.suspend"],
+      scopeTenantIds: [T.group],
+      scopeLegalEntityIds: ["LEN_BEYU_HOLDINGS", "LEN_BEYU_FAMILY_TRUST"],
+      scopeCountryCodes: ["AE", "MU"],
+      status: "ACTIVE",
+      effectiveFrom: new Date(Date.now() - 60_000),
+      effectiveTo: new Date(Date.now() + 86_400_000),
+      reason: "Canonical tuple resolution fixture.",
+    });
+    createdDelegationIds.push(id);
+
+    const authorityGrants = await activeDelegatedAuthorityGrants(userId);
+    expect(authorityGrants.map((grant) => [grant.legalEntityId, grant.countryCode]).sort()).toEqual([
+      ["LEN_BEYU_FAMILY_TRUST", "MU"],
+      ["LEN_BEYU_HOLDINGS", "AE"],
+    ]);
+    const delegatee: Principal = {
+      userId,
+      partyId,
+      email: "tuple-delegatee@beyu.os",
+      displayName: "Tuple Delegatee",
+      tenantId: T.group,
+      tenantCode: "BEYU-GROUP",
+      tenantType: "ENTERPRISE",
+      roles: [],
+      permissions: new Set(),
+      clearance: "HIGHLY_RESTRICTED",
+      entityScope: ["LEN_BEYU_HOLDINGS", "LEN_BEYU_FAMILY_TRUST"],
+      countryScope: ["AE", "MU"],
+      mfaSatisfied: true,
+      sessionId: "TEST",
+      riskScore: 0,
+      emergencyPermissions: [],
+      delegatedPermissions: ["identity:user.suspend"],
+      authorityGrants,
+    };
+    expect(can(delegatee, "identity:user.suspend", { tenantId: T.group, entityId: "LEN_BEYU_HOLDINGS", countryCode: "AE" }).allowed).toBe(true);
+    expect(can(delegatee, "identity:user.suspend", { tenantId: T.group, entityId: "LEN_BEYU_HOLDINGS", countryCode: "MU" }).allowed).toBe(false);
+    expect(can(delegatee, "identity:user.suspend", { tenantId: T.group, entityId: null, countryCode: "AE" }).allowed).toBe(false);
+    expect(can(delegatee, "identity:user.suspend", { tenantId: T.group, entityId: "LEN_BEYU_HOLDINGS", countryCode: null }).allowed).toBe(false);
   });
 
   it("no administrator can act on their own lifecycle or grant themselves a role", async () => {

@@ -1,9 +1,9 @@
 /**
- * Governed operating-system launcher.
+ * Governed destination launcher.
  *
  * BEYU OS is the one constitutional control plane. Finance, Health,
- * Agriculture and Foundation are Sector OSs beneath it — never peer control
- * planes and never capabilities renamed as operating systems.
+ * Agriculture and Ujenzi are exactly the four Sector OSs beneath it. BEYU
+ * Foundation is presented separately as a nonprofit sister organization.
  */
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,50 +12,31 @@ import { Icon } from "@/components/icons";
 import { can } from "@/lib/authz";
 import { resolvePrincipal } from "@/lib/session";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
-import { SignOutButton } from "../os/sign-out-button";
-import { SECTOR_OPERATING_SYSTEMS, authorizedOperatingSystems, type OperatingSystemDestination } from "@/lib/operating-systems";
 import { DESTINATION_TYPE_LABEL, canonicalSurface } from "@/lib/operating-system-catalog";
+import { SignOutButton } from "../os/sign-out-button";
+import {
+  FOUNDATION_ORGANIZATION,
+  SECTOR_OPERATING_SYSTEMS,
+  authorizedGovernedDestinations,
+  type GovernedDestination,
+} from "@/lib/operating-systems";
 
 /**
- * The sixth canonical frontend surface. Family Office is a BEYU
- * capability/domain surface inside the control plane — deliberately NOT a
- * Sector OS — so it does not appear in `SECTOR_OPERATING_SYSTEMS`. Its route,
- * name, icon and declared guard permission come from the canonical shared-
- * surface registry (`CANONICAL_SURFACES`), and its canonical entry point is
- * `familyoffice.<apex>` (an independent entry, never an OS).
+ * Family Office is a BEYU capability/domain surface inside the control plane —
+ * deliberately not a Sector OS. Its route remains the existing canonical
+ * Family Office frontend page.
  */
 const FAMILY_OFFICE_SURFACE = {
   ...canonicalSurface("FAMILY_OFFICE"),
   note: "BEYU capability/domain surface — never an OS",
 };
 
-/**
- * `href` is resolved by the page from the canonical host contract: the Sector
- * OS's canonical subdomain URL when the deployment is configured for it (shared
- * session across the canonical apex) and the current request is already on a
- * canonical BEYU host; otherwise the pre-existing relative route. Presentation
- * only — the destination re-runs its gate on arrival whichever URL is used.
- *
- * TWO FACTS, DELIBERATELY NEVER CONFLATED
- *   `destination.status` is the GLOBAL operating state of the destination itself
- *   (the canonical catalogue mirroring `os_registry.lifecycle`): HEALTH_OS,
- *   FINANCE_OS, AGRICULTURE_OS and UJENZI_OS are all ACTIVE. `authorized` is
- *   THIS identity's access, resolved server-side by
- *   `authorizedOperatingSystems()`. Both are rendered, separately labelled,
- *   because an ACTIVE OS and a user who is not authorized for it are true at the
- *   same time — and user-specific authorization must never be presented as the
- *   global activation state (or vice versa).
- *
- *   Global status is also NOT a capability statement: an ACTIVE OS keeps its
- *   individually governed capabilities (CAP_POSTING, BIM, engineering
- *   calculations, government links…), each with its own real state.
- */
 function DestinationCard({
   destination,
   authorized,
   href,
 }: {
-  destination: OperatingSystemDestination;
+  destination: GovernedDestination;
   authorized: boolean;
   href: string;
 }) {
@@ -66,25 +47,21 @@ function DestinationCard({
       </span>
       <span className="mt-5 flex flex-wrap items-start justify-between gap-3">
         <span>
-          <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <span className="block text-[11px] font-semibold tracking-[0.16em] text-slate-500">
             {destination.registryCode} · {DESTINATION_TYPE_LABEL[destination.destinationType]}
           </span>
           <span className={`mt-1 block text-xl font-semibold tracking-tight ${authorized ? "text-[#0b1f4d]" : "text-slate-500"}`}>{destination.name}</span>
         </span>
         <span className="flex flex-wrap items-center justify-end gap-2">
-          {/* GLOBAL operating state of the destination — a fact about the OS,
-              never about this identity. */}
           <span
             className="rounded-full border border-[#0b1f4d]/25 bg-[#0b1f4d]/5 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-[#0b1f4d]"
-            title="Global operating state of this destination (canonical registry status). It says nothing about your access."
+            title="Global operating state of this destination. It says nothing about your access."
           >
             {destination.status}
           </span>
-          {/* THIS identity's access — the only authorization-shaped fact here,
-              resolved server-side by the canonical resolver. */}
           <span
             className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${authorized ? "border-emerald-600/25 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-500"}`}
-            title="Your access to this destination, resolved server-side. A session is identity, not access."
+            title="Your access to this destination, resolved server-side"
           >
             {authorized ? "ACCESS: AUTHORISED" : "ACCESS: NOT IN CURRENT GRANT"}
           </span>
@@ -120,9 +97,8 @@ export default async function LauncherPage() {
   const principal = await resolvePrincipal();
   if (!principal) redirect("/");
 
-  const destinations = await authorizedOperatingSystems(principal);
+  const destinations = await authorizedGovernedDestinations(principal);
   if (destinations.length === 1) redirect(destinations[0].href);
-  // Canonical Sector OS subdomain links (presentation only; see DestinationCard).
   const hrefFor = await destinationHrefForRequest();
 
   if (destinations.length === 0) {
@@ -133,9 +109,9 @@ export default async function LauncherPage() {
             <Icon name="security" className="h-7 w-7" />
           </span>
           <h1 id="launcher-denied-title" className="mt-5 text-3xl font-semibold tracking-tight text-[#0b1f4d]">
-            No operating-system access
+            No governed destination access
           </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no active grant or Health federation link authorises an operating-system destination.</p>
+          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no active grant or Health federation link authorises a governed destination.</p>
           <SignOutButton
             className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0b1f4d] px-6 text-[13px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017] disabled:cursor-not-allowed disabled:opacity-60"
           />
@@ -152,11 +128,10 @@ export default async function LauncherPage() {
    *
    * Visible only to a principal holding the governed `platform:frontend.preview`
    * capability (granted to no role but the canonical BEYU administrator's). It
-   * lists the six canonical frontend surfaces — the five Sector OSs from the
-   * canonical registry plus the Family Office capability surface — with the
-   * state the EXISTING resolvers just computed (`authorizedOperatingSystems`
-   * for the sectors, the Family Office page's own `family:member.read` grant
-   * for the capability surface). It grants nothing: no entry here is an
+   * lists six canonical frontend surfaces — four Sector OSs, the Foundation
+   * sister-organization context and the Family Office capability surface — with
+   * the state computed by the governed-destination resolver and Family Office's
+   * own `family:member.read` grant. It grants nothing: no entry here is an
    * authorization, and every destination re-checks authority on entry, so a
    * surface that is "not in current grant" stays unreachable no matter what
    * the URL says. Regular users never see this section.
@@ -166,7 +141,7 @@ export default async function LauncherPage() {
   const previewSurfaces: Array<{
     name: string;
     href: string;
-    icon: OperatingSystemDestination["icon"];
+    icon: GovernedDestination["icon"];
     note: string;
     authorized: boolean;
     stateLabel: string;
@@ -182,6 +157,14 @@ export default async function LauncherPage() {
           ? "Federation link not active — canonical state at /health"
           : "Not in current grant",
     })),
+    {
+      name: FOUNDATION_ORGANIZATION.name,
+      href: hrefFor(FOUNDATION_ORGANIZATION),
+      icon: FOUNDATION_ORGANIZATION.icon,
+      note: "Nonprofit sister organization — never a Sector OS",
+      authorized: authorizedCodes.has(FOUNDATION_ORGANIZATION.code),
+      stateLabel: "Foundation scope or read grant not active",
+    },
     {
       ...FAMILY_OFFICE_SURFACE,
       href: hrefFor(FAMILY_OFFICE_SURFACE),
@@ -245,11 +228,8 @@ export default async function LauncherPage() {
               Sector operating systems
             </h2>
             <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
-              Every registered destination below is <strong className="font-semibold text-[#0b1f4d]">ACTIVE</strong> —
-              that is the GLOBAL operating state of the OS itself. Whether <em>you</em> may open one is a separate
-              question, answered server-side from your current grants and canonical federation links. An ACTIVE OS
-              does not mean every capability inside it is active, and launcher visibility is not authority: every
-              destination rechecks on entry.
+              Only Sector OSs covered by your current grants or canonical federation link are launchable.
+              Every destination rechecks authority on entry.
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -261,6 +241,25 @@ export default async function LauncherPage() {
                 href={hrefFor(destination)}
               />
             ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="sister-organization-heading" className="border-t border-slate-200 pt-8">
+          <div className="mb-4">
+            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">SEPARATELY GOVERNED</p>
+            <h2 id="sister-organization-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
+              Nonprofit sister organization
+            </h2>
+            <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
+              BEYU Foundation is not a subsidiary or Sector OS. Access requires its own live tenant scope and Foundation grant.
+            </p>
+          </div>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DestinationCard
+              destination={FOUNDATION_ORGANIZATION}
+              authorized={authorizedCodes.has(FOUNDATION_ORGANIZATION.code)}
+              href={hrefFor(FOUNDATION_ORGANIZATION)}
+            />
           </div>
         </section>
 
@@ -318,9 +317,9 @@ export default async function LauncherPage() {
         )}
 
         <footer className="border-t border-slate-200 pt-5 text-[11px] leading-relaxed text-slate-500">
-          Launcher visibility is not authority. Tenant, entity, country, role, permission, clearance and
-          operating-system boundaries are re-evaluated by each destination. Finance OS remains the
-          financial source of truth.
+          launcher visibility is not authority. Tenant, entity, country, role, permission, clearance and
+          destination boundaries are re-evaluated by each entry point. A globally ACTIVE destination does
+          not mean every capability inside it is active. Finance OS remains the financial source of truth.
         </footer>
       </div>
     </main>

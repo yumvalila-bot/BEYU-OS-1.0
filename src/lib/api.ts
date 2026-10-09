@@ -296,6 +296,8 @@ export type GuardOptions = {
   action: string;
   /** Minimum clearance for a route whose response cannot be row-filtered safely. */
   classification?: Classification;
+  /** Canonical target dimensions parsed by the route; omitted constrained dimensions fail closed. */
+  target?: { tenantId?: string | null; entityId?: string | null; countryCode?: string | null };
   rateLimit?: { limit: number; windowMs: number };
   audit?: { objectType: string; objectId?: string };
   /**
@@ -358,14 +360,13 @@ export async function guarded(
         ? "This sector capability contains relational rows without complete legal-entity keys; entity-scoped access is refused rather than widened to tenant level."
         : null;
       const classification = options.classification ?? permissionClassificationFloor(options.permission);
-      const decision = can(
-        principal,
-        options.permission,
-        classification ? { classification } : undefined,
-      );
+      const decision = can(principal, options.permission, {
+        ...(options.target ?? {}),
+        ...(classification ? { classification } : {}),
+      });
 
       /**
-       * Foundation OS target-scope boundary (API side).
+       * Foundation organization target-scope boundary (API side).
        *
        * The Foundation deep-link layer proves the canonical Foundation
        * target-tenant/classification boundary before it renders anything. A

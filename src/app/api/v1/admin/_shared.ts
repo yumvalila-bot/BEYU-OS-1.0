@@ -85,6 +85,7 @@ export const grantRoleSchema = z
     roleCode: z.string().min(3).max(60),
     tenantId: z.string().min(4).max(60),
     legalEntityId: z.string().min(4).max(60).nullish(),
+    globalScope: z.boolean().optional(),
     effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish(),
     justification: reasonSchema,

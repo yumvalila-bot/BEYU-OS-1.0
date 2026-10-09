@@ -68,7 +68,7 @@ describe("governance action contracts and lifecycle", () => {
     const t = await progress(); await expect(command(t, "BLOCK", secretary)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it.each(["mfa", "classification", "entity", "permission"])("fails closed on absent %s authority", async (kind) => {
-    const p = { ...chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "classification" ? { clearance: "PUBLIC" as const } : kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : { permissions: new Set<never>() }) };
+    const p = { ...chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "classification" ? { clearance: "PUBLIC" as const } : kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : { permissions: new Set<never>(), authorityGrants: [] }) };
     await expect(create(p)).rejects.toHaveProperty("code");
     if (kind === "classification" || kind === "entity") await expect(runtime(p, () => listGovernanceActions(p, mandate))).rejects.toMatchObject({ code: "NOT_FOUND" });
   });

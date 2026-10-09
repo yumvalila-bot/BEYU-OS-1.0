@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Grant detail + lifecycle transitions.
+ * BEYU Foundation organization — Grant detail + lifecycle transitions.
  *
  * Transitions to APPROVAL additionally require foundation:grant.approve
  * (HIGH_RISK, MFA step-up enforced by can()).

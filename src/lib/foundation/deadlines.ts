@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — deadline calculation engine (pure, deterministic).
+ * BEYU Foundation organization — deadline calculation engine (pure, deterministic).
  *
  * All computation is UTC calendar-date based. Business-day arithmetic skips
  * Saturday/Sunday plus an explicit caller-supplied holiday list (ISO dates).

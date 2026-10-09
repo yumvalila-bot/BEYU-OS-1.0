@@ -6,7 +6,7 @@
  *   finance.beyu.co.tz      → FINANCE_OS
  *   agriculture.beyu.co.tz  → AGRICULTURE_OS
  *   ujenzi.beyu.co.tz       → UJENZI_OS
- *   foundation.beyu.co.tz   → FOUNDATION (the registered Foundation OS)
+ *   foundation.beyu.co.tz   → FOUNDATION nonprofit sister organization
  *   familyoffice.beyu.co.tz → FAMILY OFFICE capability (never an OS)
  *   noelia.beyu.co.tz       → NOELIA_AI (governed AI interface, never an OS)
  *
@@ -20,10 +20,12 @@
 import { describe, expect, it } from "vitest";
 import {
   BEYU_CONTROL_PLANE,
+  CANONICAL_NON_OS_DESTINATIONS,
   CANONICAL_SURFACES,
+  FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
 } from "@/lib/operating-system-catalog";
-import { NOELIA_OS_CONTEXT_BY_OS_CODE } from "@/lib/os-context";
+import { NOELIA_OS_CONTEXT_BY_DESTINATION_CODE } from "@/lib/os-context";
 import { PERMISSIONS } from "@/lib/constants";
 import {
   CANONICAL_OS_HOSTS,
@@ -51,7 +53,7 @@ const CONTRACT = [
   { host: "finance.beyu.co.tz", kind: "SECTOR_OS", code: "FINANCE", registry: "FINANCE_OS", href: "/os/finance" },
   { host: "agriculture.beyu.co.tz", kind: "SECTOR_OS", code: "AGRICULTURE", registry: "AGRICULTURE_OS", href: "/os/agriculture" },
   { host: "ujenzi.beyu.co.tz", kind: "SECTOR_OS", code: "UJENZI", registry: "UJENZI_OS", href: "/os/ujenzi" },
-  { host: "foundation.beyu.co.tz", kind: "SECTOR_OS", code: "FOUNDATION", registry: "FOUNDATION_OS", href: "/os/foundation" },
+  { host: "foundation.beyu.co.tz", kind: "SURFACE", code: "FOUNDATION", registry: "SHARED_FOUNDATION_OPERATIONS", href: "/os/foundation" },
   { host: "familyoffice.beyu.co.tz", kind: "SURFACE", code: "FAMILY_OFFICE", registry: "SHARED_FAMILY_OFFICE", href: "/os/family" },
   { host: "noelia.beyu.co.tz", kind: "SURFACE", code: "NOELIA_AI", registry: "NOELIA_AI", href: "/os/noelia" },
 ] as const;
@@ -75,14 +77,13 @@ describe("A. every canonical host resolves to its intended context", () => {
       expect(resolutionBase(resolution), entry.host).toBe("beyu.co.tz");
       if (resolution.kind === "SECTOR_OS") {
         expect(resolution.os.level, entry.host).toBe("SECTOR_OS");
-        // The Noelia OS context for that catalogue code is the canonical
-        // os_registry code (Foundation included — it is a registered Sector OS).
-        expect(NOELIA_OS_CONTEXT_BY_OS_CODE[resolution.os.code], entry.host).toBe(entry.registry);
+        expect(NOELIA_OS_CONTEXT_BY_DESTINATION_CODE[resolution.os.code], entry.host).toBe(entry.registry);
       }
       if (resolution.kind === "SURFACE") {
-        // A shared surface is NEVER an operating system.
+        // Foundation and shared surfaces are NEVER operating systems.
         expect(resolution.surface.kind, entry.host).not.toBe("SECTOR_OS");
         expect(entry.code, entry.host).not.toMatch(/_OS$/);
+        expect(resolution.surface.registryCode, entry.host).toBe(entry.registry);
       }
     }
   });
@@ -94,19 +95,17 @@ describe("A. every canonical host resolves to its intended context", () => {
     }
   });
 
-  it("declares exactly five OS hosts and two shared-surface hosts, none duplicated", () => {
+  it("declares exactly four OS hosts plus Foundation and two shared-surface hosts, none duplicated", () => {
     expect(CANONICAL_OS_HOSTS.map((d) => d.subdomain)).toEqual([
       "finance",
       "health",
       "agriculture",
-      "foundation",
       "ujenzi",
     ]);
     expect(CANONICAL_OS_HOSTS.map((d) => d.code)).toEqual([
       "FINANCE",
       "HEALTH",
       "AGRICULTURE",
-      "FOUNDATION",
       "UJENZI",
     ]);
     expect(CANONICAL_SURFACES.map((d) => d.subdomain)).toEqual(["familyoffice", "noelia"]);
@@ -114,14 +113,14 @@ describe("A. every canonical host resolves to its intended context", () => {
     // The control plane carries no label: it IS the root.
     expect(BEYU_CONTROL_PLANE.subdomain).toBeUndefined();
     // One label, one destination — a duplicate could never be resolved deterministically.
-    const labels = [...CANONICAL_OS_HOSTS, ...CANONICAL_SURFACES].map((d) => d.subdomain);
+    expect(FOUNDATION_ORGANIZATION.subdomain).toBe("foundation");
+    const labels = [...CANONICAL_OS_HOSTS, ...CANONICAL_NON_OS_DESTINATIONS].map((d) => d.subdomain);
     expect(new Set(labels).size).toBe(labels.length);
     // The canonical routes are untouched by the host contract.
     expect(SECTOR_OPERATING_SYSTEMS.map((d) => d.href)).toEqual([
       "/os/finance",
       "/os/health",
       "/os/agriculture",
-      "/os/foundation",
       "/os/ujenzi",
     ]);
   });
@@ -131,7 +130,7 @@ describe("A. every canonical host resolves to its intended context", () => {
     expect(kindOf("finance.beyu.co.tz:443")).toBe("SECTOR_OS:FINANCE");
     expect(kindOf("agriculture.beyu.co.tz.")).toBe("SECTOR_OS:AGRICULTURE");
     expect(kindOf("UJENZI.beyu.co.tz:8443")).toBe("SECTOR_OS:UJENZI");
-    expect(kindOf("Foundation.beyu.co.tz.")).toBe("SECTOR_OS:FOUNDATION");
+    expect(kindOf("Foundation.beyu.co.tz.")).toBe("SURFACE:FOUNDATION");
     expect(kindOf("FamilyOffice.BEYU.co.tz:443")).toBe("SURFACE:FAMILY_OFFICE");
     expect(kindOf("Noelia.beyu.co.tz")).toBe("SURFACE:NOELIA_AI");
   });
@@ -215,7 +214,7 @@ describe("B. an arbitrary Host can never select a destination", () => {
 
   it("permits <label>.localhost ONLY outside production", () => {
     expect(kindOf("health.localhost:3000", DEV)).toBe("SECTOR_OS:HEALTH");
-    expect(kindOf("foundation.localhost", DEV)).toBe("SECTOR_OS:FOUNDATION");
+    expect(kindOf("foundation.localhost", DEV)).toBe("SURFACE:FOUNDATION");
     expect(kindOf("familyoffice.localhost:3000", DEV)).toBe("SURFACE:FAMILY_OFFICE");
     expect(kindOf("noelia.localhost", DEV)).toBe("SURFACE:NOELIA_AI");
     expect(kindOf("finance.localhost", DEV)).toBe("SECTOR_OS:FINANCE");
@@ -255,6 +254,7 @@ describe("C. path ownership (which OS a route belongs to)", () => {
       "/os",
       "/launcher",
       "/enroll",
+      "/os/foundation",
       "/os/family",
       "/os/family/capital",
       "/os/noelia",
@@ -306,9 +306,10 @@ describe("D. proxy decision — routing", () => {
     expect(legacy).toMatchObject({ kind: "REDIRECT", location: "https://health.beyu.co.tz/health/os" });
     const ujenzi = decideProxyAction(facts({ host: "agriculture.beyu.co.tz", pathname: "/os/ujenzi" }), PROD);
     expect(ujenzi).toMatchObject({ kind: "REDIRECT", location: "https://ujenzi.beyu.co.tz/os/ujenzi" });
-    // Foundation is an independently addressable OS: its route belongs on its host.
+    // Foundation is not an OS-owned path. It is never cross-OS redirected; the
+    // canonical router and layout refuse its route on another destination host.
     const foundation = decideProxyAction(facts({ host: "health.beyu.co.tz", pathname: "/os/foundation" }), PROD);
-    expect(foundation).toMatchObject({ kind: "REDIRECT", location: "https://foundation.beyu.co.tz/os/foundation" });
+    expect(foundation).toMatchObject({ kind: "NOT_FOUND", reason: "FOREIGN_ORGANIZATION_PATH" });
     // And the shared-surface hosts are not OS hosts: an OS route is redirected away.
     const fromCapability = decideProxyAction(facts({ host: "familyoffice.beyu.co.tz", pathname: "/os/finance" }), PROD);
     expect(fromCapability).toMatchObject({ kind: "REDIRECT", location: "https://finance.beyu.co.tz/os/finance" });
@@ -335,7 +336,16 @@ describe("D. proxy decision — routing", () => {
         for (;;) {
           const action = decideProxyAction(current, PROD);
           if (action.kind !== "REDIRECT") {
-            expect(action.kind, `${host}${pathname}`).toBe("NEXT");
+            expect(action.kind, `${host}${pathname}`).not.toBe("FORBIDDEN");
+            const destinationHost =
+              action.kind !== "FORBIDDEN" &&
+              (action.host.kind === "SECTOR_OS" || action.host.kind === "SURFACE");
+            const context = action.kind === "FORBIDDEN" ? null : canonicalContextOf(action.host);
+            const foreignFoundationPath =
+              destinationHost &&
+              pathname === FOUNDATION_ORGANIZATION.href &&
+              context?.code !== FOUNDATION_ORGANIZATION.code;
+            expect(action.kind, `${host}${pathname}`).toBe(foreignFoundationPath ? "NOT_FOUND" : "NEXT");
             break;
           }
           hops += 1;
@@ -462,6 +472,7 @@ describe("E. proxy decision — Origin check (CSRF hardening, refusal only)", ()
 describe("F. navigation hrefs (OS switching without a login loop)", () => {
   const dest = (code: string) => SECTOR_OPERATING_SYSTEMS.find((d) => d.code === code)!;
   const surface = (code: string) => CANONICAL_SURFACES.find((d) => d.code === code)!;
+  const foundation = FOUNDATION_ORGANIZATION;
   const onRoot = resolve("www.beyu.co.tz", PROD);
   const onHealth = resolve("health.beyu.co.tz", PROD);
   const onNoelia = resolve("noelia.beyu.co.tz", PROD);
@@ -480,7 +491,7 @@ describe("F. navigation hrefs (OS switching without a login loop)", () => {
     for (const current of [onRoot, onHealth, onNoelia]) {
       expect(canonicalDestinationHref(dest("HEALTH"), { current, options: PROD, sharedSession: true })).toBe("https://health.beyu.co.tz/os/health");
       expect(canonicalDestinationHref(dest("FINANCE"), { current, options: PROD, sharedSession: true })).toBe("https://finance.beyu.co.tz/os/finance");
-      expect(canonicalDestinationHref(dest("FOUNDATION"), { current, options: PROD, sharedSession: true })).toBe("https://foundation.beyu.co.tz/os/foundation");
+      expect(canonicalDestinationHref(foundation, { current, options: PROD, sharedSession: true })).toBe("https://foundation.beyu.co.tz/os/foundation");
       expect(canonicalDestinationHref(surface("FAMILY_OFFICE"), { current, options: PROD, sharedSession: true })).toBe("https://familyoffice.beyu.co.tz/os/family");
       expect(canonicalDestinationHref(surface("NOELIA_AI"), { current, options: PROD, sharedSession: true })).toBe("https://noelia.beyu.co.tz/os/noelia");
     }
@@ -526,11 +537,12 @@ describe("G. shared surfaces — a capability and a governed AI interface, never
       expect(osLabels).not.toContain(surface.subdomain);
       // No invented *_OS identity for either surface.
       expect(surface.code).not.toMatch(/_OS$/);
-      expect(Object.keys(NOELIA_OS_CONTEXT_BY_OS_CODE)).not.toContain(surface.code);
+      expect(Object.keys(NOELIA_OS_CONTEXT_BY_DESTINATION_CODE)).not.toContain(surface.code);
     }
-    // FOUNDATION keeps its registered OS identity — no rename, no new code.
-    expect(osCodes).toEqual(["FINANCE", "HEALTH", "AGRICULTURE", "FOUNDATION", "UJENZI"]);
-    expect(NOELIA_OS_CONTEXT_BY_OS_CODE.FOUNDATION).toBe("FOUNDATION_OS");
+    // Foundation remains outside the OS catalogue and uses the control-plane
+    // Noelia appearance context; it never gains a sector-specific identity.
+    expect(osCodes).toEqual(["FINANCE", "HEALTH", "AGRICULTURE", "UJENZI"]);
+    expect(NOELIA_OS_CONTEXT_BY_DESTINATION_CODE.FOUNDATION).toBe("BEYU_OS");
   });
 });
 
@@ -561,7 +573,7 @@ describe("H. tenant isolation is not a hostname fact", () => {
       canonicalContextOf(resolve("AGRICULTURE.beyu.co.tz:443")),
     );
     // Tenant/entity/country scoping stays where it already was: the OS layouts
-    // re-run `operatingSystemTenantInScope` on every request (pinned by the
+    // re-run `governedTenantInScope` on every request (pinned by the
     // source-level security suite), and the tenant-domain registry owns tenant
     // hostnames.
     expect(osOwningPath("/os/agriculture")?.href).toBe("/os/agriculture");

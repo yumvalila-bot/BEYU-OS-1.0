@@ -1,5 +1,5 @@
 /**
- * Foundation OS — transport certification (real running server, runtime role).
+ * Foundation organization — transport certification (real running server, runtime role).
  *
  * Proves the HTTP boundary: 401 unauthenticated, 403 without the capability,
  * 403 for a capability held in the WRONG tenant (the canonical Foundation
@@ -104,7 +104,7 @@ describe("auth boundary", () => {
     );
     expect(targetScopeDenied.status).toBe(403);
     expect(targetScopeDenied.body.error.code).toBe("FORBIDDEN");
-    expect(targetScopeDenied.body.error.message).toMatch(/Foundation OS target scope/);
+    expect(targetScopeDenied.body.error.message).toMatch(/Foundation organization target scope/);
   });
 });
 
@@ -168,7 +168,7 @@ describe("page-level SSR gating parity", () => {
     const ok = await apiGet("/os/foundation", director);
     expect(ok.status).toBe(200);
     expect(isDeniedPage(ok.html)).toBe(false);
-    expect(ok.html).toMatch(/Foundation OS|Registry/i);
+    expect(ok.html).toMatch(/Foundation organization|Registry/i);
 
     const denied = await apiGet("/os/foundation", cfo);
     expect(denied.status).toBe(200);
@@ -229,7 +229,7 @@ describe("Foundation API target-scope boundary", () => {
       );
       expect(res.status, `${path} must be denied`).toBe(403);
       expect(res.body.error?.code, `${path} must carry the governed error envelope`).toBe("FORBIDDEN");
-      expect(res.body.error?.message, `${path} must cite the target scope`).toMatch(/Foundation OS target scope/);
+      expect(res.body.error?.message, `${path} must cite the target scope`).toMatch(/Foundation organization target scope/);
       expect(res.body.programs, `${path} must not return data`).toBeUndefined();
       expect(res.body.measurements, `${path} must not return data`).toBeUndefined();
     }

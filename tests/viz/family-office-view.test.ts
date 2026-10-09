@@ -23,6 +23,8 @@ import { legalEntities, ownershipRecords, trustInstruments } from "@/db/schema";
 import { familyOfficeStructureView, type FamilyOfficeView } from "@/lib/viz/family-office-view";
 import { VizDomainError } from "@/lib/viz/service";
 import { type Principal } from "@/lib/authz";
+import type { PermissionCode } from "@/lib/constants";
+import { testPermissionAuthorityGrants } from "../helpers/authority-grants";
 import { seededPrincipal } from "../noelia/db-fixtures";
 
 const RUN = `VZFO${Date.now()}`;
@@ -39,9 +41,20 @@ let opHighlyRestrictedId = "";
 
 function makePrincipal(
   base: Awaited<ReturnType<typeof seededPrincipal>>,
-  overrides: Partial<Omit<Principal, "permissions">> & { permissions?: readonly string[] },
+  overrides: Partial<Omit<Principal, "permissions">> & { permissions?: readonly PermissionCode[] },
 ): Principal {
-  return { ...base, ...overrides, permissions: new Set(overrides.permissions ?? []) } as Principal;
+  const permissions = overrides.permissions ?? [];
+  const tenantId = overrides.tenantId ?? base.tenantId;
+  return {
+    ...base,
+    ...overrides,
+    permissions: new Set(permissions),
+    authorityGrants: testPermissionAuthorityGrants({
+      permissions,
+      tenantId,
+      sourceIdPrefix: "FAMILY_OFFICE_VIEW_TEST",
+    }),
+  } as Principal;
 }
 
 async function seedEntity(partial: {

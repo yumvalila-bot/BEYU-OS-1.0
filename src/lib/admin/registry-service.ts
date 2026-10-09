@@ -1399,10 +1399,14 @@ export async function registerEmployment(
     classification: "RESTRICTED",
     entityId: input.legalEntityId,
   });
+  // The authority tuple is anchored to the legal entity's canonical country,
+  // which requireActionScope resolves from the persisted entity. An employee's
+  // work country is a distinct employment attribute (for example, a Tanzania
+  // employee of the UAE holding company) and must not be misrepresented as the
+  // entity's jurisdiction merely to pass authorization.
   await requireActionScope(actor, "hcm:employee.manage", {
     tenantId: input.tenantId,
     legalEntityId: input.legalEntityId,
-    countryCode: input.countryCode,
   });
 
   if (input.endDate && input.endDate < input.hireDate) {
@@ -1630,10 +1634,12 @@ export async function reassignReportingLine(
     classification: "RESTRICTED",
     entityId: employee.legalEntityId,
   });
+  // Resolve the authority country from the employee's persisted legal entity;
+  // employees.countryCode is a work-location attribute and may legitimately
+  // differ from the entity's jurisdiction.
   await requireActionScope(actor, "hcm:employee.manage", {
     tenantId: employee.tenantId,
     legalEntityId: employee.legalEntityId,
-    countryCode: employee.countryCode,
   });
 
   if (employee.status !== "ACTIVE") {
@@ -1844,10 +1850,13 @@ export async function enrollSubordinate(
     classification: "RESTRICTED",
     entityId: input.legalEntityId,
   });
+  // Authorize the enrollment against the persisted legal-entity jurisdiction.
+  // input.countryCode remains the new employment's work country; treating that
+  // presentation field as the entity's country would create a false authority
+  // tuple for cross-border employment.
   await requireActionScope(actor, "hcm:employee.manage", {
     tenantId: input.tenantId,
     legalEntityId: input.legalEntityId,
-    countryCode: input.countryCode,
   });
 
   const hasExisting = Boolean(input.existingPartyId);

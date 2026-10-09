@@ -9,7 +9,7 @@
  *   1. The CLOSED vocabulary of viz event types actually emitted by this
  *      capability (grep-verified: these are the only VIZ_* types written).
  *   2. `vizEventInput` — the full EventInput builder (source/domain/envelope
- *      fields mirror the Foundation OS pattern so interop consumers see one
+ *      fields mirror the Foundation organization pattern so interop consumers see one
  *      consistent contract).
  *   3. `REFRESH_TRIGGERS` — a VERIFIED mapping from sector event types that
  *      this capability actually listens for to the sectors whose scenes may
@@ -24,7 +24,7 @@
  */
 import type { EventInput } from "@/lib/audit";
 import type { Classification } from "@/lib/constants";
-import type { VizSectorCode } from "./dimensions";
+import type { VizDomainCode } from "./dimensions";
 
 /** Closed vocabulary — the ONLY VIZ_* types this capability emits. */
 export const VIZ_EVENT_TYPES = [
@@ -57,7 +57,7 @@ export const VIZ_EVENT_DOMAIN = "VISUALIZATION";
  * scenes/twins may want a re-read. The visualization layer consumes these as
  * a REVALIDATE hint — never as a data feed.
  */
-export const REFRESH_TRIGGERS: Record<string, VizSectorCode[]> = {
+export const REFRESH_TRIGGERS: Record<string, VizDomainCode[]> = {
   /* ── UJENZI OS (Sector OS — triggers only; construction truth stays in UJENZI OS) ── */
   PROJECT_CREATED: ["UJENZI"],
   PROJECT_HANDED_OVER: ["UJENZI"],
@@ -92,7 +92,7 @@ export const REFRESH_TRIGGERS: Record<string, VizSectorCode[]> = {
 };
 
 /** Sectors that should offer a freshness revalidation after an event type. */
-export function refreshSectorsFor(eventType: string): VizSectorCode[] {
+export function refreshSectorsFor(eventType: string): VizDomainCode[] {
   return REFRESH_TRIGGERS[eventType] ?? [];
 }
 
@@ -111,7 +111,7 @@ export type VizEventInputArgs = {
 };
 
 /**
- * Full EventInput builder — mirrors the Foundation OS envelope pattern
+ * Full EventInput builder — mirrors the Foundation organization envelope pattern
  * (correlationId = traceId, no causation/authority context on origination)
  * so interop consumers parse viz events with the common contract.
  */

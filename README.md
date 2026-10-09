@@ -2,9 +2,10 @@
 
 BEYU OS is the constitutional, governance, identity, organisational, ownership, capital, risk,
 compliance, intelligence, data, workflow, integration, audit and orchestration layer of the BEYU
-ecosystem. Sector OSs (Health, Finance, Agriculture, Foundation) execute specialised operations
-**under** BEYU OS governance and consume shared capabilities through governed APIs, events and
-policies.
+ecosystem. Exactly four Sector OSs—Health, Finance, Agriculture and Ujenzi—execute specialised
+operations **under** BEYU OS governance. BEYU Foundation is a separate nonprofit sister
+organization, not a subsidiary or Sector OS; it consumes shared capabilities through its own
+governed tenant and legal-entity scope.
 
 ## Quick start
 

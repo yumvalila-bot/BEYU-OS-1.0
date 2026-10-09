@@ -395,8 +395,10 @@ describe("architecture invariants", () => {
       "Finance OS",
       "Health OS",
       "Agriculture OS",
-      "Foundation OS",
       "Ujenzi OS",
+    ]);
+    expect(CAPABILITY_IA.find((g) => g.id === "sister-organization")?.items.map((i) => i.label)).toEqual([
+      "BEYU Foundation",
     ]);
     // The sidebar itself carries no Noelia entry (only the existing
     // capability item in the shared-catalogue, rendered via CAPABILITY_IA).

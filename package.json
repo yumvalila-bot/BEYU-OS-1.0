@@ -14,6 +14,8 @@
     "verify": "node scripts/verify.mjs",
     "test:watch": "vitest",
     "migrate": "tsx scripts/migrate.ts",
+    "db:setup-governance-role": "tsx scripts/setup-governance-db-role.ts",
+    "db:audit-runtime-privileges": "tsx scripts/audit-runtime-privileges.ts",
     "migrate:generate": "drizzle-kit generate",
     "seed": "tsx src/db/seed.ts",
     "prepare:constitutional-foundation": "tsx scripts/prepare-constitutional-foundation.ts",

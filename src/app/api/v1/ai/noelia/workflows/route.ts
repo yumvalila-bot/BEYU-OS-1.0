@@ -45,6 +45,7 @@ export async function POST(request: Request) {
         const service = new BeyuNoeliaWorkflowService();
         const result = await service.create({
           principal: ctx.principal,
+          registry: createDefaultNoeliaToolRegistry(),
           plan: body as z.infer<typeof WORKFLOW_PLAN_SCHEMA>,
           traceId: ctx.traceId,
           correlationId: ctx.correlationId,

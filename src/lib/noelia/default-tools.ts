@@ -862,7 +862,7 @@ export function createDefaultNoeliaToolRegistry(
     classification: "CONFIDENTIAL",
     risk: "HIGH",
     approverRole: "CHIEF_GOVERNANCE_OFFICER",
-    description: "Register a governed knowledge source with provenance, authority and effective windows.",
+    description: "Register an immutable governed knowledge source UNDER_REVIEW; publication is a separate action.",
     metadata: {
       stableId: "cap-knowledge-ingest",
       version: "1.0.0",
@@ -886,16 +886,91 @@ export function createDefaultNoeliaToolRegistry(
         jurisdictionCode: z.string().length(2).optional(),
         scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
         classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
-        authorityStatus: z.enum(["AUTHORITATIVE", "UNDER_REVIEW", "SUPERSEDED", "DRAFT"]).default("UNDER_REVIEW"),
+        version: z.string().min(1).max(40).default("1.0.0"),
         effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-        supersedesCode: z.string().nullable().optional(),
         provenance: z.string().min(3).max(500),
         keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
       }).strict(),
     },
     execute: (context, input) => memory.ingestKnowledge(context, input),
+  });
+  registry.register({
+    name: "knowledge.replace",
+    permission: "ai:knowledge.ingest",
+    classification: "CONFIDENTIAL",
+    risk: "HIGH",
+    approverRole: "CHIEF_GOVERNANCE_OFFICER",
+    description: "Prepare an immutable UNDER_REVIEW replacement bound to the authoritative predecessor digest/version.",
+    metadata: {
+      stableId: "cap-knowledge-replace",
+      version: "1.0.0",
+      ownerRole: "CHIEF_GOVERNANCE_OFFICER",
+      domain: "KNOWLEDGE",
+      sideEffects: "DOMAIN_WRITE",
+      idempotent: false,
+      timeoutMs: 10000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "Replacement must bind the immutable predecessor and remain under review." },
+      auditRequirements: { event: "NOELIA_KNOWLEDGE_REPLACEMENT_PREPARED", objectType: "KNOWLEDGE_SOURCE" },
+      outputSchema: noeliaToolOutputSchema,
+      inputSchema: z.object({
+        supersedesCode: z.string().min(3).max(64),
+        expectedDigest: z.string().length(64),
+        expectedVersion: z.string().min(1).max(40),
+        replacement: z.object({
+          code: z.string().min(3).max(64),
+          title: z.string().min(3).max(200),
+          domain: z.string().min(2).max(40),
+          content: z.string().min(10).max(20000),
+          sourceUri: z.string().url().optional(),
+          jurisdictionCode: z.string().length(2).optional(),
+          scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
+          classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
+          version: z.string().min(1).max(40),
+          effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+          provenance: z.string().min(3).max(500),
+          keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
+        }).strict(),
+      }).strict(),
+    },
+    execute: (context, input) => memory.prepareReplacement(context, input),
+  });
+  registry.register({
+    name: "knowledge.publish",
+    permission: "ai:knowledge.ingest",
+    classification: "RESTRICTED",
+    risk: "HIGH",
+    approverRole: "CHIEF_GOVERNANCE_OFFICER",
+    description: "Publish reviewed knowledge as AUTHORITATIVE with exact digest/version and replacement checks.",
+    metadata: {
+      stableId: "cap-knowledge-publish",
+      version: "1.0.0",
+      ownerRole: "CHIEF_GOVERNANCE_OFFICER",
+      domain: "KNOWLEDGE",
+      sideEffects: "DOMAIN_WRITE",
+      idempotent: false,
+      timeoutMs: 10000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: { approverRole: "CHIEF_GOVERNANCE_OFFICER", reason: "Authoritative publication is separate from registration and binds exact content." },
+      auditRequirements: { event: "NOELIA_KNOWLEDGE_PUBLISHED", objectType: "KNOWLEDGE_SOURCE" },
+      outputSchema: noeliaToolOutputSchema,
+      inputSchema: z.object({
+        code: z.string().min(3).max(64),
+        expectedDigest: z.string().length(64),
+        expectedVersion: z.string().min(1).max(40),
+        expectedSupersededDigest: z.string().length(64).optional(),
+        expectedSupersededVersion: z.string().min(1).max(40).optional(),
+      }).strict(),
+    },
+    execute: (context, input) => memory.publishKnowledge(context, input),
   });
   registry.register({
     name: "memory.read",
@@ -1294,7 +1369,11 @@ export function createDefaultNoeliaToolRegistry(
           continue;
         }
         const permission = domainPermission[domain] as Parameters<typeof can>[1];
-        const access = can(context.principal, permission);
+        const access = can(context.principal, permission, {
+          tenantId: context.target.tenantId,
+          entityId: context.target.legalEntityId,
+          countryCode: context.target.countryCode,
+        });
         if (!access.allowed) {
           denied.push(`${domain}:${access.reason.split(":")[0]}`);
           continue;
@@ -1380,7 +1459,7 @@ export function createDefaultNoeliaToolRegistry(
     },
   });
 
-  /* ---------------- Foundation OS intelligence (read-only + drafts) ---------------- */
+  /* ---------------- Foundation organization intelligence (read-only + drafts) ---------------- */
   registerFoundationTools(registry);
   /**
    * Family Office capital, wealth & generational capabilities. These extend the

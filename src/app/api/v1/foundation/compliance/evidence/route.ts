@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — compliance evidence.
+ * BEYU Foundation organization — compliance evidence.
  *
  * POST  /api/v1/foundation/compliance/evidence — submit
  * PATCH /api/v1/foundation/compliance/evidence { id, approved } — verify

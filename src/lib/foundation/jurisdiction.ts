@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — jurisdiction rule governance (pure, deterministic).
+ * BEYU Foundation organization — jurisdiction rule governance (pure, deterministic).
  *
  * Rules are versioned, sourced and effective-dated. This module answers two
  * questions only: (1) is a rule usable on a given date, and (2) what changed

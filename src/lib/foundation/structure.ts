@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — structure simulator (pure, deterministic).
+ * BEYU Foundation organization — structure simulator (pure, deterministic).
  *
  * Compares a CURRENT structure graph against a PROPOSED graph and derives
  * before/after deltas plus impact prompts across legal, governance, tax,

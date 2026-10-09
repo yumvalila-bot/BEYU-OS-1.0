@@ -7,7 +7,7 @@
  * "where appropriate, subject to its own governance and scope" (§2/§17).
  *
  * Authorization reuses the canonical Foundation boundary:
- *   • a Foundation read grant (FOUNDATION_OS_READ_PERMISSIONS), AND
+ *   • a Foundation read grant (FOUNDATION_READ_PERMISSIONS), AND
  *   • the BEYU-FOUNDATION tenant inside the principal's resolved scope
  *     (the same target-scope rule the Foundation API boundary and deep-link
  *     layer enforce — holding foundation:* in one tenant is NOT access to
@@ -30,7 +30,7 @@ import { mapStatusToStage } from "../engines/lifecycle";
 import { mapSeverity } from "../engines/risk";
 import { emptyDataset, rowVisible, type AdapterDataset, type AdapterDescriptor, type AdapterRequest, type SectorVisualizationAdapter } from "./types";
 
-const SYSTEM_OF_RECORD = "foundations, grants, funds, foundation_obligations, foundation_deadlines (Foundation OS)";
+const SYSTEM_OF_RECORD = "foundations, grants, funds, foundation_obligations, foundation_deadlines (Foundation organization)";
 
 export const foundationAdapterDescriptor: AdapterDescriptor = {
   sector: "FOUNDATION",

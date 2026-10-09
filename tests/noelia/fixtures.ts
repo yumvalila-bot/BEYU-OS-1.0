@@ -18,6 +18,30 @@ export function principal(overrides: Partial<Principal> = {}): Principal {
     sessionId: "SES_TEST",
     riskScore: 0,
     emergencyPermissions: [],
+    authorityGrants: [
+      {
+        sourceId: "RAS_TEST_RISK",
+        source: "ROLE_ASSIGNMENT",
+        role: "SECTOR_OPERATOR",
+        permission: "risk:register.read",
+        tenantId: "TEN_A",
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      },
+      {
+        sourceId: "RAS_TEST_QUERY",
+        source: "ROLE_ASSIGNMENT",
+        role: "SECTOR_OPERATOR",
+        permission: "ai:noelia.query",
+        tenantId: "TEN_A",
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      },
+    ],
     ...overrides,
   };
 }

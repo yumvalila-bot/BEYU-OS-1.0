@@ -30,7 +30,7 @@ export default async function FoundationCompliancePage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation OS · Timely compliance</div>
+          <div className="beyu-kicker text-[#b08d1c]">Foundation organization · Timely compliance</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Compliance Center</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             No known actionable obligation may silently expire: rule → obligation → deadline → task →

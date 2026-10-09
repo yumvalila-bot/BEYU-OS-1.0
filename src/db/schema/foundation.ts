@@ -1,7 +1,7 @@
 /**
- * BEYU OS — Foundation OS schema (Sector OS under BEYU OS governance).
+ * BEYU OS — governed operations schema for the separate nonprofit BEYU Foundation.
  *
- * ONE Foundation OS. The tables below are the foundation domain's own
+ * ONE Foundation sister organization, never a subsidiary or Sector OS. The tables below are the foundation domain's own
  * operational records. Canonical ownership is preserved by *reference*:
  *
  *   Identity / auth / RBAC / ABAC / tenant isolation .. BEYU OS (identity.ts)
@@ -13,7 +13,7 @@
  *   Documents / events / notifications ...... platform.ts
  *   AI runtime / AI identity ................ HIVE / Noelia (ai*.ts)
  *
- * Foundation OS owns: the foundation registry, formation, structure design &
+ * Foundation organization owns: the foundation registry, formation, structure design &
  * simulation, foundation tax context, foundation compliance deadlines &
  * timely notifications, donors, funds, grants, programs (the pre-existing
  * `foundation_programs` table in people.ts remains canonical for programs),

@@ -17,7 +17,7 @@
  */
 import { and, eq, isNull, lte, gte, or } from "drizzle-orm";
 import { db } from "@/db";
-import { adminAuthorityDelegations, users } from "@/db/schema";
+import { adminAuthorityDelegations, legalEntities, users } from "@/db/schema";
 import {
   ADMIN_DELEGATABLE_PERMISSIONS,
   isDelegablePermission,
@@ -176,7 +176,7 @@ export function validateProposedDelegation(input: {
 
 export class DelegationScopeError extends Error {
   constructor(
-    readonly decision: "OUTSIDE_DELEGATION_SCOPE" | "OUTSIDE_ENTITY_SCOPE" | "OUTSIDE_COUNTRY_SCOPE" | "NO_DELEGATED_AUTHORITY",
+    readonly decision: "OUTSIDE_DELEGATION_SCOPE" | "OUTSIDE_ENTITY_SCOPE" | "OUTSIDE_COUNTRY_SCOPE" | "NO_DELEGATED_AUTHORITY" | "CONFLICTING_TARGET_TUPLE",
     message: string,
   ) {
     super(message);
@@ -233,7 +233,18 @@ export async function adminActionTenantScope(
   permission: PermissionCode,
 ): Promise<string[]> {
   const own = await tenantScopeIds(principal);
-  if (principal.permissions.has(permission)) return own; // role-derived
+  const now = Date.now();
+  const direct = (principal.authorityGrants ?? []).filter((grant) =>
+    grant.source !== "DELEGATION" &&
+    grant.permission === permission &&
+    (!grant.validFrom || grant.validFrom.getTime() <= now) &&
+    (!grant.validTo || grant.validTo.getTime() >= now),
+  );
+  if (direct.some((grant) => grant.tenantId === null)) return own;
+  if (direct.length > 0) {
+    const directlyGranted = new Set(direct.map((grant) => grant.tenantId).filter((id): id is string => Boolean(id)));
+    return own.filter((tenantId) => directlyGranted.has(tenantId));
+  }
   const live = await activeDelegationsFor(principal.userId);
   const granting = live.filter((d) => (d.permissions ?? []).includes(permission));
   if (granting.length === 0) return [];
@@ -242,52 +253,71 @@ export async function adminActionTenantScope(
   return own.filter((t) => delegated.has(t));
 }
 
+/** Pure tuple predicate: every constrained dimension must match one instrument. */
+export function delegationCoversTarget(
+  delegation: Pick<ActiveDelegationRow, "scopeTenantIds" | "scopeLegalEntityIds" | "scopeCountryCodes">,
+  target: { tenantId: string; legalEntityId?: string | null; countryCode?: string | null },
+): boolean {
+  if (!(delegation.scopeTenantIds ?? []).includes(target.tenantId)) return false;
+  const entities = delegation.scopeLegalEntityIds ?? [];
+  if (entities.length > 0 && (!target.legalEntityId || !entities.includes(target.legalEntityId))) return false;
+  const countries = delegation.scopeCountryCodes ?? [];
+  if (countries.length > 0 && (!target.countryCode || !countries.includes(target.countryCode))) return false;
+  return true;
+}
+
 /**
- * Exercise-time assertion: when the authority for `permission` is
- * delegation-derived, the target tenant (and optional entity/country) must lie
- * inside the granting delegations. Role-derived authority is checked against
- * the principal's ordinary tenant scope by the caller via assertWithinScope().
+ * Exercise-time assertion: when authority is delegation-derived, one canonical
+ * live instrument must cover the complete tenant/entity/country tuple. Target
+ * dimensions from separate delegations are never unioned. Omitted constrained
+ * dimensions fail closed; an entity's country is derived from the canonical
+ * entity record rather than request presentation data.
  */
 export async function assertDelegationScope(
   principal: Principal,
   permission: PermissionCode,
   target: { tenantId: string; legalEntityId?: string | null; countryCode?: string | null },
 ): Promise<void> {
-  if (principal.permissions.has(permission)) return; // role-derived: no delegation constraint
+  const now = Date.now();
+  const directGrant = (principal.authorityGrants ?? []).some((grant) =>
+    grant.source !== "DELEGATION" &&
+    grant.permission === permission &&
+    (!grant.validFrom || grant.validFrom.getTime() <= now) &&
+    (!grant.validTo || grant.validTo.getTime() >= now) &&
+    (grant.tenantId === null || grant.tenantId === target.tenantId) &&
+    (grant.legalEntityId === null || grant.legalEntityId === (target.legalEntityId ?? null)) &&
+    (grant.countryCode === null || grant.countryCode === (target.countryCode ?? null)),
+  );
+  if (directGrant) return;
+
+  let canonicalTarget = { ...target };
+  if (target.legalEntityId) {
+    const [entity] = await db.select({ tenantId: legalEntities.tenantId, countryCode: legalEntities.countryCode })
+      .from(legalEntities)
+      .where(eq(legalEntities.id, target.legalEntityId))
+      .limit(1);
+    if (!entity || entity.tenantId !== target.tenantId || (target.countryCode && entity.countryCode !== target.countryCode)) {
+      throw new DelegationScopeError(
+        "CONFLICTING_TARGET_TUPLE",
+        "The requested legal entity does not belong to the requested tenant/country tuple.",
+      );
+    }
+    canonicalTarget = { ...target, countryCode: target.countryCode ?? entity.countryCode };
+  }
+
   const live = await activeDelegationsFor(principal.userId);
-  const granting = live.filter((d) => (d.permissions ?? []).includes(permission));
+  const granting = live.filter((delegation) => (delegation.permissions ?? []).includes(permission));
   if (granting.length === 0) {
     throw new DelegationScopeError(
       "NO_DELEGATED_AUTHORITY",
       `No live delegation grants ${permission} to this principal.`,
     );
   }
-  const tenantOk = granting.some((d) => (d.scopeTenantIds ?? []).includes(target.tenantId));
-  if (!tenantOk) {
+  if (!granting.some((delegation) => delegationCoversTarget(delegation, canonicalTarget))) {
     throw new DelegationScopeError(
       "OUTSIDE_DELEGATION_SCOPE",
-      `Tenant ${target.tenantId} is outside every live delegation granting ${permission}.`,
+      "No single live delegation covers the complete requested tenant/entity/country tuple.",
     );
-  }
-  const constrained = granting.filter((d) => (d.scopeLegalEntityIds ?? []).length > 0);
-  if (target.legalEntityId && constrained.length > 0) {
-    const entityOk = constrained.some((d) => (d.scopeLegalEntityIds ?? []).includes(target.legalEntityId!));
-    if (!entityOk) {
-      throw new DelegationScopeError(
-        "OUTSIDE_ENTITY_SCOPE",
-        `Legal entity ${target.legalEntityId} is outside the entity scope of every live delegation granting ${permission}.`,
-      );
-    }
-  }
-  const countryConstrained = granting.filter((d) => (d.scopeCountryCodes ?? []).length > 0);
-  if (target.countryCode && countryConstrained.length > 0) {
-    const countryOk = countryConstrained.some((d) => (d.scopeCountryCodes ?? []).includes(target.countryCode!));
-    if (!countryOk) {
-      throw new DelegationScopeError(
-        "OUTSIDE_COUNTRY_SCOPE",
-        `Country ${target.countryCode} is outside the country scope of every live delegation granting ${permission}.`,
-      );
-    }
   }
 }
 

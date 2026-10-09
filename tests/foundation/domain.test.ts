@@ -1,5 +1,5 @@
 /**
- * Foundation OS — domain certification (real PostgreSQL, privileged test role).
+ * Foundation organization — domain certification (real PostgreSQL, privileged test role).
  *
  * Proves: seed integrity (registry, demo foundation, funds, grant, deadline),
  * tenant-scope isolation (out-of-scope reads return nothing / NOT_FOUND, never
@@ -15,7 +15,7 @@ import { db } from "@/db";
 import { employees, tenants, users } from "@/db/schema";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "@/lib/authz";
@@ -54,6 +54,7 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -101,12 +102,16 @@ describe("seed integrity", () => {
     }
   });
 
-  it("FOUNDATION_OS is ACTIVE in the OS registry", async () => {
-    const r = await db.execute<{ lifecycle: string }>(sql`
-      select lifecycle from os_registry where code = 'FOUNDATION_OS'
+  it("Foundation is a root legal-entity tenant whose operations are a shared capability", async () => {
+    const r = await db.execute<{ lifecycle: string; kind: string }>(sql`
+      select lifecycle, kind from os_registry where code = 'SHARED_FOUNDATION_OPERATIONS'
     `);
-    expect(r.rows).toHaveLength(1);
-    expect(r.rows[0].lifecycle).toBe("ACTIVE");
+    expect(r.rows).toEqual([{ lifecycle: "ACTIVE", kind: "SHARED_CAPABILITY" }]);
+    const [foundationTenant] = await db
+      .select({ type: tenants.type, parentTenantId: tenants.parentTenantId })
+      .from(tenants)
+      .where(eq(tenants.code, "BEYU-FOUNDATION"));
+    expect(foundationTenant).toEqual({ type: "LEGAL_ENTITY", parentTenantId: null });
   });
 
   it("demo foundation, funds, donation, grant and deadline are readable in scope", async () => {

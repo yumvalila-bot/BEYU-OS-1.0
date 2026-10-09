@@ -75,7 +75,7 @@ let consoleErrorSpy: MockInstance<typeof console.error>;
 let savedEnv: Record<string, string | undefined>;
 
 function loggedText(): string {
-  return consoleErrorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+  return consoleErrorSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 }
 
 function expectNoSentinels(text: string): void {

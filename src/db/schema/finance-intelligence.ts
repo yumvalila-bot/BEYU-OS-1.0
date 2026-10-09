@@ -906,6 +906,3 @@ export const capitalFormationPositions = pgTable(
     check("capital_formation_positions_amount_check", sql`"commitment_minor" >= 0 AND "drawn_minor" >= 0 AND "drawn_minor" <= "commitment_minor"`),
   ],
 );
-
-
-

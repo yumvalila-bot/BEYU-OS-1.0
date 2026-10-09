@@ -8,7 +8,7 @@ import { requirePrincipal } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { can, type Principal } from "@/lib/authz";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
-import { authorizedOperatingSystems } from "@/lib/operating-systems";
+import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { noeliaProviderModeFromEnvironment } from "@/lib/noelia/appearance";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
@@ -32,13 +32,13 @@ export const dynamic = "force-dynamic";
  * Navigation is derived from the same canonical capability catalogue rendered
  * by the Executive Control Centre. Shared capabilities use the same `can()`
  * primitive as their target route. Sector OS entries use the canonical launcher
- * resolver so federation and tenant-backed OS scope cannot drift between
- * navigation and deep-link authority. This remains presentation only — every
+ * resolver so federation, tenant-backed OS scope, and Foundation organization
+ * scope cannot drift between navigation and deep-link authority. This remains presentation only — every
  * destination repeats its server-side guard.
  */
 async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
-  const destinations = await authorizedOperatingSystems(principal);
-  const operatingSystemHrefs = new Set(destinations.map((destination) => destination.href));
+  const destinations = await authorizedGovernedDestinations(principal);
+  const governedDestinationHrefs = new Set(destinations.map((destination) => destination.href));
   // Sector OS entries render their canonical subdomain URL when the deployment
   // is configured for it (see src/lib/canonical-hosts.ts); visibility above is
   // still decided by the canonical route and the authorization resolver.
@@ -48,13 +48,19 @@ async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
     group: section.title,
     items: section.items
       .filter((item) =>
-        section.id === "sector"
-          ? operatingSystemHrefs.has(item.href)
+        section.id === "sector" || section.id === "sister-organization"
+          ? governedDestinationHrefs.has(item.href)
           : visible(principal, item),
       )
       .map((item: CapabilityItem) => ({
-        href: section.id === "sector" ? (renderedHref.get(item.href) ?? item.href) : item.href,
-        label: item.label,
+        href:
+          section.id === "sector" || section.id === "sister-organization"
+            ? (renderedHref.get(item.href) ?? item.href)
+            : item.href,
+        // The canonical organization name remains "BEYU Foundation" in the
+        // catalogue; the shell names its architectural kind explicitly so it
+        // cannot be mistaken for a fifth Sector OS.
+        label: section.id === "sister-organization" ? "Foundation organization" : item.label,
         icon: item.icon,
       })),
   })).filter((section) => section.items.length > 0);
@@ -128,8 +134,9 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
      * not receive the pathname), so it is resolved client-side by
      * `NoeliaShellForOS` from the canonical registry — `/os/health` →
      * HEALTH_OS, `/os/finance` → FINANCE_OS, `/os/agriculture` →
-     * AGRICULTURE_OS, `/os/ujenzi` → UJENZI_OS, `/os/foundation` →
-     * FOUNDATION_OS, everything else → BEYU_OS. Presentation only: it is never
+     * AGRICULTURE_OS, `/os/ujenzi` → UJENZI_OS; the Foundation sister
+     * organization uses the canonical BEYU_OS manifestation. Presentation only:
+     * it is never
      * an authorization input, and this layout's `checkBeyuOSAuthorization`
      * check above remains the control-plane boundary.
      */

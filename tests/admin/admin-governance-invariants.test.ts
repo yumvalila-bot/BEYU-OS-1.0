@@ -99,9 +99,10 @@ describe("API boundary — every admin route is behind the canonical guard", () 
     for (const text of [service, delegation]) {
       expect(text).not.toMatch(/supabase|createAdminClient|service[-_]role/i);
     }
-    // The ONLY privileged handle is the governed admin boundary, used solely
-    // for role_assignments writes (F-01) — assert it is imported from there.
-    expect(service).toMatch(/import\s*\{[^}]*adminDb[^}]*\}\s*from\s*["']@\/db\/admin["']/);
+    // The only request-path elevated handle is the finite, NOBYPASSRLS
+    // governance boundary. The unrestricted migration/admin client is absent.
+    expect(service).toMatch(/import\s*\{[^}]*governanceDb[^}]*\}\s*from\s*["']@\/db\/governance["']/);
+    expect(service).not.toMatch(/from\s*["']@\/db\/admin["']/);
   });
 });
 

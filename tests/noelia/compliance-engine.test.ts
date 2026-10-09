@@ -18,6 +18,7 @@ import {
   ComplianceStateError,
 } from "@/lib/noelia";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
+import { fixedId, ID_PREFIX } from "@/lib/ids";
 import type { Principal } from "@/lib/authz";
 import { principal } from "./fixtures";
 
@@ -25,18 +26,30 @@ const ROLLBACK = "__ROLLBACK__";
 const service = new BeyuNoeliaComplianceService();
 
 function governancePrincipal(overrides: Partial<Principal> = {}): Principal {
+  const permissions = [
+    "ai:compliance.read",
+    "ai:compliance.write",
+    "ai:compliance.audit",
+    "ai:compliance.certification",
+    "ai:compliance.metrics",
+  ] as const;
   return principal({
-    tenantId: "TEN_BEYU",
-    tenantCode: "BEYU",
+    tenantId: fixedId(ID_PREFIX.tenant, "BEYU_GROUP"),
+    tenantCode: "BEYU-GROUP",
     tenantType: "ENTERPRISE",
     roles: ["CHIEF_RISK_COMPLIANCE"],
-    permissions: new Set([
-      "ai:compliance.read",
-      "ai:compliance.write",
-      "ai:compliance.audit",
-      "ai:compliance.certification",
-      "ai:compliance.metrics",
-    ]),
+    permissions: new Set(permissions),
+    authorityGrants: permissions.map((permission) => ({
+      sourceId: `RAS_COMPLIANCE_${permission}`,
+      source: "ROLE_ASSIGNMENT" as const,
+      role: "CHIEF_RISK_COMPLIANCE",
+      permission,
+      tenantId: null,
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
     clearance: "RESTRICTED",
     ...overrides,
   });
@@ -319,9 +332,10 @@ describe("Noelia AI compliance engine (migration 0026)", () => {
     await inRollbackedScope(
       governancePrincipal({
         permissions: new Set(["ai:compliance.read"]),
+        authorityGrants: [],
       }),
       async () => {
-        const p = governancePrincipal({ permissions: new Set(["ai:compliance.read"]) });
+        const p = governancePrincipal({ permissions: new Set(["ai:compliance.read"]), authorityGrants: [] });
         await expect(
           service.registerEvidence({
             principal: p,

@@ -39,7 +39,7 @@ import { db } from "@/db";
 import { tenants, users } from "@/db/schema";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "@/lib/authz";
@@ -55,6 +55,7 @@ const T = {
   ujenzi: fixedId(ID_PREFIX.tenant, "BEYU_UJENZI"),
   foundation: fixedId(ID_PREFIX.tenant, "BEYU_FOUNDATION"),
   group: fixedId(ID_PREFIX.tenant, "BEYU_GROUP"),
+  ujenziEntity: fixedId(ID_PREFIX.legalEntity, "BEYU_UJENZI_LTD"),
 };
 
 // Fixture ids (deterministic within the run; unique across runs).
@@ -98,6 +99,7 @@ async function principalFor(email: string, overrides: Partial<Principal> = {}): 
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -128,10 +130,11 @@ beforeAll(async () => {
   await admin.query(`delete from agriculture_projects where id like $1`, [`AGP_SRCH_%_${RUN}`]);
   await admin.query(`delete from agriculture_farms where id like $1`, [`FARM_SRCH_%_${RUN}`]);
   await admin.query(`delete from foundations where id like $1`, [`FDN_SRCH_%_${RUN}`]);
-  await admin.query(`delete from knowledge_sources where id like $1`, [`KS_SRCH_%_${RUN}`]);
+  // knowledge_sources are immutable governed evidence. RUN-scoped ids make
+  // every fixture unique, so setup never deletes or rewrites prior evidence.
   await admin.query(`delete from resolutions where id like $1`, [`RES_SRCH_%_${RUN}`]);
   await admin.query(`delete from documents where id like $1`, [`DOC_SRCH_%_${RUN}`]);
-  await admin.query(`delete from legal_entities where id like $1`, [`LEN_SRCH_%_${RUN}`]);
+  await admin.query(`delete from legal_entities where id = any($1::text[])`, [[F.leA, F.leB]]);
 
   await admin.query(
     `insert into legal_entities (id, tenant_id, code, legal_name, entity_type, country_code, effective_from, classification)
@@ -189,14 +192,14 @@ beforeAll(async () => {
   for (const k of krows) {
     if (k.scope === "ENTITY") {
       await admin.query(
-        `insert into knowledge_sources (id, code, title, domain, owner_role, provenance, scope_type, tenant_id, legal_entity_id, classification, effective_from, review_date, content, keywords)
-         values ($1,$2,$3,'SEARCH','PLATFORM_ADMIN','search fixture','ENTITY',$4,$5,$6,'2024-01-01',$7,$8,'{"search":"fixture"}')`,
-        [k.id, k.code, k.title, T.ujenzi, F.leA, k.classification, k.reviewDate, `Governed knowledge fixture containing token ${k.extra} for search tests.`],
+        `insert into knowledge_sources (id, code, title, domain, owner_role, provenance, scope_type, tenant_id, legal_entity_id, classification, authority_status, effective_from, review_date, content, keywords)
+         values ($1,$2,$3,'SEARCH','PLATFORM_ADMIN','deployment-controlled search fixture','ENTITY',$4,$5,$6,'AUTHORITATIVE','2024-01-01',$7,$8,'{"search":"fixture"}')`,
+        [k.id, k.code, k.title, T.ujenzi, T.ujenziEntity, k.classification, k.reviewDate, `Governed knowledge fixture containing token ${k.extra} for search tests.`],
       );
     } else {
       await admin.query(
-        `insert into knowledge_sources (id, code, title, domain, owner_role, provenance, scope_type, classification, effective_from, review_date, content, keywords)
-         values ($1,$2,$3,'SEARCH','PLATFORM_ADMIN','search fixture','GLOBAL',$4,'2024-01-01',$5,$6,'{"search":"fixture"}')`,
+        `insert into knowledge_sources (id, code, title, domain, owner_role, provenance, scope_type, classification, authority_status, effective_from, review_date, content, keywords)
+         values ($1,$2,$3,'SEARCH','PLATFORM_ADMIN','deployment-controlled search fixture','GLOBAL',$4,'AUTHORITATIVE','2024-01-01',$5,$6,'{"search":"fixture"}')`,
         [k.id, k.code, k.title, k.classification, k.reviewDate, `Governed knowledge fixture containing token ${k.extra} for search tests.`],
       );
     }
@@ -210,10 +213,12 @@ afterAll(async () => {
   await admin.query(`delete from agriculture_projects where id like $1`, [`AGP_SRCH_%_${RUN}`]);
   await admin.query(`delete from agriculture_farms where id like $1`, [`FARM_SRCH_%_${RUN}`]);
   await admin.query(`delete from foundations where id like $1`, [`FDN_SRCH_%_${RUN}`]);
-  await admin.query(`delete from knowledge_sources where id like $1`, [`KS_SRCH_%_${RUN}`]);
+  // Keep immutable knowledge fixtures as append-only per-run evidence. Their
+  // entity-scoped row uses the seeded Ujenzi entity, so both transient search
+  // entities remain safely removable.
   await admin.query(`delete from resolutions where id like $1`, [`RES_SRCH_%_${RUN}`]);
   await admin.query(`delete from documents where id like $1`, [`DOC_SRCH_%_${RUN}`]);
-  await admin.query(`delete from legal_entities where id like $1`, [`LEN_SRCH_%_${RUN}`]);
+  await admin.query(`delete from legal_entities where id = any($1::text[])`, [[F.leA, F.leB]]);
   await admin.end();
 });
 
@@ -265,7 +270,16 @@ describe("Shared Search — authorization", () => {
 
   it("C. entity-scoped principal: entity-bound sources filtered, key-less sources refused", async () => {
     const base = await principalFor("ujenzi.ops@beyu.os");
-    const p = { ...base, entityScope: [F.leB] };
+    const p: Principal = {
+      ...base,
+      entityScope: [F.leB],
+      authorityGrants: (base.authorityGrants ?? []).map((grant) => ({
+        ...grant,
+        tenantId: T.ujenzi,
+        legalEntityId: F.leB,
+        countryCode: "TZ",
+      })),
+    };
     const r = await search(p, "search");
     // Entity-bound sources: only entity-B rows.
     expect(ids(r, "UJENZI_PROJECT")).toEqual([F.projB]);
@@ -314,7 +328,12 @@ describe("Shared Search — authorization", () => {
     expect(ids(r, "GOVERNANCE_RESOLUTION")).toEqual([]);
     // A principal with NEITHER the facility nor any source read (TENANT_MEMBER
     // shape) has nothing to search — the service finds no eligible source.
-    const bare = { ...p, permissions: new Set<PermissionCode>(), roles: ["TENANT_MEMBER"] };
+    const bare: Principal = {
+      ...p,
+      permissions: new Set<PermissionCode>(),
+      authorityGrants: [],
+      roles: ["TENANT_MEMBER"],
+    };
     const r2 = await search(bare, "search");
     expect(r2.sourcesSearched).toEqual([]);
     expect(r2.results).toEqual([]);

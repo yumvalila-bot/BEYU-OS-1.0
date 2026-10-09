@@ -108,10 +108,10 @@ describe("C-02 database-level RLS isolation (runtime role)", () => {
     expect(Number(r.rowCount)).toBe(0);
   });
 
-  it("DELETE: TENANT_A context cannot delete a TENANT_B row (0 rows affected)", async () => {
+  it("DELETE: runtime has no approval-evidence deletion authority", async () => {
     await setContext(rt, TENANT_A);
-    const r = await rt.query(`delete from approvals where id = 'APP_RLS_B'`);
-    expect(Number(r.rowCount)).toBe(0);
+    await expect(rt.query(`delete from approvals where id = 'APP_RLS_B'`))
+      .rejects.toMatchObject({ code: "42501" });
   });
 
   it("INSERT: forged TENANT_B tenant_id under TENANT_A context is rejected by WITH CHECK", async () => {

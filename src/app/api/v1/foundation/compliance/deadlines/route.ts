@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — deadline computation + listing.
+ * BEYU Foundation organization — deadline computation + listing.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

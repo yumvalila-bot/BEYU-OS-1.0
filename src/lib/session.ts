@@ -6,11 +6,12 @@ import { newId, ID_PREFIX } from "./ids";
 import { newSecret, sha256 } from "./crypto";
 import { SESSION_COOKIE, SESSION_TTL_HOURS, type Classification } from "./constants";
 import {
-  activeDelegatedPermissions,
-  activeEmergencyPermissions,
+  activeDelegatedAuthorityGrants,
+  activeEmergencyAuthorityGrants,
   clearanceForRoles,
   loadGrants,
   permissionsForRoles,
+  roleAuthorityGrants,
   type Principal,
 } from "./authz";
 import { LOGIN_RATE_LIMIT, loginRateLimitKeys, trustedClientIp } from "./auth-limits";
@@ -97,7 +98,11 @@ export async function resolvePrincipal(): Promise<Principal | null> {
       userId: users.id,
       email: users.email,
       status: users.status,
+      isServiceAccount: users.isServiceAccount,
+      mfaEnrolled: users.mfaEnrolled,
       partyId: parties.id,
+      partyType: parties.type,
+      partyStatus: parties.status,
       displayName: parties.displayName,
       tenantCode: tenants.code,
       tenantType: tenants.type,
@@ -109,16 +114,24 @@ export async function resolvePrincipal(): Promise<Principal | null> {
     .where(and(eq(sessions.tokenHash, sha256(token)), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date())))
     .limit(1);
 
-  if (!row || row.status !== "ACTIVE") return null;
+  if (!row || row.status !== "ACTIVE" || row.partyStatus !== "ACTIVE" || row.isServiceAccount || row.partyType !== "PERSON") return null;
 
   const grants = await loadGrants(row.userId, row.tenantId);
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
-  const emergencyPermissions = await activeEmergencyPermissions(row.userId, row.tenantId);
+  const emergencyAuthorityGrants = await activeEmergencyAuthorityGrants(row.userId, row.tenantId);
   // Delegated administrative authority is resolved on EVERY request (exactly
   // like emergency grants), so revoking or expiring a delegation takes effect
-  // immediately — never at session expiry.
-  const delegatedPermissions = await activeDelegatedPermissions(row.userId);
+  // immediately — never at session expiry. Dimensions remain attached to each
+  // delegation instrument and are never flattened into independent unions.
+  const delegatedAuthorityGrants = await activeDelegatedAuthorityGrants(row.userId);
+  const authorityGrants = [
+    ...roleAuthorityGrants(grants),
+    ...emergencyAuthorityGrants,
+    ...delegatedAuthorityGrants,
+  ];
+  const emergencyPermissions = [...new Set(emergencyAuthorityGrants.map((grant) => grant.permission))];
+  const delegatedPermissions = [...new Set(delegatedAuthorityGrants.map((grant) => grant.permission))];
 
   return {
     userId: row.userId,
@@ -132,11 +145,15 @@ export async function resolvePrincipal(): Promise<Principal | null> {
     permissions: permissionsForRoles(roleCodes),
     clearance: clearanceForRoles(roleCodes) as Classification,
     entityScope,
-    mfaSatisfied: row.mfaSatisfied && Boolean(row.mfaExpiresAt && row.mfaExpiresAt > new Date()),
+    countryScope: [...new Set(authorityGrants.map((grant) => grant.countryCode).filter((code): code is string => Boolean(code)))],
+    mfaSatisfied: row.mfaEnrolled && row.mfaSatisfied && Boolean(row.mfaExpiresAt && row.mfaExpiresAt > new Date()),
     sessionId: row.sessionId,
     riskScore: row.riskScore,
     emergencyPermissions,
     delegatedPermissions,
+    authorityGrants,
+    accountStatus: row.status,
+    isServiceAccount: row.isServiceAccount || row.partyType !== "PERSON",
   };
 }
 

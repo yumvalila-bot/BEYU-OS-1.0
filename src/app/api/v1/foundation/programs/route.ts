@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Programs (canonical foundation_programs table).
+ * BEYU Foundation organization — Programs (canonical foundation_programs table).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

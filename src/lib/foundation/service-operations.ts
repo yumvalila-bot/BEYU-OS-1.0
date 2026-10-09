@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — governed domain services (programs → assignments).
+ * BEYU Foundation organization — governed domain services (programs → assignments).
  *
  * Companion to service.ts. Programs themselves reuse the canonical
  * `foundation_programs` table; projects, beneficiaries, procurement, assets,
@@ -106,8 +106,8 @@ export async function createProgram(
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.PROGRAM_FUNDED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.PROGRAM_FUNDED,
       legalEntityId: null,
       subjectType: "FOUNDATION_PROGRAM",
@@ -525,8 +525,8 @@ export async function reportSafeguardingCase(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.SAFEGUARDING_REPORTED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.SAFEGUARDING_REPORTED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "SAFEGUARDING_CASE",
@@ -722,8 +722,8 @@ export async function createWorkforceAssignment(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.BOARD_MEMBER_APPOINTED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.BOARD_MEMBER_APPOINTED,
       legalEntityId: null,
       subjectType: "FOUNDATION_WORKFORCE_ASSIGNMENT",

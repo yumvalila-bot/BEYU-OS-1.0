@@ -13,10 +13,13 @@ import {
 } from "../../src/db/schema";
 import { fixedId, ID_PREFIX, newId } from "../../src/lib/ids";
 import {
+  activeDelegatedAuthorityGrants,
   activeDelegatedPermissions,
+  activeEmergencyAuthorityGrants,
   clearanceForRoles,
   loadGrants,
   permissionsForRoles,
+  roleAuthorityGrants,
   type Principal,
 } from "../../src/lib/authz";
 import {
@@ -69,6 +72,9 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
   const [t] = await db.select().from(tenants).where(eq(tenants.id, u.primaryTenantId));
   const grants = await loadGrants(u.id, u.primaryTenantId);
   const roleCodes = [...new Set(grants.map((g) => g.code))];
+  const emergencyAuthorityGrants = await activeEmergencyAuthorityGrants(u.id, u.primaryTenantId);
+  const delegatedAuthorityGrants = await activeDelegatedAuthorityGrants(u.id);
+  const authorityGrants = [...roleAuthorityGrants(grants), ...emergencyAuthorityGrants, ...delegatedAuthorityGrants];
   return {
     userId: u.id,
     partyId: u.partyId,
@@ -80,12 +86,16 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
     roles: roleCodes,
     permissions: permissionsForRoles(roleCodes),
     clearance: clearanceForRoles(roleCodes),
-    entityScope: [],
+    entityScope: [...new Set(grants.map((grant) => grant.entityId).filter((id): id is string => Boolean(id)))],
+    countryScope: [...new Set(authorityGrants.map((grant) => grant.countryCode).filter((code): code is string => Boolean(code)))],
     mfaSatisfied: true,
     sessionId: "TEST",
     riskScore: 0,
     emergencyPermissions: [],
-    delegatedPermissions: [],
+    delegatedPermissions: [...new Set(delegatedAuthorityGrants.map((grant) => grant.permission))],
+    authorityGrants,
+    accountStatus: u.status,
+    isServiceAccount: u.isServiceAccount,
     ...overrides,
   };
 }
@@ -528,9 +538,20 @@ describe("administrative delegation instruments", () => {
 
     // A delegated administrator can never create further delegations — the
     // capability is not delegable, and their authority is not role-derived.
-    const delegatee = await principalFor("PLATFORM_ADMIN"); // fabricated authority context
+    const delegatee = await principalFor("PLATFORM_ADMIN"); // presentation fields are deliberately stripped below
+    const delegatedAuthorityGrants = await activeDelegatedAuthorityGrants(delegateeId);
     const reDelegation = await createDelegation(
-      { ...delegatee, userId: delegateeId, roles: [], permissions: new Set(), delegatedPermissions: ["identity:user.suspend"] },
+      {
+        ...delegatee,
+        userId: delegateeId,
+        tenantId: T.tz,
+        tenantCode: "BEYU-TZ",
+        tenantType: "COUNTRY",
+        roles: [],
+        permissions: new Set(),
+        delegatedPermissions: ["identity:user.suspend"],
+        authorityGrants: delegatedAuthorityGrants,
+      },
       {
         delegatorUserId: delegateeId,
         delegateeUserId: admin.userId,

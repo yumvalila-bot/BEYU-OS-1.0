@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — governed reports.
+ * BEYU Foundation organization — governed reports.
  *
  * GET /api/v1/foundation/reports?type=executive&foundationId=…
  *     type = executive | donor | grant | impact | tax

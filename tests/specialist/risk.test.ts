@@ -44,6 +44,8 @@ import {
 } from "@/lib/specialist/risk/service";
 import type { RiskThreshold } from "@/lib/specialist/risk/model";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `RK${Date.now()}`;
 let n = 0;
 const trace = () => `${RUN}-${String(++n).padStart(3, "0")}`;
@@ -79,6 +81,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "ENTERPRISE",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance: "RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,
@@ -823,8 +829,8 @@ describe("risk service — hostile inputs", () => {
   });
 
   it("does not accept a forged permission set that bypasses the role definition", async () => {
-    // A caller who fabricates a permission still fails, because tenant checks follow RBAC and the
-    // data query is scoped server-side.
+    // A caller who fabricates the presentation summary still fails before any
+    // scoped read because no canonical authority tuple backs the permission.
     const forged = principal({ roles: [] });
     (forged.permissions as Set<string>).add("finance:treasury.read");
     await expect(
@@ -834,7 +840,10 @@ describe("risk service — hostile inputs", () => {
         legalEntityId: null,
         traceId: trace(),
       }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    ).rejects.toMatchObject({
+      code: "DENIED",
+      message: expect.stringMatching(/authority/i),
+    });
   });
 
   it("rejects malformed trace ids", async () => {
@@ -1037,7 +1046,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment tables; adds no specialist truth).
     // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
-    // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+    // + 0035_foundation_os (Foundation organization registry, compliance, grant and impact tables; adds no specialist truth).
     // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
     // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
     // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
@@ -1095,7 +1104,7 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). No specialist truth.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    // + 0069: Foundation organization RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No specialist truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No specialist truth.
     // + 0071: Federation & Trust shared capability (no risk table, no second risk truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
@@ -1104,8 +1113,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     // + 0074: Enterprise Intelligence Expansion (34 tables). No risk table and no second risk truth;
     //   the expansion reads governed inputs and refuses (MISSING/INVALID/NOT_APPLICABLE) where an
     //   input is absent rather than modelling a risk number of its own.
-    //   Snapshot chained 0062 -> 0074 (no metadata debt added).
-    expect(n).toBe(75);
+    // + 0075: Noelia authority/execution hardening creates no risk table or second risk truth.
+    expect(n).toBe(76);
   });
 
   it("leaves all triggers enabled", async () => {

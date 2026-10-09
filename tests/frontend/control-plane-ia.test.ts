@@ -41,6 +41,17 @@ function principal(...permissions: PermissionCode[]): Principal {
     sessionId: "ses-test",
     riskScore: 0,
     emergencyPermissions: [],
+    authorityGrants: permissions.map((permission, index) => ({
+      sourceId: `test-grant-${index}`,
+      source: "ROLE_ASSIGNMENT" as const,
+      role: "TEST_ROLE",
+      permission,
+      tenantId: "ten-test",
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
   };
 }
 
@@ -51,12 +62,13 @@ const group = (id: string) => {
 };
 
 describe("canonical constitutional hierarchy", () => {
-  it("exposes the three required top-level groups in order", () => {
+  it("exposes the four required top-level groups in order", () => {
     expect(
-      CAPABILITY_IA.slice(0, 3).map(({ id, title }) => ({ id, title })),
+      CAPABILITY_IA.slice(0, 4).map(({ id, title }) => ({ id, title })),
     ).toEqual([
       { id: "executive", title: "Executive" },
       { id: "shared", title: "Shared capabilities" },
+      { id: "sister-organization", title: "Sister organization" },
       { id: "sector", title: "Sector operating systems" },
     ]);
   });
@@ -95,7 +107,7 @@ describe("canonical constitutional hierarchy", () => {
     ).toBe(true);
   });
 
-  it("models exactly five Sector OSs beneath BEYU OS", () => {
+  it("models exactly four Sector OSs beneath BEYU OS", () => {
     const expected = [
       { label: "Finance OS", href: "/os/finance" },
       // Health OS is a Sector OS like every other one: its canonical route
@@ -103,7 +115,6 @@ describe("canonical constitutional hierarchy", () => {
       // surface and re-checks the same federation gate.
       { label: "Health OS", href: "/os/health" },
       { label: "Agriculture OS", href: "/os/agriculture" },
-      { label: "Foundation OS", href: "/os/foundation" },
       { label: "Ujenzi OS", href: "/os/ujenzi" },
     ];
     expect(
@@ -123,6 +134,16 @@ describe("canonical constitutional hierarchy", () => {
     ).toBe(true);
   });
 
+  it("models Foundation as the separate nonprofit sister organization", () => {
+    expect(group("sister-organization").items).toEqual([
+      expect.objectContaining({
+        label: "BEYU Foundation",
+        href: "/os/foundation",
+      }),
+    ]);
+    expect(group("sector").items.map(({ href }) => href)).not.toContain("/os/foundation");
+  });
+
   it("exposes a visible Gear-labelled Settings destination in its own System group", () => {
     expect(group("system").title).toBe("System");
     expect(group("system").items).toEqual([
@@ -139,14 +160,14 @@ describe("canonical constitutional hierarchy", () => {
   /**
    * Administration (governed user & tenant capability) — a FIRST-CLASS shared
    * capability of BEYU OS, NOT an "Admin OS". The group sits AFTER the pinned
-   * executive/shared/sector groups and BEFORE System. Every entry is
+   * executive/shared/sister-organization/sector groups and BEFORE System. Every entry is
    * permission-gated (never "open"), carries a semantic icon, and no label
    * ends in "OS": this is capability, not a new operating system.
    */
   it("exposes the Administration governance capability as its own group between sector and system", () => {
     expect(
-      CAPABILITY_IA.slice(0, 4).map(({ id }) => id),
-    ).toEqual(["executive", "shared", "sector", "administration"]);
+      CAPABILITY_IA.slice(0, 5).map(({ id }) => id),
+    ).toEqual(["executive", "shared", "sister-organization", "sector", "administration"]);
     // Secondary domain groups (shared-workspaces, finance-domains, …) follow the
     // System group; what matters architecturally is that Administration sits
     // immediately BEFORE System in the canonical order.

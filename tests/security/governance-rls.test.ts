@@ -17,6 +17,13 @@ async function asRuntime(operation: () => Promise<void>) {
   await runtime.query("begin");
   try { await operation(); } finally { await runtime.query("rollback"); }
 }
+async function expectNoRuntimeMutation(query: Promise<{ rowCount: number | null }>) {
+  try {
+    expect(Number((await query).rowCount)).toBe(0);
+  } catch (error) {
+    expect(error).toMatchObject({ code: "42501" });
+  }
+}
 async function cleanup() {
   await admin.query("delete from resolution_votes where id like 'ISO_GOV_%'");
   await admin.query("delete from resolutions where id like 'ISO_GOV_%'");
@@ -75,14 +82,14 @@ describe("core governance RLS", () => {
   }));
   it.each(tableNames)("cannot erase %s", async (table) => asRuntime(async () => {
     await context();
-    expect((await runtime.query(`delete from ${table} where id='ISO_GOV_A'`)).rowCount).toBe(0);
+    await expectNoRuntimeMutation(runtime.query(`delete from ${table} where id='ISO_GOV_A'`));
   }));
   it("cannot change finalized resolutions or ballots", async () => {
     await admin.query("update resolutions set status='APPROVED' where id='ISO_GOV_A'");
     await asRuntime(async () => {
       await context();
-      expect((await runtime.query("update resolutions set title='Tampered' where id='ISO_GOV_A'")).rowCount).toBe(0);
-      expect((await runtime.query("update resolution_votes set vote='AGAINST' where id='ISO_GOV_A'")).rowCount).toBe(0);
+      await expectNoRuntimeMutation(runtime.query("update resolutions set title='Tampered' where id='ISO_GOV_A'"));
+      await expectNoRuntimeMutation(runtime.query("update resolution_votes set vote='AGAINST' where id='ISO_GOV_A'"));
     });
   });
   it("does not retain scope after rollback on a reused connection", async () => {

@@ -1,5 +1,5 @@
 /**
- * Foundation OS — canonical target-scope boundary (real PostgreSQL).
+ * Foundation organization — canonical target-scope boundary (real PostgreSQL).
  *
  * Closes the API-boundary gap identified after PR #63: the Foundation
  * deep-link layer already proved the canonical Foundation target-tenant and
@@ -28,7 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { foundationMeetings, foundations, legalEntities, tenants, users } from "@/db/schema";
-import { can, clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "@/lib/authz";
+import { can, clearanceForRoles, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "@/lib/authz";
 import {
   classificationRank,
   PERMISSIONS,
@@ -76,6 +76,7 @@ async function principalFor(userKey: string, overrides: Partial<Principal> = {})
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -344,6 +345,17 @@ describe("classification ceiling for Foundation datasets", () => {
       tenantType: "SECTOR",
       roles: ["FOUNDATION_OFFICER"],
       permissions: new Set<PermissionCode>(["foundation:safeguarding.read"]),
+      authorityGrants: [{
+        sourceId: "RAS_CLEARANCE_PROBE",
+        source: "ROLE_ASSIGNMENT",
+        role: "FOUNDATION_OFFICER",
+        permission: "foundation:safeguarding.read",
+        tenantId: "TEN_BEYU_FOUNDATION",
+        legalEntityId: null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      }],
       clearance: "CONFIDENTIAL" as Classification,
       entityScope: [],
       mfaSatisfied: true,

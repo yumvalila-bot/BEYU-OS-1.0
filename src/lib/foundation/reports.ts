@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — governed reporting (read-only aggregations).
+ * BEYU Foundation organization — governed reporting (read-only aggregations).
  *
  * Executive, board, donor, grant, program, impact, compliance and tax report
  * payloads. Every figure traces to authoritative rows inside the canonical

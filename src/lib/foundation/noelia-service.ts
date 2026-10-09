@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Noelia intelligence service (read-only + drafts).
+ * BEYU Foundation organization — Noelia intelligence service (read-only + drafts).
  *
  * Noelia is the single canonical AI identity; these are Foundation-domain
  * capabilities on the canonical HIVE runtime. Every method:
@@ -93,7 +93,7 @@ export class BeyuNoeliaFoundationService {
           kind: "FACT" as const,
         })),
       ],
-      sources: [{ kind: "TABLE", ref: "foundations", label: "Foundation Registry", authority: "FOUNDATION_OS" }],
+      sources: [{ kind: "TABLE", ref: "foundations", label: "Foundation Registry", authority: "FOUNDATION_ORGANIZATION" }],
     };
   }
 
@@ -122,8 +122,8 @@ export class BeyuNoeliaFoundationService {
         overdue.length > 0 ? [`${overdue.length} overdue foundation deadline(s) require immediate owner action`] : [],
       humanReviewRequired: overdue.length > 0,
       sources: [
-        { kind: "TABLE", ref: "foundation_obligations", label: "Foundation compliance registry", authority: "FOUNDATION_OS" },
-        { kind: "TABLE", ref: "foundation_deadlines", label: "Foundation deadlines", authority: "FOUNDATION_OS" },
+        { kind: "TABLE", ref: "foundation_obligations", label: "Foundation compliance registry", authority: "FOUNDATION_ORGANIZATION" },
+        { kind: "TABLE", ref: "foundation_deadlines", label: "Foundation deadlines", authority: "FOUNDATION_ORGANIZATION" },
       ],
     };
   }
@@ -151,7 +151,7 @@ export class BeyuNoeliaFoundationService {
       requiresHumanDecision:
         (byStatus.get("APPROVAL")?.count ?? 0) > 0
           ? [`${byStatus.get("APPROVAL")!.count} grant(s) await human approval — Noelia cannot approve grants`] : [],
-      sources: [{ kind: "TABLE", ref: "grants", label: "Grant register", authority: "FOUNDATION_OS" }],
+      sources: [{ kind: "TABLE", ref: "grants", label: "Grant register", authority: "FOUNDATION_ORGANIZATION" }],
     };
   }
 
@@ -176,8 +176,8 @@ export class BeyuNoeliaFoundationService {
         { label: "Donations total", value: String(donationRows[0]?.total ?? 0), kind: "FACT" },
       ],
       sources: [
-        { kind: "TABLE", ref: "funds", label: "Fund register", authority: "FOUNDATION_OS" },
-        { kind: "TABLE", ref: "donations", label: "Donations", authority: "FOUNDATION_OS" },
+        { kind: "TABLE", ref: "funds", label: "Fund register", authority: "FOUNDATION_ORGANIZATION" },
+        { kind: "TABLE", ref: "donations", label: "Donations", authority: "FOUNDATION_ORGANIZATION" },
       ],
     };
   }
@@ -204,7 +204,7 @@ export class BeyuNoeliaFoundationService {
       requiresHumanDecision: ["Qualified jurisdiction counsel must review and approve before formation proceeds"],
       limitations: [FORMATION_DISCLAIMER],
       humanReviewRequired: true,
-      sources: [{ kind: "ENGINE", ref: "foundation.formation.assess", label: "Formation assessment engine", authority: "FOUNDATION_OS" }],
+      sources: [{ kind: "ENGINE", ref: "foundation.formation.assess", label: "Formation assessment engine", authority: "FOUNDATION_ORGANIZATION" }],
     };
   }
 
@@ -222,7 +222,7 @@ export class BeyuNoeliaFoundationService {
       requiresHumanDecision: result.requiredApprovals,
       limitations: ["Simulations never execute structural changes. Every change requires its own governed approval and implementation tasks."],
       humanReviewRequired: true,
-      sources: [{ kind: "ENGINE", ref: "foundation.structure.simulate", label: "Structure simulator", authority: "FOUNDATION_OS" }],
+      sources: [{ kind: "ENGINE", ref: "foundation.structure.simulate", label: "Structure simulator", authority: "FOUNDATION_ORGANIZATION" }],
     };
   }
 }

@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — timely compliance engine (governed service).
+ * BEYU Foundation organization — timely compliance engine (governed service).
  *
  * RULE → APPLICABILITY → OBLIGATION → DEADLINE → TASK → OWNER →
  * NOTIFICATION → REVIEW → SUBMISSION → EVIDENCE → VERIFICATION →
@@ -105,8 +105,8 @@ export async function createObligation(ctx: ServiceContext, input: CreateObligat
       policyVersion: null,
       destinationDomain: null,
       type: FOUNDATION_EVENTS.OBLIGATION_CREATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.OBLIGATION_CREATED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "FOUNDATION_OBLIGATION",
@@ -196,8 +196,8 @@ export async function computeDeadline(
       policyVersion: null,
       destinationDomain: null,
       type: FOUNDATION_EVENTS.DEADLINE_COMPUTED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.DEADLINE_COMPUTED,
       legalEntityId: obligation.legalEntityId,
       subjectType: "FOUNDATION_DEADLINE",
@@ -473,8 +473,8 @@ export async function runComplianceSweep(
               policyVersion: null,
               destinationDomain: null,
               type: FOUNDATION_EVENTS.DEADLINE_MISSED,
-              source: "FOUNDATION_OS",
-              domain: "FOUNDATION_OS",
+              source: "FOUNDATION_ORGANIZATION",
+              domain: "FOUNDATION_ORGANIZATION",
               operation: FOUNDATION_EVENTS.DEADLINE_MISSED,
               legalEntityId: obligation.legalEntityId,
               subjectType: "FOUNDATION_DEADLINE",

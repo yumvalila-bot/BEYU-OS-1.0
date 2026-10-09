@@ -206,9 +206,9 @@ export const ENTERPRISE_DOMAINS: readonly ArchitectureDomain[] = [
     canonicalSource: "core.os_registry + core.source_of_truth",
     module: "src/db/schema/core.ts",
     evidence: E({ engine: false, serviceBoundary: false }),
-    blockers: ["ENGINEERING: Sector OSs (Health, Agriculture, Mining, Foundation ops) are not built"],
-    missingComponent: "Sector OS runtimes",
-    notes: "Charters and SoT matrix exist. Consumption is via BEYU identity/HCM/Finance. No sector OS to integrate yet.",
+    blockers: ["ENGINEERING: cross-domain adapters for the four Sector OSs and the separate Foundation organization remain incomplete"],
+    missingComponent: "governed cross-domain adapters",
+    notes: "Charters and SoT matrix exist. Consumption is via BEYU identity/HCM/Finance; Mining is not a Sector OS.",
   },
   {
     domain: "Domain registry",

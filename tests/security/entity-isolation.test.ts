@@ -21,6 +21,22 @@ import { createDefaultNoeliaToolRegistry } from "../../src/lib/noelia/default-to
 import { tenantScopeIds } from "../../src/lib/tenant-scope";
 import { seededPrincipal } from "../noelia/db-fixtures";
 
+function principalScopedToEntity(principal: Principal, entity: { id: string; tenantId: string }): Principal {
+  return {
+    ...principal,
+    // A scoped assignment is evaluated in its target tenant context; keeping
+    // the principal's unrelated home tenant would intentionally fail the tenant
+    // dimension before this test reached the entity boundary.
+    tenantId: entity.tenantId,
+    entityScope: [entity.id],
+    authorityGrants: (principal.authorityGrants ?? []).map((grant) => ({
+      ...grant,
+      tenantId: entity.tenantId,
+      legalEntityId: entity.id,
+    })),
+  };
+}
+
 describe("C-02 legal-entity isolation (application layer)", () => {
   it("tenant authorization does not imply unrestricted legal-entity access (ABAC)", async () => {
     const p = await seededPrincipal("cfo@beyu.os");
@@ -35,7 +51,7 @@ describe("C-02 legal-entity isolation (application layer)", () => {
     const [entityA, entityB] = entities;
 
     // Principal scoped to ONLY entity A.
-    const scoped: Principal = { ...p, entityScope: [entityA.id] };
+    const scoped = principalScopedToEntity(p, entityA);
 
     // Allowed on entity A ...
     const allowA = can(scoped, "finance:ledger.read", { tenantId: p.tenantId, entityId: entityA.id });
@@ -44,7 +60,7 @@ describe("C-02 legal-entity isolation (application layer)", () => {
     // ... denied on entity B in the SAME tenant.
     const denyB = can(scoped, "finance:ledger.read", { tenantId: p.tenantId, entityId: entityB.id });
     expect(denyB.allowed).toBe(false);
-    expect(denyB.reason).toMatch(/legal entity outside/i);
+    expect(denyB.reason).toMatch(/no single active authority grant/i);
   });
 
   it("Noelia tool registry denies a target legal entity outside the principal's scope", async () => {
@@ -79,7 +95,7 @@ describe("C-02 legal-entity isolation (application layer)", () => {
       if (!pair) throw new Error("Missing two clearance-visible legal entities in one authorized tenant");
       return [pair[0], pair[1]] as const;
     });
-    const scoped: Principal = { ...p, entityScope: [entityA.id] };
+    const scoped = principalScopedToEntity(p, entityA);
 
     const registry = createDefaultNoeliaToolRegistry();
     const scope = await withDatabaseTransactionContext(() => resolveNoeliaAuthorizedScope(scoped));
@@ -98,7 +114,10 @@ describe("C-02 legal-entity isolation (application layer)", () => {
     });
     expect(decisionA.allowed).toBe(true);
 
-    // Target entity B (same tenant, out of scope) → ENTITY_DENIED.
+    // Target entity B (same tenant, out of scope) is denied by the finite,
+    // server-resolved composite scope before any capability execution or
+    // compatibility scope summary can broaden it. This does not query or
+    // confirm the requested entity's existence.
     const targetB = requestedNoeliaTarget(scoped, {
       tenantId: entityB.tenantId,
       legalEntityId: entityB.id,
@@ -112,6 +131,7 @@ describe("C-02 legal-entity isolation (application layer)", () => {
     });
     expect(decisionB.allowed).toBe(false);
     expect(decisionB.code).toBe("ENTITY_DENIED");
+    expect(decisionB.reason).toMatch(/outside .* resolved BEYU scope/i);
   });
 
   it("an entity of ANOTHER tenant is outside the resolved scope (cross-tenant entity)", async () => {

@@ -257,7 +257,7 @@ export const familyVaultItems = pgTable("family_vault_items", {
 });
 
 /* ------------------------------------------------------------------ */
-/* Foundation OS (Sector OS) — nonprofit operations                    */
+/* Separate Foundation nonprofit organization — governed operations             */
 /* ------------------------------------------------------------------ */
 
 export const foundationPrograms = pgTable("foundation_programs", {

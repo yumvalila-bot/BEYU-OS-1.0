@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Grant lifecycle.
+ * BEYU Foundation organization — Grant lifecycle.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

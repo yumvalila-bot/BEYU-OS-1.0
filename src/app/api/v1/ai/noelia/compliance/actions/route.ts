@@ -144,7 +144,6 @@ export async function POST(request: Request) {
                 principal: ctx.principal,
                 traceId: ctx.traceId,
                 id: stringField(p, "id"),
-                reviewedBy: optionalString(p, "reviewedBy") ?? undefined,
                 result: optionalString(p, "result") ?? undefined,
               });
             case "register.control":
@@ -181,7 +180,6 @@ export async function POST(request: Request) {
                 traceId: ctx.traceId,
                 mappingId: stringField(p, "mappingId"),
                 evidenceId: optionalString(p, "evidenceId") ?? null,
-                verifier: optionalString(p, "verifier") ?? undefined,
                 verdict: optionalString(p, "verdict") ?? undefined,
               });
             case "register.evidence":
@@ -199,6 +197,7 @@ export async function POST(request: Request) {
                 contentRef: optionalString(p, "contentRef"),
                 evidenceDate: optionalString(p, "evidenceDate"),
                 expiresAt: typeof p.expiresAt === "string" ? new Date(p.expiresAt) : null,
+                externalAssessorPartyId: optionalString(p, "externalAssessorPartyId"),
                 payload: asRecord(p.payload ?? {}),
               });
             case "verify.evidence":
@@ -206,8 +205,6 @@ export async function POST(request: Request) {
                 principal: ctx.principal,
                 traceId: ctx.traceId,
                 evidenceId: stringField(p, "evidenceId"),
-                verifier: optionalString(p, "verifier") ?? undefined,
-                externalAssessor: optionalString(p, "externalAssessor"),
                 externalReference: optionalString(p, "externalReference"),
               });
             case "verify.evidence-integrity":
@@ -254,7 +251,6 @@ export async function POST(request: Request) {
                 traceId: ctx.traceId,
                 treatmentId: stringField(p, "treatmentId"),
                 evidenceId: optionalString(p, "evidenceId") ?? null,
-                verifier: optionalString(p, "verifier") ?? undefined,
               });
             case "create.audit":
               return service.createAudit({
@@ -266,8 +262,6 @@ export async function POST(request: Request) {
                 objective: stringField(p, "objective"),
                 frameworkId: optionalString(p, "frameworkId"),
                 auditType: optionalString(p, "auditType") ?? "GAP_ASSESSMENT",
-                auditor: stringField(p, "auditor"),
-                auditorRole: stringField(p, "auditorRole"),
                 periodStart: optionalString(p, "periodStart"),
                 periodEnd: optionalString(p, "periodEnd"),
                 tenantId: optionalString(p, "tenantId"),
@@ -310,7 +304,6 @@ export async function POST(request: Request) {
                 traceId: ctx.traceId,
                 actionId: stringField(p, "actionId"),
                 evidenceId: stringField(p, "evidenceId"),
-                verifier: optionalString(p, "verifier") ?? undefined,
               });
             case "add.exception":
               return service.addException({
@@ -333,8 +326,6 @@ export async function POST(request: Request) {
                 traceId: ctx.traceId,
                 exceptionId: stringField(p, "exceptionId"),
                 approved: optionalBoolean(p, "approved"),
-                approvedBy: optionalString(p, "approvedBy") ?? undefined,
-                reviewedBy: optionalString(p, "reviewedBy") ?? undefined,
               });
             case "record.management-review":
               return service.recordManagementReview({
@@ -344,7 +335,6 @@ export async function POST(request: Request) {
                 title: stringField(p, "title"),
                 frameworkId: optionalString(p, "frameworkId"),
                 meetingDate: optionalString(p, "meetingDate"),
-                reviewedBy: optionalString(p, "reviewedBy") ?? undefined,
                 scope: stringField(p, "scope"),
                 decisions: asRecord(p.decisions ?? {}),
                 actions: asRecord(p.actions ?? {}),

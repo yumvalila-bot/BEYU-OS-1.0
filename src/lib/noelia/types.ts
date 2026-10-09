@@ -276,6 +276,7 @@ export type ToolDenialCode =
   | "HUMAN_APPROVAL_INVALID"
   | "INPUT_INVALID"
   | "OUTPUT_INVALID"
+  | "EXECUTION_STOPPED"
   | "TIMEOUT"
   | "CAPABILITY_NOT_AVAILABLE";
 
@@ -351,6 +352,8 @@ export type NoeliaEvidenceInput = {
   answer: Omit<NoeliaAnswer, "decisionId" | "latencyMs">;
   policy: PolicyEvaluation;
   target: NoeliaTargetContext;
+  /** Canonical finite scope resolved before HIVE/tool execution. */
+  scope: NoeliaAuthorizedScope;
   latencyMs: number;
   requestId?: string;
   model?: string;
