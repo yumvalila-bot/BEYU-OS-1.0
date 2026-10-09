@@ -66,7 +66,7 @@ for (const width of [375, 768, 1024, 1440]) {
 }
 
 test("implemented shell domain labels and distinct Trust governance artwork", async ({ page }) => {
-  for (const [path, name] of [["/os", "BEYU OS"], ["/os/finance", "Finance OS"], ["/os/agriculture", "Agriculture OS"], ["/os/foundation", "Foundation organization"], ["/os/ujenzi", "Ujenzi OS"], ["/os/family", "Family Office"]]) {
+  for (const [path, name] of [["/os", "BEYU OS"], ["/os/finance", "Finance OS"], ["/os/agriculture", "Agriculture OS"], ["/os/foundation", "BEYU Foundation"], ["/os/ujenzi", "Ujenzi OS"], ["/os/family", "Family Office"]]) {
     await page.goto(path);
     await expect(page.getByRole("link", { name: `${name} — BEYU OS home` }).filter({ visible: true })).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: "Page history" })).toHaveCount(1);
