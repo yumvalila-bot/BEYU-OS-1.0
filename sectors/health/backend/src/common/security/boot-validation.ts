@@ -110,6 +110,13 @@ export function validateBootEnvironment(
       "BEYU_IDENTITY_TEST_HARNESS must NOT be enabled in production — canonical identities would be synthetic",
     );
   }
+  // The standalone-auth test flag lifts the Health credential fence (C-2 / D-3).
+  // Production never runs standalone credentials, so the flag is refused outright.
+  if (isProd && env.BEYU_HEALTH_STANDALONE_AUTH_TEST_ONLY !== undefined) {
+    errors.push(
+      "BEYU_HEALTH_STANDALONE_AUTH_TEST_ONLY must NOT be set in production — Health credentials are not an identity authority (decision D-3)",
+    );
+  }
 
   // ── Queue / rate-limit backend ───────────────────────────────────────────
   if (isProd && env.QUEUE_BACKEND === "memory") {

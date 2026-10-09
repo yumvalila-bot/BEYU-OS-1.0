@@ -32,30 +32,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async rewrites() {
-    // Health OS sector API proxy — optional, OFF by default.
-    //
-    // The mounted Health SPA (`/health/os`, compiled from `sectors/health` by
-    // `scripts/build-health-spa.mjs`) is built with its existing, documented
-    // `VITE_API_BASE_URL=/health-os` knob, so its ONLY network surface is
-    // same-origin `/health-os/auth/*`. When `HEALTH_API_URL` is configured at
-    // build time, those requests are proxied to the sector NestJS backend.
-    // When it is NOT configured (the default — no value exists in the
-    // repository), the paths 404 and the SPA's sign-in fails closed, which is
-    // the truthful state of an integration awaiting its deployment.
-    //
-    // No BEYU route is occupied by this namespace (verified: the BEYU auth
-    // API lives under `/api/v1/auth`), no backend credential reaches the
-    // browser, and no second deployment architecture is created.
-    const healthApiBase = (process.env.HEALTH_API_URL ?? "").replace(/\/+$/, "");
-    if (!healthApiBase) return [];
-    return [
-      {
-        source: "/health-os/auth/:path*",
-        destination: `${healthApiBase}/auth/:path*`,
-      },
-    ];
-  },
+  // Health OS: no proxy to the standalone sector backend. The Health SPA's
+  // sign-in calls /health-os/auth/* and now fails closed, because the backend
+  // refuses standalone credentials (audit C-2, decision D-3). Identity is BEYU's.
+  // Do not add a rewrite here until the governed identity bridge is implemented
+  // and verified. Whether the sector backend is deployed at all is decision D-4.
 };
 
 export default nextConfig;

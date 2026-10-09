@@ -8,26 +8,6 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/auth/:path*",
-      "destination": "${HEALTH_API_URL}/auth/:path*"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "${HEALTH_API_URL}/api/:path*"
-    },
-    {
-      "source": "/health/:path*",
-      "destination": "${HEALTH_API_URL}/health/:path*"
-    },
-    {
-      "source": "/graphql",
-      "destination": "${HEALTH_API_URL}/graphql"
-    },
-    {
-      "source": "/graphql/:path*",
-      "destination": "${HEALTH_API_URL}/graphql/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

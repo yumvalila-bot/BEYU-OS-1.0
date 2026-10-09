@@ -117,11 +117,13 @@ describe("Health OS SPA mount (governed, fail-closed, no second shell)", () => {
     expect(page).toContain('redirect("/os/health")');
   });
 
-  it("proxies the sector API only under a dedicated namespace and only when configured", () => {
+  it("proxies no sector API: the standalone Health backend refuses credentials (C-2 / D-3)", () => {
     const config = source("next.config.ts");
-    expect(config).toContain("HEALTH_API_URL");
-    expect(config).toContain("/health-os/auth/:path*");
-    // No hardcoded default target anywhere in the proxy configuration.
+    // The fence lives in the backend. Routing to it would expose a refused surface,
+    // so no rewrite to HEALTH_API_URL exists until the governed identity bridge does.
+    expect(config).not.toContain("HEALTH_API_URL");
+    expect(config).not.toContain("/health-os/auth/:path*");
+    expect(config).not.toContain("async rewrites");
     expect(config).not.toContain("http://localhost:3000");
   });
 
