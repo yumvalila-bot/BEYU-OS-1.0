@@ -4,7 +4,62 @@
 **Pull request:** [#96 — feat(security): harden governed Noelia execution and database authority](https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/96)
 **Report date:** 2026-10-09 (Africa/Dar_es_Salaam; exact-current-main integration validation)
 **Prepared from:** GitHub check/status APIs, fetched current `main` and PR refs, deterministic exact-parent integration analysis, the checked-out executable source, and tests actually executed in disposable PostgreSQL 16 environments
-**Decision:** **LOCAL GATES PASS — NOT MERGE-READY PENDING FRESH CI AND HUMAN APPROVAL**
+**Decision:** **MERGE-READY — HUMAN APPROVAL REQUIRED**
+
+---
+
+## -2. Fresh-CI closure and final human gate — 2026-10-09
+
+This section supersedes every older disposition below. Historical sections remain as an audit trail and must not be read as the status of the final candidate.
+
+### -2.1 Final candidate identity and latest-main check
+
+- The validated executable head is `95c56441a42902227a65df4500db50b4d740231d` on the existing PR #96 branch, with exact-current-main integration commit `ab09460c8023528d522c60b0e6830dc9941e88c6` and base/parent `86dc7e7748e48d0fecd3d465a1a60ad1826a7c13`.
+- Immediately after fresh CI completed, fetched `origin/main` remained exactly `86dc7e7748e48d0fecd3d465a1a60ad1826a7c13`; no newer mainline delta was outstanding.
+- GitHub reported PR #96 open, non-draft, `MERGEABLE`, and `CLEAN` on the validated head. No human review decision was recorded.
+- The only repository change after the validated executable head is this Markdown evidence update; it changes no executable source, workflow, migration, test, dependency, or generated artifact.
+
+### -2.2 Browser-gate diagnosis and correction
+
+Fresh CI run [`37980763714`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37980763714) proved every root gate through the full PostgreSQL/HTTP regression but failed at the browser step. Inspection of the current executable source and the only browser-spec delta identified the stale assertion: the shell correctly renders the canonical nonprofit identity `BEYU Foundation`, while `tests/browser/history-brand.spec.ts` expected the non-canonical presentation string `Foundation organization`.
+
+Commit `95c56441a42902227a65df4500db50b4d740231d` changes only that browser assertion to the canonical catalogue identity. It does not rename Foundation to an OS, add authority, alter authorization, or change runtime behavior. Local focused validation passed:
+
+- `tests/frontend/history-navigation.test.ts`: **9/9 passed**;
+- ESLint on the changed browser spec: **passed**;
+- authenticated built-server check: `/os/foundation` rendered the canonical `BEYU Foundation` shell identity and not the stale assertion text;
+- committed-tree secret scan: **clean across 2,563 tracked files**;
+- `git diff --check`: **passed**.
+
+A local Playwright browser download was blocked by a TLS connection reset to `cdn.playwright.dev`; this was not treated as a pass. The authoritative browser execution occurred in fresh CI and passed in full.
+
+### -2.3 Fresh CI on the corrected executable head
+
+CI run [`37987540796`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540796) completed successfully. Its root PostgreSQL security job [`114013160259`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540796/job/114013160259) passed in 54m15s, including:
+
+- root typecheck and lint;
+- canonical migrations `0000`–`0075`, ledger completeness, deterministic replay, and reconciliation;
+- expand/contract, drift self-test, schema drift, and disaster-recovery replay/restore gates;
+- constrained runtime and governed-mutation role assertions;
+- bootstrap seed;
+- both production builds, including deployment-parity build without runtime secrets;
+- built-server database health;
+- the full PostgreSQL-backed and HTTP/E2E root regression;
+- Chromium installation and the complete browser history, keyboard, responsive, and canonical-identity suite;
+- the explicit no-silent-skip assertion; and
+- root evidence upload and cleanup.
+
+Every other job in the same run also passed: committed-secret scan, P3 release governance, Health frontend, Health backend against real PostgreSQL (including migrations `001`–`045`, PGlite, real-PostgreSQL security, build, readiness, and lint), and all three production critical-dependency audits.
+
+Database-release run [`37987540865`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540865) also passed its scratch-PostgreSQL migration-validation job [`114013160731`](https://github.com/yumvalila-bot/BEYU-OS-1.0/actions/runs/37987540865/job/114013160731) in 1m4s: clean installation, zero-pending/no-drift preflight, finite application-role provisioning, and expected schema/security-state capture all succeeded. Production deploy, production preflight/drift, runtime verification, release record, and PVG were intentionally skipped for the pull-request event. Therefore **PRODUCTION MIGRATION NOT VERIFIED** remains explicit; no production operation was performed.
+
+The only CI annotations were GitHub's Node.js action-runtime deprecation notices. They were not test, security, migration, audit, or build failures.
+
+### -2.4 Final disposition
+
+All required local and fresh-CI executable gates are green against unchanged exact current main. The technical disposition is therefore **MERGE-READY — HUMAN APPROVAL REQUIRED**.
+
+This report does not grant approval and does not authorize an automated or forced merge. A qualified human must review and decide whether to merge. No merge, approval, auto-merge, force-merge, deployment, promotion, production migration, production data write, provider activation, or production permission/secret change was performed.
 
 ---
 
