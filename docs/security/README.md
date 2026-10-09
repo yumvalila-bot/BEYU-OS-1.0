@@ -83,8 +83,11 @@ That scope is only meaningful if the manifests tell the truth about what ships.
 
 - [`PRODUCTION_DEPENDENCY_AUDIT_REMEDIATION.md`](PRODUCTION_DEPENDENCY_AUDIT_REMEDIATION.md) — the
   2026-10-05 critical advisories (`tinypool`, `proxy-addr`), the measured production exposure of
-  each, the remediation applied, what it explicitly does **not** fix, and the owner decision that
-  remains open (Vitest 3 → 4). Pinned by `tests/security/production-dependency-boundary.test.ts`.
+  each, the remediation applied, and what it explicitly does **not** fix (§8). §13 records the
+  follow-up that closed the remaining half: `vitest` 3.2.7 → 4.1.11 in both packages that resolve it,
+  which removes `tinypool` from the repository entirely — Vitest 4 rewrote its pools without it — and
+  takes the root full-tree audit from 16 vulnerabilities / 2 critical to 12 / 0. Pinned by
+  `tests/security/production-dependency-boundary.test.ts`.
 
 ## Non-claims
 

@@ -278,6 +278,9 @@ Stated plainly, because the distinction is the whole point:
   **16 vulnerabilities (5 moderate, 9 high, 2 critical)** before and after. What changed is that the
   package is no longer misdeclared as production scope, so the *production* gate measures the
   production graph and the SBOM reports it correctly. Eliminating the code requires §9.
+  **Superseded by §13**, which performs that upgrade: `tinypool` is now absent from the resolved
+  tree and from the runner process (15 module events → 0), and the root full-tree audit goes
+  16 vulnerabilities / 2 critical → **12 / 0 critical**.
 * **The backend's `handlebars` critical is not addressed.** It is dev-scoped (via `ts-jest`),
   absent from the `npm ci --omit=dev` image (verified on disk), and therefore not a gate failure.
   Backend full-tree audit goes 76 → 75 vulnerabilities, 2 → 1 critical, purely from `proxy-addr`.
@@ -295,19 +298,24 @@ being discovered again by accident.
 | Package | Where | Severity | Reachability | In-range fix | Suggested follow-up |
 |---|---|---|---|---|---|
 | `sharp@0.35.4` | root, production graph | high (GHSA-wq5f-xc86-pv6w) | **Runtime** — traced into `.next/next-server.js.nft.json`; Next.js image optimisation | Yes: `next` declares `^0.35.4`, so `>= 0.35.5` is in range | Separate change: `npm update sharp`, then re-run the build and the image/branding suites. Native binaries in the runtime path deserve their own review. |
-| `source-map-js@1.2.1` | root, production graph | high (GHSA-68fv-2mgg-jv7q) | Build-time only (via `postcss`, `@tailwindcss/node`) | Yes | Same change as `sharp`, or fold into the Vitest 4 work. |
-| `@vitest/mocker@3.2.7` | root, **dev** graph | moderate (GHSA-82fw-gwwq-j7x9) | Test runner only | Only via Vitest `>= 4.1.11` | Removed automatically by the §9 upgrade. |
-| `tinypool@1.1.1` | root, **dev** graph | **critical** ×2 | Test runner — loaded by vitest's `forks` pool | Only via Vitest `>= 4`, or the `overrides` lever | **§9 — owner decision.** |
+| `source-map-js@1.2.1` | root, production graph | high (GHSA-68fv-2mgg-jv7q) | Build-time only (via `postcss`, `@tailwindcss/node`) | Yes | **DONE in §13** — re-resolved to `1.2.2` inside `postcss`'s own declared range, which drops the production gate from 2 high to 1. |
+| `@vitest/mocker@3.2.7` | root, **dev** graph | moderate (GHSA-82fw-gwwq-j7x9) | Test runner only | Only via Vitest `>= 4.1.11` | **DONE in §13** — resolved at `4.1.11`, nested under `vitest`. |
+| `tinypool@1.1.1` | root, **dev** graph | **critical** ×2 | Test runner — loaded by vitest's `forks` pool | Only via Vitest `>= 4`, or the `overrides` lever | **DONE in §13** — removed from the graph entirely (vitest 4 rewrote its pools without it). The `overrides` lever was not used. |
 | `handlebars@4.7.9` | backend, **dev** graph | **critical** ×3 titles | `ts-jest` only; absent from the `--omit=dev` image | Yes (`fixAvailable`) | Separate backend change: `npm update handlebars`, or the backend's own `npm audit fix` pass. |
 | 14 high / 11 moderate | backend, production graph | high/moderate | mixed | mostly `npm audit fix` | A dedicated backend supply-chain change. `npm audit fix` there is broad (it would also move `joi`, `compression`, `multer`, `brace-expansion`), so it should not ride along with a one-package critical patch. |
 | `express-rate-limit` | backend, production graph | none | **unused** — declared but never imported | n/a | Remove in a backend cleanup change. |
 
-## 9. Owner decision required: Vitest 3 → 4
+## 9. Owner decision required: Vitest 3 → 4 — **DECIDED AND IMPLEMENTED, see §13**
+
+> **Update 2026-10-09.** The owner took this decision. The upgrade to `vitest@4.1.11` is performed
+> in §13 as a focused follow-up commit, with the compatibility work, the measured trees and the full
+> regression recorded there. This section is kept as the pre-decision analysis it was, with two
+> corrections marked inline, because the reasoning is what makes §13 reviewable.
 
 The only maintained remediation that removes `tinypool` from the repository entirely is a **major**
-Vitest upgrade. It is **not performed here** — a major test-runner upgrade is a deliberate decision
-that must be validated by a full CI run of its own, and the instruction governing this work forbids
-performing one automatically.
+Vitest upgrade. It was **not performed** by the first remediation commit — a major test-runner
+upgrade is a deliberate decision that must be validated by a full CI run of its own, and the
+instruction governing that work forbade performing one automatically.
 
 Verified facts for that decision (registry + advisory API, 2026-10-09):
 
@@ -316,8 +324,8 @@ Verified facts for that decision (registry + advisory API, 2026-10-09):
 | Does `vitest@4.1.11` depend on `tinypool`? | **No.** Its dependency list contains `tinyexec`, `tinybench`, `tinyglobby`, `tinyrainbow`, `obug`, `pathe`, `picomatch`, `magic-string`, `es-module-lexer`, `std-env`, `expect-type`, `why-is-node-running` and the `@vitest/*` 4.1.11 packages — no `tinypool`. |
 | Does it fix the moderate `@vitest/mocker` advisory? | **Yes.** GHSA-82fw-gwwq-j7x9 `first_patched_version` = `4.1.11` for both `vitest` and `@vitest/mocker`. |
 | Node requirement? | `engines: ^20.0.0 \|\| ^22.0.0 \|\| >=24.0.0`. The repository runs Node 22 in both workflows and locally (v22.22.3) → **no Node upgrade**. |
-| Vite requirement? | peer `^6 \|\| ^7 \|\| ^8`; the lockfile has `vite@7.3.6` → **no Vite upgrade**. |
-| Config surface used by BEYU | `resolve.alias`, `test.environment`, `test.include`, `test.setupFiles`, `test.fileParallelism` — all carried forward in v4, but this is an assertion to *prove* in that change, not to assume. |
+| Vite requirement? | peer `^6 \|\| ^7 \|\| ^8`; the lockfile has `vite@7.3.6` → **no Vite upgrade**. **Correction (§13.5): wrong in effect.** `vite` is a *required* peer, and vitest 4 also declares it as a dependency, which npm resolves to the newest matching major: `vite@8.3.4` is installed **nested under `vitest`**. The root's own build never used vite (Next.js/Turbopack), and the Health SPA is built by `sectors/health`'s own `vite@7.3.2`, so this is test-runner-only — measured, not assumed, in §13.5 and §13.9. |
+| Config surface used by BEYU | `resolve.alias`, `test.environment`, `test.include`, `test.setupFiles`, `test.fileParallelism` — all carried forward in v4, but this is an assertion to *prove* in that change, not to assume. **Proven in §13.3/§13.8:** `vitest.config.ts` is byte-for-byte unchanged by the upgrade and the full suite runs on it. |
 | Risk | Major-version test-runner change across 329 test files; the repository's HTTP/E2E and browser layers, its skip-count guard and its serial `fileParallelism: false` ledger determinism all need a full green CI run before merge. |
 | Alternative | `vitest@5.0.3` (npm's `audit fix --force` target) — a larger jump than necessary. `4.1.11` is the `V4` dist-tag and the smallest upgrade that removes the package. |
 
@@ -466,7 +474,302 @@ the Playwright browser layer on the combined branch.
   secret and no migration was touched.
 * No authentication, authorization, RLS, MFA, session, tenant-isolation, audit or canonical-host
   routing code was modified — the diff is two manifest/lockfile scope corrections plus documentation
-  and one pure test.
-* This document does not claim `tinypool` is fixed. It claims the production dependency graph no
-  longer contains it, with the evidence above, and that closing the advisory itself needs §9.
+  and one pure test, and (§13) one manifest version, its lockfile and a single type annotation in a
+  test file.
+* As of §13 the `tinypool` advisories **are** closed at the root: the package is absent from the
+  resolved tree and from the runner process, with the audit and module-load evidence in §13.6. The
+  first remediation commit (§6) deliberately did not claim that, and this document preserved the
+  distinction until the upgrade had actually been performed and measured.
 * Nothing is merged and nothing is promoted. The merge gate stays closed until a person opens it.
+
+## 13. The owner decision taken: `vitest` 3.2.7 → 4.1.11, `tinypool` removed from the tree
+
+Performed 2026-10-09 as a focused follow-up commit on the same branch, on top of §6. One manifest
+line, its lockfile, one type annotation in one test file, the guard test of §10 strengthened, and
+this document. No workflow, threshold, migration, secret or application source changed.
+
+### 13.1 What was inspected before anything was touched
+
+| Item | Finding |
+|---|---|
+| `origin/main` | `2bcff13b`, unchanged since the first audit |
+| PR #102 | OPEN, `mergeStateStatus: CLEAN`, head `8b72984b` (the §6 commit), `mergedAt: null` |
+| `Noelia-AI-features` | tip `08dfe70` (2026-09-30). `compare` reports **ahead_by 0, behind_by 24** — fully contained in `main`, no unique work. Its manifest still shows `vitest` under `dependencies` and `tinypool@1.1.1` production-scoped, i.e. it is simply `main` from before §6; nothing to preserve and nothing to fix separately. |
+| PR #98 (`arena/01163bf1…`) | OPEN, head `bad77383`, 2026-10-07. Independently patches the *same* advisory GHSA-jqcg-44mw-7w3h in `sectors/health/backend/package-lock.json` (`2.0.7 → 2.0.8`) — the same edit §6 made. Whichever merges second will conflict on that lockfile. Flagged, not touched. |
+| Package manager | npm, `lockfileVersion: 3`, no `packageManager` field, no `overrides`, no `resolutions`, no `.npmrc`. **13 `npm ci` invocations** across `ci.yml` (5), `db-release.yml` (5), `runtime-dsn-diagnostic.yml` (1) and the Health OS backend `Dockerfile` (2). No workflow or Dockerfile runs `npm install`. |
+| Node | CI pins `node-version: 22` at all five root/sector jobs; local v22.22.3, npm 10.9.8 (the npm bundled with Node 22) |
+| Vitest configuration | `vitest.config.ts` (root) uses `resolve.alias`, `test.environment: "node"`, `test.include`, `test.setupFiles`, `test.fileParallelism: false`. `sectors/health/vitest.config.ts` is a separate package's config. No `vitest.workspace.*`, no projects, no coverage provider, no vitest browser mode (`npm run test:browser` is `playwright test`). |
+| Actual CI failure | **None for `tinypool` as of `8b72984b`.** §6 turned both red gates green, and CI run `37892442070` confirmed all three `Production dependency audit` jobs passing. What remained was the *full-tree* audit (`npm audit`, no `--omit=dev`) exiting 1 with 2 criticals, the SBOM's dev-scope entry, and the fact that the package was still loaded on every test run. |
+
+### 13.2 Root cause, and the version chosen
+
+`vitest@3.2.7` declares `tinypool: ^1.1.1`. The `tinypool` 1.x line **ends at 1.1.1**; the patched
+releases are `2.1.1` (GHSA-5gmw-xhrv-c9v3) and `2.1.2` (GHSA-85c8-ppgw-ccpr). `^1.1.1` admits
+neither, so there is no patched tinypool reachable from any vitest 3.x — and `3.2.7` is the final
+3.x (npm dist-tag `V3`). `npm audit fix` consequently offers nothing in range; its only suggestion
+is `--force`, which targets `vitest@5.0.3`.
+
+Vitest 4 does not bump tinypool, it deletes it: the v4.0.0 release notes list **"Rewrite pools
+without `tinypool`"** (vitest-dev/vitest#8705). `vitest@4.1.11`'s dependency list contains no
+tinypool, and `4.1.11` is also the exact `first_patched_version` for GHSA-82fw-gwwq-j7x9.
+
+| Candidate | Verdict |
+|---|---|
+| `tinypool@2.1.2` via `overrides` | **Rejected.** Outside vitest 3's declared range; raises tinypool's Node floor; and §10's guard now asserts `package.json` has no `overrides` at all. |
+| `vitest@4.1.11` | **Chosen.** npm dist-tag `V4`, highest 4.x (2026-08-18). Removes tinypool from the graph, patches the moderate `@vitest/mocker` advisory, needs no Node upgrade (`^20 \|\| ^22 \|\| >=24`) and no Vite major from the consumer. |
+| `vitest@5.0.3` | **Rejected.** npm's `audit fix --force` target. Fixes no advisory that 4.1.11 does not already fix, is a second major with its own breaking-change set, and raises the Node floor to `^22.12.0`. |
+
+No `@vitest/*` companion package is installed anywhere (no `coverage-v8`, `ui`, `browser-*`), so
+there was nothing to keep in lockstep; no coverage command appears in any workflow.
+
+### 13.3 Compatibility established before the change
+
+Checked against the v4.0.0 release notes' breaking-change list, not against memory:
+
+| v4 removal / change | Used by this repository? |
+|---|---|
+| `'basic'` reporter removed | No — default reporter, plus `--reporter=verbose` in the P3 job (verbose is kept) |
+| `workspace` option removed for `projects` | No workspace file exists |
+| `environmentMatchGlobs` / `poolMatchGlobs` removed | Not used |
+| Vite 5 support removed | Lockfile has Vite 7 |
+| `vite-node` replaced by module-runner | Never imported directly |
+| Node types moved out of the main entry (`vitest/node`) | `vitest.config.ts` imports only `vitest/config` |
+| Pools rewritten without tinypool | **The point of the upgrade** |
+| `chai`-based `assert` | No test imports `assert` or `chai` from vitest (named imports across 329 files: `it`, `expect`, `describe`, `afterAll`, `beforeAll`, `beforeEach`, `afterEach`, `vi`, one type import) |
+| Snapshots: obsolete snapshots fail on CI | No `.snap` file and no inline snapshot anywhere |
+| `test()` with no function becomes `todo` | No such call exists |
+| Spy implementation rewritten | One file uses `mockReset`/`mockRestore`/`restoreAllMocks`/`vi.hoisted`/`vi.mock` — `tests/api/health-classification.test.ts`, run explicitly: **44/44 passed** |
+| Fake-timer defaults | One file uses `vi.useFakeTimers({ toFake: ["Date"] })` — explicit, so default changes are inert |
+| Browser mode provider factory | Vitest browser mode is not used; Playwright runs through `playwright test` |
+
+CI output coupling was checked specifically, because a gate greps the runner's stdout: `ci.yml`
+extracts the skip count with `grep -oE '[0-9]+ skipped'` from the default reporter and tolerates
+≤ 15 skips. Vitest 4 still prints `Tests  N passed | M skipped (T)`; the full run in §13.8 is
+grepped for exactly that pattern.
+
+### 13.4 The npm arborist crash, and the three trees that were measured
+
+`npm install --save-dev vitest@4.1.11` under **npm 10.9.8** — the npm CI actually uses — dies with
+
+```
+TypeError: Cannot read properties of null (reading 'edgesOut')
+    at #loadPeerSet (@npmcli/arborist/lib/arborist/build-ideal-tree.js:1289)
+    … unfinished npm timer idealTree:node_modules/vitest
+```
+
+reproduced from a clean `node_modules` and from a hand-edited manifest. The trigger is vitest 4
+declaring `vite` as **both** a dependency and a *required* peer
+(`peerDependenciesMeta.vite.optional === false`). No `--force`, `--legacy-peer-deps` or `overrides`
+was used to get past it. Three candidate trees were built and each was tested with the command CI
+runs (`npm ci`, npm 10.9.8):
+
+| Tree | Manifest | Lockfile authored by | Entries | `npm ci` under npm 10.9.8 |
+|---|---|---|---|---|
+| A | `vitest ^4.1.11` **+ `vite 7.3.6`** | npm 10.9.8 | 694 | exit 0 — but installs **two** vites: an unused `7.3.6` at the top level *and* `8.3.4` nested under vitest, which still runs the tests. +51 entries of dead weight. Rejected. |
+| B | `vitest ^4.1.11` | npm 11.21.0 | 610 | **exit 1 — `EUSAGE`: "package.json and package-lock.json are not in sync"**. Would break all 13 `npm ci` sites. Rejected. |
+| **C** | `vitest ^4.1.11` | npm 11 resolves, then **npm 10.9.8 `npm install` rewrites** | **637** | **exit 0 — chosen** |
+
+Tree C's lockfile is authored by the same npm version that installs it in CI, which is what makes it
+safe. npm 10's rewrite differs from npm 11's only by re-adding the 27 platform-specific `@esbuild/*`
+optional binaries npm 11 had pruned; there is **no version difference** between B and C.
+
+### 13.5 Exact before / after
+
+Manifest — one line:
+
+```diff
+-    "vitest": "^3.2.7"
++    "vitest": "^4.1.11"
+```
+
+Lockfile: **643 → 637 entries**, 62 added / 68 removed (52 of the additions and 51 of the removals
+are platform-specific native binaries), **14 version changes, 0 scope changes**, and
+**production-scope entries unchanged at 106 → 106**.
+
+| Package | Before | After | Scope |
+|---|---|---|---|
+| `vitest` | 3.2.7 | **4.1.11** | dev |
+| `@vitest/expect`, `pretty-format`, `runner`, `snapshot`, `spy`, `utils` | 3.2.7 | **4.1.11** | dev |
+| `@vitest/mocker` | 3.2.7 (top level) | **4.1.11** (nested under `vitest`) | dev |
+| **`tinypool`** | **1.1.1** | **REMOVED** | — |
+| `vite` | 7.3.6 (top level) | **8.3.4 nested under `vitest`** | dev |
+| `vite-node` | 3.2.4 | **REMOVED** (module-runner replaces it) | — |
+| `rollup` + 26 `@rollup/rollup-*` binaries | 4.63.0 | **REMOVED** | — |
+| `rolldown` + 16 bindings, `@oxc-project/types`, `@rolldown/pluginutils` | — | **ADDED** 1.2.13 (vite 8's bundler) | dev |
+| `lightningcss` + 12 binaries | — | **ADDED** 1.33.0 | dev |
+| `obug`, `@standard-schema/spec` | — | **ADDED** 2.2.1 / 1.1.0 | dev |
+| `chai` | 5.3.3 | 6.3.0 | dev |
+| `es-module-lexer`, `std-env`, `tinyexec`, `tinyrainbow` | 1.7.0 / 3.10.0 / 0.3.2 / 2.0.0 | 2.3.2 / 4.3.0 / 1.3.1 / 3.2.0 | dev |
+| `tinyspy`, `strip-literal`, `cac`, `check-error`, `deep-eql`, `loupe`, `pathval` | present | **REMOVED** | — |
+| **`source-map-js`** | **1.2.1** | **1.2.2** | **production** |
+| **`nanoid`** | **3.3.18** | **3.3.20** | **production** |
+
+The two production-scope rows are the only change to the shipped graph, and they are *incidental*:
+npm re-resolved `postcss`'s own declared ranges (`source-map-js ^1.2.1`, `nanoid ^3.3.x`) while
+rebuilding the tree. No manifest declares either package. `source-map-js@1.2.2` clears
+GHSA-68fv-2mgg-jv7q (high), which is why the production gate's high count drops from 2 to 1. Both
+were verified by a full production build and the whole regression suite (§13.8).
+
+`sectors/health` — the same one-line manifest change against its own package and lockfile:
+
+```diff
+-    "vitest": "^3.2.7"
++    "vitest": "^4.1.11"
+```
+
+| | Before | After |
+|---|---|---|
+| Lockfile entries | 235 | **227** |
+| `tinypool` | **1.1.1** (dev) | **REMOVED** |
+| `vitest` + the seven `@vitest/*` | 3.2.7 | **4.1.11** |
+| `vite` | 7.3.2 (direct devDependency) | **7.3.2 unchanged, nothing nested** |
+| `chai`, `es-module-lexer`, `std-env`, `tinyexec`, `tinyrainbow` | 5.3.3 / 1.7.0 / 3.10.0 / 0.3.2 / 2.0.0 | 6.3.0 / 2.3.2 / 4.3.0 / 1.3.1 / 3.2.0 |
+| Scope changes | — | **0** (production-scope entries 5 → 5) |
+| Full-tree audit | **exit 1 — 13 (1 low, 2 moderate, 8 high, 2 critical)** | **exit 0 — 10 (1 low, 1 moderate, 8 high, 0 critical)** |
+| `npm audit --omit=dev --audit-level=critical` (the `health-os-frontend` gate) | exit 0 — 0 vulnerabilities | **exit 0 — 0 vulnerabilities** |
+
+The same npm-10 arborist crash applies here, and the same recipe was used: npm 11 resolves, npm 10.9.8
+rewrites, then `npm ci` under npm 10.9.8 exits 0 (157 packages). For this package npm 11 and npm 10
+produced the **same 227 entries**, and re-deriving the lockfile from the manifest reproduced it
+byte-for-byte (`git hash-object` = `ed5a0951de665adbde8290782b5425caac5241f7` twice) — a useful
+independent check that the resolution is deterministic.
+
+### 13.6 Audit and runtime evidence
+
+The guard test of §10 was strengthened *first*, so the fix is proven by a test that fails without it.
+Three new assertions (tinypool absent at any scope; no `vitest`/`@vitest/*` below 4.1.11; no
+`overrides`/`resolutions`/`.npmrc` suppression) and two rewritten ones (the declared range and the
+resolved version):
+
+| Run | Before the upgrade | After |
+|---|---|---|
+| 1 | **4 failed \| 12 passed (16)**, exit 1 | **16 passed (16)**, exit 0 |
+| 2 | **4 failed \| 12 passed (16)**, exit 1 | **16 passed (16)**, exit 0 |
+| 3 | **4 failed \| 12 passed (16)**, exit 1 | **16 passed (16)**, exit 0 |
+
+The 12 that passed before include every pre-existing assertion, so nothing was loosened to obtain
+the green — the 4 failures are exactly the new tinypool/version invariants.
+
+Audits:
+
+| Command | Before | After |
+|---|---|---|
+| `npm audit --omit=dev --audit-level=critical` (the CI gate) | exit 0 — 2 high, 0 critical | **exit 0 — 1 high, 0 critical** |
+| `npm audit --audit-level=critical` (full tree) | **exit 1 — 16 (5 moderate, 9 high, 2 critical)** | **exit 0 — 12 (4 moderate, 8 high, 0 critical)** |
+| Cleared | — | `tinypool`, `vitest`, `@vitest/mocker`, `source-map-js` |
+| Introduced | — | **none** |
+
+npm had been rolling the two tinypool criticals up onto `vitest` itself as `0.0.95 - 4.1.10`, so one
+version change clears both critical entries *and* the moderate one.
+
+Runtime exposure, measured with an ESM loader hook (`module.registerHooks` on Node 22) that logs
+every resolve/load whose specifier is `tinypool`, around a real `vitest run`:
+
+| | Before | After |
+|---|---|---|
+| tinypool module events during one test run | **15** (`RESOLVE tinypool ← vitest/dist/chunks/coverage…`, then `LOAD` of `tinypool/dist/index.js`, `entry/process.js`, `common-*.js`, `utils-*.js`) | **0** — the hook's log file is never even created |
+| `require.resolve('tinypool')` from the repository | resolves to `node_modules/tinypool` | **MODULE_NOT_FOUND** |
+| Runner banner | `RUN v3.2.7` | `RUN v4.1.11` |
+
+### 13.7 The one source change Vitest 4 required
+
+`npx tsc --noEmit` reported exactly one error after the upgrade:
+
+```
+tests/api/health-classification.test.ts(74,42): error TS7006: Parameter 'c' implicitly has an 'any' type.
+```
+
+Vitest 3 typed `vi.spyOn` such that the un-instantiated `ReturnType<typeof vi.spyOn>` still yielded a
+mock whose `mock.calls` element type was `any[]`. Vitest 4 types `spyOn` as **three generic
+overloads** (`get` / `set` / method), so that same `ReturnType<…>` no longer resolves to a concrete
+mock type and the callback parameter at line 74 became implicitly `any` under `strict`.
+
+Fixed by naming the spied procedure rather than by annotating the callback or loosening the config:
+
+```diff
+-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+…
+-let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
++let consoleErrorSpy: MockInstance<typeof console.error>;
+```
+
+This is valid because `@vitest/spy` declares `type Mock<T> = MockInstance<T> & …`, so
+`vi.spyOn(console, "error").mockImplementation(…)` remains assignable. It is *more* precise than the
+Vitest 3 form: `.mock.calls` is now typed from `console.error`'s real signature. Typecheck went from
+1 error to **0 errors**. No test, expectation, assertion or `it.skip` was added, removed or weakened.
+
+### 13.8 Verification record
+
+Environment: Node v22.22.3, npm 10.9.8, embedded PostgreSQL 16.14, this branch's working tree.
+
+| Step | Result |
+|---|---|
+| `npm ci` (the command all 13 CI/Docker sites run) | **exit 0**, 443 packages (was 448) |
+| The three audit gates, exact CI command | **exit 0 / exit 0 / exit 0** |
+| Strengthened guard test | **16/16 passed**, three consecutive runs |
+| `tsc --noEmit` | **0 errors** (after §13.7) |
+| `npm run lint` | **0 errors**, the same 1 pre-existing `<img>` warning |
+| Migration integrity → `npm run migrate` → `setup-db-role` → `npm run seed` | PASSED; fingerprint after migration `f304a5178e44e0dd91e539161064b8d9` — **identical to §11.3**, so the schema is untouched; `beyu_runtime` `rolsuper=false`, `rolbypassrls=false`, `rolcreaterole=false`, `rolcreatedb=false`, `rolcanlogin=true`, plus the payment/governance/tenant-domain/federation DML revocations; seed exit 0 |
+| `npm run build` | **exit 0** — `✓ Compiled successfully`, 170/170 static pages, `/api/health`, `/health`, `/sign-in` registered; `src/app/health/os/spa-content.ts` **byte-identical** (sha256 `f491cb88c89b16939ad6e7a91194a666735513bdf8b315623dd64be6e9915680`, the same digest recorded in §11.3), so the nested Vite 8 did **not** perturb the Health SPA artifact |
+| `/api/health` on `next start -H 127.0.0.1 -p 3100` with `BEYU_CANONICAL_DOMAIN=beyu.co.tz` | `{"ok":true,"system":"BEYU-OS/1.0.0","checks":{"database":"UP"},"latencyMs":12}` |
+| Full root regression, CI parity (`npm test`, `BEYU_TEST_BASE_URL=http://127.0.0.1:3100`, `BEYU_TEST_CANONICAL_DOMAIN=beyu.co.tz`) | **326 files passed \| 3 skipped (329) · 5461 tests passed \| 12 skipped (5473) · 0 failed · exit 0 · 1498.53 s (24 m 59 s)**. The vitest 3 baseline at `HEAD` (§11.1, isolated `main`) was 323 files / 5398 tests / 0 failed / 24 m 05 s; the +3 files and +63 tests are PR #102's own suites, not tests added by this change. CI's skip-count guard was re-applied to this log: `12 ≤ 15` → PASS, and the `[0-9]+ skipped` pattern that `ci.yml` greps is still what vitest 4 prints (`Tests  5461 passed \| 12 skipped (5473)`) |
+| Finance CAP_POSTING / journal POST / ledger-write authority | **16 files / 431 tests passed, 0 failed** — `posting-engine` 21, `journal-scope-integrity` 6, `ledger-write-authority` 6, `capital-governance` 26, `capital-governance-http` 14, `private-capital-refusals` 27, `finance-os` 95, `finance-os-domains` 72, `finance-os-rails` 68. CAP_POSTING fail-closed and the journal POST protection are unchanged. In the same run PR #102's suites stayed green: `destination-frontends` 32, `destination-signin-http` 16 (its 1 by-design skip), `canonical-host-http` 16, `admin-frontend-preview` 31, `p1-release-invariants` 10, and the strengthened guard 16 |
+| `sectors/health`: `npm ci` → `npm run typecheck` → `npm test` → audits | **exit 0** at every step; 157 packages; `RUN v4.1.11`; **4 files / 16 tests passed** (incl. the jsdom `App.render` suite); both audits as tabulated in §13.5 |
+| Root `npm run build` re-run *after* the sector upgrade | **exit 0**, `✓ Compiled successfully`, and `spa-content.ts` still sha256 `f491cb88…` — the sector's `vite build` still runs on vite 7.3.2 |
+| Health OS backend (`npm ci` → `nest build` → jest `src/common/security src/test/e2e`) | **exit 0 / exit 0 / exit 0**; 927 packages, `proxy-addr@2.0.8` on disk (§6 intact); **31 suites passed (1 skipped), 194 tests passed, 10 skipped, 0 failed**; gate exit 0 with 25 vulnerabilities (11 moderate, 14 high), 0 critical. The full backend jest suite still cannot run in this sandbox — OOM-killed, exit 137, because PGlite's WASM sits outside the capped V8 heap (§11.2); CI runs it. |
+| `npm run sbom` (CycloneDX, `scripts/supply-chain/sbom.mjs`) | 636 components, **106 `required`** (unchanged count). **`tinypool` is absent from the SBOM entirely**; `vitest@4.1.11`, `@vitest/mocker@4.1.11` and `vite@8.3.4` are `optional`; `tsx@4.23.12` remains `required` by design; `source-map-js` is now `1.2.2` and `nanoid` `3.3.20` |
+| `node scripts/scan-secrets.mjs` | exit 1 on the **same 2 pre-existing findings** (`tests/frontend/noelia-shell-http.test.ts:136,143`), a file this commit does not touch; **no new finding** in any changed file. CI's `Committed secret scan` job uses different patterns and passed at `8b72984b` |
+
+Build-memory note, measured rather than assumed. `next build`'s type-check step OOMs on this sandbox
+(`FATAL ERROR: Reached heap limit` → `Failed to type check.`) because the box has 3.9 GB of RAM and
+Node's default heap limit here is **1954 MB**, while `tsc` needs more than that *at HEAD too*:
+
+| `tsc --noEmit --extendedDiagnostics` | vitest 3.2.7 (pristine `HEAD` tree) | vitest 4.1.11 |
+|---|---|---|
+| Files / Types | 2380 / 854,710 | 2405 / 870,243 |
+| Memory used | 2,159,428 K (2.06 GB) | 2,239,468 K (**2.14 GB, +78 MB / +3.7 %**) |
+| Total time | 58.90 s | 64.86 s (+6.0 s) |
+
+With `NODE_OPTIONS=--max-old-space-size=3072` the build exits 0. CI's runners have 8 GB, where
+Node's default heap is roughly 4 GB, and CI's `Production build` step passed at `HEAD` — a +3.7 %
+type-check footprint does not change that materially, but it is recorded here because it is the one
+resource axis on which this upgrade makes anything heavier.
+
+### 13.9 Risks, side effects and follow-ups
+
+* **Vitest 4 pulls Vite 8.3.4 (rolldown-based) into the dev tree**, plus `rolldown` and
+  `lightningcss` native binaries. Test-runner only: the root production build is Next.js/Turbopack
+  and the Health SPA is compiled by `sectors/health`'s own `vite@7.3.2`, which is why
+  `spa-content.ts` reproduced byte-identically. Tree A (§13.4) shows that declaring `vite` at the
+  root to keep v7 does **not** prevent vitest from using its own nested v8 — it only adds a second,
+  unused copy — so it was rejected.
+* **Vite 8 emits a forward-compatibility warning** about `vitest.config.ts`: *"ESM syntax in a file
+  loaded as CommonJS … Use a `.mjs` extension or set `"type": "module"`"*, because
+  `configLoader: 'native'` is planned to become Vite's default. Inert today (the run is green). The
+  rename is deliberately **not** bundled into a security change; it belongs in a follow-up.
+* **`sectors/health` was upgraded in the same commit**, because it is the only other package in the
+  repository that resolves vitest; leaving it would have left `tinypool@1.1.1` installed somewhere and
+  the job half done. Its tree came out *cleaner* than the root's: the package already declares
+  `vite@7.3.2` directly, so vitest's required peer is satisfied in place and **no second vite is
+  installed at all** — no rolldown, no lightningcss, and the SPA build keeps using vite 7.3.2. Measured
+  in §13.5 and §13.8. The Health OS backend runs jest and has never carried tinypool; its lockfile is
+  untouched by this commit.
+* **Not addressed here** (all still inventoried in §8.1): `sharp@0.35.4` high, which *is* traced into
+  the deployed server runtime; the backend's dev-scoped `handlebars` critical; the backend's 14 high /
+  11 moderate; and the backend's declared-but-never-imported `express-rate-limit`.
+* **Playwright could not run in this sandbox** (no browser binary, and the download CDN is not
+  reachable from it), so `npm run test:browser` is delegated to CI exactly as in §11.3.
+
+### 13.10 Non-claims and the human gate
+
+* No advisory was suppressed, no `--force`, no `--legacy-peer-deps`, no `overrides`, no
+  `resolutions`, no `.npmrc`, no audit threshold changed, no workflow edited, no test skipped or
+  loosened.
+* No authentication, authorization, RLS, MFA, session, tenant-isolation, audit or canonical-host
+  routing code was modified; `vitest.config.ts` is unchanged; no migration was added or altered and
+  the post-migration fingerprint is identical to §11.3.
+* No production system was contacted: loopback DSNs against a disposable embedded PostgreSQL, no
+  Supabase host, no Vercel project, no DNS record, no secret.
+* Nothing is merged, promoted or deployed. PR #102 remains OPEN with `mergedAt: null`, and the merge
+  gate stays closed until a person opens it.
