@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { adminAuthorityDelegations, emergencyAccessGrants, legalEntities, roleAssignments, roles, tenants, users } from "@/db/schema";
 import {
   AGRICULTURE_OS_TENANT_CODE,
+  UJENZI_OS_TENANT_CODE,
   ADMIN_DELEGATABLE_PERMISSIONS,
   classificationRank,
   isKnownClassification,
@@ -386,6 +387,17 @@ export function can(
     return {
       allowed: false,
       reason: "ABAC: agriculture writes require the Agriculture OS tenant",
+      requiresMfa: false,
+      highRisk,
+    };
+  }
+  // Ujenzi writes are tenant-bound to the Ujenzi OS tenant, by the same rule as
+  // Agriculture (audit H-2). A sector operator of another tenant must not create or
+  // amend construction records in its own tenant namespace. Reads are unchanged.
+  if (permission === "ujenzi:data.manage" && principal.tenantCode !== UJENZI_OS_TENANT_CODE) {
+    return {
+      allowed: false,
+      reason: "ABAC: ujenzi writes require the Ujenzi OS tenant",
       requiresMfa: false,
       highRisk,
     };

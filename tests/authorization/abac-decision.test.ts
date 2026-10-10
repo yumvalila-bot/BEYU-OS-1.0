@@ -197,6 +197,47 @@ describe("Iteration 7 ABAC decision lattice", () => {
     const agri = principal({ tenantCode: "BEYU-AGRI", tenantType: "SECTOR", tenantId: "TEN_BEYU_AGRI" });
     expect(can(agri, "agriculture:data.manage").allowed).toBe(true);
   });
+
+  it("ujenzi writes require the Ujenzi OS tenant even when SECTOR_OPERATOR holds the grant", () => {
+    const health = principal({
+      roles: ["SECTOR_OPERATOR"],
+      permissions: new Set(["ujenzi:data.manage"]),
+      tenantCode: "BEYU-HEALTH",
+      tenantType: "SECTOR",
+      tenantId: "TEN_BEYU_HEALTH",
+    });
+    expect(can(health, "ujenzi:data.manage").allowed).toBe(false);
+    expect(can(health, "ujenzi:data.manage").reason).toMatch(/Ujenzi OS tenant/);
+
+    const agri = principal({
+      roles: ["SECTOR_OPERATOR"],
+      permissions: new Set(["ujenzi:data.manage"]),
+      tenantCode: "BEYU-AGRI",
+      tenantType: "SECTOR",
+      tenantId: "TEN_BEYU_AGRI",
+    });
+    expect(can(agri, "ujenzi:data.manage").allowed).toBe(false);
+
+    const ujenzi = principal({
+      roles: ["SECTOR_OPERATOR"],
+      permissions: new Set(["ujenzi:data.manage"]),
+      tenantCode: "BEYU-UJENZI",
+      tenantType: "SECTOR",
+      tenantId: "TEN_BEYU_UJENZI",
+    });
+    expect(can(ujenzi, "ujenzi:data.manage").allowed).toBe(true);
+  });
+
+  it("ujenzi reads are not tenant-bound by this rule (read behaviour is unchanged)", () => {
+    const health = principal({
+      roles: ["SECTOR_OPERATOR"],
+      permissions: new Set(["ujenzi:data.read"]),
+      tenantCode: "BEYU-HEALTH",
+      tenantType: "SECTOR",
+      tenantId: "TEN_BEYU_HEALTH",
+    });
+    expect(can(health, "ujenzi:data.read").allowed).toBe(true);
+  });
 });
 
 afterAll(async () => undefined);

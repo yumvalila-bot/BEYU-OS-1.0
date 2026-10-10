@@ -49,6 +49,11 @@ export function validateProductionBoot(cfg: ConfigService): BootCheckResult {
       "BEYU_IDENTITY_TEST_HARNESS must not be enabled in production — canonical identities would be synthetic",
     );
   }
+  if (cfg.get<string>("BEYU_HEALTH_STANDALONE_AUTH_TEST_ONLY") !== undefined) {
+    failures.push(
+      "BEYU_HEALTH_STANDALONE_AUTH_TEST_ONLY must not be set in production — Health credentials are not an identity authority (decision D-3)",
+    );
+  }
   // Canonical identity federation is mandatory in production (agreement with
   // validateBootEnvironment): registration/login fail closed without the
   // BEYU identity control plane, so a misconfigured boot must refuse to start.

@@ -105,6 +105,9 @@ export async function buildE2EHarness(
     // detection, acting gate). Production refuses this flag at boot AND
     // structurally in IdentityFederationService.mode().
     process.env.BEYU_IDENTITY_TEST_HARNESS = "true";
+    // Standalone-credential fence (C-2 / D-3): the harness exercises auth through
+    // the real handlers. Production never sets this (see standalone-auth.fence.ts).
+    process.env.BEYU_HEALTH_STANDALONE_AUTH_TEST_ONLY = "true";
   }
   const db = new PGlite();
   const conn = new PGliteConnection(db);

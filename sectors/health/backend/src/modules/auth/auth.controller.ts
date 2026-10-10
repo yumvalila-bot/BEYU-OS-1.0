@@ -23,6 +23,7 @@ import {
 } from "../../common/security/csrf-double-submit.guard";
 import { Inject } from "@nestjs/common";
 import { DbConnection, DB_CONNECTION } from "../identity/db-connection";
+import { assertStandaloneAuthPermitted } from "./standalone-auth.fence";
 
 const REFRESH_COOKIE = "beyu_refresh";
 const REFRESH_TTL_MS = Number(process.env.JWT_REFRESH_TTL_MS ?? 604800000);
@@ -45,6 +46,8 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Register a new user" })
   async register(@Body() registerDto: RegisterDto) {
+    // Fence (C-2 / D-3): no standalone registration. Identity is provisioned by BEYU OS.
+    assertStandaloneAuthPermitted("register");
     return this.authService.register(registerDto);
   }
 
@@ -57,6 +60,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Fence (C-2 / D-3): no password login or token issuance from a standalone credential.
+    assertStandaloneAuthPermitted("login");
     const tokens = await this.authService.login(loginDto, {
       ip: req.ip,
       userAgent: req.headers["user-agent"],
@@ -72,6 +77,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Fence (C-2 / D-3): refresh rotates standalone sessions, so it is refused with them.
+    assertStandaloneAuthPermitted("refresh");
     const refreshToken = this.readRefreshToken(req);
     const tokens = await this.authService.refreshToken(
       { refreshToken },
@@ -85,6 +92,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Restore a session from the refresh cookie" })
   async restore(@Req() req: Request) {
+    // Fence (C-2 / D-3): restore mints an access token from a standalone session.
+    assertStandaloneAuthPermitted("restore");
     const refreshToken = this.readRefreshToken(req);
     const result = await this.authService.restoreSession(refreshToken);
     return result;

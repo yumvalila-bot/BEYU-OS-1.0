@@ -29,6 +29,7 @@
  */
 import { adminPool } from "@/db/admin";
 import { appendPaymentAudit } from "./audit-scope";
+import { assertDisposablePaymentsTarget } from "@/lib/payments/disposable-target";
 import { assertPrivilegedWriter, ConfigWriteError } from "./config-write";
 
 export const FIXTURE_RESET_CONFIRM_TOKEN = "RESET-SANDBOX-PAYMENT-FIXTURE";
@@ -101,6 +102,7 @@ export type FixtureResetReport = {
  * to the state it found, rather than asking the reader to trust the word "done".
  */
 export async function removeDemoPaymentRows(input: { prefixes: readonly string[]; confirm: string }): Promise<FixtureResetReport> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payment fixture reset");
   if (input.confirm !== FIXTURE_RESET_CONFIRM_TOKEN) {
     return { ok: false, refused: `confirm must be exactly "${FIXTURE_RESET_CONFIRM_TOKEN}"; nothing was removed`, prefixes: [...input.prefixes] };
   }
@@ -310,6 +312,7 @@ export async function removeDemoPaymentRows(input: { prefixes: readonly string[]
 
 /** Which run tags are currently present in the database as demo rows (operator aid). */
 export async function listDemoFixtureTags(limit = 20): Promise<{ tag: string; transactions: number; events: number }[]> {
+  assertDisposablePaymentsTarget(process.env.BEYU_ADMIN_DATABASE_URL, "payment fixture listing");
   const result = await adminPool.query(
     `with txns as (
        select split_part(provider_transaction_id, '-', 1) as tag, count(*)::int as transactions

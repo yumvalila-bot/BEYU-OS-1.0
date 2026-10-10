@@ -21,6 +21,11 @@
 #     loudly with an EXTERNAL_BLOCKED annotation — they never silently skip.
 #   * DESTRUCTIVE MIGRATIONS (DROP/TRUNCATE/…) against an existing schema
 #     stop the pipeline for explicit human approval (--allow-destructive).
+#   * NO AUTOMATIC PRODUCTION MIGRATION (decision D-6). A push to main runs the
+#     read-only live preflight only. The mutating jobs (deploy, release-record,
+#     runtime-verify, pvg) run solely on an explicit workflow_dispatch with
+#     mode=deploy, and the Production environment should require human reviewers.
+#     Drift reporting stays read-only and scheduled.
 #
 # SECRETS CONTRACT (repository secrets, set by the owner):
 #   BEYU_ADMIN_DATABASE_URL  Supabase Postgres ADMIN/migration DSN
@@ -205,8 +210,7 @@ jobs:
     name: Production database deploy + verify
     needs: [live-preflight, preflight-repo]
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: Production
@@ -290,8 +294,7 @@ jobs:
     name: Three-way release record
     needs: [deploy, preflight-repo]
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -365,8 +368,7 @@ jobs:
     name: Runtime verification (production /api/health)
     needs: deploy
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -407,8 +409,7 @@ jobs:
     name: Production Verification Gate (PVG)
     needs: [deploy, runtime-verify, preflight-repo]
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:

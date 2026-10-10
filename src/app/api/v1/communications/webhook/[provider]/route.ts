@@ -4,13 +4,18 @@
  * THE public write endpoint for communications providers (WhatsApp, SMS, Email).
  *
  * Boundary:
- * - No session, no permission. Authentication is provider's signature over
- *   `${timestamp}.${rawBody}`, verified against secret named by connection's
- *   `signing_secret_ref`. Failed verification is recorded and refused.
- * - Tenant, legal entity, country come from enabled provider connection, never
- *   from body. Attacker cannot route into another tenant by editing field.
- * - Body size capped, response uninformative about failure reason, every attempt
- *   written to durable inbox for visibility.
+ * - No session, no permission. Authentication is the provider's signature.
+ *   The scheme follows the provider's provider_type: Meta X-Hub-Signature-256,
+ *   Twilio X-Twilio-Signature over the exact public URL, or the generic
+ *   X-Beyu-Signature over `${timestamp}.${rawBody}` with a 300-second window.
+ *   Any other provider_type is refused. See webhook-signature.ts.
+ * - A provider must be CONNECTED or VERIFIED, and must have a signing secret
+ *   that resolves from the environment, before any event is accepted.
+ * - Tenant, legal entity, country come from the provider record, never from body.
+ *   Attacker cannot route into another tenant by editing a field.
+ * - Every authentication refusal returns the same response. The reason is
+ *   recorded in the inbox and the audit chain, not returned to the caller.
+ * - Body size capped. Every attempt is written to the durable inbox.
  * - Acceptance means "recorded as authenticated claim", never means posted.
  * - Rate limiting per provider+IP, stricter than authenticated default.
  */
@@ -53,6 +58,7 @@ export async function POST(request: Request, context: { params: Promise<{ provid
       providerCode,
       rawBody,
       headers,
+      requestUrl: request.url,
       connectionIdHeader: headers["x-beyu-connection"] ?? null,
       sourceIp: meta.ip,
       receivedAt: new Date(),

@@ -282,11 +282,21 @@ Migration 0072_communications_platform.sql — 26 tables, RLS, CHECK constraints
 
 ## Webhooks
 
-- Endpoint: POST /api/v1/communications/webhook/[provider] — public, no session, signature verification, payload validation, provider resolution from code, durable idempotency, canonical event, processing, audit, security events
-- Pipeline: Webhook → signature verification (X-Hub-Signature-256, X-Twilio-Signature) → payload validation (256KiB cap) → provider resolution (from code, tenant from connection, never payload) → durable idempotency (provider_code + provider_event_id) → canonical event → processing (contact resolution, conversation find/create, inbound message, delivery events)
-- Protection: forged requests, replay, duplicates, malformed payloads, provider spoofing, tenant/entity/country spoofing — never trust tenant/entity IDs from external payloads
-- Response: uninformative about failure reason (recorded + refused), ledgerEffect NONE, 503 on unknown failure (no stack leak), rate limiting per provider+IP stricter than authenticated (60/min)
-- Reuses payments webhook pattern (MAX_PAYLOAD_BYTES, PROVIDER_CODE regex, ingestWebhookEvent, apiError/apiOk, requestMeta, rateLimit)
+- Endpoint: POST /api/v1/communications/webhook/[provider] — public, no session. Authentication is the provider's signature, checked before any parsing, claim or business write.
+- Pipeline: provider resolution (from code) → provider liveness (status CONNECTED or VERIFIED, channel WHATSAPP/SMS/EMAIL, no SIMULATED) → payload size (256 KiB) → signature verification → parse → durable idempotency claim (provider_code + provider_event_id) → processing (contact, conversation, inbound message, audit, domain event).
+- Signature scheme is chosen by `provider_type`, never by the request. Implemented in `src/lib/communications/webhook-signature.ts`:
+  - `META_WHATSAPP` / `META_WHATSAPP_CLOUD`: `X-Hub-Signature-256: sha256=<hex HMAC-SHA256(app secret, raw body)>`. The legacy SHA-1 header is not accepted.
+  - `TWILIO_SMS`: `X-Twilio-Signature` = base64 HMAC-SHA1(auth token, exact public URL + sorted form fields), as in the Twilio SDK. JSON bodies carry `bodySHA256`, which must equal sha256(body).
+  - `GENERIC_SIGNED_WEBHOOK`: `X-Beyu-Timestamp` (unix seconds) and `X-Beyu-Signature: sha256=<hex HMAC-SHA256(secret, "<timestamp>.<raw body>")>`, with a 300-second skew window.
+  - Any other provider type (including every `*_SIMULATED` type and `SENDGRID_EMAIL`) has no implemented scheme and is refused with `SIGNATURE_SCHEME_NOT_IMPLEMENTED`. Twilio is the exact-URL scheme, so the Twilio console URL must equal the public URL the route receives.
+- Signing secret: `signing_secret_ref` is an environment variable NAME matching `^[A-Z][A-Z0-9_]{2,63}$`. It must not name a platform credential (DATABASE_URL, AUTH_SECRET, MFA_ENCRYPTION_KEY, BEYU_*_DATABASE_URL, BEYU_INTERNAL_SERVICE_TOKEN, BEYU_BOOTSTRAP_PASSWORD, BEYU_RUNTIME_DB_PASSWORD). The value must be set, at least 16 characters, with no surrounding whitespace. A missing reference, unset variable or malformed value disables the provider for inbound traffic.
+- Refusals: every authentication refusal returns the same `401 SIGNATURE_VERIFICATION_FAILED` with the same message. The internal reason (for example `SIGNATURE_MISMATCH`, `PROVIDER_NOT_ACTIVE`, `SIGNING_SECRET_NOT_CONFIGURED`) is stored on the inbox row (`failure_reason`). Cryptographic failures also raise `FAILED_WEBHOOK_SIGNATURE` (HIGH). A refused request writes no contact, conversation or message.
+- Duplicates: the same event ID with the same authenticated body returns `200 DUPLICATE_EVENT` and changes nothing. The same event ID with a different authenticated body returns `409 DUPLICATE_PAYLOAD_MISMATCH` and is never processed.
+- Causation and correlation: the platform envelope only accepts bounded identifiers (`^[A-Za-z0-9_-]{8,128}$`). Provider IDs such as `wamid.…` are used for idempotency through a digest, and causation is the inbox event ID. An untrusted `x-correlation-id` that fails the rule is replaced by the trace ID.
+- Tenant and entity come from the provider record only. A payload that names another tenant is ignored.
+- Response otherwise: ledgerEffect NONE, 503 on unknown failure (no stack leak), rate limit per provider+IP (60/min) before any work.
+- Tests: `tests/communications/webhook-signature.test.ts` (known-answer vectors from OpenSSL and the Twilio SDK), `tests/communications/webhook-ingest.test.ts` (PostgreSQL: forgery, prefix-only regression, replay, conflict, status gate, tenant spoofing), `tests/communications/webhook-route.test.ts` (HTTP boundary).
+- Not implemented: Meta's GET verification handshake (`hub.mode`, `hub.verify_token`, `hub.challenge`). The route answers POST only, so Meta subscription verification must be completed by another means before WhatsApp traffic can arrive.
 
 ## Idempotency
 
@@ -369,7 +379,7 @@ All providers in seed are SIMULATED or CONFIGURED (IN_APP, INTERNAL) — no fake
 ## Simulated Features
 
 - WhatsApp, SMS, Email sending via simulated adapter — returns SIM_ providerMessageId, status SENT, metadata simulated:true, never reaches real provider
-- Webhook signature verification SKIPPED for simulated providers (safe)
+- Simulated providers accept no inbound events. Any SIMULATED status or `*_SIMULATED` provider type is refused with `PROVIDER_NOT_ACTIVE` before any signature is checked.
 - Cost estimates via metadata.estimated_cost, actual_cost updated on delivery — NOT accounting
 
 ## Production Activation Requirements
@@ -384,6 +394,8 @@ All providers in seed are SIMULATED or CONFIGURED (IN_APP, INTERNAL) — no fake
    - Register provider via POST /api/v1/communications/providers with secret refs
    - Verify provider health via status transition to CONNECTED/VERIFIED with evidence
    - Configure webhook URLs: /api/v1/communications/webhook/[provider] with signing secrets
+   - Enable inbound only after verification. For each provider: (a) `signing_secret_ref` names an environment variable that is set in that environment; (b) the provider's configured callback URL is the exact public URL in the route; (c) a correctly signed test event is accepted and a deliberately wrong one is refused; (d) only then set status to VERIFIED (or CONNECTED) through an authorised change. Read-only check before enabling: `select code, status, provider_type, signing_secret_ref from communication_providers`.
+   - Disable inbound for a provider by setting its status to anything other than CONNECTED or VERIFIED. Events are then refused and recorded.
    - Country-specific: set country_code, e.g., TZ for Tanzania +255 routing
 
 3. **Business Approval:**
