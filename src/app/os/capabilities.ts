@@ -3,7 +3,7 @@ import type { IconName } from "@/components/icons";
 import { can, type Principal } from "@/lib/authz";
 import {
   FINANCE_OS_READ_PERMISSIONS,
-  FOUNDATION_OS_READ_PERMISSIONS,
+  FOUNDATION_READ_PERMISSIONS,
 } from "@/lib/operating-systems";
 
 /**
@@ -14,10 +14,11 @@ import {
  * an authorization layer: each destination still resolves the principal and
  * re-runs RBAC, ABAC, tenant/entity scope and RLS on the server.
  *
- * The first three groups express the constitutional hierarchy directly:
+ * The first four groups express the constitutional hierarchy directly:
  *   EXECUTIVE            — control surfaces of the one BEYU control plane;
  *   SHARED CAPABILITIES  — implemented once in BEYU OS, never separate OSs;
- *   SECTOR OS            — Finance, Health, Agriculture, Foundation and Ujenzi below it.
+ *   SISTER ORGANIZATION  — the separate nonprofit BEYU Foundation context;
+ *   SECTOR OS            — exactly Finance, Health, Agriculture and Ujenzi.
  *
  * The remaining workspace groups preserve useful, already-implemented focused
  * views without promoting those views into duplicate operating systems.
@@ -222,6 +223,22 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
     ],
   },
   {
+    id: "sister-organization",
+    title: "Sister organization",
+    items: [
+      {
+        href: "/os/foundation",
+        label: "BEYU Foundation",
+        description: "Separate nonprofit sister organization: formation, grants, programs, safeguarding and impact under its own governed tenant and legal-entity scope.",
+        icon: "foundation",
+        visibility: {
+          kind: "any",
+          permissions: FOUNDATION_READ_PERMISSIONS,
+        },
+      },
+    ],
+  },
+  {
     id: "sector",
     title: "Sector operating systems",
     items: [
@@ -248,16 +265,6 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         description: "Farms, crops, livestock, traceability and export operations under BEYU governance and Finance boundaries.",
         icon: "agriculture",
         visibility: { kind: "permission", permission: "agriculture:data.read" },
-      },
-      {
-        href: "/os/foundation",
-        label: "Foundation OS",
-        description: "Foundation formation, grants, programs, safeguarding and impact under shared BEYU controls.",
-        icon: "foundation",
-        visibility: {
-          kind: "any",
-          permissions: FOUNDATION_OS_READ_PERMISSIONS,
-        },
       },
       {
         href: "/os/ujenzi",

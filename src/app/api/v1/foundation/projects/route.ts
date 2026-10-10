@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Projects under programs.
+ * BEYU Foundation organization — Projects under programs.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

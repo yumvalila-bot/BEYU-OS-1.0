@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Donations (DONOR → DONATION → FUND …).
+ * BEYU Foundation organization — Donations (DONOR → DONATION → FUND …).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

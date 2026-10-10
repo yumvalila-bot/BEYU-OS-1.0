@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — canonical Foundation target scope (server side).
+ * BEYU Foundation organization — canonical Foundation target scope (server side).
  *
  * ONE boundary, TWO callers. The Foundation deep-link layout
  * (`src/app/os/foundation/layout.tsx`) has always proved that the canonical
@@ -11,7 +11,7 @@
  *
  * This module is that single server-side statement of the boundary. It adds no
  * authorization model: it calls the existing canonical Sector OS resolver
- * (`resolveOperatingSystemTenant`) and the existing tenant/classification
+ * (`resolveGovernedTenant`) and the existing tenant/classification
  * primitives, so a change to those primitives changes both boundaries at once.
  *
  * Every function here FAILS CLOSED. When the canonical Foundation target cannot
@@ -21,11 +21,11 @@
  */
 import type { Principal } from "@/lib/authz";
 import {
-  resolveOperatingSystemTenant,
-  type ResolvedOperatingSystemTenant,
+  resolveGovernedTenant,
+  type ResolvedGovernedTenant,
 } from "@/lib/operating-systems";
 
-/** The canonical Foundation Sector OS tenant code (seeded in src/db/seed.ts). */
+/** The canonical separate Foundation legal-entity tenant code (seeded in src/db/seed.ts). */
 export const FOUNDATION_TARGET_TENANT_CODE = "BEYU-FOUNDATION";
 
 /**
@@ -35,15 +35,15 @@ export const FOUNDATION_TARGET_TENANT_CODE = "BEYU-FOUNDATION";
  */
 export const FOUNDATION_TARGET_SCOPE_REASONS = {
   ENTITY_SCOPED:
-    "Foundation OS target scope: this grant is limited to named legal entities, and Foundation records cannot prove complete entity containment; tenant-wide Foundation access is refused.",
+    "Foundation organization target scope: this grant is limited to named legal entities, and Foundation records cannot prove complete entity containment; tenant-wide Foundation access is refused.",
   UNRESOLVED:
-    "Foundation OS target scope: the canonical Foundation tenant is outside the principal's resolved tenant and classification scope.",
+    "Foundation organization target scope: the canonical Foundation tenant is outside the principal's resolved tenant and classification scope.",
 } as const;
 
 export type FoundationTargetScope = {
   /** Authoritative Foundation tenant for every read and mutation. */
   tenantId: string;
-  classification: ResolvedOperatingSystemTenant["classification"];
+  classification: ResolvedGovernedTenant["classification"];
 };
 
 export type FoundationTargetResolution =
@@ -69,7 +69,7 @@ export async function resolveFoundationTargetScope(
     return { ok: false, reason: FOUNDATION_TARGET_SCOPE_REASONS.ENTITY_SCOPED };
   }
 
-  const tenant = await resolveOperatingSystemTenant(principal, FOUNDATION_TARGET_TENANT_CODE);
+  const tenant = await resolveGovernedTenant(principal, FOUNDATION_TARGET_TENANT_CODE);
   if (!tenant) {
     return { ok: false, reason: FOUNDATION_TARGET_SCOPE_REASONS.UNRESOLVED };
   }

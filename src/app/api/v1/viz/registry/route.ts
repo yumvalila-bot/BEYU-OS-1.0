@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded, parseBody } from "@/lib/api";
 import { registryFor, registerDimensionExtension, type RegisterDimensionExtensionInput } from "@/lib/viz/service";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import type { PermissionCode } from "@/lib/constants";
 import { adapterDescriptors } from "@/lib/viz/adapters";
 import { vizActor, vizErrorResponse } from "../_shared";
@@ -29,7 +29,7 @@ const RegisterSchema = z
     dataRequirements: z.array(z.string().trim().min(1).max(200)).max(40).optional(),
     renderingRequirements: z.array(z.string().trim().min(1).max(120)).max(40).optional(),
     requiredPermissions: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
-    sectorApplicability: z.union([z.literal("*"), z.array(z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]])).min(1)]).optional(),
+    sectorApplicability: z.union([z.literal("*"), z.array(z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]])).min(1)]).optional(),
     lifecycleState: z.enum(["EXPERIMENTAL", "PLANNED", "AVAILABLE", "NOT_IMPLEMENTED", "RETIRED"]).optional(),
     rationale: z.string().trim().min(10).max(2000),
     classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]).optional(),
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
           dimensions: registry.dimensions,
           canonicalCount: registry.canonicalCount,
           extensionCount: registry.extensionCount,
-          sectors: VIZ_SECTOR_CODES,
+          sectors: VIZ_DOMAIN_CODES,
           adapters: adapterDescriptors(),
         });
       } catch (err) {

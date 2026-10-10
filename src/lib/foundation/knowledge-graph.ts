@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — knowledge graph (derived, read-only).
+ * BEYU Foundation organization — knowledge graph (derived, read-only).
  *
  * The graph is computed from authoritative tables at query time — there is no
  * parallel graph store to drift. Nodes and edges inherit the tenant scope and

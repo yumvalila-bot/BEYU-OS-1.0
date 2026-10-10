@@ -21,7 +21,7 @@
  */
 import { classificationRank, type Classification } from "@/lib/constants";
 import type { Principal } from "@/lib/authz";
-import type { VizSectorCode } from "./dimensions";
+import type { VizDomainCode } from "./dimensions";
 import { buildProvenance, type VizEpistemicStatus, type VizProvenance, type VizValue } from "./provenance";
 
 /** Layer kinds map onto renderer capabilities; they are not renderers. */
@@ -96,7 +96,7 @@ export type SceneManifestObject = {
 export type SceneManifest = {
   sceneId: string | null;
   name: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   dimensions: string[];
   layers: SceneLayer[];
   objects: SceneManifestObject[];
@@ -151,7 +151,7 @@ function projectObject(object: SceneObjectInput): SceneManifestObject {
 export function buildSceneManifest(input: {
   sceneId: string | null;
   name: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   dimensions: string[];
   layers: SceneLayer[];
   objects: SceneObjectInput[];
@@ -216,7 +216,7 @@ export type VizSceneConfig = {
   tenantId: string;
   legalEntityId: string | null;
   name: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   /** Optional subject binding (e.g. an Ujenzi project id) — a REFERENCE only;
    * deep links re-authorize against the subject through the adapter (§21). */
   subjectType: string | null;

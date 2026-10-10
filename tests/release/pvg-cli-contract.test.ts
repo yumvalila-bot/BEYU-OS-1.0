@@ -554,6 +554,7 @@ describe("H2. pipeline plumbing (workflow + adapter source)", () => {
   const dbRelease = readFileSync(new URL("../../scripts/db-release.ts", import.meta.url), "utf8");
   const livePvg = readFileSync(new URL("../../src/lib/release/live-pvg.ts", import.meta.url), "utf8");
   const migrate = readFileSync(new URL("../../scripts/migrate.ts", import.meta.url), "utf8");
+  const securityFingerprint = readFileSync(new URL("../../src/lib/release/security-fingerprint.ts", import.meta.url), "utf8");
 
   /** Extract one workflow block, from `startMarker` up to `endMarker`. */
   const block = (source: string, startMarker: string, endMarker: string): string => {
@@ -620,20 +621,18 @@ describe("H2. pipeline plumbing (workflow + adapter source)", () => {
     expect(livePvg).not.toContain("string_agg(checksum, '\\n' order by version) as checksums");
   });
 
-  it("keeps the three physical-schema md5 aggregates byte-equivalent", () => {
-    // The schema expectation is only safe because `db-release drift` (the
-    // producer of --expected-schema-fingerprint) and the live PVG probe compute
-    // the SAME aggregate. Whitespace differences are irrelevant to SQL; string
-    // differences are not.
-    const normalize = (source: string): string => {
-      const start = source.indexOf("md5(string_agg(item");
-      expect(start).toBeGreaterThan(-1);
-      const end = source.indexOf(") s", start);
-      expect(end).toBeGreaterThan(-1);
-      return source.slice(start - "select ".length, end + ") s".length).replace(/\s+/g, "");
-    };
-    const [live, release, migration] = [normalize(livePvg), normalize(dbRelease), normalize(migrate)];
-    expect(release).toBe(live);
-    expect(migration).toBe(live);
+  it("uses one canonical security-semantic schema fingerprint in migration, release, and live PVG", () => {
+    // Byte-equivalence is guaranteed structurally: all three consumers import
+    // and execute the same constant rather than maintaining copy/pasted SQL.
+    expect(securityFingerprint).toContain("export const SECURITY_FINGERPRINT_SQL");
+    expect(securityFingerprint).toContain("md5(string_agg(item");
+    expect(securityFingerprint).toContain("pg_policy");
+    expect(securityFingerprint).toContain("security_definer=");
+    expect(dbRelease).toContain("SECURITY_FINGERPRINT_SQL");
+    expect(livePvg).toContain("sql.raw(SECURITY_FINGERPRINT_SQL)");
+    expect(migrate).toContain("pool.query(SECURITY_FINGERPRINT_SQL)");
+    for (const consumer of [dbRelease, livePvg, migrate]) {
+      expect(consumer).not.toContain("md5(string_agg(item");
+    }
   });
 });

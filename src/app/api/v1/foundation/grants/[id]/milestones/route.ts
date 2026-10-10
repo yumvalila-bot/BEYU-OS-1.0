@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Grant milestones.
+ * BEYU Foundation organization — Grant milestones.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

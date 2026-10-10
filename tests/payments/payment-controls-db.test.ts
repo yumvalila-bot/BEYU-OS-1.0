@@ -28,6 +28,7 @@ import { Client } from "pg";
 import { db } from "@/db";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
 import { ROLES } from "@/lib/constants";
 import { ingestWebhookEvent } from "@/lib/payments/ingest";
 import { ingestSettlementBatch } from "@/lib/payments/settlement";
@@ -90,6 +91,11 @@ function cfoPrincipal(): Principal {
     tenantType: "SECTOR",
     roles,
     permissions,
+    authorityGrants: testRoleAuthorityGrants({
+      roles,
+      tenantId: TENANT,
+      sourceIdPrefix: "PAYMENT_CONTROLS_TEST_ROLE",
+    }),
     clearance: "RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,

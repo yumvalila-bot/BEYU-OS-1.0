@@ -13,12 +13,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded, parseBody } from "@/lib/api";
 import { listTwins, registerTwin } from "@/lib/viz/service";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import { vizActor, vizErrorResponse } from "../_shared";
 
 const RegisterSchema = z
   .object({
-    sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]),
+    sector: z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]]),
     subjectType: z.string().trim().min(1).max(120),
     subjectId: z.string().trim().min(1).max(200),
     name: z.string().trim().min(2).max(200),
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     async (ctx) => {
       try {
         const sector = new URL(request.url).searchParams.get("sector");
-        const twins = await listTwins(ctx.principal, sector ? { sector: sector as (typeof VIZ_SECTOR_CODES)[number] } : {});
+        const twins = await listTwins(ctx.principal, sector ? { sector: sector as (typeof VIZ_DOMAIN_CODES)[number] } : {});
         return NextResponse.json({ twins });
       } catch (err) {
         return vizErrorResponse(err, ctx.traceId);
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       const body = await parseBody(request, RegisterSchema);
       try {
         const twin = await registerTwin(
-          { ...body, sector: body.sector as (typeof VIZ_SECTOR_CODES)[number], legalEntityId: body.legalEntityId ?? null },
+          { ...body, sector: body.sector as (typeof VIZ_DOMAIN_CODES)[number], legalEntityId: body.legalEntityId ?? null },
           vizActor(ctx),
           ctx.principal,
         );

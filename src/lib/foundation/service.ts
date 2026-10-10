@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — governed domain services (registry → grants).
+ * BEYU Foundation organization — governed domain services (registry → grants).
  *
  * Every mutation runs VALIDATE → SCOPE → TRANSITION → PERSIST → AUDIT → EVENT
  * in one transaction. Reads AND writes are constrained to the canonical
@@ -188,8 +188,8 @@ export async function createFoundation(ctx: ServiceContext, input: CreateFoundat
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.FOUNDATION_REGISTERED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FOUNDATION_REGISTERED,
       legalEntityId: input.legalEntityId ?? null,
       subjectType: "FOUNDATION",
@@ -251,8 +251,8 @@ export async function transitionFoundation(
     (r) => ({
       ...eventBase(ctx, r.tenantId),
       type: FOUNDATION_EVENTS.FOUNDATION_STATUS_CHANGED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FOUNDATION_STATUS_CHANGED,
       legalEntityId: r.legalEntityId,
       subjectType: "FOUNDATION",
@@ -312,8 +312,8 @@ export async function openFormationCase(ctx: ServiceContext, input: OpenFormatio
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.FORMATION_CASE_OPENED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FORMATION_CASE_OPENED,
       legalEntityId: null,
       subjectType: "FORMATION_CASE",
@@ -369,8 +369,8 @@ export async function transitionFormationCase(ctx: ServiceContext, id: string, t
     (r) => ({
       ...eventBase(ctx, r.tenantId),
       type: FOUNDATION_EVENTS.FORMATION_ASSESSED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FORMATION_ASSESSED,
       legalEntityId: null,
       subjectType: "FORMATION_CASE",
@@ -421,8 +421,8 @@ export async function createStructureProposal(
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.STRUCTURE_PROPOSAL_CREATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.STRUCTURE_PROPOSAL_CREATED,
       legalEntityId: null,
       subjectType: "STRUCTURE_PROPOSAL",
@@ -493,8 +493,8 @@ export async function runStructureSimulation(
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.STRUCTURE_SIMULATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.STRUCTURE_SIMULATED,
       legalEntityId: null,
       subjectType: "STRUCTURE_SCENARIO",
@@ -556,8 +556,8 @@ export async function scheduleMeeting(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.MEETING_SCHEDULED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.MEETING_SCHEDULED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "FOUNDATION_MEETING",
@@ -620,8 +620,8 @@ export async function declareConflict(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.CONFLICT_DECLARED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.CONFLICT_DECLARED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "FOUNDATION_CONFLICT",
@@ -693,8 +693,8 @@ export async function publishTaxRule(
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.TAX_RULE_PUBLISHED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.TAX_RULE_PUBLISHED,
       legalEntityId: null,
       subjectType: "FOUNDATION_TAX_RULE",
@@ -787,8 +787,8 @@ export async function recordTaxAssessment(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.TAX_STATUS_CHANGED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.TAX_STATUS_CHANGED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "FOUNDATION_TAX_ASSESSMENT",
@@ -841,8 +841,8 @@ export async function registerDonor(
     (r) => ({
       ...eventBase(ctx, tenantId),
       type: FOUNDATION_EVENTS.DONOR_REGISTERED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.DONOR_REGISTERED,
       legalEntityId: null,
       subjectType: "DONOR",
@@ -939,8 +939,8 @@ export async function recordDonation(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.DONATION_RECEIVED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.DONATION_RECEIVED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "DONATION",
@@ -996,8 +996,8 @@ export async function createFund(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.FUND_CREATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FUND_CREATED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "FUND",
@@ -1098,8 +1098,8 @@ export async function allocateFund(
     (r) => ({
       ...eventBase(ctx, fund.tenantId),
       type: FOUNDATION_EVENTS.FUND_ALLOCATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.FUND_ALLOCATED,
       legalEntityId: null,
       subjectType: "FUND_ALLOCATION",
@@ -1204,8 +1204,8 @@ export async function createGrant(
     (r) => ({
       ...eventBase(ctx, foundation.tenantId),
       type: FOUNDATION_EVENTS.GRANT_CREATED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.GRANT_CREATED,
       legalEntityId: foundation.legalEntityId,
       subjectType: "GRANT",
@@ -1273,8 +1273,8 @@ export async function transitionGrant(ctx: ServiceContext, id: string, to: Grant
     (r) => ({
       ...eventBase(ctx, r.tenantId),
       type: to === "APPROVAL" ? FOUNDATION_EVENTS.GRANT_APPROVED : to === "CLOSEOUT" ? FOUNDATION_EVENTS.GRANT_CLOSED : FOUNDATION_EVENTS.GRANT_STATUS_CHANGED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.GRANT_STATUS_CHANGED,
       legalEntityId: null,
       subjectType: "GRANT",
@@ -1357,8 +1357,8 @@ export async function scheduleDisbursement(
     (r) => ({
       ...eventBase(ctx, grant.tenantId),
       type: FOUNDATION_EVENTS.GRANT_DISBURSED,
-      source: "FOUNDATION_OS",
-      domain: "FOUNDATION_OS",
+      source: "FOUNDATION_ORGANIZATION",
+      domain: "FOUNDATION_ORGANIZATION",
       operation: FOUNDATION_EVENTS.GRANT_DISBURSED,
       legalEntityId: null,
       subjectType: "GRANT_DISBURSEMENT",

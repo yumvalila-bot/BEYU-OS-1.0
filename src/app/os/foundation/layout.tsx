@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Denied } from "@/components/brand";
-import { requestIsOnForeignOSHost } from "@/lib/canonical-host";
+import { requestIsOnForeignCanonicalHost } from "@/lib/canonical-host";
 import { requirePrincipal } from "@/lib/guard";
-import { operatingSystemTenantInScope } from "@/lib/operating-systems";
+import { governedTenantInScope } from "@/lib/operating-systems";
 
 /**
  * Foundation records currently mix legal-entity-keyed and foundation-keyed
@@ -13,7 +13,7 @@ import { operatingSystemTenantInScope } from "@/lib/operating-systems";
  * scope. Until every nested read can also prove an entity join, a named-entity
  * grant must not fall back to a tenant-wide Foundation query.
  */
-export const metadata: Metadata = { title: "Foundation OS" };
+export const metadata: Metadata = { title: "Foundation organization" };
 
 export default async function FoundationLayout({
   children,
@@ -21,13 +21,12 @@ export default async function FoundationLayout({
   children: ReactNode;
 }) {
   const principal = await requirePrincipal();
-  // Foundation OS is never served on another canonical host: not on a sibling
-  // OS's host (`finance.beyu.co.tz/os/foundation`) and not on a shared-surface
-  // host (`familyoffice.beyu.co.tz`, `noelia.beyu.co.tz`). Host → refusal only;
+  // The Foundation sister organization is never served on another canonical
+  // destination host. Host → refusal only;
   // the tenant / classification / entity-scope gates below are unchanged and
   // still decide access. `foundation.beyu.co.tz` itself passes through.
-  if (await requestIsOnForeignOSHost("FOUNDATION")) notFound();
-  const foundationInScope = await operatingSystemTenantInScope(
+  if (await requestIsOnForeignCanonicalHost("FOUNDATION")) notFound();
+  const foundationInScope = await governedTenantInScope(
     principal,
     "BEYU-FOUNDATION",
   );
@@ -35,7 +34,7 @@ export default async function FoundationLayout({
   if (!foundationInScope) {
     return (
       <Denied
-        reason="Foundation OS is outside the current tenant and classification scope."
+        reason="Foundation organization is outside the current tenant and classification scope."
         capability="foundation:registry.read"
       />
     );
@@ -43,7 +42,7 @@ export default async function FoundationLayout({
   if (principal.entityScope.length > 0) {
     return (
       <Denied
-        reason="Foundation OS contains related records without a canonical legal-entity key; tenant-wide reads are refused under an entity-scoped grant."
+        reason="Foundation organization contains related records without a canonical legal-entity key; tenant-wide reads are refused under an entity-scoped grant."
         capability="foundation:registry.read"
       />
     );

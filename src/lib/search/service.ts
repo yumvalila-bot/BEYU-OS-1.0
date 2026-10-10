@@ -26,7 +26,9 @@
  *   - a source whose permission the principal lacks is skipped (fail-closed);
  *     an entity-scoped principal is refused sources without an entity key.
  */
-import { hasDatabaseTransactionContext } from "@/db";
+import { inArray } from "drizzle-orm";
+import { db, hasDatabaseTransactionContext } from "@/db";
+import { legalEntities } from "@/db/schema";
 import type { Principal } from "@/lib/authz";
 import {
   classificationsAtOrBelow,
@@ -93,6 +95,24 @@ export async function runGovernedSearch(
   const tenantIds = await tenantScopeIds(principal);
   if (tenantIds.length === 0) return empty;
 
+  // Resolve every requested entity back to its canonical tuple once. The
+  // entityScope array only narrows the requested result set; it never grants
+  // access. Each source permission must match the entity's tenant/entity/
+  // country on one live authority tuple below.
+  const requestedEntityIds = principal.entityScope.length > 0
+    ? [...new Set(principal.entityScope)]
+    : [];
+  const scopedEntities = requestedEntityIds.length > 0
+    ? await db
+        .select({
+          id: legalEntities.id,
+          tenantId: legalEntities.tenantId,
+          countryCode: legalEntities.countryCode,
+        })
+        .from(legalEntities)
+        .where(inArray(legalEntities.id, requestedEntityIds))
+    : [];
+
   // The canonical Noelia scope — reused only when a knowledge search is
   // actually happening, so a search without ai:noelia.query never pays for it.
   let knowledgeScope: SourceQueryInput["knowledgeScope"] = null;
@@ -106,13 +126,25 @@ export async function runGovernedSearch(
   for (const source of SEARCH_SOURCES) {
     if (input.os && source.os !== input.os) continue;
     if (input.type && source.type !== input.type) continue;
-    // Per-source RBAC: the source's EXISTING read permission. Search surfaces
-    // only what the principal may already read; it never widens capability.
-    if (!can(principal, source.permission).allowed) continue;
-    // Entity scope: sources without a legal-entity key are refused (fail
-    // closed) for entity-scoped principals — never widened to tenant level.
-    const entityIds = principal.entityScope.length > 0 ? principal.entityScope : null;
-    if (entityIds && !source.entityBound) continue;
+    // Per-source RBAC+ABAC: search surfaces only what one canonical authority
+    // tuple already permits. For entity-scoped principals, validate each
+    // requested entity against its persisted tenant/country tuple; never
+    // authorize from flattened entityScope or permission summaries.
+    let entityIds: string[] | null = null;
+    if (requestedEntityIds.length > 0) {
+      if (!source.entityBound) continue;
+      entityIds = scopedEntities
+        .filter((entity) => tenantIds.includes(entity.tenantId))
+        .filter((entity) => can(principal, source.permission, {
+          tenantId: entity.tenantId,
+          entityId: entity.id,
+          countryCode: entity.countryCode,
+        }).allowed)
+        .map((entity) => entity.id);
+      if (entityIds.length === 0) continue;
+    } else if (!can(principal, source.permission).allowed) {
+      continue;
+    }
     // Knowledge source: resolve the existing Noelia scope once, lazily.
     if (source.type === "KNOWLEDGE" && knowledgeScope === null) {
       const scope = await resolveNoeliaAuthorizedScope(principal);

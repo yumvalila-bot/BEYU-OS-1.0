@@ -8,6 +8,7 @@ import { assessTaxStrategy } from "../src/lib/tax";
 import { detectHierarchyConflicts } from "../src/lib/policy";
 import { can, permissionsForRoles, clearanceForRoles, type Principal } from "../src/lib/authz";
 import { hashPassword, verifyPassword, stableStringify } from "../src/lib/crypto";
+import { testRoleAuthorityGrants } from "./helpers/authority-grants";
 
 const tiers: WaterfallTierInput[] = [
   { sequence: 1, code: "TAX", name: "Tax", tierType: "PERCENTAGE_OF_GROSS", rate: 0.3, beneficiaryType: "TAX_AUTHORITY", mandatory: true },
@@ -19,18 +20,26 @@ const tiers: WaterfallTierInput[] = [
 
 function principal(overrides: Partial<Principal> = {}): Principal {
   const roles = overrides.roles ?? ["GROUP_CFO"];
+  const tenantId = overrides.tenantId ?? "TEN_BEYU_GROUP";
+  const entityScope = overrides.entityScope ?? [];
   return {
     userId: "USR_TEST",
     partyId: "PTY_TEST",
     email: "test@beyu.os",
     displayName: "Test Principal",
-    tenantId: "TEN_BEYU_GROUP",
+    tenantId,
     tenantCode: "BEYU-GROUP",
     tenantType: "ENTERPRISE",
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: testRoleAuthorityGrants({
+      roles,
+      tenantId,
+      legalEntityId: entityScope.length === 1 ? entityScope[0] : null,
+      sourceIdPrefix: "ENGINES_TEST_ROLE",
+    }),
     clearance: clearanceForRoles(roles),
-    entityScope: [],
+    entityScope,
     mfaSatisfied: true,
     sessionId: "SES_TEST",
     riskScore: 0,
@@ -193,7 +202,7 @@ describe("authorization (RBAC + ABAC + tenancy)", () => {
   it("blocks cross-tenant access", () => {
     const d = can(principal(), "finance:capital.read", { tenantId: "TEN_OTHER" });
     expect(d.allowed).toBe(false);
-    expect(d.reason).toMatch(/Tenant isolation/);
+    expect(d.reason).toMatch(/no single active authority grant/i);
   });
 
   it("enforces the classification ceiling", () => {

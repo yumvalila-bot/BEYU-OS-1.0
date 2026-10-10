@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — lifecycle state machines (pure, deterministic).
+ * BEYU Foundation organization — lifecycle state machines (pure, deterministic).
  *
  * Every transition is explicit. Terminal states are terminal: reaching one
  * requires its own governed record, and no transition leads out of it.

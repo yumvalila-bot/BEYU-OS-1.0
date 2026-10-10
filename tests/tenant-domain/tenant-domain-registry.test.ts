@@ -20,7 +20,7 @@ import { Client } from "pg";
 import { adminDb } from "../../src/db/admin";
 import { db } from "../../src/db";
 import { auditLog, enterpriseEvents, tenantDomains, tenants } from "../../src/db/schema";
-import { HIGH_RISK_PERMISSIONS } from "../../src/lib/constants";
+import { HIGH_RISK_PERMISSIONS, type PermissionCode } from "../../src/lib/constants";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import { withTenantDatabaseContext } from "../../src/lib/tenant-scope";
 import type { Principal } from "../../src/lib/authz";
@@ -48,7 +48,29 @@ const HEALTH = SEEDED.health;
 const TZ = SEEDED.tz;
 const AGRI = SEEDED.agri;
 
-/** Group-scoped enterprise administrator: the subtree includes the fixtures. */
+const DOMAIN_PERMISSIONS = [
+  "organization:tenantdomain.read",
+  "organization:tenantdomain.register",
+  "organization:tenantdomain.verify",
+  "organization:tenantdomain.manage",
+  "organization:tenantdomain.reassign",
+] as const satisfies readonly PermissionCode[];
+
+function domainAuthority(role: string, tenantId: string | null): NonNullable<Principal["authorityGrants"]> {
+  return DOMAIN_PERMISSIONS.map((permission) => ({
+    sourceId: `TEST_DOMAIN_${role}_${permission}`,
+    source: "ROLE_ASSIGNMENT" as const,
+    role,
+    permission,
+    tenantId,
+    legalEntityId: null,
+    countryCode: null,
+    validFrom: null,
+    validTo: null,
+  }));
+}
+
+/** Group-scoped enterprise administrator: an explicitly unscoped assignment reaches every canonical tenant root. */
 function groupAdmin(): Principal {
   return {
     userId: "USR_TEST_DOMAIN_ADMIN",
@@ -59,13 +81,8 @@ function groupAdmin(): Principal {
     tenantCode: "BEYU-GROUP",
     tenantType: "ENTERPRISE",
     roles: ["GROUP_CEO"],
-    permissions: new Set([
-      "organization:tenantdomain.read",
-      "organization:tenantdomain.register",
-      "organization:tenantdomain.verify",
-      "organization:tenantdomain.manage",
-      "organization:tenantdomain.reassign",
-    ]),
+    permissions: new Set(DOMAIN_PERMISSIONS),
+    authorityGrants: domainAuthority("GROUP_CEO", null),
     clearance: "HIGHLY_RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,
@@ -77,17 +94,29 @@ function groupAdmin(): Principal {
 
 /** A principal that holds NO tenant-domain capability at all. */
 function unauthorized(): Principal {
-  return { ...groupAdmin(), roles: ["TENANT_MEMBER"], permissions: new Set() };
+  return { ...groupAdmin(), roles: ["TENANT_MEMBER"], permissions: new Set(), authorityGrants: [] };
 }
 
-/** A country-scoped principal: tenant scope is exactly one tenant. */
+/** A country-scoped principal: tenant scope and every authority tuple are exactly one tenant. */
 function tzScoped(): Principal {
-  return { ...groupAdmin(), tenantId: TZ, tenantCode: "BEYU-TZ", tenantType: "COUNTRY", roles: ["COUNTRY_DIRECTOR"] };
+  return {
+    ...groupAdmin(),
+    tenantId: TZ,
+    tenantCode: "BEYU-TZ",
+    tenantType: "COUNTRY",
+    roles: ["COUNTRY_DIRECTOR"],
+    authorityGrants: domainAuthority("COUNTRY_DIRECTOR", TZ),
+  };
 }
 
 /** A tenant-scoped administrator with capability but a ONE-tenant scope. */
 function tzScopedAdmin(): Principal {
-  return { ...tzScoped(), roles: ["GROUP_CEO"], permissions: groupAdmin().permissions };
+  return {
+    ...tzScoped(),
+    roles: ["GROUP_CEO"],
+    permissions: new Set(DOMAIN_PERMISSIONS),
+    authorityGrants: domainAuthority("GROUP_CEO", TZ),
+  };
 }
 
 const tenantA = HEALTH;
@@ -375,7 +404,7 @@ describe("G — cross-OS access", () => {
     await adminDb.insert(tenantDomains).values({
       id: "TDM_TEST_DRAFT_OS",
       tenantId: tenantA,
-      os: "MINING_OS",
+      os: "SHARED_MINING_GOVERNANCE",
       hostname: TEST_HOSTS.draftOs,
       domainType: "TENANT_SUBDOMAIN",
       status: "ACTIVE",
@@ -386,7 +415,7 @@ describe("G — cross-OS access", () => {
       registeredBy: "TEST",
       classification: "CONFIDENTIAL",
     });
-    // MINING_OS is DRAFT in the canonical registry and has no ACTIVE base domain,
+    // SHARED_MINING_GOVERNANCE is DRAFT in the canonical registry and has no ACTIVE base domain,
     // so it can never become a tenant namespace — fail closed.
     expect(await resolveHostname(groupAdmin(), "testdom-draft-os.health.beyuos.co.tz")).toEqual({
       kind: "DENIED",
@@ -396,7 +425,7 @@ describe("G — cross-OS access", () => {
     await expect(
       registerTenantDomain(
         groupAdmin(),
-        { tenantId: tenantA, os: "MINING_OS", domainType: "TENANT_SUBDOMAIN", label: "mining", reason: REASON },
+        { tenantId: tenantA, os: "SHARED_MINING_GOVERNANCE", domainType: "TENANT_SUBDOMAIN", label: "mining", reason: REASON },
         "TRACE_TEST_G",
       ),
     ).rejects.toMatchObject({ code: "OS_NOT_RECOGNISED", status: 422 });

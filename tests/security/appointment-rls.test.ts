@@ -5,6 +5,12 @@ import { db } from "../../src/db";
 import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
 let runtime: Client, f: Awaited<ReturnType<typeof appointmentFixture>>, id: string, acceptedId:string;
+async function expectAclDenied(operation: () => Promise<unknown>) {
+ await runtime.query("savepoint expected_acl_denial");
+ await expect(operation()).rejects.toHaveProperty("code", "42501");
+ await runtime.query("rollback to savepoint expected_acl_denial");
+ await runtime.query("release savepoint expected_acl_denial");
+}
 async function scoped(fn: () => Promise<void>, options: { tenant?: string; entity?: string; classification?: string; read?: string } = {}) {
  await runtime.query("begin");
  try {
@@ -52,8 +58,13 @@ describe("appointment direct non-owner SQL boundary", () => {
   const resolutionId = final.rows[0].id;
   expect((await runtime.query("update resolutions set status='DRAFT' where id=$1", [resolutionId])).rowCount).toBe(0);
   expect((await runtime.query("delete from resolutions where id=$1", [resolutionId])).rowCount).toBe(0);
+  const ballotsBefore = (await runtime.query("select id,vote from resolution_votes where resolution_id=$1 order by id", [resolutionId])).rows;
+  // Runtime UPDATE exists for governed recusal/vote replacement, but finalized
+  // ballots are outside its RLS write predicate and therefore remain invisible
+  // to mutation. DELETE remains absent from the runtime ACL entirely.
   expect((await runtime.query("update resolution_votes set vote='AGAINST' where resolution_id=$1", [resolutionId])).rowCount).toBe(0);
-  expect((await runtime.query("delete from resolution_votes where resolution_id=$1", [resolutionId])).rowCount).toBe(0);
+  expect((await runtime.query("select id,vote from resolution_votes where resolution_id=$1 order by id", [resolutionId])).rows).toEqual(ballotsBefore);
+  await expectAclDenied(() => runtime.query("delete from resolution_votes where resolution_id=$1", [resolutionId]));
  }));
  it("does not treat an appointment flag as appointment authority", async () => scoped(async () => {
   await runtime.query("select set_config('beyu.governance_appointment_id',$1,true)", [id]);

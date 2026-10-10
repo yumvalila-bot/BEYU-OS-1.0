@@ -12,7 +12,7 @@ import {
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "../../src/lib/authz";
@@ -53,6 +53,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -579,9 +580,12 @@ describe("authorization signal — capital read model", () => {
     const approved = await makeResolution("APPROVED");
     const cap = await makeCapitalRequest(approved.id);
     const base = await principalFor(CAPITAL_READER);
-    const stripped = {
+    const stripped: Principal = {
       ...base,
       permissions: new Set([...base.permissions].filter((p) => p !== "finance:capital.read")) as typeof base.permissions,
+      authorityGrants: (base.authorityGrants ?? []).filter(
+        (grant) => grant.permission !== "finance:capital.read",
+      ),
     };
     const map = await capitalGovernanceAuthorizations(stripped, [cap.id]);
     expect(map.size).toBe(0);

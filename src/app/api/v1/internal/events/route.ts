@@ -51,7 +51,7 @@ const EventSchema = z
     eventType: z.string().min(3).max(120),
     eventVersion: z.string().min(1).max(20).default("1"),
     schemaVersion: z.string().min(1).max(20).default("1"),
-    source: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "UJENZI_OS"]),
+    source: z.enum(["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_ORGANIZATION", "UJENZI_OS"]),
     domain: z.string().min(2).max(60),
     operation: z.string().min(2).max(80),
     destinationDomain: z.string().min(2).max(60).nullable().optional(),

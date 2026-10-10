@@ -1,4 +1,4 @@
-# Canonical OS / Capability Entry Hosts — `health.` · `finance.` · `agriculture.` · `ujenzi.` · `foundation.` · `familyoffice.` · `noelia.` `beyu.co.tz`
+# Canonical Destination Entry Hosts — `health.` · `finance.` · `agriculture.` · `ujenzi.` · `foundation.` · `familyoffice.` · `noelia.` `beyu.co.tz`
 
 Status: **IMPLEMENTED IN THE REPOSITORY (routing, security, session, tests, docs)** ·
 **VERCEL DOMAINS + DNS: HUMAN-CONTROLLED, NOT DONE** · **HTTPS: PENDING DOMAIN
@@ -20,8 +20,8 @@ ATTACHMENT** · baseline `main` = `d6848e7308ccef87a904c151a2928013959ad111`
 
 ```
 BEYU OS GOVERNS.
-EACH OS IS INDEPENDENTLY ADDRESSABLE.
-THE SUBDOMAIN SELECTS THE OS CONTEXT.
+EACH DESTINATION IS INDEPENDENTLY ADDRESSABLE.
+THE SUBDOMAIN SELECTS PRESENTATION CONTEXT.
 THE SUBDOMAIN DOES NOT GRANT AUTHORIZATION.
 AUTHENTICATION MAY BE SHARED.
 AUTHORIZATION MUST BE RE-EVALUATED FOR THE TARGET OS/CONTEXT.
@@ -52,17 +52,16 @@ health.beyu.co.tz → beyu.co.tz → BEYU OS UI → health.beyu.co.tz      ✗
 | `finance.beyu.co.tz` | FINANCE_OS | `FINANCE_OS` (`SECTOR_OS`) | `/os/finance` |
 | `agriculture.beyu.co.tz` | AGRICULTURE_OS | `AGRICULTURE_OS` (`SECTOR_OS`) | `/os/agriculture` |
 | `ujenzi.beyu.co.tz` | UJENZI_OS | `UJENZI_OS` (`SECTOR_OS`) | `/os/ujenzi` |
-| `foundation.beyu.co.tz` | FOUNDATION (the nonprofit sister organisation's OS) | `FOUNDATION_OS` (`SECTOR_OS`, scope `NONPROFIT_OPERATIONS`) | `/os/foundation` |
+| `foundation.beyu.co.tz` | BEYU Foundation nonprofit sister organization | `SHARED_FOUNDATION_OPERATIONS` (`SHARED_CAPABILITY`, scope `NONPROFIT_OPERATIONS`) | `/os/foundation` |
 | `familyoffice.beyu.co.tz` | FAMILY OFFICE **capability** — never an OS | `SHARED_FAMILY_OFFICE` (`SHARED_CAPABILITY`) | `/os/family` |
 | `noelia.beyu.co.tz` | NOELIA_AI — the governed AI identity/interface | `NOELIA_AI` (the one canonical AI identity, `src/lib/noelia/canonical-identity.ts`) over `HIVE_RUNTIME` (`os_registry`, kind `AI_RUNTIME`) | `/os/noelia` |
 
 Canonical identity rules preserved by this change (asserted by tests):
 
-* **Five Sector OSs**, unchanged and un-renamed: `HEALTH_OS`, `FINANCE_OS`,
-  `AGRICULTURE_OS`, `UJENZI_OS` and the already-registered `FOUNDATION_OS`.
-  Foundation keeps its existing canonical identity — it is NOT turned into a
-  Sector LLC, and no `FOUNDATION_OS` is invented (it already exists in
-  `os_registry` and in the canonical catalogue).
+* **Exactly four Sector OSs**: `HEALTH_OS`, `FINANCE_OS`, `AGRICULTURE_OS`,
+  and `UJENZI_OS`. Foundation remains a separate nonprofit sister organization;
+  its governed operations use `SHARED_FOUNDATION_OPERATIONS`, never an OS-suffixed
+  identity or Sector LLC classification.
 * **Family Office remains a shared capability/domain**: no `FAMILY_OFFICE_OS`,
   no new route (`/os/family` is the existing capability page), and it stays out
   of `SECTOR_OPERATING_SYSTEMS`.
@@ -77,8 +76,8 @@ Canonical identity rules preserved by this change (asserted by tests):
 ### Where the facts come from
 
 * The **label** of every host lives on the canonical catalogue
-  (`src/lib/operating-system-catalog.ts` → `subdomain`): the five Sector OSs and
-  the two canonical SHARED surfaces (`CANONICAL_SURFACES`). The control plane
+  (`src/lib/operating-system-catalog.ts` → `subdomain`): the four Sector OSs, the Foundation organizational context, and
+  the two canonical shared surfaces. The control plane
   carries none — it IS the root.
 * The **apex** is deployment configuration: `BEYU_CANONICAL_DOMAIN=beyu.co.tz`.
   Unset (today's state of every environment) **no host resolves to a
@@ -311,7 +310,7 @@ certificate or a Vercel domain.
 
 | File | Role |
 | --- | --- |
-| `src/lib/operating-system-catalog.ts` | canonical registry: `subdomain` label on the five OS entries; `CANONICAL_SURFACES` (Family Office capability, NOELIA_AI interface) with their declared guard permission |
+| `src/lib/operating-system-catalog.ts` | canonical registry: labels for four Sector OSs, the Foundation nonprofit context, and `CANONICAL_SURFACES` (Family Office capability, NOELIA_AI interface) |
 | `src/lib/canonical-hosts.ts` | the ONE pure hostname→context contract (no `next/*`, no DB): `parseCanonicalDomain`, `canonicalHostOptionsFromEnvironment`, `resolveCanonicalHost`, `canonicalContextOf`, `resolutionBase`, `isCanonicalBeyuHost`, `osOwningPath`, `canonicalOrigin`, `decideProxyAction`, `canonicalDestinationHref` |
 | `src/lib/canonical-host.ts` | `next/headers` wrappers: `canonicalHostForRequest`, `isForeignOSHost`, `requestIsOnForeignOSHost`, `destinationHrefForRequest` |
 | `src/lib/session-cookie.ts` | the one session-cookie policy: `sessionCookieDomain`, `sessionSharedAcrossCanonicalDomain`, `sessionCookieAttributes`, `sessionCookieClearTargets` |
@@ -330,8 +329,9 @@ certificate or a Vercel domain.
 | `.env.example` | `BEYU_CANONICAL_DOMAIN`, `BEYU_SESSION_COOKIE_DOMAIN`, and the full host map, documented |
 | `CHANGELOG.md`, `docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md` | release note and cross-reference |
 
-No Drizzle migration: `drizzle/meta/_journal.json` still ends at
-`0074_enterprise_intelligence_expansion`.
+The canonical-host feature adds no migration. In this integrated branch the
+independent Noelia authority hardening migration advances the journal to
+`0075_noelia_authority_execution_hardening`.
 
 ---
 

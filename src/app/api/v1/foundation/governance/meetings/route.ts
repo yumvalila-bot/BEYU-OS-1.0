@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Foundation Governance meetings.
+ * BEYU Foundation organization — Foundation Governance meetings.
  * Bodies, resolutions and votes remain canonical BEYU OS governance.
  */
 import { NextRequest, NextResponse } from "next/server";

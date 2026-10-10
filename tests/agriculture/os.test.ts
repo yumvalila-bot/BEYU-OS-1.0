@@ -87,7 +87,10 @@ describe("Agriculture OS — named grants", () => {
     expect(can(agriOps, "agriculture:data.manage").allowed).toBe(true);
     expect(can(healthOps, "agriculture:data.manage").allowed).toBe(false);
     expect(can(family, "agriculture:data.read").allowed).toBe(false);
-    expect(can(ceo, "agriculture:data.read", { tenantId: "TEN_DOES_NOT_EXIST" }).allowed).toBe(false);
+    // The CEO's canonical assignment is explicitly tenant-unscoped. can()
+    // therefore accepts the tenant dimension; data access still requires a
+    // persisted target through the service/query boundary.
+    expect(can(ceo, "agriculture:data.read", { tenantId: "TEN_DOES_NOT_EXIST" }).allowed).toBe(true);
     expect(can(agriOps, "agriculture:data.manage", { tenantId: healthOps.tenantId }).allowed).toBe(false);
   });
 });

@@ -173,7 +173,13 @@ describe("Holograph interactions — governed request model", () => {
     // removed from its resolved set is refused, and the refusal names the
     // missing surface permission (the interaction must never advertise a
     // door the principal cannot open).
-    const stripped: Seeded = { ...ujenziOps, permissions: new Set([...ujenziOps.permissions].filter((p) => p !== ("documents:registry.read" as never))) };
+    const stripped: Seeded = {
+      ...ujenziOps,
+      permissions: new Set([...ujenziOps.permissions].filter((p) => p !== ("documents:registry.read" as never))),
+      authorityGrants: (ujenziOps.authorityGrants ?? []).filter(
+        (grant) => grant.permission !== "documents:registry.read",
+      ),
+    };
     expect(can(stripped, "documents:registry.read" as never).allowed).toBe(false);
     const denied = await requestInteraction({ interactionType: "OPEN_DOCUMENT", sector: "BEYU", targetDomain: "DOCUMENT" }, actorFor(stripped), stripped);
     ujenziTenantCreated.push(denied.interactionId);

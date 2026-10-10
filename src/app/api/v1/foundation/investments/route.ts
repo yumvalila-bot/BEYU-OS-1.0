@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Investment policies + proposals.
+ * BEYU Foundation organization — Investment policies + proposals.
  * Approval is a separate human-governed action (see [id]/approve).
  */
 import { NextRequest, NextResponse } from "next/server";

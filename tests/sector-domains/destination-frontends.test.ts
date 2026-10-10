@@ -44,6 +44,7 @@ import {
   BEYU_CONTROL_PLANE,
   CANONICAL_SURFACES,
   DESTINATION_TYPE_LABEL,
+  FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
   destinationSignInSubtitle,
 } from "@/lib/operating-system-catalog";
@@ -70,7 +71,7 @@ const MATRIX = [
   { host: "finance.beyu.co.tz", code: "FINANCE", type: "SECTOR_OS", registry: "FINANCE_OS", home: "/os/finance", signIn: "Finance OS" },
   { host: "agriculture.beyu.co.tz", code: "AGRICULTURE", type: "SECTOR_OS", registry: "AGRICULTURE_OS", home: "/os/agriculture", signIn: "Agriculture OS" },
   { host: "ujenzi.beyu.co.tz", code: "UJENZI", type: "SECTOR_OS", registry: "UJENZI_OS", home: "/os/ujenzi", signIn: "Ujenzi OS" },
-  { host: "foundation.beyu.co.tz", code: "FOUNDATION", type: "NONPROFIT", registry: "FOUNDATION_OS", home: "/os/foundation", signIn: "Foundation OS" },
+  { host: "foundation.beyu.co.tz", code: "FOUNDATION", type: "NONPROFIT", registry: "SHARED_FOUNDATION_OPERATIONS", home: "/os/foundation", signIn: "BEYU Foundation" },
   { host: "familyoffice.beyu.co.tz", code: "FAMILY_OFFICE", type: "CAPABILITY", registry: "SHARED_FAMILY_OFFICE", home: "/os/family", signIn: "Family Office" },
   { host: "noelia.beyu.co.tz", code: "NOELIA_AI", type: "AI_INTERFACE", registry: "NOELIA_AI", home: "/os/noelia", signIn: "Noelia AI" },
 ] as const;
@@ -97,16 +98,16 @@ describe("A. every canonical host resolves to a destination FRONTEND contract", 
     // And the catalogue mirrors `os_registry.lifecycle` from src/db/seed.ts —
     // nothing was flipped to make a destination look live.
     const seed = source("src", "db", "seed.ts");
-    for (const registry of ["BEYU_OS", "HEALTH_OS", "FINANCE_OS", "AGRICULTURE_OS", "UJENZI_OS", "FOUNDATION_OS"]) {
+    for (const registry of ["BEYU_OS", "HEALTH_OS", "FINANCE_OS", "AGRICULTURE_OS", "UJENZI_OS", "SHARED_FOUNDATION_OPERATIONS"]) {
       expect(seed, registry).toContain(`code: "${registry}"`);
     }
     // The only non-ACTIVE charter row stays out of the canonical catalogue: it
     // has no host, no frontend and no entry point.
-    expect(seed).toContain('code: "MINING_OS"');
-    expect(seed).toMatch(/MINING_OS[\s\S]{0,1200}lifecycle: "DRAFT"/);
+    expect(seed).toContain('code: "SHARED_MINING_GOVERNANCE"');
+    expect(seed).toMatch(/SHARED_MINING_GOVERNANCE[\s\S]{0,1200}lifecycle: "DRAFT"/);
     const catalogue = source("src", "lib", "operating-system-catalog.ts");
     expect(catalogue).not.toContain("MINING_OS");
-    for (const destination of [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, ...CANONICAL_SURFACES]) {
+    for (const destination of [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, FOUNDATION_ORGANIZATION, ...CANONICAL_SURFACES]) {
       expect(destination.status, destination.code).toBe("ACTIVE");
     }
   });
@@ -117,9 +118,11 @@ describe("A. every canonical host resolves to a destination FRONTEND contract", 
       const registered =
         entry.type === "CAPABILITY" || entry.type === "AI_INTERFACE"
           ? CANONICAL_SURFACES.find((surface) => surface.code === entry.code)
-          : entry.type === "CORE"
-            ? BEYU_CONTROL_PLANE
-            : SECTOR_OPERATING_SYSTEMS.find((os) => os.code === entry.code);
+          : entry.type === "NONPROFIT"
+            ? FOUNDATION_ORGANIZATION
+            : entry.type === "CORE"
+              ? BEYU_CONTROL_PLANE
+              : SECTOR_OPERATING_SYSTEMS.find((os) => os.code === entry.code);
       // Identity-equal: the frontend contract IS the registered catalogue entry,
       // so a hostname cannot carry a grant, a scope or a decision with it.
       expect(destination?.context, entry.host).toBe(registered);
@@ -165,7 +168,7 @@ describe("A. every canonical host resolves to a destination FRONTEND contract", 
 
 describe("B. destination types stay distinct and are never flattened into 'OS'", () => {
   it("declares exactly four Sector OSs, one core, one nonprofit, one capability, one AI interface", () => {
-    const all = [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, ...CANONICAL_SURFACES];
+    const all = [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, FOUNDATION_ORGANIZATION, ...CANONICAL_SURFACES];
     const byType = (type: string) => all.filter((destination) => destination.destinationType === type).map((d) => d.code);
     expect(byType("CORE")).toEqual(["BEYU"]);
     expect(byType("SECTOR_OS").sort()).toEqual(["AGRICULTURE", "FINANCE", "HEALTH", "UJENZI"]);
@@ -175,14 +178,13 @@ describe("B. destination types stay distinct and are never flattened into 'OS'",
     expect(all).toHaveLength(8);
   });
 
-  it("keeps Foundation a nonprofit sister organisation without inventing or renaming its charter identity", () => {
-    const foundation = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "FOUNDATION")!;
-    // The organisational distinction is visible…
+  it("keeps Foundation a nonprofit sister organization without inventing an OS identity", () => {
+    const foundation = FOUNDATION_ORGANIZATION;
     expect(foundation.destinationType).toBe("NONPROFIT");
-    expect(DESTINATION_TYPE_LABEL.NONPROFIT).toBe("Nonprofit sister organisation");
-    // …while the ALREADY-registered constitutional identity is untouched.
-    expect(foundation.level).toBe("SECTOR_OS");
-    expect(foundation.registryCode).toBe("FOUNDATION_OS");
+    expect(DESTINATION_TYPE_LABEL.NONPROFIT).toBe("Nonprofit sister organization");
+    expect(foundation.level).toBe("SISTER_ORGANIZATION");
+    expect(foundation.kind).toBe("NONPROFIT_SISTER_ORGANIZATION");
+    expect(foundation.registryCode).toBe("SHARED_FOUNDATION_OPERATIONS");
     expect(source("src", "lib", "noelia", "canonical-identity.ts")).not.toContain("FOUNDATION_NOELIA");
   });
 
@@ -193,20 +195,17 @@ describe("B. destination types stay distinct and are never flattened into 'OS'",
     expect(family.kind).toBe("SHARED_CAPABILITY");
     expect(noelia.destinationType).toBe("AI_INTERFACE");
     expect(noelia.kind).toBe("GOVERNED_AI_INTERFACE");
-    // Neither surface is an OS, and the Sector OS list stays exactly the four
-    // canonical sectors plus the already-registered Foundation.
+    // Neither surface nor Foundation is an OS; the list stays closed at four.
     expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).toEqual([
       "FINANCE",
       "HEALTH",
       "AGRICULTURE",
-      "FOUNDATION",
       "UJENZI",
     ]);
     expect(CANONICAL_OS_HOSTS.map((os) => os.subdomain)).toEqual([
       "finance",
       "health",
       "agriculture",
-      "foundation",
       "ujenzi",
     ]);
   });
@@ -393,7 +392,7 @@ describe("F. hostname is not authentication and not authorization", () => {
 
   it("answers destination access only through the PRE-EXISTING server-side resolvers", () => {
     const page = code(source("src", "app", "page.tsx"));
-    const resolver = page.indexOf("authorizedOperatingSystems(principal)");
+    const resolver = page.indexOf("authorizedGovernedDestinations(principal)");
     const sectorGate = page.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     const surfaceGate = page.indexOf("can(principal, canonicalHost.surface.entryPermission).allowed");
     expect(resolver).toBeGreaterThan(-1);
@@ -426,9 +425,9 @@ describe("F. hostname is not authentication and not authorization", () => {
     for (const [file, gate] of [
       [["src", "app", "os", "health", "mount.ts"], "checkHealthOSAuthorization("],
       [["src", "app", "os", "finance", "layout.tsx"], 'requestIsOnForeignOSHost("FINANCE")'],
-      [["src", "app", "os", "agriculture", "layout.tsx"], "operatingSystemTenantInScope("],
-      [["src", "app", "os", "ujenzi", "layout.tsx"], "operatingSystemTenantInScope("],
-      [["src", "app", "os", "foundation", "layout.tsx"], "operatingSystemTenantInScope("],
+      [["src", "app", "os", "agriculture", "layout.tsx"], "governedTenantInScope("],
+      [["src", "app", "os", "ujenzi", "layout.tsx"], "governedTenantInScope("],
+      [["src", "app", "os", "foundation", "layout.tsx"], "governedTenantInScope("],
       [["src", "app", "os", "layout.tsx"], "checkBeyuOSAuthorization(principal).authorized"],
       [["src", "app", "os", "layout.tsx"], "withTenantDatabaseContext(principal"],
     ] as const) {
@@ -447,7 +446,7 @@ describe("G. launcher visibility is not authority; status is not a grant", () =>
     expect(launcher).toContain("DESTINATION_TYPE_LABEL[destination.destinationType]");
     expect(launcher).toContain("{destination.registryCode}");
     // Access is still resolved server-side by the canonical resolver.
-    expect(code(launcher)).toContain("authorizedOperatingSystems(principal)");
+    expect(code(launcher)).toContain("authorizedGovernedDestinations(principal)");
     expect(code(launcher)).toContain("destinationHrefForRequest()");
     // Global status is never derived from the user's grant.
     expect(launcher).not.toMatch(/status:\s*authorized|status=\{authorized/);
@@ -456,7 +455,7 @@ describe("G. launcher visibility is not authority; status is not a grant", () =>
   it("never uses user authorization as the global activation state", () => {
     const catalogue = source("src", "lib", "operating-system-catalog.ts");
     // `status` is a literal on the registry entry — not computed per request.
-    for (const entry of [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, ...CANONICAL_SURFACES]) {
+    for (const entry of [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS, FOUNDATION_ORGANIZATION, ...CANONICAL_SURFACES]) {
       expect(catalogue).toContain(`registryCode: "${entry.registryCode}"`);
       expect(catalogue).toMatch(new RegExp(`registryCode: "${entry.registryCode}"[\\s\\S]{0,400}status: "ACTIVE"`));
     }
@@ -477,7 +476,7 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0074_enterprise_intelligence_expansion");
+    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

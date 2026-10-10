@@ -3,7 +3,7 @@
  *
  * Connects with the ACTUAL application runtime role (beyu_runtime,
  * NOSUPERUSER NOBYPASSRLS) and proves PostgreSQL RLS independently enforces
- * tenant isolation for the Foundation OS substrate at the database layer: even
+ * tenant isolation for the Foundation organization substrate at the database layer: even
  * if an application developer removed a tenant WHERE clause, the database still
  * prevents cross-tenant access. Mirrors tests/security/rls-isolation.test.ts
  * and tests/security/ujenzi-rls-isolation.test.ts.
@@ -25,7 +25,7 @@ import { Client } from "pg";
 const RUNTIME_URL = process.env.BEYU_RUNTIME_DATABASE_URL ?? process.env.DATABASE_URL;
 const ADMIN_URL = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
 
-/** The canonical Foundation Sector OS tenant (seeded in src/db/seed.ts). */
+/** The canonical separate Foundation legal-entity tenant (seeded in src/db/seed.ts). */
 const TENANT_A = "TEN_BEYU_FOUNDATION";
 /** A foreign sector tenant: holds Foundation capabilities for no reason here. */
 const TENANT_B = "TEN_BEYU_HEALTH";
@@ -35,7 +35,7 @@ const TENANT_UNKNOWN = "TEN_DOES_NOT_EXIST";
 const RUN = `RLSFDN${Date.now()}`;
 
 /**
- * The canonical Foundation OS substrate: the 39 tables created by migration
+ * The canonical Foundation organization substrate: the 39 tables created by migration
  * 0035 plus `foundation_programs` (0000 baseline, covered by 0069). Every one
  * of these must be RLS-bound — this list is the durable regression guard.
  */
@@ -109,7 +109,7 @@ async function insertProgram(client: Client, id: string, tenantId: string, code:
   );
 }
 
-describe("Foundation OS database-level RLS isolation (runtime role)", () => {
+describe("Foundation organization database-level RLS isolation (runtime role)", () => {
   let rt: Client;
   let admin: Client;
 
@@ -151,7 +151,7 @@ describe("Foundation OS database-level RLS isolation (runtime role)", () => {
   });
 
   describe("structural coverage — every Foundation substrate is RLS-bound", () => {
-    it("all 40 Foundation OS tables have RLS enabled and exactly one canonical tenant policy", async () => {
+    it("all 40 Foundation organization tables have RLS enabled and exactly one canonical tenant policy", async () => {
       const rls = await admin.query(
         `select c.relname,
                 c.relrowsecurity as enabled,

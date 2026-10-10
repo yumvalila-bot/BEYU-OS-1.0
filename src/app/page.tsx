@@ -3,7 +3,7 @@ import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
-import { authorizedOperatingSystems } from "@/lib/operating-systems";
+import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
 import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
 import { sessionCookiePresent } from "@/lib/session-state";
@@ -96,11 +96,11 @@ export default async function SignInPage() {
    *
    * Reaching a destination host authorizes nothing. The authenticated branch
    * below redirects only through the destination's OWN server-side gate:
-   *   • a Sector OS → `authorizedOperatingSystems()` (session → tenant →
+   *   • a Sector OS → `authorizedGovernedDestinations()` (session → tenant →
    *     classification → RBAC/ABAC → federation/OS authorization) must already
    *     list it;
-   *   • a shared surface (Family Office capability, Noelia AI) → the
-   *     destination's own declared guard permission must already be granted;
+   *   • Foundation → live Foundation tenant scope plus a governed read grant;
+   *   • Family Office or Noelia → its declared guard permission;
    * and the destination re-runs that gate on arrival regardless. Otherwise the
    * governed DENIAL below is rendered on this host: a session is identity, not
    * access, and a signed-in visitor is never silently sent to a different OS.
@@ -120,15 +120,19 @@ export default async function SignInPage() {
   if (principal) {
     // Smart routing resolves the one BEYU control plane and each authorised
     // Sector OS independently. A session alone never creates OS access.
-    const destinations = await authorizedOperatingSystems(principal);
+    const destinations = await authorizedGovernedDestinations(principal);
     if (canonicalHost.kind === "SECTOR_OS" && destinations.some((destination) => destination.code === canonicalHost.os.code)) {
       redirect(canonicalHost.os.href);
     }
-    // A shared surface is entered only when the destination's own guard would
-    // already allow it (the same honesty rule the launcher and capability map
-    // follow). It grants nothing: the page re-checks server-side.
-    if (canonicalHost.kind === "SURFACE" && can(principal, canonicalHost.surface.entryPermission).allowed) {
-      redirect(canonicalHost.surface.href);
+    // A non-OS destination is entered only when its existing authoritative
+    // resolver allows it. Foundation requires target-tenant scope plus a read
+    // grant; shared surfaces retain their own declared page permission.
+    if (canonicalHost.kind === "SURFACE") {
+      const allowed =
+        canonicalHost.surface.code === "FOUNDATION"
+          ? destinations.some((destination) => destination.code === "FOUNDATION")
+          : can(principal, canonicalHost.surface.entryPermission).allowed;
+      if (allowed) redirect(canonicalHost.surface.href);
     }
     /*
      * GOVERNED DENIAL ON THE DESTINATION HOST.
@@ -198,8 +202,8 @@ export default async function SignInPage() {
           <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-white/70">
             BEYU OS governs identity, organisation, ownership, governance, risk, compliance, capital,
             workforce, data, audit and AI once — and only once. Health OS, Finance OS, Agriculture OS
-            and Foundation OS execute specialised operations underneath it, consuming shared
-            capabilities through governed APIs, events and policies.
+            and Ujenzi OS are exactly the four Sector OSs beneath it. The separate nonprofit BEYU Foundation
+            consumes shared capabilities through its own governed tenant and legal-entity scope.
           </p>
 
           <div className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">

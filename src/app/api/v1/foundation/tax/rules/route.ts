@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — versioned jurisdiction tax rules.
+ * BEYU Foundation organization — versioned jurisdiction tax rules.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

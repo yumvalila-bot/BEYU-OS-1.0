@@ -83,8 +83,8 @@ describe("1. the hostname contract is pure and reuses the one normaliser", () =>
   });
 });
 
-describe("2. the SHARED surfaces are never operating systems", () => {
-  it("declares Family Office and Noelia as surfaces, outside the OS catalogue", () => {
+describe("2. Foundation and the shared surfaces are never operating systems", () => {
+  it("declares Foundation, Family Office and Noelia outside the OS catalogue", () => {
     const c = code(catalogue);
     // No invented OS identity for either surface.
     expect(c).not.toMatch(/FAMILY_OFFICE_OS|NOELIA_OS|HEALTH_NOELIA|FINANCE_NOELIA|AGRICULTURE_NOELIA|UJENZI_NOELIA|FOUNDATION_NOELIA/);
@@ -93,9 +93,11 @@ describe("2. the SHARED surfaces are never operating systems", () => {
     expect(c).toContain('code: "FAMILY_OFFICE"');
     expect(c).toContain('code: "NOELIA_AI"');
     // The OS list itself contains no shared capability: slice the declared array.
-    const osList = c.slice(c.indexOf("SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = ["), c.indexOf("export const CANONICAL_SURFACES"));
-    expect(osList).not.toMatch(/FAMILY_OFFICE|NOELIA/);
-    expect(osList).toContain('code: "FOUNDATION"');
+    const osList = c.slice(c.indexOf("SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = ["), c.indexOf("export const FOUNDATION_ORGANIZATION"));
+    expect(osList).not.toMatch(/FAMILY_OFFICE|NOELIA|FOUNDATION/);
+    expect(c).toContain('code: "FOUNDATION"');
+    expect(c).toContain('level: "SISTER_ORGANIZATION"');
+    expect(c).toContain('registryCode: "SHARED_FOUNDATION_OPERATIONS"');
     // The single canonical AI identity is NOELIA_AI, nowhere sector-qualified.
     expect(source("src", "lib", "noelia", "canonical-identity.ts")).toContain("NOELIA_AI");
   });
@@ -182,7 +184,6 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
       [agriculture, "AGRICULTURE"],
       [ujenzi, "UJENZI"],
       [finance, "FINANCE"],
-      [foundation, "FOUNDATION"],
     ] as const) {
       const session = text.indexOf("requirePrincipal()");
       const foreign = text.indexOf(`requestIsOnForeignOSHost("${codeName}")`);
@@ -190,10 +191,14 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
       expect(foreign, codeName).toBeGreaterThan(session);
       expect(text.slice(foreign, foreign + 120), codeName).toContain("notFound()");
     }
+    const foundationSession = foundation.indexOf("requirePrincipal()");
+    const foundationForeign = foundation.indexOf('requestIsOnForeignCanonicalHost("FOUNDATION")');
+    expect(foundationForeign).toBeGreaterThan(foundationSession);
+    expect(foundation.slice(foundationForeign, foundationForeign + 140)).toContain("notFound()");
     // Existing tenant/classification gates are untouched.
-    expect(agriculture).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-AGRI",');
-    expect(ujenzi).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-UJENZI",');
-    expect(foundation).toContain('operatingSystemTenantInScope(\n    principal,\n    "BEYU-FOUNDATION",');
+    expect(agriculture).toContain('governedTenantInScope(\n    principal,\n    "BEYU-AGRI",');
+    expect(ujenzi).toContain('governedTenantInScope(\n    principal,\n    "BEYU-UJENZI",');
+    expect(foundation).toContain('governedTenantInScope(\n    principal,\n    "BEYU-FOUNDATION",');
     expect(ujenzi).toContain("principal.entityScope.length > 0");
     expect(foundation).toContain("principal.entityScope.length > 0");
     // The Finance layout grants nothing: the pages keep their own capability guard.
@@ -206,10 +211,10 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
     const c = code(serverHelper);
     expect(c).toContain('h.get("host")');
     expect(c).not.toMatch(/x-forwarded|cookies\(|resolvePrincipal|from "@\/db|\bcan\(/);
-    // Another OS's host refuses; a canonical SHARED-surface host refuses too (it
-    // carries no OS identity), while neutral hosts and the OS's own host pass.
+    // A mismatched OS or non-OS destination host refuses; neutral/control-plane
+    // hosts and the destination's own canonical host pass.
     expect(c).toContain("if (resolution.kind === \"SECTOR_OS\") return resolution.os.code !== code;");
-    expect(c).toContain("return resolution.kind === \"SURFACE\";");
+    expect(c).toContain("if (resolution.kind === \"SURFACE\") return resolution.surface.code !== code;");
   });
 
   it("the control-plane shell and the OS resolver are unchanged as authorization boundaries", () => {
@@ -222,9 +227,9 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
 });
 
 describe("5. reaching a canonical host authorizes nothing", () => {
-  it("the sign-in page redirects to an OS home only through authorizedOperatingSystems()", () => {
+  it("the sign-in page redirects only through the governed destination resolver", () => {
     const c = code(signIn);
-    const resolver = c.indexOf("authorizedOperatingSystems(principal)");
+    const resolver = c.indexOf("authorizedGovernedDestinations(principal)");
     const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     expect(resolver).toBeGreaterThan(-1);
     expect(sectorRedirect).toBeGreaterThan(resolver);
@@ -236,7 +241,7 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
   });
 
-  it("a SHARED-surface host redirects only through that destination's own declared guard", () => {
+  it("a non-OS host redirects only through its existing destination gate", () => {
     const c = code(signIn);
     const surfaceRedirect = c.indexOf("can(principal, canonicalHost.surface.entryPermission).allowed");
     expect(surfaceRedirect).toBeGreaterThan(-1);
@@ -245,6 +250,8 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     expect(c).toContain("canonicalHost.surface.entryPermission");
     expect(c).not.toMatch(/can\(principal, "family:member\.read"\)/);
     expect(c).not.toMatch(/can\(principal, "ai:noelia\.query"\)/);
+    expect(c).toContain('canonicalHost.surface.code === "FOUNDATION"');
+    expect(c).toContain('destination.code === "FOUNDATION"');
   });
 
   it("the post-login landing is server-computed and same-origin only", () => {
@@ -320,7 +327,7 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0074_enterprise_intelligence_expansion");
+    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 

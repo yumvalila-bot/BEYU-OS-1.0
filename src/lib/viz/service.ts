@@ -36,8 +36,8 @@ import {
   validateDimensionExtension,
   type DimensionExtensionRecord,
   type DimensionRegistry,
-  type VizSectorCode,
-  VIZ_SECTOR_CODES,
+  type VizDomainCode,
+  VIZ_DOMAIN_CODES,
 } from "./dimensions";
 import { buildSceneManifest, type SceneLayer, type SceneManifest } from "./scene-model";
 import { authorizeVisualization, authorizeExport, assertSectorAccess, reauthorizeDeepLink } from "./authorization";
@@ -125,7 +125,7 @@ export type RegisterDimensionExtensionInput = {
   dataRequirements?: string[];
   renderingRequirements?: string[];
   requiredPermissions?: PermissionCode[];
-  sectorApplicability?: VizSectorCode[] | "*";
+  sectorApplicability?: VizDomainCode[] | "*";
   lifecycleState?: DimensionExtensionRecord["lifecycleState"];
   rationale: string;
   classification?: Classification;
@@ -195,7 +195,7 @@ export async function registerDimensionExtension(input: RegisterDimensionExtensi
 
 export type CreateSceneInput = {
   name: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType?: string | null;
   subjectId?: string | null;
   dimensions: string[];
@@ -211,7 +211,7 @@ function sceneRowToConfig(row: typeof s.vizScenes.$inferSelect) {
     tenantId: row.tenantId,
     legalEntityId: row.legalEntityId,
     name: row.name,
-    sector: row.sector as VizSectorCode,
+    sector: row.sector as VizDomainCode,
     subjectType: row.subjectType,
     subjectId: row.subjectId,
     dimensions: (row.dimensions as string[]) ?? [],
@@ -225,7 +225,7 @@ function sceneRowToConfig(row: typeof s.vizScenes.$inferSelect) {
   };
 }
 
-export async function listScenes(principal: Principal, opts: { sector?: VizSectorCode; status?: "ACTIVE" | "ARCHIVED" } = {}) {
+export async function listScenes(principal: Principal, opts: { sector?: VizDomainCode; status?: "ACTIVE" | "ARCHIVED" } = {}) {
   const allowed = classificationsAtOrBelow(principal.clearance);
   const conditions = [eq(s.vizScenes.tenantId, principal.tenantId), inArray(s.vizScenes.classification, allowed as Classification[])];
   if (opts.sector) conditions.push(eq(s.vizScenes.sector, opts.sector));
@@ -239,7 +239,7 @@ export async function listScenes(principal: Principal, opts: { sector?: VizSecto
  * unknown dimensions are rejected, never assumed. */
 export async function createScene(input: CreateSceneInput, actor: VizActor, principal: Principal) {
   if (!input.name.trim()) throw new VizDomainError("INVALID_STATE", "A scene requires a name.");
-  if (!(VIZ_SECTOR_CODES as readonly string[]).includes(input.sector)) {
+  if (!(VIZ_DOMAIN_CODES as readonly string[]).includes(input.sector)) {
     throw new VizDomainError("SECTOR_UNSUPPORTED", `Unknown sector '${String(input.sector)}'. The canonical consumers are BEYU, HEALTH, FINANCE, AGRICULTURE, UJENZI and FOUNDATION.`);
   }
   // A scene over sector data requires the sector's own boundary AT CREATION
@@ -293,7 +293,7 @@ export async function createScene(input: CreateSceneInput, actor: VizActor, prin
 }
 
 /** Deterministic default layer set for a dimension combination. */
-export function defaultLayersFor(dimensions: string[], sector: VizSectorCode): SceneLayer[] {
+export function defaultLayersFor(dimensions: string[], sector: VizDomainCode): SceneLayer[] {
   const layers: SceneLayer[] = [];
   const p = sector.toLowerCase();
   if (dimensions.includes("1D")) layers.push({ id: `${p}-information`, dimensionId: "1D", kind: "TABLE", label: "Information (1D)", visible: true });
@@ -363,7 +363,7 @@ export async function archiveScene(sceneId: string, actor: VizActor, principal: 
 /* ───────────────────── governed manifest building ───────────────────── */
 
 export type ManifestRequest = {
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   dimensions: string[];
   subjectId?: string | null;
   sceneName?: string;
@@ -439,7 +439,7 @@ export async function sceneManifest(principal: Principal, sceneId: string, prese
 /* ─────────────────────────── digital twins ─────────────────────────── */
 
 export type RegisterTwinInput = {
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType: string;
   subjectId: string;
   name: string;
@@ -447,7 +447,7 @@ export type RegisterTwinInput = {
   classification?: Classification;
 };
 
-export async function listTwins(principal: Principal, opts: { sector?: VizSectorCode } = {}) {
+export async function listTwins(principal: Principal, opts: { sector?: VizDomainCode } = {}) {
   const allowed = classificationsAtOrBelow(principal.clearance);
   const conditions = [eq(s.vizDigitalTwins.tenantId, principal.tenantId), inArray(s.vizDigitalTwins.classification, allowed as Classification[])];
   if (opts.sector) conditions.push(eq(s.vizDigitalTwins.sector, opts.sector));
@@ -460,7 +460,7 @@ function twinRowToRegistration(row: typeof s.vizDigitalTwins.$inferSelect): Twin
     id: row.id,
     tenantId: row.tenantId,
     twinKey: row.twinKey,
-    sector: row.sector as VizSectorCode,
+    sector: row.sector as VizDomainCode,
     subjectType: row.subjectType,
     subjectId: row.subjectId,
     legalEntityId: row.legalEntityId,
@@ -476,7 +476,7 @@ function twinRowToRegistration(row: typeof s.vizDigitalTwins.$inferSelect): Twin
 /** Register a twin identity binding. Requires the sector's own boundary at
  * registration time (a twin cannot be pinned into unreadable data). */
 export async function registerTwin(input: RegisterTwinInput, actor: VizActor, principal: Principal) {
-  if (!(VIZ_SECTOR_CODES as readonly string[]).includes(input.sector)) {
+  if (!(VIZ_DOMAIN_CODES as readonly string[]).includes(input.sector)) {
     throw new VizDomainError("SECTOR_UNSUPPORTED", `Unknown sector '${String(input.sector)}'.`);
   }
   if (!input.subjectType.trim() || !input.subjectId.trim() || !input.name.trim()) {
@@ -646,7 +646,7 @@ export async function projectTwin(principal: Principal, twinId: string): Promise
 export type CreateExportInput = {
   sceneId?: string | null;
   twinId?: string | null;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   dimensions: string[];
   subjectId?: string | null;
   format: ExportFormat;

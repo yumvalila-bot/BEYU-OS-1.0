@@ -133,7 +133,7 @@ describe("internal service token verification", () => {
   it("accepts every canonical sector issuer (HEALTH/AGRICULTURE/FINANCE/FOUNDATION/UJENZI_OS)", () => {
     process.env[INTERNAL_SERVICE_TOKEN_ENV] = SECRET;
     try {
-      for (const iss of ["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "UJENZI_OS"]) {
+      for (const iss of ["HEALTH_OS", "AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_ORGANIZATION", "UJENZI_OS"]) {
         const r = verifyInternalServiceToken(baseToken({ iss, sub: `service:${iss}` }));
         expect(r.ok).toBe(true);
       }

@@ -123,7 +123,7 @@ export const PERMISSIONS = {
   // `platform:frontend.preview` is the explicit, auditable capability behind
   // the current BEYU administrator's development-preview access to the six
   // canonical frontend surfaces (Health, Finance, Agriculture, Ujenzi,
-  // Foundation OS and the Family Office capability surface).
+  // Foundation organization and the Family Office capability surface).
   //
   // It is a PRESENTATION capability only: it grants no data access of its own,
   // is not delegable, and is never an authorization input for any page, query
@@ -430,8 +430,8 @@ export const PERMISSIONS = {
   "viz:asset.manage": "Register or archive governed Holograph spatial assets (configuration + provenance only; never sector data mutation)",
   "viz:device.manage": "Register or transition the lifecycle of Holograph devices (HIGH-RISK: a device is a presentation security context; MFA step-up; no physical holographic hardware support exists or is claimed)",
   "viz:interaction.execute": "Request governed Holograph spatial interactions (presentation, navigation and workflow/approval delegation; every request is ledgered and audited, denials included; never a sector mutation and never a posting path)",
-  // Foundation OS — ONE institutional OS; these are domain capabilities inside
-  // it, not sub-OS products. Approval permissions are HIGH_RISK (MFA step-up).
+  // Foundation — separate nonprofit sister organization, never a Sector OS.
+  // Approval permissions are HIGH_RISK (MFA step-up).
   "foundation:registry.read": "Read the Foundation Registry",
   "foundation:registry.manage": "Register foundations and transition lifecycle states",
   "foundation:formation.read": "Read foundation formation cases",
@@ -787,7 +787,7 @@ export const ROLES: Record<
       "agriculture:data.read",
       // Ujenzi OS
       "ujenzi:data.read",
-      // Foundation OS (the canonical Foundation read set)
+      // Foundation organization (the canonical Foundation read set)
       "foundation:registry.read",
       "foundation:formation.read",
       "foundation:structure.read",

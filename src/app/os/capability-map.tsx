@@ -3,7 +3,7 @@ import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { osRegistry } from "@/db/schema";
 import { type Principal } from "@/lib/authz";
-import { authorizedOperatingSystems } from "@/lib/operating-systems";
+import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { Badge } from "@/components/brand";
 import { Icon } from "@/components/icons";
@@ -14,11 +14,12 @@ import { CAPABILITY_IA, visible, type CapabilityItem } from "./capabilities";
  * card can carry the REAL lifecycle state recorded in the registry rather
  * than a fabricated "status".
  */
-const SECTOR_REGISTRY_CODE: Record<string, string> = {
+const DESTINATION_REGISTRY_CODE: Record<string, string> = {
   "/os/health": "HEALTH_OS",
   "/os/finance": "FINANCE_OS",
   "/os/agriculture": "AGRICULTURE_OS",
-  "/os/foundation": "FOUNDATION_OS",
+  "/os/ujenzi": "UJENZI_OS",
+  "/os/foundation": "SHARED_FOUNDATION_OPERATIONS",
 };
 
 function Card({ item, lifecycle, href }: { item: CapabilityItem; lifecycle?: string; href?: string }) {
@@ -61,21 +62,21 @@ function Card({ item, lifecycle, href }: { item: CapabilityItem; lifecycle?: str
  *   exposing anything about the restricted surfaces themselves.
  */
 export async function CapabilityMap({ principal }: { principal: Principal }) {
-  const destinations = await authorizedOperatingSystems(principal);
-  const operatingSystemHrefs = new Set(destinations.map((destination) => destination.href));
+  const destinations = await authorizedGovernedDestinations(principal);
+  const governedDestinationHrefs = new Set(destinations.map((destination) => destination.href));
   // Canonical Sector OS subdomain links when configured (presentation only).
   const hrefFor = await destinationHrefForRequest();
   const renderedHref = new Map(destinations.map((destination) => [destination.href, hrefFor(destination)]));
   const registryRows = await db
     .select({ code: osRegistry.code, lifecycle: osRegistry.lifecycle })
     .from(osRegistry)
-    .where(inArray(osRegistry.code, Object.values(SECTOR_REGISTRY_CODE)));
+    .where(inArray(osRegistry.code, Object.values(DESTINATION_REGISTRY_CODE)));
   const lifecycleByCode = new Map(registryRows.map((r) => [r.code, r.lifecycle]));
 
   const groups = CAPABILITY_IA.map((group) => {
     const items = group.items.filter((item) =>
-      group.id === "sector"
-        ? operatingSystemHrefs.has(item.href)
+      group.id === "sector" || group.id === "sister-organization"
+        ? governedDestinationHrefs.has(item.href)
         : visible(principal, item),
     );
     return { ...group, items };
@@ -106,10 +107,14 @@ export async function CapabilityMap({ principal }: { principal: Principal }) {
                 <Card
                   key={`${item.href}:${item.label}`}
                   item={item}
-                  href={group.id === "sector" ? renderedHref.get(item.href) : undefined}
+                  href={
+                    group.id === "sector" || group.id === "sister-organization"
+                      ? renderedHref.get(item.href)
+                      : undefined
+                  }
                   lifecycle={
-                    group.id === "sector"
-                      ? lifecycleByCode.get(SECTOR_REGISTRY_CODE[item.href] ?? "") ?? undefined
+                    group.id === "sector" || group.id === "sister-organization"
+                      ? lifecycleByCode.get(DESTINATION_REGISTRY_CODE[item.href] ?? "") ?? undefined
                       : undefined
                   }
                 />

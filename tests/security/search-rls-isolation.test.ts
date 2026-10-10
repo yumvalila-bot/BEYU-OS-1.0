@@ -147,8 +147,11 @@ const ids: Record<string, string[]> = {};
 beforeAll(async () => {
   admin = new Client({ connectionString: ADMIN_URL });
   await admin.connect();
-  // Clean stale probe rows (admin bypasses RLS for cleanup only).
-  for (const p of PROBES) await admin.query(`delete from ${p.table} where id like 'SRCHRLS-%'`);
+  // Clean mutable stale probe rows. Knowledge evidence is immutable by design;
+  // its per-run identifiers are retained until the disposable database is dropped.
+  for (const p of PROBES) {
+    if (p.table !== "knowledge_sources") await admin.query(`delete from ${p.table} where id like 'SRCHRLS-%'`);
+  }
   await admin.query(`delete from ujenzi_projects where id like 'SRCHRLS-BOQPROJ-%'`);
   await admin.query(`delete from governance_bodies where id like 'SRCHRLS-%'`);
   await admin.query(`delete from tenants where code like 'SRCHRLS-%'`);
@@ -166,7 +169,7 @@ beforeAll(async () => {
       const ent = tenant === TENANT_A ? ENT_A : ENT_B;
       let extra: string | undefined;
       if (p.table === "ujenzi_boqs") {
-        const pid = `SRCHRLS-BOQPROJ-${side}`;
+        const pid = `SRCHRLS-BOQPROJ-${side}-${RUN}`;
         await admin.query(
           `insert into ujenzi_projects (id, tenant_id, legal_entity_id, code, name, country_code, status)
            values ($1,$2,$3,$4,'Search RLS boq parent','TZ','PLANNED')
@@ -176,18 +179,19 @@ beforeAll(async () => {
         extra = pid;
       }
       if (p.table === "resolutions") {
-        const bid = `SRCHRLS-BODY-${side}`;
+        const bid = `SRCHRLS-BODY-${side}-${RUN}`;
         await admin.query(
           `insert into governance_bodies (id, tenant_id, code, name, body_type, status, classification)
            values ($1,$2,$3,'Search RLS probe body ${side}','COMMITTEE','ACTIVE','INTERNAL')
            on conflict (id) do nothing`,
-          [bid, tenant, `SRCHRLS-BODY-${side}`],
+          [bid, tenant, `SRCHRLS-BODY-${side}-${RUN}`],
         );
         extra = bid;
       }
-      const ins = p.insert(`SRCHRLS-${p.table}-${side}`, tenant, token, ent, extra);
+      const probeId = `SRCHRLS-${p.table}-${side}-${RUN}`;
+      const ins = p.insert(probeId, tenant, token, ent, extra);
       await admin.query(ins.sql, ins.params);
-      ids[p.table].push(`SRCHRLS-${p.table}-${side}`);
+      ids[p.table].push(probeId);
     }
   }
 }, 120_000);
@@ -199,7 +203,7 @@ afterAll(async () => {
   await admin.query(`delete from agriculture_projects where id like 'SRCHRLS-%'`);
   await admin.query(`delete from agriculture_farms where id like 'SRCHRLS-%'`);
   await admin.query(`delete from foundations where id like 'SRCHRLS-%'`);
-  await admin.query(`delete from knowledge_sources where id like 'SRCHRLS-%'`);
+  // knowledge_sources rows are immutable evidence and use per-run ids.
   await admin.query(`delete from resolutions where id like 'SRCHRLS-%'`);
   await admin.query(`delete from governance_bodies where id like 'SRCHRLS-%'`);
   await admin.query(`delete from documents where id like 'SRCHRLS-%'`);

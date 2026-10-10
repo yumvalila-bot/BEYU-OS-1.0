@@ -90,16 +90,16 @@ describe("Foundation API target-scope structure", () => {
     expect(api).toMatch(/scopeReason \|\| sectorTargetReason \|\| !decision\.allowed/);
   });
 
-  it("resolves the Foundation boundary from the canonical Sector OS resolver, not a second model", () => {
+  it("resolves the Foundation boundary from the canonical governed-tenant resolver, not a second model", () => {
     const targetScope = source("src", "lib", "foundation", "target-scope.ts");
     expect(targetScope).toContain('from "@/lib/operating-systems"');
-    expect(targetScope).toContain("resolveOperatingSystemTenant");
+    expect(targetScope).toContain("resolveGovernedTenant");
     expect(targetScope).toContain('FOUNDATION_TARGET_TENANT_CODE = "BEYU-FOUNDATION"');
     // No client input can enter the resolver: it takes the principal only.
     expect(targetScope).toMatch(/resolveFoundationTargetScope\(\s*principal: Principal,?\s*\)/);
     const operatingSystems = source("src", "lib", "operating-systems.ts");
-    expect(operatingSystems).toContain("export async function operatingSystemTenantInScope");
-    expect(operatingSystems).toContain("export async function resolveOperatingSystemTenant");
+    expect(operatingSystems).toContain("export async function governedTenantInScope");
+    expect(operatingSystems).toContain("export async function resolveGovernedTenant");
   });
 
   it("never sources a tenant or scope from client input in Foundation routes", () => {
@@ -196,7 +196,7 @@ describe("Foundation API target-scope structure", () => {
 
   it("leaves the Foundation UI deep-link protection in place and unchanged", () => {
     const layout = source("src", "app", "os", "foundation", "layout.tsx");
-    expect(layout).toContain("operatingSystemTenantInScope");
+    expect(layout).toContain("governedTenantInScope");
     expect(layout).toContain('"BEYU-FOUNDATION"');
     expect(layout).toContain("entityScope.length > 0");
     expect(layout).toContain("tenant-wide reads are refused");

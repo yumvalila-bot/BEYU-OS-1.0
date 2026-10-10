@@ -42,7 +42,7 @@ import type { Principal } from "@/lib/authz";
 import { classificationsAtOrBelow, type Classification, type PermissionCode } from "@/lib/constants";
 import { getScene, getTwinRegistration } from "./service";
 import { assertSectorAccess, entityScopeRefusal } from "./authorization";
-import { VIZ_SECTOR_CODES, type VizSectorCode } from "./dimensions";
+import { VIZ_DOMAIN_CODES, type VizDomainCode } from "./dimensions";
 import { VizDomainError } from "./errors";
 import { vizEventInput } from "./events";
 import { VIZ_INTERACTION_TARGET_DOMAINS, VIZ_INTERACTION_TYPES } from "@/db/schema/visualization";
@@ -76,7 +76,7 @@ const TARGET_SURFACE_PERMISSION: Partial<Record<InteractionType, string>> = {
 export type RequestInteractionInput = {
   interactionType: string;
   /** Target sector (required when no scene/twin reference is supplied). */
-  sector?: VizSectorCode;
+  sector?: VizDomainCode;
   sceneId?: string | null;
   twinId?: string | null;
   /** `${subjectType}:${subjectId}` object reference the gesture addressed. */
@@ -92,7 +92,7 @@ export type InteractionResult = {
   interactionType: InteractionType;
   outcome: InteractionOutcome;
   reason: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   targetDomain: InteractionTargetDomain | null;
   /** For DELEGATED results: the governed surface that owns the next step. */
   delegation?: { targetDomain: InteractionTargetDomain; canonicalSurface: string; requiredPermission: string; note: string } | null;
@@ -135,7 +135,7 @@ const DELEGATION_SURFACES: Record<InteractionTargetDomain, { surface: string; pe
 async function resolveTarget(
   principal: Principal,
   input: RequestInteractionInput,
-): Promise<{ sector: VizSectorCode; sceneId: string | null; twinId: string | null; error: string | null }> {
+): Promise<{ sector: VizDomainCode; sceneId: string | null; twinId: string | null; error: string | null }> {
   if (input.sceneId) {
     // Deep-link re-authorization: the scene reference is re-checked
     // server-side (tenant, entity, classification, permission, sector).
@@ -151,7 +151,7 @@ async function resolveTarget(
   if (!input.sector) {
     return { sector: "BEYU", sceneId: null, twinId: null, error: "An interaction must target a scene, a digital twin or an explicit sector." };
   }
-  if (!(VIZ_SECTOR_CODES as readonly string[]).includes(input.sector)) {
+  if (!(VIZ_DOMAIN_CODES as readonly string[]).includes(input.sector)) {
     return { sector: "BEYU", sceneId: null, twinId: null, error: `Unknown sector '${String(input.sector)}'.` };
   }
   return { sector: input.sector, sceneId: null, twinId: null, error: null };
@@ -175,7 +175,7 @@ export async function requestInteraction(input: RequestInteractionInput, actor: 
   // Build the decision chain (every stage reuses the existing kernel).
   let outcome: InteractionOutcome = "DENIED";
   let reason = "";
-  let sector: VizSectorCode = target.sector;
+  let sector: VizDomainCode = target.sector;
   let sceneId: string | null = target.sceneId;
   let twinId: string | null = target.twinId;
   let delegation: InteractionResult["delegation"] = null;

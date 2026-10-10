@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — canonical Finance integration bridge.
+ * BEYU Foundation organization — canonical Finance integration bridge.
  *
  * Foundation Finance NEVER posts journals directly and never invents accounts,
  * periods or recognition policy. All financial consequences flow through
@@ -87,7 +87,7 @@ export async function requestFoundationCapital(
 
 export async function listFoundationCapitalRequests(principal: Principal) {
   // Cross-domain read: `capital_requests` is a FINANCE-owned artefact that
-  // Foundation OS surfaces. The canonical Foundation target gate is applied
+  // Foundation organization surfaces. The canonical Foundation target gate is applied
   // first (a principal outside the Foundation target scope is denied outright);
   // the rows are then constrained by the principal's resolved tenant scope,
   // because an enterprise-scope capital request for a Foundation programme is
@@ -152,7 +152,7 @@ export async function linkJournalEntry(
 }
 
 /**
- * Fund-vs-ledger reconciliation view. Foundation OS reports its own fund
+ * Fund-vs-ledger reconciliation view. Foundation organization reports its own fund
  * balances; Finance OS remains the authority for ledger truth. Any drift is
  * surfaced, never auto-corrected here.
  */

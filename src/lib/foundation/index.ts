@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — domain module barrel.
+ * BEYU Foundation organization — domain module barrel.
  */
 export * from "./types";
 export * from "./lifecycle";

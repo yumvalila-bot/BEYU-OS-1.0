@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { guarded, parseBody } from "@/lib/api";
 import { createExport, listExports } from "@/lib/viz/service";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import { contentDisposition } from "@/lib/viz/exports";
 import { vizActor, vizErrorResponse } from "../_shared";
 
@@ -25,7 +25,7 @@ const CreateSchema = z
   .object({
     sceneId: z.string().trim().min(1).max(200).nullish(),
     twinId: z.string().trim().min(1).max(200).nullish(),
-    sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]),
+    sector: z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]]),
     format: z.enum(["JSON", "CSV"]),
     dimensions: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     subjectId: z.string().trim().min(1).max(200).nullish(),
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           {
             sceneId: body.sceneId ?? null,
             twinId: body.twinId ?? null,
-            sector: body.sector as (typeof VIZ_SECTOR_CODES)[number],
+            sector: body.sector as (typeof VIZ_DOMAIN_CODES)[number],
             dimensions: body.dimensions ?? [],
             subjectId: body.subjectId ?? null,
             format: body.format,

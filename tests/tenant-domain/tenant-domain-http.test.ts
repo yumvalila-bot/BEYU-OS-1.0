@@ -123,7 +123,7 @@ describe("administrative surface", () => {
     // OS base domain is not registerable at runtime.
     const wrongOs = await apiPost(
       "/api/v1/admin/tenant-domains",
-      { tenantId: HEALTH, os: "MINING_OS", domainType: "TENANT_SUBDOMAIN", label: "mining", reason: REASON },
+      { tenantId: HEALTH, os: "SHARED_MINING_GOVERNANCE", domainType: "TENANT_SUBDOMAIN", label: "mining", reason: REASON },
       { cookie: ceoCookie },
     );
     expect(wrongOs.status).toBe(422);

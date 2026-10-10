@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — HIVE tool registration.
+ * BEYU Foundation organization — HIVE tool registration.
  *
  * All Foundation tools are sideEffects NONE: Noelia may analyse, summarise,
  * recommend and draft, but material actions (approve, transfer, post,

@@ -42,7 +42,7 @@ import {
   vestingSchedules,
 } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import { clearanceForRoles, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
 import { verifyAuditChain } from "../../src/lib/audit";
 import { EquityError } from "../../src/lib/equity/errors";
 import {
@@ -94,6 +94,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -232,10 +233,20 @@ describe("§13 — share classes and issuance are governance-authorized", () => 
     await expectEquityError("NOT_FOUND", () => readCapTable(sector, { legalEntityId: HOLDINGS }));
   });
 
-  it("DENIES the group CFO on an entity outside the group tenant (cross-tenant ABAC DENY)", async () => {
-    // The group CFO's enterprise scope can *see* the entity exists, but ABAC
-    // denies capitalization reads on another tenant's entity — DENY is final.
-    await expectEquityError("FORBIDDEN", () => readCapTable(cfo, { legalEntityId: HEALTH }));
+  it("DENIES a tenant-scoped group CFO on another tenant's entity (cross-tenant ABAC DENY)", async () => {
+    // Narrow every canonical grant tuple to the group tenant. This fixture
+    // deliberately does not use the seed CFO's explicit global assignment:
+    // the assertion proves that a role label alone never creates global scope.
+    const tenantScopedCfo: Principal = {
+      ...cfo,
+      authorityGrants: (cfo.authorityGrants ?? []).map((grant) => ({
+        ...grant,
+        tenantId: cfo.tenantId,
+      })),
+    };
+    // Scope is checked non-enumerating before RBAC/ABAC, so the canonical
+    // fail-closed response is NOT_FOUND rather than confirming the entity.
+    await expectEquityError("NOT_FOUND", () => readCapTable(tenantScopedCfo, { legalEntityId: HEALTH }));
   });
 
   it("refuses issuance citing a missing resolution (authority is never client-claimed)", async () => {

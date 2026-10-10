@@ -3,7 +3,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { families, familyMembers, parties, roleAssignments, users } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { can, clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import { can, clearanceForRoles, loadGrants, permissionsForRoles, roleAuthorityGrants, type Principal } from "../../src/lib/authz";
 import { registerFamilyMember, registerParty } from "../../src/lib/admin/registry-service";
 
 /**
@@ -44,6 +44,9 @@ async function principalFor(userKey: string): Promise<Principal> {
     riskScore: 0,
     emergencyPermissions: [],
     delegatedPermissions: [],
+    authorityGrants: roleAuthorityGrants(grants),
+    accountStatus: u.status,
+    isServiceAccount: u.isServiceAccount,
   };
 }
 

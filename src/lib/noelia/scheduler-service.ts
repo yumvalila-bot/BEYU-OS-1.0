@@ -8,6 +8,7 @@ import { NOELIA_SCHEDULER_IDENTITY } from "@/lib/constants";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import type { NoeliaHorizon } from "@/lib/constants";
+import { verifyHumanControlCommand } from "./human-approval";
 
 export const SCHEDULE_CADENCE = ["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL", "HORIZON"] as const;
 
@@ -52,7 +53,10 @@ export class BeyuNoeliaSchedulerService {
         userId: users.id,
         email: users.email,
         status: users.status,
+        isServiceAccount: users.isServiceAccount,
         partyId: parties.id,
+        partyStatus: parties.status,
+        partyType: parties.type,
         displayName: parties.displayName,
         tenantCode: tenants.code,
         tenantType: tenants.type,
@@ -62,9 +66,21 @@ export class BeyuNoeliaSchedulerService {
       .innerJoin(tenants, eq(tenants.id, users.primaryTenantId))
       .where(eq(users.id, ownerUserId))
       .limit(1);
-    if (!row || row.status !== "ACTIVE") return null;
-    const { loadGrants, permissionsForRoles, clearanceForRoles } = await import("@/lib/authz");
+    if (!row || row.status !== "ACTIVE" || row.partyStatus !== "ACTIVE" || row.isServiceAccount || row.partyType !== "PERSON") return null;
+    const {
+      activeDelegatedAuthorityGrants,
+      activeEmergencyAuthorityGrants,
+      loadGrants,
+      permissionsForRoles,
+      clearanceForRoles,
+      roleAuthorityGrants,
+    } = await import("@/lib/authz");
     const grants = await loadGrants(row.userId, tenantId);
+    const authorityGrants = [
+      ...roleAuthorityGrants(grants),
+      ...await activeEmergencyAuthorityGrants(row.userId, tenantId),
+      ...await activeDelegatedAuthorityGrants(row.userId),
+    ];
     const roleCodes = [...new Set(grants.map((g) => g.code))];
     const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
     return {
@@ -79,6 +95,10 @@ export class BeyuNoeliaSchedulerService {
       permissions: permissionsForRoles(roleCodes),
       clearance: clearanceForRoles(roleCodes),
       entityScope,
+      countryScope: [],
+      authorityGrants,
+      accountStatus: row.status,
+      isServiceAccount: false,
       mfaSatisfied: false,
       sessionId: "SYSTEM/NOELIA_SCHEDULER",
       riskScore: 0,
@@ -399,6 +419,11 @@ export class BeyuNoeliaSchedulerService {
         inArray(noeliaSchedules.tenantId, [input.principal.tenantId]),
       )).limit(1);
       if (!schedule) return { scheduleId: input.scheduleId, code: "", status: "NOT_FOUND", reason: "Schedule not found in scope." };
+      await verifyHumanControlCommand(input.principal, "ai:schedule.manage", {
+        tenantId: schedule.tenantId,
+        legalEntityId: schedule.legalEntityId,
+        countryCode: schedule.countryCode,
+      });
       await db.transaction(async (rawTx) => {
         const tx = rawTx as unknown as typeof db;
         await tx.update(noeliaSchedules).set({ status: input.status }).where(eq(noeliaSchedules.id, schedule.id));

@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Conflict-of-interest declarations.
+ * BEYU Foundation organization — Conflict-of-interest declarations.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

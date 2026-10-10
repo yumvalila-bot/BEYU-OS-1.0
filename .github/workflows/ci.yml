@@ -158,7 +158,7 @@ jobs:
     name: Root BEYU OS — PostgreSQL security gate
     runs-on: ubuntu-24.04
     # 45 was chronically too tight: the job executes typecheck, lint, all
-    # 74 migrations + gates, seed, TWO production builds, the full vitest
+    # All canonical root migrations + gates, seed, TWO production builds, the full vitest
     # regression against a live server AND the Playwright suite. Runs (on main
     # too) were being CANCELLED at the wall clock mid-browser-step while every
     # executed step had passed. 60 changes no test, no step and no assertion —
@@ -167,7 +167,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Verified Docker Official Image mirror. Avoids Docker Hub pull outages
+        # without changing the PostgreSQL image, major version, or any gate.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           # Ephemeral, run-scoped. This container is destroyed when the job ends.
           POSTGRES_USER: postgres
@@ -182,6 +184,11 @@ jobs:
           --health-retries 10
 
     env:
+      # The reconciled root graph exceeds V8's conservative default heap during
+      # TypeScript program construction on GitHub-hosted runners. Keep one
+      # explicit budget for typecheck, builds and tests; this changes no gate or
+      # assertion and prevents exit 134 before validation can begin.
+      NODE_OPTIONS: --max-old-space-size=6144
       # CREDENTIAL SEPARATION — load-bearing, not cosmetic.
       #   DATABASE_URL              runtime role (beyu_runtime), NON-SUPERUSER,
       #                               RLS-bound. The server under test runs on it,
@@ -198,9 +205,11 @@ jobs:
       #                               guarded() RLS wrapper.
       DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
       BEYU_RUNTIME_DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+      BEYU_GOVERNANCE_DATABASE_URL: postgresql://beyu_governance:ci_governance_db_password_not_a_secret@127.0.0.1:5432/beyu_os
       BEYU_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
       BEYU_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
       BEYU_RUNTIME_DB_PASSWORD: ci_runtime_db_password_not_a_secret
+      BEYU_GOVERNANCE_DB_PASSWORD: ci_governance_db_password_not_a_secret
       BEYU_BOOTSTRAP_PASSWORD: ci_bootstrap_password_not_a_secret
       AUTH_SECRET: ci_auth_secret_value_used_only_in_continuous_integration
       MFA_ENCRYPTION_KEY: ci_mfa_encryption_key_used_only_in_integration
@@ -278,7 +287,7 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
-      - name: Apply canonical root migrations 0000-0074
+      - name: Apply canonical root migrations 0000-0075
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -288,7 +297,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0074 are all recorded
+      - name: Verify migrations 0000-0075 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -401,6 +410,9 @@ jobs:
       - name: Provision non-superuser runtime role
         run: npx tsx scripts/setup-db-role.ts
 
+      - name: Provision least-privileged governed-mutation role
+        run: npm run db:setup-governance-role
+
       - name: Assert the runtime role is genuinely constrained
         # Independent re-check, so a regression inside setup-db-role.ts cannot
         # pass unnoticed. Discrete psql parameters: no DSN in argv.
@@ -439,6 +451,22 @@ jobs:
           fi
           echo "Runtime role login verified against the governed credential."
 
+      - name: Independently assert governed-mutation role boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=$(psql -Atqc "select count(*) from pg_roles where rolname='beyu_governance'
+                            and not rolsuper and not rolbypassrls and not rolcreaterole
+                            and not rolcreatedb and not rolreplication")
+          [ "$ok" = "1" ] || { echo "::error::governance role is absent or elevated"; exit 1; }
+          owned=$(psql -Atqc "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                               where n.nspname='public' and c.relowner=(select oid from pg_roles where rolname='beyu_governance')")
+          [ "$owned" = "0" ] || { echo "::error::governance role owns public objects"; exit 1; }
+          governance_user=$(PGPASSWORD="$BEYU_GOVERNANCE_DB_PASSWORD" \
+            psql -h "$PGHOST" -p "$PGPORT" -U beyu_governance -d "$PGDATABASE" -Atqc 'select current_user' || true)
+          [ "$governance_user" = "beyu_governance" ] || { echo "::error::governance credential did not converge"; exit 1; }
+          echo "Governance role boundary and login verified."
+
       - name: Seed bootstrap data
         run: npm run seed
 
@@ -452,8 +480,10 @@ jobs:
         env:
           DATABASE_URL: ""
           BEYU_RUNTIME_DATABASE_URL: ""
+          BEYU_GOVERNANCE_DATABASE_URL: ""
           BEYU_ADMIN_DATABASE_URL: ""
           BEYU_TEST_DATABASE_URL: ""
+          BEYU_GOVERNANCE_DB_PASSWORD: ""
           AUTH_SECRET: ""
           MFA_ENCRYPTION_KEY: ""
           BEYU_BOOTSTRAP_PASSWORD: ""
@@ -638,7 +668,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # Verified mirror of the same Docker Official PostgreSQL image used by
+        # the root gate; this is registry resilience, not a test substitution.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

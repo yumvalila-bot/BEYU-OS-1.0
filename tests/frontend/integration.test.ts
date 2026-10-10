@@ -239,14 +239,16 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
 });
 
 describe("Operating-system launcher hierarchy", () => {
-  it.skipIf(!available)("shows one BEYU control plane above all five Sector OS cards", async () => {
+  it.skipIf(!available)("shows one BEYU control plane above all four Sector OS cards", async () => {
     const launcher = await apiGet("/launcher", ceo);
     expect(launcher.status).toBe(200);
     expect(launcher.html).toContain("Constitutional control plane");
     expect(launcher.html).toContain("Sector operating systems");
-    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Foundation OS", "Ujenzi OS"]) {
+    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Ujenzi OS"]) {
       expect(launcher.html).toContain(os);
     }
+    expect(launcher.html).toContain("Nonprofit sister organization");
+    expect(launcher.html).toContain("BEYU Foundation");
     expect(launcher.html).toContain('href="/os/finance"');
     expect(launcher.html).toContain('href="/os/agriculture"');
     expect(launcher.html).toContain('href="/os/foundation"');

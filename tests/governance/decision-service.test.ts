@@ -13,7 +13,7 @@ import {
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "../../src/lib/authz";
@@ -59,6 +59,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,

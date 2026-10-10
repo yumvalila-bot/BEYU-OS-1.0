@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, LoadingState, Panel, stateTone } from "@/components/brand";
 import type { SceneLayer, SceneManifest } from "@/lib/viz/scene-model";
 import type { AdapterDescriptor } from "@/lib/viz/adapters/types";
-import type { DimensionDefinition, VizSectorCode } from "@/lib/viz/dimensions";
+import type { DimensionDefinition, VizDomainCode } from "@/lib/viz/dimensions";
 import {
   ACCESSIBLE_SERIES_PALETTE,
   KEYBOARD_CONTRACT,
@@ -36,7 +36,7 @@ import {
 type SceneInfo = {
   id: string;
   name: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType: string | null;
   subjectId: string | null;
   dimensions: string[];
@@ -49,7 +49,7 @@ type SceneInfo = {
 type TwinInfo = {
   id: string;
   twinKey: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType: string;
   subjectId: string;
   name: string;
@@ -221,7 +221,7 @@ export type VizWorkspaceProps = {
   };
 };
 
-const SECTORS: VizSectorCode[] = ["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"];
+const SECTORS: VizDomainCode[] = ["BEYU", "HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION"];
 const DEFAULT_DIMENSIONS = ["1D", "2D", "4D", "5D", "7D", "8D"];
 const inputStyle = "rounded border border-slate-500/40 bg-transparent px-2 py-1.5 text-xs";
 
@@ -465,7 +465,7 @@ export function VizWorkspace(props: VizWorkspaceProps) {
   const [scenes, setScenes] = useState<SceneInfo[]>(props.scenes);
   const [twins, setTwins] = useState<TwinInfo[]>(props.twins);
   const [tab, setTab] = useState<Tab>("explore");
-  const [sector, setSector] = useState<VizSectorCode>("UJENZI");
+  const [sector, setSector] = useState<VizDomainCode>("UJENZI");
   const [dimensions, setDimensions] = useState<string[]>(DEFAULT_DIMENSIONS);
   const [manifest, setManifest] = useState<SceneManifest | null>(null);
   const [manifestSource, setManifestSource] = useState<{ sceneId?: string; twinId?: string } | null>(null);
@@ -758,7 +758,7 @@ export function VizWorkspace(props: VizWorkspaceProps) {
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-xs">
               Sector
-              <select className={inputStyle} value={sector} onChange={(e) => setSector(e.target.value as VizSectorCode)}>
+              <select className={inputStyle} value={sector} onChange={(e) => setSector(e.target.value as VizDomainCode)}>
                 {SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </label>

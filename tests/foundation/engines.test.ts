@@ -1,5 +1,5 @@
 /**
- * Foundation OS — pure engine certification (no database).
+ * Foundation organization — pure engine certification (no database).
  *
  * Pins the deterministic cores: lifecycle state machines, formation triage,
  * deadline computation, escalation ladder, jurisdiction usability, structure

@@ -3,9 +3,9 @@
  * registry (Phase 1.1).
  *
  * THE ARCHITECTURAL FACT THIS SUITE PROTECTS
- *   BEYU OS has ONE control plane, FIVE Sector OSs (Finance, Health, Agriculture,
- *   Foundation, Ujenzi) and a set of SHARED CAPABILITIES implemented once inside
- *   BEYU OS — Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
+ *   BEYU OS has ONE control plane, exactly FOUR Sector OSs (Finance, Health,
+ *   Agriculture, Ujenzi) and a set of SHARED CAPABILITIES implemented once inside
+ *   BEYU OS — Foundation Operations, Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
  *   Workflow, Security and Noelia/HIVE.
  *
  *   `familyoffice.beyuos.co.tz` is the Family Office SHARED CAPABILITY base: a
@@ -22,12 +22,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 import { adminDb } from "../../src/db/admin";
 import { db } from "../../src/db";
 import { auditLog, osRegistry, tenantDomains } from "../../src/db/schema";
 import { SECTOR_OPERATING_SYSTEMS } from "../../src/lib/operating-system-catalog";
-import { PERMISSIONS, HIGH_RISK_PERMISSIONS } from "../../src/lib/constants";
+import { PERMISSIONS, HIGH_RISK_PERMISSIONS, type PermissionCode } from "../../src/lib/constants";
 import { withTenantDatabaseContext } from "../../src/lib/tenant-scope";
 import type { Principal } from "../../src/lib/authz";
 import {
@@ -52,6 +52,14 @@ const GROUP = SEEDED.group;
 /** Hostname of this suite's own tenant binding under the capability namespace. */
 let scopedCapabilityHost: string | null = null;
 
+const DOMAIN_PERMISSIONS = [
+  "organization:tenantdomain.read",
+  "organization:tenantdomain.register",
+  "organization:tenantdomain.verify",
+  "organization:tenantdomain.manage",
+  "organization:tenantdomain.reassign",
+] as const satisfies readonly PermissionCode[];
+
 function groupAdmin(): Principal {
   return {
     userId: "USR_TEST_CAPABILITY_ADMIN",
@@ -62,13 +70,18 @@ function groupAdmin(): Principal {
     tenantCode: "BEYU-GROUP",
     tenantType: "ENTERPRISE",
     roles: ["GROUP_CEO"],
-    permissions: new Set([
-      "organization:tenantdomain.read",
-      "organization:tenantdomain.register",
-      "organization:tenantdomain.verify",
-      "organization:tenantdomain.manage",
-      "organization:tenantdomain.reassign",
-    ]),
+    permissions: new Set(DOMAIN_PERMISSIONS),
+    authorityGrants: DOMAIN_PERMISSIONS.map((permission) => ({
+      sourceId: `TEST_CAPABILITY_GROUP_CEO_${permission}`,
+      source: "ROLE_ASSIGNMENT" as const,
+      role: "GROUP_CEO",
+      permission,
+      tenantId: null,
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
     clearance: "HIGHLY_RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,
@@ -130,13 +143,13 @@ describe("Family Office base domain — resolution and classification", () => {
     expect(row.purpose).toContain("never a separate OS");
   });
 
-  it("keeps the Sector OS set at exactly five ACTIVE entries, without Family Office", async () => {
+  it("keeps the Sector OS set at exactly four ACTIVE entries, without Foundation or Family Office", async () => {
     const sectors = await db
       .select({ code: osRegistry.code })
       .from(osRegistry)
       .where(and(eq(osRegistry.kind, "SECTOR_OS"), eq(osRegistry.lifecycle, "ACTIVE")));
     expect(sectors.map((s) => s.code).sort()).toEqual(
-      ["AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "HEALTH_OS", "UJENZI_OS"],
+      ["AGRICULTURE_OS", "FINANCE_OS", "HEALTH_OS", "UJENZI_OS"],
     );
     expect(sectors.map((s) => s.code)).not.toContain("FAMILY_OFFICE_OS");
   });
@@ -154,7 +167,7 @@ describe("Family Office base domain — resolution and classification", () => {
 
   it("is absent from the canonical Sector OS catalogue and the launcher", () => {
     const codes = SECTOR_OPERATING_SYSTEMS.map((os) => os.code);
-    expect(codes).toEqual(["FINANCE", "HEALTH", "AGRICULTURE", "FOUNDATION", "UJENZI"]);
+    expect(codes).toEqual(["FINANCE", "HEALTH", "AGRICULTURE", "UJENZI"]);
     expect(codes).not.toContain("FAMILY_OFFICE");
     expect(JSON.stringify(SECTOR_OPERATING_SYSTEMS)).not.toMatch(/family-?office/i);
     // No route was added for the capability: the surface stays /os/family, which
@@ -417,7 +430,7 @@ describe("capability authorization boundaries", () => {
     const base = await resolveHostname(groupAdmin(), FAMILY_OFFICE_BASE);
     const healthBase = await resolveHostname(groupAdmin(), "health.beyuos.co.tz");
     const tenantHost = await resolveHostname(groupAdmin(), TEST_HOSTS.a).catch(() => null);
-    for (const other of ["HEALTH_OS", "FINANCE_OS", "AGRICULTURE_OS", "FOUNDATION_OS", "UJENZI_OS"]) {
+    for (const other of ["HEALTH_OS", "FINANCE_OS", "AGRICULTURE_OS", "SHARED_FOUNDATION_OPERATIONS", "UJENZI_OS"]) {
       expect(resolutionBelongsToNamespace(base, other), other).toBe(false);
       expect(resolutionBelongsToNamespace(healthBase, "SHARED_FAMILY_OFFICE")).toBe(false);
       if (tenantHost) expect(resolutionBelongsToNamespace(tenantHost, "SHARED_FAMILY_OFFICE")).toBe(false);
@@ -566,18 +579,25 @@ describe("existing behaviour is unchanged", () => {
     }
   });
 
-  it("keeps Finance, Agriculture, Foundation and Ujenzi as SECTOR_OS entries", async () => {
+  it("keeps exactly Finance, Agriculture, Health and Ujenzi as SECTOR_OS entries", async () => {
     const rows = await db
       .select({ code: osRegistry.code, kind: osRegistry.kind, lifecycle: osRegistry.lifecycle })
       .from(osRegistry)
       .where(eq(osRegistry.kind, "SECTOR_OS"));
     const active = rows.filter((r) => r.lifecycle === "ACTIVE").map((r) => r.code).sort();
-    expect(active).toEqual(["AGRICULTURE_OS", "FINANCE_OS", "FOUNDATION_OS", "HEALTH_OS", "UJENZI_OS"]);
-    expect(active).toHaveLength(5);
-    // The remaining SECTOR_OS row (MINING_OS, a pre-existing DRAFT) stays the
-    // only non-ACTIVE one: Family Office never appears in the Sector OS set, in
-    // any lifecycle state.
-    expect(rows.map((r) => r.code).some((code) => /FAMILY/i.test(code))).toBe(false);
+    expect(active).toEqual(["AGRICULTURE_OS", "FINANCE_OS", "HEALTH_OS", "UJENZI_OS"]);
+    expect(rows).toHaveLength(4);
+  });
+
+  it("classifies Foundation operations and draft Mining governance as capabilities, never Sector OSs", async () => {
+    const rows = await db
+      .select({ code: osRegistry.code, kind: osRegistry.kind, lifecycle: osRegistry.lifecycle })
+      .from(osRegistry)
+      .where(inArray(osRegistry.code, ["SHARED_FOUNDATION_OPERATIONS", "SHARED_MINING_GOVERNANCE"]));
+    expect(rows.sort((a, b) => a.code.localeCompare(b.code))).toEqual([
+      { code: "SHARED_FOUNDATION_OPERATIONS", kind: "SHARED_CAPABILITY", lifecycle: "ACTIVE" },
+      { code: "SHARED_MINING_GOVERNANCE", kind: "SHARED_CAPABILITY", lifecycle: "DRAFT" },
+    ]);
   });
 
   it("keeps the Family Office capability surface where it was (/os/family)", () => {

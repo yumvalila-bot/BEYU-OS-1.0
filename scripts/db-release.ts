@@ -63,6 +63,10 @@ import { annotateError, annotateGateFailures, failSanitized } from "./lib/ci-ann
 //     went undetected.
 import { scanDestructive } from "../src/lib/migration/integrity";
 import { migrationFingerprintFromChecksums } from "../src/lib/release/migration-fingerprint";
+import {
+  RUNTIME_SECURITY_DEFINER_ALLOWLIST,
+  SECURITY_FINGERPRINT_SQL,
+} from "../src/lib/release/security-fingerprint";
 import { sanitizeError } from "./lib/sanitize-error";
 import { buildPgConnectionConfig } from "../src/db/tls";
 
@@ -154,21 +158,7 @@ async function main() {
   });
 
   const fingerprint = (
-    await one<{ fingerprint: string }>(`
-      select md5(string_agg(item, '\n' order by item)) as fingerprint
-      from (
-        select 'table:'||table_name as item from information_schema.tables where table_schema='public'
-        union all
-        select 'column:'||table_name||'.'||column_name||':'||data_type||':'||is_nullable from information_schema.columns where table_schema='public'
-        union all
-        select 'constraint:'||conname||':'||contype::text from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public'
-        union all
-        select 'index:'||indexname||':'||indexdef from pg_indexes where schemaname='public'
-
-      union all
-      select 'rls:'||c.relname||':'||c.relrowsecurity::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
-            ) s
-    `)
+    await one<{ fingerprint: string }>(SECURITY_FINGERPRINT_SQL)
   )?.fingerprint as string;
 
   const rlsTables = await many<{ tablename: string; rowsecurity: boolean }>(
@@ -188,10 +178,33 @@ async function main() {
       where n.nspname='public' and r.rolname=$1`,
     [runtimeRole],
   );
+  const runtimeSecurityDefiners = role
+    ? await many<{
+        identity: string;
+        owner: string;
+        config: string[] | null;
+        public_execute: boolean;
+      }>(
+        `select p.oid::regprocedure::text identity, owner.rolname owner, p.proconfig config,
+                exists(select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+                        where a.grantee=0 and a.privilege_type='EXECUTE') public_execute
+           from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_roles owner on owner.oid=p.proowner
+          where n.nspname='public' and p.prosecdef and has_function_privilege($1::text, p.oid, 'EXECUTE')
+          order by identity`,
+        [runtimeRole],
+      )
+    : [];
 
   const roleConstrained =
     role !== undefined &&
     !(role.rolsuper || role.rolbypassrls || role.rolcreatedb || role.rolcreaterole || role.rolreplication);
+  const securityDefinerAllowlist = new Map(RUNTIME_SECURITY_DEFINER_ALLOWLIST.map((entry) => [entry.identity, entry]));
+  const unsafeRuntimeSecurityDefiners = runtimeSecurityDefiners.filter((fn) => {
+    const allow = securityDefinerAllowlist.get(fn.identity);
+    const searchPath = fn.config?.find((entry) => entry.startsWith("search_path="));
+    const fixedSafePath = Boolean(searchPath && !searchPath.includes("$user") && !/(^|[,= ]+)public([, ]|$)/.test(searchPath));
+    return !allow || allow.justification.trim().length === 0 || !fixedSafePath || fn.public_execute || fn.owner === runtimeRole;
+  });
 
   const report = {
     mode,
@@ -235,10 +248,22 @@ async function main() {
     },
     runtimeRole: role ? { ...role, constrained: roleConstrained } : null,
     runtimeRoleOwnedObjects: runtimeOwned.map((r) => r.relname),
+    runtimeExecutableSecurityDefiners: runtimeSecurityDefiners.map((fn) => ({
+      identity: fn.identity,
+      owner: fn.owner,
+      config: fn.config,
+      publicExecute: fn.public_execute,
+      allowlisted: securityDefinerAllowlist.has(fn.identity),
+    })),
     destructivePending: [] as Array<{ version: string; operations: string[] }>,
   };
 
   const failures: string[] = [];
+  if (unsafeRuntimeSecurityDefiners.length > 0) {
+    failures.push(
+      `runtime-executable SECURITY DEFINER functions are not safely allowlisted: ${unsafeRuntimeSecurityDefiners.map((fn) => fn.identity).join(", ")}`,
+    );
+  }
 
   // ── mode-specific gates ──────────────────────────────────────────────────
   if (mode === "preflight" || mode === "drift") {

@@ -16,20 +16,24 @@ Nothing here creates a registry or an enforcement path.
 
 ```
 ONE BEYU OS          (constitutional control plane)
-+ SIX CANONICAL OSs  (BEYU OS, Finance OS, Health OS, Agriculture OS, Ujenzi OS, Foundation OS)
++ FOUR SECTOR OSs    (Finance OS, Health OS, Agriculture OS, Ujenzi OS)
 + SHARED GOVERNED CAPABILITIES
++ BEYU FOUNDATION    (separate nonprofit sister organization, never a Sector OS)
 ```
 
-- The canonical enumeration lives in `src/lib/operating-systems.ts` and the
-  `os_registry` seed (`BEYU_OS`, `FINANCE_OS`, `HEALTH_OS`, `AGRICULTURE_OS`,
-  `FOUNDATION_OS`, `UJENZI_OS`).
+- The canonical enumeration lives in `src/lib/operating-system-catalog.ts` and
+  the `os_registry` seed (`BEYU_OS`, plus exactly `FINANCE_OS`, `HEALTH_OS`,
+  `AGRICULTURE_OS`, `UJENZI_OS` with `kind = SECTOR_OS`). Foundation operations
+  use the existing `SHARED_CAPABILITY` classification; Foundation identity and
+  scope come from the root `LEGAL_ENTITY` tenant and `FOUNDATION` legal entity.
 - Capabilities such as HCM, Family Office, Governance, Risk, Compliance,
   Security, Audit, Events, Workflow, Noelia/HIVE, PVG, Blue-Green, Canary and
   Load Balancing are **capabilities, services, controls or engineering
   patterns** — they must never be registered as an OS and never receive a
   sector control plane.
-- Ujenzi OS is a Sector OS. Foundation OS is a Sector OS (nonprofit sister
-  operating environment governed by BEYU OS).
+- Ujenzi OS is a Sector OS. Foundation is a separately governed nonprofit
+  sister organization—not a subsidiary, LLC or Sector OS. Mining is not a
+  Sector OS.
 - One registry of record for OSs; one for capabilities; one authorization
   chain; one event ledger. No duplicate systems, no duplicate taxonomies.
 
@@ -47,7 +51,7 @@ resolved from that registry; it is never inferred from URL text.
 | `/os/finance` | `FINANCE_OS` | Finance OS |
 | `/os/agriculture` | `AGRICULTURE_OS` | Agriculture OS |
 | `/os/ujenzi` | `UJENZI_OS` | Ujenzi OS |
-| `/os/foundation` | `FOUNDATION_OS` | Foundation OS |
+| `/os/foundation` | `SHARED_FOUNDATION_OPERATIONS` + Foundation legal-entity tenant | BEYU Foundation sister-organization context |
 
 - **A route confers nothing.** Each canonical route re-runs its own server-side
   gate (session → OS/federation authorization → tenant → entity → country →

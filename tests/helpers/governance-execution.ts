@@ -3,16 +3,33 @@ import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { governanceBodies, governanceMembers, resolutions, resolutionVotes, tenants, users } from "../../src/db/schema";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import {
+  activeDelegatedAuthorityGrants,
+  activeEmergencyAuthorityGrants,
+  clearanceForRoles,
+  loadGrants,
+  permissionsForRoles,
+  roleAuthorityGrants,
+  type Principal,
+} from "../../src/lib/authz";
 import { decideResolutionClosure } from "../../src/lib/governance-vote-service";
 export const executionContext = { traceId: "GOVERNANCE_EXECUTION_TEST" };
 export async function executionPrincipal(id = "USR_AMANI_BEYU"): Promise<Principal> {
   const [u] = await db.select().from(users).where(eq(users.id, id));
   const [t] = await db.select().from(tenants).where(eq(tenants.id, u.primaryTenantId));
-  const roles = (await loadGrants(u.id, t.id)).map((g) => g.code);
+  const grants = await loadGrants(u.id, t.id);
+  const roles = [...new Set(grants.map((grant) => grant.code))];
+  const emergency = await activeEmergencyAuthorityGrants(u.id, t.id);
+  const delegated = await activeDelegatedAuthorityGrants(u.id);
+  const authorityGrants = [...roleAuthorityGrants(grants), ...emergency, ...delegated];
   return { userId: u.id, partyId: u.partyId, email: u.email, displayName: u.email, tenantId: t.id,
     tenantCode: t.code, tenantType: t.type, roles, permissions: permissionsForRoles(roles), clearance: clearanceForRoles(roles),
-    entityScope: [], mfaSatisfied: true, sessionId: "TEST", riskScore: 0, emergencyPermissions: [] };
+    entityScope: [...new Set(grants.map((grant) => grant.entityId).filter((id): id is string => Boolean(id)))],
+    countryScope: [...new Set(authorityGrants.map((grant) => grant.countryCode).filter((code): code is string => Boolean(code)))],
+    mfaSatisfied: true, sessionId: "TEST", riskScore: 0,
+    emergencyPermissions: [...new Set(emergency.map((grant) => grant.permission))],
+    delegatedPermissions: [...new Set(delegated.map((grant) => grant.permission))],
+    authorityGrants, accountStatus: u.status, isServiceAccount: u.isServiceAccount };
 }
 export async function executionResolution(principal: Principal, prefix = "GEXE") {
   const id = `RES_${prefix}_${randomUUID()}`;

@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — formation assessment engine (pure, deterministic).
+ * BEYU Foundation organization — formation assessment engine (pure, deterministic).
  *
  * "START A FOUNDATION" intake → structured assessment. The engine compares the
  * foundation vehicle against jurisdiction-plausible alternatives and produces

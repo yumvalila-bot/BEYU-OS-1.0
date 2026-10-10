@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Asset register (acquire → dispose).
+ * BEYU Foundation organization — Asset register (acquire → dispose).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

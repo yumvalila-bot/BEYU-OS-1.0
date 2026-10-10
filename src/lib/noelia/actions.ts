@@ -2,12 +2,14 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { approvals, noeliaActionRequests } from "@/db/schema";
 import { recordAuditTx } from "@/lib/audit";
-import { can, type Principal } from "@/lib/authz";
+import type { Principal } from "@/lib/authz";
 import { NOELIA_IDENTITY } from "@/lib/constants";
+import { checksumOf } from "@/lib/crypto";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { requestedNoeliaTarget, resolveNoeliaAuthorizedScope } from "./scope-service";
 import { NoeliaToolRegistry } from "./tool-registry";
+import { verifyHumanApproval, verifyRecordedHumanApproval } from "./human-approval";
 import type { NoeliaTargetContext, ToolDenialCode, ToolInvocationContext } from "./types";
 
 export type NoeliaActionResult = {
@@ -18,6 +20,15 @@ export type NoeliaActionResult = {
   reason: string;
   output?: Record<string, unknown> | null;
 };
+
+export function computeNoeliaActionDigest(input: {
+  version: number;
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  target: NoeliaTargetContext;
+}): string {
+  return checksumOf(input);
+}
 
 /**
  * BEYU action boundary for HIVE.
@@ -53,6 +64,14 @@ export async function requestNoeliaAction(input: {
       ? "Low-risk read tools are invoked directly and cannot be disguised as governed action requests."
       : decision.reason;
     const actionRequestId = newId(ID_PREFIX.noeliaAction);
+    const inputVersion = 1;
+    const inputDigest = computeNoeliaActionDigest({
+      version: inputVersion,
+      toolName: input.toolName,
+      toolInput: input.toolInput,
+      target,
+    });
+    const requiredApproverRole = definition?.approverRole ?? definition?.metadata.ownerRole ?? "CHIEF_GOVERNANCE_OFFICER";
 
     if (!eligibleForApproval || !definition) {
       await db.transaction(async (rawTx) => {
@@ -64,6 +83,9 @@ export async function requestNoeliaAction(input: {
           executingAi: NOELIA_IDENTITY,
           toolName: input.toolName,
           input: input.toolInput,
+          inputDigest,
+          inputVersion,
+          requiredApproverRole,
           targetTenantId: target.tenantId,
           legalEntityId: target.legalEntityId,
           countryCode: target.countryCode,
@@ -110,10 +132,17 @@ export async function requestNoeliaAction(input: {
         objectType: "NOELIA_ACTION",
         objectId: actionRequestId,
         step: 1,
-        approverRole: definition.approverRole ?? "CHIEF_GOVERNANCE_OFFICER",
+        approverRole: requiredApproverRole,
         decision: "PENDING",
         requestedBy: input.principal.userId,
         comment: `Noelia prepared ${input.toolName}; no domain mutation has occurred.`,
+        validUntil: new Date(Date.now() + 15 * 60_000),
+        quorum: 1,
+        payloadDigest: inputDigest,
+        payloadVersion: inputVersion,
+        targetTenantId: target.tenantId,
+        targetLegalEntityId: target.legalEntityId,
+        targetCountryCode: target.countryCode,
       });
       await tx.insert(noeliaActionRequests).values({
         id: actionRequestId,
@@ -123,6 +152,9 @@ export async function requestNoeliaAction(input: {
         approvalId,
         toolName: input.toolName,
         input: input.toolInput,
+        inputDigest,
+        inputVersion,
+        requiredApproverRole,
         targetTenantId: target.tenantId,
         legalEntityId: target.legalEntityId,
         countryCode: target.countryCode,
@@ -181,14 +213,50 @@ export async function approveNoeliaAction(input: {
       return { actionRequestId: null, approvalId: null, status: "DENIED", code: "NOT_FOUND", reason: "Action request not found in scope." };
     }
 
-    const access = can(input.principal, "ai:decision.review");
-    const makerChecker = request.requestingHumanId !== input.principal.userId;
-    if (!access.allowed || !makerChecker || request.status !== "PENDING_APPROVAL" || !request.approvalId) {
-      const reason = !access.allowed
-        ? access.reason
-        : !makerChecker
-          ? "The requesting human cannot approve their own Noelia action."
-          : "Action is not pending an approval.";
+    const [pendingApproval] = request.approvalId
+      ? await db.select().from(approvals).where(eq(approvals.id, request.approvalId)).limit(1)
+      : [];
+    const target: NoeliaTargetContext = {
+      tenantId: request.targetTenantId,
+      legalEntityId: request.legalEntityId,
+      countryCode: request.countryCode,
+    };
+    const expectedDigest = computeNoeliaActionDigest({
+      version: request.inputVersion,
+      toolName: request.toolName,
+      toolInput: request.input,
+      target,
+    });
+    let denialReason: string | null = null;
+    if (request.status !== "PENDING_APPROVAL" || !pendingApproval || pendingApproval.decision !== "PENDING" || !pendingApproval.validUntil) {
+      denialReason = "Action is not pending a live canonical approval.";
+    } else {
+      try {
+        await verifyHumanApproval(input.principal, {
+          makerUserId: request.requestingHumanId,
+          requiredRole: request.requiredApproverRole,
+          permission: "ai:decision.review",
+          target,
+          payloadDigest: request.inputDigest,
+          expectedPayloadDigest: expectedDigest,
+          version: request.inputVersion,
+          expectedVersion: pendingApproval.payloadVersion ?? 0,
+          expiresAt: pendingApproval.validUntil,
+        });
+        if (
+          pendingApproval.payloadDigest !== request.inputDigest ||
+          pendingApproval.targetTenantId !== target.tenantId ||
+          pendingApproval.targetLegalEntityId !== target.legalEntityId ||
+          pendingApproval.targetCountryCode !== target.countryCode
+        ) {
+          denialReason = "Pending approval binding does not match the immutable action target and digest.";
+        }
+      } catch (error) {
+        denialReason = error instanceof Error ? error.message : String(error);
+      }
+    }
+    if (denialReason) {
+      const reason = denialReason;
       await db.transaction(async (rawTx) => {
         const tx = rawTx as unknown as typeof db;
         await recordAuditTx(tx, {
@@ -213,6 +281,7 @@ export async function approveNoeliaAction(input: {
         approverUserId: input.principal.userId,
         decision: "APPROVED",
         decidedAt: new Date(),
+        mfaVerified: true,
         comment: input.comment ?? "Approved by accountable human.",
       }).where(eq(approvals.id, request.approvalId!));
       await tx.update(noeliaActionRequests).set({
@@ -287,14 +356,49 @@ export async function executeApprovedNoeliaAction(input: {
           };
         }
         const [approval] = await tx.select().from(approvals).where(eq(approvals.id, request.approvalId)).limit(1);
+        const target: NoeliaTargetContext = {
+          tenantId: request.targetTenantId,
+          legalEntityId: request.legalEntityId,
+          countryCode: request.countryCode,
+        };
+        const expectedDigest = computeNoeliaActionDigest({
+          version: request.inputVersion,
+          toolName: request.toolName,
+          toolInput: request.input,
+          target,
+        });
+        if (
+          !approval ||
+          approval.decision !== "APPROVED" ||
+          !approval.approverUserId ||
+          approval.revokedAt ||
+          !approval.validUntil ||
+          approval.payloadDigest !== request.inputDigest ||
+          approval.targetTenantId !== target.tenantId ||
+          approval.targetLegalEntityId !== target.legalEntityId ||
+          approval.targetCountryCode !== target.countryCode
+        ) {
+          return { actionRequestId: request.id, approvalId: request.approvalId, status: "DENIED", code: "APPROVAL_INVALID", reason: "Approval is missing, expired, revoked, or not bound to the current action target." };
+        }
+        await verifyRecordedHumanApproval({
+          approverUserId: approval.approverUserId,
+          mfaVerified: approval.mfaVerified,
+          binding: {
+            makerUserId: request.requestingHumanId,
+            requiredRole: request.requiredApproverRole,
+            permission: "ai:decision.review",
+            target,
+            payloadDigest: request.inputDigest,
+            expectedPayloadDigest: expectedDigest,
+            version: request.inputVersion,
+            expectedVersion: approval.payloadVersion ?? 0,
+            expiresAt: approval.validUntil,
+          },
+        });
         const context: ToolInvocationContext = {
           principal: input.requestingPrincipal,
           traceId: input.traceId,
-          target: {
-            tenantId: request.targetTenantId,
-            legalEntityId: request.legalEntityId,
-            countryCode: request.countryCode,
-          },
+          target,
           scope,
           approval: approval && approval.decision === "APPROVED" && approval.approverUserId
             ? {
@@ -305,6 +409,12 @@ export async function executeApprovedNoeliaAction(input: {
               }
             : null,
         };
+
+        // Bind database-side governed mutation guards to this exact approved
+        // action for the lifetime of the current transaction. The knowledge
+        // evidence trigger independently rechecks the canonical request,
+        // approval, target, version, and digest before accepting a write.
+        await tx.execute(sql`select set_config('beyu.noelia_action_request_id', ${request.id}, true)`);
 
         // AUTHORIZATION → ACTION/DOMAIN CHANGE. The handler sees only the
         // canonical context and remains inside this transaction through the db
@@ -337,6 +447,14 @@ export async function executeApprovedNoeliaAction(input: {
             code: invocation.decision.code,
             reason: invocation.decision.reason,
           };
+        }
+
+        // A handler that reports an unresolved human-review condition has not
+        // completed the approved action. Throw inside the transaction so any
+        // tentative domain writes are rolled back; the outer failure path then
+        // records durable fail-closed evidence instead of a false SUCCESS.
+        if (invocation.output.humanReviewRequired) {
+          throw new Error("Registered BEYU service reported an unresolved authority or review boundary.");
         }
 
         // COMPLETION → AUDIT remains atomic with the handler's domain mutation.

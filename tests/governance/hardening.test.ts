@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { auditLog, enterpriseEvents, governanceBodies, governanceMembers, constitutionArticles, legalEntities, capitalRequests, policies, resolutions, resolutionVotes, tenants, users } from "../../src/db/schema";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import { clearanceForRoles, loadGrants, permissionsForRoles, roleAuthorityGrants, type Principal } from "../../src/lib/authz";
 import { declareRecusal, castVote, decideResolutionClosure, tableResolution, votingSnapshots } from "../../src/lib/governance-vote-service";
 import { proposeResolution, inferMatterTrigger } from "../../src/lib/governance";
 import { mattersTriggeredBy } from "../../src/lib/governance/reserved-matters";
@@ -21,9 +21,11 @@ let secretary: Principal;
 async function principal(key: string): Promise<Principal> {
   const [u] = await db.select().from(users).where(eq(users.id, fixedId(ID_PREFIX.user, key)));
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, u.primaryTenantId));
-  const roles = (await loadGrants(u.id, u.primaryTenantId)).map((g) => g.code);
+  const grants = await loadGrants(u.id, u.primaryTenantId);
+  const roles = grants.map((g) => g.code);
   return { userId: u.id, partyId: u.partyId, email: u.email, displayName: u.email, tenantId: tenant.id,
     tenantCode: tenant.code, tenantType: tenant.type, roles, permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles), entityScope: [], mfaSatisfied: true, sessionId: "TEST",
     riskScore: 0, emergencyPermissions: [] };
 }
@@ -96,7 +98,16 @@ describe("governance authority hardening — PostgreSQL", () => {
   it("filters classified and entity-scoped voting read models", async () => {
     const r = await make("TABLED");
     expect((await votingSnapshots({ ...chair, clearance: "PUBLIC" }, [r.id])).size).toBe(0);
-    expect((await votingSnapshots({ ...chair, entityScope: ["WRONG_ENTITY"] }, [r.id])).size).toBe(0);
+    const wrongEntity: Principal = {
+      ...chair,
+      entityScope: ["WRONG_ENTITY"],
+      authorityGrants: (chair.authorityGrants ?? []).map((grant) => ({
+        ...grant,
+        tenantId: chair.tenantId,
+        legalEntityId: "WRONG_ENTITY",
+      })),
+    };
+    expect((await votingSnapshots(wrongEntity, [r.id])).size).toBe(0);
   });
   it("executes the actual service with RLS enabled as the non-owner runtime role", async () => {
     const r = await make();

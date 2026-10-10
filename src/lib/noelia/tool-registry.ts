@@ -1,4 +1,5 @@
 import { can } from "@/lib/authz";
+import { assertNoeliaExecutionAllowed, ExecutionStoppedError } from "./execution-control";
 import type {
   DeclaredNoeliaTool,
   RegisteredNoeliaTool,
@@ -145,17 +146,11 @@ export class NoeliaToolRegistry {
       return { allowed: false, code: "CONTEXT_MISSING", reason: "Canonical identity and scope context are required." };
     }
 
-    const access = can(context.principal, definition.permission, {
-      ...(definition.classification ? { classification: definition.classification } : {}),
-    });
-    if (!access.allowed) {
-      return {
-        allowed: false,
-        code: access.reason.startsWith("ABAC: clearance") ? "CLASSIFICATION_DENIED" : "PERMISSION_DENIED",
-        reason: access.reason,
-      };
-    }
-
+    // Requested identifiers are never authority. Resolve every target
+    // dimension against the finite server-derived scope before evaluating the
+    // capability grant. This reports only that the request is outside the
+    // caller's own scope; it does not confirm whether a foreign identifier
+    // exists and never queries through it.
     if (!context.scope.tenantIds.includes(context.target.tenantId)) {
       return { allowed: false, code: "TENANT_DENIED", reason: "Target tenant is outside the resolved BEYU scope." };
     }
@@ -184,6 +179,20 @@ export class NoeliaToolRegistry {
           reason: "Target country is outside the target tenant/entity's resolved BEYU scope.",
         };
       }
+    }
+
+    const access = can(context.principal, definition.permission, {
+      tenantId: context.target.tenantId,
+      entityId: context.target.legalEntityId,
+      countryCode: context.target.countryCode,
+      ...(definition.classification ? { classification: definition.classification } : {}),
+    });
+    if (!access.allowed) {
+      return {
+        allowed: false,
+        code: access.reason.startsWith("ABAC: clearance") ? "CLASSIFICATION_DENIED" : "PERMISSION_DENIED",
+        reason: access.reason,
+      };
     }
 
     // Jurisdiction restrictions on the capability itself fail closed: a
@@ -261,6 +270,24 @@ export class NoeliaToolRegistry {
         };
       }
       input = parsed.data;
+    }
+
+    try {
+      await assertNoeliaExecutionAllowed({
+        principal: context.principal,
+        permission: handler.permission,
+        target: context.target,
+        toolName: handler.name,
+        capability: handler.metadata.stableId,
+      });
+    } catch (error) {
+      if (error instanceof ExecutionStoppedError) {
+        return {
+          allowed: false,
+          decision: { allowed: false, code: "EXECUTION_STOPPED", reason: error.message },
+        };
+      }
+      throw error;
     }
 
     const output = await this.runWithTimeout(handler, context, input);

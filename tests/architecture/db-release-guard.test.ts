@@ -84,7 +84,7 @@ function runBlockFor(stepName: string): string {
  *
  * The child environment starts from process.env (matching the precedent in
  * build-without-database-url.test.ts and satisfying the repo's ProcessEnv
- * augmentation), then the two secrets under test are DELETED before the
+ * augmentation), then the three secrets under test are DELETED before the
  * caller-supplied values are applied. Without that explicit delete, a
  * developer or CI runner that happens to export BEYU_ADMIN_DATABASE_URL would
  * silently turn the "missing secret" cases into false passes.
@@ -93,6 +93,7 @@ function runAsActions(script: string, env: Record<string, string>) {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.BEYU_ADMIN_DATABASE_URL;
   delete childEnv.BEYU_RUNTIME_DB_PASSWORD;
+  delete childEnv.BEYU_GOVERNANCE_DB_PASSWORD;
   Object.assign(childEnv, env);
   try {
     const stdout = execFileSync("bash", ["-e", "-c", script], {
@@ -111,45 +112,56 @@ const SET = "postgresql://role@host:5432/postgres?sslmode=require";
 describe("db-release deploy secret guard", () => {
   const script = runBlockFor(GUARD_STEP);
 
-  it("PASSES when both production secrets are configured (the regression)", () => {
+  it("PASSES when all production database secrets are configured (the regression)", () => {
     const r = runAsActions(script, {
       BEYU_ADMIN_DATABASE_URL: SET,
       BEYU_RUNTIME_DB_PASSWORD: "runtime-password",
+      BEYU_GOVERNANCE_DB_PASSWORD: "governance-password",
     });
     expect(
       r.code,
-      "guard failed with both secrets present — this is the `set -e` " +
+      "guard failed with all secrets present — this is the `set -e` " +
         "trailing AND-OR defect that blocked the production deploy",
     ).toBe(0);
   });
 
   it("fails closed and names the secret when BEYU_ADMIN_DATABASE_URL is missing", () => {
-    const r = runAsActions(script, { BEYU_RUNTIME_DB_PASSWORD: "runtime-password" });
+    const r = runAsActions(script, { BEYU_RUNTIME_DB_PASSWORD: "runtime-password", BEYU_GOVERNANCE_DB_PASSWORD: "governance-password" });
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("EXTERNAL_BLOCKED");
     expect(r.stdout).toContain("BEYU_ADMIN_DATABASE_URL");
   });
 
   it("fails closed and names the secret when BEYU_RUNTIME_DB_PASSWORD is missing", () => {
-    const r = runAsActions(script, { BEYU_ADMIN_DATABASE_URL: SET });
+    const r = runAsActions(script, { BEYU_ADMIN_DATABASE_URL: SET, BEYU_GOVERNANCE_DB_PASSWORD: "governance-password" });
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("EXTERNAL_BLOCKED");
     expect(r.stdout).toContain("BEYU_RUNTIME_DB_PASSWORD");
   });
 
-  it("reports BOTH secrets when neither is configured", () => {
+  it("fails closed and names BEYU_GOVERNANCE_DB_PASSWORD when missing", () => {
+    const r = runAsActions(script, { BEYU_ADMIN_DATABASE_URL: SET, BEYU_RUNTIME_DB_PASSWORD: "runtime-password" });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("EXTERNAL_BLOCKED");
+    expect(r.stdout).toContain("BEYU_GOVERNANCE_DB_PASSWORD");
+  });
+
+  it("reports all secrets when none is configured", () => {
     const r = runAsActions(script, {});
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("BEYU_ADMIN_DATABASE_URL");
     expect(r.stdout).toContain("BEYU_RUNTIME_DB_PASSWORD");
+    expect(r.stdout).toContain("BEYU_GOVERNANCE_DB_PASSWORD");
   });
 
   it("never echoes a secret value", () => {
     const r = runAsActions(script, {
       BEYU_ADMIN_DATABASE_URL: SET,
       BEYU_RUNTIME_DB_PASSWORD: "runtime-password",
+      BEYU_GOVERNANCE_DB_PASSWORD: "governance-password",
     });
     expect(r.stdout).not.toContain("runtime-password");
+    expect(r.stdout).not.toContain("governance-password");
     expect(r.stdout).not.toContain(SET);
     expect(r.stdout).not.toContain("sslmode");
   });

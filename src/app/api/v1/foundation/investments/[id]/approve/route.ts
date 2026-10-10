@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Material investment approval (human, HIGH_RISK).
+ * BEYU Foundation organization — Material investment approval (human, HIGH_RISK).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

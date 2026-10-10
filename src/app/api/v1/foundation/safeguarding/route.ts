@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Safeguarding (highly restricted).
+ * BEYU Foundation organization — Safeguarding (highly restricted).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

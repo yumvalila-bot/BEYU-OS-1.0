@@ -36,11 +36,11 @@ import {
   tenants,
   users,
 } from "@/db/schema";
-import { can, type Principal } from "@/lib/authz";
+import { can, GLOBAL_AUTHORITY_ROLES, type Principal } from "@/lib/authz";
 import { recordAudit, recordAuditTx, publishEventTx, withAuditTransaction, type AuditInput, type EventInput, type Tx } from "@/lib/audit";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { assertWithinScope, tenantScopeIds } from "@/lib/tenant-scope";
-import { adminDb } from "@/db/admin";
+import { assertWithinScope, hasGlobalGovernanceScope, tenantScopeIds } from "@/lib/tenant-scope";
+import { governanceDb } from "@/db/governance";
 import { assertDelegationScope, DelegationScopeError } from "./delegation";
 import type { PermissionCode, Classification } from "@/lib/constants";
 
@@ -63,6 +63,29 @@ export class AdminGovernanceError extends Error {
   }
 }
 
+type AdminTx = Parameters<Parameters<typeof governanceDb.transaction>[0]>[0];
+
+/**
+ * Pin each privileged governed mutation to one transaction and reconstruct its
+ * RLS context only from the already-resolved server Principal. The governance
+ * database role is NOBYPASSRLS; this context narrows it to the same canonical
+ * tenant scope as the request's runtime transaction.
+ */
+async function withGovernanceTransaction<T>(
+  actor: Principal,
+  operation: (tx: AdminTx) => Promise<T>,
+): Promise<T> {
+  const tenantIds = await tenantScopeIds(actor);
+  const globalScope = hasGlobalGovernanceScope(actor);
+  if (tenantIds.length === 0 && !globalScope) throw new AdminGovernanceError("EMPTY_TENANT_SCOPE", "No governed tenant scope is available.", 403);
+  return governanceDb.transaction(async (tx) => {
+    await tx.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantIds.join(",")}, true)`);
+    await tx.execute(sql`select set_config('beyu.global_scope', ${globalScope ? "on" : "off"}, true)`);
+    await tx.execute(sql`select set_config('beyu.actor_user_id', ${actor.userId}, true)`);
+    return operation(tx);
+  });
+}
+
 /**
  * Capability gate — the single RBAC + ABAC check every governed registration
  * path performs before it may touch the database. Exported for the BEYU
@@ -75,35 +98,81 @@ export function requireCapability(
   actor: Principal,
   permission: PermissionCode,
   action: string,
-  context?: { classification?: Classification; tenantId?: string; entityId?: string },
+  context?: { classification?: Classification; tenantId?: string; entityId?: string; countryCode?: string },
 ): void {
-  const decision = can(actor, permission, context);
+  // This is an existence/MFA/classification precheck only. Every mutation below
+  // must also call requireActionScope() once its canonical target is known.
+  // Evaluate a real live tuple against its own dimensions so flattened role or
+  // permission summaries can never manufacture preliminary authority.
+  const now = Date.now();
+  const candidate = (actor.authorityGrants ?? []).find((grant) =>
+    grant.permission === permission &&
+    (!grant.validFrom || grant.validFrom.getTime() <= now) &&
+    (!grant.validTo || grant.validTo.getTime() >= now),
+  );
+  const decision = candidate
+    ? can(actor, permission, {
+        tenantId: candidate.tenantId,
+        entityId: candidate.legalEntityId,
+        countryCode: candidate.countryCode,
+        classification: context?.classification,
+      })
+    : can(actor, permission, {
+        tenantId: context?.tenantId ?? actor.tenantId,
+        entityId: context?.entityId ?? null,
+        countryCode: context?.countryCode ?? null,
+        classification: context?.classification,
+      });
   if (!decision.allowed) {
     throw new AdminGovernanceError(
       decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-      decision.reason,
+      `${action}: ${decision.reason}`,
       403,
     );
   }
 }
 
-/** Scope gate: canonical tenant scope + delegation scope, both fail-closed. */
+/** Complete canonical target gate; no delegation dimensions may be recombined. */
 export async function requireActionScope(
   actor: Principal,
   permission: PermissionCode,
   target: { tenantId: string; legalEntityId?: string | null; countryCode?: string | null },
 ): Promise<void> {
+  let canonicalTarget = { ...target };
+  if (target.legalEntityId) {
+    const [entity] = await db.select({ tenantId: legalEntities.tenantId, countryCode: legalEntities.countryCode })
+      .from(legalEntities)
+      .where(eq(legalEntities.id, target.legalEntityId))
+      .limit(1);
+    if (!entity || entity.tenantId !== target.tenantId || (target.countryCode && entity.countryCode !== target.countryCode)) {
+      throw new AdminGovernanceError(
+        "CONFLICTING_TARGET_TUPLE",
+        "The requested legal entity does not belong to the requested tenant/country tuple.",
+        403,
+      );
+    }
+    canonicalTarget = { ...target, countryCode: target.countryCode ?? entity.countryCode };
+  }
+
+  const decision = can(actor, permission, {
+    tenantId: canonicalTarget.tenantId,
+    entityId: canonicalTarget.legalEntityId ?? null,
+    countryCode: canonicalTarget.countryCode ?? null,
+  });
+  if (!decision.allowed) {
+    throw new AdminGovernanceError(decision.requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN", decision.reason, 403);
+  }
   try {
-    await assertWithinScope(actor, target.tenantId);
+    await assertWithinScope(actor, canonicalTarget.tenantId);
   } catch {
     throw new AdminGovernanceError(
       "TENANT_OUT_OF_SCOPE",
-      `Tenant ${target.tenantId} is outside the acting principal's resolved tenant scope.`,
+      `Tenant ${canonicalTarget.tenantId} is outside the acting principal's resolved tenant scope.`,
       403,
     );
   }
   try {
-    await assertDelegationScope(actor, permission, target);
+    await assertDelegationScope(actor, permission, canonicalTarget);
   } catch (err) {
     if (err instanceof DelegationScopeError) {
       throw new AdminGovernanceError("DELEGATION_SCOPE_EXCEEDED", err.message, 403);
@@ -619,7 +688,7 @@ export async function removeUser(
   // removed (REVOKED, unauthenticated, anonymized) identity whose historical
   // assignments remain on record — never surviving authority: resolvePrincipal
   // returns null for a REVOKED user regardless of assignments.
-  await adminDb.transaction(async (rawTx) => {
+  await withGovernanceTransaction(actor, async (rawTx) => {
     const tx = rawTx as unknown as Tx;
     await tx
       .update(roleAssignments)
@@ -934,7 +1003,7 @@ export async function transitionTenantStatus(
 /* MEMBERSHIP & ROLES (F-01 governed admin-DSN writes)                 */
 /* ------------------------------------------------------------------ */
 
-type AdminTx = Parameters<Parameters<typeof adminDb.transaction>[0]>[0];
+
 
 /**
  * Assign membership: the governed statement "this user is a member of this
@@ -979,7 +1048,7 @@ export async function assignMembership(
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const existing = await adminDb
+  const existing = await db
     .select({ id: roleAssignments.id })
     .from(roleAssignments)
     .where(
@@ -997,7 +1066,7 @@ export async function assignMembership(
   }
 
   const assignmentId = newId(ID_PREFIX.roleAssignment);
-  await adminDb.transaction(async (rawTx) => {
+  await withGovernanceTransaction(actor, async (rawTx) => {
     const tx = rawTx as unknown as AdminTx;
     await tx.insert(roleAssignments).values({
       id: assignmentId,
@@ -1085,7 +1154,7 @@ export async function revokeMembership(
   const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 
-  const ended = await adminDb.transaction(async (rawTx) => {
+  const ended = await withGovernanceTransaction(actor, async (rawTx) => {
     const tx = rawTx as unknown as AdminTx;
     const rows = await tx
       .update(roleAssignments)
@@ -1155,6 +1224,8 @@ export type GrantRoleInput = {
   roleCode: string;
   tenantId: string;
   legalEntityId?: string | null;
+  /** Explicit unscoped enterprise authority; never inferred from role or tenant type. */
+  globalScope?: boolean;
   effectiveFrom?: string;
   effectiveTo?: string | null;
   justification: string;
@@ -1196,6 +1267,24 @@ export async function grantRole(
     );
   }
 
+  if (input.globalScope) {
+    const globalGrant = can(actor, "identity:role.grant", { tenantId: null, entityId: null, countryCode: null });
+    const [targetTenant] = await db.select({ type: tenants.type }).from(tenants).where(eq(tenants.id, input.tenantId)).limit(1);
+    if (
+      !globalGrant.allowed ||
+      targetTenant?.type !== "ENTERPRISE" ||
+      input.legalEntityId != null ||
+      !GLOBAL_AUTHORITY_ROLES.has(input.roleCode)
+    ) {
+      await auditRefusal(actor, "ROLE_GRANTED", "ROLE_ASSIGNMENT", input.userId, "GLOBAL_SCOPE_REFUSED", traceId);
+      throw new AdminGovernanceError(
+        "GLOBAL_SCOPE_REFUSED",
+        "Explicit global scope requires an unscoped actor grant, an enterprise target, no entity constraint, and a canonical global-authority role.",
+        403,
+      );
+    }
+  }
+
   await requireActionScope(actor, "identity:role.grant", {
     tenantId: input.tenantId,
     legalEntityId: input.legalEntityId ?? null,
@@ -1232,7 +1321,7 @@ export async function grantRole(
     throw new AdminGovernanceError("INVALID_WINDOW", "effectiveTo precedes effectiveFrom.", 422);
   }
 
-  const duplicate = await adminDb
+  const duplicate = await db
     .select({ id: roleAssignments.id })
     .from(roleAssignments)
     .where(
@@ -1240,6 +1329,7 @@ export async function grantRole(
         eq(roleAssignments.userId, input.userId),
         eq(roleAssignments.roleId, role.id),
         eq(roleAssignments.tenantId, input.tenantId),
+        eq(roleAssignments.globalScope, input.globalScope === true),
         input.legalEntityId
           ? eq(roleAssignments.legalEntityId, input.legalEntityId)
           : isNull(roleAssignments.legalEntityId),
@@ -1257,7 +1347,7 @@ export async function grantRole(
   }
 
   const assignmentId = newId(ID_PREFIX.roleAssignment);
-  await adminDb.transaction(async (rawTx) => {
+  await withGovernanceTransaction(actor, async (rawTx) => {
     const tx = rawTx as unknown as AdminTx;
     await tx.insert(roleAssignments).values({
       id: assignmentId,
@@ -1265,6 +1355,7 @@ export async function grantRole(
       roleId: role.id,
       tenantId: input.tenantId,
       legalEntityId: input.legalEntityId ?? null,
+      globalScope: input.globalScope === true,
       effectiveFrom,
       effectiveTo: input.effectiveTo ?? null,
       grantedBy: actor.userId,
@@ -1284,6 +1375,7 @@ export async function grantRole(
         roleCode: input.roleCode,
         tenantId: input.tenantId,
         legalEntityId: input.legalEntityId ?? null,
+        globalScope: input.globalScope === true,
         effectiveFrom,
         effectiveTo: input.effectiveTo ?? null,
       },
@@ -1301,7 +1393,7 @@ export async function grantRole(
       subjectId: assignmentId,
       actorUserId: actor.userId,
       classification: "CONFIDENTIAL",
-      payload: { userId: input.userId, roleCode: input.roleCode },
+      payload: { userId: input.userId, roleCode: input.roleCode, globalScope: input.globalScope === true },
       traceId,
       correlationId: traceId,
       causationId: null,
@@ -1328,7 +1420,7 @@ export async function revokeRole(
 ): Promise<{ effectiveTo: string }> {
   requireCapability(actor, "identity:role.grant", "admin.role.revoke");
 
-  const [assignment] = await adminDb
+  const [assignment] = await db
     .select()
     .from(roleAssignments)
     .where(eq(roleAssignments.id, assignmentId))
@@ -1357,7 +1449,7 @@ export async function revokeRole(
     );
   }
 
-  await adminDb.transaction(async (rawTx) => {
+  await withGovernanceTransaction(actor, async (rawTx) => {
     const tx = rawTx as unknown as AdminTx;
     await tx
       .update(roleAssignments)

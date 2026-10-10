@@ -17,6 +17,7 @@ import {
   noeliaRegulatoryChanges,
   noeliaRequirementControls,
   noeliaRiskTreatments,
+  parties,
 } from "@/db/schema";
 import type { Principal } from "@/lib/authz";
 import { can } from "@/lib/authz";
@@ -132,11 +133,33 @@ function requireCanonicalContext(): void {
   }
 }
 
-function requirePermission(principal: Principal, permission: Parameters<typeof can>[1]): void {
-  const decision = can(principal, permission);
+function requirePermission(
+  principal: Principal,
+  permission: Parameters<typeof can>[1],
+  target: { tenantId?: string | null; entityId?: string | null; countryCode?: string | null } = { tenantId: principal.tenantId, entityId: null, countryCode: null },
+): void {
+  const decision = can(principal, permission, target);
   if (!decision.allowed) {
     throw new ComplianceAccessError(permission, decision.reason);
   }
+}
+
+function governedTenant(
+  principal: Principal,
+  permission: Parameters<typeof can>[1],
+  requestedTenantId: string | null | undefined,
+  legalEntityId: string | null | undefined = null,
+  countryCode: string | null | undefined = null,
+): string | null {
+  // Omission means the authenticated principal's tenant, never global. NULL is
+  // an explicit global request and therefore requires one unscoped authority tuple.
+  const tenantId = requestedTenantId === undefined ? principal.tenantId : requestedTenantId;
+  requirePermission(principal, permission, {
+    tenantId,
+    entityId: legalEntityId ?? null,
+    countryCode: countryCode ?? null,
+  });
+  return tenantId;
 }
 
 async function auditVariant(action: string, objectType: string, objectId: string, principal: Principal, traceId: string, newValue: Record<string, unknown>, reason: string): Promise<void> {
@@ -216,7 +239,7 @@ export class BeyuNoeliaComplianceService {
     source?: string | null;
   }): Promise<{ id: string; requirementId: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    requirePermission(input.principal, "ai:compliance.write", { tenantId: null, entityId: null, countryCode: null });
     const id = newId(ID_PREFIX.aiRequirement);
     await db.insert(noeliaAiRequirements).values({
       id,
@@ -246,7 +269,7 @@ export class BeyuNoeliaComplianceService {
 
   async listRequirements(principal: Principal, frameworkId?: string): Promise<typeof noeliaAiRequirements.$inferSelect[]> {
     requireCanonicalContext();
-    requirePermission(principal, "ai:compliance.read");
+    requirePermission(principal, "ai:compliance.read", { tenantId: null, entityId: null, countryCode: null });
     const rows = await db
       .select()
       .from(noeliaAiRequirements)
@@ -273,7 +296,7 @@ export class BeyuNoeliaComplianceService {
     validUntil?: string | null;
   }): Promise<{ id: string; applicabilityId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    const tenantId = governedTenant(input.principal, "ai:compliance.write", input.tenantId, input.legalEntityId, input.countryCode);
     const legalReview = input.legallyAmbiguous === true || input.result === "UNDETERMINED";
     const id = newId(ID_PREFIX.applicability);
     await db.insert(noeliaApplicabilityAssessments).values({
@@ -281,7 +304,7 @@ export class BeyuNoeliaComplianceService {
       requirementId: input.requirementId,
       subjectType: input.subjectType,
       subjectId: input.subjectId,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       countryCode: input.countryCode ?? null,
       legalEntityId: input.legalEntityId ?? null,
       result: input.result,
@@ -312,13 +335,13 @@ export class BeyuNoeliaComplianceService {
     result?: string;
   }): Promise<{ status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
     const [row] = await db
       .select()
       .from(noeliaApplicabilityAssessments)
       .where(eq(noeliaApplicabilityAssessments.id, input.id))
       .limit(1);
     if (!row) throw new ComplianceStateError("Applicability assessment not found.");
+    governedTenant(input.principal, "ai:compliance.audit", row.tenantId, row.legalEntityId, row.countryCode);
     if (row.legalReviewRequired && !input.result) {
       throw new ComplianceStateError("A legally ambiguous applicability assessment requires an explicit legal review result.");
     }
@@ -328,7 +351,7 @@ export class BeyuNoeliaComplianceService {
       .set({
         result,
         status: "CONFIRMED",
-        reviewedBy: input.reviewedBy ?? input.principal.userId,
+        reviewedBy: input.principal.userId,
         reviewedAt: new Date(),
         updatedAt: new Date(),
         legalReviewRequired: false,
@@ -361,7 +384,7 @@ export class BeyuNoeliaComplianceService {
     frameworks?: string[];
   }): Promise<{ id: string; controlId: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    requirePermission(input.principal, "ai:compliance.write", { tenantId: null, entityId: null, countryCode: null });
     const id = newId(ID_PREFIX.control);
     await db.insert(noeliaControls).values({
       id,
@@ -391,7 +414,7 @@ export class BeyuNoeliaComplianceService {
 
   async listControls(principal: Principal): Promise<typeof noeliaControls.$inferSelect[]> {
     requireCanonicalContext();
-    requirePermission(principal, "ai:compliance.read");
+    requirePermission(principal, "ai:compliance.read", { tenantId: null, entityId: null, countryCode: null });
     return db.select().from(noeliaControls).orderBy(asc(noeliaControls.controlCode));
   }
 
@@ -404,7 +427,7 @@ export class BeyuNoeliaComplianceService {
     evidenceId?: string | null;
   }): Promise<{ id: string; mappingId: string; effectiveness: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    requirePermission(input.principal, "ai:compliance.write", { tenantId: null, entityId: null, countryCode: null });
     const id = newId(ID_PREFIX.requirementControl);
     await db.insert(noeliaRequirementControls).values({
       id,
@@ -435,7 +458,7 @@ export class BeyuNoeliaComplianceService {
     verdict?: string;
   }): Promise<{ effectiveness: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    requirePermission(input.principal, "ai:compliance.audit", { tenantId: null, entityId: null, countryCode: null });
     const [mapping] = await db
       .select()
       .from(noeliaRequirementControls)
@@ -466,7 +489,7 @@ export class BeyuNoeliaComplianceService {
       .set({
         effectiveness,
         evidenceId: input.evidenceId,
-        reviewedBy: input.verifier ?? input.principal.userId,
+        reviewedBy: input.principal.userId,
         reviewedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -494,12 +517,22 @@ export class BeyuNoeliaComplianceService {
     contentRef?: string | null;
     evidenceDate?: string | null;
     expiresAt?: Date | null;
+    externalAssessorPartyId?: string | null;
     payload?: Record<string, unknown>;
   }): Promise<{ id: string; evidenceId: string; artifactHash: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    const tenantId = governedTenant(input.principal, "ai:compliance.write", input.tenantId, null, null);
+    let externalAssessor: string | null = null;
+    if (input.externalAssessorPartyId) {
+      const [assessor] = await db.select({ id: parties.id, type: parties.type, status: parties.status })
+        .from(parties).where(eq(parties.id, input.externalAssessorPartyId)).limit(1);
+      if (!assessor || assessor.status !== "ACTIVE" || assessor.type !== "ORGANIZATION") {
+        throw new ComplianceStateError("External assessor must be an active governed ORGANIZATION party reference.");
+      }
+      externalAssessor = assessor.id;
+    }
     const id = newId(ID_PREFIX.evidence);
-    const artifactHash = computeEvidenceHash(input);
+    const artifactHash = computeEvidenceHash({ ...input, tenantId });
     await db.insert(noeliaEvidence).values({
       id,
       evidenceCode: input.evidenceCode,
@@ -508,7 +541,7 @@ export class BeyuNoeliaComplianceService {
       description: input.description,
       subjectType: input.subjectType,
       subjectId: input.subjectId,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       sourceUri: input.sourceUri ?? null,
       artifactHash,
       hashAlgorithm: "SHA-256",
@@ -516,6 +549,7 @@ export class BeyuNoeliaComplianceService {
       evidenceDate: input.evidenceDate ?? null,
       expiresAt: input.expiresAt ?? null,
       status: "DRAFT",
+      externalAssessor,
       recordedBy: input.principal.userId,
       payload: input.payload ?? {},
     });
@@ -538,9 +572,9 @@ export class BeyuNoeliaComplianceService {
     externalReference?: string | null;
   }): Promise<{ status: string; artifactHash: string; integrity: boolean }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
     const [row] = await db.select().from(noeliaEvidence).where(eq(noeliaEvidence.id, input.evidenceId)).limit(1);
     if (!row) throw new ComplianceStateError("Evidence record not found.");
+    governedTenant(input.principal, "ai:compliance.audit", row.tenantId);
     const recomputed = computeEvidenceHash(row);
     if (recomputed !== row.artifactHash) {
       throw new EvidenceIntegrityError(`Evidence hash mismatch for ${input.evidenceId}.`);
@@ -549,16 +583,16 @@ export class BeyuNoeliaComplianceService {
       .update(noeliaEvidence)
       .set({
         status: "VERIFIED",
-        verifier: input.verifier ?? input.principal.userId,
+        verifier: input.principal.userId,
         verifiedAt: new Date(),
-        externalAssessor: input.externalAssessor ?? row.externalAssessor,
+        externalAssessor: row.externalAssessor,
         externalReference: input.externalReference ?? row.externalReference,
         updatedAt: new Date(),
       })
       .where(eq(noeliaEvidence.id, input.evidenceId));
     await auditVariant("NOELIA_EVIDENCE_VERIFIED", "AI_EVIDENCE", input.evidenceId, input.principal, input.traceId, {
-      verifier: input.verifier ?? input.principal.userId,
-      externalAssessor: input.externalAssessor ?? null,
+      verifier: input.principal.userId,
+      externalAssessor: row.externalAssessor,
     }, "Verify AI compliance evidence.");
     return { status: "VERIFIED", artifactHash: row.artifactHash, integrity: true };
   }
@@ -571,9 +605,9 @@ export class BeyuNoeliaComplianceService {
     status: string;
   }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.read");
     const [row] = await db.select().from(noeliaEvidence).where(eq(noeliaEvidence.id, input.evidenceId)).limit(1);
     if (!row) throw new ComplianceStateError("Evidence record not found.");
+    governedTenant(input.principal, "ai:compliance.read", row.tenantId);
     const recomputed = computeEvidenceHash(row);
     return {
       valid: recomputed === row.artifactHash,
@@ -619,14 +653,14 @@ export class BeyuNoeliaComplianceService {
     nextReviewAt?: string | null;
   }): Promise<{ id: string; impactId: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    const tenantId = governedTenant(input.principal, "ai:compliance.write", input.tenantId, input.legalEntityId, input.countryCode);
     const id = newId(ID_PREFIX.impactAssessment);
     await db.insert(noeliaImpactAssessments).values({
       id,
       assessmentCode: input.assessmentCode,
       systemId: input.systemId,
       requirementId: input.requirementId ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       countryCode: input.countryCode ?? null,
       legalEntityId: input.legalEntityId ?? null,
       scope: input.scope,
@@ -662,7 +696,7 @@ export class BeyuNoeliaComplianceService {
     evidenceId?: string | null;
   }): Promise<{ id: string; treatmentId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    requirePermission(input.principal, "ai:compliance.write", { tenantId: null, entityId: null, countryCode: null });
     const id = newId(ID_PREFIX.riskTreatment);
     await db.insert(noeliaRiskTreatments).values({
       id,
@@ -691,7 +725,7 @@ export class BeyuNoeliaComplianceService {
     verifier?: string;
   }): Promise<{ status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    requirePermission(input.principal, "ai:compliance.audit", { tenantId: null, entityId: null, countryCode: null });
     const [row] = await db.select().from(noeliaRiskTreatments).where(eq(noeliaRiskTreatments.id, input.treatmentId)).limit(1);
     if (!row) throw new ComplianceStateError("Risk treatment not found.");
     if (!row.evidenceId && !input.evidenceId) {
@@ -710,7 +744,7 @@ export class BeyuNoeliaComplianceService {
       .set({
         status: "VERIFIED",
         evidenceId,
-        verifiedBy: input.verifier ?? input.principal.userId,
+        verifiedBy: input.principal.userId,
         verifiedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -732,8 +766,8 @@ export class BeyuNoeliaComplianceService {
     objective: string;
     frameworkId?: string | null;
     auditType?: string;
-    auditor: string;
-    auditorRole: string;
+    auditor?: string;
+    auditorRole?: string;
     periodStart?: string | null;
     periodEnd?: string | null;
     tenantId?: string | null;
@@ -743,7 +777,7 @@ export class BeyuNoeliaComplianceService {
     notes?: string | null;
   }): Promise<{ id: string; auditId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    const tenantId = governedTenant(input.principal, "ai:compliance.audit", input.tenantId, input.legalEntityId, input.countryCode);
     const id = newId(ID_PREFIX.noeliaInternalAudit);
     await db.insert(noeliaInternalAudits).values({
       id,
@@ -753,11 +787,11 @@ export class BeyuNoeliaComplianceService {
       objective: input.objective,
       frameworkId: input.frameworkId ?? null,
       auditType: input.auditType ?? "GAP_ASSESSMENT",
-      auditor: input.auditor,
-      auditorRole: input.auditorRole,
+      auditor: input.principal.userId,
+      auditorRole: input.principal.authorityGrants?.find((grant) => grant.permission === "ai:compliance.audit")?.role ?? "UNKNOWN",
       periodStart: input.periodStart ?? null,
       periodEnd: input.periodEnd ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       legalEntityId: input.legalEntityId ?? null,
       countryCode: input.countryCode ?? null,
       status: "PLANNED",
@@ -787,7 +821,7 @@ export class BeyuNoeliaComplianceService {
     dueDate?: string | null;
   }): Promise<{ id: string; findingId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    const tenantId = governedTenant(input.principal, "ai:compliance.audit", input.tenantId, null, null);
     const id = newId(ID_PREFIX.finding);
     await db.insert(noeliaFindings).values({
       id,
@@ -798,7 +832,7 @@ export class BeyuNoeliaComplianceService {
       description: input.description,
       controlId: input.controlId ?? null,
       evidenceId: input.evidenceId ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       status: "OPEN",
       ownerRole: input.ownerRole,
       dueDate: input.dueDate ?? null,
@@ -824,7 +858,7 @@ export class BeyuNoeliaComplianceService {
     tenantId?: string | null;
   }): Promise<{ id: string; actionId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    const tenantId = governedTenant(input.principal, "ai:compliance.audit", input.tenantId, null, null);
     const id = newId(ID_PREFIX.correctiveAction);
     await db.insert(noeliaCorrectiveActions).values({
       id,
@@ -836,7 +870,7 @@ export class BeyuNoeliaComplianceService {
       dueDate: input.dueDate ?? null,
       status: "PLANNED",
       evidenceId: input.evidenceId ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       createdBy: input.principal.userId,
     });
     await auditVariant("NOELIA_CAPA_ADDED", "AI_CORRECTIVE_ACTION", id, input.principal, input.traceId, {
@@ -853,7 +887,9 @@ export class BeyuNoeliaComplianceService {
     verifier?: string;
   }): Promise<{ status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    const [action] = await db.select().from(noeliaCorrectiveActions).where(eq(noeliaCorrectiveActions.id, input.actionId)).limit(1);
+    if (!action) throw new ComplianceStateError("Corrective action not found.");
+    governedTenant(input.principal, "ai:compliance.audit", action.tenantId);
     const [evidence] = await db.select().from(noeliaEvidence).where(eq(noeliaEvidence.id, input.evidenceId)).limit(1);
     if (!evidence) throw new ComplianceStateError("Evidence record not found.");
     if (!isEvidenceCurrent(evidence)) {
@@ -864,7 +900,7 @@ export class BeyuNoeliaComplianceService {
       .set({
         status: "VERIFIED",
         evidenceId: input.evidenceId,
-        verifiedBy: input.verifier ?? input.principal.userId,
+        verifiedBy: input.principal.userId,
         verifiedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -890,7 +926,7 @@ export class BeyuNoeliaComplianceService {
     expiryDate?: string | null;
   }): Promise<{ id: string; exceptionId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    const tenantId = governedTenant(input.principal, "ai:compliance.write", input.tenantId, null, null);
     const id = newId(ID_PREFIX.exception);
     await db.insert(noeliaExceptions).values({
       id,
@@ -899,7 +935,7 @@ export class BeyuNoeliaComplianceService {
       controlId: input.controlId ?? null,
       subjectType: input.subjectType,
       subjectId: input.subjectId,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       rationale: input.rationale,
       riskAccepted: input.riskAccepted ?? "NOT_ASSESSED",
       compensatingControl: input.compensatingControl ?? null,
@@ -924,17 +960,17 @@ export class BeyuNoeliaComplianceService {
     reviewedBy?: string;
   }): Promise<{ status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.certification");
     const [row] = await db.select().from(noeliaExceptions).where(eq(noeliaExceptions.id, input.exceptionId)).limit(1);
     if (!row) throw new ComplianceStateError("Exception not found.");
+    governedTenant(input.principal, "ai:compliance.certification", row.tenantId);
     const status = input.approved === false ? "REJECTED" : "APPROVED";
     await db
       .update(noeliaExceptions)
       .set({
         status,
-        approvedBy: input.approved ?? false ? (input.approvedBy ?? input.principal.userId) : row.approvedBy,
+        approvedBy: input.approved === false ? row.approvedBy : input.principal.userId,
         approvedAt: input.approved === false ? null : new Date(),
-        reviewedBy: input.reviewedBy ?? input.principal.userId,
+        reviewedBy: input.principal.userId,
         updatedAt: new Date(),
       })
       .where(eq(noeliaExceptions.id, input.exceptionId));
@@ -962,7 +998,7 @@ export class BeyuNoeliaComplianceService {
     countryCode?: string | null;
   }): Promise<{ id: string; reviewId: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.audit");
+    const tenantId = governedTenant(input.principal, "ai:compliance.audit", input.tenantId, input.legalEntityId, input.countryCode);
     const id = newId(ID_PREFIX.managementReview);
     await db.insert(noeliaManagementReviews).values({
       id,
@@ -970,12 +1006,12 @@ export class BeyuNoeliaComplianceService {
       title: input.title,
       frameworkId: input.frameworkId ?? null,
       meetingDate: input.meetingDate ?? null,
-      reviewedBy: input.reviewedBy ?? input.principal.userId,
+      reviewedBy: input.principal.userId,
       scope: input.scope,
       decisions: input.decisions ?? {},
       actions: input.actions ?? {},
       status: "HAPPENED",
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       legalEntityId: input.legalEntityId ?? null,
       countryCode: input.countryCode ?? null,
       createdBy: input.principal.userId,
@@ -1002,7 +1038,7 @@ export class BeyuNoeliaComplianceService {
     dueDate?: string | null;
   }): Promise<{ id: string; changeId: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    requirePermission(input.principal, "ai:compliance.write", { tenantId: null, entityId: null, countryCode: null });
     const id = newId(ID_PREFIX.regulatoryChange);
     await db.insert(noeliaRegulatoryChanges).values({
       id,
@@ -1044,7 +1080,7 @@ export class BeyuNoeliaComplianceService {
     countryCode?: string | null;
   }): Promise<{ id: string; indicatorId: string; status: string }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.write");
+    const tenantId = governedTenant(input.principal, "ai:compliance.write", input.tenantId, null, input.countryCode);
     const [existing] = await db
       .select()
       .from(noeliaMonitoringIndicators)
@@ -1083,7 +1119,7 @@ export class BeyuNoeliaComplianceService {
       period: input.period ?? null,
       status,
       source: input.source ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       countryCode: input.countryCode ?? null,
       createdBy: input.principal.userId,
     });
@@ -1117,7 +1153,6 @@ export class BeyuNoeliaComplianceService {
     evidenceTerminal: boolean;
   }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.certification");
 
     const [row] = await db
       .select()
@@ -1125,6 +1160,7 @@ export class BeyuNoeliaComplianceService {
       .where(and(eq(noeliaCertificationReadiness.frameworkId, input.frameworkId), eq(noeliaCertificationReadiness.targetScope, input.targetScope)))
       .limit(1);
     if (!row) throw new ComplianceStateError("Certification readiness record not found.");
+    governedTenant(input.principal, "ai:compliance.certification", row.tenantId);
     if (!CERTIFICATION_TRANSITIONS[row.state as CertificationState].includes(input.to)) {
       throw new ComplianceStateError(`Illegal certification readiness transition ${row.state} → ${input.to}.`);
     }
@@ -1210,7 +1246,7 @@ export class BeyuNoeliaComplianceService {
     certificationReadinessId?: string | null;
   }): Promise<{ id: string; packageId: string; status: string; version: string; contents: Record<string, unknown> }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.certification");
+    const tenantId = governedTenant(input.principal, "ai:compliance.certification", input.tenantId, null, null);
     const id = newId(ID_PREFIX.assessorPackage);
 
     const requirements = await db
@@ -1273,7 +1309,7 @@ export class BeyuNoeliaComplianceService {
       contents,
       generatedBy: input.principal.userId,
       certificationReadinessId: input.certificationReadinessId ?? null,
-      tenantId: input.tenantId ?? null,
+      tenantId: tenantId,
       createdBy: input.principal.userId,
     });
 
@@ -1311,7 +1347,7 @@ export class BeyuNoeliaComplianceService {
     };
   }> {
     requireCanonicalContext();
-    requirePermission(input.principal, "ai:compliance.metrics");
+    requirePermission(input.principal, "ai:compliance.metrics", { tenantId: null, entityId: null, countryCode: null });
 
     const requirements = await db.select().from(noeliaAiRequirements);
     const applicable = await db.select().from(noeliaApplicabilityAssessments);

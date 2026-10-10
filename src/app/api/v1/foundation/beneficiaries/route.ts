@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Beneficiaries (minimised, restricted).
+ * BEYU Foundation organization — Beneficiaries (minimised, restricted).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

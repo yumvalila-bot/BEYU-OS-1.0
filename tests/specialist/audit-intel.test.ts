@@ -50,6 +50,8 @@ import {
 } from "@/lib/specialist/audit/service";
 import type { AuditRecordView, AuditWindow, EventRecordView } from "@/lib/specialist/audit/model";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `AI${Date.now()}`;
 let n = 0;
 const trace = () => `${RUN}-${String(++n).padStart(3, "0")}`;
@@ -94,6 +96,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "ENTERPRISE",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance,
     entityScope: [],
     mfaSatisfied: true,
@@ -894,7 +900,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
     // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
-    // + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+    // + 0035_foundation_os (Foundation organization registry, compliance, grant and impact tables; adds no specialist truth).
     // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
     // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
@@ -951,7 +957,7 @@ describe("audit module — never mutates the ledger it inspects", () => {
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). No audit-substrate change; the ledger stays immutable.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    // + 0069: Foundation organization RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No audit-substrate change; the ledger stays immutable.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No audit-substrate change; the ledger stays immutable.
     // + 0071: Federation & Trust shared capability (no audit-intel table, no second ledger truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
@@ -962,8 +968,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
     //   ledger truth: every table is an analysis, model, mark or entitlement register, and the audit
     //   chain stays the one owned by recordAudit. (pe_exit_events is a private-capital deal ledger —
     //   excluded by exact name in the table-name guard above, like the other domain event ledgers.)
-    //   Snapshot chained 0062 -> 0074 by scripts/migration/snapshot.ts (no metadata debt added).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
+    // + 0075: Noelia authority/execution hardening. Adds no audit-intel table or second ledger truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

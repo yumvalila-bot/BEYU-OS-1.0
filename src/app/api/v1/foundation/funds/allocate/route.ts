@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — fund allocation (restricted-fund fenced).
+ * BEYU Foundation organization — fund allocation (restricted-fund fenced).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

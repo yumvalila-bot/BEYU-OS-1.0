@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — authorised knowledge subgraph for a foundation.
+ * BEYU Foundation organization — authorised knowledge subgraph for a foundation.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { guarded, apiError } from "@/lib/api";

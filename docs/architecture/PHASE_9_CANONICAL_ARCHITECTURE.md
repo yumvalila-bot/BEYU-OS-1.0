@@ -119,7 +119,7 @@ criterion `faultInjection` is now true. Status remains REQUIRES_AUTHORITY (P3/TG
 
 ## 4. Explicitly not built
 
-- No Sector OS (Health / Agriculture / Mining / Foundation ops)
+- No duplicate Sector OS (the closed set is Health / Finance / Agriculture / Ujenzi; Mining is not a Sector OS and Foundation is a sister organization)
 - No AR / AP / Fixed Assets / Inventory
 - No Docker / Supabase (Supabase is excluded)
 - No CI workflow move to `.github/workflows` (would be rejected by the GitHub App)

@@ -1,9 +1,9 @@
 # HEALTH OS `proxy-addr` Remediation Report
 
-**Assessment date:** 2026-10-07 (UTC)  
-**Advisory:** GHSA-jqcg-44mw-7w3h / CVE-2026-90711  
-**Base:** `main` at `9b4c792f3759b7aa757d236216e1aeff172873fe`  
-**Session branch:** `arena/01163bf1-beyu-os-1-0`  
+**Assessment date:** 2026-10-07 (UTC)
+**Advisory:** GHSA-jqcg-44mw-7w3h / CVE-2026-90711
+**Base:** `main` at `9b4c792f3759b7aa757d236216e1aeff172873fe`
+**Session branch:** `arena/01163bf1-beyu-os-1-0`
 **Scope:** Health OS backend dependency remediation only
 
 ## 1. Advisory

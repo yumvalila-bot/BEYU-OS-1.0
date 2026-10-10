@@ -36,6 +36,8 @@ import {
   type TaxRule,
 } from "@/lib/specialist/tax-intelligence";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `SP${Date.now()}`;
 
 let tenantId = "";
@@ -59,6 +61,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "GROUP",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance: "RESTRICTED",
     entityScope: [],
     mfaSatisfied: true,

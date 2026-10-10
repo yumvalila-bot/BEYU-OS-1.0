@@ -526,6 +526,13 @@
       "when": 1791327797626,
       "tag": "0074_enterprise_intelligence_expansion",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791404013646,
+      "tag": "0075_noelia_authority_execution_hardening",
+      "breakpoints": true
     }
   ]
 }

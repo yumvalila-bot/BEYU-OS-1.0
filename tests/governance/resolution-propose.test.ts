@@ -5,7 +5,7 @@ import { auditLog, enterpriseEvents, governanceBodies, resolutions, tenants, use
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
 import {
   clearanceForRoles,
-  loadGrants,
+  loadGrants, roleAuthorityGrants,
   permissionsForRoles,
   type Principal,
 } from "../../src/lib/authz";
@@ -50,6 +50,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,
@@ -250,7 +251,16 @@ describe("governed mutation — governance resolution proposal", () => {
     const governance = await principalFor("GRACE_KILELE");
     // Constrain the principal to an unrelated legal entity. The Group Board is
     // bound to BEYU Holdings, so the proposal must be refused on entity scope.
-    const scoped: Principal = { ...governance, entityScope: [fixedId(ID_PREFIX.legalEntity, "BEYU_HEALTH_LTD")] };
+    const unrelatedEntity = fixedId(ID_PREFIX.legalEntity, "BEYU_HEALTH_LTD");
+    const scoped: Principal = {
+      ...governance,
+      entityScope: [unrelatedEntity],
+      authorityGrants: (governance.authorityGrants ?? []).map((grant) => ({
+        ...grant,
+        tenantId: fixedId(ID_PREFIX.tenant, "BEYU_HEALTH"),
+        legalEntityId: unrelatedEntity,
+      })),
+    };
 
     await expect(proposeResolution(scoped, validInput(), ctx)).rejects.toMatchObject({
       code: "FORBIDDEN",

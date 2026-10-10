@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Foundation Registry API.
+ * BEYU Foundation organization — Foundation Registry API.
  *
  * GET  /api/v1/foundation/foundations — list foundations in scope
  * POST /api/v1/foundation/foundations — register a foundation (PROPOSED)

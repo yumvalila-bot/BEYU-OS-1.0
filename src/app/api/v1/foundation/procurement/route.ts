@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Procurement lifecycle + suppliers.
+ * BEYU Foundation organization — Procurement lifecycle + suppliers.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

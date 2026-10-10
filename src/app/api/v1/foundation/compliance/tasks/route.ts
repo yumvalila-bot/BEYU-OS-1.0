@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — compliance tasks.
+ * BEYU Foundation organization — compliance tasks.
  *
  * GET   /api/v1/foundation/compliance/tasks[?deadlineId=]
  * PATCH /api/v1/foundation/compliance/tasks { id, to, notes? }

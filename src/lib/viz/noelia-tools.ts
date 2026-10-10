@@ -25,7 +25,7 @@ import type { NoeliaToolRegistry } from "@/lib/noelia/tool-registry";
 import { noeliaToolOutputSchema } from "@/lib/noelia/default-tools";
 import type { NoeliaToolOutput } from "@/lib/noelia/types";
 import type { ToolInvocationContext } from "@/lib/noelia/types";
-import { CANONICAL_DIMENSIONS, VIZ_SECTOR_CODES, parseDimensionCode, type VizSectorCode } from "./dimensions";
+import { CANONICAL_DIMENSIONS, VIZ_DOMAIN_CODES, parseDimensionCode, type VizDomainCode } from "./dimensions";
 import { assertSectorAccess } from "./authorization";
 import type { NoeliaFinding } from "@/lib/noelia/types";
 import { registryFor, buildGovernedManifest } from "./service";
@@ -34,7 +34,7 @@ import { HOLOGRAPH_CANONICAL_DEFINITION, HOLOGRAPH_IS, HOLOGRAPH_IS_NOT, HOLOGRA
 
 const EXPLAIN_SCHEMA = z
   .object({
-    sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]).optional(),
+    sector: z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]]).optional(),
   })
   .passthrough()
   .optional();
@@ -48,7 +48,7 @@ const HOLOGRAPH_STATUS_SCHEMA = z
 
 const SUMMARIZE_SCHEMA = z
   .object({
-    sector: z.enum(VIZ_SECTOR_CODES as unknown as [string, ...string[]]),
+    sector: z.enum(VIZ_DOMAIN_CODES as unknown as [string, ...string[]]),
     dimensions: z.array(z.string()).optional(),
   })
   .passthrough()
@@ -140,7 +140,7 @@ export function registerVizTools(registry: NoeliaToolRegistry): void {
 
 async function explainDimensions(context: ToolInvocationContext, input?: unknown): Promise<NoeliaToolOutput> {
   const parsed = EXPLAIN_SCHEMA.safeParse(input);
-  const sector = parsed.success ? (parsed.data?.sector as VizSectorCode | undefined) : undefined;
+  const sector = parsed.success ? (parsed.data?.sector as VizDomainCode | undefined) : undefined;
   const registry = await registryFor(context.principal);
 
   const findings: NoeliaFinding[] = registry.dimensions.map((d) => ({
@@ -191,12 +191,12 @@ async function summarizeScene(context: ToolInvocationContext, input: unknown): P
   if (!parsed.success || !parsed.data) {
     return {
       headline: "Scene summary requires a sector.",
-      limitations: [`Input did not validate: sector must be one of ${VIZ_SECTOR_CODES.join(", ")}.`],
+      limitations: [`Input did not validate: sector must be one of ${VIZ_DOMAIN_CODES.join(", ")}.`],
       confidence: 1,
       humanReviewRequired: false,
     };
   }
-  const sector = parsed.data.sector as (typeof VIZ_SECTOR_CODES)[number];
+  const sector = parsed.data.sector as (typeof VIZ_DOMAIN_CODES)[number];
 
   // Explicit sector refusal BEFORE any collection: adapters answer an
   // unauthorized sector with an honest-empty dataset, but a Noelia response

@@ -1,8 +1,8 @@
 /**
  * BEYU OS — internal service-to-service authentication.
  *
- * Sector OSs (Health today; Agriculture, Finance-adjacent and Foundation
- * domains later) authenticate to BEYU OS internal endpoints with short-lived
+ * Governed services (Sector OSs and the Foundation sister-organization
+ * integration) authenticate to BEYU OS internal endpoints with short-lived
  * HS256-signed service tokens. This is SEPARATE from human authentication:
  *
  *   - Human sessions: opaque session tokens in cookies (src/lib/session.ts).
@@ -50,7 +50,7 @@ export const INTERNAL_SERVICE_ISSUERS = [
   "HEALTH_OS",
   "AGRICULTURE_OS",
   "FINANCE_OS",
-  "FOUNDATION_OS",
+  "FOUNDATION_ORGANIZATION",
   "UJENZI_OS",
   "BEYU_OS",
 ] as const;

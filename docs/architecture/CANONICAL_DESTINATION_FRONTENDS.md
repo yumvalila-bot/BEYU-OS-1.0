@@ -81,8 +81,8 @@ already signed in.
 
 **(5) There was no global OS status in the frontend at all.**
 `os_registry.lifecycle` is `ACTIVE` for `BEYU_OS`, `FINANCE_OS`, `HEALTH_OS`,
-`AGRICULTURE_OS`, `FOUNDATION_OS` and `UJENZI_OS` in the canonical seed
-(`src/db/seed.ts`, lines ~1645–1655; only `MINING_OS` is `DRAFT`). But the
+`AGRICULTURE_OS`, `UJENZI_OS` and `SHARED_FOUNDATION_OPERATIONS` in the canonical seed
+(`src/db/seed.ts`, lines ~1645–1655; only `SHARED_MINING_GOVERNANCE` is `DRAFT`). But the
 launcher never read it: `src/app/launcher/page.tsx` rendered **only** the
 per-user grant badge `AUTHORISED` / `NOT IN CURRENT GRANT`. That conflated
 *global OS availability* with *this identity's access* — exactly the
@@ -96,7 +96,7 @@ contradiction §53/§54 of the requirement prohibits.
   `/api/health/*`.
 * Every OS route keeps its own server-side gate:
   `src/app/os/{finance,agriculture,ujenzi,foundation}/layout.tsx`
-  (`requirePrincipal()` → `requestIsOnForeignOSHost()` → `operatingSystemTenantInScope()`
+  (`requirePrincipal()` → canonical-host refusal → `governedTenantInScope()`
   → `Denied`), `src/app/os/health/mount.ts` (session → tenant-domain →
   `checkHealthOSAuthorization()`), `src/app/os/{family,noelia}/page.tsx`
   (`requireAccess(<declared entry permission>)`).
@@ -123,7 +123,7 @@ in the UI.
 | `finance.beyu.co.tz` | FINANCE_OS | Sector OS | Finance | Finance | ACTIVE |
 | `agriculture.beyu.co.tz` | AGRICULTURE_OS | Sector OS | Agriculture | Agriculture | ACTIVE |
 | `ujenzi.beyu.co.tz` | UJENZI_OS | Sector OS | Ujenzi | Ujenzi | ACTIVE |
-| `foundation.beyu.co.tz` | FOUNDATION | Nonprofit (registered `FOUNDATION_OS`, `SECTOR_OS`) | Foundation | Foundation | ACTIVE |
+| `foundation.beyu.co.tz` | `SHARED_FOUNDATION_OPERATIONS` | Nonprofit sister organization (never an OS) | Foundation | Foundation | ACTIVE |
 | `familyoffice.beyu.co.tz` | Family Office | Capability (`SHARED_FAMILY_OFFICE`) | Family Office | Family Office | ACTIVE |
 | `noelia.beyu.co.tz` | NOELIA_AI | AI interface (`HIVE_RUNTIME`) | Noelia | Noelia | ACTIVE |
 
@@ -133,11 +133,10 @@ catalogue entry) and is never flattened into "OS":
 * `CORE` — the one constitutional control plane.
 * `SECTOR_OS` — exactly four: `HEALTH_OS`, `FINANCE_OS`, `AGRICULTURE_OS`,
   `UJENZI_OS`.
-* `NONPROFIT` — Foundation. A separate nonprofit **sister organisation** to the
-  BEYU Holding Company, strategically governed through BEYU OS. It keeps its
-  already-registered `FOUNDATION_OS` / `SECTOR_OS` constitutional identity
-  (inventing or renaming it is prohibited); `destinationType` records the
-  organisational distinction the registry `kind` cannot.
+* `NONPROFIT` — Foundation. A separate nonprofit **sister organization**,
+  strategically governed through BEYU OS. Its operations use the existing
+  `SHARED_FOUNDATION_OPERATIONS` capability; it is never a subsidiary, Sector
+  LLC, or Sector OS.
 * `CAPABILITY` — Family Office. A shared capability/domain. No
   `FAMILY_OFFICE_OS` exists and none was created.
 * `AI_INTERFACE` — NOELIA_AI. The single governed AI identity on the HIVE
@@ -170,8 +169,8 @@ catalogue entry) and is never flattened into "OS":
   duplicated password storage, no duplicated MFA, no parallel auth middleware.
 * **No separate Vercel project, no DNS change, no `vercel.json`.**
 * **No migration.** `os_registry.lifecycle` already reads `ACTIVE` for all four
-  canonical Sector OSs; the last journal entry stays
-  `0074_enterprise_intelligence_expansion`.
+  canonical Sector OSs; the canonical-host feature itself adds none; in this integrated branch the
+  journal advances independently to `0075_noelia_authority_execution_hardening`.
 * **No new dependency.**
 * **No capability was activated.** See §4.
 

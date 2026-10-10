@@ -44,6 +44,15 @@ import "dotenv/config";
 import { annotateError, failSanitized } from "./lib/ci-annotation";
 import { Client } from "pg";
 import { buildPgConnectionConfig } from "../src/db/tls";
+import {
+  RUNTIME_COLUMN_PRIVILEGES,
+  RUNTIME_FUNCTION_ALLOWLIST,
+  RUNTIME_INSERT_ONLY_TABLES,
+  RUNTIME_NO_DELETE_TABLES,
+  RUNTIME_READ_ONLY_TABLES,
+  RUNTIME_SEQUENCE_ALLOWLIST,
+  RUNTIME_TABLE_ALLOWLIST,
+} from "./runtime-privilege-allowlist";
 
 const adminUrl = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
 const runtimePassword = process.env.BEYU_RUNTIME_DB_PASSWORD;
@@ -181,33 +190,89 @@ async function main(): Promise<void> {
       console.log(`reverted ownership of ${revertedCount} tables to ${owner}`);
     }
 
-    // 3. Grant ordinary DML to the runtime role on the application schema.
+    // 3. Reconcile the runtime role to a finite, source-reviewed allowlist.
+    //    No wildcard grant and no future-object default privilege exists.
     await execFormat(`'grant usage on schema public to %I'`, [runtimeRole]);
-    await client.query(`grant select, insert, update, delete on all tables in schema public to ${runtimeRole}`);
-    await client.query(`grant usage, select on all sequences in schema public to ${runtimeRole}`);
-    await client.query(`grant execute on all functions in schema public to ${runtimeRole}`);
+    const catalogTables = await client.query<{ tablename: string }>(
+      `select tablename from pg_tables where schemaname = 'public' order by tablename`,
+    );
+    const tableAllowlist = new Set<string>(RUNTIME_TABLE_ALLOWLIST);
+    const readOnly = new Set<string>(RUNTIME_READ_ONLY_TABLES);
+    const noDelete = new Set<string>(RUNTIME_NO_DELETE_TABLES);
+    const insertOnly = new Set<string>(RUNTIME_INSERT_ONLY_TABLES);
+    for (const { tablename } of catalogTables.rows) {
+      // Reset each object individually. This deliberately avoids wildcard
+      // privileges and also removes privilege inherited from an older setup.
+      await execFormat(`'revoke all privileges on table public.%I from %I'`, [tablename, runtimeRole]);
+      if (!tableAllowlist.has(tablename)) continue; // default deny for unknown/new tables
+      await execFormat(`'grant select on table public.%I to %I'`, [tablename, runtimeRole]);
+      const columnRules = (RUNTIME_COLUMN_PRIVILEGES as Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>)[tablename];
+      for (const [column, privileges] of Object.entries(columnRules ?? {})) {
+        // Privilege names come from the closed source constant above; table,
+        // column and role identifiers are still rendered through format(%I).
+        await execFormat(`'grant ${privileges.join(", ")} (%I) on table public.%I to %I'`, [column, tablename, runtimeRole]);
+      }
+      if (readOnly.has(tablename)) continue;
+      if (insertOnly.has(tablename)) {
+        await execFormat(`'grant insert on table public.%I to %I'`, [tablename, runtimeRole]);
+      } else if (noDelete.has(tablename)) {
+        await execFormat(`'grant insert, update on table public.%I to %I'`, [tablename, runtimeRole]);
+      } else {
+        await execFormat(`'grant insert, update, delete on table public.%I to %I'`, [tablename, runtimeRole]);
+      }
+    }
 
-    // 4. Future objects created by the admin role are granted DML to the runtime
-    //    role automatically (default privileges apply to the current role).
+    const catalogSequences = await client.query<{ sequence_name: string }>(
+      `select sequence_name from information_schema.sequences where sequence_schema = 'public' order by sequence_name`,
+    );
+    const sequenceAllowlist = new Set<string>(RUNTIME_SEQUENCE_ALLOWLIST);
+    for (const { sequence_name } of catalogSequences.rows) {
+      await execFormat(`'revoke all privileges on sequence public.%I from %I'`, [sequence_name, runtimeRole]);
+      if (sequenceAllowlist.has(sequence_name)) {
+        await execFormat(`'grant usage, select on sequence public.%I to %I'`, [sequence_name, runtimeRole]);
+      }
+    }
+
+    // PUBLIC receives EXECUTE on new functions by PostgreSQL default. Revoke it
+    // object-by-object, then grant only the reviewed application-function set.
+    const catalogFunctions = await client.query<{ oid: string; proname: string }>(
+      `select p.oid::text, p.proname
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' order by p.proname, p.oid`,
+    );
+    const functionAllowlist = new Set<string>(RUNTIME_FUNCTION_ALLOWLIST);
+    for (const fn of catalogFunctions.rows) {
+      const rendered = await client.query<{ revoke_public: string; revoke_runtime: string; grant_runtime: string }>(
+        `select format('revoke execute on function %s from public', $1::oid::regprocedure) as revoke_public,
+                format('revoke execute on function %s from %I', $1::oid::regprocedure, $2::text) as revoke_runtime,
+                format('grant execute on function %s to %I', $1::oid::regprocedure, $2::text) as grant_runtime`,
+        [fn.oid, runtimeRole],
+      );
+      await client.query(rendered.rows[0].revoke_public);
+      await client.query(rendered.rows[0].revoke_runtime);
+      if (functionAllowlist.has(fn.proname)) await client.query(rendered.rows[0].grant_runtime);
+    }
+
+    // 4. Explicitly remove any historical default privileges. A newly-created
+    //    table/sequence/function remains inaccessible until reviewed and added
+    //    to runtime-privilege-allowlist.ts and this reconciliation is rerun.
     await execFormat(
-      `'alter default privileges for role %I in schema public grant select, insert, update, delete on tables to %I'`,
+      `'alter default privileges for role %I in schema public revoke all privileges on tables from %I'`,
       [owner, runtimeRole],
     );
     await execFormat(
-      `'alter default privileges for role %I in schema public grant usage, select on sequences to %I'`,
+      `'alter default privileges for role %I in schema public revoke all privileges on sequences from %I'`,
       [owner, runtimeRole],
     );
     await execFormat(
-      `'alter default privileges for role %I in schema public grant execute on functions to %I'`,
+      `'alter default privileges for role %I in schema public revoke all privileges on functions from %I'`,
       [owner, runtimeRole],
     );
 
     // 4b. Payment configuration authority is NEVER delegated to the runtime role.
     //
-    //     Step 3 granted blanket DML on every existing table and step 4 grants it
-    //     on every future one, which is why the runtime role can currently rewrite
-    //     governance rows (finding F-01, still open, deliberately NOT remediated
-    //     here). The payment domain was told not to inherit that: provider status,
+    //     The finite allowlist above is the primary boundary; these domain-specific
+    //     assertions preserve defense in depth and verify the effective catalog state. The payment domain was told not to inherit that: provider status,
     //     connection enablement, ledger account mappings, limits and settlement
     //     authority must not be silently mutable by the credentials of the very
     //     runtime those controls govern.
@@ -291,8 +356,7 @@ async function main(): Promise<void> {
 
     // 4d. Government Integration Fabric privileges (mirror of migration 0036).
     //
-    //     Step 3's blanket grant would otherwise override 0036's revocations,
-    //     exactly as it did for the payment configuration tables. The contract:
+    //     The finite allowlist is reconciled first; these assertions mirror migration 0036 and verify the effective result. The contract:
     //       - government_agencies    : registry = runtime-immutable configuration.
     //         The application must never promote an agency to LIVE, clear an
     //         EXTERNAL_BLOCKED reason, or edit credential references at runtime.
@@ -345,9 +409,7 @@ async function main(): Promise<void> {
 
     // 4e. Governed tenant-domain registry (mirror of migration 0063).
     //
-    //     Step 3's blanket grant would otherwise hand the runtime role INSERT/
-    //     UPDATE/DELETE on the table that decides which hostname belongs to which
-    //     tenant — i.e. the runtime could re-point a tenant domain or delete the
+    //     The finite allowlist classifies the hostname registry SELECT-only; this check verifies the table remains immutable — i.e. the runtime could re-point a tenant domain or delete the
     //     binding it is subject to. The hostname mapping is configuration that
     //     GOVERNS the runtime, so it is runtime-immutable (same rule as
     //     os_registry and role_assignments): SELECT only. Governed lifecycle
@@ -378,7 +440,7 @@ async function main(): Promise<void> {
 
     // 4f. Federation & Trust privileges (mirror of migration 0071).
     //
-    //     Step 3's blanket grant would otherwise override 0071's revocations.
+    //     The finite allowlist mirrors 0071; these checks verify the effective privileges.
     //     The contract:
     //       - federation registry tables (jurisdictions, domains, evidence,
     //         legal bases, authorities, services, datasets, schemas,

@@ -241,11 +241,10 @@ describe("setup-db-role — catalog-driven reconciliation (statement level)", ()
     expect(executedAlterRole()).toEqual([`alter role "beyu_runtime" login password '${GOVERNED}'`]);
     // Grants / ownership / default-privilege reconciliation proceed.
     expect(mock.state.statements).toContain('grant usage on schema public to "beyu_runtime"');
-    expect(mock.state.statements).toContain(
-      "grant select, insert, update, delete on all tables in schema public to beyu_runtime",
-    );
+    expect(mock.state.statements.some((statement) => /grant .* on all tables/i.test(statement))).toBe(false);
     expect(
-      mock.state.statements.some((s) => s.startsWith('alter default privileges for role "postgres" in schema public')),
+      mock.state.statements.some((s) =>
+        s.startsWith('alter default privileges for role "postgres" in schema public revoke all privileges')),
     ).toBe(true);
     // Final verification ran and reported ok.
     expect(mock.state.ended).toBe(true);

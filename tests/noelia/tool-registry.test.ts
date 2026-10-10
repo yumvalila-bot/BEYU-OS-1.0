@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/lib/noelia/execution-control", () => ({
+  assertNoeliaExecutionAllowed: vi.fn(async () => undefined),
+  ExecutionStoppedError: class ExecutionStoppedError extends Error {},
+}));
+
 import { NoeliaToolRegistry } from "../../src/lib/noelia/tool-registry";
 import type { ToolInvocationContext } from "../../src/lib/noelia/types";
 import { principal } from "./fixtures";
@@ -80,7 +86,8 @@ describe("Noelia tool registry fail-closed gate", () => {
   it("denies an unauthorized tool and never calls its service", async () => {
     const { value, execute } = registry();
     const result = await value.invoke("risk.register.query", context({
-      principal: principal({ permissions: new Set(["ai:noelia.query"]) }),
+      // Flattened presentation summaries never grant authority.
+      principal: principal({ permissions: new Set(["ai:noelia.query"]), authorityGrants: [] }),
     }), {});
     expect(result.allowed).toBe(false);
     if (!result.allowed) expect(result.decision.code).toBe("PERMISSION_DENIED");

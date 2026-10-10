@@ -21,7 +21,7 @@ import {
   HOLOGRAPH_CANONICAL_DEFINITION,
   HOLOGRAPH_IS,
   HOLOGRAPH_IS_NOT,
-  HOLOGRAPH_SECTOR_CONSUMERS,
+  HOLOGRAPH_GOVERNED_CONSUMERS,
   holographSubsystemStatus,
 } from "@/lib/viz/holograph";
 import { assetFormatSupportMatrix } from "@/lib/viz/assets";
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           is: HOLOGRAPH_IS,
           isNot: HOLOGRAPH_IS_NOT,
           authorizationOrder: HOLOGRAPH_AUTHORIZATION_ORDER,
-          sectorConsumers: HOLOGRAPH_SECTOR_CONSUMERS,
+          governedConsumers: HOLOGRAPH_GOVERNED_CONSUMERS,
           subsystems: holographSubsystemStatus(),
           graphicsFoundationSubsystems: VIZ_SUBSYSTEM_STATUS,
           assetRegistry: {

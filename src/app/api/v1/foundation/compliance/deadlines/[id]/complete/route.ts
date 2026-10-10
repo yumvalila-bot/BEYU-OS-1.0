@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — deadline completion (evidence-gated).
+ * BEYU Foundation organization — deadline completion (evidence-gated).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { guarded } from "@/lib/api";

@@ -42,7 +42,11 @@ describe.skipIf(!available)("governance actions — actual HTTP boundary", () =>
     const grants = await db.select().from(roleAssignments).where(eq(roleAssignments.userId, "USR_AMANI_BEYU"));
     try {
       await db.update(roleAssignments).set({ legalEntityId: "LEN_BEYU_TZ_HOLDING" }).where(eq(roleAssignments.userId, "USR_AMANI_BEYU"));
-      expect((await apiPost(createPath(), body, { cookie: chair, idempotencyKey: key })).status).toBe(404);
+      // The route has no caller-supplied target dimension. Once the only grant
+      // is entity-constrained, the common guard must fail closed on that
+      // omitted dimension before receipt recovery; it must never replay the
+      // stored success as authority.
+      expect((await apiPost(createPath(), body, { cookie: chair, idempotencyKey: key })).status).toBe(403);
     } finally { for (const grant of grants) await db.update(roleAssignments).set({ legalEntityId: grant.legalEntityId }).where(eq(roleAssignments.id, grant.id)); }
     expect((await apiPost<Envelope>(createPath(), body, { cookie: chair, idempotencyKey: key })).body.data.id).toBe(created.body.data.id);
   });

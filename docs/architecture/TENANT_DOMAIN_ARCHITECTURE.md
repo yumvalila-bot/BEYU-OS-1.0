@@ -8,7 +8,7 @@ HUMAN-CONTROLLED, NOT DONE** · last reviewed 2026-09-22
 ## 1. What this document is
 
 BEYU OS has one constitutional control plane (the `/os` control
-plane, the five canonical Sector OS routes) and one governed way for a tenant to
+plane, exactly four canonical Sector OS routes) and one governed way for a tenant to
 be reachable at its own hostname. The control plane's identity is
 domain-independent: the domain strings in this document (`beyuos.co.tz` and its
 subdomains) are the current deployment/configuration namespace — configuration
@@ -27,17 +27,16 @@ This document records (a) what the repository actually implements, (b) what is
 human operator must do at the DNS and deployment-platform layers.
 
 > **Related (2026-10-08):** the canonical **entry** subdomains on the
-> production apex — the five Sector OS hosts (`health.`, `finance.`,
-> `agriculture.`, `ujenzi.`, `foundation.beyu.co.tz`) and the two shared-surface
-> hosts (`familyoffice.`, `noelia.beyu.co.tz`) — are a separate,
+> production apex — the four Sector OS hosts (`health.`, `finance.`,
+> `agriculture.`, `ujenzi.beyu.co.tz`), the Foundation nonprofit host
+> (`foundation.`), and the two shared-surface hosts (`familyoffice.`, `noelia.beyu.co.tz`) — are a separate,
 > presentation-only contract documented in
 > [`SECTOR_OS_SUBDOMAINS.md`](./SECTOR_OS_SUBDOMAINS.md). They are resolved
 > pre-authentication from configuration + the canonical catalogue and select a
 > *home*; this registry remains the post-authentication authority for governed
 > *tenant* hostnames and only ever narrows. The two agree by construction: a
 > tenant hostname (`<tenant>.health.<apex>`) is never a canonical entry host,
-> and a canonical entry host carries no tenant context — it selects an OS or a
-> shared capability, never a tenant, and it never grants access.
+> and a canonical entry host carries no tenant context — it selects an OS, nonprofit context, or shared capability, never a tenant, and it never grants access.
 
 The principle chain, unchanged and non-negotiable:
 
@@ -78,7 +77,7 @@ country or entity scope.
 | OS identity authority | `os_registry` — a domain may only be bound to an `ACTIVE` `SECTOR_OS` |
 
 `os` on a domain row is a **canonical `os_registry.code`** (`HEALTH_OS`). There is
-no second OS registry: an unknown code, a `DRAFT` entry (`MINING_OS`), a shared
+no second OS registry: an unknown code, a `DRAFT` capability (`SHARED_MINING_GOVERNANCE`), a shared
 capability or the control plane can never become a tenant-domain namespace.
 
 ### Bootstrap row

@@ -59,6 +59,17 @@ function principal(): Principal {
     sessionId: "s",
     riskScore: 0,
     emergencyPermissions: [],
+    authorityGrants: [...permissions].map((permission) => ({
+      sourceId: "TEST_GROUP_CFO_ASSIGNMENT",
+      source: "ROLE_ASSIGNMENT" as const,
+      role: "GROUP_CFO",
+      permission,
+      tenantId: tenantId ?? "TEN_BEYU_GROUP",
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
   } as unknown as Principal;
 }
 

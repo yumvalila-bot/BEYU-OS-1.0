@@ -34,13 +34,13 @@
 import { can, type AccessDecision, type Principal } from "@/lib/authz";
 import {
   FINANCE_OS_READ_PERMISSIONS,
-  FOUNDATION_OS_READ_PERMISSIONS,
+  FOUNDATION_READ_PERMISSIONS,
   UJENZI_OS_READ_PERMISSIONS,
-  operatingSystemTenantInScope,
+  governedTenantInScope,
 } from "@/lib/operating-systems";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import type { Classification, PermissionCode } from "@/lib/constants";
-import type { VizSectorCode } from "./dimensions";
+import type { VizDomainCode } from "./dimensions";
 
 export type VizAuthorizationDecision = AccessDecision & {
   /** Sector-level denial reason, when the viz permission passed but the
@@ -87,31 +87,31 @@ export function authorizeVisualization(
  */
 export async function assertSectorAccess(
   principal: Principal,
-  sector: VizSectorCode,
+  sector: VizDomainCode,
 ): Promise<{ allowed: boolean; reason: string }> {
   switch (sector) {
     case "BEYU":
       return { allowed: true, reason: "Control-plane scene; RLS scope applies." };
     case "UJENZI": {
       const granted = UJENZI_OS_READ_PERMISSIONS.some((p) => can(principal, p).allowed);
-      const inScope = granted && (await operatingSystemTenantInScope(principal, "BEYU-UJENZI"));
+      const inScope = granted && (await governedTenantInScope(principal, "BEYU-UJENZI"));
       return inScope
         ? { allowed: true, reason: "Authorized" }
         : { allowed: false, reason: "Sector authorization: Ujenzi OS data requires 'ujenzi:data.read' and the BEYU-UJENZI tenant inside the principal's resolved scope." };
     }
     case "AGRICULTURE": {
       const granted = can(principal, "agriculture:data.read").allowed;
-      const inScope = granted && (await operatingSystemTenantInScope(principal, "BEYU-AGRI"));
+      const inScope = granted && (await governedTenantInScope(principal, "BEYU-AGRI"));
       return inScope
         ? { allowed: true, reason: "Authorized" }
         : { allowed: false, reason: "Sector authorization: Agriculture OS data requires 'agriculture:data.read' and the BEYU-AGRI tenant inside the principal's resolved scope." };
     }
     case "FOUNDATION": {
-      const granted = FOUNDATION_OS_READ_PERMISSIONS.some((p) => can(principal, p).allowed);
-      const inScope = granted && (await operatingSystemTenantInScope(principal, "BEYU-FOUNDATION"));
+      const granted = FOUNDATION_READ_PERMISSIONS.some((p) => can(principal, p).allowed);
+      const inScope = granted && (await governedTenantInScope(principal, "BEYU-FOUNDATION"));
       return inScope
         ? { allowed: true, reason: "Authorized" }
-        : { allowed: false, reason: "Sector authorization: Foundation OS data requires a Foundation read grant and the BEYU-FOUNDATION tenant inside the principal's resolved scope." };
+        : { allowed: false, reason: "Foundation authorization: data requires a Foundation read grant and the BEYU-FOUNDATION legal-entity tenant inside the principal's resolved scope." };
     }
     case "FINANCE": {
       const granted = FINANCE_OS_READ_PERMISSIONS.some((p) => can(principal, p).allowed);
@@ -155,7 +155,7 @@ export function entityScopeRefusal(principal: Principal): string | null {
  */
 export async function reauthorizeDeepLink(
   principal: Principal,
-  record: { tenantId: string; classification: string; sector?: VizSectorCode; legalEntityId?: string | null } | null,
+  record: { tenantId: string; classification: string; sector?: VizDomainCode; legalEntityId?: string | null } | null,
   permission: PermissionCode,
 ): Promise<VizAuthorizationDecision & { notFound: boolean }> {
   // A record outside the principal's RLS scope simply does not exist here.
@@ -195,7 +195,7 @@ export async function reauthorizeDeepLink(
  */
 export async function authorizeExport(
   principal: Principal,
-  sector: VizSectorCode | undefined,
+  sector: VizDomainCode | undefined,
   classification: Classification | undefined,
 ): Promise<VizAuthorizationDecision> {
   const base = authorizeVisualization(principal, { permission: "viz:export", classification });

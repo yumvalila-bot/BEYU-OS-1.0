@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — tax intelligence evaluation (pure, deterministic).
+ * BEYU Foundation organization — tax intelligence evaluation (pure, deterministic).
  *
  * This is TAX INFORMATION, never professional advice. The engine distinguishes
  * ELIGIBLE / POTENTIALLY_ELIGIBLE / UNDER_REVIEW / CONFIRMED / NOT_ELIGIBLE /

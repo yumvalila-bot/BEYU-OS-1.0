@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — timely notification scheduling (pure, deterministic).
+ * BEYU Foundation organization — timely notification scheduling (pure, deterministic).
  *
  * For every open deadline the engine derives which reminder offsets are DUE
  * as of today. Delivery itself is recorded in `foundation_notification_log`

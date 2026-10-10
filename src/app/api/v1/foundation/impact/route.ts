@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Impact metrics + measurements.
+ * BEYU Foundation organization — Impact metrics + measurements.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

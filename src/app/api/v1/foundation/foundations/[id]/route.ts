@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Foundation detail + lifecycle transitions.
+ * BEYU Foundation organization — Foundation detail + lifecycle transitions.
  *
  * GET   /api/v1/foundation/foundations/:id
  * PATCH /api/v1/foundation/foundations/:id { status, approvalRef? }

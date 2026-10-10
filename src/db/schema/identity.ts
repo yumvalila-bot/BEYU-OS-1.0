@@ -165,6 +165,8 @@ export const roleAssignments = pgTable(
       .notNull()
       .references(() => tenants.id),
     legalEntityId: text("legal_entity_id").references(() => legalEntities.id),
+    /** Explicit constitutional grant of unscoped enterprise authority. Never inferred from tenant type or role name. */
+    globalScope: boolean("global_scope").notNull().default(false),
     effectiveFrom: date("effective_from").notNull(),
     effectiveTo: date("effective_to"),
     grantedBy: text("granted_by").notNull(),

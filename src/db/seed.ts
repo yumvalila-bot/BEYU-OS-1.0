@@ -13,6 +13,7 @@ import { fixedId, ID_PREFIX } from "@/lib/ids";
 import { hashPassword, sha256 } from "@/lib/crypto";
 import { encryptSecret, generateRecoveryCodes, generateTotpSecret, hashRecoveryCode } from "@/lib/mfa";
 import { PERMISSIONS, ROLES, HIGH_RISK_PERMISSIONS } from "@/lib/constants";
+import { GLOBAL_AUTHORITY_ROLES } from "@/lib/authz";
 import { runWaterfall } from "@/lib/waterfall";
 import {
   TZ_JURISDICTION,
@@ -97,7 +98,9 @@ async function main() {
       { id: T.health, code: "BEYU-HEALTH", name: "BEYU Health OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
       { id: T.finance, code: "BEYU-FINTECH", name: "BEYU FinTech OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
       { id: T.agri, code: "BEYU-AGRI", name: "BEYU Agriculture OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
-      { id: T.foundation, code: "BEYU-FOUNDATION", name: "BEYU Foundation Tenant", type: "SECTOR", parentTenantId: T.group, countryCode: "TZ", classification: "CONFIDENTIAL" },
+      // Separate nonprofit sister organization: a root legal-entity tenant,
+      // never a subsidiary tenant and never a Sector OS.
+      { id: T.foundation, code: "BEYU-FOUNDATION", name: "BEYU Foundation", type: "LEGAL_ENTITY", parentTenantId: null, countryCode: "TZ", classification: "CONFIDENTIAL" },
       { id: T.ujenzi, code: "BEYU-UJENZI", name: "BEYU Ujenzi OS Tenant", type: "SECTOR", parentTenantId: T.tz, countryCode: "TZ" },
     ])
     .onConflictDoNothing();
@@ -339,20 +342,48 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  await adminDb
-    .insert(s.roleAssignments)
-    .values(
-      people.map((p) => ({
-        id: fixedId(ID_PREFIX.roleAssignment, `${p.key}_${p.role}`),
-        userId: fixedId(ID_PREFIX.user, p.key),
-        roleId: fixedId(ID_PREFIX.role, p.role),
-        tenantId: p.tenant,
-        effectiveFrom: "2024-01-01",
-        grantedBy: "BOARD_RESOLUTION/BEYU-BRD-2024-001",
-        justification: "Constitutional appointment recorded at bootstrap.",
-      })),
-    )
-    .onConflictDoNothing();
+  const roleAssignmentRows = people.map((p) => ({
+    id: fixedId(ID_PREFIX.roleAssignment, `${p.key}_${p.role}`),
+    userId: fixedId(ID_PREFIX.user, p.key),
+    roleId: fixedId(ID_PREFIX.role, p.role),
+    tenantId: p.tenant,
+    globalScope: p.tenant === T.group && GLOBAL_AUTHORITY_ROLES.has(p.role),
+    effectiveFrom: "2024-01-01",
+    grantedBy: "BOARD_RESOLUTION/BEYU-BRD-2024-001",
+    justification: "Constitutional appointment recorded at bootstrap.",
+  }));
+  const roleAssignmentGlobalScopeColumn = await adminDb.execute<{ present: boolean }>(sql`
+    select exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'role_assignments'
+        and column_name = 'global_scope'
+    ) as present
+  `);
+  for (const assignment of roleAssignmentRows) {
+    if (roleAssignmentGlobalScopeColumn.rows[0]?.present) {
+      await adminDb.execute(sql`
+        insert into role_assignments
+          (id, user_id, role_id, tenant_id, global_scope, effective_from, granted_by, justification)
+        values
+          (${assignment.id}, ${assignment.userId}, ${assignment.roleId}, ${assignment.tenantId},
+           ${assignment.globalScope}, ${assignment.effectiveFrom}, ${assignment.grantedBy}, ${assignment.justification})
+        on conflict (id) do update set global_scope = excluded.global_scope
+      `);
+    } else {
+      // Historical upgrade harnesses seed predecessor schemas before migration
+      // 0075 introduced global_scope. Keep that bootstrap viable without
+      // pretending the pre-0075 schema carried the new authority fact.
+      await adminDb.execute(sql`
+        insert into role_assignments
+          (id, user_id, role_id, tenant_id, effective_from, granted_by, justification)
+        values
+          (${assignment.id}, ${assignment.userId}, ${assignment.roleId}, ${assignment.tenantId},
+           ${assignment.effectiveFrom}, ${assignment.grantedBy}, ${assignment.justification})
+        on conflict (id) do nothing
+      `);
+    }
+  }
 
   // Idempotent remediation: unconditionally restore the canonical credential
   // state for the seed identities on every run. Beyond the original Kernel
@@ -1649,9 +1680,9 @@ async function main() {
       { id: fixedId(ID_PREFIX.osRegistry, "FINANCE_OS"), code: "FINANCE_OS", name: "BEYU Finance OS", kind: "SECTOR_OS", purpose: "Authoritative domain for financial consequences, treasury, capital, waterfall and tax strategy intelligence.", ownerRole: "GROUP_CFO", authorityScope: "FINANCIAL_CONSEQUENCE", dataAuthority: ["LEDGER", "TREASURY", "CAPITAL", "WATERFALL", "TAX_POSITION"], dependencies: ["BEYU_OS", "SHARED_HCM"], apis: ["/api/v1/finance/*"], events: ["PAYMENT_POSTED", "WATERFALL_EXECUTED", "TAX_STRATEGY_APPROVED"], complianceFrameworks: ["IFRS", "TRA", "AML_KYC"] },
       { id: fixedId(ID_PREFIX.osRegistry, "HEALTH_OS"), code: "HEALTH_OS", name: "BEYU Health OS", kind: "SECTOR_OS", purpose: "Healthcare operations: EHR, clinical workflows, pharmacy, laboratory, claims and clinical AI.", ownerRole: "SECTOR_OPERATOR", authorityScope: "CLINICAL_OPERATIONS", dataAuthority: ["PATIENT_RECORD", "ENCOUNTER", "CLINICAL_ORDER"], dependencies: ["BEYU_OS", "SHARED_HCM", "FINANCE_OS"], apis: ["/api/v1/health/*"], events: ["ENCOUNTER_CREATED", "CLAIM_SUBMITTED"], complianceFrameworks: ["FHIR", "DICOM", "ICD11", "MTUHA", "DHIS2", "NHIF", "TMDA"], classification: "RESTRICTED" },
       { id: fixedId(ID_PREFIX.osRegistry, "AGRI_OS"), code: "AGRICULTURE_OS", name: "BEYU Agriculture OS", kind: "SECTOR_OS", purpose: "Agricultural operations: land, crop cycles, inputs, yield and supply chain.", ownerRole: "SECTOR_OPERATOR", authorityScope: "AGRICULTURAL_OPERATIONS", dataAuthority: ["FARM_BLOCK", "CROP_CYCLE", "HARVEST"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM"], apis: ["/api/v1/agriculture/*"], events: ["HARVEST_RECORDED"], complianceFrameworks: ["TZ_AGRI"], lifecycle: "ACTIVE" },
-      { id: fixedId(ID_PREFIX.osRegistry, "FOUNDATION_OS"), code: "FOUNDATION_OS", name: "BEYU Foundation OS", kind: "SECTOR_OS", purpose: "The single institutional Foundation OS: registry, formation, structure, governance, tax context, timely compliance, donors, funds, grants, programs, projects, beneficiaries, procurement, assets, investments, safeguarding, impact and workforce assignments — under BEYU OS identity, governance, audit and HIVE/Noelia.", ownerRole: "FOUNDATION_DIRECTOR", authorityScope: "NONPROFIT_OPERATIONS", dataAuthority: ["FOUNDATION", "FORMATION_CASE", "STRUCTURE", "FOUNDATION_TAX", "FOUNDATION_COMPLIANCE", "DONOR", "FUND", "GRANT", "PROGRAMME", "PROJECT", "BENEFICIARY", "PROCUREMENT", "FOUNDATION_ASSET", "FOUNDATION_INVESTMENT", "SAFEGUARDING", "IMPACT_MEASURE", "FOUNDATION_ASSIGNMENT"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM", "HIVE_RUNTIME"], apis: ["/api/v1/foundation/*"], events: ["FOUNDATION_REGISTERED", "GRANT_APPROVED", "GRANT_DISBURSED", "DEADLINE_MISSED", "ESCALATION_RAISED", "PROGRAMME_FUNDED"], complianceFrameworks: ["TZ_NGO_ACT"], lifecycle: "ACTIVE" },
+      { id: fixedId(ID_PREFIX.osRegistry, "FOUNDATION_OPERATIONS"), code: "SHARED_FOUNDATION_OPERATIONS", name: "Foundation Operations", kind: "SHARED_CAPABILITY", purpose: "Governed nonprofit operations capability serving the separate BEYU Foundation sister organization; never a subsidiary or Sector OS.", ownerRole: "FOUNDATION_DIRECTOR", authorityScope: "NONPROFIT_OPERATIONS", dataAuthority: ["FOUNDATION", "FORMATION_CASE", "STRUCTURE", "FOUNDATION_TAX", "FOUNDATION_COMPLIANCE", "DONOR", "FUND", "GRANT", "PROGRAMME", "PROJECT", "BENEFICIARY", "PROCUREMENT", "FOUNDATION_ASSET", "FOUNDATION_INVESTMENT", "SAFEGUARDING", "IMPACT_MEASURE", "FOUNDATION_ASSIGNMENT"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM", "HIVE_RUNTIME"], apis: ["/api/v1/foundation/*"], events: ["FOUNDATION_REGISTERED", "GRANT_APPROVED", "GRANT_DISBURSED", "DEADLINE_MISSED", "ESCALATION_RAISED", "PROGRAMME_FUNDED"], complianceFrameworks: ["TZ_NGO_ACT"], lifecycle: "ACTIVE" },
       { id: fixedId(ID_PREFIX.osRegistry, "HIVE"), code: "HIVE_RUNTIME", name: "HIVE AI Runtime", kind: "AI_RUNTIME", purpose: "Runtime intelligence: model routing, RAG, tool calling, evaluation and monitoring under BEYU OS governance.", ownerRole: "CHIEF_GOVERNANCE_OFFICER", authorityScope: "AI_EXECUTION", dataAuthority: ["AI_DECISION_RECORD", "PROMPT_VERSION", "MODEL_VERSION"], dependencies: ["BEYU_OS"], apis: ["/api/v1/ai/noelia"], events: ["AI_DECISION_RECORDED", "AI_DECISION_REVIEWED"], complianceFrameworks: ["ISO42001"] },
-      { id: fixedId(ID_PREFIX.osRegistry, "MINING_OS"), code: "MINING_OS", name: "BEYU Mining OS (proposed)", kind: "SECTOR_OS", purpose: "Proposed sector OS for mining operations. Registered before build to prevent unnecessary OS proliferation.", ownerRole: "GROUP_CEO", authorityScope: "MINING_OPERATIONS", dataAuthority: [], dependencies: ["BEYU_OS", "FINANCE_OS"], apis: [], events: [], complianceFrameworks: ["TZ_MINING_ACT"], lifecycle: "DRAFT" },
+      { id: fixedId(ID_PREFIX.osRegistry, "MINING_GOVERNANCE"), code: "SHARED_MINING_GOVERNANCE", name: "Mining Governance (proposed)", kind: "SHARED_CAPABILITY", purpose: "Draft regulated-activity governance capability for the existing mining legal entity; explicitly not a Sector OS.", ownerRole: "GROUP_CEO", authorityScope: "MINING_GOVERNANCE", dataAuthority: [], dependencies: ["BEYU_OS", "FINANCE_OS"], apis: [], events: [], complianceFrameworks: ["TZ_MINING_ACT"], lifecycle: "DRAFT" },
       { id: fixedId(ID_PREFIX.osRegistry, "UJENZI_OS"), code: "UJENZI_OS", name: "BEYU Ujenzi OS", kind: "SECTOR_OS", purpose: "Construction operations: projects, sites, phases, milestones, governed BOQ versions, cost control (estimate/budget/committed/actual/forecast), procurement, materials, equipment, site diaries, quality, HSE, variations, claims, payment certificates and handover. Finance OS remains the only journal writer; CAP_POSTING LOCKED.", ownerRole: "SECTOR_OPERATOR", authorityScope: "CONSTRUCTION_OPERATIONS", dataAuthority: ["CONSTRUCTION_PROJECT", "PROJECT_SITE", "BOQ", "COST_RECORD", "PURCHASE_ORDER", "CONSTRUCTION_NCR", "HSE_INCIDENT", "VARIATION", "CONSTRUCTION_CLAIM", "PAYMENT_CERTIFICATE", "PUNCH_ITEM"], dependencies: ["BEYU_OS", "FINANCE_OS", "SHARED_HCM"], apis: ["/api/v1/ujenzi/*"], events: ["PROJECT_CREATED", "PROJECT_HANDED_OVER", "BOQ_APPROVED", "PURCHASE_ORDER_APPROVED", "MATERIAL_RECEIVED", "NCR_CREATED", "NCR_CLOSED", "HSE_INCIDENT_RECORDED", "VARIATION_REQUESTED", "VARIATION_APPROVED", "CLAIM_SUBMITTED", "PAYMENT_CERTIFIED"], complianceFrameworks: ["TZ_OSHA", "TZ_CONTRACT_ACT"], lifecycle: "ACTIVE" },
     ])
     .onConflictDoNothing();
@@ -1661,7 +1692,7 @@ async function main() {
     .values(
       [
         ["Identity", "BEYU_OS", "identity.users / identity.parties", ["ALL"]],
-        ["Employees", "SHARED_HCM", "people.employees", ["FINANCE_OS", "HEALTH_OS", "AGRICULTURE_OS", "FOUNDATION_OS", "UJENZI_OS"]],
+        ["Employees", "SHARED_HCM", "people.employees", ["FINANCE_OS", "HEALTH_OS", "AGRICULTURE_OS", "SHARED_FOUNDATION_OPERATIONS", "UJENZI_OS"]],
         ["Organizations", "BEYU_OS", "core.org_units", ["ALL"]],
         ["Legal Entities", "BEYU_OS", "core.legal_entities", ["ALL"]],
         ["Ownership", "BEYU_OS", "core.ownership_records", ["FINANCE_OS"]],
@@ -1673,7 +1704,7 @@ async function main() {
         ["Tax positions", "FINANCE_OS", "finance.tax_strategies", ["ALL"]],
         ["Healthcare operations", "HEALTH_OS", "health.encounters", ["BEYU_OS"]],
         ["Agricultural operations", "AGRICULTURE_OS", "agriculture.crop_cycles", ["BEYU_OS"]],
-        ["Foundation operations", "FOUNDATION_OS", "foundation.* (registry, formation, tax, compliance, donors, funds, grants, programs, impact)", ["BEYU_OS"]],
+        ["Foundation operations", "SHARED_FOUNDATION_OPERATIONS", "foundation.* (registry, formation, tax, compliance, donors, funds, grants, programs, impact)", ["BEYU_OS"]],
         ["Construction operations", "UJENZI_OS", "ujenzi_projects, ujenzi_boqs, ujenzi_cost_records, ujenzi_ncrs, ujenzi_payment_certificates", ["BEYU_OS"]],
         ["Family governance", "SHARED_FAMILY_OFFICE", "people.family_members / beneficiaries", ["BEYU_OS"]],
         ["AI identity", "BEYU_OS", "Noelia (single AI identity)", ["ALL"]],
@@ -1858,7 +1889,7 @@ async function main() {
     .values([
       { key: "noelia.tax_assessment", description: "Enable Noelia-assisted tax eligibility pre-screening (human review always required).", scope: "ENTERPRISE", enabled: true, ownerRole: "CHIEF_GOVERNANCE_OFFICER", updatedBy: "SEED" },
       { key: "waterfall.scenario_modelling", description: "Enable multi-scenario waterfall modelling in the control centre.", scope: "ENTERPRISE", enabled: true, ownerRole: "GROUP_CFO", updatedBy: "SEED" },
-      { key: "sector.mining_os", description: "Expose the proposed Mining OS surface (registered, not built).", scope: "ENTERPRISE", enabled: false, ownerRole: "GROUP_CEO", updatedBy: "SEED" },
+      { key: "sector.mining_os", description: "Expose the proposed Mining capability surface (registered, not built).", scope: "ENTERPRISE", enabled: false, ownerRole: "GROUP_CEO", updatedBy: "SEED" },
       { key: "security.step_up_mfa", description: "Require step-up authentication for high-risk permissions.", scope: "ENTERPRISE", enabled: true, ownerRole: "PLATFORM_ADMIN", updatedBy: "SEED" },
     ])
     .onConflictDoNothing();

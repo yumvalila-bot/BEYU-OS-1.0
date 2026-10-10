@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Grant disbursement scheduling.
+ * BEYU Foundation organization — Grant disbursement scheduling.
  * Disbursement requires an approved grant; Finance posts the money movement.
  */
 import { NextRequest, NextResponse } from "next/server";

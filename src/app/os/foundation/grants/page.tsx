@@ -17,7 +17,7 @@ export default async function FoundationGrantsPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation OS · Grants</div>
+          <div className="beyu-kicker text-[#b08d1c]">Foundation organization · Grants</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Grant Management</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Opportunity → closeout with eligibility, due diligence, scoring, conflict checks, approval,

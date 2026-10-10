@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — canonical domain vocabulary.
+ * BEYU Foundation organization — canonical domain vocabulary.
  *
  * Status strings are stored as TEXT in the database and validated against
  * these catalogues at the service boundary. Adding a status is a conscious

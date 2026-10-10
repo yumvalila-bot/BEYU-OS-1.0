@@ -48,7 +48,7 @@ describe("governed charter lifecycle", () => {
   expect(assessComposition({ ...rules, majorityRule: "UNKNOWN" }, []).satisfied).toBe(false);
  });
  it.each(["mfa", "entity", "clearance", "permission"])("denies absent %s authority", async (kind) => {
-  const p = { ...chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : kind === "clearance" ? { clearance: "PUBLIC" as const } : { permissions: new Set<never>() }) };
+  const p = { ...chair, ...(kind === "mfa" ? { mfaSatisfied: false } : kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : kind === "clearance" ? { clearance: "PUBLIC" as const } : { permissions: new Set<never>(), authorityGrants: [] }) };
   await expect(create(p)).rejects.toHaveProperty("code");
  });
  it("does not inflate composition with duplicate parties, observers or future appointments", () => {

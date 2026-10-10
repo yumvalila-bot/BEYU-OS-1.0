@@ -12,7 +12,7 @@
  * Future Sector OSs register one adapter here; nothing else in the
  * foundation changes (open/closed at the sector seam).
  */
-import type { VizSectorCode } from "../dimensions";
+import type { VizDomainCode } from "../dimensions";
 import { assertSectorAccess } from "../authorization";
 import type { Principal } from "@/lib/authz";
 import { agricultureAdapter } from "./agriculture";
@@ -50,7 +50,7 @@ export const controlPlaneAdapter: SectorVisualizationAdapter = {
   },
 };
 
-const ADAPTERS: Record<VizSectorCode, SectorVisualizationAdapter> = {
+const ADAPTERS: Record<VizDomainCode, SectorVisualizationAdapter> = {
   BEYU: controlPlaneAdapter,
   HEALTH: healthAdapter,
   FINANCE: financeAdapter,
@@ -59,7 +59,7 @@ const ADAPTERS: Record<VizSectorCode, SectorVisualizationAdapter> = {
   FOUNDATION: foundationAdapter,
 };
 
-export function getAdapter(sector: VizSectorCode): SectorVisualizationAdapter | null {
+export function getAdapter(sector: VizDomainCode): SectorVisualizationAdapter | null {
   return ADAPTERS[sector] ?? null;
 }
 
@@ -77,9 +77,9 @@ export function adapterDescriptors(): AdapterDescriptor[] {
  * the same canonical sector boundary each adapter enforces internally. Used
  * for discovery surfaces (sector tabs); every data access still re-checks.
  */
-export async function authorizedAdapterSectors(principal: Principal): Promise<VizSectorCode[]> {
-  const sectors = Object.keys(ADAPTERS) as VizSectorCode[];
-  const allowed: VizSectorCode[] = [];
+export async function authorizedAdapterSectors(principal: Principal): Promise<VizDomainCode[]> {
+  const sectors = Object.keys(ADAPTERS) as VizDomainCode[];
+  const allowed: VizDomainCode[] = [];
   for (const sector of sectors) {
     const access = await assertSectorAccess(principal, sector);
     if (access.allowed) allowed.push(sector);

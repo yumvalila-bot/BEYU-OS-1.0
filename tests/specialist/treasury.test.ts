@@ -44,6 +44,8 @@ import {
 } from "@/lib/specialist/treasury/service";
 import type { TreasuryPositionView, TreasuryThreshold } from "@/lib/specialist/treasury/model";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `TR${Date.now()}`;
 let n = 0;
 const trace = () => `${RUN}-${String(++n).padStart(3, "0")}`;
@@ -88,6 +90,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "ENTERPRISE",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance,
     entityScope: [],
     mfaSatisfied: true,
@@ -776,7 +782,10 @@ describe("treasury service — hostile inputs", () => {
     const forged = principal({ roles: [] });
     (forged.permissions as Set<string>).add("finance:treasury.read");
     await expect(readPositions({ principal: forged, tenantId: foreignTenantId, legalEntityId: null, traceId: trace() }))
-      .rejects.toMatchObject({ code: "NOT_FOUND" });
+      .rejects.toMatchObject({
+        code: "DENIED",
+        message: expect.stringMatching(/authority/i),
+      });
   });
 
   it("a forged clearance string is denied before any treasury read", async () => {
@@ -891,7 +900,7 @@ describe("treasury module — creates no second truth", () => {
 // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
-// + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+// + 0035_foundation_os (Foundation organization registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
@@ -945,7 +954,7 @@ describe("treasury module — creates no second truth", () => {
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). No treasury table, no second money truth.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    // + 0069: Foundation organization RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). No treasury-substrate change; Finance OS remains accounting truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). No treasury-substrate change; Finance OS remains accounting truth.
     // + 0071: Federation & Trust shared capability (no treasury table, no second money truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
@@ -954,8 +963,9 @@ describe("treasury module — creates no second truth", () => {
     // + 0074: Enterprise Intelligence Expansion (34 tables). No treasury table and no second money
     //   truth: entrusted-capital, fund and LBO registers record ARRANGEMENTS and MODELS, never a
     //   posting; journal_entries/journal_lines remain the only booked truth and CAP_POSTING stays
-    //   LOCKED. Snapshot chained 0062 -> 0074 (no metadata debt added).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);  });
+    //   LOCKED.
+    // + 0075: Noelia authority/execution hardening creates no treasury table or posting path.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

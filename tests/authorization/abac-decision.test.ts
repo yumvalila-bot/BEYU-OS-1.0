@@ -19,7 +19,7 @@ import {
 
 function principal(overrides: Partial<Principal> = {}): Principal {
   const roles = overrides.roles ?? ["SECTOR_OPERATOR"];
-  return {
+  const value: Principal = {
     userId: "USR_TEST",
     partyId: "PTY_TEST",
     email: "test@beyu.os",
@@ -37,6 +37,33 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     emergencyPermissions: [],
     ...overrides,
   };
+  if (overrides.authorityGrants === undefined) {
+    value.authorityGrants = [
+      ...[...value.permissions].map((permission) => ({
+        sourceId: `RAS_${permission}`,
+        source: "ROLE_ASSIGNMENT" as const,
+        role: value.roles[0] ?? "TEST_ROLE",
+        permission,
+        tenantId: value.tenantId,
+        legalEntityId: value.entityScope.length === 1 ? value.entityScope[0] : null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      })),
+      ...value.emergencyPermissions.map((permission) => ({
+        sourceId: `EAG_${permission}`,
+        source: "EMERGENCY" as const,
+        role: "EMERGENCY_ACCESS",
+        permission,
+        tenantId: value.tenantId,
+        legalEntityId: value.entityScope.length === 1 ? value.entityScope[0] : null,
+        countryCode: null,
+        validFrom: null,
+        validTo: null,
+      })),
+    ];
+  }
+  return value;
 }
 
 describe("Iteration 7 ABAC decision lattice", () => {
@@ -108,14 +135,14 @@ describe("Iteration 7 ABAC decision lattice", () => {
     const p = principal({ permissions: new Set(["finance:capital.read"]) });
     const d = can(p, "finance:capital.read", { tenantId: "TEN_OTHER" });
     expect(d.allowed).toBe(false);
-    expect(d.reason).toMatch(/Tenant isolation/);
+    expect(d.reason).toMatch(/no single active authority grant/);
   });
 
   it("entity ABAC denial fires even when the RBAC grant exists", () => {
     const p = principal({ permissions: new Set(["finance:capital.read"]), entityScope: ["LEN_A"] });
     const d = can(p, "finance:capital.read", { entityId: "LEN_B" });
     expect(d.allowed).toBe(false);
-    expect(d.reason).toMatch(/entity outside/);
+    expect(d.reason).toMatch(/no single active authority grant/);
   });
 
   it("empty entityScope means all entities within the tenant subtree", () => {
@@ -135,11 +162,16 @@ describe("Iteration 7 ABAC decision lattice", () => {
     const hi = can(p, "documents:registry.read", { classification: "HIGHLY_RESTRICTED" });
     expect(hi.allowed).toBe(false);
     expect(hi.reason).toMatch(/ABAC: clearance/);
-    // ...and the entity scope still holds:
-    const scoped = { ...p, entityScope: ["LEN_A"] };
+    // ...and an entity-constrained emergency tuple still holds:
+    const scoped = principal({
+      permissions: new Set(),
+      emergencyPermissions: ["documents:registry.read"],
+      clearance: "INTERNAL",
+      entityScope: ["LEN_A"],
+    });
     const ent = can(scoped, "documents:registry.read", { entityId: "OUTSIDE" });
     expect(ent.allowed).toBe(false);
-    expect(ent.reason).toMatch(/entity outside/);
+    expect(ent.reason).toMatch(/no single active authority grant/);
   });
 
   it("high-risk emergency elevation still requires step-up authentication", () => {

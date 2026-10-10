@@ -1,14 +1,14 @@
-# BEYU Foundation OS — Sector Architecture
+# BEYU Foundation — Nonprofit Operations Architecture
 
-- **Date:** 2026-09-08
-- **Status:** Implemented as a first-class Sector OS inside the BEYU kernel
+- **Date:** 2026-09-08 (classification corrected 2026-10-05)
+- **Status:** Implemented as governed nonprofit operations for a separate sister organization; never a subsidiary or Sector OS
 - **Path lock:** `src/lib/foundation/` (public alias `src/lib/foundation-os/` removed at merge — one canonical home)
 - **Schema:** `src/db/schema/foundation.ts` barrelled from `src/db/schema.ts`
-- **Migrations:** `drizzle/0035_foundation_os.sql` production (39 tables). `drizzle/0069_foundation_programs_rls.sql` enables RLS on the kernel-era `foundation_programs` table (see §2.1). RLS on **every** Foundation OS table — all 40 substrates now carry `ENABLE ROW LEVEL SECURITY` plus a `beyu_tenant_ids()` `<table>_tenant_isolation` policy; `foundation_suppliers` was renamed from `suppliers` at merge to avoid the kernel-asset registry collision.
+- **Migrations:** `drizzle/0035_foundation_os.sql` production (39 tables). `drizzle/0069_foundation_programs_rls.sql` enables RLS on the kernel-era `foundation_programs` table (see §2.1). RLS on **every** BEYU Foundation operations table — all 40 substrates now carry `ENABLE ROW LEVEL SECURITY` plus a `beyu_tenant_ids()` `<table>_tenant_isolation` policy; `foundation_suppliers` was renamed from `suppliers` at merge to avoid the kernel-asset registry collision.
 
-## 1. What Foundation OS is
+## 1. What BEYU Foundation operations is
 
-Foundation OS is the Tanzania-first, globally portable **operational** system of record for:
+BEYU Foundation is the Tanzania-first, globally portable nonprofit sister organization. Its governed operations capability is the system of record for:
 
 - foundation registry + lifecycle (IDEA → DRAFT → REVIEW → APPROVED → ACTIVE → SUSPENDED → CLOSED → ARCHIVED)
 - formation engine + legal-entity formation cases
@@ -23,7 +23,7 @@ Foundation OS is the Tanzania-first, globally portable **operational** system of
 
 It is **not** a competing control plane. It reuses, and must never replace:
 
-| Capability | Owner | Foundation OS may |
+| Capability | Owner | BEYU Foundation operations may |
 | --- | --- | --- |
 | Identity / GlobalUserID | BEYU OS | consume the resolved principal |
 | HCM / employee master | Shared HCM | consume workforce identity; never copy it |
@@ -68,7 +68,7 @@ Web: `/os/foundation` is a BEYU kernel module (`foundation:registry.read`), list
 
 ## 2.1 Row Level Security
 
-Every Foundation OS substrate is RLS-bound. The policy is identical on all 40
+Every BEYU Foundation operations substrate is RLS-bound. The policy is identical on all 40
 tables and is the **canonical kernel primitive**, not a Foundation-specific one:
 
 ```sql
@@ -80,7 +80,7 @@ CREATE POLICY <table>_tenant_isolation ON <table>
 
 Because both clauses call `beyu_tenant_ids()`, a change to that primitive changes
 the Foundation tables and their 39 siblings at once — there is one tenant
-authorization model, and Foundation OS does not define a second one.
+authorization model, and BEYU Foundation operations does not define a second one.
 
 **The `foundation_programs` gap (migration 0069).** `foundation_programs` is the
 canonical program substrate and is created by the **0000 kernel baseline**, not
@@ -129,7 +129,7 @@ transactions). Reverting the policy makes 11 of its 12 assertions fail.
 Grant awarded
   → insert foundation_grants (+ installments)
   → audit foundation.grants.award
-  → enterprise event GRANT_AWARDED (domain FOUNDATION_OS)
+  → enterprise event GRANT_AWARDED (domain FOUNDATION_ORGANIZATION)
   → journalsPosted: false
   → Finance OS remains the only journal writer
 

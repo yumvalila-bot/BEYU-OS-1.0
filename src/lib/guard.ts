@@ -27,7 +27,7 @@ export async function requireAccess(
   }
 
   /**
-   * Foundation OS target scope, enforced per page as well as per layout.
+   * Foundation organization target scope, enforced per page as well as per layout.
    *
    * The Foundation layout refuses a deep link whose canonical Foundation target
    * tenant is outside the principal's resolved tenant/classification scope, and

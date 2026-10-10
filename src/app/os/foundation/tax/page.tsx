@@ -16,7 +16,7 @@ export default async function FoundationTaxPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation OS · Tax intelligence</div>
+          <div className="beyu-kicker text-[#b08d1c]">Foundation organization · Tax intelligence</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Tax Intelligence</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Versioned jurisdiction rules and per-activity assessments. Tax information only — never

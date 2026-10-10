@@ -8,7 +8,12 @@
  * It deliberately tests the REAL `askNoelia` facade (not a mock runtime), so the
  * routing decision and deterministic execution are authoritative in practice.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/noelia/execution-control", () => ({
+  assertNoeliaExecutionAllowed: vi.fn(async () => undefined),
+  ExecutionStoppedError: class ExecutionStoppedError extends Error {},
+}));
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aiDecisions, noeliaKillSwitch, noeliaRoutingDecisions } from "@/db/schema";
@@ -20,7 +25,7 @@ import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { principal } from "./fixtures";
 
 function platformAdmin(overrides: Partial<ReturnType<typeof principal>> = {}) {
-  return principal({
+  const value = principal({
     userId: "USR_PLATFORM_ADMIN",
     partyId: "PTY_PLATFORM_ADMIN",
     tenantId: "TEN_BEYU_GROUP",
@@ -37,8 +42,24 @@ function platformAdmin(overrides: Partial<ReturnType<typeof principal>> = {}) {
       "risk:register.read",
     ]),
     clearance: "RESTRICTED",
+    accountStatus: "ACTIVE",
+    isServiceAccount: false,
     ...overrides,
   });
+  return {
+    ...value,
+    authorityGrants: overrides.authorityGrants ?? [...value.permissions].map((permission) => ({
+      sourceId: "RAS_TEST_PLATFORM_ADMIN",
+      source: "ROLE_ASSIGNMENT" as const,
+      role: "PLATFORM_ADMIN",
+      permission,
+      tenantId: null,
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
+  };
 }
 
 describe("Phase 2 deterministic governed model execution", () => {

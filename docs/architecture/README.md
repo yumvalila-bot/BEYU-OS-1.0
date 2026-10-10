@@ -44,9 +44,11 @@ Legal · Audit · Security · Documents · Data ──────────�
 3. **Identity & access** — parties (MDM) → users → sessions → roles → permissions → grants.
 4. **Enterprise domains** — organisation, ownership, HCM, governance, risk, compliance, legal,
    capital, treasury, waterfall, tax intelligence, family office, documents, knowledge.
-5. **Sector OSs** — Health, Finance, Agriculture, Foundation; registered charters with declared
-   authority, dependencies, APIs, events and compliance frameworks.
-6. **AI layer** — HIVE runtime executing the single Noelia identity, fully audited.
+5. **Sector OSs** — exactly Health, Finance, Agriculture and Ujenzi; registered charters with
+   declared authority, dependencies, APIs, events and compliance frameworks.
+6. **Sister organization** — BEYU Foundation is a separate root nonprofit legal-entity tenant;
+   its operations consume governed shared capabilities and never create a Sector OS.
+7. **AI layer** — HIVE runtime executing the single Noelia identity (`NOELIA_AI`), fully audited.
 
 ## Request lifecycle
 

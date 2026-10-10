@@ -46,7 +46,7 @@ describe("database-enforced read-only governance simulation", () => {
   finally { await db.delete(resolutionVotes).where(eq(resolutionVotes.id, "VOT_SIM_CONFLICT")); }
  });
  it.each(["entity", "classification", "tenant", "permission"])("denies %s scope even though the result would not mutate", async (kind) => {
-  const principal = { ...p, ...(kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : kind === "classification" ? { clearance: "PUBLIC" as const } : kind === "tenant" ? { tenantId: "TEN_BEYU_FINTECH", tenantType: "SECTOR" } : { permissions: new Set<never>() }) };
+  const principal = { ...p, ...(kind === "entity" ? { entityScope: ["WRONG_ENTITY"] } : kind === "classification" ? { clearance: "PUBLIC" as const } : kind === "tenant" ? { tenantId: "TEN_BEYU_FINTECH", tenantType: "SECTOR" } : { permissions: new Set<never>(), authorityGrants: [] }) };
   await expect(simulate({}, principal)).rejects.toMatchObject({ code: "NOT_FOUND" });
  });
  it("refuses execution inside a writable ambient transaction", async () => {

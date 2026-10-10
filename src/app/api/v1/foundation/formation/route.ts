@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Formation Engine ("Start a Foundation").
+ * BEYU Foundation organization — Formation Engine ("Start a Foundation").
  *
  * GET  /api/v1/foundation/formation — list cases in scope
  * POST /api/v1/foundation/formation — open a case (runs the assessment engine)

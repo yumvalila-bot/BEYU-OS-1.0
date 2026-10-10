@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Fund management.
+ * BEYU Foundation organization — Fund management.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

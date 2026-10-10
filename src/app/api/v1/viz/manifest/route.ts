@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guarded } from "@/lib/api";
 import { buildGovernedManifest } from "@/lib/viz/service";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import { vizErrorResponse, presentationFrom } from "../_shared";
 
 export async function GET(request: NextRequest) {
@@ -31,12 +31,12 @@ export async function GET(request: NextRequest) {
       try {
         const params = new URL(request.url).searchParams;
         const sector = params.get("sector") ?? "";
-        if (!(VIZ_SECTOR_CODES as readonly string[]).includes(sector)) {
+        if (!(VIZ_DOMAIN_CODES as readonly string[]).includes(sector)) {
           return NextResponse.json(
             {
               error: {
                 code: "VALIDATION_FAILED",
-                message: `sector must be one of ${VIZ_SECTOR_CODES.join(", ")}. The canonical consumers are BEYU, HEALTH, FINANCE, AGRICULTURE, UJENZI and FOUNDATION.`,
+                message: `sector must be one of ${VIZ_DOMAIN_CODES.join(", ")}. The canonical consumers are BEYU, HEALTH, FINANCE, AGRICULTURE, UJENZI and FOUNDATION.`,
                 traceId: ctx.traceId,
               },
             },
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
           .map((d) => d.trim())
           .filter(Boolean);
         const manifest = await buildGovernedManifest(ctx.principal, {
-          sector: sector as (typeof VIZ_SECTOR_CODES)[number],
+          sector: sector as (typeof VIZ_DOMAIN_CODES)[number],
           dimensions,
           subjectId: params.get("subjectId"),
           presentation: presentationFrom(request),

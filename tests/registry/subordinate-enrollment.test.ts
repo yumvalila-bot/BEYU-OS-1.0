@@ -11,7 +11,7 @@ import {
   users,
 } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
+import { clearanceForRoles, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "../../src/lib/authz";
 import type { PermissionCode } from "../../src/lib/constants";
 import {
   buildRegistryGraph,
@@ -64,6 +64,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: "ENTERPRISE",
     roles: roleCodes,
     permissions: permissionsForRoles(roleCodes),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roleCodes),
     entityScope: [],
     mfaSatisfied: true,
@@ -84,15 +85,29 @@ async function principalFor(userKey: string): Promise<Principal> {
  */
 async function restrictedEnroller(): Promise<Principal> {
   const admin = await principalFor("PLATFORM_ADMIN");
+  const permissions: PermissionCode[] = [
+    "hcm:employee.manage",
+    "identity:user.register",
+    "identity:party.register",
+    "identity:role.grant",
+  ];
   return {
     ...admin,
     roles: [],
-    permissions: new Set<PermissionCode>([
-      "hcm:employee.manage",
-      "identity:user.register",
-      "identity:party.register",
-      "identity:role.grant",
-    ]),
+    permissions: new Set(permissions),
+    // Each capability is backed by one explicit test-system authority tuple;
+    // the flattened permission set alone is never used as authority.
+    authorityGrants: permissions.map((permission, index) => ({
+      sourceId: `SYS_RESTRICTED_ENROLLER_${index}`,
+      source: "SYSTEM" as const,
+      role: "RESTRICTED_ENROLLER_FIXTURE",
+      permission,
+      tenantId: T.group,
+      legalEntityId: null,
+      countryCode: null,
+      validFrom: null,
+      validTo: null,
+    })),
     clearance: "RESTRICTED",
     delegatedPermissions: [],
     emergencyPermissions: [],

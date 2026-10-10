@@ -2,6 +2,7 @@
  * BEYU OS — DRIZZLE METADATA SNAPSHOT GENERATOR.
  *
  *   usage: npx tsx scripts/migration/snapshot.ts --seq=0074 --tag=0074_enterprise_intelligence_expansion [--emit-sql] [--write]
+ *          npx tsx scripts/migration/snapshot.ts --seq=0075 --tag=0075_noelia_authority_execution_hardening --from-head [--emit-sql] [--write]
  *
  * WHY THIS EXISTS
  * ───────────────
@@ -88,24 +89,29 @@ async function main(): Promise<void> {
   const exclude = (arg("exclude", "") === "" ? [] : arg("exclude").split(",")).map((s) => s.trim());
   const emitSql = process.argv.includes("--emit-sql");
   const write = process.argv.includes("--write");
+  const fromHead = process.argv.includes("--from-head");
 
   if (!/^\d{4}$/.test(seq)) throw new Error("--seq must be a 4-digit sequence");
+  if (fromHead && exclude.length > 0) throw new Error("--from-head and --exclude are mutually exclusive");
   const chain = snapshots();
   const head = chain[chain.length - 1];
   if (head.snapshot.id === undefined || head.snapshot.id === "") throw new Error(`snapshot ${head.seq} has no id`);
   if (chain.some((s) => s.seq === seq)) throw new Error(`snapshot ${seq} already exists — refusing to overwrite`);
 
-  const baseSchema = await loadSchema(exclude);
   const fullSchema = await loadSchema();
-  const base = (await generateDrizzleJson(baseSchema, head.snapshot.id)) as unknown as SnapshotRecord;
+  // New-table expansions can derive a synthetic base by excluding only their
+  // newly introduced modules. For a migration that changes existing tables,
+  // the only honest base is the checked-in predecessor snapshot itself.
+  const base = fromHead
+    ? head.snapshot
+    : (await generateDrizzleJson(await loadSchema(exclude), head.snapshot.id)) as unknown as SnapshotRecord;
   const next = (await generateDrizzleJson(fullSchema, base.id ?? head.snapshot.id)) as unknown as SnapshotRecord;
   next.id = randomUUID();
   next.prevId = head.snapshot.id;
 
   const newTables = Object.keys(next.tables).filter((t) => !(t in base.tables));
-  if (newTables.length === 0) throw new Error("no new tables found — refusing to write an empty snapshot");
-
   const statements = await generateMigration(base as never, next as never);
+  if (statements.length === 0) throw new Error("no schema changes found — refusing to write an empty snapshot");
   const sql = statements.join("\n--> statement-breakpoint\n");
 
   if (emitSql) process.stdout.write(sql + "\n");
@@ -134,7 +140,9 @@ async function main(): Promise<void> {
     );
   }
 
-  process.stderr.write(`new tables (${newTables.length}): ${newTables.join(", ")}\n`);
+  process.stderr.write(
+    `schema changes: ${statements.length} generated statements; new tables (${newTables.length}): ${newTables.join(", ")}\n`,
+  );
 }
 
 main().catch((error: unknown) => {

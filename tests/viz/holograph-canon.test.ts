@@ -7,8 +7,8 @@
  *   • the canonical authorization order is never reversed (renderer last);
  *   • the honest status matrix never claims physical holographic hardware
  *     support or any parser this repository does not contain;
- *   • Family Office is a capability too, and the sector-consumer set is
- *     exactly the five canonical Sector OSs.
+ *   • Family Office is a capability too; governed consumers are the four
+ *     Sector OSs plus the separate Foundation organization.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -17,12 +17,12 @@ import {
   HOLOGRAPH_CANONICAL_DEFINITION,
   HOLOGRAPH_IS,
   HOLOGRAPH_IS_NOT,
-  HOLOGRAPH_SECTOR_CONSUMERS,
+  HOLOGRAPH_GOVERNED_CONSUMERS,
   HOLOGRAPH_SUBSYSTEM_STATUS,
   holographSubsystemStatus,
 } from "@/lib/viz/holograph";
 import { BEYU_CONTROL_PLANE, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
-import { VIZ_SECTOR_CODES } from "@/lib/viz/dimensions";
+import { VIZ_DOMAIN_CODES } from "@/lib/viz/dimensions";
 import { VIZ_INTERACTION_TYPES } from "@/db/schema/visualization";
 
 describe("Holograph — canonical definition", () => {
@@ -57,10 +57,10 @@ describe("Holograph — canonical definition", () => {
 });
 
 describe("Holograph — no OS exists or is implied", () => {
-  it("the canonical Sector OS catalogue is exactly the five Sector OSs", () => {
+  it("the canonical Sector OS catalogue is exactly the four Sector OSs", () => {
     expect(BEYU_CONTROL_PLANE.code).toBe("BEYU");
     const codes = SECTOR_OPERATING_SYSTEMS.map((s) => s.code).sort();
-    expect(codes).toEqual(["AGRICULTURE", "FINANCE", "FOUNDATION", "HEALTH", "UJENZI"]);
+    expect(codes).toEqual(["AGRICULTURE", "FINANCE", "HEALTH", "UJENZI"]);
   });
 
   it("Holograph and Family Office appear nowhere in the OS catalogue", () => {
@@ -75,18 +75,18 @@ describe("Holograph — no OS exists or is implied", () => {
     }
   });
 
-  it("the sector-consumer set is exactly the five Sector OSs (never Holograph or Family Office)", () => {
-    expect([...HOLOGRAPH_SECTOR_CONSUMERS].sort()).toEqual([
+  it("the governed consumers are four Sector OSs plus Foundation (never Holograph or Family Office)", () => {
+    expect([...HOLOGRAPH_GOVERNED_CONSUMERS].sort()).toEqual([
       "Agriculture OS",
       "Finance OS",
-      "Foundation OS",
+      "Foundation organization",
       "Health OS",
       "Ujenzi OS",
     ]);
   });
 
   it("the viz sector code vocabulary has no holograph/family-office sector", () => {
-    const codes = VIZ_SECTOR_CODES.map((c) => String(c).toLowerCase());
+    const codes = VIZ_DOMAIN_CODES.map((c) => String(c).toLowerCase());
     expect(codes).not.toContain("holograph");
     expect(codes).not.toContain("family");
   });

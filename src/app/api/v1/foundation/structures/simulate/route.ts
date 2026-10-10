@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Structure Change Simulator.
+ * BEYU Foundation organization — Structure Change Simulator.
  *
  * POST /api/v1/foundation/structures/simulate — compare baseline vs candidate
  * graphs. The simulator NEVER executes changes; it records the before/after

@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog, enterpriseEvents, tenants, users } from "@/db/schema";
-import { clearanceForRoles, loadGrants, permissionsForRoles, type Principal } from "@/lib/authz";
+import { clearanceForRoles, loadGrants, roleAuthorityGrants, permissionsForRoles, type Principal } from "@/lib/authz";
 import {
   FAMILY_OFFICE_PROTECTION_ERROR_STATUS,
   FamilyOfficeProtectionError,
@@ -49,6 +49,7 @@ async function principalFor(email: string, overrides: Partial<Principal> = {}): 
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,

@@ -5,7 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../src/db";
 import { legalEntities, resolutions, resolutionVotes, tenants, users } from "../../src/db/schema";
 import { fixedId, ID_PREFIX } from "../../src/lib/ids";
-import { loadGrants, permissionsForRoles, clearanceForRoles, type Principal } from "../../src/lib/authz";
+import { loadGrants, roleAuthorityGrants, permissionsForRoles, clearanceForRoles, type Principal } from "../../src/lib/authz";
 import { tenantScopeIds } from "../../src/lib/tenant-scope";
 
 async function principalFor(userKey: string): Promise<Principal> {
@@ -24,6 +24,7 @@ async function principalFor(userKey: string): Promise<Principal> {
     tenantType: t.type,
     roles,
     permissions: permissionsForRoles(roles),
+    authorityGrants: roleAuthorityGrants(grants),
     clearance: clearanceForRoles(roles),
     entityScope: [],
     mfaSatisfied: true,

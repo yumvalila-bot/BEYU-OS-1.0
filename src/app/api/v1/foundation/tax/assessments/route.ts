@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — tax assessments (tax information, never advice).
+ * BEYU Foundation organization — tax assessments (tax information, never advice).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

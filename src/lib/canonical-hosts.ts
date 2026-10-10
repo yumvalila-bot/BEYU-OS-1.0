@@ -26,9 +26,9 @@
  *
  * WHERE THE FACTS COME FROM
  *   • The host LABEL of every destination is declared on the canonical
- *     catalogue (`operating-system-catalog.ts` → `subdomain`): the FIVE Sector
- *     OSs and the two canonical SHARED surfaces (Family Office capability,
- *     NOELIA_AI interface). The control plane carries none — it IS the root.
+ *     catalogue (`operating-system-catalog.ts` → `subdomain`): exactly FOUR Sector
+ *     OSs, the Foundation nonprofit sister organization, and the two canonical
+ *     shared surfaces (Family Office and NOELIA_AI). The control plane is the root.
  *   • The APEX (`beyu.co.tz`) is deployment configuration
  *     (`BEYU_CANONICAL_DOMAIN`). When it is not configured, NO host resolves to
  *     a destination and the application behaves exactly as it did before this
@@ -54,18 +54,19 @@
  *   • REDIRECT TARGETS ARE NEVER BUILT FROM INPUT. A redirect host is composed
  *     from the catalogue label and the configured apex, never from the request,
  *     so the proxy cannot be used as an open redirector.
- *   • SHARED SURFACES ARE NOT OSES. `familyoffice`/`noelia` resolve to the shared
- *     capability / governed-AI interface, never to a Sector OS, and a Sector OS
- *     route is never served with one of them as its identity.
+ *   • NON-OS DESTINATIONS ARE NOT OSES. `foundation`, `familyoffice`, and
+ *     `noelia` resolve to a nonprofit organization, shared capability, or
+ *     governed-AI interface—never to a Sector OS.
  */
 import { normalizeHostname } from "./tenant-domain/hostname";
 import {
   BEYU_CONTROL_PLANE,
-  CANONICAL_SURFACES,
+  CANONICAL_NON_OS_DESTINATIONS,
+  FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
   destinationSignInSubtitle,
   type CanonicalHostedDestination,
-  type CanonicalSurfaceDestination,
+  type CanonicalNonOSDestination,
   type OperatingSystemDestination,
   type SectorSubdomainLabel,
 } from "./operating-system-catalog";
@@ -83,7 +84,7 @@ const ADDITIONAL_OWNED_PREFIXES: Partial<Record<OperatingSystemDestination["code
   HEALTH: ["/health"],
 };
 
-/** An operating system that has a canonical host (all five do). */
+/** An operating system that has a canonical host (all four do). */
 export type CanonicalOSDestination = OperatingSystemDestination & { subdomain: SectorSubdomainLabel };
 
 /** The canonical OSs that have a canonical host, in catalogue order. */
@@ -96,7 +97,7 @@ export const CANONICAL_OS_HOSTS: readonly CanonicalOSDestination[] = SECTOR_OPER
  * OS, or a shared surface. All three expose `code`, `name`, `href` and `icon`,
  * so callers that only need presentation facts work with the union directly.
  */
-export type CanonicalContext = OperatingSystemDestination | CanonicalSurfaceDestination;
+export type CanonicalContext = OperatingSystemDestination | CanonicalNonOSDestination;
 
 export type CanonicalHostOptions = {
   /**
@@ -112,8 +113,8 @@ export type CanonicalHostOptions = {
 export type CanonicalHostResolution =
   /** `<label>.<apex>` of a Sector OS: an independent OS entry point. */
   | { kind: "SECTOR_OS"; hostname: string; os: CanonicalOSDestination; base: string }
-  /** `<label>.<apex>` of a canonical SHARED surface (capability / AI interface). */
-  | { kind: "SURFACE"; hostname: string; surface: CanonicalSurfaceDestination; base: string }
+  /** `<label>.<apex>` of a canonical non-OS destination. */
+  | { kind: "SURFACE"; hostname: string; surface: CanonicalNonOSDestination; base: string }
   /** The apex itself or `www.<apex>`: the canonical BEYU OS entry. */
   | { kind: "CONTROL_PLANE"; hostname: string; base: string }
   /**
@@ -144,10 +145,10 @@ export function canonicalHostOptionsFromEnvironment(
   };
 }
 
-function resolutionForLabel(label: string): { os: CanonicalOSDestination } | { surface: CanonicalSurfaceDestination } | null {
+function resolutionForLabel(label: string): { os: CanonicalOSDestination } | { surface: CanonicalNonOSDestination } | null {
   const os = CANONICAL_OS_HOSTS.find((destination) => destination.subdomain === label);
   if (os) return { os };
-  const surface = CANONICAL_SURFACES.find((destination) => destination.subdomain === label);
+  const surface = CANONICAL_NON_OS_DESTINATIONS.find((destination) => destination.subdomain === label);
   if (surface) return { surface };
   return null;
 }
@@ -235,8 +236,8 @@ export function canonicalContextOf(resolution: CanonicalHostResolution): Canonic
  * added: `status` is the GLOBAL operating state of the destination, never a
  * statement about the requesting identity, and whether a signed-in user may
  * enter is answered exclusively by the pre-existing server-side authorization
- * (`authorizedOperatingSystems()` for a Sector OS, the destination's own declared
- * guard for a shared surface). An ACTIVE destination and a user who does not hold
+ * (`authorizedOperatingSystems()` for a Sector OS, the Foundation organization
+ * resolver for Foundation, or the destination's declared guard for a shared surface). An ACTIVE destination and a user who does not hold
  * access to it are both true at the same time.
  */
 export type CanonicalDestination = {
@@ -267,9 +268,9 @@ export function destinationForResolution(resolution: CanonicalHostResolution): C
 }
 
 /**
- * The canonical Sector OS whose route namespace contains `pathname` (all five,
- * Foundation included — it is an independently addressable OS), or null when the
- * path belongs to the control plane, a shared capability/surface, the API, or
+ * The canonical Sector OS whose route namespace contains `pathname` (exactly
+ * four), or null when the path belongs to the control plane, Foundation, a
+ * shared capability/surface, the API, or
  * nothing in particular. Uses the catalogue `href` plus the declared pre-existing
  * aliases; never infers ownership from URL text.
  */
@@ -319,6 +320,7 @@ export type ProxyRequestFacts = {
 export type ProxyAction =
   | { kind: "NEXT"; host: CanonicalHostResolution }
   | { kind: "REDIRECT"; status: 307; location: string; host: CanonicalHostResolution }
+  | { kind: "NOT_FOUND"; reason: "FOREIGN_ORGANIZATION_PATH"; host: CanonicalHostResolution }
   | { kind: "FORBIDDEN"; reason: "ORIGIN_MISMATCH" };
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -360,13 +362,17 @@ function sameOriginHost(origin: string, requestHost: string | null | undefined):
  *      requests between canonical BEYU hosts, requests without `Origin`
  *      (server-to-server webhooks, the mobile API) and all safe methods pass.
  *      No CORS header is ever emitted, so this only ever REFUSES.
- *   2. Canonical OS/surface host + a path owned by a DIFFERENT canonical OS →
+ *   2. The Foundation organization route on another canonical destination host
+ *      → information-free 404. Foundation is not an OS, so it is never fed into
+ *      cross-OS ownership or redirected as though it were one. Its layout keeps
+ *      the same refusal as a defense in depth.
+ *   3. Canonical OS/surface host + a path owned by a DIFFERENT canonical OS →
  *      307 to the same path on that OS's canonical host. The target host comes
  *      from the catalogue and configuration, never from the request. Because the
  *      target host owns the path, the redirected request is served — no loop.
  *      The apex/`www` control plane is deliberately exempt: it is the central
  *      BEYU experience and every pre-existing URL keeps working there.
- *   3. Everything else → NEXT (served in place; the route's own gate decides).
+ *   4. Everything else → NEXT (served in place; the route's own gate decides).
  */
 export function decideProxyAction(facts: ProxyRequestFacts, options: CanonicalHostOptions): ProxyAction {
   const host = resolveCanonicalHost(facts.host, options);
@@ -385,6 +391,17 @@ export function decideProxyAction(facts: ProxyRequestFacts, options: CanonicalHo
   }
 
   if (host.kind === "NEUTRAL" || host.kind === "CONTROL_PLANE") return { kind: "NEXT", host };
+
+  // Foundation is an independently hosted nonprofit organization, not an OS.
+  // Refuse its route on any other canonical destination without recasting it as
+  // an OS-owned path or revealing authorization/session facts. The apex remains
+  // backward compatible because CONTROL_PLANE returned above.
+  const foundationPath =
+    facts.pathname === FOUNDATION_ORGANIZATION.href ||
+    facts.pathname.startsWith(`${FOUNDATION_ORGANIZATION.href}/`);
+  if (foundationPath && canonicalContextOf(host)?.code !== FOUNDATION_ORGANIZATION.code) {
+    return { kind: "NOT_FOUND", reason: "FOREIGN_ORGANIZATION_PATH", host };
+  }
 
   const owner = osOwningPath(facts.pathname);
   const hostOSCode = host.kind === "SECTOR_OS" ? host.os.code : null;

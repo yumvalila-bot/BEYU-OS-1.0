@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Pool } from "pg";
 import { buildPgConnectionConfig } from "../src/db/tls";
+import { SECURITY_FINGERPRINT_SQL } from "../src/lib/release/security-fingerprint";
 
 // Migrations are schema-DDL operations and therefore run with the
 // migration/admin (superuser) role, never the RLS-subject runtime role.
@@ -55,21 +56,7 @@ async function applied(version: string) {
 }
 
 async function driftFingerprint() {
-  const r = await pool.query(`
-    select md5(string_agg(item, '\n' order by item)) as fingerprint
-    from (
-      select 'table:'||table_name as item from information_schema.tables where table_schema='public'
-      union all
-      select 'column:'||table_name||'.'||column_name||':'||data_type||':'||is_nullable from information_schema.columns where table_schema='public'
-      union all
-      select 'constraint:'||conname||':'||contype::text from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where n.nspname='public'
-      union all
-      select 'index:'||indexname||':'||indexdef from pg_indexes where schemaname='public'
-
-      union all
-      select 'rls:'||c.relname||':'||c.relrowsecurity::text from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
-          ) s
-  `);
+  const r = await pool.query(SECURITY_FINGERPRINT_SQL);
   return r.rows[0]?.fingerprint as string;
 }
 

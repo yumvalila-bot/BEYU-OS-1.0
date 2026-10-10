@@ -147,8 +147,8 @@ that layer and used the host for two strings only.
   `status`, `headline`, `accent` and three honest `highlights`, plus `destinationSignInSubtitle()` and
   `DESTINATION_TYPE_LABEL`. Destination classes stay distinct and are never flattened into "OS":
   exactly four `SECTOR_OS` (HEALTH, FINANCE, AGRICULTURE, UJENZI), Foundation stays `NONPROFIT`
-  (a separate nonprofit sister organisation to the Holding Company — while its ALREADY-registered
-  `FOUNDATION_OS` / `SECTOR_OS` charter identity is untouched), Family Office stays `CAPABILITY`
+  (a separate nonprofit sister organization whose operations use the existing
+  `SHARED_FOUNDATION_OPERATIONS` capability, never a Sector OS), Family Office stays `CAPABILITY`
   (no `FAMILY_OFFICE_OS`), Noelia stays `AI_INTERFACE` (no sector-specific Noelia).
 - `destinationForResolution()` (`src/lib/canonical-hosts.ts`) — resolves a host resolution to the
   complete destination frontend contract. Pure, presentation-only, and identity-equal to the catalogue
@@ -179,11 +179,12 @@ that layer and used the host for two strings only.
   destination's GLOBAL status chip and this identity's access as two separately labelled facts
   (`ACTIVE` + `ACCESS: AUTHORISED` / `ACCESS: NOT IN CURRENT GRANT`), and the kicker shows the charter
   code and destination class (`HEALTH_OS · Sector operating system`,
-  `FOUNDATION_OS · Nonprofit sister organisation`). Global status is a literal on the registry entry —
+  `SHARED_FOUNDATION_OPERATIONS · Nonprofit sister organization`). Global status is a literal on the registry entry —
   it is never derived from the user's grant. Launcher visibility is still not authority.
 - Sector OS activation is REAL, not a label flip: `os_registry.lifecycle` already read `ACTIVE` for
-  `BEYU_OS`, `FINANCE_OS`, `HEALTH_OS`, `AGRICULTURE_OS`, `FOUNDATION_OS` and `UJENZI_OS` in the
-  canonical seed (only the proposed mining charter is `DRAFT`, and it stays out of the catalogue
+  `BEYU_OS`, `FINANCE_OS`, `HEALTH_OS`, `AGRICULTURE_OS` and `UJENZI_OS` in the
+  canonical seed; Foundation operations are the ACTIVE `SHARED_FOUNDATION_OPERATIONS` capability
+  (the proposed mining capability is `DRAFT`, and it stays out of the catalogue
   because it has no host, no frontend and no entry). No migration, no enum change, no capability was
   activated: `CAP_POSTING` stays separately governed and fail-closed, and Ujenzi's BIM / engineering
   calculations / government links keep their own real states.
@@ -194,8 +195,8 @@ that layer and used the host for two strings only.
   boundary was removed and its absence is pinned by a test. The authentication loading state lives in
   the shared form (`aria-busy`, "Authenticating…", assertive error live region).
 - Unchanged and re-verified: the proxy stays an adapter (no cookie, no session, no database, no
-  authority); every OS route keeps its own gate (`requirePrincipal` → `requestIsOnForeignOSHost` →
-  `operatingSystemTenantInScope` → `Denied`, the Health mount's session + tenant-domain + federation
+  authority); every OS route keeps its own gate (`requirePrincipal` → canonical-host refusal →
+  `governedTenantInScope` → `Denied`, the Health mount's session + tenant-domain + federation
   gates, `requireAccess(<declared guard>)` on both shared surfaces); `withTenantDatabaseContext` and
   the authorization-context endpoints keep executing inside the correct RLS context; no separate Vercel
   project, no `vercel.json`, no DNS change, no new dependency, no secret.
@@ -226,9 +227,8 @@ underneath. Design, security model, DNS/Vercel plan and rollback:
 `docs/architecture/SECTOR_OS_SUBDOMAINS.md`.
 
 - Host map completed (`src/lib/canonical-hosts.ts`, renamed from `sector-domains.ts` because it now
-  resolves the control plane, the five OS hosts AND the two shared-surface hosts):
-  `foundation.<apex>` → FOUNDATION (the already-registered `FOUNDATION_OS` — no new or renamed
-  identity), `familyoffice.<apex>` → FAMILY OFFICE capability (`SHARED_FAMILY_OFFICE`, never an OS,
+  resolves the control plane, four OS hosts, the Foundation nonprofit host, and the two shared-surface hosts):
+  `foundation.<apex>` → FOUNDATION (`SHARED_FOUNDATION_OPERATIONS`; no OS identity), `familyoffice.<apex>` → FAMILY OFFICE capability (`SHARED_FAMILY_OFFICE`, never an OS,
   no `FAMILY_OFFICE_OS`), `noelia.<apex>` → NOELIA_AI (the single governed AI identity; no
   sector-specific Noelia). `beyu.co.tz`/`www` stay the central BEYU OS experience, never a mandatory
   gateway.
@@ -237,12 +237,12 @@ underneath. Design, security model, DNS/Vercel plan and rollback:
   governed launcher never promise a surface the backend would deny. Nothing grants authority: the
   pages still call `requireAccess(...)` themselves.
 - `src/lib/canonical-host.ts` (renamed from `sector-host.ts`): `isForeignOSHost` now also refuses a
-  canonical SHARED-surface host for an OS surface, and the FOUNDATION layout gains the same refusal
-  the other OS layouts already had. Pre-existing gates (session, federation link, tenant/
+  canonical SHARED-surface host for an OS surface, and the Foundation organization layout gains the same refusal
+  through the generic canonical-destination helper. Pre-existing gates (session, federation link, tenant/
   classification/entity scope, `requireAccess`, RLS) are untouched.
-- Proxy: the cross-OS redirect now treats Foundation as the independently addressable OS it is
-  (`health.beyu.co.tz/os/foundation` → `foundation.beyu.co.tz/os/foundation`) and applies the
-  ownership rule on the shared-surface hosts as well; the apex/`www` still never redirects, and no
+- Proxy: cross-OS redirects apply only to the four Sector OS route namespaces. Foundation remains
+  independently addressable but is not assigned OS path ownership; its layout refuses a foreign
+  canonical host. The OS ownership rule also applies on shared-surface hosts; the apex/`www` still never redirects, and no
   destination host ever redirects to `beyu.co.tz`. Targets remain built from catalogue +
   configuration only — one hop, no loop, no open redirect.
 - Sign-in page: titled and landed for the resolved destination (OS **or** shared surface); an

@@ -2,7 +2,7 @@ import { inArray, sql, type SQL } from "drizzle-orm";
 import { db, withDatabaseTransactionContext } from "@/db";
 import { tenants } from "@/db/schema";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import { can, type Principal } from "./authz";
+import { can, GLOBAL_AUTHORITY_ROLES, type Principal } from "./authz";
 import { classificationsAtOrBelow } from "./constants";
 
 /**
@@ -11,36 +11,25 @@ import { classificationsAtOrBelow } from "./constants";
  * of hand-writing tenant filters. Global reference data remains explicit.
  */
 
-export const GLOBAL_GOVERNANCE_ROLES = new Set([
-  "GROUP_CEO",
-  "GROUP_CFO",
-  "CHIEF_GOVERNANCE_OFFICER",
-  "CHIEF_RISK_COMPLIANCE",
-  "FAMILY_OFFICE_PRINCIPAL",
-  "HCM_DIRECTOR",
-  "PLATFORM_ADMIN",
-  "AUDITOR",
-]);
+export const GLOBAL_GOVERNANCE_ROLES = GLOBAL_AUTHORITY_ROLES;
 
 export function hasGlobalGovernanceScope(principal: Principal): boolean {
-  return principal.roles.some((r) => GLOBAL_GOVERNANCE_ROLES.has(r)) && principal.tenantType === "ENTERPRISE";
+  if (principal.tenantType !== "ENTERPRISE") return false;
+  return (principal.authorityGrants ?? []).some(
+    (grant) => grant.tenantId === null && grant.legalEntityId === null && grant.countryCode === null && GLOBAL_AUTHORITY_ROLES.has(grant.role),
+  );
 }
 
 export async function tenantScopeIds(principal: Principal): Promise<string[]> {
   if (!hasGlobalGovernanceScope(principal)) return [principal.tenantId];
-  const rows = await db.select({ id: tenants.id, parent: tenants.parentTenantId }).from(tenants);
-  const allowed = new Set<string>([principal.tenantId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const row of rows) {
-      if (row.parent && allowed.has(row.parent) && !allowed.has(row.id)) {
-        allowed.add(row.id);
-        changed = true;
-      }
-    }
-  }
-  return [...allowed];
+  // A qualifying unscoped enterprise assignment is explicitly GLOBAL, not
+  // merely "the current tenant subtree". This matters for separately rooted
+  // legal-entity tenants such as the Foundation sister organization. No roles,
+  // permission summaries or independent scope unions can reach this branch;
+  // hasGlobalGovernanceScope requires one canonical tuple with every constrained
+  // dimension explicitly unscoped.
+  const rows = await db.select({ id: tenants.id }).from(tenants);
+  return rows.map(({ id }) => id);
 }
 
 export async function tenantPredicate<T extends PgColumn>(principal: Principal, column: T): Promise<SQL> {
@@ -79,9 +68,11 @@ export async function withTenantDatabaseContext<T>(
   return withDatabaseRlsContext(ids, hasGlobalGovernanceScope(principal), async () => {
     // Trusted server Principal only; never request-supplied tenant/entity/clearance.
     // SET LOCAL prevents context surviving a commit, rollback or pooled reuse.
+    await db.execute(sql`select set_config('beyu.actor_user_id', ${principal.userId}, true)`);
     await db.execute(sql`select set_config('beyu.governance_context', 'on', true)`);
     await db.execute(sql`select set_config('beyu.governance_actions_read', ${can(principal, 'governance:resolution.read').allowed ? 'on' : 'off'}, true)`);
     await db.execute(sql`select set_config('beyu.governance_entity_ids', ${principal.entityScope.join(",")}, true)`);
+    await db.execute(sql`select set_config('beyu.governance_country_codes', ${(principal.countryScope ?? []).join(",")}, true)`);
     await db.execute(sql`select set_config('beyu.governance_classifications', ${classificationsAtOrBelow(principal.clearance).join(",")}, true)`);
     return operation();
   });

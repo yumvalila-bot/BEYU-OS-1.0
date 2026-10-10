@@ -94,7 +94,8 @@ describe("repository-discovered capability completeness", () => {
     expect(api).toContain('options.permission.startsWith("familyoffice:")');
     expect(api).toContain('options.permission.startsWith("blockchain:")');
     expect(api).toContain("principal.entityScope.length > 0");
-    expect(api).toContain("classification ? { classification } : undefined");
+    expect(api).toContain("...(options.target ?? {})");
+    expect(api).toContain("...(classification ? { classification } : {})");
 
     const agriculture = source("src", "lib", "agriculture", "http.ts");
     expect(agriculture).toContain("classificationsAtOrBelow(clearance)");

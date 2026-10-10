@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — Donor management.
+ * BEYU Foundation organization — Donor management.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";

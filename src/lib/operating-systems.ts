@@ -8,8 +8,20 @@ import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 
 // Re-export the same canonical catalogue; keep it usable by UI without DB imports.
-import { BEYU_CONTROL_PLANE, SECTOR_OPERATING_SYSTEMS, type OperatingSystemDestination } from "./operating-system-catalog";
-export { BEYU_CONTROL_PLANE, SECTOR_OPERATING_SYSTEMS, type OperatingSystemDestination } from "./operating-system-catalog";
+import {
+  BEYU_CONTROL_PLANE,
+  FOUNDATION_ORGANIZATION,
+  SECTOR_OPERATING_SYSTEMS,
+  type GovernedDestination,
+  type OperatingSystemDestination,
+} from "./operating-system-catalog";
+export {
+  BEYU_CONTROL_PLANE,
+  FOUNDATION_ORGANIZATION,
+  SECTOR_OPERATING_SYSTEMS,
+  type GovernedDestination,
+  type OperatingSystemDestination,
+} from "./operating-system-catalog";
 
 export const FINANCE_OS_READ_PERMISSIONS: PermissionCode[] = [
   "finance:ledger.read",
@@ -20,7 +32,7 @@ export const FINANCE_OS_READ_PERMISSIONS: PermissionCode[] = [
   "finance:payments.read",
 ];
 
-export const FOUNDATION_OS_READ_PERMISSIONS: PermissionCode[] = [
+export const FOUNDATION_READ_PERMISSIONS: PermissionCode[] = [
   "foundation:registry.read",
   "foundation:formation.read",
   "foundation:structure.read",
@@ -44,31 +56,27 @@ export const UJENZI_OS_READ_PERMISSIONS: PermissionCode[] = [
   "ujenzi:data.read",
 ];
 
-export type OperatingSystemTenantCode = "BEYU-AGRI" | "BEYU-FOUNDATION" | "BEYU-UJENZI";
+export type GovernedTenantCode = "BEYU-AGRI" | "BEYU-FOUNDATION" | "BEYU-UJENZI";
 
-export type ResolvedOperatingSystemTenant = {
+export type ResolvedGovernedTenant = {
   id: string;
   code: string;
   classification: Classification;
 };
 
 /**
- * Canonical Sector OS target resolution.
+ * Canonical target-tenant resolution for tenant-backed governed domains.
  *
- * Resolves the one tenant-backed Sector OS tenant that the principal may act
- * on, from governed facts only: the tenant must be ACTIVE, inside the
- * principal's resolved tenant subtree (`tenantScopeIds`) and no higher than the
- * principal's classification ceiling. Unknown/malformed principal clearance
- * yields an empty allow-list and therefore resolves nothing (fail closed).
- *
- * This is the single resolver. The deep-link layouts use the boolean wrapper
- * below; the Foundation API boundary and Foundation services call it directly so
- * the UI boundary and the API boundary cannot diverge.
+ * The resolver deliberately does not classify the target as an operating
+ * system: Agriculture and Ujenzi are Sector OS tenants, while BEYU Foundation
+ * is a separate nonprofit legal-entity tenant. In every case, the tenant must
+ * be ACTIVE, inside the principal's live tenant scope and no higher than the
+ * principal's classification ceiling. Missing/malformed facts fail closed.
  */
-export async function resolveOperatingSystemTenant(
+export async function resolveGovernedTenant(
   principal: Principal,
-  tenantCode: OperatingSystemTenantCode,
-): Promise<ResolvedOperatingSystemTenant | null> {
+  tenantCode: GovernedTenantCode,
+): Promise<ResolvedGovernedTenant | null> {
   const tenantIds = await tenantScopeIds(principal);
   const classifications = classificationsAtOrBelow(principal.clearance);
   if (tenantIds.length === 0 || classifications.length === 0) return null;
@@ -85,50 +93,44 @@ export async function resolveOperatingSystemTenant(
       ),
     )
     .limit(1);
-  return (target as ResolvedOperatingSystemTenant | undefined) ?? null;
+  return (target as ResolvedGovernedTenant | undefined) ?? null;
 }
 
-/**
- * Prove that a tenant-backed Sector OS belongs to the principal's resolved
- * tenant subtree and classification ceiling. A generic sector permission is
- * not enough to make another sector's OS reachable.
- */
-export async function operatingSystemTenantInScope(
+/** Prove a governed tenant is inside the principal's live scope. */
+export async function governedTenantInScope(
   principal: Principal,
-  tenantCode: OperatingSystemTenantCode,
+  tenantCode: GovernedTenantCode,
 ): Promise<boolean> {
-  return (await resolveOperatingSystemTenant(principal, tenantCode)) !== null;
+  return (await resolveGovernedTenant(principal, tenantCode)) !== null;
+}
+
+/** Foundation access is the conjunction of sister-organization scope and grant. */
+export async function foundationOrganizationAuthorized(
+  principal: Principal,
+): Promise<boolean> {
+  return (
+    (await governedTenantInScope(principal, "BEYU-FOUNDATION")) &&
+    FOUNDATION_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)
+  );
 }
 
 /**
  * Resolve launchable operating systems from governed authorization facts.
  *
- * BEYU is the one constitutional control plane. Finance, Health, Agriculture
- * and Foundation are Sector OSs beneath it. A destination returned here is a
- * discoverable launch target, never an authorization token: its route performs
- * the same server-side check again, and every nested capability retains its own
- * RBAC/ABAC/RLS boundary.
+ * BEYU is the one constitutional control plane. Exactly Finance, Health,
+ * Agriculture and Ujenzi are Sector OSs beneath it. A destination returned here
+ * is discoverable, never an authorization token; every route rechecks its own
+ * RBAC/ABAC, tenant/entity scope and RLS boundary.
  */
 export async function authorizedOperatingSystems(
   principal: Principal,
 ): Promise<OperatingSystemDestination[]> {
-  // Keep these lookups ordered. This resolver is also called inside the
-  // connection-pinned BEYU request transaction; concurrent optional-schema and
-  // tenant queries on that one PostgreSQL connection can let an expected Health
-  // lookup failure poison an unrelated in-flight query before its savepoint is
-  // rolled back.
-  const agricultureInScope = await operatingSystemTenantInScope(
-    principal,
-    "BEYU-AGRI",
-  );
-  const foundationInScope = await operatingSystemTenantInScope(
-    principal,
-    "BEYU-FOUNDATION",
-  );
-  const ujenziInScope = await operatingSystemTenantInScope(
-    principal,
-    "BEYU-UJENZI",
-  );
+  // Keep these lookups ordered. This resolver is also called inside a
+  // connection-pinned request transaction; parallel optional-schema and tenant
+  // queries on one PostgreSQL connection can poison an unrelated in-flight
+  // query before its savepoint is rolled back.
+  const agricultureInScope = await governedTenantInScope(principal, "BEYU-AGRI");
+  const ujenziInScope = await governedTenantInScope(principal, "BEYU-UJENZI");
   const health = await checkHealthOSAuthorization(principal.userId);
   const allowed = new Set<OperatingSystemDestination["code"]>();
 
@@ -140,12 +142,6 @@ export async function authorizedOperatingSystems(
   if (agricultureInScope && can(principal, "agriculture:data.read").allowed) {
     allowed.add("AGRICULTURE");
   }
-  if (
-    foundationInScope &&
-    FOUNDATION_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)
-  ) {
-    allowed.add("FOUNDATION");
-  }
   if (ujenziInScope && UJENZI_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)) {
     allowed.add("UJENZI");
   }
@@ -153,4 +149,17 @@ export async function authorizedOperatingSystems(
   return [BEYU_CONTROL_PLANE, ...SECTOR_OPERATING_SYSTEMS].filter((destination) =>
     allowed.has(destination.code),
   );
+}
+
+/**
+ * Resolve every launchable governed destination without promoting Foundation
+ * into the OS hierarchy. This is presentation routing only; destination routes
+ * remain the authority boundaries.
+ */
+export async function authorizedGovernedDestinations(
+  principal: Principal,
+): Promise<GovernedDestination[]> {
+  const operatingSystems = await authorizedOperatingSystems(principal);
+  if (!(await foundationOrganizationAuthorized(principal))) return operatingSystems;
+  return [...operatingSystems, FOUNDATION_ORGANIZATION];
 }

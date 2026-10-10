@@ -57,6 +57,8 @@ import type {
   SourceContribution,
 } from "@/lib/specialist/forecast/model";
 
+import { testRoleAuthorityGrants } from "../helpers/authority-grants";
+
 const RUN = `FC${Date.now()}`;
 let n = 0;
 const trace = () => `${RUN}-${String(++n).padStart(3, "0")}`;
@@ -100,6 +102,10 @@ function principal(overrides: Partial<Principal> = {}): Principal {
     tenantType: "ENTERPRISE",
     roles,
     permissions,
+    authorityGrants: overrides.authorityGrants ?? testRoleAuthorityGrants({
+      roles,
+      tenantId: overrides.tenantId ?? tenantId,
+    }),
     clearance,
     entityScope: [],
     mfaSatisfied: true,
@@ -413,7 +419,7 @@ describe("forecast engines — reproducible version identity", () => {
     const before = await count(MATCHING);
     project(baseInput());
     // The engine persists nothing: the matching-table count is STABLE across
-    // projection. The single attributed match is the Foundation OS
+    // projection. The single attributed match is the Foundation organization
     // structure_scenarios table from 0035_foundation_os (pinned by name below).
     expect(await count(MATCHING)).toBe(before);
     const names = (
@@ -719,8 +725,29 @@ describe("forecast service — real substrate", () => {
   it("CRITICAL: a principal without treasury permission gets DATA_NOT_AVAILABLE, not treasury data", async () => {
     const noTreasury = principal({ roles: ["CHIEF_RISK_COMPLIANCE"] });
     expect(noTreasury.permissions.has("finance:treasury.read" as never)).toBe(false);
+    // Grant only the outer composition operation on one explicit tuple. The
+    // principal still has no finance:treasury.read tuple, so the nested source
+    // must remain unavailable rather than leaking treasury data.
+    const compositionOnly: Principal = {
+      ...noTreasury,
+      permissions: new Set([...noTreasury.permissions, "finance:ledger.read"]),
+      authorityGrants: [
+        ...(noTreasury.authorityGrants ?? []),
+        {
+          sourceId: "EAG_FORECAST_COMPOSITION_ONLY",
+          source: "EMERGENCY",
+          role: "EMERGENCY_ACCESS",
+          permission: "finance:ledger.read",
+          tenantId,
+          legalEntityId: null,
+          countryCode: null,
+          validFrom: null,
+          validTo: null,
+        },
+      ],
+    };
     const r = await composeCrossSpecialistView(
-      ctx({ principal: { ...noTreasury, permissions: new Set([...noTreasury.permissions, "finance:ledger.read"]) } as Principal }),
+      ctx({ principal: compositionOnly }),
       { asOf: ASOF, sources: ["TREASURY"] },
     );
     const treasury = r.data.contributions.find((c) => c.source === "TREASURY")!;
@@ -980,7 +1007,7 @@ describe("forecast service — hostile inputs", () => {
 // further migration must be attributed here before the pin moves.
     // + 0033_admin_bootstrap_state (secure first-administrator enrollment: bootstrap state + enrollment ceremony tables; adds no specialist truth).
 // + 0034_agriculture_os (first-class Agriculture OS tables; adds no specialist truth).
-// + 0035_foundation_os (Foundation OS registry, compliance, grant and impact tables; adds no specialist truth).
+// + 0035_foundation_os (Foundation organization registry, compliance, grant and impact tables; adds no specialist truth).
 // + 0036_government_integration_fabric (Government Integration Fabric shared module: agency registry + submission ledger; adds no specialist truth).
 // + 0037_family_office_capital_wealth (Family Office capital, wealth and generational wealth tables; adds no specialist truth).
 // + 0038_family_office_protection_insurance (Family Office protection & insurance: governed policy/designation/premium/review/claim/assessment records with self-verifying RLS; adds no specialist truth).
@@ -1035,7 +1062,7 @@ describe("forecast service — hostile inputs", () => {
     // + 0067: Holograph spatial capability registries (viz_* presentation/interaction registries of the
     //   shared capability, never an OS). Adds no forecast/scenario/assumption table and no specialist truth.
     // + 0068: runtime-role DML grants on the 0067 tables (RLS stays the boundary). No schema change.
-    // + 0069: Foundation OS RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
+    // + 0069: Foundation organization RLS closure on foundation_programs (ENABLE ROW LEVEL SECURITY + the canonical
     //   beyu_tenant_ids() policy + tenant index + runtime-role grant assertion). Adds no forecast/scenario/assumption table and no specialist truth.
     // + 0070: UJENZI_OS service-principal registry row (one idempotent INSERT; no DDL, no RLS change). Adds no forecast/scenario/assumption table and no specialist truth.
     // + 0071: Federation & Trust shared capability (no forecast table, no second forecast truth; journal entry present, no snapshot fabricated — see KNOWN_METADATA_DEBT).
@@ -1044,9 +1071,11 @@ describe("forecast service — hostile inputs", () => {
     // + 0074: Enterprise Intelligence Expansion (34 tables). It adds forecasting MODEL registers
     //   (valuation_assumption_sets, lbo_models, lbo_model_runs) — versions of assumptions, never a
     //   second forecast truth: a run is reproducible from its fingerprinted assumption set, and the
-    //   specialist forecast substrate is untouched. Snapshot chained 0062 -> 0074 (no metadata debt).
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(75);
-    // The only %scenario% match is the attributed Foundation OS table. The two
+    //   specialist forecast substrate is untouched. Snapshot chained 0062 -> 0074.
+    // + 0075: Noelia authority/execution hardening. It changes authority bindings, RLS, immutable
+    //   evidence and execution controls; it creates no forecast/scenario/assumption truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);
+    // The only %scenario% match is the attributed Foundation organization table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed
     // false), not forecast-engine persistence; excluded by exact name so this

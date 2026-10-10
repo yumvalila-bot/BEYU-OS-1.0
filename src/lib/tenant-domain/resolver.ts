@@ -27,8 +27,8 @@
  *     here it may only ever cause ADDITIONAL refusal (see `hostnameRestriction`).
  *
  * OS BASE AND CAPABILITY BASE (Family Office and the other shared capabilities)
- *   BEYU OS has five SECTOR OSs and a set of SHARED CAPABILITIES implemented once
- *   inside it (Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
+ *   BEYU OS has exactly four SECTOR OSs and a set of SHARED CAPABILITIES implemented once
+ *   inside it (Foundation Operations, Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
  *   Workflow, Security, Noelia/HIVE). Both kinds of namespace have a governed base
  *   domain: `health.beyuos.co.tz` (OS_BASE → the canonical `HEALTH_OS`) and
  *   `familyoffice.beyuos.co.tz` (CAPABILITY_BASE → the canonical
@@ -131,7 +131,7 @@ export type TenantDomainResolution =
  *
  * `os_registry` is the authoritative source of OS/capability identity. A governed
  * domain can only ever be bound to a code the registry declares ACTIVE and of the
- * kind that matches the domain type — so a DRAFT entry (MINING_OS), an AI runtime
+ * kind that matches the domain type — so a DRAFT entry (SHARED_MINING_GOVERNANCE), an AI runtime
  * (HIVE_RUNTIME), the control plane (BEYU_OS), an unknown code, or a
  * capability/OS kind mismatch all fail closed.
  */

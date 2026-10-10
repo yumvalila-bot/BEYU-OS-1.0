@@ -78,7 +78,7 @@ const CANONICAL_HOSTS = [
   { host: "finance.beyu.co.tz", home: "/os/finance", copy: "Sign in to Finance OS — governed by BEYU OS" },
   { host: "agriculture.beyu.co.tz", home: "/os/agriculture", copy: "Sign in to Agriculture OS — governed by BEYU OS" },
   { host: "ujenzi.beyu.co.tz", home: "/os/ujenzi", copy: "Sign in to Ujenzi OS — governed by BEYU OS" },
-  { host: "foundation.beyu.co.tz", home: "/os/foundation", copy: "Sign in to Foundation OS — governed by BEYU OS" },
+  { host: "foundation.beyu.co.tz", home: "/os/foundation", copy: "Sign in to BEYU Foundation — governed by BEYU OS" },
   { host: "familyoffice.beyu.co.tz", home: "/os/family", copy: "Sign in to Family Office — governed by BEYU OS" },
   { host: "noelia.beyu.co.tz", home: "/os/noelia", copy: "Sign in to Noelia AI — governed by BEYU OS" },
 ] as const;
@@ -181,7 +181,7 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "Foundation OS is reachable directly on foundation.beyu.co.tz through its own gate",
+    "BEYU Foundation is reachable directly on foundation.beyu.co.tz through its own gate",
     async () => {
       const page = await getWithHost("/os/foundation", "foundation.beyu.co.tz", foundationCookie);
       // Either the canonical Foundation page (200) or the governed denial —
@@ -196,7 +196,7 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
       if (page.status === 200 && root.status === 307) expect(root.location).toBe("/os/foundation");
       if (root.status === 307) expect(root.location).not.toBe("/launcher");
       if (root.status === 200) {
-        expect(text(root.body)).toContain("You are signed in, but you are not authorized for Foundation OS");
+        expect(text(root.body)).toContain("You are signed in, but you are not authorized for BEYU Foundation");
       }
     },
   );
@@ -352,10 +352,15 @@ describe("E/F. cross-OS routing and switching", () => {
         ["finance.beyu.co.tz", "/health/os", "https://health.beyu.co.tz/health/os"],
         ["agriculture.beyu.co.tz", "/os/ujenzi/projects", "https://ujenzi.beyu.co.tz/os/ujenzi/projects"],
         ["ujenzi.beyu.co.tz", "/os/agriculture?x=1", "https://agriculture.beyu.co.tz/os/agriculture?x=1"],
-        ["health.beyu.co.tz", "/os/foundation", "https://foundation.beyu.co.tz/os/foundation"],
         ["noelia.beyu.co.tz", "/os/finance", "https://finance.beyu.co.tz/os/finance"],
         ["familyoffice.beyu.co.tz", "/os/ujenzi", "https://ujenzi.beyu.co.tz/os/ujenzi"],
       ];
+      // Foundation is a non-OS organization path. A foreign canonical host is
+      // refused by its layout rather than redirected by the OS path router.
+      const foundationOnHealth = await getWithHost("/os/foundation", "health.beyu.co.tz", ceoCookie);
+      expect(foundationOnHealth.status).toBe(404);
+      expect(foundationOnHealth.location).toBeUndefined();
+
       for (const [host, path, location] of cases) {
         const res = await getWithHost(path, host, ceoCookie);
         expect(res.status, `${host}${path}`).toBe(307);

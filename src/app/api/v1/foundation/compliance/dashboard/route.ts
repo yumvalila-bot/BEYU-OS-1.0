@@ -1,5 +1,5 @@
 /**
- * BEYU Foundation OS — compliance health dashboard payload.
+ * BEYU Foundation organization — compliance health dashboard payload.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { guarded } from "@/lib/api";

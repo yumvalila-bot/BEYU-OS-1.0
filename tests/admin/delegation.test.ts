@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_DELEGATION_DAYS,
+  delegationCoversTarget,
   validateProposedDelegation,
   type ProposedAdminDelegation,
 } from "../../src/lib/admin/delegation";
@@ -55,6 +56,44 @@ describe("admin delegation — closed delegable set", () => {
       delegatorTenantScope: ["TEN_BEYU_GROUP", "TEN_BEYU_TZ", "TEN_BEYU_HEALTH"],
     });
     expect(verdict).toMatchObject({ permitted: true, decision: "VALID" });
+  });
+});
+
+describe("admin delegation — inseparable exercise tuples", () => {
+  it("cannot combine tenant, entity and country from separate instruments", () => {
+    const instruments = [
+      { scopeTenantIds: ["TEN_A"], scopeLegalEntityIds: ["LEN_A"], scopeCountryCodes: ["TZ"] },
+      { scopeTenantIds: ["TEN_B"], scopeLegalEntityIds: ["LEN_B"], scopeCountryCodes: ["KE"] },
+    ];
+    expect(instruments.some((delegation) => delegationCoversTarget(delegation, {
+      tenantId: "TEN_A",
+      legalEntityId: "LEN_B",
+      countryCode: "KE",
+    }))).toBe(false);
+    expect(instruments.some((delegation) => delegationCoversTarget(delegation, {
+      tenantId: "TEN_A",
+      legalEntityId: "LEN_A",
+      countryCode: "TZ",
+    }))).toBe(true);
+  });
+
+  it("fails closed when a constrained entity or country is omitted", () => {
+    const constrained = {
+      scopeTenantIds: ["TEN_A"],
+      scopeLegalEntityIds: ["LEN_A"],
+      scopeCountryCodes: ["TZ"],
+    };
+    expect(delegationCoversTarget(constrained, { tenantId: "TEN_A", countryCode: "TZ" })).toBe(false);
+    expect(delegationCoversTarget(constrained, { tenantId: "TEN_A", legalEntityId: "LEN_A" })).toBe(false);
+    expect(delegationCoversTarget(constrained, { tenantId: "TEN_A" })).toBe(false);
+  });
+
+  it("allows omitted dimensions only on the same explicitly unconstrained instrument", () => {
+    expect(delegationCoversTarget({
+      scopeTenantIds: ["TEN_A"],
+      scopeLegalEntityIds: [],
+      scopeCountryCodes: [],
+    }, { tenantId: "TEN_A" })).toBe(true);
   });
 });
 

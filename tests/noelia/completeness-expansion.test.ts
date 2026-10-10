@@ -1,4 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/lib/noelia/execution-control", () => ({
+  assertNoeliaExecutionAllowed: vi.fn(async () => undefined),
+  ExecutionStoppedError: class ExecutionStoppedError extends Error {},
+}));
 import { randomBytes } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
@@ -25,6 +30,7 @@ import { seededPrincipal } from "./db-fixtures";
 const workflowIds: string[] = [];
 const approvalIds: string[] = [];
 const memoryIds: string[] = [];
+const QUORUM_SECOND_APPROVER_ASSIGNMENT = "RAS_COMPLETENESS_QUORUM_CFO_GOVERNANCE";
 
 async function rememberWorkflow<T extends { workflowId: string | null; approvalId?: string | null }>(result: T): Promise<T> {
   if (result.workflowId) workflowIds.push(result.workflowId);
@@ -34,6 +40,23 @@ async function rememberWorkflow<T extends { workflowId: string | null; approvalI
 
 const trace = () => `TRACE_EXP_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 
+function governedKnowledgeInput(label: string) {
+  const suffix = `${label}-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  return {
+    code: `EXP-${suffix}`.slice(0, 64),
+    title: `Completeness approval probe ${label}`,
+    domain: "GOVERNANCE",
+    content: `Immutable governed knowledge evidence for ${label}; approval boundaries are under test.`,
+    scopeType: "ENTERPRISE" as const,
+    classification: "CONFIDENTIAL" as const,
+    version: "1.0.0",
+    effectiveFrom: "2026-01-01",
+    reviewDate: "2027-01-01",
+    provenance: "Disposable integration test with canonical human approval",
+    keywords: ["approval", "quorum"],
+  };
+}
+
 async function tenantContext(principal: Awaited<ReturnType<typeof seededPrincipal>>): Promise<ToolInvocationContext> {
   const scope = await resolveNoeliaAuthorizedScope(principal);
   const target = requestedNoeliaTarget(principal, null);
@@ -41,6 +64,22 @@ async function tenantContext(principal: Awaited<ReturnType<typeof seededPrincipa
 }
 
 beforeAll(async () => {
+  // Add a second canonical human holding the exact governance approver role so
+  // the quorum regression proves distinct database-backed humans, not forged
+  // payload identities. The assignment is disposable and removed after the suite.
+  await adminDb.execute(sql`delete from role_assignments where id = ${QUORUM_SECOND_APPROVER_ASSIGNMENT}`);
+  await adminDb.execute(sql`
+    insert into role_assignments (
+      id, user_id, role_id, tenant_id, global_scope,
+      effective_from, effective_to, granted_by, justification
+    )
+    select
+      ${QUORUM_SECOND_APPROVER_ASSIGNMENT}, u.id, r.id, u.primary_tenant_id, true,
+      current_date, null, 'TEST_FIXTURE', 'Distinct exact-role quorum regression'
+    from users u
+    cross join roles r
+    where u.email = 'cfo@beyu.os' and r.code = 'CHIEF_GOVERNANCE_OFFICER'
+  `);
   const stale = await db.select({ id: noeliaWorkflows.id })
     .from(noeliaWorkflows)
     .where(eq(noeliaWorkflows.requestedBy, "completeness-expansion"));
@@ -67,6 +106,7 @@ afterAll(async () => {
   // the admin (migration) handle.
   await adminDb.execute(sql`drop owned by beyu_rls_probe`).catch(() => undefined);
   await adminDb.execute(sql`drop role if exists beyu_rls_probe`).catch(() => undefined);
+  await adminDb.execute(sql`delete from role_assignments where id = ${QUORUM_SECOND_APPROVER_ASSIGNMENT}`).catch(() => undefined);
   await pool.end();
   await adminPool.end();
 });
@@ -294,32 +334,33 @@ describe("Noelia completeness expansion", () => {
   });
 
   it("quorum: execution is denied until distinct approvers complete the quorum", async () => {
-    const cfo = await seededPrincipal("cfo@beyu.os");
+    const requester = await seededPrincipal("ceo@beyu.os");
     const governance = await seededPrincipal("governance@beyu.os");
-    const ceo = await seededPrincipal("ceo@beyu.os");
+    const secondGovernanceHuman = await seededPrincipal("cfo@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
 
     const planned = await rememberWorkflow(await service.create({
-      principal: cfo,
+      registry,
+      principal: requester,
       traceId: trace(),
       plan: {
         goal: "Quorum probe: two distinct approvers must authorize before execution.",
-        target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
+        target: { tenantId: requester.tenantId, legalEntityId: null, countryCode: null },
         steps: [
-          { toolName: "finance.cash.position", input: {} },
-          { toolName: "finance.maturity.profile", input: {} },
+          { toolName: "knowledge.ingest", input: governedKnowledgeInput("quorum") },
         ],
       },
     }));
-    await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    const validated = await service.validate({ principal: requester, registry, workflowId: planned.workflowId!, traceId: trace() });
+    expect(validated.code).toBe("WAITING_FOR_HUMAN_AUTHORITY");
 
     const first = await rememberWorkflow(await service.authorize({
       principal: governance, workflowId: planned.workflowId!, traceId: trace(), quorum: 2,
     }));
     expect(first.code).toBe("QUORUM_PARTIAL");
 
-    const denied = await service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    const denied = await service.execute({ principal: requester, registry, workflowId: planned.workflowId!, traceId: trace() });
     expect(denied.code).toBe("QUORUM_NOT_MET");
     expect(denied.reason).toContain("1/2");
 
@@ -327,42 +368,46 @@ describe("Noelia completeness expansion", () => {
     const repeat = await service.authorize({
       principal: governance, workflowId: planned.workflowId!, traceId: trace(),
     });
-    expect(repeat.code).toBe("AUTHORIZATION_DENIED");
-    expect(repeat.reason).toContain("distinct approvers");
+    expect(repeat.code).toBe("DUPLICATE_APPROVER");
+    expect(repeat.reason).toContain("distinct");
 
     const second = await rememberWorkflow(await service.authorize({
-      principal: ceo, workflowId: planned.workflowId!, traceId: trace(),
+      principal: secondGovernanceHuman, workflowId: planned.workflowId!, traceId: trace(),
     }));
     expect(second.code).toBe("AUTHORIZED");
 
-    const executed = await service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    const executed = await service.execute({ principal: requester, registry, workflowId: planned.workflowId!, traceId: trace() });
     expect(executed.status).toBe("COMPLETED");
-    expect(executed.stepResults).toHaveLength(2);
+    expect(executed.stepResults).toHaveLength(1);
   });
 
   it("approval expiry: an APPROVED decision past its validity window is no authority", async () => {
-    const cfo = await seededPrincipal("cfo@beyu.os");
+    const requester = await seededPrincipal("ceo@beyu.os");
     const governance = await seededPrincipal("governance@beyu.os");
     const service = new BeyuNoeliaWorkflowService();
     const registry = createDefaultNoeliaToolRegistry();
 
     const planned = await rememberWorkflow(await service.create({
-      principal: cfo,
+      registry,
+      principal: requester,
       traceId: trace(),
       plan: {
         goal: "Expiry probe: a lapsed approval must never authorize execution.",
-        target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
-        steps: [{ toolName: "finance.cash.position", input: {} }],
+        target: { tenantId: requester.tenantId, legalEntityId: null, countryCode: null },
+        steps: [{ toolName: "knowledge.ingest", input: governedKnowledgeInput("expiry") }],
       },
     }));
-    await service.validate({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
-    await rememberWorkflow(await service.authorize({
+    const validated = await service.validate({ principal: requester, registry, workflowId: planned.workflowId!, traceId: trace() });
+    expect(validated.code).toBe("WAITING_FOR_HUMAN_AUTHORITY");
+    const approved = await rememberWorkflow(await service.authorize({
       principal: governance,
       workflowId: planned.workflowId!,
       traceId: trace(),
-      validUntil: new Date(Date.now() - 60_000),
+      validUntil: new Date(Date.now() + 100),
     }));
-    const denied = await service.execute({ principal: cfo, registry, workflowId: planned.workflowId!, traceId: trace() });
+    expect(approved.code).toBe("AUTHORIZED");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const denied = await service.execute({ principal: requester, registry, workflowId: planned.workflowId!, traceId: trace() });
     expect(denied.code).toBe("EXPIRED_APPROVAL");
     expect(denied.reason).toContain("expired");
   });

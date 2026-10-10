@@ -124,8 +124,8 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
         goal: "Summarize the authorized treasury position and the capital pipeline for the executive.",
         target: { tenantId: targetTenantId },
         steps: [
-          { toolName: "finance.treasury.aggregate", requiresApproval: false },
-          { toolName: "finance.capital.pipeline", requiresApproval: false },
+          { toolName: "finance.treasury.aggregate", requiresApproval: true, approverRole: "CHIEF_GOVERNANCE_OFFICER" },
+          { toolName: "finance.capital.pipeline", requiresApproval: true, approverRole: "CHIEF_GOVERNANCE_OFFICER" },
         ],
       },
       { cookie: cfo },
@@ -141,7 +141,7 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
       { cookie: cfo },
     );
     expect(validated.status).toBe(200);
-    expect(validated.body.data.status).toBe("VALIDATED");
+    expect(validated.body.data.status).toBe("WAITING_FOR_HUMAN_AUTHORITY");
 
     // Maker/checker: the requester (cfo) must not be able to authorize.
     const selfAuth = await apiPost<{ data: { status: string; code: string } }>(
@@ -198,7 +198,10 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
       { cookie: cfo },
     );
     expect(cancelled.status).toBe(200);
-    expect(cancelled.body.data.status).toBe("CANCELLED");
+    // Cancellation is a valid human stop. The durable execution state is
+    // STOPPED: no later step may begin, while completed external effects are
+    // never represented as rolled back.
+    expect(cancelled.body.data.status).toBe("STOPPED");
   });
 
   it("POST /api/v1/auth/logout terminates the session", async () => {

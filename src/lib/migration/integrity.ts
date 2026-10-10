@@ -283,7 +283,7 @@ export const KNOWN_METADATA_DEBT = {
     // data, no RLS weakening; the 0067 tenant-isolation policies remain the
     // boundary.
     "0068",
-    // 0069 closes the Foundation OS Row Level Security gap on
+    // 0069 closes the Foundation organization Row Level Security gap on
     // `foundation_programs` — the one Foundation substrate created by the 0000
     // kernel baseline and therefore missed by 0035's RLS block, which
     // enumerated only the 39 tables it created. It is a single
@@ -330,6 +330,8 @@ export const KNOWN_METADATA_DEBT = {
     // silent rot. The applied DDL is verified against src/db/schema by the
     // schema-drift gate instead.
     "0073",
+    // 0074 and later migrations have source-generated snapshots chained from
+    // the real predecessor. New migrations must not extend this debt register.
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

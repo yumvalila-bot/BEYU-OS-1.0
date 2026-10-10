@@ -28,7 +28,7 @@
  * unauthorized state from its own storage.
  */
 import type { Classification } from "@/lib/constants";
-import type { VizSectorCode } from "./dimensions";
+import type { VizDomainCode } from "./dimensions";
 import type { LifecycleProjection } from "./engines/lifecycle";
 import type { RiskPosture } from "./engines/risk";
 import type { VizEpistemicStatus, VizProvenance, VizValue } from "./provenance";
@@ -55,7 +55,7 @@ export type TwinIdentity = {
    * identity. It is a REFERENCE, never authorization (§21): every access
    * re-resolves tenant/scope/classification server-side. */
   twinKey: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType: string;
   subjectId: string;
   tenantId: string;
@@ -119,7 +119,7 @@ export type TwinRegistration = {
   id: string;
   tenantId: string;
   twinKey: string;
-  sector: VizSectorCode;
+  sector: VizDomainCode;
   subjectType: string;
   subjectId: string;
   legalEntityId: string | null;
@@ -132,16 +132,16 @@ export type TwinRegistration = {
 };
 
 /** Compose the canonical twin key. Deterministic and injective per subject. */
-export function twinKey(sector: VizSectorCode, subjectType: string, subjectId: string): string {
+export function twinKey(sector: VizDomainCode, subjectType: string, subjectId: string): string {
   return `${sector}:${subjectType}:${subjectId}`;
 }
 
-export function parseTwinKey(key: string): { sector: VizSectorCode; subjectType: string; subjectId: string } | null {
+export function parseTwinKey(key: string): { sector: VizDomainCode; subjectType: string; subjectId: string } | null {
   const parts = key.split(":");
   if (parts.length !== 3) return null;
   const [sector, subjectType, subjectId] = parts as [string, string, string];
   if (!sector || !subjectType || !subjectId) return null;
-  return { sector: sector.toUpperCase() as VizSectorCode, subjectType, subjectId };
+  return { sector: sector.toUpperCase() as VizDomainCode, subjectType, subjectId };
 }
 
 /** Derive the facet list from what the projection actually carries — honesty
