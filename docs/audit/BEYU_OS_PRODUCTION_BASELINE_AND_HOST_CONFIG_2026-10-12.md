@@ -52,10 +52,15 @@ last successful one:
 | --- | --- | --- | --- |
 | `37955264218` @ `86dc7e77` | push | **success** (2026-10-09T15:55Z) | last successful apply; that revision's journal ends at **`0074_enterprise_intelligence_expansion`** |
 | `38018982829` @ `5cdaf171` | push | failure | the push that shipped **0075**; deploy job failed at step 3 **"Fail closed if production secrets are not configured"** → *apply migrations* step **skipped** |
-| `38025828217` @ `2c9db21b` | push | failure | Migration validation fails in 4 s, 0 steps executed; deploy **skipped** |
-| `38052360038` @ `2c9db21b` | **workflow_dispatch** | failure | the only dispatch after #104 made the mutating jobs dispatch-only; Migration validation fails in 2 s → deploy **skipped** |
+| `38025828217` @ `2c9db21b` | push | failure | `Migration validation (scratch PostgreSQL 16)` fails **at job setup** (`steps: []`, 0 steps executed, 2 s), and all six later jobs — including the deploy — are `skipped` |
+| `38052360038` @ `2c9db21b` | **workflow_dispatch** | failure | the only dispatch after #104 made the mutating jobs dispatch-only; identical signature: validation job fails before any step, every later job `skipped` |
 | `38157765676` @ `897ff08b` | push | failure | same pre-step signature |
 | `38203769950` @ `9669640` | push | failure | same pre-step signature |
+
+The "fails before any step executes" signature is the repository-level runner condition also described in
+PR #106 §3 (it affects jobs unrelated to this change, on `main` as well); those runs therefore never
+reached a migration attempt at all. The decisive evidence remains `38018982829`, whose deploy job ran
+normally and failed **closed** at the secrets guard, skipping the apply step.
 
 **Conclusion: no production migration has been applied since `86dc7e77` (journal 0074).** 0075 — whose
 column `role_assignments.global_scope` the production artifact reads on every authenticated request —
