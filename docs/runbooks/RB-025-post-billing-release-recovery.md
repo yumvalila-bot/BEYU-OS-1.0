@@ -229,8 +229,18 @@ Recorded here so the post-billing run does not repeat it needlessly. All ran aga
 | Typecheck / lint / build | `npm run typecheck` · `npm run lint` · `npm run build` | **PASS** (lint: 0 errors, 1 pre-existing warning) |
 | Workflow YAML validity | parse all five workflows | **PASS** — 5/5 parse; all triggered only as designed |
 | Verification script | `npx tsx scripts/verify-production-recovery.mts --base-url http://127.0.0.1:3100` | **PASS** — 9 checks green against a local server |
+| Full local suite | `npm test` | **332 files passed · 6 skipped · 7 failed (345)** — 5,604 tests passed, 29 skipped, 31 todo. Every failure was the missing variable below: all seven files are `tests/migration/*-upgrade.test.ts` (the complete set of that family), and a re-run with the variable exported passes **7/7** |
 
 CI (`ci.yml`, `db-release.yml`) at the same commit: **BLOCKED — zero steps executed.** No CI result may be inferred from these local runs.
+
+> **Running the suite locally: export the database password variables.**
+> `tests/migration/*-upgrade.test.ts` spawn `scripts/setup-db-role.ts` as a child process, which fails closed with
+> `BEYU_RUNTIME_DB_PASSWORD is required. No default credentials are permitted.` when the variable is absent, so
+> **seven files report failures that are an invocation gap, never a migration defect.** Export
+> `BEYU_RUNTIME_DB_PASSWORD` and `BEYU_GOVERNANCE_DB_PASSWORD` (the same values already embedded in the runtime and
+> governance DSNs) alongside `BEYU_ADMIN_DATABASE_URL`, `BEYU_RUNTIME_DATABASE_URL`, `BEYU_GOVERNANCE_DATABASE_URL`,
+> `DATABASE_URL`, `BEYU_TEST_DATABASE_URL`, `AUTH_SECRET`, `MFA_ENCRYPTION_KEY` and `BEYU_BOOTSTRAP_PASSWORD` before
+> `npm test`, and re-run any file that failed rather than reading a red result as a code regression.
 
 ---
 
