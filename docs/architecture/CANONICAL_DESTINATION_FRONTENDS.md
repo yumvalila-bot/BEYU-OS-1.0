@@ -365,3 +365,44 @@ beyu.co.tz · health. · finance. · agriculture. · ujenzi. · foundation. · f
   `BEYU_SESSION_COOKIE_DOMAIN=beyu.co.tz` for one shared sign-in). Adding the
   domains to the existing Vercel project and the DNS records at the registrar
   remain **human-controlled deployment operations** and were not performed here.
+
+---
+
+## 7. The login surface — reference-based presentation, unchanged authority
+
+The sign-in EXPERIENCE of every canonical host is now the composition of the
+authoritative reference `BEYU LOGIN PAGE .png` (repository root): emblem and
+wordmark, descriptor, headline, navy motto banner, mission statement, the five
+canonical brand pillars, the white sign-in card (Welcome · Username · Password ·
+Forgot Password? · Cancel · Enter), the hospital-campus band, the six-capability
+strip and the navy footer.
+
+| Concern | Where it lives now |
+| --- | --- |
+| Brand composition (presentation only) | `src/app/login-surface.tsx` |
+| Control-plane surface | `src/app/page.tsx` (apex / `www` / neutral hosts) |
+| Destination surface + governed denial | `src/app/governed-sign-in.tsx` |
+| The ONE credential form | `src/app/sign-in-form.tsx` |
+| Governed recovery *request* | `src/app/forgot-password/page.tsx` + `/api/v1/auth/recovery/request` |
+| Palette + contrast correction | `src/app/globals.css` (`--beyu-gold-ink`) |
+
+* **Still one sign-in.** Both surfaces compose the SAME `SignInForm`, posting to
+  the SAME `/api/v1/auth/login`, receiving the SAME session cookie, MFA step-up
+  and audit trail. The presentation layer resolves no identity, session,
+  hostname or authorization.
+* **Still the authoritative emblem.** `BeyuOsLogo` →
+  `/brand/beyu-os-logo.png`, presented on a white plate because the source is a
+  white-matte raster. No logo was redrawn, recoloured, cropped or re-encoded,
+  and no new brand asset was added.
+* **Step-up is not bypassed by layout.** The MFA field is *hidden*, never
+  removed: the server's own `428 / MFA_REQUIRED` answer (or the user's own
+  request) reveals it and moves focus to it.
+* **"Forgot Password?" is not decorative.** BEYU has no self-service credential
+  reset and this change does not add one. It adds the honest first half: a
+  recorded, rate-limited, audited recovery REQUEST that an authorised identity
+  administrator acts on. The endpoint changes no credential, opens no session
+  and sets no cookie.
+* **One documented palette deviation.** The institutional gold `#D4A017` is
+  2.16:1 on the pale login background and is not used for small text there;
+  `--beyu-gold-ink` (`#8A6A12`, 4.60:1) carries small gold text on light
+  surfaces. Graphics, rules, icons and on-navy text keep `#D4A017`.
