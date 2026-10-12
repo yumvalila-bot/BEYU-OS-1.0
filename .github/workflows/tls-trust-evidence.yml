@@ -60,6 +60,19 @@ jobs:
       matrix:
         node: [24, 22]
     steps:
+      - name: Refuse to write evidence to the default branch
+        # This workflow COMMITS the captured evidence back to the ref it was
+        # dispatched on. On a `workflow_dispatch` from main that ref IS the
+        # default branch, so an operator could unknowingly create a commit on
+        # main that never went through review. Fail closed instead: dispatch
+        # this workflow on a scratch/feature branch only.
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "::error::EXTERNAL_BLOCKED — this workflow commits evidence back to the ref it runs on, so it must never be dispatched on 'main'. Dispatch it on a scratch or feature branch instead (or use the artifact-only 'BEYU OS — TLS chain capture (read-only, no credentials)' workflow)."
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
