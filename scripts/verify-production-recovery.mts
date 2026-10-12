@@ -34,8 +34,14 @@
  *   npx tsx scripts/verify-production-recovery.mts --hosts https://beyu.co.tz   # subset
  *
  * EXIT CODES
- *   0  no FAIL  (BLOCKED/NOT RUN do not fail the run — they are reported)
- *   2  at least one FAIL
+ *   0  every check PASSED and none was BLOCKED
+ *   2  at least one FAIL — production is NOT recovered
+ *   3  no FAIL, but at least one BLOCKED — recovery is NOT established.
+ *      An unreachable endpoint, a deployed build that predates a branch
+ *      endpoint, or any other unreadable check must never be reported as
+ *      success: a caller that reads only the exit code would otherwise record
+ *      "verified" for a run that verified nothing.
+ *   (`--list` performs no request and exits 0 — see the dry-run note below.)
  */
 
 type Status = "PASS" | "FAIL" | "BLOCKED" | "NOT RUN";
@@ -276,8 +282,16 @@ async function main(): Promise<void> {
   if (failed.length > 0) {
     console.log("");
     for (const f of failed) console.log(`  FAIL ${f.check}: ${f.detail}`);
+    console.log(`exit 2 — ${failed.length} FAIL. Production is NOT recovered.`);
     process.exit(2);
   }
+  if (blocked.length > 0) {
+    // BLOCKED is not a pass, and it is not a pass for a caller that only reads
+    // the exit code either. Nothing here proved recovery, so do not exit 0.
+    console.log(`exit 3 — no FAIL, but ${blocked.length} check(s) were BLOCKED: this run does NOT establish recovery. Resolve the cause (network path, deployed build, endpoint availability) and re-run.`);
+    process.exit(3);
+  }
+  console.log("exit 0 — every check passed and none was BLOCKED.");
 }
 
 main().catch((error: unknown) => {

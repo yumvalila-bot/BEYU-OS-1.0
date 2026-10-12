@@ -41,9 +41,9 @@ This runbook is the **resumption procedure**: the ordered gates, the exact comma
 | Fact | Value / status | How it was established |
 | --- | --- | --- |
 | `main` | `9669640` (`Merge pull request #105…`) | `git ls-remote` / `git fetch` |
-| Open PR under review | **#106**, head `5b8dc68`, base `main`, MERGEABLE — audit documents + four diagnostic code files. **Not merged.** | GitHub API |
+| Open PR under review | **#106**, head `501dd83`, base `main`, MERGEABLE — audit documents, four diagnostic code files, this runbook and the recovery verifier. **Not merged.** | GitHub API (head re-verified 2026-10-12T13:17Z) |
 | Other open PR | **#103**, `CONFLICTING`, head `29d509c`, predates #104/#105 — human disposition required, not touched | GitHub API |
-| Actions | **BLOCKED** (billing). Latest annotated run: `38241055220` / check-run `114769275126`, `2026-10-12T11:11:26Z`, `steps: 0` | check-run annotation |
+| Actions | **BLOCKED** (billing), re-verified 2026-10-12: PR-head runs `38254619823` / `38254619672` (created 13:17:11Z) and the scheduled run `38257659028` (created 13:43:11Z, `main` @ `9669640`) — **every job `steps: 0`**, annotation unchanged | run + job metadata, check-run annotation |
 | Production deployment | runs `9669640`; `releaseTimestamp 2026-10-12T04:26:29Z`; `environment: production` | public `GET /api/health/identity` (a **build literal** — not the database head) |
 | Production database head | **UNKNOWN** (Gate 3 establishes it) | not inferable from the above |
 | Reported user symptom | "BEYU OS could not load this view / Please try again…" after a sign-in that itself succeeds | reproduced 2026-10-12 against a 0074-state database: sign-in HTTP 200, first authenticated request HTTP 500, server log `column role_assignments.global_scope does not exist`, SQLSTATE 42703 |
@@ -121,19 +121,27 @@ Requires the Gate 3 artifact plus the release packet (§5). The approver is the 
 ### Gate 5 — Governed database release (mutating)
 
 ```
-gh workflow run db-release.yml -f mode=deploy
+gh workflow run db-release.yml --ref main -f mode=deploy
 ```
 
 Only this path may change the production database. It runs in `environment: Production` (approval protection, if configured) with concurrency `db-release-production-deploy`, and executes in order: secrets guard → `npm run migrate` (per-migration transaction, advisory lock, checksummed ledger) → runtime-role provisioning → governed-mutation-role provisioning → verification. **Never** apply SQL by hand; never bypass the guard; never mark the job optional.
 
+**Dispatch the release from the authorised commit.** `gh workflow run` (and the web UI) otherwise defaults to the repository's default branch, and the deploy job's `actions/checkout` checks out **the ref the dispatch names** — so a dispatch from a scratch branch would apply *that branch's* migrations to production. State the ref explicitly and verify the run's `head_sha` before approving. The migration this release needs, `0075_noelia_authority_execution_hardening`, is already present on `main` (journal: 76 entries, head `0075`), so the database recovery does **not** depend on merging PR #106.
+
 ### Gate 6 — Post-release verification (read-only)
 
 ```
+npm ci                                                          # once, in a repo clone
 npx tsx scripts/verify-production-recovery.mts --base-url https://beyu.co.tz
-npx tsx scripts/verify-production-recovery.mts --list          # show the plan without any request
+npx tsx scripts/verify-production-recovery.mts --list           # show the plan without any request
+npx tsx scripts/verify-production-recovery.mts --base-url https://beyu.co.tz --expect-sha <expected-git-sha>
 ```
 
 The script is GET-only and dependency-free. It checks: `/api/health` (DB UP) · `/api/health/identity` (release tuple; note the migration field is a **build literal**) · `/api/health/schema` (`CURRENT` + expected migration, or BLOCKED if the deployed build predates the endpoint) · the nine canonical host entries · anonymous deep links (`/os`, `/os/finance`, `/os/health`, `/os/foundation`, `/os/noelia` must redirect or deny, never serve) · a failure-signature scan of every body (`could not load this view`, `42703`, `global_scope does not exist`).
+
+**Read the exit code, not just the summary.** `0` = every check passed and none was BLOCKED · `2` = at least one FAIL (production is **not** recovered) · `3` = no FAIL but at least one BLOCKED, i.e. the run does **not** establish recovery — an unreachable endpoint or a deployed build that predates `/api/health/schema` must never be recorded as a pass. `--list` performs no request and exits 0. A run that exits 3 is a prompt to resolve or explicitly record the blocker, never a green gate.
+
+Note: `.mts` scripts are outside the repository's `tsconfig.json` include set, so `npm run typecheck` does not cover this file; the equivalent check is `npx tsc --noEmit --strict --target es2022 --module esnext --moduleResolution bundler --lib esnext,dom --skipLibCheck scripts/verify-production-recovery.mts`.
 
 **NOT RUN by the script — separate authorisation required:**
 
@@ -228,7 +236,8 @@ Recorded here so the post-billing run does not repeat it needlessly. All ran aga
 | Schema drift (migrations ↔ `src/db/schema`) | `npx tsx scripts/migration/schema-drift.ts` | **PASS** |
 | Typecheck / lint / build | `npm run typecheck` · `npm run lint` · `npm run build` | **PASS** (lint: 0 errors, 1 pre-existing warning) |
 | Workflow YAML validity | parse all five workflows | **PASS** — 5/5 parse; all triggered only as designed |
-| Verification script | `npx tsx scripts/verify-production-recovery.mts --base-url http://127.0.0.1:3100` | **PASS** — 9 checks green against a local server |
+| Verification script | `npx tsx scripts/verify-production-recovery.mts --base-url http://127.0.0.1:3100` | **PASS** — 9 checks green against a local server, exit 0 |
+| Verifier behaviour audit (independent stub with planted responses) | same script, four scenarios | **PASS** — healthy surface → 9 PASS / exit 0 · simulated unrecovered surface → 10 FAIL / exit 2 (caught the load-failure screen, a protected-data marker, a `BEHIND` schema and a 200 anonymous deep link) · unreachable endpoint (closed port, unresolvable host) → 9 BLOCKED / exit 3 · `--list` → exit 0 with no request issued. Every request the stub recorded (45, across the pre- and post-fix runs) was a **GET**, and **not one carried a cookie, token or credential header**. |
 | Full local suite | `npm test` | **332 files passed · 6 skipped · 7 failed (345)** — 5,604 tests passed, 29 skipped, 31 todo. Every failure was the missing variable below: all seven files are `tests/migration/*-upgrade.test.ts` (the complete set of that family), and a re-run with the variable exported passes **7/7** |
 
 CI (`ci.yml`, `db-release.yml`) at the same commit: **BLOCKED — zero steps executed.** No CI result may be inferred from these local runs.
