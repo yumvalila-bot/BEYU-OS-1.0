@@ -23,6 +23,7 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 
@@ -82,6 +83,55 @@ function getRepository() {
   return getEnv("VERCEL_GIT_REPO_SLUG") || getEnv("GITHUB_REPOSITORY") || getEnv("BEYU_REPOSITORY") || "yumvalila-bot/BEYU-OS-1.0";
 }
 
+/**
+ * The migration this artifact expects — read from the canonical migration
+ * register (`drizzle/meta/_journal.json`), not from a hand-maintained literal
+ * and not from an environment variable that no workflow, Vercel project or
+ * documented procedure sets.
+ *
+ * WHY
+ *   The previous implementation defaulted `latestMigration` to a frozen tag
+ *   (`0047_release_approvals`) that stopped being the head of the migration
+ *   sequence 28 migrations ago, and nothing in the deployment overrides it.
+ *   That published a FALSE expected-migration fact on the identity surface the
+ *   release pipeline reads, and it is why no probe could tell a database that
+ *   was missing a required migration apart from a healthy one (see
+ *   src/lib/health/schema-state.ts). Deriving the value from the register makes
+ *   it true by construction: it is the last entry of the same file the
+ *   migration-integrity gate reconciles every applied `.sql` against, and it
+ *   carries the same `<sequence>_<name>` ordering the runner applies in
+ *   (`scripts/migrate.ts` sorts `drizzle/<sequence>_*.sql`).
+ *
+ *   The explicit environment override is retained for the case it was designed
+ *   for — pinning an expectation during a governed release. With no register
+ *   and no override the answer is null, which the schema probe reports as
+ *   UNKNOWN, never as CURRENT.
+ */
+function getLatestMigration() {
+  const override = getEnv("BEYU_LATEST_MIGRATION");
+  if (override) return override;
+  try {
+    const journalPath = join(ROOT, "drizzle", "meta", "_journal.json");
+    return latestMigrationFromJournal(JSON.parse(readFileSync(journalPath, "utf8")));
+  } catch {
+    // No readable journal (unusual build tree): an honest null beats a stale
+    // literal, because null is reported as UNKNOWN and never as CURRENT.
+    return null;
+  }
+}
+
+/** Ordered count of canonical migrations in the same register. */
+function getMigrationCount() {
+  const override = getEnv("BEYU_MIGRATION_COUNT");
+  if (override && /^\d+$/.test(override)) return Number.parseInt(override, 10);
+  try {
+    const journalPath = join(ROOT, "drizzle", "meta", "_journal.json");
+    return migrationCountFromJournal(JSON.parse(readFileSync(journalPath, "utf8")));
+  } catch {
+    return null;
+  }
+}
+
 function getReleaseTimestamp() {
   const envTs = getEnv("BEYU_RELEASE_TIMESTAMP") || getEnv("VERCEL_GIT_COMMIT_DATE") || getEnv("BUILD_TIMESTAMP");
   if (envTs) {
@@ -98,6 +148,23 @@ function getReleaseTimestamp() {
 function generateReleaseId(gitSha, buildId, timestamp) {
   const hash = createHash("sha256").update(`${gitSha}:${buildId}:${timestamp}`).digest("hex").slice(0, 12);
   return `REL_${gitSha.slice(0, 8)}_${hash}`;
+}
+
+/**
+ * Last tag in a parsed `drizzle/meta/_journal.json`. PURE and exported: the
+ * regression suite drives this directly, so the derivation is tested by
+ * behaviour rather than by matching source text.
+ */
+export function latestMigrationFromJournal(journal) {
+  const entries = Array.isArray(journal?.entries) ? journal.entries : [];
+  const last = entries[entries.length - 1];
+  return typeof last?.tag === "string" && last.tag.trim() !== "" ? last.tag.trim() : null;
+}
+
+/** Ordered entry count of a parsed journal. PURE and exported (see above). */
+export function migrationCountFromJournal(journal) {
+  const entries = Array.isArray(journal?.entries) ? journal.entries : [];
+  return entries.length > 0 ? entries.length : null;
 }
 
 function main() {
@@ -120,7 +187,8 @@ function main() {
     runtimeVersion: "BEYU-OS/1.0.0",
     schemaVersion: getEnv("BEYU_SCHEMA_FINGERPRINT") || null,
     migrationFingerprint: getEnv("BEYU_MIGRATION_FINGERPRINT") || null,
-    latestMigration: getEnv("BEYU_LATEST_MIGRATION") || "0047_release_approvals",
+    latestMigration: getLatestMigration(),
+    migrationCount: getMigrationCount(),
     releaseTimestamp,
   };
 
@@ -163,4 +231,9 @@ function main() {
   console.log("Build identity capture complete (non-secret tuple)");
 }
 
-main();
+// Execute only when run as a script. The pure journal parsers below are
+// exported so the regression suite can exercise the derivation itself instead
+// of grepping this file.
+const invokedDirectly =
+  typeof process.argv[1] === "string" && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (invokedDirectly) main();

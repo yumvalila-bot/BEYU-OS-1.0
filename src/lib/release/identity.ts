@@ -37,6 +37,8 @@ interface GeneratedIdentity {
   releaseTimestamp?: string;
   migrationFingerprint?: string | null;
   latestMigration?: string | null;
+  /** Ordered journal entry count captured at build time (see scripts/build-identity.mjs). */
+  migrationCount?: number | null;
   schemaFingerprint?: string | null;
 }
 
