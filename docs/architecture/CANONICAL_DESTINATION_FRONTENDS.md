@@ -4,7 +4,8 @@ Status: **READ-ONLY REALITY AUDIT COMPLETE → IMPLEMENTED IN THE REPOSITORY** �
 **VERCEL DOMAINS + DNS: HUMAN-CONTROLLED, UNCHANGED** ·
 baseline `main` = `2bcff13badb26fdd2d71178040c8e85e3c0448ed` (PR #101) ·
 companion document: `SECTOR_OS_SUBDOMAINS.md` (host resolution, session scope,
-proxy contract) · updated 2026-10-08
+proxy contract) · unified login + host-aware routing: §7–§8, PR #105 (open,
+unmerged) · updated 2026-10-12
 
 This document answers one question the previous canonical-host work left open:
 
@@ -406,3 +407,53 @@ strip and the navy footer.
   2.16:1 on the pale login background and is not used for small text there;
   `--beyu-gold-ink` (`#8A6A12`, 4.60:1) carries small gold text on light
   surfaces. Graphics, rules, icons and on-navy text keep `#D4A017`.
+
+---
+
+## 8. Unified login + host-aware routing — implementation status (2026-10-12)
+
+All EIGHT canonical hosts now serve **one** login implementation, and the hostname
+selects the requested *experience* only.
+
+| Concern | Status | Evidence |
+| --- | --- | --- |
+| One canonical login page on every host | IMPLEMENTED AND VERIFIED | `src/app/page.tsx`, `src/app/sign-in/page.tsx` (same module), `login-surface.tsx`, `sign-in-form.tsx`; live render asserted for all eight hosts |
+| Design preservation (reference image) | IMPLEMENTED AND VERIFIED | `BEYU LOGIN PAGE .png`; §7 above; `tests/sector-domains/login-surface-reference.test.ts` |
+| Host → destination contract | IMPLEMENTED AND VERIFIED | `src/lib/host-routing.ts` (`HOST_DESTINATION_IDENTIFIERS`, `HOST_DESTINATION_LABELS`, `hostDestinationMap`), derived from `operating-system-catalog.ts` |
+| Server-side resolver (fail-closed) | IMPLEMENTED AND VERIFIED | `resolveHostDestination()` → `resolved` / `unknown_host` / `invalid_host`; §12 of `SECTOR_OS_SUBDOMAINS.md` |
+| Single source of truth | IMPLEMENTED AND VERIFIED | Delegates to `resolveCanonicalHost` + the ONE normaliser; no host table in any surface (asserted) |
+| Trusted-proxy handling | IMPLEMENTED AND VERIFIED | `Host` only; `X-Forwarded-Host`/`Forwarded`/… ignored; spoofing asserted against the running server |
+| Development / preview separation | IMPLEMENTED AND VERIFIED | `allowLocalhost` outside production; preview and unknown hosts select NO destination |
+| Destination state through login | IMPLEMENTED AND VERIFIED | Requested destination resolved server-side per request; post-auth route is the server-computed `landing`, validated as a single-leading-slash relative path |
+| Independent authorization | PRESERVED (unchanged) | OS/control-plane/Foundation/Health/surface gates re-run per request; a hostname grants nothing |
+| Session, MFA, CSRF, rate limits, audit, RLS | PRESERVED (unchanged) | Pre-existing suites green (§TESTS of PR #105) |
+| Routes for all eight destinations | IMPLEMENTED AND VERIFIED | Route-existence test over `destinationRoute()`; `/os/health` shares the ONE Health mount with `/health/os` |
+
+### 8.1 Destination status report
+
+| Host | Identifier | Internal route (verified) | Route exists | Authorization enforcement | Status |
+| --- | --- | --- | --- | --- | --- |
+| `beyu.co.tz` (+`www`) | `HOME` | `/os` — sign-in at `/` | yes (`src/app/os/page.tsx`) | `checkBeyuOSAuthorization` (`os/layout.tsx`) | IMPLEMENTED_AND_VERIFIED |
+| `health.beyu.co.tz` | `HEALTH_OS` | `/os/health` (+ `/health`, `/health/os`) | yes (`os/health/route.ts` → shared mount) | `checkHealthOSAuthorization` (`os/health/mount.ts`) | IMPLEMENTED_AND_VERIFIED |
+| `finance.beyu.co.tz` | `FINANCE_OS` | `/os/finance` | yes | `requestIsOnForeignOSHost` + `governedTenantInScope` (`os/finance/layout.tsx`) | IMPLEMENTED_AND_VERIFIED |
+| `agriculture.beyu.co.tz` | `AGRICULTURE_OS` | `/os/agriculture` | yes | same guard (`os/agriculture/layout.tsx`) | IMPLEMENTED_AND_VERIFIED |
+| `ujenzi.beyu.co.tz` | `UJENZI_OS` | `/os/ujenzi` | yes | same guard (`os/ujenzi/layout.tsx`) | IMPLEMENTED_AND_VERIFIED |
+| `foundation.beyu.co.tz` | `FOUNDATION` | `/os/foundation` | yes | `requestIsOnForeignCanonicalHost("FOUNDATION")` (`os/foundation/layout.tsx`) | IMPLEMENTED_AND_VERIFIED |
+| `familyoffice.beyu.co.tz` | `FAMILY_OFFICE` | `/os/family` | yes | declared shared-capability guard (catalogue `entryPermission`) | IMPLEMENTED_AND_VERIFIED |
+| `noelia.beyu.co.tz` | `NOELIA_AI` | `/os/noelia` | yes | declared shared-surface guard (catalogue `entryPermission`) | IMPLEMENTED_AND_VERIFIED |
+
+`ROUTE_MISSING`, `AUTHORIZATION_GAP` and `HOST_CONFIGURATION_UNVERIFIED` did not
+occur for any destination: every route exists on disk and every destination keeps
+its pre-existing server-side gate. **Public DNS resolution, TLS termination and
+domain attachment remain human-controlled deployment operations and were NOT
+verified or changed here** — a 200 from this sandbox says nothing about
+`https://health.beyu.co.tz` reachability in production.
+
+### 8.2 Evidence
+
+* `tests/sector-domains/unified-host-routing.test.ts` — the contract, normalization,
+  fail-closed resolution, no-drift, route existence and the live host/spoofing
+  assertions (18 tests).
+* `tests/sector-domains/{canonical-host-contract,canonical-host-http,canonical-host-security,destination-signin-http,destination-frontends}.test.ts`
+  — the pre-existing host, entry-point, session and frontend contracts.
+* PR #105 (open, unmerged): executed commands and their results are recorded there.

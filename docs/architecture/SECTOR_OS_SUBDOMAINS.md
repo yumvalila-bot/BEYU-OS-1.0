@@ -3,7 +3,8 @@
 Status: **IMPLEMENTED IN THE REPOSITORY (routing, security, session, tests, docs)** ·
 **VERCEL DOMAINS + DNS: HUMAN-CONTROLLED, NOT DONE** · **HTTPS: PENDING DOMAIN
 ATTACHMENT** · baseline `main` = `d6848e7308ccef87a904c151a2928013959ad111`
-(PR #100) · updated 2026-10-08
+(PR #100) · typed host→destination contract + unified login: §12, PR #105 (open,
+unmerged) · updated 2026-10-12
 
 > **THIS DOCUMENT OWNS HOST RESOLUTION, SESSION SCOPE AND THE PROXY CONTRACT.**
 > The user-facing FRONTEND and SIGN-IN each canonical host renders — including
@@ -351,3 +352,91 @@ canonical host by `tests/sector-domains/canonical-host-http.test.ts`.
 
 This is recorded as a defect of the previous subdomain change (PR #100), found because the
 entry-point audit asserts the POSITIVE result rather than the absence of a redirect.
+
+---
+
+## 12. The typed host → destination contract and its resolver (2026-10-12)
+
+`src/lib/host-routing.ts` is the **typed statement** of the contract this document
+describes, and the **server-side resolver** that returns it. It adds NO second
+registry: the hostnames come from `operating-system-catalog.ts` (`subdomain`), the
+apex from `BEYU_CANONICAL_DOMAIN`, and every resolution is delegated to the
+pre-existing pure contract (`canonical-hosts.ts` → `resolveCanonicalHost`) and the
+ONE normaliser (`tenant-domain/hostname.ts`).
+
+### 12.1 Destination identifiers
+
+| Host | Destination identifier | Internal route | Class |
+| --- | --- | --- | --- |
+| `beyu.co.tz` (+ explicit `www.` root alias) | `HOME` | `/os` (sign-in at `/`) | control plane |
+| `health.beyu.co.tz` | `HEALTH_OS` | `/os/health` | Sector OS |
+| `finance.beyu.co.tz` | `FINANCE_OS` | `/os/finance` | Sector OS |
+| `agriculture.beyu.co.tz` | `AGRICULTURE_OS` | `/os/agriculture` | Sector OS |
+| `ujenzi.beyu.co.tz` | `UJENZI_OS` | `/os/ujenzi` | Sector OS |
+| `foundation.beyu.co.tz` | `FOUNDATION` | `/os/foundation` | nonprofit sister organization |
+| `familyoffice.beyu.co.tz` | `FAMILY_OFFICE` | `/os/family` | shared capability |
+| `noelia.beyu.co.tz` | `NOELIA_AI` | `/os/noelia` | governed AI interface |
+
+Exactly FOUR identifiers end in `_OS`. There is no `FOUNDATION_OS`, no
+`FAMILY_OFFICE_OS`, and no fifth Sector OS anywhere in the contract.
+
+### 12.2 The resolver result — fail closed, three outcomes
+
+```
+resolveHostDestination(rawHost, { canonicalDomain, allowLocalhost })
+  → { status: "resolved", hostname, destination, base, route }   // the ONLY outcome with a destination
+  → { status: "unknown_host", hostname, reason }                 // well formed, not allowlisted
+  → { status: "invalid_host", reason }                           // malformed / absent / IP literal
+```
+
+`unknown_host` reasons: `NO_CANONICAL_DOMAIN`, `LOCAL_SCOPE`, `UNKNOWN_LABEL`,
+`TENANT_HOSTNAME`, `OUTSIDE_CANONICAL_APEX`. **No unknown or invalid host ever
+falls back to a destination** — not to `HOME`, not to any other privileged
+experience. They keep the pre-existing NEUTRAL behaviour (the BEYU control-plane
+entry, every check in force), which is the safe direction.
+
+Normalization is the ONE existing normaliser: case-insensitive, one numeric port
+stripped, one trailing root dot stripped. Schemes, paths, userinfo, wildcards,
+underscores, non-ASCII, spaces/control characters, over-long labels, double root
+dots and IP literals are **rejected**, never "cleaned up" into something else.
+
+### 12.3 Trusted boundary: `Host` only — forwarded headers are ignored
+
+The resolver is fed the `Host` the trusted server boundary actually received
+(`headers().get("host")`). It never reads `X-Forwarded-Host`, `Forwarded`,
+`X-Original-Host`, `X-Forwarded-Server` or `X-Host`, and it never accepts a
+destination, tenant or authority from the client. Those headers are **ignored by
+design**: a spoofed value cannot change the resolved destination (asserted against
+the running server in `tests/sector-domains/unified-host-routing.test.ts` §E). No
+custom proxy-trust mechanism was added, and no existing deployment protection was
+weakened.
+
+### 12.4 Development and preview policy
+
+`allowLocalhost` is true only when `NODE_ENV !== "production"`; in that mode
+`<label>.localhost` resolves to its destination (and plain `localhost` is the
+local execution host, never a canonical `HOME`). In production the local base is
+absent. Preview, platform-default and unknown hostnames are never destinations —
+they serve the control-plane entry with no destination context, so a preview host
+cannot impersonate a production destination or bypass authentication and
+authorization.
+
+### 12.5 The internal route registry
+
+`destinationRoute(identifier)` returns the catalogue `href` — never a value built
+from input. `tests/sector-domains/unified-host-routing.test.ts` §D verifies, for
+all eight identifiers, that the route exists **on disk** (`page.tsx`, or the
+Health route handler), so removing an implemented route fails a test instead of
+silently 404-ing a destination. `/os/health` and `/health/os` import the SAME
+mount (`src/app/os/health/mount.ts`), so the canonical route and its alias cannot
+diverge; the canonical route adds no authorization logic of its own.
+
+### 12.6 What the resolver is not
+
+It returns no principal, tenant, entity, country, classification, role, permission
+or policy — the type carries no such field and none may be added. Authorization
+stays exactly where it was: `checkBeyuOSAuthorization` / `authorizedGovernedDestinations`
+for the control plane and Sector OSs, the Health federation mount for
+`HEALTH_OS`, the Foundation organization resolver for `FOUNDATION`, and the
+declared guards for `FAMILY_OFFICE` and `NOELIA_AI` — re-evaluated server-side on
+every request, whatever the hostname said.
