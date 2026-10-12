@@ -32,6 +32,7 @@ import {
   SCHEMA_STATES,
   classifySchemaState,
   expectedMigrationOfRunningArtifact,
+  latestJournalTag,
   migrationSequence,
 } from "@/lib/health/schema-state";
 
@@ -151,11 +152,17 @@ describe("the artifact's expectation is derived, not asserted", () => {
     expect(read("scripts/migrate.ts")).toMatch(/\^\\d\+_/);
   });
 
-  it("the expectation is what the identity module reports, when it reports one", () => {
-    // Never asserted as a specific tag: the accessor is faithful to the build
-    // identity, and a missing identity is honestly null (→ UNKNOWN).
-    const value = expectedMigrationOfRunningArtifact();
-    expect(value === null || typeof value === "string").toBe(true);
+  it("the compiled register carries the head of the migration sequence", () => {
+    const journal = JSON.parse(read("drizzle/meta/_journal.json")) as { entries: Array<{ tag: string }> };
+    const lastTag = journal.entries[journal.entries.length - 1]!.tag;
+    // The bundle imports the tracked register, so the expectation survives a
+    // runtime that cannot read a build artifact.
+    expect(latestJournalTag()).toBe(lastTag);
+    // And the accessor reports a real expectation, never null, in this build.
+    expect(expectedMigrationOfRunningArtifact()).toBe(lastTag);
+    expect(migrationSequence(expectedMigrationOfRunningArtifact())).toBe(
+      Math.max(...journal.entries.map((entry) => migrationSequence(entry.tag) ?? -1)),
+    );
   });
 });
 

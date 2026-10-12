@@ -56,6 +56,16 @@
 import type { PoolClient } from "pg";
 import { pool } from "@/db";
 import { getCurrentReleaseIdentity } from "@/lib/release/identity";
+/**
+ * The canonical migration register, COMPILED INTO this artifact.
+ *
+ * A static JSON import is a module dependency, so the bundler is required to
+ * ship it: unlike a runtime `fs` read of a build artifact, this cannot be
+ * missing, untraced or stale relative to the code that is running. It is the
+ * same file the migrations themselves come from, so it is the truth about what
+ * this artifact expects without a second registry.
+ */
+import journal from "../../../drizzle/meta/_journal.json";
 
 /** The closed vocabulary of schema states. Nothing else may leave this module. */
 export const SCHEMA_STATES = ["CURRENT", "BEHIND", "AHEAD", "UNKNOWN"] as const;
@@ -159,22 +169,36 @@ export async function probeSchemaState(): Promise<SchemaAssessment> {
   }
 }
 
+/** Last `<sequence>_<name>` tag in the register compiled into this artifact. */
+export function latestJournalTag(): string | null {
+  const entries = Array.isArray(journal?.entries) ? journal.entries : [];
+  const last = entries[entries.length - 1] as { tag?: unknown } | undefined;
+  return typeof last?.tag === "string" && last.tag.trim() !== "" ? last.tag.trim() : null;
+}
+
 /**
  * The migration the RUNNING ARTIFACT expects.
  *
- * Taken from the build-time release identity, which `scripts/build-identity.mjs`
- * derives from the last entry of `drizzle/meta/_journal.json` — the canonical
- * migration register, ordered by the same `<sequence>_<name>` sequence the
- * runner applies and every integrity check reconciles against. There is no
- * second registry: this is the existing identity, read, not a new source of
- * truth. When the artifact was built without that information the value is null
- * and the classification is honestly `UNKNOWN` (see src/lib/release/identity.ts).
+ * `scripts/build-identity.mjs` derives `latestMigration` from the last entry of
+ * `drizzle/meta/_journal.json` at build time, and the release pipeline compares
+ * the artifact's declared expectation with the live database (PVG). That value
+ * is authoritative when present, because a governed release may pin it through
+ * the documented override.
+ *
+ * When the identity does not carry one — a build tree without the generated
+ * identity, an untraced build artifact at runtime — the register COMPILED INTO
+ * this bundle answers instead. It is the same file, from the same build, so it
+ * is not a second source of truth; it is the same truth, reached without
+ * depending on a runtime file read. Null (⇒ `UNKNOWN`, never `CURRENT`) now
+ * requires BOTH sources to be absent, which cannot happen for a bundle that
+ * built successfully.
  */
 export function expectedMigrationOfRunningArtifact(): string | null {
   try {
     const value = getCurrentReleaseIdentity().latestMigration;
-    return typeof value === "string" && value.length > 0 ? value : null;
+    if (typeof value === "string" && value.length > 0) return value;
   } catch {
-    return null;
+    // Fall through to the compiled register.
   }
+  return latestJournalTag();
 }
