@@ -1,0 +1,317 @@
+name: BEYU Security Gates
+
+# Canonical, ENFORCED security gate for BEYU OS / BEYU Health OS.
+# Supersedes docs/ci/ci.yml (same pipeline, now discoverable by GitHub Actions).
+#
+# Design invariants (do not weaken):
+#  * The root BEYU OS kernel test suite needs a REAL PostgreSQL instance — a
+#    service container is provisioned, NOT mocked, so tenant-isolation and
+#    transaction suites prove real guarantees.
+#  * The Health OS backend suites (RLS / IDOR / endpoint matrix / MFA / consent /
+#    clinical-safety) use PGlite (real embedded Postgres) and need no service.
+#  * Anything that requires an external, non-provisioned system (live HCM /
+#    Governance / Finance / Tax / Noelia / Redis / production DB) is reported as
+#    EXTERNAL_BLOCKED, never silently passed.
+#  * The endpoint-security matrix must FAIL when an implementable GAP exists.
+#  * The audit job FAILS on any high/critical PRODUCTION vulnerability — this is
+#    the remediation gate and turns red until the dependency upgrade lands.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # ROOT BEYU OS KERNEL — constitutional control plane. Requires a real DB.
+  # --------------------------------------------------------------------------
+  root-quality-gate:
+    name: Root BEYU OS — Typecheck · Lint · Migrate · Build · Tests · Secrets
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyu_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Credential separation — load-bearing, not cosmetic. CI-only literals,
+      # never printed. See docs/ci/ci.yml for the full rationale.
+      DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+      BEYU_RUNTIME_DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+      BEYU_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
+      BEYU_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
+      BEYU_RUNTIME_DB_PASSWORD: ci_runtime_db_password_not_a_secret
+      BEYU_BOOTSTRAP_PASSWORD: ci_bootstrap_password_not_a_secret
+      AUTH_SECRET: ci_auth_secret_value_used_only_in_continuous_integration
+      MFA_ENCRYPTION_KEY: ci_mfa_encryption_key_used_only_in_integration
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Apply versioned migrations
+        # scripts/migrate.ts is the only migration runner; drizzle-kit push is
+        # never used against a managed database.
+        run: npm run migrate
+
+      - name: Verify no migration drift
+        run: |
+          set -euo pipefail
+          before=$(ls drizzle/*.sql | wc -l)
+          npx drizzle-kit generate --name=ci_drift_check
+          after=$(ls drizzle/*.sql | wc -l)
+          if [ "$before" != "$after" ]; then
+            echo "::error::Migration drift detected — drizzle-kit generated a new migration."
+            git --no-pager diff --stat
+            exit 1
+          fi
+          echo "No migration drift."
+
+      # MANDATORY and must run BEFORE the tests. Without it the runtime role does
+      # not exist and the security suites silently verify the WRONG ROLE.
+      - name: Provision non-superuser runtime role
+        run: npx tsx scripts/setup-db-role.ts
+
+      - name: Assert the runtime role is genuinely constrained
+        run: |
+          set -euo pipefail
+          psql "$BEYU_ADMIN_DATABASE_URL" -Atqc \
+            "select rolsuper||'|'||rolbypassrls||'|'||rolcreaterole||'|'||rolcreatedb
+               from pg_roles where rolname='beyu_runtime'" \
+            | grep -qx 'f|f|f|f' \
+            || { echo "::error::runtime role is not NOSUPERUSER/NOBYPASSRLS/NOCREATEROLE/NOCREATEDB"; exit 1; }
+          echo "Runtime role attributes verified: NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB."
+
+      - name: Seed bootstrap data
+        run: npm run seed
+
+      - name: Production build
+        run: npm run build
+
+      # Deployment-platform build parity: production builds WITHOUT runtime
+      # secrets. Fails if any module regresses to requiring secrets at build time.
+      - name: Production build without runtime secrets (deployment parity)
+        env:
+          DATABASE_URL: ""
+          BEYU_RUNTIME_DATABASE_URL: ""
+          BEYU_ADMIN_DATABASE_URL: ""
+          BEYU_TEST_DATABASE_URL: ""
+          AUTH_SECRET: ""
+          MFA_ENCRYPTION_KEY: ""
+          BEYU_BOOTSTRAP_PASSWORD: ""
+        run: |
+          set -euo pipefail
+          mv .env /tmp/beyu-ci-env-backup 2>/dev/null || true
+          trap 'mv /tmp/beyu-ci-env-backup .env 2>/dev/null || true' EXIT
+          npm run build
+          echo "Build succeeds without runtime secrets."
+
+      - name: Start application for end-to-end tests
+        run: |
+          npx next start -H 127.0.0.1 -p 3100 &
+          echo $! > /tmp/beyu-server.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3100/api/health >/dev/null; then
+              echo "server ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::application did not become ready"; exit 1
+
+      - name: Assert the server reports its database UP
+        run: |
+          set -euo pipefail
+          body=$(curl -s http://127.0.0.1:3100/api/health)
+          echo "$body" | grep -q '"database":"UP"' \
+            || { echo "::error::/api/health did not report database UP: $body"; exit 1; }
+          echo "Health: $body"
+
+      - name: Tests
+        env:
+          BEYU_TEST_BASE_URL: http://127.0.0.1:3100
+        run: npm test
+
+      - name: Stop application
+        if: always()
+        run: kill "$(cat /tmp/beyu-server.pid)" 2>/dev/null || true
+
+      - name: Credential literal scan
+        run: |
+          set -euo pipefail
+          if grep -rIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               -E "BeyuOS#|password\s*=\s*[\"'][^\"']{8,}" src/ scripts/ tests/; then
+            echo "::error::Possible credential literal committed."
+            exit 1
+          fi
+          echo "No credential literals found."
+
+      - name: Committed-secret filename scan
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -qE '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'; then
+            echo "::error::A credential-bearing file is tracked by git."
+            git ls-files | grep -E '(^|/)\.env(\.|$)|\.pem$|\.key$|id_rsa'
+            exit 1
+          fi
+          echo "No credential files tracked."
+
+  # --------------------------------------------------------------------------
+  # HEALTH OS BACKEND — the canonically-green sector. Hard security matrices.
+  # PGlite-backed; no external service needed. These FAIL on real regressions.
+  # --------------------------------------------------------------------------
+  health-backend-security:
+    name: Health OS Backend — Typecheck · Matrices (RLS/IDOR/MFA/Endpoint) · Tests
+    runs-on: ubuntu-latest
+    env:
+      # Tests use in-memory PGlite and the test-only HCM bypass (which is inert
+      # whenever a real BEYU_HCM_ENDPOINT is configured). No live externals.
+      BEYU_HCM_BYPASS_FOR_TEST: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sectors/health/backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: sectors/health/backend
+        run: npm ci
+
+      - name: Backend typecheck
+        working-directory: sectors/health/backend
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Endpoint security matrix (CI-fail on any implementable GAP)
+        working-directory: sectors/health/backend
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js endpoint-tier-matrix
+
+      - name: IDOR / authorization matrix (20-axis, live schema)
+        working-directory: sectors/health/backend
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js idor
+
+      - name: RLS adversarial matrices (non-owner fail-closed probes)
+        working-directory: sectors/health/backend
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js rls
+
+      - name: MFA + session security suite
+        working-directory: sectors/health/backend
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js mfa
+
+      - name: Migration suites (apply, idempotence, roundtrip, 018)
+        working-directory: sectors/health/backend
+        run: node --experimental-vm-modules ./node_modules/jest/bin/jest.js src/database
+
+      - name: Backend full test suite
+        working-directory: sectors/health/backend
+        run: npm test
+
+      - name: Backend production build
+        working-directory: sectors/health/backend
+        run: npm run build
+
+  # --------------------------------------------------------------------------
+  # HEALTH OS FRONTEND
+  # --------------------------------------------------------------------------
+  health-frontend:
+    name: Health OS Frontend — Typecheck · Build · Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sectors/health/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: sectors/health
+        run: npm ci
+
+      - name: Frontend typecheck
+        working-directory: sectors/health
+        run: npm run typecheck
+
+      - name: Frontend tests
+        working-directory: sectors/health
+        run: npm test
+
+      - name: Frontend production build
+        working-directory: sectors/health
+        run: npm run build
+
+  # --------------------------------------------------------------------------
+  # DEPENDENCY AUDIT — the remediation gate.
+  # FAILS on any high/critical PRODUCTION vulnerability (drives Problem 2).
+  # Distinguishes ENGINEERING PASS from EXTERNAL/critical policy states.
+  # --------------------------------------------------------------------------
+  dependency-audit:
+    name: Dependency Audit — npm audit (prod high/critical gate)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sectors/health/backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: sectors/health/backend
+        run: npm ci
+
+      - name: Production dependency audit (full report)
+        working-directory: sectors/health/backend
+        run: npm audit --omit=dev || true
+
+      - name: Production dependency audit (critical — hard gate)
+        working-directory: sectors/health/backend
+        # A critical vulnerability in shipped runtime code must fail the pipeline.
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Production dependency audit (high — hard gate)
+        working-directory: sectors/health/backend
+        # The known body-parser/Express and ws/GraphQL chains are high severity;
+        # this step turns red until the NestJS 12 / GraphQL 14 upgrade lands.
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report external-blocked surface honestly
+        run: |
+          echo "External, non-provisioned integrations remain EXTERNAL_BLOCKED:"
+          echo "  - Live HCM / Governance / Finance / Tax / Noelia OS"
+          echo "  - Redis transport, production Supabase PostgreSQL, Vercel runtime"
+          echo "These are not engineering failures and are never simulated as PASS."
