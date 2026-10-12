@@ -1,15 +1,21 @@
 # Screenshot evidence — BEYU OS destination experiences and role-aware UI
 
 Captured: 2026-10-12 · Branch: `arena/cc54151c-beyu-os-1-0`
-**Tested commit:** `bb137fc` (this branch; `main` baseline `9669640` + the two audit commits)
+**Tested commit (routine captures):** the branch working tree whose code was committed as `b5c4430`.
+`HEAD` at capture time was `bb137fc`; `b5c4430`, `128bea3` and `216f4f5` are **code-identical** — they add
+only documentation and this evidence (`git diff --stat b5c4430..216f4f5` = docs only). The four captures
+added later testify to two different builds explicitly (branch `216f4f5`, `main`/production `9669640`).
+**`inventory.json` is authoritative** for per-capture provenance: every entry carries
+`testedCommit`, `capturedAtUtc`, `viewport`, `role`, `scenario` and `runtime`.
 **Runtime captured:** the real production build (`npm run build`) of that commit, served by
-`next start` on `127.0.0.1:3100`, driven by a real headless Chromium.
+`next start` on `127.0.0.1:3100` (and `:3102`/`:3103` for the later reproductions), driven by a real
+headless Chromium.
 
 ## How the captures were produced
 
 | Fact | Value |
 | --- | --- |
-| Harness | `playwright-core` (repo dependency, used by `npm run test:browser`) + a Chromium binary; scripts are in this session's workspace, not in the repo |
+| Harness | `playwright-core` (repo dependency, used by `npm run test:browser`) + a Chromium binary. The scripts that produced the 41 routine captures are committed beside this evidence (`capture-all.mts`, `capture-signin-https.mts`, `tls-front.mjs`). The four later reproductions used an equivalent script pair (a capture script plus a parameterised TLS front door) that ran from the session workspace and is **not** part of the repository; their per-capture metadata is in `inventory.json` |
 | URLs | the real canonical hostnames (`http://beyu.co.tz:3100/…`, `https://beyu.co.tz:8443/…`) |
 | DNS | mapped to the sandbox loopback with Chromium's `--host-resolver-rules` (explicit per hostname — the wildcard form is ignored by this build). The Host header and the server-side host resolution are therefore genuinely exercised |
 | Sessions | the real `POST /api/v1/auth/login` (TOTP included), injected as the canonical `beyu_os_session` cookie. Scenarios 26–28 sign in through the real form in the browser |
@@ -17,7 +23,27 @@ Captured: 2026-10-12 · Branch: `arena/cc54151c-beyu-os-1-0`
 | Data | repository synthetic seed identities and seed data only, in the sandbox database. **No production credential, no production database, no real patient or financial record** |
 | Assertion per capture | HTTP status, page title, first visible text, and whether the string `could not load this view` (the reported failure screen) appears in the document |
 
-Result over all **41** captures: the error-boundary screen is **absent 41/41**.
+Result for the **41 routine captures**: the error-boundary screen is **absent in all 41**.
+The four captures added later (`29`–`32`, see the addendum) deliberately **show** that screen — they are
+the failure state itself, reproduced on both builds. Total in this directory: **45 captures**.
+
+## Addendum — the failure state reproduced (added 2026-10-12, same day)
+
+These four are the only captures in which the reported failure screen is **present by design**. They were
+produced by pointing the two production builds at a byte-faithful clone of the sandbox database set to
+journal `0074` (the state the db-release pipeline history attributes to production): the 0075 ledger row
+removed and `role_assignments.global_scope` dropped. Sign-in returns 200; the **first post-sign-in view
+returns 500** with `column role_assignments.global_scope does not exist` (SQLSTATE 42703, server digest
+`3627564076`). No production host, credential or database was involved; identity `cfo@beyu.os` (synthetic).
+
+| File | Build tested | What the screen shows |
+| --- | --- | --- |
+| `31-…-main-desktop.png` | `9669640` = **the commit production runs** | the reported symptom verbatim — "BEYU OS could not load this view / Please try again. Access remains subject to your existing permissions." — with **no reference** |
+| `32-…-main-mobile.png` | `9669640` | the same, mobile |
+| `29-…-branch-desktop.png` | `216f4f5` | the same failure with the truthful load-failure copy and **Reference 3627564076** (the digest that also appears in the server log beside the 42703 cause) |
+| `30-…-branch-mobile.png` | `216f4f5` | the same, mobile |
+
+Metadata per capture (including `referenceShown`) is in `inventory.json`.
 
 ## Inventory
 
