@@ -3,6 +3,7 @@ import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
+import { LoginCampusBand, LoginCard, LoginHero, LoginPillars, LoginShell, LoginTrustStrip } from "./login-surface";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
 import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
@@ -52,13 +53,29 @@ const BOOTSTRAP_IDENTITIES: BootstrapIdentity[] = [
   { email: "auditor@beyu.os", role: "Internal Auditor (read-only)" },
 ];
 
-const PILLARS = [
+/**
+ * What BEYU OS governs — the control plane's own substance, stated under the
+ * canonical brand pillars. (The five pillars themselves render from the ONE
+ * canonical definition in `login-surface.tsx`, so the brand statement cannot
+ * drift between the control plane and the destination surfaces.)
+ */
+const GOVERNANCE_FOUNDATIONS = [
   { title: "Trust", copy: "One constitution, one authority model, one audit truth." },
   { title: "Care", copy: "Family, workforce and beneficiary data held to the highest tier." },
   { title: "Integrity", copy: "Hash-chained audit; financial history is never overwritten." },
   { title: "Innovation", copy: "Noelia AI on the HIVE runtime — governed, never unbounded." },
   { title: "Impact", copy: "Capital, waterfall and foundation allocation, fully explainable." },
 ];
+
+/** The control plane's governed posture, stated as facts, not as claims. */
+const CONTROL_PLANE_FACTS = [
+  "ZERO TRUST",
+  "RBAC + ABAC",
+  "TENANT ISOLATION",
+  "HASH-CHAINED AUDIT",
+  "JURISDICTION AWARE",
+  "HUMAN ACCOUNTABILITY",
+] as const;
 
 /**
  * The canonical BEYU entry surface, on EVERY canonical host.
@@ -70,10 +87,10 @@ const PILLARS = [
  *     does not hold access;
  *   • the apex, `www` and every NEUTRAL host (preview, unconfigured apex,
  *     unknown subdomain, malformed Host, governed tenant hostname) render the
- *     pre-existing BEYU control-plane surface exactly as before — its copy,
- *     layout, smart routing and bootstrap-identity gate are untouched, and the
- *     only addition is the shared expired-session notice the destination
- *     surfaces also carry.
+ *     pre-existing BEYU control-plane surface — its copy, smart routing and
+ *     bootstrap-identity gate untouched — now presented in the canonical BEYU
+ *     login composition of the authoritative reference, with the shared
+ *     expired-session notice the destination surfaces also carry.
  *
  * `/sign-in` is the SAME implementation on the same hosts — see
  * `src/app/sign-in/page.tsx`. There is one sign-in, not eight.
@@ -182,65 +199,61 @@ export default async function SignInPage() {
   }
 
   return (
-    <main className="beyu-shell min-h-screen text-white">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
-        <section className="flex flex-col justify-center">
-          {/* Authoritative BEYU OS mark (control-plane identity). The
-              authoritative PNG carries a white studio matte, so on this dark
-              surface it is presented on a light plate — the standard raster
-              logo treatment; the asset itself is untouched. */}
-          <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2">
-            <BeyuOsLogo size={64} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
-          </span>
+    <LoginShell>
+      <LoginHero />
 
-          <div className="beyu-gold-rule my-8 max-w-xl" />
+      <div className="mt-9 grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:items-start lg:gap-x-12">
+        <section className="order-2 lg:order-1" aria-labelledby="beyu-controlplane-headline">
+          <div className="flex items-center gap-3">
+            {/* Authoritative BEYU OS mark (control-plane identity). The
+                authoritative PNG carries a white studio matte, so on this
+                surface it is presented on a light plate — the standard raster
+                logo treatment; the asset itself is untouched. */}
+            <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-[#0B1F4D]/10">
+              <BeyuOsLogo size={44} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+            </span>
+            <p className="beyu-kicker text-[#5b6b85]">BEYU OS · GLOBAL ENTERPRISE CONTROL PLANE</p>
+          </div>
 
-          <h1 className="max-w-2xl text-[34px] font-semibold leading-[1.15] tracking-tight lg:text-[42px]">
-            The constitutional control plane of the{" "}
-            <span className="text-[#d4af37]">BEYU ecosystem</span>.
+          <h1
+            id="beyu-controlplane-headline"
+            className="mt-4 max-w-2xl text-[24px] leading-[1.2] font-semibold tracking-tight text-[#0B1F4D] sm:text-[29px]"
+          >
+            The constitutional control plane of the <span className="beyu-gold-ink">BEYU ecosystem</span>.
           </h1>
-          <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-white/70">
+          <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-[#41527a]">
             BEYU OS governs identity, organisation, ownership, governance, risk, compliance, capital,
             workforce, data, audit and AI once — and only once. Health OS, Finance OS, Agriculture OS
             and Ujenzi OS are exactly the four Sector OSs beneath it. The separate nonprofit BEYU Foundation
             consumes shared capabilities through its own governed tenant and legal-entity scope.
           </p>
 
-          <div className="mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">
-            {PILLARS.map((p) => (
-              <div key={p.title} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                <div className="text-[12.5px] font-semibold text-[#d4af37]">{p.title}</div>
-                <div className="mt-1 text-[12px] leading-relaxed text-white/65">{p.copy}</div>
+          <LoginPillars
+            className="mt-8"
+            extra={
+              <div className="mt-6 rounded-2xl border border-[#0B1F4D]/10 bg-white/70 p-4">
+                <h3 className="beyu-kicker text-[#5b6b85]">Governance foundations</h3>
+                <dl className="mt-3 grid list-none gap-2 p-0 sm:grid-cols-2">
+                  {GOVERNANCE_FOUNDATIONS.map((foundation) => (
+                    <div key={foundation.title} className="text-[12px] leading-relaxed">
+                      <dt className="font-semibold text-[#0B1F4D]">{foundation.title}</dt>
+                      <dd className="text-[#5b6b85]">{foundation.copy}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
-            ))}
-          </div>
+            }
+          />
 
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-[10.5px] tracking-[0.16em] text-white/40">
-            <span>ZERO TRUST</span>
-            <span>RBAC + ABAC</span>
-            <span>TENANT ISOLATION</span>
-            <span>HASH-CHAINED AUDIT</span>
-            <span>JURISDICTION AWARE</span>
-            <span>HUMAN ACCOUNTABILITY</span>
-          </div>
+          <LoginTrustStrip items={CONTROL_PLANE_FACTS} />
         </section>
 
-        <section className="flex items-center justify-center">
-          <div className="w-full max-w-md rounded-2xl border border-white/12 bg-white/[0.06] p-7 backdrop-blur">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex w-fit items-center justify-center rounded-lg bg-white p-1">
-                <BeyuOsLogo size={30} ariaLabel="BEYU OS" />
-              </span>
-              <div>
-                <div className="text-[15px] font-semibold">Welcome</div>
-                <div className="text-[11.5px] text-white/60">
-                  {requestedContext
-                    ? `Sign in to ${requestedContext.name} — governed by BEYU OS`
-                    : "Sign in to the control plane"}
-                </div>
-              </div>
-            </div>
-            <div className="beyu-gold-rule my-5" />
+        <div className="order-1 lg:order-2">
+          <LoginCard
+            titleId="beyu-controlplane-signin-title"
+            signInSubtitle={"Sign in to the control plane"}
+            className="mt-0"
+          >
             {/*
               The bootstrap-identity hint is a provisioning convenience, not a
               feature of a live control plane. Publishing privileged account
@@ -257,20 +270,30 @@ export default async function SignInPage() {
               sessionExpired={sessionExpired}
               landing={requestedContext ? requestedContext.href : "/os"}
             />
-            <p className="mt-6 text-[10.5px] leading-relaxed text-white/45">
-              Access is least-privilege and fully audited. High-risk capabilities require step-up
-              authentication. Unauthorised access attempts are recorded in the immutable audit ledger.
-            </p>
-            <p className="mt-3 text-[10.5px] text-white/40">
-              First-time setup?{" "}
-              <a href="/enroll" className="text-[#d4af37] underline-offset-2 hover:underline">
-                Enroll the initial administrator
-              </a>
-              .
-            </p>
-          </div>
-        </section>
+          </LoginCard>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-[#5b6b85]">
+            Access is least-privilege and fully audited. High-risk capabilities require step-up
+            authentication. Unauthorised access attempts are recorded in the immutable audit ledger.
+          </p>
+        </div>
       </div>
-    </main>
+
+      <LoginCampusBand
+        notices={
+          <p className="text-[11px] leading-relaxed">
+            First-time setup?{" "}
+            <a
+              href="/enroll"
+              className="text-[#e2c25f] underline underline-offset-2 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Enroll the initial administrator
+            </a>
+            . Reaching a hostname grants nothing: identity, access and tenant scope are decided server-side, and
+            every consequential action is attributable in the audit ledger.
+          </p>
+        }
+      />
+    </LoginShell>
   );
 }

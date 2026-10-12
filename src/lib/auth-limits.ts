@@ -29,6 +29,33 @@ export const LOGIN_RATE_LIMIT = {
 } as const;
 
 /**
+ * Governed password-recovery REQUEST rate-limit policy.
+ *
+ * Deliberately tighter than login: a recovery request is a low-frequency,
+ * high-value action (it asks a human administrator to act on an identity), so
+ * the same bucket identity model is applied with a much smaller budget. It is
+ * NOT a credential path — the endpoint never verifies, issues or changes a
+ * password — but it must not become a way to enumerate accounts by timing or by
+ * volume, nor a way to flood the audit ledger.
+ */
+export const RECOVERY_RATE_LIMIT = {
+  perAccount: 5,
+  perIpAccount: 3,
+  windowMs: 15 * 60_000,
+} as const;
+
+/**
+ * Recovery bucket keys, using the SAME identity model as login: the account key
+ * always applies, the (IP, account) key is added only under a trusted proxy.
+ */
+export function recoveryRateLimitKeys(ip: string | null, identifier: string): string[] {
+  const account = identifier.trim().toLowerCase();
+  const accountKey = `recovery:acct:${account}`;
+  if (!ip) return [accountKey];
+  return [`recovery:ipacct:${ip}:${account}`, accountKey];
+}
+
+/**
  * Derive the deterministic set of login rate-limit bucket keys for an identity.
  * The account key is always present (so protection never depends on IP); the
  * (IP, account) key is added only when a trusted client IP is available.

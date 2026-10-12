@@ -53,6 +53,20 @@
   --beyu-navy-soft: #16294a;
   --beyu-gold: #d4af37;
   --beyu-gold-soft: #efd98f;
+
+  /* ------------------------------------------------------------------ */
+  /* Login surface — accessible gold for SMALL TEXT ON LIGHT SURFACES.   */
+  /*                                                                     */
+  /* The institutional gold #D4A017 is the brand accent and stays the    */
+  /* accent for graphics, rules, icons and on-navy text (6.7:1 against   */
+  /* #0B1F4D). On the pale login background it is only 2.16:1, which no  */
+  /* text may use. #8A6A12 is the same gold family darkened until it     */
+  /* clears WCAG AA (4.60:1 on #eef5fd / 5.06:1 on white), so the login  */
+  /* reference can be reproduced without shipping unreadable text. This  */
+  /* is a contrast correction, not a palette change: no other surface    */
+  /* consumes it.                                                        */
+  /* ------------------------------------------------------------------ */
+  --beyu-gold-ink: #8a6a12;
   --beyu-sage: #4c6f4e;
   --beyu-surface: #f7f9fc;
   --beyu-line: rgba(11, 29, 58, 0.1);
@@ -185,4 +199,41 @@ html.beyu-reduce-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* BEYU login surface (reference: "BEYU LOGIN PAGE .png")              */
+/*                                                                     */
+/* Layout/backdrop helpers only — the composition itself lives in      */
+/* `src/app/login-surface.tsx`. Class names are namespaced `beyu-login` */
+/* so they cannot collide with the operating shell.                    */
+/* ------------------------------------------------------------------ */
+
+.beyu-login-bg {
+  background:
+    radial-gradient(120% 70% at 50% -12%, #ffffff 0%, #ecf4fd 42%, #e4eefb 72%, #eef5fd 100%),
+    linear-gradient(180deg, #eef5fd 0%, #eaf2fc 55%, #e7f0fa 100%);
+}
+
+.beyu-login-glow {
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0));
+}
+
+/* Navy overlay that sinks the campus artwork into the feature strip. */
+.beyu-login-band {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 31, 77, 0.42) 0%,
+    rgba(11, 31, 77, 0.78) 46%,
+    rgba(11, 31, 77, 0.94) 68%,
+    #0b1f4d 100%
+  );
+}
+
+.beyu-login-card {
+  box-shadow: 0 34px 70px -42px rgba(11, 31, 77, 0.6);
+}
+
+.beyu-gold-ink {
+  color: var(--beyu-gold-ink);
 }

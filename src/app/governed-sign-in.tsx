@@ -10,15 +10,22 @@
  * eight authentication implementations and there is no destination-specific copy
  * of the form.
  *
+ * PRESENTATION — the authoritative reference
+ *   The brand composition (emblem, wordmark, descriptor, motto banner, mission
+ *   statement, the five canonical pillars, the white sign-in card, the campus
+ *   band, the capability strip and the navy footer) is the composition of
+ *   `BEYU LOGIN PAGE .png`, implemented once in `src/app/login-surface.tsx`.
+ *   This file adds ONLY the destination's own facts: its registry identity, its
+ *   headline, its description, its highlights and the sub-line naming the
+ *   destination it is signing in to.
+ *
  * FRONTEND SEPARATION ≠ AUTHENTICATION SEPARATION
- *   The destination changes PRESENTATION only — the name, the headline, the
- *   contextual accent, the highlights and the accessible name of the form.
- *   Authentication is the shared BEYU identity: the same `SignInForm`, the same
- *   `/api/v1/auth/login`, the same session cookie policy
- *   (`src/lib/session-cookie.ts`), the same `resolvePrincipal()`, the same MFA
- *   step-up and the same audit ledger. No `health_users`, no duplicated password
- *   storage, no duplicated MFA, no parallel session authority, no second
- *   identity database.
+ *   The destination changes PRESENTATION only. Authentication is the shared BEYU
+ *   identity: the same `SignInForm`, the same `/api/v1/auth/login`, the same
+ *   session cookie policy (`src/lib/session-cookie.ts`), the same
+ *   `resolvePrincipal()`, the same MFA step-up and the same audit ledger. No
+ *   `health_users`, no duplicated password storage, no duplicated MFA, no
+ *   parallel session authority, no second identity database.
  *
  * HOSTNAME IS NEVER AUTHENTICATION AND NEVER AUTHORIZATION
  *   Nothing here reads a credential, resolves a session or decides access. The
@@ -26,10 +33,10 @@
  *   header through the one canonical contract; a hostile or unknown host
  *   resolves to NEUTRAL and never reaches this component. Whether a signed-in
  *   identity may enter is answered only by the pre-existing server-side checks
- *   the entry page already composed (`authorizedOperatingSystems()` for a Sector
- *   OS, the catalogue's declared `entryPermission` for a shared surface), and the
- *   destination route re-runs its own gate on arrival regardless of what any
- *   surface rendered.
+ *   the entry page already composed (`authorizedGovernedDestinations()` for a
+ *   Sector OS, the catalogue's declared `entryPermission` for a shared surface),
+ *   and the destination route re-runs its own gate on arrival regardless of what
+ *   any surface rendered.
  *
  * CANONICAL BEYU IDENTITY IS PRESERVED
  *   The shared `BeyuOsLogo` (the authoritative BEYU OS mark, unmodified) is
@@ -40,6 +47,14 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { DESTINATION_TYPE_LABEL } from "@/lib/operating-system-catalog";
 import type { CanonicalDestination } from "@/lib/canonical-hosts";
+import {
+  LoginCard,
+  LoginCampusBand,
+  LoginHero,
+  LoginPillars,
+  LoginShell,
+  LoginTrustStrip,
+} from "./login-surface";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { SignOutButton } from "./os/sign-out-button";
 
@@ -62,125 +77,112 @@ export type GovernedSignInProps = {
   sessionExpired?: boolean;
 };
 
+/** The governed facts every destination surface states in the same words. */
+const GOVERNED_FACTS = [
+  "GOVERNED BY BEYU OS",
+  "ZERO TRUST",
+  "RBAC + ABAC",
+  "TENANT ISOLATION",
+  "HASH-CHAINED AUDIT",
+  "HUMAN ACCOUNTABILITY",
+] as const;
+
 /**
  * The destination's public entry surface AND its sign-in, in one server-rendered
  * page — mobile-first, keyboard-navigable, semantically headed, and recognisably
- * BEYU (navy shell, gold rule, authoritative mark) with a contextual accent.
+ * BEYU with the destination's own contextual accent on top of the canonical
+ * brand composition.
  */
-export function GovernedSignIn({
-  destination,
-  landing,
-  identities = [],
-  sessionExpired = false,
-}: GovernedSignInProps) {
+export function GovernedSignIn({ destination, landing, identities = [], sessionExpired = false }: GovernedSignInProps) {
   const d = destination.context;
   const accent = d.accent;
 
   return (
-    <main className="beyu-shell min-h-screen text-white">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
-        <section className="flex flex-col justify-center" aria-labelledby="beyu-destination-headline">
-          {/* Shared BEYU identity + the destination's own mark. The BEYU OS mark
-              is the authoritative PNG on a light plate (its studio matte), never
-              a per-destination redraw. */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2">
-              <BeyuOsLogo size={48} ariaLabel="BEYU OS — governed identity" />
-            </span>
+    <LoginShell>
+      <LoginHero />
+
+      <div className="mt-9 grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:items-start lg:gap-x-12">
+        {/* The destination's own facts. Reaching this hostname selects the
+            destination; it never grants it — which is what this column says. */}
+        <section className="order-2 lg:order-1" aria-labelledby="beyu-destination-headline">
+          <div className="flex items-center gap-3">
             <span
-              className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06]"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#0B1F4D]/10 bg-white text-[#0B1F4D]"
               style={{ color: accent }}
               aria-hidden="true"
             >
-              <Icon name={d.icon} className="h-6 w-6" />
+              <Icon name={d.icon} className="h-5 w-5" />
             </span>
+            <p className="beyu-kicker text-[#5b6b85]">
+              {DESTINATION_TYPE_LABEL[d.destinationType]} · {d.registryCode} · {d.status}
+            </p>
           </div>
-
-          <p className="beyu-kicker mt-8" style={{ color: accent }}>
-            {DESTINATION_TYPE_LABEL[d.destinationType]} · {d.registryCode} · {d.status}
-          </p>
-
-          <div className="beyu-gold-rule my-6 max-w-xl" />
 
           <h1
             id="beyu-destination-headline"
-            className="max-w-2xl text-[30px] font-semibold leading-[1.15] tracking-tight sm:text-[34px] lg:text-[42px]"
+            className="mt-4 max-w-2xl text-[24px] leading-[1.2] font-semibold tracking-tight text-[#0B1F4D] sm:text-[29px]"
           >
             {d.headline}
           </h1>
-          <p className="mt-5 max-w-2xl text-[14.5px] leading-relaxed text-white/70">{d.description}</p>
+          <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-[#41527a]">{d.description}</p>
 
-          <ul className="mt-8 grid max-w-2xl list-none gap-3 p-0 sm:grid-cols-2">
+          <ul className="mt-5 grid max-w-2xl list-none gap-2 p-0 sm:grid-cols-2">
             {d.highlights.map((highlight) => (
               <li
                 key={highlight}
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] leading-relaxed text-white/70"
+                className="rounded-xl border border-[#0B1F4D]/10 bg-white/70 px-3.5 py-2.5 text-[12px] leading-relaxed text-[#41527a]"
               >
                 {highlight}
               </li>
             ))}
           </ul>
 
-          <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-[10.5px] tracking-[0.16em] text-white/40">
-            <span>GOVERNED BY BEYU OS</span>
-            <span>ZERO TRUST</span>
-            <span>RBAC + ABAC</span>
-            <span>TENANT ISOLATION</span>
-            <span>HASH-CHAINED AUDIT</span>
-            <span>HUMAN ACCOUNTABILITY</span>
-          </div>
-          <p className="mt-4 text-[10.5px] tracking-[0.12em] text-white/35">
-            BRIDGING CARE. BUILDING TRUST.
+          <LoginPillars className="mt-8" />
+
+          <LoginTrustStrip items={GOVERNED_FACTS} />
+          <p className="mt-4 text-[10.5px] tracking-[0.12em] text-[#5b6b85]">BRIDGING CARE. BUILDING TRUST.</p>
+        </section>
+
+        {/* The ONE shared sign-in. Destination-aware presentation, shared
+            authentication: same endpoint, same cookie, same MFA. */}
+        <div className="order-1 lg:order-2">
+          <LoginCard
+            titleId="beyu-destination-signin-title"
+            signInSubtitle={destination.signInSubtitle}
+            className="mt-0"
+          >
+            <SignInForm
+              identities={identities}
+              landing={landing}
+              destinationName={d.name}
+              sessionExpired={sessionExpired}
+            />
+          </LoginCard>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-[#5b6b85]">
+            Reaching this hostname does not grant access. {d.name} is governed by BEYU OS: least-privilege,
+            tenant-isolated and fully audited, with step-up authentication for high-risk capabilities. Your access
+            is decided server-side after sign-in.
           </p>
-        </section>
-
-        <section className="flex items-center justify-center" aria-labelledby="beyu-destination-signin-title">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/12 bg-white/[0.06] backdrop-blur">
-            {/* Contextual accent — the destination's own visual language, on top
-                of the canonical BEYU surface. */}
-            <div className="h-1 w-full" style={{ background: accent }} aria-hidden="true" />
-            <div className="p-7">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex w-fit items-center justify-center rounded-lg bg-white p-1">
-                  <BeyuOsLogo size={30} ariaLabel="BEYU OS" />
-                </span>
-                <div className="min-w-0">
-                  <div id="beyu-destination-signin-title" className="text-[15px] font-semibold">
-                    {d.name}
-                  </div>
-                  <div className="text-[11.5px] text-white/60">{destination.signInSubtitle}</div>
-                </div>
-              </div>
-
-              <div className="beyu-gold-rule my-5" />
-
-              {/* The expired-session notice is rendered by the shared form itself
-                  (`sessionExpired`), so the control-plane surface and every
-                  destination surface announce it identically — one definition. */}
-              <SignInForm
-                identities={identities}
-                landing={landing}
-                destinationName={d.name}
-                sessionExpired={sessionExpired}
-              />
-
-              <p className="mt-6 text-[10.5px] leading-relaxed text-white/45">
-                Reaching this hostname does not grant access. {d.name} is governed by BEYU OS:
-                least-privilege, tenant-isolated and fully audited, with step-up authentication for
-                high-risk capabilities. Your access is decided server-side after sign-in.
-              </p>
-              <p className="mt-3 text-[10.5px] text-white/40">
-                First-time setup?{" "}
-                <a href="/enroll" className="text-[#d4af37] underline-offset-2 hover:underline">
-                  Enroll the initial administrator
-                </a>
-                .
-              </p>
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
-    </main>
+
+      <LoginCampusBand
+        notices={
+          <p className="text-[11px] leading-relaxed">
+            Access is least-privilege and fully audited. High-risk capabilities require step-up authentication.
+            Unauthorised access attempts are recorded in the immutable audit ledger. First-time setup?{" "}
+            <a
+              href="/enroll"
+              className="text-[#e2c25f] underline underline-offset-2 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Enroll the initial administrator
+            </a>
+            .
+          </p>
+        }
+      />
+    </LoginShell>
   );
 }
 
@@ -217,14 +219,14 @@ export function DestinationDenied({
       : `${d.registryCode} governed OS authorization`;
 
   return (
-    <main className="beyu-shell min-h-screen text-white">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
+    <LoginShell>
+      <div className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center py-12">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2">
+          <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-[#0B1F4D]/10">
             <BeyuOsLogo size={40} ariaLabel="BEYU OS — governed identity" />
           </span>
           <span
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06]"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#0B1F4D]/10 bg-white"
             style={{ color: accent }}
             aria-hidden="true"
           >
@@ -232,62 +234,60 @@ export function DestinationDenied({
           </span>
         </div>
 
-        <p className="beyu-kicker mt-8" style={{ color: accent }}>
+        <p className="beyu-kicker mt-8 text-[#5b6b85]">
           {DESTINATION_TYPE_LABEL[d.destinationType]} · {d.registryCode}
         </p>
 
-        <h1 className="mt-3 max-w-2xl text-[26px] font-semibold leading-[1.2] tracking-tight sm:text-[30px]">
+        <h1 className="mt-3 max-w-2xl text-[24px] leading-[1.2] font-semibold tracking-tight text-[#0B1F4D] sm:text-[28px]">
           You are signed in, but you are not authorized for {d.name}.
         </h1>
 
-        <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-white/70">
-          Your BEYU identity is valid. Access to {d.name} is decided separately, server-side, and
-          your current grants do not reach it. Reaching this hostname selects the destination — it
-          never grants it.
+        <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-[#41527a]">
+          Your BEYU identity is valid. Access to {d.name} is decided separately, server-side, and your current
+          grants do not reach it. Reaching this hostname selects the destination — it never grants it.
         </p>
 
         {/* The two facts, kept apart on purpose: global OS status is NOT this
             identity's access, and this identity's access is NOT the OS status. */}
         <dl className="mt-8 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-            <dt className="beyu-kicker text-white/45">Destination status</dt>
-            <dd className="mt-1.5 text-[13px] font-semibold text-white">
+          <div className="rounded-xl border border-[#0B1F4D]/10 bg-white/80 px-4 py-3">
+            <dt className="beyu-kicker text-[#5b6b85]">Destination status</dt>
+            <dd className="mt-1.5 text-[13px] font-semibold text-[#0B1F4D]">
               {d.name} · {d.status}
             </dd>
-            <dd className="mt-1 text-[11.5px] leading-relaxed text-white/55">
-              The destination is live and governed. This is a global fact, not a statement about your
-              identity.
+            <dd className="mt-1 text-[11.5px] leading-relaxed text-[#5b6b85]">
+              The destination is live and governed. This is a global fact, not a statement about your identity.
             </dd>
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-            <dt className="beyu-kicker text-white/45">Your access</dt>
-            <dd className="mt-1.5 text-[13px] font-semibold text-[#f2a3a3]">Not authorized</dd>
-            <dd className="mt-1 text-[11.5px] leading-relaxed text-white/55">
+          <div className="rounded-xl border border-[#0B1F4D]/10 bg-white/80 px-4 py-3">
+            <dt className="beyu-kicker text-[#5b6b85]">Your access</dt>
+            <dd className="mt-1.5 text-[13px] font-semibold text-[#a03434]">Not authorized</dd>
+            <dd className="mt-1 text-[11.5px] leading-relaxed text-[#5b6b85]">
               Signed in as {displayName} ({email}).
             </dd>
           </div>
         </dl>
 
-        <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-          <div className="beyu-kicker text-white/45">Required for this destination</div>
-          <div className="mt-1 font-mono text-[12px] text-white/80">{requirement}</div>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-white/55">
-            Request a governed grant through Identity &amp; Access in BEYU OS. Denials are handled
-            under least privilege; no capability is widened by this page.
+        <div className="mt-6 rounded-xl border border-[#0B1F4D]/10 bg-white/80 px-4 py-3">
+          <div className="beyu-kicker text-[#5b6b85]">Required for this destination</div>
+          <div className="mt-1 font-mono text-[12px] text-[#0B1F4D]">{requirement}</div>
+          <p className="mt-2 text-[11.5px] leading-relaxed text-[#5b6b85]">
+            Request a governed grant through Identity &amp; Access in BEYU OS. Denials are handled under least
+            privilege; no capability is widened by this page.
           </p>
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <a
             href="/launcher"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/20 bg-white/[0.06] px-5 text-[12.5px] font-semibold text-white transition hover:border-white/35 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4af37]"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#0B1F4D]/25 bg-white px-5 text-[12.5px] font-semibold text-[#0B1F4D] transition hover:border-[#0B1F4D]/45 focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none"
           >
             View destinations I can access
           </a>
-          <SignOutButton className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#d4af37] px-5 text-[12.5px] font-semibold text-[#0b1d3a] transition hover:bg-[#e2c25f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60" />
+          <SignOutButton className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0B1F4D] px-5 text-[12.5px] font-semibold text-white transition hover:bg-[#132c62] focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60" />
         </div>
       </div>
-    </main>
+    </LoginShell>
   );
 }
 
