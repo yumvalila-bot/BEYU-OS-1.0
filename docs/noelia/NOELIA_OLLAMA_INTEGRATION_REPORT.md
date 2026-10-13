@@ -372,9 +372,12 @@ default; no fallback occurs on failure.
 ## 8. Branch and pull request
 
 * Branch: `arena/58532ec6-beyu-os-1-0` (feature branch created from `main` @ `05e2fba`).
-* Pull request: see the URL recorded at the end of this report / in the review
-  handoff. **No PR was merged, no auto-merge was enabled, and no deploy was run.**
-* `main` was not pushed to, force-pushed, or modified in any way.
+* Pull request: **https://github.com/yumvalila-bot/BEYU-OS-1.0/pull/107**
+  (`NOELIA: governed, opt-in Ollama inference runtime adapter`).
+* **No PR was merged, no auto-merge was enabled, and no deploy was run.** The
+  change stops at the human review gate.
+* `main` was not pushed to, force-pushed, or modified in any way; `origin/main`
+  still points at `05e2fba`.
 
 ---
 
