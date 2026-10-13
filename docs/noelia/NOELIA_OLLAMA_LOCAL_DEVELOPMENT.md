@@ -82,6 +82,8 @@ Useful switches:
 pwsh -File scripts/noelia/ollama-smoke.ps1 -Model "qwen2.5:0.5b" -TimeoutSec 300
 pwsh -File scripts/noelia/ollama-smoke.ps1 -SkipTests       # runtime checks only
 pwsh -File scripts/noelia/ollama-smoke.ps1 -BaseUrl "http://127.0.0.1:11500"
+pwsh -File scripts/noelia/ollama-smoke.ps1 -CheckHermes     # + restricted agent runtime checks
+pwsh -File scripts/noelia/ollama-smoke.ps1 -CheckCloud      # + opt-in non-inference cloud availability check
 ```
 
 The script is read-only with respect to your machine: it never changes Ollama
@@ -113,6 +115,8 @@ and never commit a `.env` file (`.env` is gitignored).
 | `NOELIA_OLLAMA_MAX_ATTEMPTS` | `2` | `1`–`3` | bounded attempts; retries only on `502/503/504` and connection resets |
 | `NOELIA_OLLAMA_MAX_CLASSIFICATION` | `INTERNAL` | `PUBLIC`…`HIGHLY_RESTRICTED` | highest data classification allowed to leave the process |
 | `NOELIA_OLLAMA_ALLOWED_HOSTS` | empty | exact comma-separated hosts, no wildcards | required before a **non-loopback** endpoint is accepted |
+| `NOELIA_OLLAMA_CLOUD_OPT_IN` | empty | exactly `1` | explicit opt-in required for the Ollama Cloud host |
+| `NOELIA_OLLAMA_API_KEY` | empty | server-side only, never committed/logged | credential for a **non-loopback** endpoint (Ollama Cloud or your own remote host) |
 
 An invalid value never falls back to a permissive default: the adapter reports
 `NOT_CONNECTED` and refuses to call anything. There is **no** API key, token or
@@ -127,7 +131,17 @@ Endpoint rules that are enforced (see `src/lib/noelia/ollama-config.ts`):
   wildcards — so a misconfiguration cannot turn the adapter into a proxy for an
   arbitrary internal host;
 * the endpoint comes from server-side configuration only: it is never taken
-  from a request, a prompt, a database row or a user-supplied URL.
+  from a request, a prompt, a database row or a user-supplied URL;
+* a **loopback** endpoint must be plain `http:` and **must not** have a key set
+  (a local runtime has no credential — a stray key is a configuration error and
+  the credential is not sent);
+* a **non-loopback** endpoint must be `https:`, exactly allowlisted, and, for
+  the Ollama Cloud host, additionally opted in with `NOELIA_OLLAMA_CLOUD_OPT_IN=1`
+  and given a plausible `NOELIA_OLLAMA_API_KEY`;
+* the credential is read at the single call site only, is never stored on the
+  configuration object, and is attached **only** to an authorised non-loopback
+  request (asserted by tests: no loopback request ever carries it, and no
+  status/detail/evidence string contains it).
 
 ---
 
@@ -163,6 +177,10 @@ inference check. Both are explicit calls; nothing is cached across processes.
 * Prompts, responses and retrieved content are never written to telemetry by the
   adapter; errors carry stable codes such as `OLLAMA_HTTP_ERROR_503`, never the
   upstream body, a filesystem path or a prompt.
+* Provenance labels shown on an answer (`runtime`, `endpointScope`, `runtimeKind`)
+  are **clamped to a closed vocabulary** in `runtime.ts`, so an adapter cannot
+  reflect a prompt, a credential fragment or a path into a governed answer even
+  if it reports one.
 * Model output is treated as untrusted data: it is returned only as
   `modelOutput` with `untrusted: true`, `outputClass: "INFERENCE"` and explicit
   provenance. It never becomes policy, an authorization, a tool call, a
@@ -179,6 +197,48 @@ inference check. Both are explicit calls; nothing is cached across processes.
   and travels to that host. Register such a runtime in the governed registry
   with the matching `data_residency`; the router refuses to send data above
   `INTERNAL` to a runtime that is not marked `BEYU_CONTROLLED`.
+
+---
+
+## 5a. Ollama Cloud / remote endpoints — optional, disabled, and NOT verified
+
+**BEYU OS makes zero additional AI spending a hard rule. Cloud inference is off
+by default and there is no paid fallback of any kind.**
+
+Read this before enabling anything:
+
+1. **Nothing is automatic.** A cloud endpoint requires *all* of: an `https` URL,
+   an exact `NOELIA_OLLAMA_ALLOWED_HOSTS` entry, `NOELIA_OLLAMA_CLOUD_OPT_IN=1`
+   and `NOELIA_OLLAMA_API_KEY`. A missing piece is a configuration error, not a
+   fallback, and the adapter then performs **zero** calls.
+2. **No failure ever becomes a paid request.** A local or cloud failure returns
+   `FAIL_CLOSED` for the selected provider. There is no secondary provider, no
+   automatic model switch and no retry escalation.
+3. **Billing and quota are terminal, sanitized and never retried.** A `402`
+   (payment required / credits exhausted), a `429` (rate limit) or a `401/403`
+   (authentication) ends the request with a stable code
+   (`OLLAMA_HTTP_ERROR_402` …), no upstream body, no credential and no output.
+4. **Classification is enforced before egress** and re-checked at the gateway.
+   The default ceiling is `INTERNAL`; a `RESTRICTED` request to a cloud endpoint
+   is `DENIED` with **zero** bytes sent.
+5. **Data minimisation is unchanged**: only the requesting human's own request
+   plus the fixed control-plane policy string are sent. No retrieved enterprise
+   data, no knowledge documents, no other tenant's data.
+6. **Eligibility is yours to verify.** Free-tier allowance, quota, per-token
+   pricing and data-use terms are controlled by the provider and can change at
+   any time. BEYU OS cannot guarantee "free" — verify your plan's current terms
+   **before** the first cloud call, and treat unknown quota as a reason not to
+   call.
+7. **The cloud inference path was NOT verified by this change.** The guardrails
+   are covered by hermetic tests that contact no network
+   (`tests/noelia/ollama-cloud-guardrails.test.ts`), and the operator check is
+   step 9 of `scripts/noelia/ollama-smoke.ps1` (a model listing, which sends no
+   prompt and consumes no inference quota — still opt-in, still your decision).
+
+Operator notes: the Ollama CLI and the cloud HTTP API are **not** interchangeable
+(model names differ, and `:cloud` tags are a CLI convenience), so the model id
+must be taken from the endpoint's own listing (`GET /api/tags`) rather than
+copied from a CLI example.
 
 ---
 

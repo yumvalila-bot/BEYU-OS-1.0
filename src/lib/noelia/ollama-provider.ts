@@ -18,7 +18,7 @@ import {
   type ModelExecutionRequest,
   type ModelExecutionResult,
 } from "./model-provider";
-import { type OllamaRuntimeConfig } from "./ollama-config";
+import { readOllamaCredential, resolveOllamaRuntimeConfig, type OllamaRuntimeConfig } from "./ollama-config";
 
 /**
  * Governed Ollama model runtime adapter.
@@ -88,6 +88,12 @@ export const defaultOllamaHttpClient: OllamaHttpClient = async (request) => {
 
 export type OllamaProviderDependencies = {
   httpClient?: OllamaHttpClient;
+  /**
+   * Environment used ONLY to read the endpoint credential for a non-loopback
+   * runtime. Injectable so tests never depend on the process environment and so
+   * the secret stays out of the configuration object entirely.
+   */
+  env?: NodeJS.ProcessEnv;
   now?: () => Date;
 };
 
@@ -158,6 +164,12 @@ export class BeyuOllamaProvider implements AIModelProvider {
   private readonly config: OllamaRuntimeConfig;
   private readonly http: OllamaHttpClient;
   private readonly now: () => Date;
+  /**
+   * Held so the credential can be read at request time. The VALUE is never
+   * copied onto this object, never logged, and only ever appears as an
+   * Authorization header on a non-loopback request.
+   */
+  private readonly env: NodeJS.ProcessEnv;
 
   /** Last OBSERVED status. Never inferred from configuration alone. */
   private observed: AIProviderStatus;
@@ -169,6 +181,7 @@ export class BeyuOllamaProvider implements AIModelProvider {
     this.config = config;
     this.http = dependencies.httpClient ?? defaultOllamaHttpClient;
     this.now = dependencies.now ?? (() => new Date());
+    this.env = dependencies.env ?? process.env;
 
     this.id = config.providerId;
     this.providerName = config.providerName;
@@ -252,7 +265,11 @@ export class BeyuOllamaProvider implements AIModelProvider {
       kind: this.kind,
       mode: this.mode,
       generativeInference: this.config.enabled && this.config.valid,
-      deploymentType: this.config.endpointScope === "LOCAL_PROCESS" ? "SELF_HOSTED" : "SELF_HOSTED_REMOTE_HOST",
+      deploymentType: this.config.cloudMode
+        ? "EXTERNAL"
+        : this.config.endpointScope === "LOCAL_PROCESS"
+          ? "SELF_HOSTED"
+          : "SELF_HOSTED_REMOTE_HOST",
       dataResidency: this.config.endpointScope === "LOCAL_PROCESS" ? "BEYU_CONTROLLED" : "CONFIGURED_REMOTE_HOST",
       version: this.modelVersion,
     };
@@ -455,6 +472,10 @@ export class BeyuOllamaProvider implements AIModelProvider {
         configured: true,
         runtime: "OLLAMA",
         endpointScope: this.config.endpointScope,
+        // Which KIND of runtime served this: local loopback, an operator's own
+        // remote host, or Ollama Cloud (the only kind with a cost surface).
+        runtimeKind: this.config.runtimeKind,
+        cloudMode: this.config.cloudMode,
         attempts: outcome.attempts,
         timeoutMs: this.config.timeoutMs,
         // The reported model is what the RUNTIME said it served; the selected
@@ -537,6 +558,22 @@ export class BeyuOllamaProvider implements AIModelProvider {
     return { systemPolicy, userPrompt: request.prompt };
   }
 
+  /**
+   * Headers for one runtime call.
+   *
+   * A credential is attached ONLY when the endpoint is a non-loopback host that
+   * the configuration explicitly authorised (an allowlisted https host). A
+   * loopback runtime — including a misconfigured environment — never receives
+   * one, and an unauthorised configuration never reaches a call at all because
+   * it fails validation first.
+   */
+  private headersFor(base: Record<string, string>): Record<string, string> {
+    if (this.config.endpointScope === "LOCAL_PROCESS") return base;
+    const credential = readOllamaCredential(this.env);
+    if (credential === null) return base;
+    return { ...base, authorization: `Bearer ${credential}` };
+  }
+
   private tagsUrl(): string {
     return `${this.config.baseUrl}/api/tags`;
   }
@@ -571,7 +608,7 @@ export class BeyuOllamaProvider implements AIModelProvider {
     const outcome = await this.request({
       url: this.tagsUrl(),
       method: "GET",
-      headers: { accept: "application/json" },
+      headers: this.headersFor({ accept: "application/json" }),
       timeoutMs: this.config.timeoutMs,
       attempts: 1,
     });
@@ -580,7 +617,11 @@ export class BeyuOllamaProvider implements AIModelProvider {
       return {
         status: "FAILED",
         detail: `${outcome.failure.code}: the Ollama runtime did not answer a connectivity probe.`,
-        evidence: [`probe:${outcome.failure.code}`, `endpoint-scope:${this.config.endpointScope}`],
+        evidence: [
+          `probe:${outcome.failure.code}`,
+          `endpoint-scope:${this.config.endpointScope}`,
+          `runtime-kind:${this.config.runtimeKind}`,
+        ],
         reachable: outcome.failure.category === "NETWORK" || outcome.failure.category === "TIMEOUT" ? false : true,
       };
     }
@@ -609,7 +650,12 @@ export class BeyuOllamaProvider implements AIModelProvider {
     return {
       status: "CONNECTED",
       detail: "Ollama runtime reachable and the configured model is installed. Inference is not yet verified.",
-      evidence: ["probe:reachable", "probe:model-installed", `endpoint-scope:${this.config.endpointScope}`],
+      evidence: [
+        "probe:reachable",
+        "probe:model-installed",
+        `endpoint-scope:${this.config.endpointScope}`,
+        `runtime-kind:${this.config.runtimeKind}`,
+      ],
       reachable: true,
     };
   }
@@ -621,6 +667,12 @@ export class BeyuOllamaProvider implements AIModelProvider {
    * network errors, only while attempts remain, and never after a response was
    * received and rejected. Timeouts and 4xx are never retried (a retry cannot
    * fix them and doubles the resource cost on a low-memory runtime).
+ *
+ *   COST SURFACE: for an Ollama Cloud endpoint a 402 (payment required / credit
+ *   exhausted) and a 429 (rate limit) are terminal, sanitized failures. They are
+ *   NEVER retried, NEVER turned into a paid request, and NEVER followed by a
+ *   fallback to another provider or model. Cloud mode additionally requires an
+ *   explicit opt-in in configuration (see ollama-config.ts).
    */
   private async chat(input: {
     systemPolicy: string | null;
@@ -655,7 +707,7 @@ export class BeyuOllamaProvider implements AIModelProvider {
     const outcome = await this.request({
       url: this.chatUrl(),
       method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers: this.headersFor({ "content-type": "application/json", accept: "application/json" }),
       body,
       timeoutMs: this.config.timeoutMs,
       attempts: this.config.maxAttempts,

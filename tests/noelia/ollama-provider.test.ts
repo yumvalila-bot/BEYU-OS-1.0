@@ -124,14 +124,26 @@ describe("Ollama runtime configuration", () => {
     expect(rejected.valid).toBe(false);
     expect(rejected.invalidReasons.join(" ")).toMatch(/not allowlisted/);
 
-    const allowlisted = resolveOllamaRuntimeConfig(
+    // A NON-loopback endpoint is a network service: it must be TLS-protected and
+    // explicitly allowlisted. Plaintext remote inference is rejected outright so
+    // model output can never be injected by a network attacker.
+    const plaintextRemote = resolveOllamaRuntimeConfig(
       testEnv({ [ENV_OLLAMA_BASE_URL]: "http://10.0.0.5:11434", [ENV_OLLAMA_ALLOWED_HOSTS]: "10.0.0.5" }),
+    );
+    expect(plaintextRemote.valid).toBe(false);
+    expect(plaintextRemote.invalidReasons.join(" ")).toMatch(/must use https: for a non-loopback endpoint/);
+
+    const allowlisted = resolveOllamaRuntimeConfig(
+      testEnv({ [ENV_OLLAMA_BASE_URL]: "https://10.0.0.5:11434", [ENV_OLLAMA_ALLOWED_HOSTS]: "10.0.0.5" }),
     );
     expect(allowlisted.valid).toBe(true);
     expect(allowlisted.endpointScope).toBe("CONFIGURED_REMOTE_HOST");
+    expect(allowlisted.runtimeKind).toBe("SELF_HOSTED_REMOTE_HOST");
+    expect(allowlisted.credentialEligible).toBe(true);
+    expect(allowlisted.cloudMode).toBe(false);
 
     const wildcard = resolveOllamaRuntimeConfig(
-      testEnv({ [ENV_OLLAMA_BASE_URL]: "http://10.0.0.5:11434", [ENV_OLLAMA_ALLOWED_HOSTS]: "*.example.internal" }),
+      testEnv({ [ENV_OLLAMA_BASE_URL]: "https://10.0.0.5:11434", [ENV_OLLAMA_ALLOWED_HOSTS]: "*.example.internal" }),
     );
     expect(wildcard.valid).toBe(false);
     expect(wildcard.invalidReasons.join(" ")).toMatch(/wildcard/);

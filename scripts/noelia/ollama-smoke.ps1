@@ -31,6 +31,16 @@
 .PARAMETER SkipTests
     Skip the BEYU test suites (Ollama checks only).
 
+.PARAMETER CheckHermes
+    Also check the optional RESTRICTED Hermes agent runtime: version probe and
+    the hermetic Hermes suite. No Hermes query is executed with tools.
+
+.PARAMETER CheckCloud
+    Also check whether an Ollama Cloud endpoint is configured/opt-in. This makes
+    exactly ONE non-inference call (GET /api/tags) and only when the operator has
+    already opted in; it NEVER sends a prompt and NEVER spends inference quota.
+    Review your plan and the provider's current terms first.
+
 .EXAMPLE
     pwsh -File scripts/noelia/ollama-smoke.ps1
 
@@ -45,7 +55,9 @@ param(
     [string] $BaseUrl = "http://127.0.0.1:11434",
     [string] $Model = "qwen2.5:0.5b",
     [int]    $TimeoutSec = 180,
-    [switch] $SkipTests
+    [switch] $SkipTests,
+    [switch] $CheckHermes,
+    [switch] $CheckCloud
 )
 
 $ErrorActionPreference = "Continue"
@@ -255,6 +267,66 @@ if (-not $SkipTests) {
     $env:NOELIA_OLLAMA_LIVE_TEST = $null
 }
 
+if ($CheckHermes) {
+    Write-Step "8. RESTRICTED Hermes agent runtime (optional; disabled by default)"
+    $hermesCommand = Get-Command "hermes-agent" -ErrorAction SilentlyContinue
+    if ($hermesCommand) {
+        Write-Ok "hermes-agent found: $($hermesCommand.Source)"
+        try {
+            $hermesVersion = (& hermes-agent --version 2>$null | Select-Object -First 1)
+            if ($hermesVersion) { Write-Ok "Version: $hermesVersion" } else { Write-Warn2 "Could not read the Hermes version." }
+        }
+        catch {
+            Write-Warn2 "hermes-agent --version failed. Check the CLI installation before enabling the runtime."
+        }
+    }
+    else {
+        Write-Warn2 "hermes-agent is not on PATH. The Hermes runtime stays NOT_CONNECTED; nothing else is affected."
+        Write-Note "Install (operator action, optional): see docs/noelia/NOELIA_HERMES_RESTRICTED_RUNTIME.md."
+    }
+
+    Write-Note "Restricted posture: one bounded query, EVERY toolset disabled, no autonomous loop,"
+    Write-Note "no shell, no filesystem, no database, no network tools. Agent prose is never an action receipt."
+
+    if (Test-Path "node_modules") {
+        & npx vitest run tests/noelia/hermes-runtime.test.ts
+        if ($LASTEXITCODE -eq 0) { Write-Ok "Hermetic Hermes suite passed (mocked runner; no agent process started)." }
+        else { Write-Fail2 "Hermetic Hermes suite reported failures." }
+    }
+    else {
+        Write-Warn2 "node_modules is missing; run: npm ci"
+    }
+}
+
+if ($CheckCloud) {
+    Write-Step "9. Ollama Cloud availability (OPT-IN, non-inference check only)"
+    $cloudOptIn = $env:NOELIA_OLLAMA_CLOUD_OPT_IN
+    $cloudKey = $env:NOELIA_OLLAMA_API_KEY
+    if ($cloudOptIn -ne "1") {
+        Write-Note "Cloud is not opted in (NOELIA_OLLAMA_CLOUD_OPT_IN is not 1). No request was made."
+    }
+    elseif (-not $cloudKey) {
+        Write-Warn2 "Cloud is opted in but NOELIA_OLLAMA_API_KEY is not set in this session. No request was made."
+    }
+    else {
+        try {
+            # GET /api/tags lists models. It sends NO prompt and consumes NO
+            # inference quota. The key is sent as a header and never printed.
+            $cloudTags = Invoke-RestMethod -Uri "https://ollama.com/api/tags" -Headers @{ Authorization = "Bearer $cloudKey" } -TimeoutSec 60
+            $cloudCount = @($cloudTags.models).Count
+            Write-Ok "Cloud endpoint answered; it advertises $cloudCount model(s). No inference was performed."
+            Write-Note "Cost note: listing is not inference, but pricing/quota are controlled by the provider."
+            Write-Note "BEYU OS never uses cloud automatically and never falls back to it after a local failure."
+        }
+        catch {
+            $status = $null
+            if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+            Write-Warn2 "Cloud endpoint did not answer successfully (status: $status). The runtime stays NOT_CONNECTED/FAILED."
+            Write-Note "A 401/402/429 means authentication, payment or rate limiting. Do NOT retry blindly."
+        }
+    }
+}
+
 # ---------------------------------------------------------------------------
 Write-Step "Summary and boundaries"
 if ($script:Failures -eq 0) {
@@ -267,5 +339,7 @@ Write-Note "Local development only: a BEYU backend running anywhere other than t
 Write-Note "cannot reach $BaseUrl. Localhost is loopback of the process that makes the call."
 Write-Note "Never expose Ollama's port 11434 to a network or create a public tunnel."
 Write-Note "The deterministic governed analyst remains BEYU's default runtime; Ollama is opt-in."
+Write-Note "Cloud inference is opt-in and never automatic; no paid fallback exists in BEYU OS."
+Write-Note "Hermes (if checked) runs with every toolset disabled and cannot execute an OS action."
 
 exit $(if ($script:Failures -eq 0) { 0 } else { 1 })

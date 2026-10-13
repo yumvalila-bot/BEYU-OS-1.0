@@ -44,6 +44,27 @@ export const ENV_OLLAMA_TIMEOUT_MS = "NOELIA_OLLAMA_TIMEOUT_MS";
 export const ENV_OLLAMA_MAX_ATTEMPTS = "NOELIA_OLLAMA_MAX_ATTEMPTS";
 export const ENV_OLLAMA_MAX_CLASSIFICATION = "NOELIA_OLLAMA_MAX_CLASSIFICATION";
 export const ENV_OLLAMA_ALLOWED_HOSTS = "NOELIA_OLLAMA_ALLOWED_HOSTS";
+/**
+ * Credential for a NON-LOOPBACK Ollama endpoint (Ollama Cloud or an
+ * operator-controlled remote host).
+ *
+ * NOELIA_OLLAMA_API_KEY must NEVER be set for a loopback endpoint: a local
+ * Ollama has no credential, and a stray key in the environment would otherwise
+ * be attached to a local request. The value is read at the single call site
+ * (`readOllamaCredential`) and is deliberately NOT stored on the configuration
+ * object, so no diagnostic/log dump of configuration can ever contain it.
+ */
+export const ENV_OLLAMA_API_KEY = "NOELIA_OLLAMA_API_KEY";
+/**
+ * Explicit opt-in for the Ollama Cloud host. Cloud inference is DISABLED unless
+ * this is exactly "1" AND the host is explicitly allowlisted AND a key exists.
+ * There is no automatic activation and no cloud fallback after a local failure.
+ */
+export const ENV_OLLAMA_CLOUD_OPT_IN = "NOELIA_OLLAMA_CLOUD_OPT_IN";
+/** The only host treated as Ollama Cloud (and the only one with a cost note). */
+export const OLLAMA_CLOUD_HOST = "ollama.com";
+/** Minimum plausible length of an Ollama API key (value is never inspected/sent elsewhere). */
+const MIN_API_KEY_LENGTH = 16;
 
 export const OLLAMA_RUNTIME_PROVIDER_ID = "PROV_OLLAMA_LOCAL";
 export const OLLAMA_RUNTIME_PROVIDER_NAME = "ollama-self-hosted-runtime";
@@ -68,6 +89,15 @@ export const OLLAMA_LIMITS = {
 /** Where the runtime actually executes relative to this backend process. */
 export type OllamaEndpointScope = "LOCAL_PROCESS" | "CONFIGURED_REMOTE_HOST";
 
+/**
+ * Which governed runtime KIND the endpoint is.
+ *
+ * OLLAMA_CLOUD is a distinct kind because it carries a COST surface that a local
+ * runtime does not: it also requires explicit opt-in, an allowlisted host and a
+ * credential, and it is never used as a fallback.
+ */
+export type OllamaRuntimeKind = "LOCAL_LOOPBACK" | "SELF_HOSTED_REMOTE_HOST" | "OLLAMA_CLOUD";
+
 export type OllamaRuntimeConfig = {
   /** True only when NOELIA_MODEL_PROVIDER is explicitly "OLLAMA". */
   enabled: boolean;
@@ -77,6 +107,15 @@ export type OllamaRuntimeConfig = {
   baseUrl: string;
   host: string;
   endpointScope: OllamaEndpointScope;
+  runtimeKind: OllamaRuntimeKind;
+  /**
+   * True only for an allowlisted non-loopback https host, i.e. the only case in
+   * which a credential MAY be attached. For the Ollama Cloud host a credential
+   * is additionally mandatory (see the validation rules).
+   */
+  credentialEligible: boolean;
+  /** True only for the explicitly opted-in Ollama Cloud host. */
+  cloudMode: boolean;
   model: string;
   modelVersion: string;
   timeoutMs: number;
@@ -148,6 +187,30 @@ function normalizeHost(hostname: string): string {
   return lower.startsWith("[") ? lower : lower;
 }
 
+/** True when a host is the Ollama Cloud service (or one of its subdomains). */
+export function isOllamaCloudHost(host: string): boolean {
+  const normalized = normalizeHost(host);
+  return normalized === OLLAMA_CLOUD_HOST || normalized.endsWith(`.${OLLAMA_CLOUD_HOST}`);
+}
+
+/**
+ * Read the credential for a non-loopback endpoint.
+ *
+ * THIS IS THE ONLY PLACE THE SECRET IS READ. It is returned to the single call
+ * site that builds an HTTP header and is never stored on configuration, never
+ * logged, never returned in a status/detail/evidence string and never attached
+ * to a loopback request. Callers must treat a null return as "no credential".
+ */
+export function readOllamaCredential(env: NodeJS.ProcessEnv = process.env): string | null {
+  return readEnv(env, ENV_OLLAMA_API_KEY);
+}
+
+/** Cheap plausibility check. The value itself is never echoed anywhere. */
+function isPlausibleApiKey(value: string): boolean {
+  if (value.length < MIN_API_KEY_LENGTH || value.length > 512) return false;
+  return /^[A-Za-z0-9._~+/=-]+$/.test(value);
+}
+
 /** True when a host is loopback OF THE PROCESS RUNNING THIS BACKEND. */
 export function isLoopbackHost(host: string): boolean {
   const normalized = normalizeHost(host);
@@ -208,8 +271,57 @@ export function resolveOllamaRuntimeConfig(env: NodeJS.ProcessEnv = process.env)
   }
 
   if (host && !isLoopbackHost(host) && !allowedHosts.includes(host)) {
+    const cloudHint = isOllamaCloudHost(host)
+      ? ` An Ollama Cloud endpoint additionally requires ${ENV_OLLAMA_CLOUD_OPT_IN}=1 and ${ENV_OLLAMA_API_KEY}; cloud inference is disabled by default.`
+      : "";
     invalidReasons.push(
-      `Non-loopback Ollama host is not allowlisted: add it to ${ENV_OLLAMA_ALLOWED_HOSTS} to authorise it explicitly.`,
+      `Non-loopback Ollama host is not allowlisted: add it to ${ENV_OLLAMA_ALLOWED_HOSTS} to authorise it explicitly.${cloudHint}`,
+    );
+  }
+
+  // ---- Endpoint-kind rules (local vs self-hosted remote vs cloud) ----------
+  // A loopback runtime is plaintext by design and MUST NOT receive a credential.
+  // A non-loopback runtime is a network service holding an API key and MUST be
+  // TLS-protected. The Ollama Cloud host additionally requires an explicit
+  // opt-in (cost surface) and a credential, and is never reached implicitly.
+  const loopback = host !== "" && isLoopbackHost(host);
+  const cloudMode = host !== "" && isOllamaCloudHost(host);
+  const credential = readOllamaCredential(env);
+  const hostAuthorised = host !== "" && !loopback && allowedHosts.includes(host);
+  const schemeIsHttps = baseUrl.startsWith("https://");
+
+  if (loopback) {
+    if (!baseUrl.startsWith("http://")) {
+      invalidReasons.push(`${ENV_OLLAMA_BASE_URL} must use http: for a loopback endpoint.`);
+    }
+    if (credential !== null) {
+      invalidReasons.push(
+        `${ENV_OLLAMA_API_KEY} must not be set for a loopback endpoint: a local Ollama runtime has no credential.`,
+      );
+    }
+  } else if (host !== "") {
+    if (!schemeIsHttps) {
+      invalidReasons.push(`${ENV_OLLAMA_BASE_URL} must use https: for a non-loopback endpoint.`);
+    }
+    if (cloudMode) {
+      if (readEnv(env, ENV_OLLAMA_CLOUD_OPT_IN) !== "1") {
+        invalidReasons.push(
+          `Ollama Cloud is disabled by default: set ${ENV_OLLAMA_CLOUD_OPT_IN}=1 explicitly to authorise a cloud endpoint.`,
+        );
+      }
+      if (credential === null) {
+        invalidReasons.push(`${ENV_OLLAMA_API_KEY} is required for the Ollama Cloud endpoint.`);
+      } else if (!isPlausibleApiKey(credential)) {
+        invalidReasons.push(`${ENV_OLLAMA_API_KEY} is not a plausible Ollama API key.`);
+      }
+    }
+  }
+
+  // A credential is only ever acceptable for an authorised non-loopback https
+  // host. Anywhere else it is a configuration error, not a value to send.
+  if (credential !== null && !(hostAuthorised && schemeIsHttps)) {
+    invalidReasons.push(
+      `${ENV_OLLAMA_API_KEY} is set but the configured endpoint is not an allowlisted https remote host; the credential was not sent.`,
     );
   }
 
@@ -249,7 +361,10 @@ export function resolveOllamaRuntimeConfig(env: NodeJS.ProcessEnv = process.env)
     providerName: OLLAMA_RUNTIME_PROVIDER_NAME,
     baseUrl,
     host,
-    endpointScope: isLoopbackHost(host) ? "LOCAL_PROCESS" : "CONFIGURED_REMOTE_HOST",
+    endpointScope: loopback ? "LOCAL_PROCESS" : "CONFIGURED_REMOTE_HOST",
+    runtimeKind: loopback ? "LOCAL_LOOPBACK" : cloudMode ? "OLLAMA_CLOUD" : "SELF_HOSTED_REMOTE_HOST",
+    credentialEligible: hostAuthorised,
+    cloudMode,
     model,
     modelVersion: modelVersionFromTag(model),
     timeoutMs,
@@ -269,6 +384,11 @@ export function describeOllamaRuntimeConfig(config: OllamaRuntimeConfig): Record
     enabled: config.enabled,
     providerId: config.providerId,
     endpointScope: config.endpointScope,
+    runtimeKind: config.runtimeKind,
+    cloudMode: config.cloudMode,
+    // Whether the configuration would allow a credential to be attached. The
+    // credential VALUE is never part of configuration and never printed.
+    credentialAttachmentAllowed: config.credentialEligible,
     // The host is configuration, never a credential; it is shown so an operator
     // can see WHICH machine would receive the data.
     host: config.host,

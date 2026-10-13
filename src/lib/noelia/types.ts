@@ -170,8 +170,11 @@ export type NoeliaAnswer = {
       modelVersion: string;
       providerId: string | null;
       providerName: string | null;
+      /** Clamped to the closed vocabulary in runtime.ts; never free text. */
       runtime: string;
       endpointScope: string;
+      /** LOCAL_LOOPBACK | SELF_HOSTED_REMOTE_HOST | OLLAMA_CLOUD | UNKNOWN_RUNTIME_KIND */
+      runtimeKind?: string;
     };
     usage: AIUsage | null;
     finishReason: AIFinishReason;

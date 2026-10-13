@@ -369,6 +369,94 @@ default; no fallback occurs on failure.
 
 ---
 
+## 7a. Round 2 (same branch, same PR): cloud posture, agent runtime, disclosure fix
+
+The operator asked for a further engineering round on the same branch and PR:
+complete the local Ollama work, evaluate optional Ollama Cloud inference, add a
+**restricted** Hermes agent runtime, and preserve every governance boundary.
+
+### Audit findings this round
+
+* **`origin/main` has not advanced.** It is still `05e2fba`, the PR base, so no
+  reconciliation with a newer `main` was required. The PR also has no review
+  comments or change requests pending; the only comment is a Vercel bot notice.
+* **CI already fails on `main`** at the *same* pre-existing point this PR hits:
+  the "Assert no test suite was silently skipped for want of a server" step
+  (run `38264464251`, on `05e2fba`). The 369 skipped tests are a repository-wide
+  baseline, not a regression from this work. The other new CI result (Vercel
+  preview, secret scan, migration validation, Health OS gates) is green.
+* **Hermes is Nous Research's `hermes-agent` CLI** (verified from the vendor
+  documentation): one-shot runner `hermes-agent --query "…"`, `--version`,
+  `--model`, `--max-turns`, `--enabled-toolsets`/`--disabled-toolsets`,
+  `--list-tools`, `HERMES_NONINTERACTIVE`, native Windows install to
+  `%LOCALAPPDATA%\hermes`. **No `hermes` binary exists in this coding
+  environment** (`which hermes ollama` → nothing), and the only "hermes" entries
+  in the repository are the unrelated `hermes-parser` dev dependency.
+* **Ollama Cloud is `https://ollama.com/api` + `Authorization: Bearer`, with the
+  same request body** as the local API minus the `:cloud` CLI suffix, and pricing
+  is **per-token with monthly credits** — so a cloud call is a cost surface that
+  must be opt-in, credential-gated and never automatic.
+* **Real defect found and fixed (pre-existing, not introduced here):** the HIVE
+  runtime copied `metadata.runtime` / `metadata.endpointScope` from an adapter
+  **verbatim** into the provenance of a governed answer. A buggy or hostile
+  adapter could therefore reflect a prompt, a path or a credential fragment into
+  an answer a human reads. Provenance is now clamped to a closed vocabulary
+  (`GOVERNED_RUNTIME_LABELS`, `ENDPOINT_SCOPE_LABELS`, `RUNTIME_KIND_LABELS` in
+  `runtime.ts`), with an end-to-end test using a deliberately hostile adapter.
+
+### What changed this round
+
+| File | Change |
+| --- | --- |
+| `src/lib/noelia/ollama-config.ts` | endpoint-KIND rules: loopback must be `http:` and must have **no** key; non-loopback must be `https:` + exactly allowlisted; the Ollama Cloud host additionally requires `NOELIA_OLLAMA_CLOUD_OPT_IN=1` and a plausible `NOELIA_OLLAMA_API_KEY`. New `runtimeKind` / `cloudMode` / `credentialRequired`. A credential is **never** stored on the configuration object (`readOllamaCredential` is the only reader) |
+| `src/lib/noelia/ollama-provider.ts` | injectable `env`; `headersFor()` attaches the bearer token **only** to an authorised non-loopback request; `runtimeKind`/`cloudMode` in metadata; cloud endpoints are `EXTERNAL`/`CONFIGURED_REMOTE_HOST`, never `BEYU_CONTROLLED`; documented 402/429 terminal-with-no-fallback behaviour |
+| `src/lib/noelia/runtime.ts` | `safeProvenanceLabel()` clamping + closed provenance vocabularies (the disclosure fix) |
+| `src/lib/noelia/types.ts` | optional `runtimeKind` on `modelOutput.provenance` |
+| `src/lib/noelia/hermes-config.ts` *(new)* | fail-closed, opt-in configuration for the restricted agent runtime |
+| `src/lib/noelia/hermes-runtime.ts` *(new)* | the restricted runtime: fixed argv, `shell:false`, allowlisted child env, bounded output/time/bytes/turns, every toolset disabled, sanitized errors, prose that can never be an action receipt |
+| `tests/noelia/ollama-cloud-guardrails.test.ts` *(new, 16)* | cloud disabled by default, opt-in/allowlist/https/key rules, credential placement, `402/429/401` terminal with no fallback, classification blocked before egress — **mock only, no network** |
+| `tests/noelia/hermes-runtime.test.ts` *(new, 22)* | config + argv + env + spawn-refusal + failure modes + no-authority assertions — **mocked runner, no agent process** |
+| `tests/noelia/provenance-disclosure.test.ts` *(new, 2)* | end-to-end HIVE `ask()` with a hostile adapter and with the real adapter |
+| `tests/noelia/agent-surface-guard.test.ts` *(new, 5)* | freezes the 73-tool governed inventory; forbids shell/SQL/agent tool names; asserts the Hermes runtime exposes no provider surface and no tool authority |
+| `.env.example` | documented the cloud keys and the nine Hermes keys (all commented out) |
+| `scripts/noelia/ollama-smoke.ps1` | `-CheckHermes` (version probe + hermetic suite, no agent query) and `-CheckCloud` (a **non-inference** model listing, opt-in only) |
+| `docs/noelia/NOELIA_HERMES_RESTRICTED_RUNTIME.md` *(new)* | design, enforced limits, operator verification, rollback |
+| `docs/noelia/NOELIA_OLLAMA_LOCAL_DEVELOPMENT.md` | cloud/posture section, new keys, new switches, provenance note |
+
+### Deliberate non-goals (documented, not silently skipped)
+
+* **No Ollama Cloud inference path is implemented or verified.** Guardrails are
+  implemented and tested; the call itself is not, because zero-spend eligibility,
+  quota and pricing are provider-controlled and cannot be established from this
+  environment without risking a charge. Stop condition honoured.
+* **Hermes is not wired into NOELIA routing**, executes no tools, and is not an
+  `AIModelProvider`. Enabling agent tools or exposing Hermes through a governed
+  capability requires an authorization + approval design that does not exist yet;
+  this increment deliberately stops at the safely testable boundary.
+* **No new dependency** was added. `spawn`, `URL`, `AbortController` and `fetch`
+  are all Node built-ins already in use.
+* **Pre-existing observation, not changed here:** the `ai.model.route` tool is
+  declared with a non-`NONE` side effect and no `approvalRequirements`. It is
+  unchanged by this work, and changing tool metadata is a governance decision
+  that belongs to its owner, not to a provider-integration PR.
+
+### Evidence (round 2, executed)
+
+```
+npx vitest run tests/noelia
+ → 1 failed | 33 passed | 3 skipped (37 files) · 1 failed | 333 passed | 16 skipped (350 tests)
+   (the single failure is the pre-existing phase5-platform SQL_ASCII case)
+
+npx vitest run tests/noelia/ollama-cloud-guardrails.test.ts tests/noelia/hermes-runtime.test.ts                 tests/noelia/provenance-disclosure.test.ts tests/noelia/agent-surface-guard.test.ts
+ → 4 files passed · 45 tests passed
+
+NODE_OPTIONS=--max-old-space-size=3072 npx tsc --noEmit   → exit 0
+npm run lint                                              → 0 errors
+PowerShell grammar parse of scripts/noelia/ollama-smoke.ps1 → 0 parse errors
+```
+
+---
+
 ## 8. Branch and pull request
 
 * Branch: `arena/58532ec6-beyu-os-1-0` (feature branch created from `main` @ `05e2fba`).
