@@ -34,6 +34,51 @@ export type AIError = {
   category: "AUTHENTICATION" | "RATE_LIMIT" | "NETWORK" | "TIMEOUT" | "MALFORMED_RESPONSE" | "POLICY" | "MODEL" | "INTERNAL" | "UNKNOWN";
 };
 
+/**
+ * The ONLY provider statuses this platform accepts.
+ *
+ * These mirror the repository-wide provider-status convention already used by
+ * the communications provider registry (src/lib/communications/types.ts).
+ * "ACTIVE" is deliberately NOT a provider status: a registry row is activated
+ * by governance, and activation is not connectivity.
+ *
+ * Meaning, strictly:
+ *   CONFIGURED    configuration is present and valid; nothing has been proven.
+ *   CONNECTED     a real connectivity check against the runtime succeeded.
+ *   VERIFIED      a supported verification check (real inference round-trip)
+ *                 succeeded against the configured model.
+ *   DEGRADED      reachable but not fully usable (e.g. configured model absent,
+ *                 or inference failed while connectivity held).
+ *   FAILED        a connectivity/verification attempt failed.
+ *   NOT_CONNECTED the runtime is disabled, unconfigured or invalid.
+ *   SIMULATED     a simulated/test double; never a real runtime.
+ */
+export const AI_PROVIDER_STATUSES = [
+  "CONFIGURED",
+  "CONNECTED",
+  "VERIFIED",
+  "DEGRADED",
+  "FAILED",
+  "NOT_CONNECTED",
+  "SIMULATED",
+] as const;
+
+export type AIProviderStatus = (typeof AI_PROVIDER_STATUSES)[number];
+
+/**
+ * Evidence-bearing provider status report.
+ *
+ * A status is only ever a claim about what a check OBSERVED. `evidence` carries
+ * non-sensitive reason codes/observations only — never prompts, model output,
+ * credentials or filesystem paths.
+ */
+export type AIProviderStatusReport = {
+  status: AIProviderStatus;
+  detail: string;
+  evidence: string[];
+  checkedAt: string | null;
+};
+
 export type AIProviderHealth = {
   ok: boolean;
   detail: string;
@@ -41,6 +86,8 @@ export type AIProviderHealth = {
   configured: boolean;
   reachable: boolean | null;
   checkedAt: string;
+  /** Additive, evidence-based provider status. Absent = adapter does not report one. */
+  status?: AIProviderStatus;
 };
 
 export type AIModelCapabilities = {
@@ -199,6 +246,12 @@ export interface AIModelProvider {
   normalizedMetadata(context: ToolInvocationContext): Promise<AIModelMetadata>;
   /** Legacy health alias kept for existing call sites. */
   healthCheck(context: ToolInvocationContext): Promise<{ ok: boolean; detail: string }>;
+  /**
+   * Optional, evidence-based provider status (CONFIGURED/CONNECTED/VERIFIED/…).
+   * Implemented by adapters whose real availability must be observable. It is
+   * optional so existing adapters keep their behaviour unchanged.
+   */
+  providerStatus?(_context: ToolInvocationContext): Promise<AIProviderStatusReport>;
   /** Generative execution surface (BLOCKED until a real runtime is available). */
   generate(request: ModelExecutionRequest): Promise<ModelExecutionResult>;
   /** Deterministic/governed execution surface used by the first real adapter. */
