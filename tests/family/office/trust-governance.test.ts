@@ -29,6 +29,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../../src/db";
 import {
+  beneficiaries,
   governanceBodies,
   resolutions,
   tenants,
@@ -121,6 +122,42 @@ async function seededResolution(status: string) {
   return id;
 }
 
+/**
+ * A distribution requires an ELIGIBLE beneficiary of the same trust, so this
+ * suite creates its OWN beneficiary row rather than inheriting one from the
+ * seed. The seeded rows are SYNTHETIC and carry `eligibility: UNDER_REVIEW` —
+ * no eligibility determination has been made for anyone, and a seed may not
+ * declare one (see tests/security/synthetic-fixture-integrity.test.ts, BLK-08).
+ *
+ * Owning the fixture is also the correct isolation: the eligibility rule under
+ * test is "only an ELIGIBLE beneficiary of the SAME trust may receive a
+ * distribution", which a row created here exercises exactly, without coupling
+ * the test to seeded demonstration data whose status may legitimately change.
+ *
+ * The row exists only for the duration of this suite and is removed in
+ * afterAll. It asserts nothing about any real person: `verifiedBy` and
+ * `approvedByResolutionId` stay null precisely because no one verified it and
+ * no resolution approved it.
+ */
+async function createEligibleProbeBeneficiary(): Promise<string> {
+  const id = `BEN_TR_${RUN}`;
+  const [trust] = await db.execute(sql`select tenant_id from legal_entities where id = ${TRUST}`)
+    .then((r) => (r as unknown as { rows: Array<{ tenant_id: string }> }).rows ?? []);
+  await db.insert(beneficiaries).values({
+    id,
+    tenantId: trust.tenant_id,
+    familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_FOUNDER"),
+    trustEntityId: TRUST,
+    beneficiaryClass: "PRIMARY",
+    // Test fixture: eligibility is set here to exercise the positive path.
+    eligibility: "ELIGIBLE",
+    eligibilityRationale: "TEST FIXTURE — created by trust-governance.test.ts to exercise the ELIGIBLE path. Not a determination and not evidence; removed in afterAll.",
+    conditions: [],
+    effectiveFrom: "2014-03-11",
+  } as never);
+  return id;
+}
+
 async function expectTrustError(code: string, fn: () => Promise<unknown>): Promise<FamilyTrustError> {
   try {
     await fn();
@@ -142,6 +179,7 @@ let instrumentId: string;
 let provisionId: string;
 let decisionId: string;
 let distributionId: string;
+let eligibleBeneficiaryId = "";
 
 beforeAll(async () => {
   principal = await principalFor(PRINCIPAL);
@@ -149,6 +187,7 @@ beforeAll(async () => {
   sector = await principalFor(SECTOR);
   approvedRes = await seededResolution("APPROVED");
   tabledRes = await seededResolution("TABLED");
+  eligibleBeneficiaryId = await createEligibleProbeBeneficiary();
 });
 
 /**
@@ -162,6 +201,7 @@ afterAll(async () => {
   await db.execute(sql`delete from trust_provisions where instrument_id in (${instruments})`);
   await db.execute(sql`delete from trust_instruments where id in (${instruments})`);
   await db.execute(sql`delete from resolutions where id like 'RES_TR_%'`);
+  await db.execute(sql`delete from beneficiaries where id = ${eligibleBeneficiaryId}`);
 });
 
 describe("§8 — trust instruments: lifecycle, legal review, server-derived versions", () => {
@@ -367,7 +407,7 @@ describe("§8 — distributions: decision records only; Finance OS remains the p
       principal,
       {
         instrumentId,
-        beneficiaryId: BENEFICIARY_B1,
+        beneficiaryId: eligibleBeneficiaryId,
         distributionType: "EDUCATION",
         amount: "25000.00",
         currency: "USD",

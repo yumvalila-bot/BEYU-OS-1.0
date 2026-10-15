@@ -305,8 +305,17 @@ async function main() {
         email: p.email,
         countryCode: "TZ",
         nationality: "TZ",
-        kycStatus: "VERIFIED" as const,
-        kycMethod: "NIDA_DOCUMENT_VERIFICATION",
+        /*
+         * Identity verification is NOT claimed. These people are fictional; no
+         * identity document exists for any of them and nothing was checked
+         * against NIDA or any other registry. The row previously asserted
+         * `kycStatus: VERIFIED` with `kycMethod: NIDA_DOCUMENT_VERIFICATION`,
+         * which the repository's own federation registry contradicts outright:
+         * the seeded NIDA entry records integrationStatus CONTRACT_PENDING,
+         * interfaceKind NONE_PUBLISHED and authModel UNVERIFIED. A claim that
+         * could not have been performed is removed rather than softened.
+         */
+        kycStatus: "UNVERIFIED" as const,
         classification: "CONFIDENTIAL" as const,
       })),
     )
@@ -604,7 +613,27 @@ async function main() {
     .values([
       { id: fixedId(ID_PREFIX.resolution, "R2025_014"), tenantId: T.group, bodyId: B.board, reference: "BEYU-BRD-2025-014", title: "Approve BEYU Group Waterfall Configuration v2.1", category: "POLICY", summary: "Adopt the revised enterprise cash waterfall for the FY2025 operating surplus, including a 10% Foundation allocation tier.", rationale: "Aligns distribution with the strategic reinvestment plan and the Foundation funding covenant.", dataBasis: "Finance OS consolidated cash forecast FY2025-Q3; Treasury positions as at period end.", authorityPolicyId: fixedId(ID_PREFIX.policy, "POL_ENT_WATERFALL"), consequences: "Binding on all TZ operating companies from the next distribution cycle.", proposedBy: "GROUP_CFO", status: "APPROVED", requiredMajority: "SIMPLE", quorumMet: true, votesFor: 4, votesAgainst: 0, votesAbstain: 1, decisionDate: new Date("2025-08-14T10:00:00Z") },
       { id: fixedId(ID_PREFIX.resolution, "R2025_021"), tenantId: T.group, bodyId: B.invest, reference: "BEYU-IC-2025-021", title: "Health OS regional expansion — capital allocation", category: "CAPITAL", summary: "Allocate USD 1,800,000 to the Health OS Mwanza expansion programme.", rationale: "IRR 18.4% against a 12% hurdle; supports strategic objective SO-2 (regional access).", dataBasis: "Capital request CAP-2025-004 with sensitivity analysis.", authorityPolicyId: fixedId(ID_PREFIX.policy, "POL_ENT_CAPITAL"), consequences: "Requires Group Board ratification as a reserved matter above USD 1,000,000.", proposedBy: "GROUP_CFO", status: "TABLED", requiredMajority: "SIMPLE", quorumMet: true, votesFor: 2, votesAgainst: 0, votesAbstain: 0 },
-      { id: fixedId(ID_PREFIX.resolution, "R2025_007"), tenantId: T.group, bodyId: B.family, reference: "BEYU-FC-2025-007", title: "Verification of third-generation beneficiary class", category: "RESERVED_MATTER", summary: "Confirm eligibility of verified direct descendants in generation 3 as contingent beneficiaries.", rationale: "Lineage verified by documentary evidence and independent counsel review.", dataBasis: "Family registry lineage verification pack FV-2025-03.", consequences: "Updates beneficiary register; no immediate distribution effect.", proposedBy: "FAMILY_OFFICE_PRINCIPAL", status: "APPROVED", requiredMajority: "TWO_THIRDS", quorumMet: true, votesFor: 3, votesAgainst: 0, votesAbstain: 0, decisionDate: new Date("2025-06-02T09:00:00Z"), classification: "HIGHLY_RESTRICTED" },
+      /*
+       * SYNTHETIC DEMONSTRATION RESOLUTION — IT RECORDS A DECISION THAT WAS
+       * NEVER TAKEN.
+       *
+       * The row remains because the demonstration needs an APPROVED resolution to
+       * exercise the governance paths, and it is labelled here rather than
+       * quietly rendered authoritative. What it must NOT do is assert evidence:
+       * it previously named a "Family registry lineage verification pack
+       * FV-2025-03" and stated that lineage was "verified by documentary evidence
+       * and independent counsel review". No such pack exists, no counsel reviewed
+       * anything, and that sentence is exactly the kind of claim this repository
+       * forbids. The fabricated evidence reference is removed and the honest
+       * position is stated instead.
+       *
+       * Scope note: `decisions_confirmed_by_human` and
+       * `governanceDecisionRegistry` are the fields that confer authority, and
+       * they are untouched elsewhere in this file — this resolution confers none
+       * (the registry's own rows are PENDING with activation_status LOCKED, see
+       * the pre-ratification registry further down).
+       */
+      { id: fixedId(ID_PREFIX.resolution, "R2025_007"), tenantId: T.group, bodyId: B.family, reference: "BEYU-FC-2025-007", title: "[SYNTHETIC DEMO] Illustrative beneficiary-class verification resolution — no decision was taken", category: "RESERVED_MATTER", summary: "SYNTHETIC DEMONSTRATION ROW. Recorded so the governance paths can be exercised in a non-production environment. No family body deliberated, no vote was taken, and no beneficiary class is defined in any operative instrument.", rationale: "Synthetic. The figures below are fixture values, not a record of deliberation: no documentary evidence, counsel review or verification pack exists, and none may be cited from this row.", dataBasis: "NONE — synthetic demonstration data. There is no evidence pack, no verification reference and no source document behind this row.", consequences: "None. This row confers no authority, approves no beneficiary, and may not be cited as evidence of any decision, verification or entitlement.", proposedBy: "SYNTHETIC_FIXTURE", status: "APPROVED", requiredMajority: "TWO_THIRDS", quorumMet: true, votesFor: 3, votesAgainst: 0, votesAbstain: 0, decisionDate: new Date("2025-06-02T09:00:00Z"), classification: "HIGHLY_RESTRICTED" },
       { id: fixedId(ID_PREFIX.resolution, "R2025_031"), tenantId: T.group, bodyId: B.tax, reference: "BEYU-TGC-2025-031", title: "Adopt capital allowance position for agricultural machinery", category: "TAX", summary: "Approve reliance on the Tanzanian capital deduction for qualifying agricultural plant.", rationale: "Clear statutory basis; low audit risk; documentation pack complete.", dataBasis: "Tax strategy TZ-CAP-ALLOW-01 eligibility assessment.", consequences: "Reduces FY2025 taxable income for BEYU Agriculture Ltd.", proposedBy: "GROUP_CFO", status: "DRAFT", requiredMajority: "SIMPLE", quorumMet: false },
     ])
     .onConflictDoNothing();
@@ -1106,9 +1135,40 @@ async function main() {
       .onConflictDoNothing();
   }
 
+  /*
+   * SYNTHETIC DEMONSTRATION DATA — NOT VERIFIED IDENTITY, AND NOT EVIDENCE.
+   *
+   * These rows are invented for demonstration. No family member here has been
+   * identified against any document, no lineage has been evidenced, and no
+   * resolution, trustee or counsel has reviewed anything. The same honesty rule
+   * as the tenant-domain rows above applies, and it is the rule the decision
+   * registry already states in this file ("Seeds the EXISTENCE of each pending
+   * decision, never its CONTENT. ... deliberately left NULL"):
+   *
+   *   verification_status UNVERIFIED  — the schema's own default, and the only
+   *       accurate value for a synthetic row. UNVERIFIED is not a placeholder
+   *       awaiting a tick; it is a finding: nobody has verified this.
+   *   verification_method / verified_by / verified_at omitted — the columns are
+   *       nullable (src/db/schema/people.ts), and an unverified row must not
+   *       name a method, an actor or a date. Fabricating an actor is prohibited
+   *       outright, and the precedent is already in the tree: `createdBy` is
+   *       deliberately null on these rows ("historical actors are never
+   *       fabricated" — tests/family/family-member-guard.test.ts).
+   *
+   * `direct_descendant` is deliberately LEFT FALSE even though these are the
+   * founding line: descent is a VERIFIED CLAIM, and the governed registration
+   * path refuses to assert it outright (DIRECT_DESCENDANT_REQUIRES_VERIFICATION,
+   * src/lib/admin/registry-service.ts). A seed may not assert what the governed
+   * path refuses to.
+   *
+   * Because the lineage engine requires verification_status = 'VERIFIED' for an
+   * unbroken descent (src/lib/family/lineage.ts), these synthetic members now
+   * evaluate as NOT lineage-verified — which is the correct outcome and closes a
+   * path by which demonstration data could have conferred descent rights.
+   */
   const fam = [
-    { key: "FM_G1_FOUNDER", party: "AMANI_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: true, ver: "VERIFIED" as const },
-    { key: "FM_G1_SPOUSE", party: "NEEMA_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: false, ver: "VERIFIED" as const },
+    { key: "FM_G1_FOUNDER", party: "AMANI_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: false, ver: "UNVERIFIED" as const },
+    { key: "FM_G1_SPOUSE", party: "NEEMA_BEYU", branch: "FOUNDER", gen: 1, parent: null, direct: false, ver: "UNVERIFIED" as const },
   ];
   await adminDb
     .insert(s.familyMembers)
@@ -1126,18 +1186,40 @@ async function main() {
         parentMemberId: f.parent,
         directDescendant: f.direct,
         verificationStatus: f.ver,
-        verificationMethod: "DOCUMENTARY_AND_COUNSEL_REVIEW",
-        verifiedBy: "FAMILY_COUNCIL",
-        verifiedAt: new Date("2025-06-02T09:00:00Z"),
       })),
     )
     .onConflictDoNothing();
 
+  /*
+   * Synthetic beneficiary rows.
+   *
+   * `eligibility` is UNDER_REVIEW — the enum's honest state when no
+   * determination exists, not a soft label for "probably fine". Eligibility is
+   * never presumed (src/lib/family/capital.ts: "No eligibility determination was
+   * supplied. Eligibility is never presumed."), and beneficiary eligibility
+   * versus legal entitlement is expressly unratified (DAA-FAM-004, FIR-009/FIR-010).
+   *
+   * `entitlementPct` is omitted (null). A percentage is a claimed share of trust
+   * property: recording one would invent an entitlement, and which persons hold
+   * what interest is a matter for the trustees and counsel, not for a seed.
+   *
+   * `verifiedBy` and `approvedByResolutionId` are omitted. Nobody verified these
+   * and no resolution approved them; the resolution previously cited here is
+   * itself synthetic and speaks to a different generation of beneficiaries
+   * (see the R2025_007 row). `governance-provenance-integrity.test.ts` exists
+   * because provenance must be real, and the schema's null is the accurate
+   * representation of "no approving resolution".
+   *
+   * `eligibilityRationale` is NOT NULL, so it carries the honest statement
+   * instead of the fabricated one it used to carry ("Named primary beneficiary
+   * in the trust deed schedule 3") — a claim about an operative instrument that
+   * does not exist in this repository.
+   */
   await adminDb
     .insert(s.beneficiaries)
     .values([
-      { id: fixedId(ID_PREFIX.beneficiary, "B1"), tenantId: T.group, familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_FOUNDER"), trustEntityId: E.trust, beneficiaryClass: "PRIMARY", eligibility: "ELIGIBLE", eligibilityRationale: "Named primary beneficiary in the trust deed schedule 3; lineage verified.", entitlementPct: "40", conditions: [], effectiveFrom: "2014-03-11", verifiedBy: "TRUSTEE_BOARD", approvedByResolutionId: fixedId(ID_PREFIX.resolution, "R2025_007") },
-      { id: fixedId(ID_PREFIX.beneficiary, "B2"), tenantId: T.group, familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_SPOUSE"), trustEntityId: E.trust, beneficiaryClass: "PRIMARY", eligibility: "ELIGIBLE", eligibilityRationale: "Named primary beneficiary in the trust deed schedule 3.", entitlementPct: "40", conditions: [], effectiveFrom: "2014-03-11", verifiedBy: "TRUSTEE_BOARD", approvedByResolutionId: fixedId(ID_PREFIX.resolution, "R2025_007") },
+      { id: fixedId(ID_PREFIX.beneficiary, "B1"), tenantId: T.group, familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_FOUNDER"), trustEntityId: E.trust, beneficiaryClass: "PRIMARY", eligibility: "UNDER_REVIEW", eligibilityRationale: "SYNTHETIC DEMONSTRATION ROW — no eligibility determination has been made and no beneficiary class is defined in any operative instrument in this repository. Recorded as UNDER_REVIEW so the row cannot be read as an entitlement.", conditions: [], effectiveFrom: "2014-03-11" },
+      { id: fixedId(ID_PREFIX.beneficiary, "B2"), tenantId: T.group, familyMemberId: fixedId(ID_PREFIX.familyMember, "FM_G1_SPOUSE"), trustEntityId: E.trust, beneficiaryClass: "PRIMARY", eligibility: "UNDER_REVIEW", eligibilityRationale: "SYNTHETIC DEMONSTRATION ROW — no eligibility determination has been made and no beneficiary class is defined in any operative instrument in this repository. Recorded as UNDER_REVIEW so the row cannot be read as an entitlement.", conditions: [], effectiveFrom: "2014-03-11" },
     ])
     .onConflictDoNothing();
 
