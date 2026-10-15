@@ -5,11 +5,14 @@ Title: BEYU Family Trust — Trust Deed (counsel-review draft with schedules)
 Version: 1.0 (draft)
 Date: 2026-10-15
 Status: **`COMPLETE_DRAFT` — NOT EXECUTED. NOT LEGALLY EFFECTIVE. FOR COUNSEL REVIEW ONLY.**
+Integration: clauses **10.8–10.20**, **11A**, **16.4–16.15** and **20A** were added in revision 1.1 from
+**`BEYU-LF-TC-01` (Trust Clause Pack)** and are **`CONDITIONAL_DRAFT` / `PENDING_COUNSEL`**. The deed is **not**
+execution-ready while the trust jurisdiction and legal form remain unresolved (`DAA-ARCH-006`).
 Document owner: Trustees (proposed)
 Approving authority (proposed): the Settlor + the Trustees + counsel
 Next review date: On counsel markup; then annually after execution
 Classification: `HIGHLY_RESTRICTED` when executed and populated
-Related documents: `D01`, `D03`, `D04`, `D05`, `D06`, `D07`, `D08`, `D09`, `D10`, `D27`, `D57`, `D59`
+Related documents: `D01`, `D03`, `D04`, `D05`, `D06`, `D07`, `D08`, `D09`, `D10`, **`TC-01`**, `D27`, `D57`, `D59`
 Depends on: `D01` (route selection); counsel's answers to `Q-T-01`…`Q-T-06`
 
 > **⚠ READ FIRST.**
@@ -318,6 +321,100 @@ Protector. **`[COUNSEL TO CONFIRM]`** whether any such application is lawful and
 **10.7 No capital distribution on demand.** No Beneficiary may demand a capital distribution. Any
 capital distribution is at the Trustees' discretion subject to Schedule 4.
 
+> **INTEGRATION NOTE (`BEYU-LF-TC-01`).** The four clauses below are drafted **conditionally** and are
+> **`CONDITIONAL_DRAFT` / `PENDING_COUNSEL`**. `BEYU-LF-TC-01` reproduces them with their purpose,
+> plain-language explanation, risks, governing-law assumptions, counsel questions and required decisions.
+> **If this deed and `TC-01` ever diverge, this deed governs.** The deed is **NOT EXECUTED** and must not be
+> described as execution-ready while the trust jurisdiction and legal form remain unresolved
+> (`DAA-ARCH-006`).
+
+**10.8 Nature of the interest. [MANDATORY — definitional; see `TC-01` TC-3.]** No Beneficiary has any
+interest in the Trust Fund other than the right to be **considered** by the Trustees within the Beneficiary
+Classes and to have that consideration exercised in good faith. **A Beneficiary has no right to any amount,
+and a decision to distribute creates an entitlement only to the amount and on the terms decided.** This
+sub-clause prevails over any other provision of this deed and over any statement in a family document
+(`D11`–`D19`), register or software record.
+
+**10.9 Scope of discretion. [COUNSEL TO CONFIRM the outer limits.]** Subject to this deed and the law, the
+Trustees may at any time (a) add to capital or income for a Beneficiary; (b) pay in instalments or lump sums;
+(c) apply funds **directly for** a Beneficiary's benefit rather than paying them to the Beneficiary;
+(d) distribute **in specie**; (e) make **loans** on terms the Trustees decide (with a written record and a
+repayment schedule); (f) make a distribution **subject to conditions**; and (g) decide **not** to distribute.
+
+**10.10 Purposes and considerations.** Distributions are made only for purposes within Schedule 3. In
+considering a request the Trustees may take into account: age and maturity; education; health and medical
+need; disability; debt and financial difficulty; the effect on the Beneficiary's own initiative; the
+Beneficiary's other resources as disclosed; the needs of **other** Beneficiaries; family relationships; tax
+consequences to the Trust and the Beneficiary; and the Beneficiary's conduct **only** where relevant to a
+purpose in Schedule 3.
+
+**10.11 Considerations that must NOT be decisive. [MANDATORY.]** The Trustees shall not treat as decisive:
+(a) the fact that a Beneficiary has made a **lawful claim** or brought a **good-faith application**
+concerning the Trust; (b) the fact that a Beneficiary has sought information to which they are entitled;
+(c) the fact that a Beneficiary has made a **report to a regulator, a tax authority or law enforcement**;
+(d) a Beneficiary's refusal to accept an improper condition; or (e) a Beneficiary's decision to obtain
+independent advice. **A Trustee who does so acts in breach of this deed.**
+
+**10.12 Impartiality. [COUNSEL TO CONFIRM the content of the duty in the chosen law.]** Where two or more
+Beneficiaries are eligible, the Trustees shall act **impartially**, which requires (a) informing themselves of
+each eligible Beneficiary's relevant circumstances; (b) applying consistent criteria; (c) recording the
+reasons for material disparities; and (d) not preferring a Beneficiary because of a Trustee's own interest,
+convenience or relationship.
+
+**10.13 Conflicts and self-dealing.** A Trustee who is also a Beneficiary, or connected to one, shall comply
+with clause 14; **shall not vote or be counted for the quorum** on a distribution to themselves or to a
+connected person; and shall record the recusal.
+
+**10.14 Requests, process and timescales.** (a) A request may be made in writing by an adult Beneficiary, a
+guardian, or a person acting under an instrument recognised by law. (b) The Trustees shall respond in writing
+within **[NUMBER]** days, stating the decision and the **reasons**, except where clause 19.3 permits
+withholding or where the decision is incomplete. (c) Before deciding a distribution above
+**[LARGE DISTRIBUTION THRESHOLD]**, the Trustees shall complete the checks in 10.15 and obtain any consent
+Schedule 4 requires. (d) A refusal is recorded with reasons, and the Beneficiary is told what evidence would
+help a future request where it is proper to do so.
+
+**10.15 Mandatory checks before deciding.** The Trustees shall satisfy themselves, and record, that:
+(a) the Beneficiary is within a class (Schedule 2); (b) the purpose is within Schedule 3; (c) applicable caps
+are observed; (d) any **Reserved Matter** consent has been obtained; (e) conflicts are identified and managed;
+(f) the **affordability and liquidity** tests in 10.16 are met; (g) any **tax** consequence to the Trust and
+the Beneficiary has been considered with the Trust's adviser `[ACCOUNTANT TO CONFIRM]`; (h) the accounting and
+distribution records (`D08`) can be completed; and (i) the **dual-control and evidence** rules in 10.17 are
+met.
+
+**10.16 Affordability, liquidity and investment coordination.** The Trustees shall not make a distribution
+that would (a) impair the Trust's ability to meet its existing and reasonably foreseeable obligations;
+(b) breach an investment mandate, a covenant or a legal restriction (`D07`); or (c) require a forced sale at
+a loss where deferring would not — **unless they record the reasons for doing so notwithstanding**. Where the
+Trust Fund is reported alongside other assets, the Trustees shall consider the liquidity discipline in
+`D33` §5.
+
+**10.17 Dual control and evidence. [MANDATORY — controls.]**
+(a) A distribution requires a Trustee decision under clause 15.3.
+(b) Above **[DUAL CONTROL THRESHOLD]**, a **second, independent** authorisation is required — the Protector's
+consent, an independent Trustee's written approval, or (where Schedule 4 requires) the consent of a specified
+Beneficiary class.
+(c) **No distribution may be made, approved, recorded, authorised, executed or paid by any software system,
+workflow or artificial-intelligence output.** `BEYU OS` and `NOELIA_AI` may prepare, calculate, record and
+report; **they may not decide, approve, sign, execute or release a payment** (clauses 7.3–7.4; `D31` §6).
+(d) Every distribution is evidenced by: the request or the Trustees' initiative; the checks in 10.15; the
+decision and reasons; any consent; the payment or application record; and the accounting entry in the
+**accounting authority of record** (`D08` §1.3).
+
+**10.18 Emergencies.** In an emergency within `D62` E-01, the Trustees (or a Trustee acting alone where this
+deed permits) may make a distribution **strictly necessary** for a Beneficiary's health, safety or essential
+maintenance, subject to: (a) a cap of **[EMERGENCY DISTRIBUTION CAP]**; (b) immediate notice to the other
+Trustees and the Protector (if any); and (c) **ratification at the next meeting, and reversal or correction
+if ratification is refused.**
+
+**10.19 Protector and adviser involvement — OPTION ONLY. [COUNSEL TO CONFIRM.]** The Settlor leaves open
+(a) whether the Protector must consent to distributions above a threshold; (b) whether an independent
+adviser's certificate is required for any class of distribution; and (c) whether any reserved power is
+retained. **Until counsel advises, none of these is required except where Schedule 4 expressly says so.**
+
+**10.20 Register discipline.** The distribution record (`D08`) shall show, for each distribution: the
+Beneficiary; the amount or property; the purpose; the checks performed; the decision reference; any consent;
+the payment evidence; and **whether the interest was discretionary at the time of the decision**.
+
 ### 11. Distributions on death of a Beneficiary `[PROPOSED]` `[COUNSEL TO CONFIRM]`
 
 **11.1** On the death of a Beneficiary, that person's interest (if any) in the Trust Fund ceases unless
@@ -331,6 +428,56 @@ successor must fall within a Beneficiary Class.
 **11.3** Nothing in this clause affects **creditors' rights, court orders, or any statutory right of
 dependants or family members** that is not capable of being excluded by agreement or instrument.
 **`[COUNSEL TO CONFIRM]`** the interaction with Tanzanian succession and family-provision rules.
+
+> **INTEGRATION NOTE (`BEYU-LF-TC-01`).** The four clauses below are drafted **conditionally** and are
+> **`CONDITIONAL_DRAFT` / `PENDING_COUNSEL`**. `BEYU-LF-TC-01` reproduces them with their purpose,
+> plain-language explanation, risks, governing-law assumptions, counsel questions and required decisions.
+> **If this deed and `TC-01` ever diverge, this deed governs.** The deed is **NOT EXECUTED** and must not be
+> described as execution-ready while the trust jurisdiction and legal form remain unresolved
+> (`DAA-ARCH-006`).
+
+**11A.1 Scope.** This clause applies to an interest in the Trust Fund arising under this deed. It does not
+apply to property already **distributed** and no longer held by the Trustees, and it does not purport to bind
+a person who is not a party to this deed.
+
+**11A.2 Discretionary interests. [COUNSEL TO CONFIRM the legal description.]** An interest subject to the
+Trustees' discretion, in respect of which no decision to distribute has been made, confers a right to be
+**considered** and not a right to any particular amount. Within the limits of applicable law, such an interest
+is **not transferable** by the Beneficiary, and the Trustees are **not obliged to recognise** any purported
+assignment, charge, pledge, mortgage, anticipation, sale or other dealing with it.
+
+**11A.3 Vested and mandatory interests. [COUNSEL TO CONFIRM.]** Where this deed creates an interest that is
+vested, or a right to a **fixed or ascertainable** amount, or where the Trustees have **decided** to make a
+distribution, 11A.2 does not apply to that interest or amount. It may be dealt with as the law allows, and the
+Trustees shall act in accordance with the law and this deed.
+
+**11A.4 Distributions once made.** A distribution that has been made **belongs to the recipient absolutely**
+and is not subject to any restriction in this deed.
+
+**11A.5 Creditors. [COUNSEL TO CONFIRM — this sub-clause must not overstate the position.]** Nothing in this
+deed is intended to defeat the lawful claims of any person, and nothing in it shall be construed as depriving
+any court of any jurisdiction it has, or as limiting any applicable law relating to **insolvency, bankruptcy,
+the enforcement of judgments, the rights of dependants, the maintenance of spouses or children, or any
+obligation to pay tax. The Trustees shall comply with any court order and shall not assist any person to
+defeat a lawful claim.**
+
+**11A.6 Trustee response to a purported dealing.** The Trustees may: (a) decline to recognise a purported
+dealing; (b) require evidence of it and of its legal effect; (c) apply 11A.8; and (d) take advice at the
+Trust's expense within the approved budget.
+
+**11A.7 Beneficiary's own dealings.** A Beneficiary may not create an interest in the Trust Fund in favour of
+a third party by way of security or investment arrangement without the Trustees' prior written consent.
+
+**11A.8 Mandatory legal obligations. [COUNSEL TO CONFIRM.]** Where a Beneficiary is subject to a court order, a
+statutory obligation or a lawful claim, the Trustees shall apply this clause in accordance with the law and
+**shall not treat this clause as a defence to a legal obligation.**
+
+**11A.9 Personal choice preserved. [MANDATORY.]** A Beneficiary's **right to seek the assistance of a court,
+to apply for the administration of the Trust, to complain to a regulator, or to obtain advice** is not
+restricted by this clause.
+
+**11A.10 Review.** The Trustees shall review this clause if the Trust's governing law changes, or if counsel
+advises that its effect has changed.
 
 ## PART 5 — DUTIES AND CONDUCT OF TRUSTEES
 
@@ -459,6 +606,102 @@ bankruptcy); or the expiry of a fixed term.
 artificial-intelligence output.** Any such act requires a human decision recorded under clause 15.3,
 and, where applicable, regulator notification.
 
+> **INTEGRATION NOTE (`BEYU-LF-TC-01`).** The four clauses below are drafted **conditionally** and are
+> **`CONDITIONAL_DRAFT` / `PENDING_COUNSEL`**. `BEYU-LF-TC-01` reproduces them with their purpose,
+> plain-language explanation, risks, governing-law assumptions, counsel questions and required decisions.
+> **If this deed and `TC-01` ever diverge, this deed governs.** The deed is **NOT EXECUTED** and must not be
+> described as execution-ready while the trust jurisdiction and legal form remain unresolved
+> (`DAA-ARCH-006`).
+
+**16.4 Grounds for removal. [COUNSEL TO CONFIRM each ground.]** A Trustee may be removed only on one or more
+of the following grounds, established on evidence: (a) **persistent failure** to perform the duties of office,
+including repeated failure to attend, to consider, to record decisions, or to comply with this deed or `D03`;
+(b) **serious or repeated breach** of trust or of Part 5, including clause 14; (c) **dishonesty, fraud, wilful
+misconduct or gross negligence**, or a reasonable belief of any of them on evidence; (d) a **disqualifying
+conflict** that cannot be managed (`D14` §5.4); (e) **loss of eligibility** or a **disqualification** imposed
+by law; (f) **insolvency**, bankruptcy or an arrangement with creditors, where the law treats that as
+disqualifying or material; (g) **incapacity** determined under `D03` §6.4; (h) the **expiry of a fixed term**,
+if this deed provides for one; (i) **unwillingness or inability to act** for a continuous period exceeding
+**[NUMBER]** months; (j) **refusal to comply** with a lawful order of a court or a regulator; or (k) **any
+other ground** the governing law permits and on which the Protector (or the court) is satisfied on evidence
+that removal is justified.
+
+**16.5 Who may initiate, and who decides. [COUNSEL TO CONFIRM — the allocation must match the chosen legal
+form.]**
+**(a) Initiation:** the Protector (if appointed); any Trustee; the Settlor while living (in respect of a
+Trustee other than the Settlor); an adult Beneficiary with the written support of **[NUMBER]** adult
+Beneficiaries or of a Beneficiary holding a specified interest; or **the court**, on application.
+**(b) Decision:** removal is decided **outside the Trust** by the persons this deed designates, namely
+(i) where a Protector is appointed, the **Protector** with the concurrence of a majority of the **remaining**
+Trustees; (ii) where no Protector is appointed, by a **majority of the remaining Trustees** **and** the
+written concurrence of **[NUMBER]** adult Beneficiaries or **[SUPERMAJORITY]** of the Beneficiary classes; or
+(iii) by **the court**, on application by a person entitled under 16.5(a).
+**(c) Prohibitions. [MANDATORY.]** **A Trustee may not participate in the decision to remove themselves, and
+may not be counted for any quorum for that decision. No software system, workflow or AI output may initiate,
+approve or effect a removal.**
+
+**16.6 Notice and right to respond. [MANDATORY — procedural fairness.]** (a) Written notice stating the
+proposed ground, the facts and the evidence relied on; (b) at least **[NUMBER]** days to respond in writing;
+(c) a reasonable opportunity to make representations to the deciding persons; and (d) a written decision with
+reasons. The notice and the response are recorded. **Where the ground is dishonesty, fraud or an imminent risk
+to Trust assets, the deciding persons may act under 16.8 before completing 16.6, and shall complete 16.6
+afterwards.**
+
+**16.7 Evidence standard.** The deciding persons shall state the ground, identify the evidence, consider the
+Trustee's response, and record the reasons. **Evidence may not be a software flag, a workflow state, a
+dashboard indicator or an AI conclusion** (`D03` §6.4).
+
+**16.8 Temporary safeguards (suspension pending decision).** Where there is a credible risk to the Trust Fund
+or a Beneficiary, the remaining Trustees may by majority: (a) suspend the Trustee's access to Trust assets,
+accounts, systems and information; (b) require a second signature on all transactions; (c) appoint an interim
+co-trustee to hold office until the decision is complete, **subject to `[COUNSEL TO CONFIRM]` whether statute
+or this deed permits it**; (d) preserve evidence; and (e) inform the Protector and the auditor. **Suspension
+is time-boxed to [NUMBER] days and must be reviewed.** Remuneration continues during suspension unless the law
+provides otherwise, and **a malicious suspension is a breach.**
+
+**16.9 Successor eligibility and appointment.** (a) A successor must be **eligible** under clause 2.4 and the
+law (including any minimum number, residency or qualification requirement — `[COUNSEL TO CONFIRM]`);
+(b) the appointment is made by **[the Protector / the remaining Trustees / the Settlor while living / the
+Beneficiary classes — USER TO SUPPLY]** as this deed provides; (c) no appointment may leave the Trust without
+the minimum number of Trustees required by law or clause 2.4; (d) a person may not be appointed if
+disqualified, if they are a party to a dispute with the Trust, or if an unmanaged conflict within 16.4(d)
+exists; and (e) where fewer than the minimum number remain and no appointment is made within **[NUMBER]**
+days, **any person in 16.5(a) may apply to the court**, and the Trustees shall cooperate.
+
+**16.10 Acceptance of office and handover. [MANDATORY — continuity.]** (a) A successor accepts office in
+writing and is given: this deed and its schedules; the Trust asset register; the accounts and any audit
+reports; the decision register; the conflicts register; the Beneficiary register; the distribution record;
+the litigation and claims register; the obligation and filing calendar; and the location of every original
+document (`D74`). (b) The outgoing Trustee shall deliver the Trust property and records, provide a **written
+accounting** to the date of cessation, complete or hand over outstanding filings with dates, and cease to hold
+themselves out as a Trustee. (c) The handover is **recorded and signed** by the outgoing and incoming
+Trustees, with the date, the property transferred and the records delivered.
+
+**16.11 Authority continuity. [MANDATORY — operational.]** Pending handover the **remaining Trustees** retain
+authority; a sole remaining Trustee may act only as the law permits; **bank mandates, signatory cards, filings
+and system access are updated within [NUMBER] days and the update is recorded** (`D66`, `D68`, `D58` §2.3).
+
+**16.12 Indemnity, accounting and liability on cessation. [COUNSEL TO CONFIRM.]** (a) The outgoing Trustee's
+indemnity for properly performed acts continues as clause 13 provides; (b) an outgoing Trustee **remains
+liable** for acts and omissions during their trusteeship (clause 13.5 — no exoneration for dishonesty, fraud
+or wilful misconduct); (c) the Trustees shall settle or arrange the outgoing Trustee's remuneration and
+expenses; and (d) the Trustees shall record whether any claim, irregularity or unresolved matter was
+identified at handover, and how it will be addressed.
+
+**16.13 Deadlock and court involvement. [COUNSEL TO CONFIRM.]** Where the deciding persons cannot decide, or
+where the number of Trustees falls below the minimum and cannot be restored under 16.9, **any person in
+16.5(a) may apply to the court**, and the Trustees shall disclose to the court what the court directs, subject
+to any lawful claim of privilege.
+
+**16.14 Regulator and notification steps. [MANDATORY where the Trust is incorporated under a statutory route
+— COUNSEL TO CONFIRM.]** Every notification, return and filing required on the appointment, removal,
+resignation or death of a Trustee (and any requirement to keep a register current or lodge an instrument) is
+performed within the statutory period and recorded in `D68` (see also clause 19.4 and clause 22.4).
+
+**16.15 Supervision preserved. [MANDATORY.]** **Nothing in this clause prevents any person from applying to
+the court, or from reporting a Trustee's conduct to a regulator or a law-enforcement authority**, or
+restricts the court's supervisory jurisdiction.
+
 ### 17. The Protector `[PROPOSED]` `[COUNSEL TO CONFIRM]`
 
 **17.1** A Protector may be appointed. If none is appointed, all references to Protector consent in
@@ -527,7 +770,11 @@ consents required by Schedule 4 and (where applicable) the Protector.
 
 **20.2** **Entrenched clauses.** The following may not be amended except with the higher approval
 stated in Schedule 4: clauses 7.3 (non-delegable decisions), 7.4 (AI prohibition), 8.5 (no indemnity
-for dishonesty), 11, 14 (conflicts), 18 (Family Council limits), and this clause 20.2. **`[COUNSEL TO
+for dishonesty), **10.8 (no entitlement), 10.11 (prohibited considerations), 10.17(c) (no software/AI
+distribution decision), 11A.9 (personal choice preserved), 16.5(c) and 16.15 (removal: no self-decision;
+supervision preserved), 20A.1–20A.2 (no-contest carve-outs and preservation of rights)**, 11, 14
+(conflicts), 18 (Family Council limits), and this clause 20.2. **[PROPOSED EXTENSION — not applied unless
+the Settlor and counsel adopt `TC-01` §6.2.]** **`[COUNSEL TO
 CONFIRM]` whether an entrenchment is effective and whether any statutory variation right (for example
 a class-rights variation route in company law, where the Trust holds shares) circumscribes it.**
 
@@ -538,6 +785,68 @@ sanction where a Beneficiary is a minor or lacks capacity or is unborn.
 **20.4** No amendment may: (a) authorise a breach of clause 8; (b) defeat creditors' rights; (c) remove
 the AI prohibition in clause 7.4; or (d) make the Trust's assets available to a non-Beneficiary except
 as clause 10.6 permits.
+
+> **INTEGRATION NOTE (`BEYU-LF-TC-01`).** The four clauses below are drafted **conditionally** and are
+> **`CONDITIONAL_DRAFT` / `PENDING_COUNSEL`**. `BEYU-LF-TC-01` reproduces them with their purpose,
+> plain-language explanation, risks, governing-law assumptions, counsel questions and required decisions.
+> **If this deed and `TC-01` ever diverge, this deed governs.** The deed is **NOT EXECUTED** and must not be
+> described as execution-ready while the trust jurisdiction and legal form remain unresolved
+> (`DAA-ARCH-006`).
+
+**20A.1 Interpretation and disputes are not contests. [MANDATORY — carve-outs.]** Nothing in this clause
+applies to, or may be used to penalise: (a) a request for the Trustees' accounts, information or reasons to
+which a Beneficiary is lawfully entitled; (b) an application to a court for the **interpretation** of this
+deed or for directions; (c) an application concerning the administration of the Trust; (d) a claim that this
+deed is invalid, forged, the product of incapacity or undue influence, or improperly amended; (e) an
+allegation of **breach of trust, misconduct, dishonesty or unlawful conduct** by a Trustee, the Protector or
+any other person; (f) any **report or complaint to a regulator, a court, a tax authority or law
+enforcement**; (g) participation in an investigation; (h) the exercise of the family's dispute procedure
+under `D17`; or (i) legal advice obtained by a Beneficiary.
+
+**20A.2 Preservation of rights. [MANDATORY — NOT OPTIONAL; MUST NOT BE AMENDED AWAY.]** **No Beneficiary is
+deprived by this clause of any right to approach a court, a regulator or any other authority, and nothing in
+this clause may be construed as an attempt to do so.** If any part of this clause is found to have that
+effect, **that part is void and the remainder stands** (clause 23.6).
+
+**20A.3 Intended scope — matters the Settlor asks the family to raise first.** The Settlor asks the family to
+treat the following as a matter to be raised **first** under the family procedure (`D17`) and, where required,
+by an application to the court for directions: an attempt (a) to **retrospectively rewrite the family's
+governance** by litigation rather than by amendment under clause 20; (b) to **remove a Trustee without
+cause** otherwise than under clause 16; (c) to **compel a distribution** where the Trustees have lawfully
+exercised a discretion; or (d) to **challenge a decision properly taken** on grounds that are, in substance,
+a disagreement with the decision.
+
+**20A.4 Family procedure first. [PROPOSED — a request, not a condition.]** Where a person intends to raise a
+matter within 20A.3, the Settlor asks that they: (a) give the Trustees and the Protector (if any) **written
+notice** stating the matter and the outcome sought; (b) allow **[NUMBER]** days for a response; (c)
+participate in the family procedure under `D17` in good faith; and (d) inform the other adult Beneficiaries
+that the matter exists. **Compliance with this sub-clause is a request and never conditions, delays or
+prevents the making of any application that a person is entitled to make.**
+
+**20A.5 Consequences. [COUNSEL TO SETTLE — see 20A.6.]** **[The Settlor proposes that]** where a Beneficiary
+brings a proceeding within 20A.3 **without first using 20A.4** and the proceeding fails, the Trustees **may**
+take that into account in exercising their discretion as to that Beneficiary, and may require their own costs
+of the proceeding to be borne out of that Beneficiary's prospective share **to the extent the governing law
+permits**.
+
+**20A.6 Legal limits. [COUNSEL TO CONFIRM — this sub-clause governs 20A.5.]** Sub-clause 20A.5 is included
+**only for counsel to settle**. The Settlor acknowledges in this deed that (a) a forfeiture clause may be
+**invalid, partially invalid, unenforceable, void on public-policy grounds, or construed strictly against the
+person relying on it**; (b) it must **not** operate to penalise a lawful claim, a good-faith application, the
+enforcement of a mandatory right, or a report to an authority; and (c) it must **not** operate so as to leave
+a Beneficiary without reasonable provision where the law requires provision to be made. **If counsel advises
+that 20A.5 cannot be drafted lawfully, it will be deleted and this clause will operate as a procedure only.**
+
+**20A.7 Trustee conduct.** A Trustee may not rely on this clause to avoid scrutiny, to withhold information to
+which a Beneficiary is entitled, or to defend dishonesty, and shall not invoke it in response to a good-faith
+enquiry.
+
+**20A.8 Costs.** The Trustees may fund a Beneficiary's independent advice and the cost of the family procedure
+under `D17` from the Trust Fund where the Trustees judge it appropriate, within the approved budget and
+subject to clause 14.
+
+**20A.9 Record.** Every notice, response and outcome under this clause is recorded in the Trustee decision
+register (`D10`, `D73`), together with the advice taken.
 
 ### 21. Termination and distribution of the Trust Fund
 
@@ -588,6 +897,12 @@ translation or certified translation is required for any registry, land, bank or
 
 **23.4 Costs.** The Settlor shall bear the costs of preparation, execution and, where applicable,
 registration of this deed; thereafter costs are payable out of the Trust Fund on a trustee decision.
+
+**23.6 Severability. [MANDATORY.]** If any provision of this deed is or becomes invalid, unenforceable or void
+in any jurisdiction, it shall be severed to the minimum extent necessary in that jurisdiction, and the
+remaining provisions shall continue in full force. **This sub-clause applies with particular effect to
+clauses 20A.5 (no-contest consequences) and 11A.2 (restraint on alienation), so that if either is held
+invalid, the remainder of this deed — including 11A.9 and 20A.1–20A.2 — stands.**
 
 **23.5 Third parties.** Save for the Trustees and Beneficiaries (and the Protector in respect of
 Part 6), no person may enforce any term of this deed, unless applicable law provides otherwise.

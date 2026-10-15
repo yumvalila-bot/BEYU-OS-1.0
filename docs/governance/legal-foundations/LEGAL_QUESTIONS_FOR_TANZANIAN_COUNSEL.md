@@ -1,7 +1,7 @@
 # BEYU-LF — Legal Questions for Tanzanian Counsel
 
 Document ID: `BEYU-LF-REG-COUNSEL-Q`
-Version: 1.0
+Version: 1.1
 Date: 2026-10-15
 Status: `INFORMATIONAL` — **briefing memorandum for instruction of an advocate**
 Addressee: **`[COUNSEL TO BE ENGAGED — advocate of the High Court of Tanzania with trust, corporate and tax capability]`**
@@ -425,6 +425,95 @@ expected timeline for the recommended form?
 | **Q-DP-04** | Confirm **sensitive-data** rules for the categories BEYU will hold: health data (HEALTH_OS), **family and lineage data**, **beneficiary and minor data**, financial data, and biometric/identity data. Confirm whether prior **written consent** is required and how it interacts with legal/regulatory retention duties (which cannot be overridden by a consent withdrawal). | Directly shapes `D19`, `D70`, and any register containing personal data. |
 | **Q-DP-05** | Confirm the **harmonised position** on the two inconsistent regulation citations we found (**GN No. 449C of 2023** vs **GN No. 349 of 2023**), and provide the current forms and fees. | Procedural correctness. |
 | **Q-DP-06** | **Where must populated legal registers live?** Advise on storing registers containing beneficial-owner and beneficiary information. Our pack assumes **not** in a public/source-available repository. | Prevents a serious disclosure error. |
+
+---
+
+## 9A. Trust clauses, founder equity, employment, product terms and financial reporting (expansion — added revision 1.1)
+
+> **SCOPE NOTE.** These questions arise from the expansion documents listed in
+> `REQUEST_TO_DOCUMENT_MATRIX.md`. **They are separate from, and additional to, §§2–9.** Two of them —
+> **§9A.3 (restraint of trade)** and **§9A.4 (employment)** — concern areas **this pack has not researched at
+> all**, and we have deliberately asked rather than assumed.
+
+### 9A.1 The four trust clauses (`TC-01`; `D02` §10.8–10.20, §11A, §16.4–16.15, §20A)
+
+| # | Question | Why it matters | Documents that depend on the answer | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-01` | **Is a restraint on alienation / "spendthrift" clause effective in the trust law you recommend, and against whom?** Which creditors' claims (judgment, insolvency, matrimonial, dependants, tax) can it not defeat? | The clause is drafted at `D02` §11A. **An ineffective clause creates a false sense of protection** | `D02` §11A; `TC-01` §2; `D05` §3 | A written opinion on enforceability, and the statutory/authority basis |
+| `Q-TC-02` | **Does the interaction of §11A with the local succession, family-provision and matrimonial-property rules require any change** — and is a mandatory family provision capable of overriding the clause? | The family's expectation must match the law | `D02` §11A.5/§11A.8; `D56`–`D62`; `D09` §3 | The provision, and its effect on the clause |
+| `Q-TC-03` | **May a "no-contest"/forfeiture clause be lawfully drafted at all here, and if so on what conditions?** (Counsel is asked to consider: whether it is void as a penalty, as an attempt to oust the jurisdiction of the court, or as contrary to public policy; the strict construction applied to such clauses; and whether it may penalise a lawful claim.) | **`D02` §20A.5 is drafted for counsel to settle or to delete.** `20A.6` records that the Settlor accepts it may be invalid | `D02` §20A; `TC-01` §3; `D09` §6 | An opinion with the drafting counsel would permit, **or a direction to delete 20A.5** |
+| `Q-TC-04` | **Are the carve-outs in `D02` §20A.1 and the preservation clause in `§20A.2` sufficient** to ensure that no person is penalised for a lawful claim, a report to a regulator, cooperation with an investigation, or a good-faith application? **Is anything else required?** | These are drafted as **non-negotiable** in the pack | `D02` §20A.1–20A.2; `D09` §6; `D71` §7 | Confirmation, or the additional drafting required |
+| `Q-TC-05` | **Is the distribution clause (`D02` §10.8–10.20) consistent with the duty of impartiality** where two or more beneficiaries are eligible, and does the local law impose an approach we have not reflected? | The clause governs the family's day-to-day financial relationship | `D02` §10.12; `D05` §4; `TC-01` §4 | An opinion, and any required amendment |
+| `Q-TC-06` | **What are the tax consequences of a distribution** to the trust and to the recipient, and what **records, returns or reporting** does each create? *(This is also `AQ-26`.)* | Distributions are the trust's primary act | `D02` §10.15(g)/§10.17(d); `D08`; `D69` | The treatment, the reporting, and the record requirements |
+| `Q-TC-07` | **Is the removal and replacement mechanism in `D02` §16.5 valid**, and **how must it be reconciled with `D04` RM-04** (which treats removal as a Reserved Matter requiring Protector consent)? **Which provision should govern?** | **This is consistency item P-17 — the most consequential conflict in the expansion** | `D02` §16.5; `D03` §5; `D04` §7 RM-04 | A direction on which provision governs, and the amendment required |
+| `Q-TC-08` | **Are temporary suspension of a trustee (`§16.8`), the handover obligations (`§16.10`) and the notification steps (`§16.14`) lawful and workable** — including whether a suspension requires a court order, and what must be filed with any registry on an appointment, removal, resignation or death? | A removal that cannot be effected operationally is worse than none | `D02` §16.8–16.15; `D03` §7; `D68` | An opinion, and the procedural requirements with their statutory basis |
+
+**9A.1.1 Priority: `Q-TC-01`, `Q-TC-02`, `Q-TC-03`, `Q-TC-04`, `Q-TC-07` are priority 1** — the deed cannot be
+finalised without them, and **`Q-TC-07` affects two documents simultaneously (P-17)**.
+
+### 9A.2 Founder equity and corporate documents (`FA-01`, `CX-01`, `CAP-01`, `ESOP-01`, `FIN-03`, `D23` §5A)
+
+| # | Question | Why it matters | Documents | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-09` | **Is a transfer restriction or vesting condition enforceable against a founder's shares** — and how must it be embedded (in the Articles, in the shareholders' agreement, in a separate option deed, or all three) to bind a transferee? | Without it, vesting is an intention | `FA-01` §3; `D23` §5A.2/5A.10; `D22` | An opinion on the mechanism |
+| `Q-TC-10` | **Is a repurchase or forfeiture of unvested shares at a discount a penalty**, and what price basis is sustainable (nominal, cost, fair value, independent valuation)? | The leaver rules turn on this | `CX-01` X.2–X.4; `ESOP-01` §4; `CAP-01` §7 | The limit, and the drafting counsel permits |
+| `Q-TC-11` | **What statutory limits apply to a company acquiring its own shares**, and what solvency or reserve test must be satisfied before a repurchase or redemption? | A repurchase the company cannot lawfully complete is a dispute | `D24` §6; `CX-01` X.4; `FIN-07` §2.3 | The provision and the test |
+| `Q-TC-12` | **Is an unperformed promise (future work) adequate consideration for a share issue**, and how should "sweat equity" be structured to be both lawful and effective? | `FA-01` §2.1 issues shares for time | `FA-01` §2.1; `D24` §1.3 S3 | An opinion and a recommended structure |
+| `Q-TC-13` | **Is a founders' agreement binding the exercise of shareholders' votes valid**, and how should it be drafted so as not to fetter the board's discretion unlawfully? | `FA-01` §4.1; a common drafting trap | `FA-01` §4; `D23` §4 | An opinion and permitted drafting |
+| `Q-TC-14` | **What is the order of precedence between the Articles, the shareholders' agreement, the founders' agreement and the separation agreement**, and should one clause settle it? | `D23` §5A.11 flags the risk of four instruments touching one event | `D23` §5A.11; `FA-01` §1.2; `INC-01` §3 | A direction, and the clause |
+| `Q-TC-15` | **Does offering shares to a founder, an employee or an investor require any disclosure document, filing or exemption** under the applicable securities or companies law? | It determines whether a grant or a round can proceed at all | `ESOP-01` §1.4; `FIN-03` §6.3; `FA-01` §6.8 | The requirement, the exemption and the procedure |
+| `Q-TC-16` | **What are the tax consequences of (a) issuing shares for services, (b) vesting, (c) exercising an option, (d) a repurchase**, and **who must withhold or report?** *(This is also `AQ-25`.)* | An unexpected tax bill is the most common ESOP failure | `ESOP-01` §6; `CX-01` §4.8; `FIN-02` §6.2 | The treatment, the triggering event and the withholding duty |
+
+### 9A.3 Restraint of trade (`RC-01`) — **NOT RESEARCHED IN THIS PACK**
+
+| # | Question | Why it matters | Documents | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-17` | **Are post-termination restrictive covenants (non-compete, non-solicitation of employees, non-solicitation of customers, non-dealing) enforceable in this jurisdiction? On what test, and what makes one reasonable?** **We have not researched this and we make no assumption either way.** | `RC-01` is drafted as a request for counsel precisely because enforceability cannot be assumed | `RC-01` §2, §3, §7; `D23` §8; `FA-01` §5.4; `EMP-01` §4.12 | A written opinion on the test, the reasonableness factors, and the maximum sustainable scope |
+| `Q-TC-18` | **Does the law restrict restraint of trade in any of the following ways:** a maximum period; a requirement that the employer pay during the restraint; a prohibition (or restriction) on non-competes for certain worker categories; or a requirement of written form or consideration? | A covenant that breaches a mandatory rule may be void **and may taint the rest of the clause set** | `RC-01` §3.7, §3.11; `EMP-01` §8.12 | The provision, the limit and the consequence |
+| `Q-TC-19` | **Is a "no-poach" or no-hire arrangement between employers lawful**, or does it raise competition-law risk? | `RC-01` §1.10 flags it as never to be used as a general ban | `RC-01` §1.10; `EMP-03` §P-18 | The position and any threshold |
+| `Q-TC-20` | **Would a court enforce a covenant by injunction**, or is a damages claim the realistic remedy — and what evidence must the group preserve before acting? | Determines the enforcement strategy | `RC-01` §5; `IP-EV-01` §5 | An opinion on remedies and on the evidence standard |
+
+### 9A.4 Employment (`EMP-01`–`EMP-04`) — **NOT RESEARCHED IN THIS PACK**
+
+| # | Question | Why it matters | Documents | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-21` | **What are the mandatory terms of a written statement of employment particulars or a contract of employment** — the required content, the language, the timing and the form? | **`EMP-01` Part F is empty because of this question. No contract or offer may be issued until it is answered** | `EMP-01` Part F, §4; `EMP-02`; `EMP-03` §6 | The full list of mandatory terms, from the statute |
+| `Q-TC-22` | **What are the statutory entitlements** — minimum wage, working time and rest, annual/sick/maternity/paternity leave, public holidays — **and may they be enhanced contractually but never reduced?** | Every figure in `EMP-01` and `EMP-03` is blank because of this | `EMP-01` §4.3–4.6; `EMP-03` §P-13/P-14 | The entitlements, and the minimum-floor rule |
+| `Q-TC-23` | **What is the test for employee versus independent contractor**, and what are the consequences of misclassification (arrears, penalties, contributions, remedies)? | `EMP-01` §3 records the four functions that must point at the same employer | `EMP-01` §3; `EMP-04` §1.1 | The test, and the exposure |
+| `Q-TC-24` | **What process is required to lawfully terminate employment**, and what are the remedies for unfair or unlawful dismissal? **Is a disciplinary procedure mandatory, and with what minimum content (notice, representation, appeal)?** | `EMP-03` §P-15 is drafted on the pack's fairness standard, **not** on this law | `EMP-03` §P-15; `EMP-01` §4.7–4.8 | The procedure and the remedies |
+| `Q-TC-25` | **What statutory contributions, registrations and reporting duties arise for an employer** (social security, workers' compensation, training levy, payroll taxes) — with the periods and the forms? | Blocks every payroll decision and every headcount cost line | `EMP-01` §8.9; `FIN-02` §6.1; `CMP-01` §7 | The obligations, with their source |
+| `Q-TC-26` | **What obligations apply to health and safety, to workplace monitoring, and to a worker's personal data** — and what notice is required before monitoring? | `EMP-03` §4.1 and §P-06 are drafted without the law | `EMP-03` §P-06, §P-04; `PRIV-02` §7 | The obligations and the notice requirement |
+| `Q-TC-27` | **Is the Foundation a lawful employer and programme operator** without conferring a private benefit on the group or the family — and can a Foundation-funded worker be directed by a group entity? | The boundary between a nonprofit and the group is a structural risk | `EMP-03` §3.4, §5; `D48`–`D55` | An opinion on the boundary |
+| `Q-TC-28` | **Which language must an employment document be in, may a Kiswahili translation be required, and does a divergent translation affect enforceability?** | `EMP-04` §5 sets out five options and asks counsel to decide | `EMP-04` §5, §7; `EMP-02` §3 | A direction, and any statutory requirement |
+
+### 9A.5 Product terms, privacy and compliance (`TOS-01`, `PRIV-01`/`PRIV-02`, `CMP-01`)
+
+| # | Question | Why it matters | Documents | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-29` | **What consumer-protection rules apply to the group's product terms** — the mandatory terms, the right of withdrawal, the unfair-terms control, the permitted liability exclusions, and any mandatory forum or ADR route? | **A liability cap or exclusion copied from a foreign template may be unenforceable or unlawful here** | `TOS-01` §2 clauses 11–15; `TOS-01` §7.2 | The rules, and the drafting permitted |
+| `Q-TC-30` | **What sector rules apply to the group's activities** — does the health, finance, agriculture or construction regulator impose licensing, product classification, claims restrictions or employment requirements? **We have not researched any sector regime.** | Determines whether the product may be offered at all, and what may be said about it | `TOS-01` §18, §7.1; `CMP-01` §5; `FIN-01` §4.9–4.10 | The regime, the licence, and the permitted claims |
+| `Q-TC-31` | **Which entity should be the data controller for each processing activity**, and how should the controller/processor roles be documented where a trust, a family office and operating companies are all involved? | `PRIV-02` §2B and §4.10 cannot be completed without it | `PRIV-02` §2, §4; `PRIV-01` §6.1 | The allocation and the required terms |
+| `Q-TC-32` | **What consent standard applies**, may consent be relied on for the group's purposes, and is any consent obtained through the group's systems (`consent-service`, `federation/consent.ts`) capable of being lawful? | **A mechanism is not a lawful basis** | `PRIV-02` §2I–2J, §7.6; `PRIV-01` §4.5 | The standard, and the operations required |
+| `Q-TC-33` | **What are the data-breach notification obligations** (to whom, within what period, in what form) and the record-keeping requirement? | The periods must come from the instrument | `PRIV-02` §8; `CMP-01` §8.5 | The period, the recipient and the form |
+| `Q-TC-34` | **Is an impact assessment mandatory for any of the group's processing** (health data, children's data, profiling, AI), and what must it contain? | Determines whether publication may proceed | `PRIV-02` §9.10; `PRIV-01` §1 | The trigger, the content and the authority |
+| `Q-TC-35` | **What must the group do before publishing a privacy notice** — registration, notification, a representative, a DPO appointment or registration, or a filing? **And may a notice be published by an entity that does not yet exist?** | **`PRIV-01` cannot be published until this is answered** | `PRIV-01` §1, §6.3; `D70`; `CMP-01` §8.2 | The requirement, and the interim lawful position |
+
+### 9A.6 Financial reporting and the entities it describes (`FIN-04`–`FIN-09`) — legal (not accounting) questions
+
+> **The accounting questions are in `ACCOUNTANT_QUESTIONS_FOR_BEYU_FINANCIAL_REPORTING.md`. The legal questions
+> below are the ones an accountant cannot answer.**
+
+| # | Question | Why it matters | Documents | Evidence required |
+|---|---|---|---|---|
+| `Q-TC-36` | **Is any entity obliged by law to prepare financial statements, have them audited, file them, or publish them** — and by when, in what form, and with what penalty? | Every statement in `FIN-04`–`FIN-08` is prepared for a purpose; this identifies the mandatory ones | `FIN-04` §0, §6.10; `CMP-01` §3.2 | The obligation, the period, the form |
+| `Q-TC-37` | **Where ownership is unverified, how may a group structure be described** in a financial statement or a note without asserting a control relationship that has not been established? | `FIN-08` N22 must not imply a structure that does not exist | `FIN-08` N22; `CAP-01`; `INC-01` | A direction on the disclosure wording |
+| `Q-TC-38` | **What must the group be able to state publicly about its registration, licensing and capitalisation** — and what may it not state? | `FIN-01` §4 (the deck) and `TOS-01` §4 apply the same prohibition | `FIN-01` §3–§4; `TOS-01` §4; `CMP-01` §5.7 | A direction on permissible statements |
+
+**9A.7 Priority within this section.** **Priority 1:** `Q-TC-01`, `Q-TC-02`, `Q-TC-03`, `Q-TC-04`, `Q-TC-07`
+(the deed), `Q-TC-21`, `Q-TC-22`, `Q-TC-24`, `Q-TC-25` (employment — because hiring cannot lawfully occur
+without them), `Q-TC-29`, `Q-TC-30`, `Q-TC-35` (product terms, sector and privacy publication).
+**Priority 2:** the remainder, with `Q-TC-17`–`Q-TC-20` (restraint of trade) treated as priority 1 **if the
+group intends to rely on a covenant** rather than on confidentiality and IP.
 
 ---
 

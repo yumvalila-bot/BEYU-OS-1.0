@@ -151,6 +151,13 @@ takes effect where practicable, and immediately after otherwise.
 
 ## 5. Removal
 
+> **PRECEDENCE NOTE (revision 1.1).** `D02` §16.4–16.15 now contains the operative removal and replacement
+> clause (grounds, who initiates and decides, notice and response, evidence, temporary safeguards, successor
+> eligibility, handover, authority continuity, indemnity, deadlock, notifications). **This section and `D02`
+> §16 must be read together, and if they conflict, `D02` governs.** The analysis here does not create a
+> separate removal power. See `BEYU-LF-TC-01` §5 for the clause's risks and counsel questions
+> (`Q-TC-07`, `Q-TC-08`).
+
 **5.1 Grounds for removal `[PROPOSED]`** (each must be evidenced):
 
 (a) disqualification under §2.2;

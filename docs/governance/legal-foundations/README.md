@@ -207,11 +207,26 @@ review as a pull request and **must not be auto-merged**. See
 |---|---|---|---|
 | 1.0 | 2026-10-15 | Initial pack created (Gate 0 audit through Gate 7 readiness checklist) | AI documentation agent (Arena.ai Agent Mode) |
 
-## 11. Drafting status at revision 1.0
+## 11. Drafting status at revision 1.1 (expansion)
 
-**All 76 registered documents exist** (`D01`–`D75` plus `DC-01`), together with the pack-level control
-documents, the section-I index and `CHANGE_LOG.md`. **Every path in `MASTER_DOCUMENT_REGISTER.md` resolves to
-a file in this folder.**
+**Every registered document exists.** At revision 1.0 the pack held **76** documents (`D01`–`D75` plus
+`DC-01`); **revision 1.1 adds 30 more** in new lettered series, registered in **new sections J, K and L** of
+`MASTER_DOCUMENT_REGISTER.md`. **`D01`–`D75` and `DC-01` are NOT renumbered** — the convention and the
+coverage decisions are recorded in `GATE-0B_EXPANSION_COVERAGE_INVENTORY.md`.
+
+| Series | Documents | Where | Gate |
+|---|---|---|---|
+| `TC` | `TC-01` (the four trust clauses — **operative in `D02`** §10.8–10.20, §11A, §16.4–16.15, §20A) | `trust/` | 1 |
+| `FA`, `INC`, `CX`, `CAP`, `ESOP` | `FA-01`, `INC-01`, `CX-01`, `CAP-01`, `ESOP-01` | `corporate/` | 2 |
+| `NDA`, `RC`, `IP-TM`, `IP-EV` | `NDA-01`, `RC-01`, `IP-TM-01`, `IP-EV-01` | `ip/` | 3 |
+| `EMP` | `EMP-01`–`EMP-04` (EN + Kiswahili) | `employment/` | 4 |
+| `TOS`, `PRIV`, `CMP` | `TOS-01`, `PRIV-01`, `PRIV-02`, `CMP-01` | `product-compliance/` | 5 |
+| `FIN` | `FIN-01`, `FIN-02`, `FIN-03` | `fundraising/` | 6 |
+| `FIN` | `FIN-04`–`FIN-09` | `financial-reporting/` | 7 |
+| Pack-level | `REQUEST_TO_DOCUMENT_MATRIX.md`, `ACCOUNTANT_QUESTIONS_FOR_BEYU_FINANCIAL_REPORTING.md` | the pack root | 8/10 |
+
+**Every path in `MASTER_DOCUMENT_REGISTER.md` resolves to a file in this folder** — verified, not asserted
+(`GATE-9_VERIFICATION_CHECKS.md` check 1).
 
 **This means the documents are DRAFTED. It does not mean any of them is effective.** The status vocabulary
 (§3.1) is the only permitted way to describe a document's state, and the statuses that dominate this pack are:
@@ -233,6 +248,77 @@ unblocking questions first); decide the two open architecture questions (jurisdi
 the family definition; and establish **what, if anything, actually exists today**. See
 `IMPLEMENTATION_ROADMAP_AND_EXECUTION_CHECKLIST.md` §5.
 
+### 11.3 Status taxonomy (extended — mapped 1:1 onto §3.1)
+
+The expansion needed finer labels than the original five, **without inventing a second vocabulary.** The
+mapping is **one-to-one**: the extended labels are **sub-labels** of the originals, and **any tool or reader
+that understands §3.1 must be able to translate them.**
+
+| Extended label | Maps to (§3.1) | Meaning | **May it ever mean "done"?** |
+|---|---|---|---|
+| `COMPLETE_DRAFT` | `COMPLETE_DRAFT` | Fully drafted for human review | Drafted only |
+| `DRAFT` | `COMPLETE_DRAFT` | Same, where the document's own framing is "draft" | Drafted only |
+| `PRELIMINARY_FRAMEWORK` | `PRELIMINARY_FRAMEWORK` | Structure drafted; content depends on a decision or verification | **No** |
+| `CONDITIONAL_DRAFT` | `PRELIMINARY_FRAMEWORK` | Drafted **and** expressly conditional on counsel, a decision or an input | **No** |
+| `TEMPLATE` / `TEMPLATE_NOT_EXECUTED` | `TEMPLATE_NOT_EXECUTED` | A blank instrument; nothing executed | **No** |
+| `BLOCKED` | `BLOCKED` | Cannot proceed without an input that does not exist | **No** |
+| `PENDING_COUNSEL` | (an attribute, not a status) | A counsel question is outstanding | **No** |
+| `PENDING_ACCOUNTANT` | (an attribute) | An accountant/tax question is outstanding | **No** |
+| `PENDING_USER_INPUT` | (an attribute) | A family/board decision is outstanding | **No** |
+| `INFORMATIONAL` | `INFORMATIONAL` | Analysis, index, log or question list | Not applicable |
+| `APPROVED` | **(new — no §3.1 equivalent)** | **Adopted by the competent body, by a recorded instrument.** Requires the resolution/minutes in `D73` | **Only then — and never because drafting finished** |
+| `EXECUTED` | **(new)** | **Signed by the parties.** Requires the executed instrument in `D74` | Only with the instrument |
+| `FILED` | **(new)** | **Filed with the authority.** Requires the filing acknowledgement | Only with the acknowledgement |
+| `REGISTERED` | **(new)** | **Entered on a public register.** Requires the certificate/extract (or the official search result) | Only with the evidence |
+
+**11.3.1 The status rule (binding on every document in this pack).**
+> **Drafting completion NEVER produces `APPROVED`. `APPROVED`, `EXECUTED`, `FILED` and `REGISTERED` are
+> available only where the corresponding documentary evidence exists and is filed in `D74`.** Where a reader
+> sees one of those four words without an evidence reference, **the label is wrong** — and the correct response
+> is to treat the document as a draft.
+> **And: no document in this pack currently carries any of those four labels.** Every document in the pack is
+> `COMPLETE_DRAFT`, `PRELIMINARY_FRAMEWORK`, `CONDITIONAL_DRAFT`, `TEMPLATE`/`TEMPLATE_NOT_EXECUTED`, `BLOCKED`
+> or `INFORMATIONAL`.
+
+### 11.4 Per-document record fields
+
+Every document in this pack carries these fields in its front matter. **The fields are not decoration — they
+are what makes the pack auditable.**
+
+| # | Field | Required content | The rule |
+|---|---|---|---|
+| 1 | `Document ID` | The register ID | Must appear in `MASTER_DOCUMENT_REGISTER.md` |
+| 2 | `Title` | What the document is | — |
+| 3 | `Version` / `Date` | Draft version and date | **Never back-dated** |
+| 4 | `Status` | One of §11.3's labels | **Evidence-linked for the four completion labels** |
+| 5 | `Owner (proposed)` | The accountable **role** | A proposal until a body exists to appoint |
+| 6 | `Approving authority (proposed)` | The body whose approval would be required | **A proposal — the bodies are unevidenced** |
+| 7 | `Next review date` | A date or a trigger | `[SET ON APPROVAL]` where approval has not occurred |
+| 8 | `Classification` | `INTERNAL` / `CONFIDENTIAL` / `HIGHLY_RESTRICTED` / `PUBLIC` | A draft is never `PUBLIC` |
+| 9 | `Related documents` | Cross-references | Must resolve to registered IDs |
+| 10 | `Depends on` | The inputs that gate the document | **This is the field that shows what is missing** |
+| 11 | `Integration` / revision note | The revision that changed the document and why | Recorded in `CHANGE_LOG.md` |
+| 12 | The **control block** | Where the document concerns a hazardous subject, an explicit "what this is / is not", a prohibited-content list, or a status banner | A document without one, on a hazardous subject, is incomplete |
+
+### 11.5 What the expansion did — and what it did not do
+
+**It did:** integrate four trust clauses into the deed and its neighbours rather than leaving them as loose
+files; extend `D23` with the founder-equity interface; add 30 documents in 15 new series under a
+no-renumbering convention; **introduce the claim/evidence discipline** (`FIN-01`, `IP-TM-01`, `IP-EV-01`);
+**introduce the bilateral language control** (`EMP-04`); **introduce the "blank by design" cap table and the
+five blank statements with their data-request checklist**; extend the status taxonomy (§11.3) and the
+per-document record fields (§11.4); and add the **request-to-document matrix**, the **accountant questions**
+and the **Gate 9 verification checks**.
+
+**It did not:** create, incorporate, register, license, file, execute, issue, transfer, value, approve or
+adopt anything; research employment law, consumer law, sector regulation or the law of restraint of trade;
+resolve the trademark term; resolve the structure; or populate a single register. **Every gap is listed, by
+document, in `REQUEST_TO_DOCUMENT_MATRIX.md` — and that list is the honest answer to "is this finished?" It is
+drafted, and the underlying work has not been done, because it requires the family, counsel, an accountant and
+(in several cases) a licensed third party.**
+
+---
+
 ## 12. Lessons learned in assembling this pack
 
 Recorded because they are the pack's most transferable output — they apply to any family or founder group
@@ -252,3 +338,6 @@ attempting the same work.
 | 10 | **The most valuable deliverable is often the list of questions.** | `LEGAL_QUESTIONS_FOR_TANZANIAN_COUNSEL.md` and the open-items tables are what convert a document pack into a programme of work. **A question asked once, in writing, to a qualified adviser is cheaper than any assumption.** |
 | 11 | **Preserve the right to go to court.** | No policy in this pack removes a person's legal rights, and none may be used to pressure a person into giving one up. |
 | 12 | **Do not let the pack become the structure.** | This pack describes a structure; it does not create one. **Anything that only exists in this folder does not exist.** |
+| 13 | **The most dangerous number is a plausible one.** | A cap table with a tidy 100/40/20 split, a model with a 30% margin, a statements pack with round thousands — each would be believed, copied into a real filing, and eventually defended. **The expansion therefore makes the cap table and all five statements BLANK by design, and forbids `ILLUSTRATIVE` figures that look real.** A blank is defensible; a plausible invention is not. |
+| 14 | **Half of the expansion is a list of things that cannot lawfully be done yet — and that is the value.** | No contract may be issued before the employer and the mandatory terms are settled; no privacy notice may be published before the data inventory; no deck may claim traction that does not exist; no covenant may be relied on before counsel has tested it. **Writing down the preconditions is what stops the group doing the thing in the wrong order.** |
+| 15 | **A right that cannot be exercised is not a protection.** | A privacy notice with no working access route, a non-compete that has never been tested, a removal clause that conflicts with the Reserved Matters list, a "spendthrift" clause that the local law does not support. **Every one of those appears plausible on paper and fails at the moment it is needed — so the pack tests each against "what would actually happen?"** |

@@ -10,7 +10,7 @@ Approving authority (proposed): the shareholders of the holding company (none ex
 Next review date: On counsel markup; then annually after execution
 Classification: `HIGHLY_RESTRICTED` once executed and populated
 Related documents: `DC-01`, `D20`, `D21` (BLOCKED), `D22`, `D24`, `D25`, `D26`, `D27`, `D29`, `D33`,
-`D59`, `D64`, `D72`, `D74`
+`D59`, `D64`, `D72`, `D74`, **`FA-01`, `CX-01`, `CAP-01`, `ESOP-01`, `FIN-03`**, `RC-01`, `NDA-01`
 Depends on: counsel's answers to `Q-H-01`…`Q-H-05`, `Q-H-04(d)`, `Q-S-05`, `Q-TAX-03`
 
 > **⚠ READ FIRST.**
@@ -263,6 +263,34 @@ Company unable to pay its debts must not be made.**
 
 ---
 
+## 5A. Founder equity, vesting and leaver terms — interface (added revision 1.1)
+
+> **WHY THIS SECTION EXISTS.** The shareholders' agreement as first drafted dealt with transfers, pre-emption and
+> tag/drag, but had **no vesting, leaver or founder-cessation terms** — a gap identified in
+> `GATE-0B_EXPANSION_COVERAGE_INVENTORY.md`. Rather than duplicate the machinery, this section **incorporates the
+> dedicated documents by reference** and states the interface rules. **The binding terms, when executed, will be
+> the Articles and this agreement; the founder-level terms are in `FA-01` and `CX-01`; the cap table is recorded
+> in `CAP-01`.**
+
+| # | Interface point | Rule | Instrument |
+|---|---|---|---|
+| 5A.1 | **Where founder terms live** | The founders' obligations *inter se* — contributions, roles, vesting, leaver consequences — are in the **Founders Agreement** (`FA-01`). They are **not** restated here | `FA-01` §3 |
+| 5A.2 | **Where shareholder-level restrictions live** | Transfer restrictions, pre-emption, tag-along, drag-along and the class rights are **here and in the Articles**. `FA-01` cross-refers and does not duplicate | this agreement §5; `D22` |
+| 5A.3 | **Vesting is not in this agreement** | A vesting schedule binds the founder to the company (and to the repurchase/call option). It is implemented in `FA-01` Schedule D and, where the company has a call right, in the Articles or a separate option deed | `FA-01`, `CX-01`, `ESOP-01` (for employees) |
+| 5A.4 | **A leaver is a party to this agreement** | On a founder's cessation, the remaining shareholders' and the company's rights under §5 and any call option are exercised under `CX-01` X.3–X.4, **subject to the lawfulness and solvency tests** | `CX-01` §4 |
+| 5A.5 | **Solvency gates every repurchase** | No transfer, repurchase or redemption may be completed unless the company and the transferring party can lawfully complete it (`D24` §6). **A transfer agreement that ignores solvency is unenforceable in practice** | `D24` §6 |
+| 5A.6 | **The register is the record; the cap table is a view** | Every transfer is entered in the **register of members** (`D64`) in the sequence the law requires, **before** the cap table (`CAP-01`) is updated | `D64`, `CAP-01` §6 |
+| 5A.7 | **The control plane never effects a transfer** | `equity_positions`, `vesting_*` and `leaver_cases` record what has occurred; **no software, workflow or AI output may approve, effect or register a transfer or a forfeiture** (`D31` §6; `DEFINED_TERMS` §2) | `D73`, `D74` |
+| 5A.8 | **Confidentiality, IP and covenants** | Cross-referred to `NDA-01`, `D41` and `RC-01`. **The restrictions here must be consistent with §8 of this agreement** — and if a covenant in §8 is unenforceable, the alternative in `RC-01` applies | `§8` below, `NDA-01`, `RC-01` |
+| 5A.9 | **Disputes** | The §6 deadlock ladder applies to a disputed leaver classification **after** `CX-01` §6's first step. **No self-help, and no unilateral register entry** | §6; `CX-01` §6 |
+| 5A.10 | **Amendment** | Any change to the founder-level terms must be reflected here **only where they bind the company or other shareholders** — otherwise the divergence between `FA-01` and this agreement becomes a defect tracked in `CROSS_DOCUMENT_CONSISTENCY_REPORT.md` | §12; `CHANGE_LOG.md` |
+
+**5A.11 The consistency risk (flagged, not resolved).** `FA-01`, `CX-01`, this agreement and the Articles all
+touch the same events. **Four documents, one set of facts.** The pack's rule is that **the Articles govern the
+company's side, this agreement governs the shareholders' side, and `FA-01`/`CX-01` govern the founders'
+relationship** — and that any conflict is a defect to be corrected, not a matter of interpretation. **Counsel
+should settle the order of precedence in one clause** at `Q-H-03(a)`.
+
 ## 6. Deadlock and dispute resolution
 
 **6.1 Escalation.** `[board → shareholders' meeting → chair of the board → mediation → the mechanism in
@@ -434,6 +462,19 @@ pursuant to a trustee decision dated `[DATE]` (ref `[ ]`): Signature ______ Date
 9. Confirmation of the disclosed interests (Schedule 4).
 
 ## Counsel review note — `[COUNSEL TO CONFIRM]`
+
+**Added at revision 1.1 (interface with `FA-01`/`CX-01`/`CAP-01`).**
+1. **Order of precedence** between the Articles, this agreement, `FA-01` and `CX-01` — to be settled in one
+   clause (`Q-H-03(a)`).
+2. Whether **vesting and leaver terms in a founders' agreement** bind a transferee of the shares, and how to
+   bind them (a deed of adherence, a tag/notice provision, or an entry in the Articles).
+3. Whether a **company call option** over a founder's shares is lawful, and whether the price basis is a penalty.
+4. Whether the **solvency constraint** (`D24` §6) requires a directors' certification, a statement of assets and
+   liabilities, or another form of evidence.
+5. Whether a **disputed leaver** may be restrained from transferring shares pending resolution, and by what
+   mechanism.
+6. Whether the **register entry** for a repurchase requires a court order, a board resolution, or both, and the
+   filing consequences.
 
 1. **The `ARTICLES`/`HERE` classification in clause 2.3** — the single most consequential question in this
    agreement: which rights must be constitutive to bind the Company and future members.

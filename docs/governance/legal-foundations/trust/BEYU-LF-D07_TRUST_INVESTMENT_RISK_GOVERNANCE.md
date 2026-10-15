@@ -61,7 +61,7 @@ whether this policy must be conformed to it.
 | **A9 — Loans and credit to related parties** | Facilities to Beneficiaries, entities | `[TO BE DECIDED]` | `[LIMIT]` | Reserved Matter (`D04` RM-09) |
 | **A10 — Commodities, cryptoassets, derivatives, margin, short sales, unregulated schemes** | Speculative or unregulated instruments | **`PROHIBITED unless expressly permitted by a Reserved Matter decision with full reasoning and counsel's advice`** | — | RM-15 (mandate change) |
 | **A11 — Assets requiring a licence to hold** | Regulated assets | Only with the licence | — | Trustees + counsel |
-| **A12 — Foreign assets** | Anything outside `[JURISDICTION]` | **`PROHIBITED until exchange-control, tax and data-protection advice is in hand`** | — | `Q-LEG03`, `Q-TAX-02`, `Q-DP-02` |
+| **A12 — Foreign assets** | Anything outside `[JURISDICTION]` | **`PROHIBITED until exchange-control, tax and data-protection advice is in hand`** | — | `Q-LEG-03`, `Q-TAX-02`, `Q-DP-02` |
 
 **2.1 Fail-closed default.** Where a limit is `[USER TO SUPPLY]` or a cell says `[TO BE DECIDED]`, the
 class is **not permitted** and any acquisition is a Reserved Matter requiring a recorded decision with
@@ -197,7 +197,7 @@ totals.
 4. Whether holding **insurance policies** on trust raises any restriction or tax consequence.
 5. Whether a **nominee arrangement** is valid and how to perfect the Trust's beneficial title.
 6. **Tax** consequences of acquisition, holding, income and disposal per class (`Q-TAX-03`).
-7. Whether **cross-border** holdings require approval, and the disclosure consequences (`Q-LEG03`).
+7. Whether **cross-border** holdings require approval, and the disclosure consequences (`Q-LEG-03`).
 8. Whether any **valuation** method conflicts with a statutory accounting or tax requirement.
 
 **This policy permits nothing by itself. No asset is held, no investment has been made, and no return is

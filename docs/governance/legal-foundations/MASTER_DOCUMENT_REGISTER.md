@@ -1,10 +1,14 @@
 # BEYU-LF — Master Document Register
 
 Document ID: `BEYU-LF-REG-MASTER`
-Version: 1.0
+Version: 1.1 (expansion)
 Date: 2026-10-15
 Status: `INFORMATIONAL`
 Owner: Chief Governance Officer (proposed)
+Revision 1.1 note: this register now includes the **expansion series** (`TC`, `FA`, `INC`, `CX`, `CAP`, `ESOP`,
+`NDA`, `RC`, `IP-TM`, `IP-EV`, `EMP`, `TOS`, `PRIV`, `CMP`, `FIN`) in **new sections J, K and L**. **`D01`–`D75`
+and `DC-01` are NOT renumbered.** See `GATE-0B_EXPANSION_COVERAGE_INVENTORY.md` for the convention and the
+coverage decisions.
 Approving authority (proposed): BEYU Family Trust trustees **and** BEYU Holding Company board — **neither body is evidenced in this repository as legally constituted** (see `DECISION_AND_ASSUMPTIONS_REGISTER.md` `DAA-ARCH-001`, `DAA-ARCH-002`)
 Next review date: `[SET ON APPROVAL]` — suggested trigger: on any GATE 5 professional review outcome
 Classification: `INTERNAL`
@@ -183,7 +187,64 @@ Classification: `INTERNAL`
 | `BEYU-LF-D74` | Legal Document Execution and Custody Register | Execution status, custody, originals, versions, access control | Company Secretary | 1.0 | `TEMPLATE_NOT_EXECUTED` | **All documents** | Boards + Trustees | On execution; annual verification | `registers/BEYU-LF-D74_LEGAL_DOCUMENT_EXECUTION_AND_CUSTODY_REGISTER.md` |
 | `BEYU-LF-D75` | Annual Governance Review Checklist | One annual cycle that evidences the whole framework | CGO | 1.0 | `COMPLETE_DRAFT` | All | Trustees + boards + Family Assembly | Annual (mandatory) | `registers/BEYU-LF-D75_ANNUAL_GOVERNANCE_REVIEW_CHECKLIST.md` |
 
-## 11. Coverage check against the brief
+## 11. Section J — Employment, HR and the employment interface (expansion series `EMP`)
+
+| ID | Title | Purpose | Owner | Ver. | Status | Dependencies | Approvers (proposed) | Review frequency | Path |
+|---|---|---|---|---|---|---|---|---|---|
+| `BEYU-LF-EMP-01` | Employment Contract Framework | Modular employer determination, worker categories, contract shell and the mandatory-terms blocker | HR + Company Secretary | 1.0 | `CONDITIONAL_DRAFT` | `EMP-01` Part F (counsel); employment-law research (**not done**) | Boards; counsel | Annual; on law change | `employment/BEYU-LF-EMP-01_EMPLOYMENT_CONTRACT_FRAMEWORK.md` |
+| `BEYU-LF-EMP-02` | Offer Letters / Barua za Ajira (EN + Kiswahili) | Offer, conditional offer, confirmation, change-of-terms and withdrawal templates | HR | 1.0 | `TEMPLATE_NOT_EXECUTED` | `EMP-01` §2 and Part F | Authorised officer (`D27`) | Annual | `employment/BEYU-LF-EMP-02_OFFER_LETTERS_BARUA_ZA_AJIRA.md` |
+| `BEYU-LF-EMP-03` | HR Policies and Employee Handbook | 25-policy handbook, modular by entity; incorporates `D15` by reference | HR + Company Secretary | 1.0 | `CONDITIONAL_DRAFT` | `EMP-01` Part F; `D15`; counsel | Board of the employing entity | Annual | `employment/BEYU-LF-EMP-03_HR_POLICIES_AND_HANDBOOK.md` |
+| `BEYU-LF-EMP-04` | Bilingual Glossary and Language Control (EN ↔ Kiswahili) | Working glossary, translation QC and the governing-language decision | HR + Company Secretary | 1.0 | `PRELIMINARY_FRAMEWORK` | `EMP-04` §5 (counsel); certified translation where required | Board on counsel's advice | 6-monthly | `employment/BEYU-LF-EMP-04_BILINGUAL_GLOSSARY_EN_SW.md` |
+
+## 12. Section K — Product terms, privacy and compliance (expansion series `TOS`, `PRIV`, `CMP`)
+
+| ID | Title | Purpose | Owner | Ver. | Status | Dependencies | Approvers (proposed) | Review frequency | Path |
+|---|---|---|---|---|---|---|---|---|---|
+| `BEYU-LF-TOS-01` | Terms of Service (EN + Kiswahili) | Product terms grounded in the actual product and contracting entity | Company Secretary + product owner | 1.0 | `CONDITIONAL_DRAFT` | `INC-01`; product definition; `PRIV-02`; counsel | Board | Annual; on product change | `product-compliance/BEYU-LF-TOS-01_TERMS_OF_SERVICE.md` |
+| `BEYU-LF-PRIV-01` | Privacy Policy / Sera ya Faragha (EN + Kiswahili) | Published privacy notice — the output of the data inventory | DPO function | 1.0 | `CONDITIONAL_DRAFT` | **`PRIV-02` complete**; entity; counsel | Board on counsel's advice | Annual; on any change of processing | `product-compliance/BEYU-LF-PRIV-01_PRIVACY_POLICY.md` |
+| `BEYU-LF-PRIV-02` | Data Inventory and Data-Flow Mapping | **The prerequisite**: categories, purposes, bases, recipients, transfers, retention, rights | DPO + CTO | 1.0 | `PRELIMINARY_FRAMEWORK` | `[USER TO CONFIRM]` facts; `D70`; counsel | Board | Quarterly | `product-compliance/BEYU-LF-PRIV-02_DATA_INVENTORY_AND_FLOW_MAPPING.md` |
+| `BEYU-LF-CMP-01` | Compliance Pack (Obligations Register and Trackers) | Obligations register + 16 control trackers; **cross-references `D63`–`D75`, does not duplicate** | Company Secretary + DPO → Audit & Risk Committee | 1.0 | `PRELIMINARY_FRAMEWORK` | Verified sources per obligation; `INC-01`; counsel + accountant | Board | Quarterly | `product-compliance/BEYU-LF-CMP-01_COMPLIANCE_PACK.md` |
+
+## 13. Section L — Finance, fundraising and financial reporting (expansion series `FIN`)
+
+| ID | Title | Purpose | Owner | Ver. | Status | Dependencies | Approvers (proposed) | Review frequency | Path |
+|---|---|---|---|---|---|---|---|---|---|
+| `BEYU-LF-FIN-01` | Pitch Deck Framework and Claim Evidence Checklist | Deck structure + the evidence rule for every investor-facing claim | CEO + CFO | 1.0 | `TEMPLATE` | Verified entity, records, IP, compliance (`CMP-01`) | Board (re-approval on any change) | Before any external use | `fundraising/BEYU-LF-FIN-01_PITCH_DECK_AND_CLAIM_EVIDENCE.md` |
+| `BEYU-LF-FIN-02` | Financial Model | Assumptions register, drivers, costs, headcount, capex, working capital, tax, financing, runway, scenarios, sensitivity | CFO | 1.0 | `TEMPLATE` | Ratified accounting policy (`C-1`); accountant | Board; A&R Committee | Monthly once a business exists | `fundraising/BEYU-LF-FIN-02_FINANCIAL_MODEL.md` |
+| `BEYU-LF-FIN-03` | Term Sheet | Conditional framework, coordinated with `D23`/`CAP-01`/`ESOP-01` | CEO + counsel | 1.0 | `TEMPLATE_NOT_EXECUTED` | `INC-01`; `CAP-01`; a real transaction | Board + shareholders | Only when a transaction arises | `fundraising/BEYU-LF-FIN-03_TERM_SHEET.md` |
+| `BEYU-LF-FIN-04` | Income Statement | Blank statement template + reporting parameters + data-request checklist | CFO | 1.0 | `TEMPLATE` | Ledger; opening position; accountant | Board; A&R Committee | Monthly once a ledger exists | `financial-reporting/BEYU-LF-FIN-04_INCOME_STATEMENT.md` |
+| `BEYU-LF-FIN-05` | Cash Flow Statement | Blank template + the cash bridge | CFO | 1.0 | `TEMPLATE` | Bank reconciliations; ledger | Board; A&R Committee | Monthly | `financial-reporting/BEYU-LF-FIN-05_CASH_FLOW_STATEMENT.md` |
+| `BEYU-LF-FIN-06` | Balance Sheet | Blank template + the accounting equation | CFO | 1.0 | `TEMPLATE` | Opening position; fixed-asset register; share register | Board; A&R Committee | Monthly | `financial-reporting/BEYU-LF-FIN-06_BALANCE_SHEET.md` |
+| `BEYU-LF-FIN-07` | Statement of Changes in Equity | Blank template + the equity bridge | CFO | 1.0 | `TEMPLATE` | Verified share register (**zero verified shares**) | Board; A&R Committee | Monthly | `financial-reporting/BEYU-LF-FIN-07_STATEMENT_OF_CHANGES_IN_EQUITY.md` |
+| `BEYU-LF-FIN-08` | Notes to the Financial Statements | 26-note disclosure framework | CFO + Company Secretary | 1.0 | `TEMPLATE` | The statements; current registers | Board | With the statements | `financial-reporting/BEYU-LF-FIN-08_NOTES_TO_THE_FINANCIAL_STATEMENTS.md` |
+| `BEYU-LF-FIN-09` | Reconciliation and Integrity Controls | 22 controls, the four bridges and the findings discipline | CFO → A&R Committee | 1.0 | `PRELIMINARY_FRAMEWORK` | A ledger and statements (**neither exists**) | Board; A&R Committee | With every statement | `financial-reporting/BEYU-LF-FIN-09_RECONCILIATION_AND_INTEGRITY_CONTROLS.md` |
+
+## 14. Expansion series — trust clauses, founders and corporate (`TC`, `FA`, `INC`, `CX`, `CAP`, `ESOP`, `NDA`, `RC`, `IP-TM`, `IP-EV`)
+
+| ID | Title | Purpose | Owner | Ver. | Status | Dependencies | Approvers (proposed) | Review frequency | Path |
+|---|---|---|---|---|---|---|---|---|---|
+| `BEYU-LF-TC-01` | Trust Clause Pack | The four trust clauses with purpose, text, plain language, risks, law assumptions and counsel questions | CGO | 1.0 | `CONDITIONAL_DRAFT` | Counsel (`Q-TC-01`…`Q-TC-08`); the jurisdiction/legal-form decision | Settlor + Trustees on counsel's advice | On counsel markup | `trust/BEYU-LF-TC-01_TRUST_CLAUSE_PACK.md` |
+| `BEYU-LF-FA-01` | Founders Agreement | Contributions, roles, decision rights, equity, vesting, leavers, IP, covenants, exit, disputes | Company Secretary | 1.0 | `TEMPLATE_NOT_EXECUTED` | `INC-01`; `D21`; counsel | Board + shareholders | Annual | `corporate/BEYU-LF-FA-01_FOUNDERS_AGREEMENT.md` |
+| `BEYU-LF-CX-01` | Co-founder Exit and Separation | The exit clause and the separation agreement, with the leaver rules and the release limits | Company Secretary | 1.0 | `TEMPLATE_NOT_EXECUTED` | `FA-01`; `D24` §6; counsel | Board (+ shareholders per `D27`) | Annual | `corporate/BEYU-LF-CX-01_CO_FOUNDER_EXIT_AND_SEPARATION.md` |
+| `BEYU-LF-INC-01` | Incorporation and Formation Pack | Prerequisites, sequencing, constitutional checklist, formation checklist and resolutions | Company Secretary + counsel | 1.0 | `PRELIMINARY_FRAMEWORK` (**in part `BLOCKED`**) | The structure decision (`DAA-ARCH-005/006`) | Founder, then first board | On the structure decision | `corporate/BEYU-LF-INC-01_INCORPORATION_AND_FORMATION_PACK.md` |
+| `BEYU-LF-CAP-01` | Cap Table and Share Register | **Blank-by-design** cap table, evidence standard, register reconciliation (**zero verified shares**) | Company Secretary | 1.0 | `TEMPLATE` | `INC-01`; `D64`; counsel | Board (+ shareholders on an issue) | On every capital event | `corporate/BEYU-LF-CAP-01_CAP_TABLE_AND_SHARE_REGISTER.md` |
+| `BEYU-LF-ESOP-01` | Employee Share Option Plan | Plan, grant, vesting, exercise and leaver rules; pool and dilution discipline | Board / Remuneration Committee | 1.0 | `TEMPLATE_NOT_EXECUTED` | `INC-01`; counsel; accountant (`Q-TAX-03`) | Shareholders (plan/pool); board (grants) | Annual | `corporate/BEYU-LF-ESOP-01_EMPLOYEE_SHARE_OPTION_PLAN.md` |
+| `BEYU-LF-NDA-01` | Confidentiality Agreement Pack | Mutual and one-way NDAs, seven counterparty variants, model-training carve-out, whistleblowing carve-out | Company Secretary | 1.0 | `TEMPLATE_NOT_EXECUTED` | Counsel (party capacity; data-protection terms) | Board (delegated within `D27` limits) | Annual | `ip/BEYU-LF-NDA-01_MUTUAL_AND_ONE_WAY_NDA_PACK.md` |
+| `BEYU-LF-RC-01` | Restrictive Covenants Pack | Non-compete and the narrower alternatives; **enforceability NOT assumed**; assessment framework | Company Secretary + counsel | 1.0 | `CONDITIONAL_DRAFT` | `Q-R-06` and jurisdiction research (**not done**) | Board on counsel's advice | On counsel mark; on jurisdiction change | `ip/BEYU-LF-RC-01_RESTRICTIVE_COVENANTS_PACK.md` |
+| `BEYU-LF-IP-TM-01` | IP Search, Filing and Renewal Tracker | Search/filing/renewal tracker; **term unresolved — no date may be derived**; **zero verified rights** | Group CTO + counsel | 1.0 | `TEMPLATE` | Verification of the term, fees and route from the official source | Board on counsel's advice | Quarterly | `ip/BEYU-LF-IP-TM-01_SEARCH_FILING_AND_RENEWAL_TRACKER.md` |
+| `BEYU-LF-IP-EV-01` | IP Evidence Archive and Attestations | Contributor attestations, chain of title, open-source review, enforcement log, evidence rules | Group CTO + Company Secretary | 1.0 | `TEMPLATE` / `INFORMATIONAL` | `D41`; `D43`; `D45`; `D74` | Board (standards); owners per item | Quarterly | `ip/BEYU-LF-IP-EV-01_IP_EVIDENCE_ARCHIVE_AND_ATTESTATIONS.md` |
+
+## 15. Pack-level expansion documents
+
+| ID | Title | Purpose | Owner | Ver. | Status | Dependencies | Approvers (proposed) | Review frequency | Path |
+|---|---|---|---|---|---|---|---|---|---|
+| `BEYU-LF-REG-EXPANSION` | Gate 0B Expansion Coverage Inventory | Coverage mapping, ID convention, nine pre-drafting conflicts (X-1…X-9) and the scope limits of the expansion | CGO | 1.0 | `INFORMATIONAL` | — | CGO | On any change to the expansion | `GATE-0B_EXPANSION_COVERAGE_INVENTORY.md` |
+| `BEYU-LF-REG-RTM` | Request-to-Document Matrix | **Every item the brief requested → the document that answers it → status → what is still missing** | CGO | 1.0 | `INFORMATIONAL` | This register | CGO | On any change | `REQUEST_TO_DOCUMENT_MATRIX.md` |
+| `BEYU-LF-REG-G9` | Gate 9 Verification Checks | The 14 checks, their exact commands, their results and **what they do NOT prove** | CGO | 1.0 | `INFORMATIONAL` | The pack | CGO | On any change | `GATE-9_VERIFICATION_CHECKS.md` |
+| `BEYU-LF-REG-G10` | Gate 10 Deliverables | Executive summary, file list, matrix, register/status summary, source report, consistency findings, financial validation, C/H/M/L findings, open items, verification log and merge recommendation (A–K) | CGO | 1.0 | `INFORMATIONAL` | The pack | The family at the review gate | At the review gate | `GATE-10_DELIVERABLES.md` |
+| `BEYU-LF-REG-ACCTQ` | Accountant Questions for BEYU Financial Reporting | The questions that must be answered before any financial statement, model or tax line is prepared | CFO | 1.0 | `INFORMATIONAL` | `FIN-02`, `FIN-04`–`FIN-09` | CFO + accountant | On any accounting decision | `ACCOUNTANT_QUESTIONS_FOR_BEYU_FINANCIAL_REPORTING.md` |
+
+## 16. Coverage check against the brief
 
 | Brief item | Document ID(s) | Present? |
 |---|---|---|
@@ -196,6 +257,12 @@ Classification: `INTERNAL`
 | G48–G55 Foundation independence and nonprofit governance | D48–D55 | Yes |
 | H56–D62 Succession, incapacity, continuity and risk | D56–D62 | Yes |
 | I63–I75 Compliance, registers and operating templates | D63–D75 | Yes |
+| **J Expansion — employment/HR (EMP-01…EMP-04)** | `EMP-01`–`EMP-04` | Yes |
+| **K Expansion — product terms, privacy, compliance (TOS-01, PRIV-01/02, CMP-01)** | `TOS-01`, `PRIV-01`, `PRIV-02`, `CMP-01` | Yes |
+| **L Expansion — finance, fundraising, reporting (FIN-01…FIN-09)** | `FIN-01`–`FIN-09` | Yes |
+| **Expansion — trust clauses, founders and corporate (TC-01, FA-01, INC-01, CX-01, CAP-01, ESOP-01, NDA-01, RC-01, IP-TM-01, IP-EV-01)** | `TC-01`, `FA-01`, `INC-01`, `CX-01`, `CAP-01`, `ESOP-01`, `NDA-01`, `RC-01`, `IP-TM-01`, `IP-EV-01` | Yes |
+| **Addresses** — every item the brief requested, mapped to the answering document and its gaps | `REQUEST_TO_DOCUMENT_MATRIX.md` | Yes |
+| **Accountant questions** | `ACCOUNTANT_QUESTIONS_FOR_BEYU_FINANCIAL_REPORTING.md` | Yes |
 | Cross-document matrix | `CROSS_DOCUMENT_CONSISTENCY_REPORT.md` | Yes |
 | Blueprint-to-document traceability | `BLUEPRINT_TO_DOCUMENT_TRACEABILITY_MATRIX.md` | Yes |
 | Legal questions for counsel | `LEGAL_QUESTIONS_FOR_TANZANIAN_COUNSEL.md` | Yes |
@@ -208,4 +275,7 @@ Classification: `INTERNAL`
 documents (MEMART/articles equivalent) that were **not supplied and do not exist in this
 repository**. Blocker resolution: provide the current constitutional documents (or confirm the
 company is not yet incorporated and D21 should instead become a drafting task under D20).
-No other document is blocked; all others are drafted or specified with explicit placeholders.
+**Second blocked item (revision 1.1):** `BEYU-LF-INC-01` is `PRELIMINARY_FRAMEWORK` and **in part `BLOCKED`** —
+it cannot be completed until the jurisdiction and structure decisions (`DAA-ARCH-005`, `DAA-ARCH-006`) are made;
+and `BEYU-LF-PRIV-01` may not be published until `PRIV-02` is complete. **No other document is blocked; all
+others are drafted or specified with explicit placeholders.**

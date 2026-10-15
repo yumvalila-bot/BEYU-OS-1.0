@@ -174,7 +174,32 @@ stalls; (3) the structure is executed before the questions are answered, and the
 6. **Decide whether a structure is needed at all** — the flat option (`D20` Option 4) is a legitimate
    answer, and it is cheaper.
 
-## 6. Status of this pack
+## 6. Expansion gates (revision 1.1) — Gates 1–7 and what each one delivered
+
+**The expansion ran the same discipline as Gates 0–7: audit, draft, integrate, record, and stop at the human
+review gate.** Each expansion gate is complete **as drafting** and **blocked as substance** — and the roadmap's
+rule is unchanged: **nothing moves to "executed" because a document exists.**
+
+| Gate | Delivered | **What it is blocked on** | Where the blocker is recorded |
+|---|---|---|---|
+| **1 — Trust clauses** | The four clauses integrated **into the deed** (`D02` §10.8–10.20, §11A, §16.4–16.15, §20A), mirrored in `D03` §5, cross-referenced in `D04`/`D05`/`D09`, with `Q-TC-01`–`Q-TC-08` filed | **Counsel (`Q-TC-01`–`Q-TC-04`, `Q-TC-07`) and the jurisdiction/structure decision** | `TC-01` §6; **P-17** |
+| **2 — Founders and corporate** | `FA-01`, `INC-01`, `CX-01`, `CAP-01`, `ESOP-01`, `FIN-03`; `D23` extended with §5A | **The structure decision; the founders' own decisions; counsel (`Q-TC-09`–`Q-TC-16`, `Q-R-01`)** | `REQUEST_TO_DOCUMENT_MATRIX` §2 |
+| **3 — Confidentiality, covenants, IP** | `NDA-01`, `RC-01`, `IP-TM-01`, `IP-EV-01` (no duplicate IP assignment — `D41` reused) | **Counsel (`Q-TC-17`–`Q-TC-20`) and the unresolved trademark term** | `RC-01` §3.12; `IP-TM-01` §1 |
+| **4 — Employment** | `EMP-01`–`EMP-04`, EN + Kiswahili, with the employer determination at `EMP-01` §2 | **Employment-law research — `EMP-01` Part F is EMPTY. NO HIRING MAY OCCUR** | `EMP-01` §8; `DAA-EMP-001` |
+| **5 — ToS, privacy, compliance** | `TOS-01`, `PRIV-01`, `PRIV-02`, `CMP-01` | **`PRIV-02` (the data inventory) and the entity/product definition** | `PRIV-01` §1 (the publication gate) |
+| **6 — Fundraising** | `FIN-01`, `FIN-02`, `FIN-03` | **Everything: no traction, no records, no transaction, no accounting authority** | `FIN-01` §1; `DAA-FIN-002/003` |
+| **7 — Financial reporting** | `FIN-04`–`FIN-09`, **blank by design**, with the 15-item data-request checklist | **No ledger, no opening position, no ratified policy — `CMP-01` and `AQ-02` are the critical path** | `FIN-04` §0; `DAA-FIN-001` |
+| **8/9/10 — Registers, checks, deliverables** | `MASTER_DOCUMENT_REGISTER` v1.1 (sections J/K/L); `REQUEST_TO_DOCUMENT_MATRIX`; `ACCOUNTANT_QUESTIONS…`; `GATE-9_VERIFICATION_CHECKS`; `GATE-10_DELIVERABLES` | — | — |
+
+**6A.1 The three actions that unblock the most.** **(1) Instruct counsel with the priority-1 questions** — it
+unblocks Gates 1, 2, 4 and 5. **(2) Settle the jurisdiction and structure** — it unblocks `INC-01`, `D21`,
+`CAP-01` and the whole of Gate 7. **(3) Ask the accountant the five priority questions** — it unblocks the
+model and every statement.
+**6A.2 What must NOT be done next.** Do not incorporate, do not issue a share, do not hire, do not publish terms
+or a privacy notice, do not file an IP application, do not issue a deck, and do not prepare a statement. **Each
+of those is blocked by a specific missing input, and the pack says which one.**
+
+## 7. Status of this pack
 
 **All 76 registered documents now exist as drafts** (`D01`–`D75`, `DC-01`), plus the pack-level control
 documents, the section-I index and `CHANGE_LOG.md`. **The pack is therefore complete as a DRAFTING

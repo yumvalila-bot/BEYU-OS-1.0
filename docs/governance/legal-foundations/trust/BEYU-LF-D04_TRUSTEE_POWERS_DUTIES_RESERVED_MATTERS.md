@@ -218,7 +218,7 @@ transaction. Any such payment received must be accounted for to the Trust Fund.
 | RM-01 | Amendment of the Trust instrument (other than purely administrative) | ✔ | ✔ | `[SUPERMAJORITY]` | ✔ | Always |
 | RM-02 | Change to Beneficiary Classes; exclusion of a class | ✔ | ✔ | `[SUPERMAJORITY]` | ✔ | Always |
 | RM-03 | Termination; final distribution of the Trust Fund | ✔ | ✔ | `[SUPERMAJORITY]` | ✔ | Always |
-| RM-04 | Appointment or removal of a Trustee or the Protector | ✔ | ✔ | ✘ (notification only) | ✔ | Always |
+| RM-04 | Appointment or removal of a Trustee or the Protector — **read with `D02` §16.5 (who initiates and who decides)**: the two provisions must be reconciled by counsel so that the Protector's consent and the deciding persons are not in conflict (**consistency item P-17**) | ✔ | ✔ | ✘ (notification only) | ✔ | Always |
 | RM-05 | Borrowing above `[BORROWING LIMIT]` | ✔ | ✔ | ✘ | ✔ | `[USER TO SUPPLY]` |
 | RM-06 | Creating security over Trust assets above `[SECURITY LIMIT]` | ✔ | ✔ | ✘ | ✔ | `[USER TO SUPPLY]` |
 | RM-07 | Giving any guarantee | ✔ | ✔ | ✘ | ✔ | Always |

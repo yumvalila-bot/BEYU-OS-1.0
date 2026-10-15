@@ -1,7 +1,7 @@
 # BEYU-LF — Decision and Assumptions Register
 
 Document ID: `BEYU-LF-REG-DAR`
-Version: 1.0
+Version: 1.1 (expansion)
 Date: 2026-10-15
 Status: `INFORMATIONAL`
 Owner: Chief Governance Officer (proposed)
@@ -138,7 +138,57 @@ This register is the **single place** where a claim's status is decided. Its rul
 | `DAA-FDN-004` | The Foundation cannot be directed by group bodies: its fiduciaries owe duties to the charitable purpose. Any transaction with a group entity is a **related-party transaction** requiring disclosure, arm's-length terms and independent approval. | **B** (fiduciary principle) / **D** (specific statutory private-benefit prohibition) | `docs/architecture/foundation-os.md` §1, §10; brief §G | `CONFIRMED` as principle; specific prohibition `[COUNSEL TO CONFIRM]` | **The single largest structural risk in the pack.** A founder-controlled nonprofit serving the family would fail its purpose. | Foundation board + counsel | D51/D52/D53 specify the controls; counsel to confirm the statutory basis and any regulator approval requirement. |
 | `DAA-FDN-005` | The control plane already enforces a Foundation boundary (`journalsPosted: false`, `capPosting: LOCKED`, no competing ledger/identity) and 40 RLS-bound tables. | **A** | `docs/architecture/foundation-os.md` §2.1, §3, §10 | `CONFIRMED` | This is software assurance, **not** legal independence. | CTO + CGO | D50/D51 must not present software controls as legal independence. |
 
-## 9. Succession, incapacity, continuity and risk
+## 9. Expansion entries (revision 1.1) — new classes added by the Gate 1–7 documents
+
+**These entries were created by the expansion documents.** They follow the same rules as §1: **no claim may be
+relied on unless it appears here with a class**, and **no class-C item becomes a fact by repetition.**
+
+| ID | Claim / decision | Class | Source document | Status |
+|---|---|---|---|---|
+| `DAA-TC-001` | The four trust clauses are **drafted and integrated** into `D02` at §10.8–10.20, §11A, §16.4–16.15 and §20A, and are mirrored/referenced in `D03` §5, `D04` RM-04, `D05` §3 and `D09` §3/§6 | `A-repository-content / F-not-completed` (**the clause text exists in the draft deed; nothing is executed**) | `TC-01`; `D02` | **Class A for the drafting; Class F for legal effect** |
+| `DAA-TC-002` | **No trust clause has any legal effect**: the deed is `COMPLETE_DRAFT`, unexecuted, and the trust is not constituted | `F-not-completed` | `D02` header; `D01` | Closed as a limitation |
+| `DAA-TC-003` | The **proposed extension of the entrenchment list** (`D02` §20.2) to cover 10.8, 10.11, 10.17(c), 11A.9, 16.5(c), 16.15 and 20A.1–20A.2 is **`[PROPOSED — NOT APPLIED]`** pending the Settlor's and counsel's adoption of `TC-01` §6.2 | `B-user-provided proposal` | `D02` §20.2; `TC-01` §6.2 | Open |
+| `DAA-CAP-001` | **There are ZERO verified shareholders, ZERO verified issued shares and no verified ownership of any entity in this group.** The cap table is **blank by design** | `F-not-completed` (a negative finding) | `CAP-01` §1–§2; `GATE-0_REPOSITORY_AND_EVIDENCE_AUDIT` §6 | **Binding constraint on every financial and fundraising document** |
+| `DAA-CAP-002` | The dual-class proposal (Class A 1 vote, Class B 1,000 votes, equal economics per share) remains an **UNAPPROVED PROPOSAL** and is **not** in any constitutional document | `B-user-provided proposal` | `D22`; `CAP-01` §2.3; `Q-H-01` | Open |
+| `DAA-INC-001` | **No entity has been incorporated, no name reserved, no form filed, no certificate obtained.** `D21` remains `BLOCKED` | `F-not-completed` | `INC-01` §3; `D21` | Open — gated on the structure decision |
+| `DAA-INC-002` | The pack's assumption that the **holding company employs the group's staff is NOT verified and is likely wrong**; the employer must be determined per worker | `E-drafting assumption` (**expressly flagged as unreliable**) | `EMP-01` §2 | Open |
+| `DAA-EMP-001` | **Employment law has NOT been researched in this pack.** `EMP-01` Part F (the mandatory-terms schedule) is empty, and **no contract or offer may be issued until counsel supplies it** | `F-not-completed` | `EMP-01` §1.1, §8 | **Blocks hiring** |
+| `DAA-EMP-002` | **No person is identified as an employee of any entity in this group**; there is no staff list, no verified headcount, no salary and no offer. Seeded employee/payroll rows are synthetic | `F-not-completed` | `EMP-01`; `EMP-02`; `GATE-0_REPOSITORY_AND_EVIDENCE_AUDIT` §6 | Closed as a limitation |
+| `DAA-EMP-003` | The **bilingual glossary (`EMP-04`) is a working draft** — not certified, not counsel-reviewed — and the **governing-language question is undecided** | `F-not-completed` | `EMP-04` §5, §7 | Open |
+| `DAA-RC-001` | **The enforceability of every restrictive covenant is NOT assumed, tested or researched.** `RC-01` drafts covenants as a request for counsel; the group's working protection is confidentiality, IP, access control, notice and the equity leaver rules | `F-not-completed` (**an explicit non-assumption**) | `RC-01` §3.13; `Q-TC-17` | Open |
+| `DAA-IP-001` | **Zero IP is verified as owned by any entity in this group.** The IP register opens at zero and the `DOC-IP-001` / `TZ-2025-4421` / Madrid fixture documents are fictional | `F-not-completed` | `IP-EV-01` §1; `IP-TM-01` §1; `D39` §1 | **Binding** |
+| `DAA-IP-002` | **The trademark term is UNRESOLVED** (contradictory secondary sources: 7 versus 10 years). **No term is asserted, no renewal date is derived, and no calendar entry is created** | `D-not-verified` | `IP-TM-01` §1.2, §2.4; `D44` §5.3 | Open — blocks renewal tracking |
+| `DAA-IP-003` | **Tanzania is not a Madrid Protocol route** and the ARIPO/Banjul route was found **not to be domesticated**; the fixture's Madrid filing must not be repeated | `D-not-verified` (secondary sources) | `IP-TM-01` §1; `LEGAL_SOURCES_REGISTER` `IP-2`/`IP-3` | Open |
+| `DAA-PRIV-001` | **No data inventory exists.** `PRIV-02` is substantially unknown, and therefore **`PRIV-01` may not be published** | `F-not-completed` | `PRIV-02`; `PRIV-01` §1 | **Blocks publication** |
+| `DAA-PRIV-002` | **The seeded `integrations` rows are configuration, not live integrations**, and `secretRef` is **a reference, never a credential**. They may not be named as recipients in any privacy notice | `F-not-completed` (**a correction of a plausible misreading**) | `PRIV-02` §4.1; `platform.ts` | Closed |
+| `DAA-PRIV-003` | **No registration, permit, notification, certification or consent has been obtained or verified**, and none may be claimed in any notice, term, deck or statement | `F-not-completed` | `PRIV-01` §4; `TOS-01` §4; `CMP-01` §2 | **Binding** |
+| `DAA-TOS-001` | **No Terms of Service or Privacy Policy exists in the product**; there is **no `/terms` or `/privacy` route** in the application, and the fixture boilerplate is fictional | `A-repository-content / F-not-completed` | `TOS-01` §1; `PRIV-01` §1 | Closed as a finding |
+| `DAA-CMP-001` | **The obligations register is EMPTY** — no obligation in this pack has been verified against a current authoritative source, and **no filing, registration, licence or permit is held** | `F-not-completed` | `CMP-01` §1, §18; `LEGAL_SOURCES_REGISTER` | **The largest body of outstanding work** |
+| `DAA-CMP-002` | **Sector regimes (health, finance, agriculture, construction), employment, consumer protection, restraint of trade, VAT, land, exchange control, anti-money-laundering and the `.tz` domain rules have NOT been researched** and are expressly excluded from every citation in this pack | `F-not-completed` | `LEGAL_SOURCES_REGISTER` "Not retrieved — never cite"; `CMP-01` §5 | Open |
+| `DAA-FIN-001` | **There is no ledger, no opening balance, no ratified accounting policy and no accounting authority** (`ACCOUNTING AUTHORITY = NOT RATIFIED`). Therefore **the five statements are blank templates** and `FIN-09`'s controls are all `NOT_RUN` | `F-not-completed` | `FIN-04` §0; `FIN-09`; `HUMAN_RATIFICATION_QUEUE.md` | **Blocks all financial reporting** |
+| `DAA-FIN-002` | **The financial model contains no figures.** Every input is a decision or a question; **no tax rate may be assumed** and the tax line remains blank with a flag | `F-not-completed` | `FIN-02` §2, §11 | Open |
+| `DAA-FIN-003` | **No traction, customer, revenue, partner, contract, licence, registered IP, valuation or investor interest exists**, and none may be claimed in any investor-facing material | `F-not-completed` | `FIN-01` §1, §4 | **Binding on every external claim** |
+| `DAA-FIN-004` | `docs/finance/*` documents accounting **policy** ratification and `FINANCE_OS_*` architecture — **a different subject** from this expansion's fundraising and reporting documents, and not evidence of a ratified policy | `F-not-completed` | `GATE-0B` coverage inventory | Closed |
+| `DAA-LEG-006` | **The pack must apply the extended status taxonomy** (`README` §11.3): `APPROVED`, `EXECUTED`, `FILED` and `REGISTERED` require documentary evidence and may never be applied because drafting finished | `A-pack rule` | `README` §11.3 | **Binding on the whole pack** |
+| `DAA-LEG-007` | **The no-renumbering convention:** `D01`–`D75` and `DC-01` are unchanged; the expansion uses lettered series in new register sections J, K and L | `A-pack rule` | `GATE-0B` inventory; `MASTER_DOCUMENT_REGISTER` v1.1 | Closed |
+
+## 10. The decisions the expansion cannot make (routed, not assumed)
+
+**These are decisions that only the family, the board, counsel or an accountant can take. The pack states them
+and stops.**
+
+| # | Decision | Who | Blocks |
+|---|---|---|---|
+| 1 | **The jurisdiction and structure** (`DAA-ARCH-005`/`006`) | Family + counsel | `INC-01`, `D21`, `CAP-01`, `FA-01`, `FIN-01`–`FIN-03` |
+| 2 | **Who the founders are, and the allocation** | Family | `FA-01`, `CAP-01` |
+| 3 | **The employer per worker and the mandatory employment terms** | Counsel + board | `EMP-01`–`EMP-03` (and any hiring) |
+| 4 | **Whether the group has a product to offer, and to whom** | Board | `TOS-01`, `PRIV-01`, `FIN-01` |
+| 5 | **The accounting authority, framework, currency and opening position** | Board + accountant | `FIN-02`, `FIN-04`–`FIN-09` |
+| 6 | **Whether the dual-class proposal is adopted** | Family + counsel | `D22`, `CAP-01`, `INC-01` §3 |
+| 7 | **The leaver definitions and price basis** | Board + counsel | `CX-01`, `ESOP-01` |
+| 8 | **Which single action the family takes first** — the pack's answer is: instruct counsel with the priority-1 questions and settle the structure | Family | Everything else |
+
+## 11. Succession, incapacity, continuity and risk
 
 | ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
 |---|---|---|---|---|---|---|---|
@@ -147,7 +197,7 @@ This register is the **single place** where a claim's status is decided. Its rul
 | `DAA-SUC-003` | Tanzanian estate administration operates through `Probate and Administration of Estates Act, Cap. 352` (probate/letters of administration; wills deposited in the High Court Registry; limits on the number of executors), with testate/intestate rules also affected by the Law of Marriage Act 1971 and customary/religious law. | **A `VERIFIED_PRIMARY` (Cap. 352 text) / D (interaction and choice of law)** | `LEGAL_SOURCES_REGISTER` §SUC-1…3 | `PARTIAL` | The pack cannot state which succession regime applies to any individual. | Counsel | `Q-S-01`. |
 | `DAA-SUC-004` | The control plane has **emergency-access and continuity machinery** (`emergency_access_grants`, RPO/RTO continuity plans with test evidence) including break-glass access that is time-limited, scoped, logged and post-reviewed, and that can never permanently suspend constitutional controls. | **A** | `docs/constitution/README.md` §Emergency governance; `docs/domain-model/README.md` (`assurance.continuity_plans`) | `CONFIRMED` | Available as **evidence-supporting** infrastructure, but software break-glass is not legal emergency authority. | CTO + CGO | D56/D62 must map software emergency access to legal instruments, not conflate them. |
 
-## 10. Registers, records and data protection
+## 12. Registers, records and data protection
 
 | ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
 |---|---|---|---|---|---|---|---|
@@ -156,7 +206,7 @@ This register is the **single place** where a claim's status is decided. Its rul
 | `DAA-REG-003` | The control plane models the PDPA as a **compliance obligation** and records its state honestly: the seeded obligation `OBL-TZ-DPA` is `PARTIALLY_COMPLIANT` and `OBL-NHIF-CLAIM` is `NON_COMPLIANT`. | **A** (seeded configuration) | `src/db/seed.ts` compliance obligations | `CONFIRMED` (as recorded config) | Seeded states are illustrative; real status must be assessed. | Chief Risk & Compliance | Assess and record real states in D68/D70. |
 | `DAA-REG-004` | The repository has an explicit **secrets/confidentiality boundary**: credentials never in browser code; `integrations` store secret *references* only; a secret-scan gate is in CI; `SECURITY.md` exists. | **A** | `docs/ECOSYSTEM_STATUS.md` §5; `scripts/scan-secrets.mjs`; `SECURITY.md` | `CONFIRMED` | Registers must never be used to store confidential signed instruments or personal data in this repository. | CISO + CGO | Custody rules in D74/D75. |
 
-## 11. Cross-cutting legal and structural matters
+## 13. Cross-cutting legal and structural matters
 
 | ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
 |---|---|---|---|---|---|---|---|
@@ -168,7 +218,7 @@ This register is the **single place** where a claim's status is decided. Its rul
 
 ---
 
-## 12. Register summary
+## 14. Register summary
 
 | Class | Count | Notes |
 |---|---:|---|

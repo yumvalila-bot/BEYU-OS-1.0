@@ -57,6 +57,27 @@ not be resolved by choosing whichever reading is convenient.
 | P-15 | **Three filenames deviated from the register** (D60, D61, D62 were written under longer names) | **S3** | `succession-risk/` | **Renamed to the register's paths** (the register is authoritative — the D05/D06 precedent) and the deviation recorded in `CHANGE_LOG.md` §2 | None | **RESOLVED** |
 | P-16 | **`registers/README.md`** exists as a section index but is not itself a registered document | **S3** | `registers/README.md` | Recorded here and in `CHANGE_LOG.md` §1 as an **index**, not a document; the register remains the list of documents | None | **ACCEPTED (noted)** |
 
+**Expansion additions (revision 1.1).** The expansion introduced new documents that touch the same subjects as
+existing ones. Each interface was checked before drafting, and the findings are recorded here rather than left
+to the reader.
+
+| ID | Conflict / interface | Risk | Location | Status |
+|---|---|---|---|---|
+| **P-17** | **`D02` §16.5 (removal decided by the Protector + remaining Trustees) vs `D04` RM-04 (removal treated as a Reserved Matter requiring Protector consent).** Two provisions now govern who may remove a Trustee | **S1 — a governance provision with two answers** | `D02` §16.5; `D04` §7 RM-04 | **RESOLVED AS A FLAGGED CONFLICT, NOT SILENTLY**: `D04` RM-04 carries an explicit instruction to reconcile, `D03` §5 carries a precedence note, and `Q-TC-07` asks counsel to decide which governs. **The pack does NOT choose** |
+| **P-18** | **`D23` (SHA) previously had no vesting or leaver terms**, while `FA-01`/`CX-01` create them | **S2 — a founder could argue the SHA displaced the founder-level terms** | `D23` §5A (new); `FA-01`; `CX-01` | **Addressed** by `D23` §5A (interface rules, not duplicated text) with the residual risk flagged at `§5A.11` and routed to `Q-TC-14` (order of precedence) |
+| **P-19** | **Four instruments touch one event** (the Articles, `D23`, `FA-01`, `CX-01`) — cessation, transfers and repurchases | **S1 — the classic founder-litigation pattern** | `D23` §5A.11; `FA-01` §3; `CX-01` §2 | **Flagged and routed** to `Q-TC-14`; the pack's rule is that a conflict is a defect to correct, not a matter of interpretation |
+| **P-20** | **The pack's new documents cite the control plane** (`equity_positions`, `esop_*`, `vesting_*`, `leaver_cases`, `cap_table_snapshots`, `integrations`) as **records**, while the software may appear authoritative | **S2 — `X-7`: software records must not imply legal effect** | `CAP-01` §5; `ESOP-01` §5.6; `PRIV-02` §4.1 | **Addressed**: every reference states that rows are records, that `legal_effect_status` defaults to `INERT`, that `enforceability_assumed` is false, and that `secretRef` is a reference and never a secret |
+| **P-21** | **`D15` (family-employment policy) vs `EMP-03` (HR handbook)** — the same subject in two documents | **S3 — divergence risk** | `EMP-03` control 4 | **Addressed**: `EMP-03` **incorporates `D15` by reference and does not restate it**; a conflict is corrected in one place and recorded here |
+| **P-22** | **`D70` (PDPA checklist, obligation-oriented) vs `PRIV-01`/`PRIV-02` (what the group does)** — obligations and practices are different things | **S2 — a checklist mistaken for compliance** | `PRIV-02` §1; `CMP-01` §8 | **Addressed**: both documents state the distinction; `CMP-01` §2 forbids the word "compliant" as a status |
+| **P-23** | **`docs/finance/*` (accounting policy ratification) vs `FIN-02`/`FIN-04`–`FIN-09`** — different subjects that share the word "finance" | **S3 — a reader could treat the policy documents as ratified** | `FIN-04` §0; `DAA-FIN-004` | **Addressed and recorded** as a negative finding |
+| **P-24** | **The expansion's `FIN` series covers both fundraising (`FIN-01`–`03`) and reporting (`FIN-04`–`09`)** — one letter series, two sub-series | **S3 — numbering suspicion** | `MASTER_DOCUMENT_REGISTER` §13 | **Addressed**: registered in Section L with the sub-series stated |
+| **P-25** | **`IP-TM-01` asserts no trademark term, while `D44` §5.3 records the same unresolved conflict** | **S2 — a future drafter could "resolve" it by picking one** | `IP-TM-01` §1.2; `D44` §5.3; `LEGAL_SOURCES_REGISTER` `IP-2` | **Addressed**: both state the conflict and forbid deriving a date; `CMP-01` §9.1 repeats the rule |
+| **P-26** | **`TC-01` reproduces the four clauses that are operative in `D02`** — an unavoidable duplication | **S2 — divergence between the pack and the deed** | `D02` integration note; `TC-01` §1 | **Addressed by a precedence rule stated in both**: **if the deed and `TC-01` diverge, the deed governs** |
+| **P-27** | **`EMP-01` states that the employer must be identified, while `EMP-03` §3 schedules are written per entity type** — and no entity exists | **S2 — an implicit assumption that a particular entity employs the staff** | `EMP-01` §2; `EMP-03` §3.1 | **Addressed**: `EMP-03` §3.1 states expressly that the holding company does **not** automatically employ the group's staff (`DAA-INC-002`) |
+| **P-28** | **`FIN-01` (no unverified claims) vs `TOS-01` (no implied features)** — the same prohibition in two documents | **S3 — consistency, not conflict** | `FIN-01` §4; `TOS-01` §4 | **Aligned deliberately**: the prohibitions are drafted identically in substance so that a claim cannot be acceptable in one channel and not another |
+| **P-29** | **The new `CAP-01` equity section and `FIN-06`'s share capital line** — both state "zero verified shares" | **S3** | `CAP-01` §2.1; `FIN-06` §2.9 | **Aligned**: both state the position as a negative finding, and both forbid presenting zero as understood capital |
+| **P-30** | **`PRIV-02` §6 retention vs the system's actual retention behaviour** (`retention-service.ts`: retention from upload timestamp; legal holds block deletion; destruction needs approval) | **S1 — a notice promising deletion the system cannot perform** | `PRIV-02` §6.2–6.3; `PRIV-01` §8; `CMP-01` §12.3 | **Addressed**: the actual semantics are written into the policy rules, and the prohibited promises are listed |
+
 ## 4. Terminology consistency check (the controlled vocabulary)
 
 `DEFINED_TERMS.md` is the pack's controlled vocabulary. Verified by inspection:
@@ -113,6 +134,10 @@ reason it is unresolved or leave it unresolved and visible.**
 | 3 | Obtain counsel's answers to `Q-H-01(a)`–`(h)` for the dual-class arrangement | Counsel | **Highest** (`P-5`) |
 | 4 | Adopt the family definition (`FIR-003`) | Family Assembly | **Highest** (`P-3`) |
 | 5 | Provide the constitutional documents, or confirm Path B for `D21` | Family | High (`P-11`) |
+| 6 | **Instruct counsel on the priority-1 expansion questions** (`Q-TC-01`…`Q-TC-04`, `Q-TC-07`, `Q-TC-21`–`Q-TC-25`, `Q-TC-29`, `Q-TC-30`, `Q-TC-35`) | Family | **Critical — P-17 cannot be closed without `Q-TC-07`** |
+| 7 | **Complete `PRIV-02`** (the data inventory), which gates `PRIV-01` | DPO + CTO | High (`P-19`…`P-22`, `P-30`) |
+| 8 | **Answer the priority-5 accountant questions** (`AQ-02`, `AQ-01`, `AQ-09`, `AQ-22`, `AQ-23`, `AQ-25`, `AQ-32`) | CFO + accountant | High (`P-23`, `P-29`) |
+| 9 | **Do not derive a trademark renewal date** until the term is verified from the source | Secretary | Medium (`P-25`) |
 | 6 | Confirm the `ARTICLES`/`HERE` classification with counsel | Counsel | High (`P-4`) |
 | 7 | Confirm which seeded entities (if any) correspond to real intentions — especially MINING | Founder | Medium (`C-7`) |
 | 8 | Resolve the policy-provenance / accounting-authority ratification | Human ratification route | High (`C-1`) |

@@ -1,7 +1,7 @@
 # BEYU-LF — Official Legal Sources Register
 
 Document ID: `BEYU-LF-REG-LSR`
-Version: 1.0
+Version: 1.1 (expansion note)
 Date: 2026-10-15 (**all access/verification dates in this register are 2026-10-15, Africa/Dar_es_Salaam**)
 Status: `INFORMATIONAL`
 Owner: Chief Governance Officer (proposed), on behalf of the family/group
@@ -10,6 +10,36 @@ Next review date: On each GATE 5 review, and immediately on any known amendment
 Classification: `INTERNAL`
 
 ---
+
+## Expansion note (revision 1.1) — **no new source was verified, and four areas are expressly UNRESEARCHED**
+
+**The Gate 1–7 expansion added 30 documents and NOT ONE new verified legal source.** Every legal proposition in
+the new documents is either (a) one already recorded in this register with its retrieval trail, or (b) an
+express `[COUNSEL TO CONFIRM]` question. **No statute, regulation, case, fee, deadline, rate or official URL was
+invented to fill a gap.**
+
+**Four areas on which the expansion documents depend are NOT researched and are labelled as such on the face of
+the documents that depend on them:**
+
+| Area | Where it is needed | How the documents handle the gap |
+|---|---|---|
+| **Employment law** | `EMP-01` (the entire contract framework, including the mandatory-terms schedule "Part F"), `EMP-02`, `EMP-03`, `EMP-04`, and the employment obligations in `CMP-01` §7 | **`EMP-01` §8 lists the 17 questions; `EMP-01` Part F is EMPTY; the documents state that no contract or offer may be issued until counsel supplies it (`DAA-EMP-001`). The seed/payroll demonstration rows are labelled synthetic and are not evidence of any employment** |
+| **Restraint of trade** | `RC-01` (all covenants), `D23` §8, `FA-01` §5.4, `EMP-01` §4.12 | **Enforceability is expressly NOT assumed; each covenant is drafted as a request for counsel; the group's working protection is designed to work without a non-compete (`DAA-RC-001`; `Q-TC-17`–`Q-TC-20`)** |
+| **Consumer protection** | `TOS-01` (all clauses 11–15), `FIN-01` §4 | **`TOS-01` §2 marks the liability, disclaimer, refund and forum clauses `[COUNSEL TO CONFIRM]` and expressly warns against importing a foreign template; `TOS-01` §7.2 asks for the rules** |
+| **Sector regulation** (health, finance, agriculture, construction) | `CMP-01` §5, `TOS-01` §18, `FIN-01` §4.9–4.10, `EMP-03` §3.2 | **`CMP-01` §5 states that NO sector regime has been researched, that the licence register opens empty, and that no claim of licensure may be made; `Q-TC-30` asks for the regimes** |
+
+**Also still unresolved from earlier revisions, and repeated here because the expansion depends on them:**
+
+| Item | Status | Consequence for the expansion |
+|---|---|---|
+| **The trademark term** (contradictory secondary sources: 7 vs 10 years) | **UNRESOLVED** — `IP-2` | **`IP-TM-01` asserts no term and derives no renewal date** (`DAA-IP-002`) |
+| **Incorporation fees** (two secondary figures conflict) | **UNRESOLVED** | Appears only as a budget placeholder in `INC-01` §8 |
+| **Madrid Protocol / ARIPO** | **Not a route for Tanzania / not domesticated** | **`IP-TM-01` forbids repeating the fixture's Madrid filing** (`DAA-IP-003`) |
+| **The PDPA implementation timeline** (registration, enforcement, inspection dates) | **Secondary sources only** — `DP-2`…`DP-4` | `CMP-01` §8 and `PRIV-02` treat the dates as obligations to verify, not as facts |
+
+**The rule that produced this note.** **A gap is recorded as a gap.** Where the expansion needed a legal
+proposition that this register does not contain, the document says `[COUNSEL TO CONFIRM]` and stops — **because
+an invented citation is worse than an admitted gap: it would be relied on, and it would be wrong.**
 
 ## 0. Verification discipline and its limits
 

@@ -77,6 +77,11 @@ document is a breach.**
 
 ## 3. Variation of class rights and beneficial interests
 
+> **CROSS-REFERENCE (revision 1.1).** Dealings with a Beneficiary's interest, and the Trustees' response to
+> them, are governed by **`D02` §11A (spendthrift / alienation and creditors)**, which distinguishes
+> discretionary interests from vested and already-distributed entitlements and expressly preserves creditors'
+> rights, court orders and mandatory family provision. See `BEYU-LF-TC-01` §2.
+
 **3.1 Context.** Where the Trust holds shares in a company, a variation of class rights in that company is
 a **company-law** matter with its own procedure, including (as read in the Companies Act) a right for a
 significant minority of the affected class to petition the court within a short period, with the variation
@@ -176,6 +181,13 @@ the basis of an unreconciled balance.
 ---
 
 ## 6. Dispute resolution
+
+> **CROSS-REFERENCE (revision 1.1).** **`D02` §20A** now contains the "challenges and disputes" clause,
+> including the **mandatory carve-outs** (`20A.1`), the **preservation of every person's right to approach a
+> court, a regulator or an authority** (`20A.2`), and a **family-procedure-first request** (`20A.4`) that is
+> **not a condition of any legal right**. The consequences sub-clause (`20A.5`) is expressly
+> `[COUNSEL TO SETTLE]` and is severable (`D02` §23.6). **No procedure in this section may be operated so as
+> to delay, condition or penalise the exercise of a legal right.** See `BEYU-LF-TC-01` §3.
 
 ### 6.1 Escalation ladder (default, to be reflected in the instrument)
 

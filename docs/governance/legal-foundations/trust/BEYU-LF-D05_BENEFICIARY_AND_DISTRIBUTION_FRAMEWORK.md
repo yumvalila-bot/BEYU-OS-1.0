@@ -96,6 +96,13 @@ and do not allow any register to be created that would produce an entitlement by
 
 ## 3. Rights, expectations and non-rights
 
+> **DEED ANCHOR (revision 1.1).** The legal position stated in this section is now anchored in the operative
+> instrument at **`D02` §10.8** ("no Beneficiary has any interest other than the right to be considered"), and
+> the distribution discipline at **`D02` §10.9–10.20**. **`D02` governs.** The prohibitions on the Trustees'
+> considerations (a beneficiary may not be penalised for a lawful claim, an information request or a report to
+> an authority) are at **`D02` §10.11**, and the no-software/no-AI distribution rule at **`D02` §10.17(c)**.
+> See `BEYU-LF-TC-01` §4.
+
 ### 3.1 The rights table
 
 | # | What a Beneficiary **may** have | Extent | Source |

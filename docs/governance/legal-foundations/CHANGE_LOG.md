@@ -83,5 +83,108 @@ that a reader can tell the difference between a considered position and an accid
 | 4 | The accounting-authority ratification (`C-1`) | The money controls and the reporting documents become reliable |
 | 5 | **Any execution, filing or register population** | This log records it, with the document, the date and the evidence reference |
 
+## Version 1.1 — 2026-10-15 — expansion (trust clauses, founders/corporate, confidentiality and IP, employment, product terms and privacy, compliance, fundraising and financial reporting)
+
+**Scope:** the expansion requested by the BEYU legal/wealth/corporate/HR/IP/fundraising/financial-governance
+brief. **30 documents added in 15 new lettered series; 13 existing documents modified; `D01`–`D75` and `DC-01`
+NOT renumbered.** The convention and the coverage decisions are in `GATE-0B_EXPANSION_COVERAGE_INVENTORY.md`;
+the per-item mapping is in `REQUEST_TO_DOCUMENT_MATRIX.md`; the checks are in `GATE-9_VERIFICATION_CHECKS.md`;
+the deliverable set is in `GATE-10_DELIVERABLES.md`.
+
+**Entry point for a reviewer:** `GATE-10_DELIVERABLES.md` (executive summary, findings, open items, merge
+blockers), then `REQUEST_TO_DOCUMENT_MATRIX.md` (what is still missing, per document), then the four trust
+clauses as they now appear in `trust/BEYU-LF-D02_TRUST_DEED.md` §10.8–10.20, §11A, §16.4–16.15 and §20A.
+
+### 1. Documents added (30)
+
+| Series | Documents | Section in the register |
+|---|---|---|
+| `TC` | `TC-01` (trust clauses — **integrated into `D02`**, not standalone) | Section A / §14 |
+| `FA`, `INC`, `CX`, `CAP`, `ESOP` | 5 corporate documents | §14 |
+| `NDA`, `RC`, `IP-TM`, `IP-EV` | 4 confidentiality/IP documents | §14 (folders: `ip/`) |
+| `EMP` | 4 employment documents (EN + Kiswahili) | **Section J** |
+| `TOS`, `PRIV`, `CMP` | 4 product-terms/privacy/compliance documents | **Section K** |
+| `FIN` | 9 finance documents (fundraising + reporting) | **Section L** |
+| Pack-level | `GATE-0B` inventory, request-to-document matrix, accountant questions, Gate 9 checks, Gate 10 deliverables | §15 |
+
+### 2. Documents modified (13) and why
+
+| Document | Change | Reason |
+|---|---|---|
+| `D02` Trust Deed | **Four clauses inserted operatively** (§10.8–10.20 discretionary distribution; §11A spendthrift; §16.4–16.15 removal/replacement; §20A no-contest); entrenchment extension marked `[PROPOSED — NOT APPLIED]`; new §23.6 severability; integration note | The Gate 1 requirement was that the clauses live **in the deed**, not as disconnected files |
+| `D03` | §5 precedence note | To remove the possibility of two removal regimes being read independently |
+| `D04` | RM-04 reconciled-with-reference and flagged | **Consistency item P-17** |
+| `D05` | §3 deed anchor | The "no entitlement" position is now in the operative instrument |
+| `D06`, `D07` | `Q-LEG03` → `Q-LEG-03` (3 occurrences) | **Defect found by Gate 9 Check 9** |
+| `D09` | §3 and §6 cross-references | `D02` §11A and §20A now exist |
+| `D23` | **New §5A** (11 interface rules) + extended counsel note | The SHA had no vesting/leaver interface |
+| `MASTER_DOCUMENT_REGISTER` | v1.1: sections J/K/L; coverage rows; blocked-items note | Registering the expansion |
+| `README` | v1.1: §11.3 status taxonomy, §11.4 record fields, §11.5 what the expansion did/did not do, lessons 13–15 | A reader must be able to tell "drafted" from "effective" |
+| `DECISION_AND_ASSUMPTIONS_REGISTER` | v1.1: §9 (28 new `DAA-*` entries), §10 (the decisions the expansion cannot make); sections renumbered 11–14 | New classes of claim require classification |
+| `CROSS_DOCUMENT_CONSISTENCY_REPORT` | v1.1: P-17…P-30, four priority rows | The expansion created new interfaces |
+| `LEGAL_SOURCES_REGISTER` | v1.1: expansion note (no new source; four expressly unresearched areas) | **Honesty about what was not researched** |
+| `LEGAL_QUESTIONS_FOR_TANZANIAN_COUNSEL` | v1.1: §9A with `Q-TC-01`…`Q-TC-38` | The expansion's questions needed to be asked in writing |
+| `IMPLEMENTATION_ROADMAP_AND_EXECUTION_CHECKLIST` | v1.1: §6 expansion gates | Which gate delivered what, and what blocks each |
+
+### 3. Defects found and corrected in this revision
+
+| # | Defect | Where | Correction |
+|---|---|---|---|
+| 1 | **A counsel-question reference missing its hyphen** (`Q-LEG03`) | `D06`, `D07` | Corrected to `Q-LEG-03`; found by Gate 9 Check 9 |
+| 2 | **Two register paths contained a typo** (`BEYYU-LF-TC-01`, `BEYYU-LF-IP-TM-01`) | `MASTER_DOCUMENT_REGISTER.md` (introduced and fixed within this revision) | Corrected; Check 1 now returns `103/103` |
+| 3 | **A section-numbering collision in `DECISION_AND_ASSUMPTIONS_REGISTER.md`** (introduced and fixed within this revision) | `DAR` §9/§10 | Renumbered to 11–14 |
+| 4 | **A literal typo in the Kiswahili offer-letter heading** (`OF A YA KAZI`) | `EMP-02` | Corrected to `OFA YA KAZI` |
+| 5 | **A portmanteau typo** (`CORP ORATE EVENTS`) | `ESOP-01` | Corrected to `CORPORATE EVENTS` |
+
+### 4. Deliberately open (do NOT "fix" by choosing)
+
+1. **P-17** — who may remove a Trustee (`D02` §16.5 vs `D04` RM-04). **Routed to `Q-TC-07`.**
+2. **The order of precedence** between the Articles, `D23`, `FA-01` and `CX-01`. **Routed to `Q-TC-14`.**
+3. **The trademark term** (7 vs 10 years). **No date may be derived.**
+4. **The `D02` §20.2 entrenchment extension.** Proposed, not applied, pending the Settlor and counsel.
+5. **`D21` `BLOCKED`**, `INC-01` in part `BLOCKED`, `PRIV-01` publication gated. **All three stay blocked.**
+6. **Every `[USER TO SUPPLY]`, `[TO BE DECIDED]` and `[COUNSEL TO CONFIRM]` placeholder in the new documents.**
+   **Blank is the deliverable** in the cap table, the five statements, the model, the deck's claims, the ESOP
+   pool and the offer letters.
+
+### 5. Evidence discipline applied to this revision (binding on the expansion)
+
+1. **No invented fact, figure, date, rate, fee, citation or identifier.** Every gap is `[COUNSEL TO CONFIRM]`,
+   `[ACCOUNTANT TO CONFIRM]`, `[USER TO SUPPLY]` or `UNVERIFIED`.
+2. **No fictional fixture was promoted.** The seeded/fixture identifiers (`DOC-IP-001`, `TZ-2025-4421`,
+   `MU-TR-100241`, `DIFC-4471`, `TZ-NGO-00891`, and others) appear **only** inside statements that they are
+   fiction or demonstration data. **Gate 9 Check 6 confirms this outside those contexts.**
+3. **No completion word was applied.** No new document carries `APPROVED`, `EXECUTED`, `FILED` or `REGISTERED`
+   (Check 5, refined form: zero hits). **Drafting completion is not approval.**
+4. **No legal proposition was asserted where the law was not researched** — employment, restraint of trade,
+   consumer protection and sector regulation are four labelled gaps.
+5. **Four areas of law were NOT researched and are labelled on the face of every document that depends on
+   them**; **no new legal source was verified in this revision.**
+
+### 6. Verification performed (and its limits)
+
+**14 checks with exact commands, run and recorded in `GATE-9_VERIFICATION_CHECKS.md`** — including the
+register↔disk audit (`103/103`), the ID/status audit (`120/120`), the no-renumbering audit (`75/75` + `DC-01`),
+the unregistered-file audit (`0`), the fictional-identifier audit, the cap-table numeric audit, the employment
+fabrication audit, the counsel-question resolution audit, the accountant-question audit, the `D##` reference
+audit, the bilingual-parity presence audit, the findings-recorded audit and the prohibited-claim audit.
+
+**What was NOT done, and is not claimed:** **no registry, bank, land registry, IP registry, regulator, auditor
+or court was contacted or checked; no legal, tax or accounting conclusion was verified; no clause was tested for
+enforceability; no financial statement was prepared; no control in `FIN-09` was run; and the bilingual texts
+were not reconciled for equivalence.** The working environment had **no general internet access**, so official
+registries were unreachable (`GATE-0_REPOSITORY_AND_EVIDENCE_AUDIT.md` §9).
+
+### 7. Next revision
+
+| # | Trigger | What changes |
+|---|---|---|
+| 1 | Counsel's answers (priority: `Q-TC-01`…`Q-TC-04`, `Q-TC-07`; employment `Q-TC-21`–`Q-TC-25`; product/sector `Q-TC-29`, `Q-TC-30`, `Q-TC-35`) | Gates 1, 2, 4 and 5 move; **P-17 closes**; the deed finalises |
+| 2 | The jurisdiction/structure decision | `INC-01` completes, `D21` unblocks, `CAP-01` and the financial series become possible |
+| 3 | The accountant's answers (`AQ-02` first) | `FIN-02` and `FIN-04`–`FIN-09` move from `TEMPLATE` to prepared statements |
+| 4 | `PRIV-02` completion | `PRIV-01` may be published; `TOS-01` may be finalised |
+| 5 | The founders' decisions (allocation, vesting, leavers) | `FA-01`, `CX-01`, `CAP-01`, `ESOP-01` |
+| 6 | **Any execution, filing, registration or register population** | **This log records it, with the document, the date and the evidence reference — and only then may a completion status be applied** |
+
 **Change control:** a change to any document in this pack is recorded here, with the reason. **A change that
 alters a legal position is also recorded in `D73` and, where an instrument is affected, in `D74`.**

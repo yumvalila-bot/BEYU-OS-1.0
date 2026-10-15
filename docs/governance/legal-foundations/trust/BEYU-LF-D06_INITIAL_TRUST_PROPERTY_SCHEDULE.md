@@ -143,7 +143,7 @@ There is no "we will document it later" status that changes ownership.
 
 | Item | Detail |
 |---|---|
-| Precondition | Only **after** exchange-control, tax and data-protection advice (`Q-LEG03`, `Q-TAX-02`, `Q-DP-02`) |
+| Precondition | Only **after** exchange-control, tax and data-protection advice (`Q-LEG-03`, `Q-TAX-02`, `Q-DP-02`) |
 | Instrument | Per the foreign jurisdiction's law |
 | Third-party steps | Foreign registration; local counsel; reporting obligations in both jurisdictions |
 | Evidence | Local opinion; filings; accounting entries |
