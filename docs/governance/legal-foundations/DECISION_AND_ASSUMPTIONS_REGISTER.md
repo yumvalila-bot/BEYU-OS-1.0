@@ -1,0 +1,191 @@
+# BEYU-LF — Decision and Assumptions Register
+
+Document ID: `BEYU-LF-REG-DAR`
+Version: 1.0
+Date: 2026-10-15
+Status: `INFORMATIONAL`
+Owner: Chief Governance Officer (proposed)
+Approving authority (proposed): BEYU Family Trust trustees + BEYU Holding Company board `[BOTH BODIES UNEVIDENCED — see DAA-ARCH-001/002]`
+Next review date: On completion of GATE 5 (professional review)
+Classification: `INTERNAL`
+
+---
+
+## 1. Purpose and rules of use
+
+This register is the **single place** where a claim's status is decided. Its rules:
+
+1. **No claim in this pack may be relied on unless it appears here with a class.**
+2. **Class A ("verified existing fact") is reserved for evidence actually inspected.** Repository
+   *content* that merely looks like a legal fact (seeded entity rows, fixture documents) is **never**
+   Class A for legal purposes — it is recorded with an explicit dual class
+   (`A-repository-content / F-not-completed`).
+3. **No proposal becomes a fact by repetition.** Class C items stay Class C until a class-A-evidenced
+   legal act exists.
+4. **Class D (legal question) is never answered by this pack.** It is routed to
+   `LEGAL_QUESTIONS_FOR_TANZANIAN_COUNSEL.md` and marked `OPEN`.
+5. **Class E items are answered only by a human**, and each names the exact information needed.
+6. **Class F items are things that have not been done.** No document, matrix or report in this pack
+   may claim one is done.
+
+### Class definitions
+
+| Code | Class | Test |
+|---|---|---|
+| **A** | Verified existing fact | Supported by evidence inspected in `GATE-0_REPOSITORY_AND_EVIDENCE_AUDIT.md` §2–§5, or by an official source retrieved in `LEGAL_SOURCES_REGISTER.md`. |
+| **B** | Established BEYU architectural decision | Stated as architectural intention by the project (repository evidence cited). **Expressly not proof of legal formation.** |
+| **C** | Proposed arrangement awaiting approval | A commercial/governance proposal. |
+| **D** | Legal question requiring professional advice | Requires an advocate / tax adviser / accountant / regulator. |
+| **E** | Missing information requiring user input | Requires a human answer. |
+| **F** | Registration / execution / implementation step not completed | A concrete act not done. |
+
+### Status vocabulary
+
+`CONFIRMED` (A/B items), `PROPOSED` (C), `OPEN` (D), `AWAITING_INPUT` (E), `NOT_DONE` (F).
+
+---
+
+## 2. Architecture, entity and governance foundation
+
+| ID | Description | Class | Evidence / source | Status | Consequence if wrong | Responsible reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-ARCH-001` | No evidence exists in this repository that **BEYU Family Trust** is legally constituted under any law. The name appears as a seeded `legal_entities` row (`BEYU-FT`, type `TRUST`, `MU-TR-100241`) and as a brand identity ("supplied by the BEYU Family Trust"). | **A-repository-content / F-not-completed** | `src/db/seed.ts` (legal entity seed); `src/components/brand-assets.ts`; `GATE-0` §6 | `NOT_DONE` | Drafting on the assumption a trust exists would misstate the entire chain of title. | Trustees (proposed) | Confirm whether any trust instrument has been executed. If not, D02 is the first instrument to be executed under GATE 7. |
+| `DAA-ARCH-002` | No evidence exists that **BEYU Holdings Ltd**, **BEYU Tanzania Holding Company Ltd**, or any sector operating company is registered. Seed values (`DIFC-4471`, `TZ-138002211`, `TIN-114-882-991`, dates, percentages) are **synthetic demonstration data**. | **A-repository-content / F-not-completed** | `src/db/seed.ts`; `GATE-0` §6 | `NOT_DONE` | A fabricated TIN or registration number in the entity register would be a serious integrity failure. | Company Secretary (proposed) + counsel | Each entity to be registered/unverified must be listed in D63 with `VERIFICATION STATUS = UNVERIFIED`. |
+| `DAA-ARCH-003` | **BEYU OS is the constitutional control plane, enterprise kernel and governed intelligence layer.** | **B** | `README.md`; `docs/constitution/README.md` | `CONFIRMED` | None — this is architectural, not legal. | CGO | Preserve. No document may treat BEYU OS as a legal entity. |
+| `DAA-ARCH-004` | **Exactly four Sector OSs exist: `HEALTH_OS`, `FINANCE_OS`, `AGRICULTURE_OS`, `UJENZI_OS`.** Family Office, HCM, Foundation and NOELIA are **not** Sector OSs. | **B** | `README.md` ("Exactly four Sector OSs—Health, Finance, Agriculture and Ujenzi"); `docs/ECOSYSTEM_STATUS.md` §3 ("No `FAMILY_OFFICE_OS`, no `HCM_OS`") | `CONFIRMED` | A fifth "Sector OS" would breach the canonical architecture. | CGO + Architecture Review Board | No Sector OS may be created by any legal/governance remainder of this architecture. |
+| `DAA-ARCH-005` | **UNRESOLVED CONFLICT.** The engagement brief describes the chain as "Trust → Holding → Country Holding → **Sector LLCs** → Sector Operating Companies". Repository documentation describes "Trust → Holding → **country holdings / sector operating companies**" with **no Sector LLC layer**. The control plane's `entity_type` enum has no `SECTOR_LLC`. | **B (repository) vs E (which is canonical?)** | `docs/branding/README.md` §Constitutional context; `src/db/seed.ts` `entityTypes`; brief §2 | `AWAITING_INPUT` | If "Sector LLC" is a real intended layer, the entity register, reserved-matters matrix and D30 all need a fourth tier; if it is a synonym for "Sector Operating Company", the pack's vocabulary is already correct. | Founder + CGO | **Decision required:** is "Sector LLC" (a) a distinct legal tier, (b) a synonym for Sector Operating Company, or (c) obsolete? Until answered, this pack uses **"Sector Operating Company"** and does not define "Sector LLC". |
+| `DAA-ARCH-006` | **UNRESOLVED CONFLICT.** Seeded data places the Family Trust in **Mauritius** (`MU`), the holding company in **DIFC (AE)**, and uses **USD**, while the brief and repository prose describe a **Tanzania-first** enterprise. | **E** | `src/db/seed.ts` (jurisdictions `MU-NAT`, `AE-DIFC`; currencies) | `AWAITING_INPUT` | The pack's structure memoranda (D01, D20) compare jurisdictions; the wrong premise would misdirect all of GATE 2. | Founder + counsel + tax adviser | **Decision required:** is the intended first trust jurisdiction Tanzania, another jurisdiction, or a staged Tanzania-first path? Record the answer in D01/D20 before GATE 2 sign-off. |
+| `DAA-ARCH-007` | **BEYU Foundation is a separately governed nonprofit sister organisation**, modelled as a **root** legal-entity tenant (`parentTenantId: null`), explicitly "*never a subsidiary tenant and never a Sector OS*". | **B** | `src/db/seed.ts` tenant comment; `docs/architecture/foundation-os.md` §1, §10 | `CONFIRMED` | Reclassifying the Foundation would breach its charitable-purpose safeguards. | Foundation board (proposed) | Preserve in D48–D55 and D30; no group authority may bind the Foundation automatically. |
+| `DAA-ARCH-008` | **BEYU Family Office is a shared capability (`SHARED_FAMILY_OFFICE`), not an OS, not a company, not an asset owner.** | **B** | `docs/ECOSYSTEM_STATUS.md` §3; `docs/architecture/phase-2.5-family-institution-domain-contract.md` §2 | `CONFIRMED` | Treating it as an asset-owning entity would blur custody and liability. | CGO | D31 must state expressly that the Family Office owns nothing in its own name. |
+| `DAA-ARCH-009` | **NOELIA_AI has no constitutional, fiduciary, entitlement, approval, financial-truth or policy-making authority; AI is never an authority.** | **B** (and the only three *resolved* family-institution decisions include `FIR-017`) | `docs/architecture/phase-3-readiness-gate.md` §"Ratification evidence test"; `src/lib/family/office/authority.ts` | `CONFIRMED` | Any clause purporting to give AI authority would breach FIR-017. | CGO | Preserve across all 76 documents; verified by grep in `CROSS_DOCUMENT_CONSISTENCY_REPORT.md`. |
+| `DAA-ARCH-010` | **Finance OS is the sole accounting authority; `CAP_POSTING` is LOCKED and fail-closed.** Family Office and Trust records hold references only. | **B** + **A** (schema defaults) | `docs/ECOSYSTEM_STATUS.md` §7; migrations `0040`, `0041` (`authoritative_owner DEFAULT 'FINANCE_OS'`); `src/lib/family/office/persistence.ts` (FIR-018) | `CONFIRMED` | A trust or family-office account maintained outside Finance OS would create a shadow ledger. | Group CFO | D07, D08, D33, D35 must reference — never duplicate — Finance OS truth. |
+| `DAA-ARCH-011` | **Digital governance boundary ≠ legal boundary.** Software access, RBAC/ABAC, tenant config, audit logs, URLs, workflows and AI approvals do not create legal ownership or authority. | **B** | `docs/ECOSYSTEM_STATUS.md` §2, §3; migration `0041` header | `CONFIRMED` | A "system says X owns Y" claim would be legally false. | CGO | Each register in `registers/` opens with this warning. |
+| `DAA-ARCH-012` | **Identity is canonical:** one `GlobalUserID` (`users.id`) resolved through Party → User → Tenant → Entity. Two logins for one party is `DATA_CONFLICT`. | **A** (code + tests) | `docs/ECOSYSTEM_STATUS.md` §1; `src/lib/identity.ts` (`identity-graph-1.0.0`) | `CONFIRMED` | Register duplication across entities. | CTO + CGO | Registers must reference `GlobalUserID`, never re-key people. |
+| `DAA-ARCH-013` | **Accounting authority is NOT ratified.** `docs/governance/HUMAN_RATIFICATION_QUEUE.md` records 0 signed ratification documents, every `STATUS: PENDING`, every `SIGNATORY:`/`DATE:` blank, and 4 resolutions all evaluating to `REFERENCE_DATA` (refused by the capital gate). | **A** (document) | `docs/governance/HUMAN_RATIFICATION_QUEUE.md` §1–§4 | `CONFIRMED` (that it is unratified) | Any financial policy in this pack that presumes ratified accounting authority is premature. | Group CFO + Group Board | No document in this pack may fill, answer or pre-empt `Q1–Q6` or `P1–P11`. |
+| `DAA-ARCH-014` | **24 of 27 family-institution decisions are BLOCKING; only FIR-017/018/019 are resolved, and they are boundary constraints, not implementation grants.** | **A** (document) | `docs/architecture/phase-3-readiness-gate.md`; `docs/architecture/phase-3-unratified-denylist.md` | `CONFIRMED` | Family-institution persistence cannot be implemented; documents must not read as if policy were settled. | CGO + Family Council (proposed) | Each affected document names its blocking FIRs; see traceability matrix column "Blocking FIRs". |
+| `DAA-ARCH-015` | **Brand assets were supplied by the BEYU Family Trust** and two institutional marks are pinned by SHA-256; BEYU OS and Family Trust are two distinct identities. | **A** (code + tests) | `src/components/brand-assets.ts`; `docs/branding/README.md`; brand identity tests | `CONFIRMED` (that authorship/supply is attributed in-repo) | The supply attribution is **not** a chain of title. | Brand owner (proposed) + counsel | D40 to record the attribution **and** the absence of an assignment as an open title gap. |
+
+## 3. Trust
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-TRUST-001` | A private multigenerational family trust is the intended **first** tier of the structure. | **B/C** | `docs/branding/README.md`; brief §2 | `PROPOSED` | Structure memoranda would be misdirected if the first tier changes. | Founder + Trustees | Confirm at GATE 2. |
+| `DAA-TRUST-002` | The **appropriate Tanzanian legal route** for such a trust (Trustees' Incorporation Act, Cap. 318 route vs another form) is **undetermined**. | **D** | `LEGAL_SOURCES_REGISTER` §TRUST-1…3; brief §5 | `OPEN` | The pack must not present one route as settled. | Counsel | Answer `D01` §Options and `Q-T-01…Q-T-04`. |
+| `DAA-TRUST-003` | Cap. 318, **s.16** requires that where a body incorporated under the Act has two or more trustees, **not fewer than two be ordinarily resident in Tanzania** (sole trustee: resident). | **A** `VERIFIED_PRIMARY` (text retrieved) | Trustees' Incorporation Act text (RITA/TanzLII PDFs) — see `LEGAL_SOURCES_REGISTER` §TRUST-1 | `CONFIRMED` (source-level) | Constrains trustee composition. `[COUNSEL TO CONFIRM]` current revision/amendment status. | Counsel | Verify against the current consolidated revision; reflect in D03. |
+| `DAA-TRUST-004` | Cap. 318, **s.6(2)** requires the name of a body corporate created under the Act to include the words **"Registered Trustees"**. | **A** `VERIFIED_PRIMARY` | as above | `CONFIRMED` (source-level) | Affects the trust's public name and all bank/land documentation. | Counsel | Verify; reflect in D01/D02 naming schedule. |
+| `DAA-TRUST-005` | Cap. 318 **s.13/14** preserve trustee liability **notwithstanding incorporation** for their own acts, receipts, neglects and defaults. | **A** `VERIFIED_PRIMARY` | as above | `CONFIRMED` (source-level) | Incorporation is not a liability shield for trustees; D04's indemnity clauses cannot contradict this. | Counsel + Trustees | Verify; D04 must state the limit expressly. |
+| `DAA-TRUST-006` | Cap. 318 imposes **continuing notification duties** (e.g. change of trustees within one month; returns of trustees; notification of change of trust) and empowers the Registrar-General to call for audited accounts. | **A** `VERIFIED_PRIMARY` | as above (ss.16–20) | `CONFIRMED` (source-level) | Creates a recurring filing obligation → D68 calendar. | Counsel + Company Secretary | Verify exact periods and fees `[COUNSEL TO CONFIRM]`; populate D68. |
+| `DAA-TRUST-007` | Cap. 318 **s.17** requires a trust to submit records of **non-resident beneficiary and beneficial owner** to the Administrator-General. | **A** `VERIFIED_PRIMARY` | as above | `CONFIRMED` (source-level) | Directly interacts with beneficial-ownership disclosure (D65). | Counsel | Verify scope/wording in the current revision; reflect in D65. |
+| `DAA-TRUST-008` | The 2019 amendment added a definition provision (s.1A) whose **definition of "trust" excludes** NGOs registered under the NGOs Act (Cap. 56), companies registered under the Companies Act (Cap. 212), and societies registered under the Societies Act (Cap. 337). | **A** `VERIFIED_PRIMARY` (text) / `VERIFIED_SECONDARY` (amendment history) | Act text retrieved; commentary on Act No. 9 of 2019 s.76 / Act No. 8 of 2020 s.62 | `CONFIRMED` (source-level) | Determines whether a given vehicle can or cannot use the Cap. 318 route — central to D01 and D48. | Counsel | Verify the current consolidated s.1A text and R.E. year. |
+| `DAA-TRUST-009` | Whether **compulsory incorporation** under Cap. 318 s.4 applies to a *private family* trust (as opposed to a charitable trust) is **not determined** by this pack. | **D** | Act text (s.4 addresses religious/educational/literary/scientific/social/charitable purposes) | `OPEN` | If compulsory incorporation applied, the trust could not remain purely private. | Counsel | `Q-T-03`. |
+| `DAA-TRUST-010` | The control plane already models trust instruments, provisions, decisions and distributions, with provisions defaulting to **`INERT`** and `enforceability_assumed = false`. | **A** (schema) | `drizzle/0041_family_trust_governance.sql` | `CONFIRMED` | Documents must not be loaded in a way that implies enforceability. | CTO + CGO | No schema change in this pack. |
+| `DAA-TRUST-011` | **No trust deed, settlement schedule, trustee resolution or trust account has been executed or existed at any time in this repository.** | **F** | Absence of evidence; `GATE-0` §10 | `NOT_DONE` | Everything in `trust/` is a first draft from zero. | Trustees | GATE 7 execution checklist. |
+
+## 4. Family governance
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-FAM-001` | A Family Constitution, Family Council, Family Assembly and family policies are **intended** but **not adopted**. | **B/C** | `docs/architecture/phase-2.5-family-institution-domain-contract.md` §13; brief B11–B19 | `PROPOSED` | A constitution is not enforceable merely because it is written. | Family Assembly (to be constituted) | Adopt through a documented family process; store in D74. |
+| `DAA-FAM-002` | **FIR-006** (who may propose/table/vote/approve/ratify/amend a Family Constitution) is **unratified and blocking**. | **D/F** | ratification register FIR-006; denylist | `OPEN` | The constitution's own amendment clause cannot be assumed valid until its authority is settled. | Family constitutional body + counsel | Ratify or expressly scope out **before** relying on D11's amendment clause. |
+| `DAA-FAM-003` | **FIR-003** (legal effect of biological descent, adoption, spouse/former spouse, dependants, stepchildren, guardianship, affinity, minors, incapacity, deceased members, disputed relationships) is **unratified and blocking**. | **D/F** | FIR-003 | `OPEN` | D05/D18 cannot define "family" conclusively. | Family authority + counsel | `Q-F-01`. |
+| `DAA-FAM-004` | **FIR-009 / FIR-010** (beneficiary eligibility vs legal entitlement; beneficiary uniqueness and overlapping effective periods) are **unratified and blocking**. | **D/F** | FIR-009, FIR-010 | `OPEN` | Beneficiary determinations remain trustee/instrument-owned, not registry-owned. | Trustee/legal instrument owner | `Q-T-05`, `Q-T-06`. |
+| `DAA-FAM-005` | **FIR-015** (privacy, minors, sealed records, retention) and **FIR-016** (evidence/audit/provenance profile) are **unratified/partial and blocking**. | **D/F** | FIR-015, FIR-016 | `OPEN` | Family records and vault handling cannot be finalised. | Privacy owner + data owner | `Q-DP-01`. |
+| `DAA-FAM-006` | A family constitution is a **moral/contractual instrument**, not a statute; only where its terms are incorporated into a trust, company constitutional document, or a signed contract do they take legal effect as between those parties. | **B** (and a legal characterisation requiring confirmation) | `docs/architecture/phase-2.5-family-institution-domain-contract.md` §11 conflict 5 ("family constitution ≠ BEYU OS Constitution, statute, court order, trust instrument, fiduciary duty") | `CONFIRMED` as an architectural boundary; `[COUNSEL TO CONFIRM]` as a legal characterisation | Writers of D11 must not describe clauses as "binding on all family members" in the abstract. | Counsel | D11 §Enforceability map (provided) must be reviewed by counsel. |
+
+## 5. Holding company, shares and the dual-class proposal
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-HOLD-001` | A **BEYU Holding Company** as second tier is intended; **no such company is evidenced as registered**. | **B/C + F** | `docs/branding/README.md`; `GATE-0` §6 | `PROPOSED` / `NOT_DONE` | D21 is blocked; D20 is advisory only. | Founder + counsel | GATE 2 → GATE 7. |
+| `DAA-DC-001` | The proposal **Class A = 1 vote per share; Class B = 1,000 votes per share**, with **equal economic rights per share** across classes, is a **proposed commercial intention only**. | **C** | brief §D | `PROPOSED` | Treating it as existing or lawful would misstate the cap table. | Founder + counsel | Counsel opinion required on validity, then constitutional documents, then filings. |
+| `DAA-DC-002` | **No share has been issued, allotted, subscribed or transferred.** No cap table exists other than seeded/synthetic rows and fixture documents. | **F** | `GATE-0` §6, §7; `drizzle/0040` tables are empty of verified data | `NOT_DONE` | Any statement of holdings or percentages would be fabricated. | Company Secretary + counsel | D64 to be populated only from registry-verified evidence. |
+| `DAA-DC-003` | Whether **1,000 votes per share** is lawful for a Tanzanian private company, and what constitutional, resolution, filing and beneficial-ownership consequences follow, is a **legal question**. | **D** | `LEGAL_SOURCES_REGISTER` §CO (s.73 variation of class rights; beneficial-ownership forms) | `OPEN` | A drafting exercise cannot answer this. | Counsel | `Q-H-01`…`Q-H-06`. |
+| `DAA-DC-004` | Even if lawful, enhanced voting rights **cannot** defeat mandatory law, creditors' rights, court orders, statutory duties of directors or statutory minority protections. | **B + D** | brief §D; general principle `[COUNSEL TO CONFIRM]` the specific Tanzanian protections | `PROPOSED` | The schedule must be drafted as a lawful allocation of private rights, not as an immunity. | Counsel | D22/D23/DC-01 already state this; counsel to confirm the enumerated protections. |
+| `DAA-DC-005` | Proposed Class B holders "**the founder and BEYU Family Trust**" is **not** a fact: no trust shareholding is evidenced, and no founder identity is recorded in this pack. | **C/E** | brief §D | `AWAITING_INPUT` | The holder table must stay placeholder-only. | Founder + Trustees | Confirm actual intended holders before drafting an issuance resolution. |
+| `DAA-DC-006` | The control plane **can represent** `votes_per_share` up to `numeric(9,4)` and records `legal_review_status = REQUIRES_LEGAL_REVIEW` on every share-class and vesting row. | **A** (schema) | `drizzle/0040_founder_equity_cap_table_esop.sql` | `CONFIRMED` | Software capability must not be read as legal validation. | CTO | Preserve; do not treat a recorded class as a lawful class. |
+| `DAA-HOLD-002` | **Pre-emption, transfer restrictions, permitted transfers, class consents, buyback and exit** are matters of the company's constitutional documents and any shareholders' agreement — **not** of any default legal right in this pack. | **D** | `LEGAL_SOURCES_REGISTER` §CO-3 (variation of class rights) | `OPEN` | Members could believe a restriction binds when it does not. | Counsel | D23/D24 to be settled by counsel. |
+
+## 6. Family Office and wealth governance
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-FO-001` | Whether the Family Office should ever become a **separate legal entity** is **deliberately left open**; the default in this pack is the shared-capability model. | **B (default) / C (any change)** | `docs/ECOSYSTEM_STATUS.md` §3 | `PROPOSED` | Creating an entity would change custody, liability, tax and reporting. | Trustees + Board + counsel | Decision required at GATE 6 if an entity is desired. |
+| `DAA-FO-002` | **The Family Office does not automatically own** trust assets, Holding Company assets, subsidiary assets, or Foundation assets. | **B** | `docs/architecture/phase-2.5-family-institution-domain-contract.md` §20–§22; FIR-018 | `CONFIRMED` | Any register showing the Family Office as owner would be wrong. | Group CFO | D31/D35/D38 must state which entity contracts, holds funds, approves and bears liability per scenario (provided). |
+| `DAA-FO-003` | **FIR-012 / FIR-025** (Family Capital authority and Finance hand-off) and **FIR-013 / FIR-026** (Family Loan policy and hand-off) are **unratified and blocking**. | **D/F** | FIR-012, FIR-013, FIR-025, FIR-026 | `OPEN` | No family capital or loan instruction may be materialised. | Legal owner + Group CFO | `Q-FO-01`, `Q-FO-02`. |
+| `DAA-FO-004` | The Family Office **cannot** hold balances, post transactions, own loan accounting or become financial truth. | **B** | FIR-018; `src/lib/family/office/persistence.ts` (`assertNoFinancialFields`) | `CONFIRMED` | Shadow-ledger risk. | Group CFO | Preserve. |
+| `DAA-FO-005` | A life-insurance / protection capability exists in the control plane with the **five ownership roles recorded separately** (owner, insured, beneficiary, payer, assignee), and coverage is treated as **contingent** — never summed into wealth. | **A** (schema + architecture doc) | `drizzle/0038`; `docs/architecture/family-office-protection-insurance.md` | `CONFIRMED` | D67/D38 must not double-count contingent protection as an asset. | Group CFO + Trustees | Preserve in D67 and D38 definitions. |
+| `DAA-FO-006` | **No investment mandate, risk appetite statement, custody arrangement or adviser agreement currently exists.** | **F** | Absence of evidence | `NOT_DONE` | D34/D35/D36/D37 are drafts from zero. | Trustees | GATE 7. |
+
+## 7. Intellectual property and brand
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-IP-001` | **No IP assignment, licence, trademark registration, copyright assignment or domain-ownership record is evidenced in this repository.** | **F** | `GATE-0` §7, §10 | `NOT_DONE` | The group cannot claim ownership of BEYU OS, NOELIA_AI, the logo or domains. | CTO + counsel | D40/`Q-IP-01`. |
+| `DAA-IP-002` | The repository's own attribution is that the **authoritative brand PNGs were "supplied by the BEYU Family Trust"**. Supply ≠ assignment. | **A** (attribution) | `src/components/brand-assets.ts`; `docs/branding/README.md` | `CONFIRMED` (as an in-repo attribution) | If the Trust (or its designer) is the author, title may sit outside the operating group. | Counsel + Trustees | Record as an open chain-of-title gap in D40; obtain a signed assignment or licence. |
+| `DAA-IP-003` | **A fixture claims a "signed" IP assignment to "BEYU Holding Co." and a registered trademark `TZ-2025-4421`.** Both are **fictional demo data**. | **F** + documentation-integrity risk | `sectors/health/src/data/documents.ts`; `GATE-0` §7 | `NOT_DONE` | If exported from demo data, these become misrepresentations (to a bank, investor or registrar). | CTO + CGO | Quarantine/relabel the fixture as DEMO. **Recommend a separate, reviewable scope** for that (code-adjacent) change; not performed in this pack. |
+| `DAA-IP-004` | Secondary sources differ on the **term of a Tanzanian trade mark registration** (7 years renewable was reported by one source; a longer term by another). The Act's current R.E. year and the exact term were not verified as text. | **A `VERIFIED_SECONDARY` / D** | `LEGAL_SOURCES_REGISTER` §IP-3 | `OPEN` | Recurring-renewal calendars would be wrong. | Counsel / IP agent | Verify against Cap. 326 (current revision). |
+| `DAA-IP-005` | Tanzania appears **not** to be a **Madrid System** member and the ARIPO **Banjul Protocol** on marks appears not to be domestically implemented, so an ARIPO/Madrid designation of Tanzania is reportedly not enforceable nationally. | **A `VERIFIED_SECONDARY`** | `LEGAL_SOURCES_REGISTER` §IP-4 | `CONFIRMED` (secondary) | The fixture's claimed Madrid designation is impossible; any cross-border filing strategy must start from national filings. | Counsel / IP agent | Verify with BRELA or a registered agent before any filing decision. |
+| `DAA-IP-006` | The repository **already contains an SBOM/audit discipline** and dependency-audit gates in CI, which is useful evidence for open-source compliance but is **not** an open-source licence compliance register. | **A** | `.github/workflows/ci.yml` (production-dependency-audit job); `package.json` (`sbom` script referenced in CHANGELOG) | `CONFIRMED` | D45 must not claim licence compliance already exists. | CTO | Build the licence inventory required by D45. |
+| `DAA-IP-007` | The name "NOELIA_AI" is a **governed AI identity**, not a company or a person, and no person-name trademark clearance has been evidenced. | **B + F** | `docs/ECOSYSTEM_STATUS.md` §9 | `PARTIAL` | Clearance risk if used as a mark. | CTO + counsel | Include in D44 clearance list. |
+
+## 8. Foundation
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-FDN-001` | **No legal form is determined** for BEYU Foundation. Candidates investigated: NGO registration under the NGOs Act (Cap. 56); a company limited by guarantee under the Companies Act (Cap. 212); a body incorporated under the Trustees' Incorporation Act (Cap. 318); a society under the Societies Act (Cap. 337). | **D** | `LEGAL_SOURCES_REGISTER` §FDN-1…4 | `OPEN` | The governing document checklist (D49) depends entirely on the chosen form. | Foundation board + counsel | `Q-G-01`. |
+| `DAA-FDN-002` | The seeded `BEYU Foundation` row (`TZ-NGO-00891`, registration `2018-05-22`) is **synthetic** and must not be represented as an NGO certificate number. | **F** | `src/db/seed.ts`; `GATE-0` §6 | `NOT_DONE` | Misrepresentation to a regulator/donor. | Foundation Director | Mark `UNVERIFIED` in D63; correct any external use. |
+| `DAA-FDN-003` | NGOs registered under Cap. 56 must, by statute, submit annual reports/audited accounts and are subject to renewal and deregistration regimes (exact periods to be confirmed). | **A `VERIFIED_PRIMARY`** | NGOs Act text retrieved (ss.29–30, renewal, proof-of-existence) | `CONFIRMED` (source-level) | Creates the Foundation's core recurring obligations → D55/D68. | Foundation Director + counsel | Verify exact periods/forms; populate D55/D68. |
+| `DAA-FDN-004` | The Foundation cannot be directed by group bodies: its fiduciaries owe duties to the charitable purpose. Any transaction with a group entity is a **related-party transaction** requiring disclosure, arm's-length terms and independent approval. | **B** (fiduciary principle) / **D** (specific statutory private-benefit prohibition) | `docs/architecture/foundation-os.md` §1, §10; brief §G | `CONFIRMED` as principle; specific prohibition `[COUNSEL TO CONFIRM]` | **The single largest structural risk in the pack.** A founder-controlled nonprofit serving the family would fail its purpose. | Foundation board + counsel | D51/D52/D53 specify the controls; counsel to confirm the statutory basis and any regulator approval requirement. |
+| `DAA-FDN-005` | The control plane already enforces a Foundation boundary (`journalsPosted: false`, `capPosting: LOCKED`, no competing ledger/identity) and 40 RLS-bound tables. | **A** | `docs/architecture/foundation-os.md` §2.1, §3, §10 | `CONFIRMED` | This is software assurance, **not** legal independence. | CTO + CGO | D50/D51 must not present software controls as legal independence. |
+
+## 9. Succession, incapacity, continuity and risk
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-SUC-001` | **No will, power of attorney, advance directive, insurance nomination, trust succession instrument or shareholders' succession arrangement is evidenced.** | **F** | `GATE-0` §10 | `NOT_DONE` | Capacity events are currently ungoverned in law. | Founder + counsel | `Q-S-01`…`Q-S-04`. |
+| `DAA-SUC-002` | A family constitution, trust deed, will, power of attorney, company document and software workflow are **distinct instruments** and none substitutes for another. | **B + D** | brief §H | `CONFIRMED` as a drafting boundary | Confusing them would leave a succession gap. | Counsel | D59 provides the decision tree; counsel to confirm the Tanzanian instruments actually required. |
+| `DAA-SUC-003` | Tanzanian estate administration operates through `Probate and Administration of Estates Act, Cap. 352` (probate/letters of administration; wills deposited in the High Court Registry; limits on the number of executors), with testate/intestate rules also affected by the Law of Marriage Act 1971 and customary/religious law. | **A `VERIFIED_PRIMARY` (Cap. 352 text) / D (interaction and choice of law)** | `LEGAL_SOURCES_REGISTER` §SUC-1…3 | `PARTIAL` | The pack cannot state which succession regime applies to any individual. | Counsel | `Q-S-01`. |
+| `DAA-SUC-004` | The control plane has **emergency-access and continuity machinery** (`emergency_access_grants`, RPO/RTO continuity plans with test evidence) including break-glass access that is time-limited, scoped, logged and post-reviewed, and that can never permanently suspend constitutional controls. | **A** | `docs/constitution/README.md` §Emergency governance; `docs/domain-model/README.md` (`assurance.continuity_plans`) | `CONFIRMED` | Available as **evidence-supporting** infrastructure, but software break-glass is not legal emergency authority. | CTO + CGO | D56/D62 must map software emergency access to legal instruments, not conflate them. |
+
+## 10. Registers, records and data protection
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-REG-001` | The repository contains **no populated legal register** of entities, shares, beneficial owners, officeholders, assets, obligations or related-party transactions. Registers in this pack are **templates**. | **F** | `GATE-0` §4, §10 | `NOT_DONE` | The group cannot yet evidence its own structure. | Company Secretary | GATE 7 population plan. |
+| `DAA-REG-002` | Tanzania's **Personal Data Protection Act, 2022 (Act No. 11 of 2022)** requires registration of data controllers/processors with the PDPC before processing, appointment of a DPO, breach notification and a permit for cross-border transfers; the registration deadline enforced was 8 April 2026 with enforcement from 9 April 2026. | **A `VERIFIED_PRIMARY` (regulation text) / `VERIFIED_SECONDARY` (deadline/enforcement)** | `LEGAL_SOURCES_REGISTER` §DP-1…5 | `PARTIAL` | **Possible present-tense non-compliance exposure**: a family-office/foundation processing family and beneficiary data may already be a controller required to register. | Group CFO + DPO + counsel | Verify the group's registration status **now**; `Q-DP-01`. |
+| `DAA-REG-003` | The control plane models the PDPA as a **compliance obligation** and records its state honestly: the seeded obligation `OBL-TZ-DPA` is `PARTIALLY_COMPLIANT` and `OBL-NHIF-CLAIM` is `NON_COMPLIANT`. | **A** (seeded configuration) | `src/db/seed.ts` compliance obligations | `CONFIRMED` (as recorded config) | Seeded states are illustrative; real status must be assessed. | Chief Risk & Compliance | Assess and record real states in D68/D70. |
+| `DAA-REG-004` | The repository has an explicit **secrets/confidentiality boundary**: credentials never in browser code; `integrations` store secret *references* only; a secret-scan gate is in CI; `SECURITY.md` exists. | **A** | `docs/ECOSYSTEM_STATUS.md` §5; `scripts/scan-secrets.mjs`; `SECURITY.md` | `CONFIRMED` | Registers must never be used to store confidential signed instruments or personal data in this repository. | CISO + CGO | Custody rules in D74/D75. |
+
+## 11. Cross-cutting legal and structural matters
+
+| ID | Description | Class | Evidence | Status | Consequence | Reviewer | Next action |
+|---|---|---|---|---|---|---|---|
+| `DAA-LEG-001` | **Tanzania is the presumed primary jurisdiction**, but the pack cannot yet state the governing law, forum, tax residence or cross-border exposure of any entity. | **D** | brief §5; `LEGAL_SOURCES_REGISTER` §GEN | `OPEN` | Choice of law drives every instrument. | Counsel + tax adviser | All GATE 2 memoranda. |
+| `DAA-LEG-002` | **Trusts are recognised for Tanzanian income tax**: the Income Tax Act, Cap. 332 defines "trust" as *"an arrangement under which a trustee holds assets but excludes a partnership and a corporation"*, defines "trustee" broadly, and contains a trust taxation subdivision. | **A `VERIFIED_PRIMARY`** | Income Tax Act text retrieved (Cap. 332 R.E. 2023), TRA-hosted PDF | `CONFIRMED` (source-level) | Confirms trusts are within the tax net and must be modelled; **no rate or treatment is asserted by this pack**. | Tax adviser | `Q-TAX-01`. |
+| `DAA-LEG-003` | **Controlled foreign trust/corporation rules** and **beneficial-owner** definitions appear in the Income Tax Act, and beneficial-ownership disclosure duties appear in the Companies Act regime (regulations reported as GN 391 of 2021; 2026 forms revisions reference s.15(2)(b)). | **A `VERIFIED_PRIMARY` (Act text) / `VERIFIED_SECONDARY` (regs/forms)** | `LEGAL_SOURCES_REGISTER` §TAX-2, §CO-4 | `PARTIAL` | Cross-border structures may attract attribution/anti-avoidance and disclosure duties. | Tax adviser + counsel | `Q-TAX-02`, `Q-H-05`. |
+| `DAA-LEG-004` | The repository already models Tanzanian obligations (TRA VAT/PAYE, PDPA, AML/KYC, NHIF claims, IFRS 10, GDPR transfers) as **jurisdiction-scoped** obligations, with an explicit rule that **"a Tanzanian rule is never generalised globally"**. | **A** | `docs/compliance/README.md` | `CONFIRMED` | The pack must follow the same discipline: no cross-jurisdiction generalisation. | Chief Risk & Compliance | Preserve in D69. |
+| `DAA-LEG-005` | **No fee, rate, threshold, deadline, capital amount, valuation, percentage, tax rate or registration number is asserted by this pack.** | **A (about this pack)** | self-verifiable by inspection | `CONFIRMED` | Prevents fabricated legal specifics. | CGO | Preserved by the placeholder convention. |
+
+---
+
+## 12. Register summary
+
+| Class | Count | Notes |
+|---|---:|---|
+| A — verified existing fact (repository/source-level) | 20 | Includes the two "A-repository-content / F-not-completed" items about unevidenced entities. |
+| B — established architectural decision | 15 | None is proof of legal formation. |
+| C — proposed arrangement awaiting approval | 6 | Includes the dual-class proposal. |
+| D — legal question requiring professional advice | 16 | All routed to the counsel memorandum. |
+| E — missing information requiring input | 4 | Each names the exact input needed. |
+| F — not completed | 17 | Nothing in this pack may claim these as done. |
+| **Total** | **78** | Items carry a primary class; several are dual-classed where the split is material. |
+
+**The three items most likely to derail the structure if not resolved first:**
+
+1. `DAA-ARCH-005` / `DAA-ARCH-006` — is there a Sector LLC tier, and is the first trust jurisdiction
+   Tanzania, Mauritius, DIFC, or a staged path?
+2. `DAA-FDN-004` — the Foundation's independence and purpose-lock. A founder-controlled nonprofit that
+   in substance serves the family is the classic failure mode and is a legal, not merely drafting,
+   question.
+3. `DAA-DC-003` — whether 1,000 votes per share is lawful for the intended company, and what clarity
+   is needed to make the class rights valid and enforceable.
