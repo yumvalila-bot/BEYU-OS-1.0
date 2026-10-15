@@ -49,6 +49,7 @@ async function cooldown(reason) {
 const steps = [
   { name: "typecheck", cmd: "npx", args: ["tsc", "--noEmit"], http: false },
   { name: "lint", cmd: "npm", args: ["run", "lint"], http: false },
+  { name: "BEYU-SCG governance checks", cmd: "npm", args: ["run", "verify:scg"], http: false },
   { name: "build", cmd: "npm", args: ["run", "build"], http: false },
   { name: "migrate (fingerprint)", cmd: "npm", args: ["run", "migrate"], http: false },
   { name: "full suite", cmd: "npx", args: ["vitest", "run"], http: true },

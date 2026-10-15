@@ -287,6 +287,17 @@ jobs:
         # package script is `eslint .` — no --fix, so CI never mutates source.
         run: npm run lint
 
+      - name: BEYU-SCG governance checks (inventory, secrets, claims, authorization)
+        # Mechanical guards for the Smart Contract Governance pack: the inventory
+        # parses and agrees with the TypeScript register, every declared source
+        # path exists, no key material or signing surface is present in the
+        # governed domain, no document declares a completion label, and no
+        # automation is marked authorized. Needs no database and no network.
+        #
+        # A pass here is a consistency result about artefacts. It is NOT an
+        # approval, NOT a certification, and it authorizes nothing.
+        run: npm run verify:scg
+
       - name: Apply canonical root migrations 0000-0075
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a

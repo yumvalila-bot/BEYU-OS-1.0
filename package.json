@@ -9,6 +9,7 @@
     "build:health-spa": "node scripts/build-health-spa.mjs",
     "start": "next start",
     "lint": "eslint .",
+    "verify:scg": "tsx scripts/scg-checks.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify": "node scripts/verify.mjs",
