@@ -114,13 +114,33 @@ Depends on: nothing
 | # | Item | Document | Status | Note |
 |---|---|---|---|---|
 | 44 | Testing and verification standard; what a green suite proves | `BEYU-SCG-09` | `DRAFTED` | Baseline measurements recorded with skips |
-| 45 | Proposed additional mechanical checks (V-3…V-7) | `BEYU-SCG-09` §4 | `PENDING_DECISION` | **Not implemented**; a code change would be required |
+| 45 | Additional mechanical checks (`V-3`, `V-4`, `V-6`, `V-7`; new `V-4A`) | `BEYU-SCG-09` §4, `BEYU-SCG-15` §5.2 | **`IMPLEMENTED`** (Phase 2) | `npm run verify:scg` + `tests/smart-contracts`. `V-5` is a human procedure, not a check (§4.2). `V-8` was **not** used: it is already a reporting rule |
 | 46 | Counsel questions (20, Tanzania-first) | `BEYU-SCG-10` | `DRAFTED` | None answered |
 | 47 | Verification of this pack's own consistency and honesty | `BEYU-SCG-12` | `DRAFTED` | Exact commands and observed output recorded |
 | 48 | Deliverables, non-deliverables, blockers, next action | `BEYU-SCG-13` | `DRAFTED` | Merge blockers listed |
 | 49 | Register of every document in this pack | `BEYU-SCG-14` | `DRAFTED` | Paths verified to resolve |
 | 50 | Relationship to the legal pack (no duplication, no renumbering) | `README` §10, `BEYU-SCG-11` §9 | `DRAFTED` | Legal pack untouched |
 | 51 | Non-establishment statements | every document | `DRAFTED` | Each ends with what it does not establish |
+
+## 8.1 Phase 2 requests (enforcement phase, 2026-10-15)
+
+| # | Item | Delivered by | Status | Note |
+|---|---|---|---|---|
+| 52 | Mechanically enforce the authority boundary: fail-closed authorization on every state-changing operation, with the six separations (authentication, posture, policy, approval, eligibility, execution) | `src/lib/smart-contracts/registry.ts`; `BEYU-SCG-15` §3 | **`IMPLEMENTED`** | Deny-by-default; the permit path is reachable only with injected synthetic evidence. **Not a second authority engine** — it requires a governed decision reference and refuses without one |
+| 53 | No authority from automation records, AI, addresses, registry entries, frontend state, hostnames or config labels | `BEYU-SCG-15` §3; tests §5 (props 2, 7, 17) | **`IMPLEMENTED`** | None of these is an input to the boundary; the request type has no vocabulary for them |
+| 54 | A7 external execution stays prohibited | `BEYU-SCG-15` §3.2 | **`IMPLEMENTED`** | `ExternalExecutionAuthority = never`, class set disjoint, no signing dependency, and a signing-surface scan in V-4A/V-7 |
+| 55 | `R-AUT-01` stays ZERO; authorization remains **unavailable** | `BEYU-SCG-15` §3.1; `BEYU-SCG-16` `BLK-01`, `BLK-02` | **`IMPLEMENTED`** | The default outcome is `GOVERNANCE_BODY_NOT_CONSTITUTED`; a test asserts the register stays empty |
+| 56 | Verify all 23 automations and 6 human bindings against source | `AUTOMATION_REGISTRY`; `BEYU-SCG-15` §4.2 | **`VERIFIED`** | Every declared path resolves; the register and the JSON inventory agree (V-3) |
+| 57 | Define the future authorization process (evidence, approver, scope, version, window, revocation, review) | `BEYU-SCG-15` §4.3 | **`SPECIFIED`** | Eleven steps, of which steps 4 and 10 are **impossible today** because no body is evidenced |
+| 58 | Implement the proposed mechanical checks in CI | `scripts/scg-checks.ts`; `npm run verify:scg`; CI step; `scripts/verify.mjs` | **`IMPLEMENTED`** | Runs DB-free and network-free after lint. A pass is a consistency result about artefacts, never an authorization |
+| 59 | Traceability matrix over states, gates, checks and registry states | `BEYU-SCG-15` §2 | **`DELIVERED`** | 20 states / 6 review gates / 16 authority checks / 9 registry states / 9 package states / **7 gate conditions but 8 blocker codes** (`P-1`) |
+| 60 | Contradictions, unreachable states, unsafe transitions, paper-only controls | `BEYU-SCG-15` §6 | **`DELIVERED`** | No unreachable states and no unsafe transitions found; nine registers honestly empty; sixteen authority-check kinds with no performance record (`C-4`) |
+| 61 | Family facts placed only in correct records or a **PROPOSED** amendment; operative instruments inspected and **not** edited | `BEYU-LF-D76`; legal pack `DAA-FAM-007`…`009` | **`DELIVERED AS PROPOSAL`** | `D02`/`D05`/`D31` unchanged. No DOB derived from a reported age; other beneficiaries not invented; trustee and guardian identities not assumed |
+| 62 | Role separation and child-safety rules | `BEYU-LF-D76` §2, §4; `BEYU-SCG-17` §6 | **`DELIVERED AS PROPOSAL`** | Eight separate roles; membership is not an authority; minority **not modelled anywhere** (`BLK-06`) — recorded, not papered over |
+| 63 | HCM / financial boundaries; `CAP_POSTING` LOCKED; no live money APIs | `BEYU-SCG-15` §7 | **`VERIFIED`** | No signing, custody, payment or transfer capability exists |
+| 64 | Blocker register, classified by the authority that can clear each item | `BEYU-SCG-16` | **`DELIVERED`** | **26 blockers, 0 cleared** |
+| 65 | Verification report with exact evidence, gaps and remediation proposals | `BEYU-SCG-17` | **`DELIVERED`** | Skipped HTTP suites reported as skipped, never as passed |
+| 66 | Recommendation on splitting the legal and SCG packs into separate PRs — **not executed** | `BEYU-SCG-17` §4 | **`DELIVERED AS RECOMMENDATION`** | The branch now carries three workstreams and is no longer documentation-only; `BEYU-SCG-12` `V-09` reads **SUPERSEDED** |
 
 ## 9. What this matrix does not do
 

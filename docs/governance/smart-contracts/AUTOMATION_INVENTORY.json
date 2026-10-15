@@ -32,12 +32,22 @@
       "entry_point": "POST /api/v1/ai/noelia/schedules/tick",
       "trigger": "External caller (no in-process timer); permission ai:schedule.manage; rate limit 10 per 60s; idempotent",
       "unattended": true,
-      "side_effects": ["emits one enterprise-event outbox entry per (schedule, period)", "consumes due runs, recording audit evidence"],
+      "side_effects": [
+        "emits one enterprise-event outbox entry per (schedule, period)",
+        "consumes due runs, recording audit evidence"
+      ],
       "human_binding": "Schedules are created and status-changed by permissioned humans; scheduled briefings run as the schedule's recorded owner and re-check authorisation per tool",
-      "may_not_do": ["no domain mutation on failure", "no in-process timer", "no authority from the schedule"],
+      "may_not_do": [
+        "no domain mutation on failure",
+        "no in-process timer",
+        "no authority from the schedule"
+      ],
       "failure_mode": "Failures are recorded; failed count returned; no domain mutation committed",
       "evidence": "Audit ledger + enterprise events per run; noelia_schedule_runs",
-      "source_paths": ["src/app/api/v1/ai/noelia/schedules/tick/route.ts", "src/lib/noelia/scheduler-service.ts"],
+      "source_paths": [
+        "src/app/api/v1/ai/noelia/schedules/tick/route.ts",
+        "src/lib/noelia/scheduler-service.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -47,12 +57,24 @@
       "entry_point": "runScheduledBriefing (invoked by the tick consumer)",
       "trigger": "Due schedule",
       "unattended": true,
-      "side_effects": ["produces analysis output", "records audit/event evidence"],
+      "side_effects": [
+        "produces analysis output",
+        "records audit/event evidence"
+      ],
       "human_binding": "Runs as the schedule's owner principal; every tool call re-checks permission",
-      "may_not_do": ["no posting", "no payment", "no approval", "no authority", "no external execution"],
+      "may_not_do": [
+        "no posting",
+        "no payment",
+        "no approval",
+        "no authority",
+        "no external execution"
+      ],
       "failure_mode": "Governed tool timeout returns an error; nothing is silently retried",
       "evidence": "Schedule run record; audit trail",
-      "source_paths": ["src/lib/noelia/scheduler-service.ts", "src/lib/noelia.ts"],
+      "source_paths": [
+        "src/lib/noelia/scheduler-service.ts",
+        "src/lib/noelia.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -62,12 +84,23 @@
       "entry_point": "NoeliaToolRegistry",
       "trigger": "Model-orchestrated tool call under a principal",
       "unattended": true,
-      "side_effects": ["38 of 43 tools declare sideEffects NONE", "5 declare DOMAIN_WRITE: knowledge.ingest, knowledge.replace, knowledge.publish, memory.write, ai.model.route"],
+      "side_effects": [
+        "38 of 43 tools declare sideEffects NONE",
+        "5 declare DOMAIN_WRITE: knowledge.ingest, knowledge.replace, knowledge.publish, memory.write, ai.model.route"
+      ],
       "human_binding": "Every tool requires the caller's permission; listing a tool grants nothing",
-      "may_not_do": ["no tool creates authority", "no tool posts to the ledger", "no tool signs or broadcasts"],
+      "may_not_do": [
+        "no tool creates authority",
+        "no tool posts to the ledger",
+        "no tool signs or broadcasts"
+      ],
       "failure_mode": "Permission refusal or tool error; refusal is recorded",
       "evidence": "Audit ledger; tool metadata is enforced by the registry",
-      "source_paths": ["src/lib/noelia/default-tools.ts", "src/lib/noelia/tool-registry.ts", "src/lib/noelia/types.ts"],
+      "source_paths": [
+        "src/lib/noelia/default-tools.ts",
+        "src/lib/noelia/tool-registry.ts",
+        "src/lib/noelia/types.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE (counts measured: 43 tools, 38 NONE, 5 DOMAIN_WRITE)"
     },
     {
@@ -77,13 +110,22 @@
       "entry_point": "verifyHumanControlCommand",
       "trigger": "A human-control command against a bound payload",
       "unattended": false,
-      "side_effects": ["verifies maker, role, permission, target, payload digest, expected digest, version and expiry"],
+      "side_effects": [
+        "verifies maker, role, permission, target, payload digest, expected digest, version and expiry"
+      ],
       "human_binding": "The automation exists to enforce that a human approval binds the CURRENT immutable payload; a digest or version mismatch is refused",
-      "may_not_do": ["no approval without a matching digest and version", "no approval past expiry"],
+      "may_not_do": [
+        "no approval without a matching digest and version",
+        "no approval past expiry"
+      ],
       "failure_mode": "APPROVAL_DIGEST_MISMATCH and related refusals",
       "evidence": "Approval record; audit",
-      "source_paths": ["src/lib/noelia/human-approval.ts"],
-      "tests": ["tests/noelia/human-approval.test.ts"],
+      "source_paths": [
+        "src/lib/noelia/human-approval.ts"
+      ],
+      "tests": [
+        "tests/noelia/human-approval.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -93,14 +135,29 @@
       "entry_point": "ingestWebhookEvent",
       "trigger": "Provider webhook delivery",
       "unattended": true,
-      "side_effects": ["records an authenticated transaction with trust RAW→AUTHENTICATED", "records refused bodies", "opens exceptions"],
+      "side_effects": [
+        "records an authenticated transaction with trust RAW→AUTHENTICATED",
+        "records refused bodies",
+        "opens exceptions"
+      ],
       "human_binding": "None required to record; nothing advances beyond AUTHENTICATED without evidence or a human",
-      "may_not_do": ["no trust raise above AUTHENTICATED", "no posting", "no amount adjustment", "no rejection of a genuine money record"],
+      "may_not_do": [
+        "no trust raise above AUTHENTICATED",
+        "no posting",
+        "no amount adjustment",
+        "no rejection of a genuine money record"
+      ],
       "failure_mode": "Unauthenticated, unparseable or duplicate bodies are recorded and refused; a partial parse records its gaps",
       "evidence": "Durable inbox unique on (connection, provider event id); immutable transition trail; audit; governed events",
-      "source_paths": ["src/lib/payments/ingest.ts"],
-      "tests": ["tests/payments/webhook-security-and-provider-honesty.test.ts", "tests/payments/state-machines-and-gates.test.ts", "tests/payments/payment-controls-db.test.ts"],
-      "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
+      "source_paths": [
+        "src/lib/payments/ingest.ts"
+      ],
+      "tests": [
+        "tests/payments/webhook-security-and-provider-honesty.test.ts",
+        "tests/payments/state-machines-and-gates.test.ts",
+        "tests/payments/payment-controls-db.test.ts"
+      ],
+      "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS (the pipeline's import of appendPaymentAudit/withPaymentTenantScope was stranded inside the leading block comment at line 2 while a second, live import sat at line 42 — documentation/structure defect recorded as audit observation D-6 and now FIXED by moving the line out of the comment. Only one such import remains. Note that typecheck, lint and the payment suites passed BEFORE the fix too: a comment cannot break them, which is precisely why this class of defect needs a mechanical check. V-3 and the signing-surface guard now cover the inventory side.)"
     },
     {
       "id": "AUT-06",
@@ -109,13 +166,26 @@
       "entry_point": "ingestSettlementBatch",
       "trigger": "Settlement batch or bank statement artefact",
       "unattended": true,
-      "side_effects": ["may raise trust to VERIFIED_PROVIDER / RECONCILED_BANK", "marks batches VARIANCE with the arithmetic difference", "opens SETTLEMENT_ORPHAN_ITEM exceptions"],
+      "side_effects": [
+        "may raise trust to VERIFIED_PROVIDER / RECONCILED_BANK",
+        "marks batches VARIANCE with the arithmetic difference",
+        "opens SETTLEMENT_ORPHAN_ITEM exceptions"
+      ],
       "human_binding": "None for the bounded raise; anything beyond the collected artefacts requires human review",
-      "may_not_do": ["no raise past what the artefact supports", "no invented transaction", "no variance plug"],
+      "may_not_do": [
+        "no raise past what the artefact supports",
+        "no invented transaction",
+        "no variance plug"
+      ],
       "failure_mode": "Unmatched items become exceptions, never bookings",
       "evidence": "Settlement batch rows with variance; exception rows; audit",
-      "source_paths": ["src/lib/payments/settlement.ts"],
-      "tests": ["tests/payments/state-machines-and-gates.test.ts", "tests/payments/money-and-precision.test.ts"],
+      "source_paths": [
+        "src/lib/payments/settlement.ts"
+      ],
+      "tests": [
+        "tests/payments/state-machines-and-gates.test.ts",
+        "tests/payments/money-and-precision.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -125,13 +195,26 @@
       "entry_point": "reconciliation pass over open reconciliation axes",
       "trigger": "Operator or scheduled invocation",
       "unattended": true,
-      "side_effects": ["records match candidates", "may set reconciliation_status RECONCILED at or above the governed confidence floor"],
+      "side_effects": [
+        "records match candidates",
+        "may set reconciliation_status RECONCILED at or above the governed confidence floor"
+      ],
       "human_binding": "Confirmation of anything uncertain is a named human act with separation of duties",
-      "may_not_do": ["NEVER SILENTLY ADJUST an amount", "no trust raise", "no post"],
+      "may_not_do": [
+        "NEVER SILENTLY ADJUST an amount",
+        "no trust raise",
+        "no post"
+      ],
       "failure_mode": "Disagreement of one unit produces an AMOUNT_MISMATCH exception carrying both numbers",
       "evidence": "Match rows with confidence and rule; exception rows",
-      "source_paths": ["src/lib/payments/reconcile.ts", "src/lib/payments/matching.ts"],
-      "tests": ["tests/payments/human-review-assurance.test.ts", "tests/payments/money-and-precision.test.ts"],
+      "source_paths": [
+        "src/lib/payments/reconcile.ts",
+        "src/lib/payments/matching.ts"
+      ],
+      "tests": [
+        "tests/payments/human-review-assurance.test.ts",
+        "tests/payments/money-and-precision.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -141,14 +224,24 @@
       "entry_point": "evaluateRisk",
       "trigger": "Ingestion",
       "unattended": true,
-      "side_effects": ["persists risk signals", "marks a transaction non-auto-postable (blocking) and names a human"],
+      "side_effects": [
+        "persists risk signals",
+        "marks a transaction non-auto-postable (blocking) and names a human"
+      ],
       "human_binding": "A blocking signal forces human review; the rule decides nothing",
-      "may_not_do": ["no rejection of the money record", "no model, no learned score, no probability claim"],
+      "may_not_do": [
+        "no rejection of the money record",
+        "no model, no learned score, no probability claim"
+      ],
       "failure_mode": "Signal persisted with its numbers; disposition OPEN or BLOCKED",
       "evidence": "Risk signal rows with rule weights; RULE_WEIGHTS version payment-risk-1.0.0",
-      "source_paths": ["src/lib/payments/risk.ts"],
-      "tests": ["tests/payments/payment-controls-db.test.ts"],
-      "verification": "VERIFIED_BY_READING_SOURCE (observed signals: AMOUNT_OVER_POLICY, DAILY_VOLUME_LIMIT, DUPLICATE_AMOUNT_BURST, COUNTERPARTY_VELOCITY, UNMATCHED_HIGH_VALUE; the module header says 'four rules' — documentation drift recorded as an audit observation, not fixed in a documentation-only change set)"
+      "source_paths": [
+        "src/lib/payments/risk.ts"
+      ],
+      "tests": [
+        "tests/payments/payment-controls-db.test.ts"
+      ],
+      "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS (observed signals: AMOUNT_OVER_POLICY, DAILY_VOLUME_LIMIT, DUPLICATE_AMOUNT_BURST, COUNTERPARTY_VELOCITY, UNMATCHED_HIGH_VALUE; five signal sites, five rule weights. The module header previously said 'four rules' while RULE_WEIGHTS held five — documentation drift, recorded as audit observation D-5 and now FIXED in src/lib/payments/risk.ts under the Phase 2 minimal-fix mandate. This note was updated in the same change set so the inventory and the source do not diverge in either direction.)"
     },
     {
       "id": "AUT-09",
@@ -157,13 +250,23 @@
       "entry_point": "obligation timing computation",
       "trigger": "Obligation recorded or evaluated",
       "unattended": true,
-      "side_effects": ["computes due dates and escalation lead times: LOW 14, MEDIUM 10, HIGH 5, CRITICAL 2 days", "uses a 30-day post-delivery verification window"],
+      "side_effects": [
+        "computes due dates and escalation lead times: LOW 14, MEDIUM 10, HIGH 5, CRITICAL 2 days",
+        "uses a 30-day post-delivery verification window"
+      ],
       "human_binding": "Verification and closure of an obligation are human acts",
-      "may_not_do": ["no money movement", "PAYMENT obligations remain references with authoritative_owner FINANCE_OS"],
+      "may_not_do": [
+        "no money movement",
+        "PAYMENT obligations remain references with authoritative_owner FINANCE_OS"
+      ],
       "failure_mode": "Deterministic refusal on invalid input",
       "evidence": "Obligation rows and events",
-      "source_paths": ["src/lib/contracts/obligations.ts"],
-      "tests": ["tests/contracts/service.test.ts"],
+      "source_paths": [
+        "src/lib/contracts/obligations.ts"
+      ],
+      "tests": [
+        "tests/contracts/service.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -173,13 +276,22 @@
       "entry_point": "contract health computation",
       "trigger": "Read",
       "unattended": true,
-      "side_effects": ["computes ON_TRACK / AT_RISK / OVERDUE / SUSPENDED / PAUSED_BY_DISPUTE / DISPUTED"],
+      "side_effects": [
+        "computes ON_TRACK / AT_RISK / OVERDUE / SUSPENDED / PAUSED_BY_DISPUTE / DISPUTED"
+      ],
       "human_binding": "Health is derived; it decides nothing",
-      "may_not_do": ["no override of a gate", "no lifecycle transition"],
+      "may_not_do": [
+        "no override of a gate",
+        "no lifecycle transition"
+      ],
       "failure_mode": "Derived from inputs; absent inputs are reported, not defaulted",
       "evidence": "Computed at read time",
-      "source_paths": ["src/lib/contracts/model.ts"],
-      "tests": ["tests/contracts/service.test.ts"],
+      "source_paths": [
+        "src/lib/contracts/model.ts"
+      ],
+      "tests": [
+        "tests/contracts/service.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -189,13 +301,26 @@
       "entry_point": "evaluateAnchor / verifyAnchor",
       "trigger": "Anchor recorded or re-verified",
       "unattended": true,
-      "side_effects": ["computes verified true/false with findings", "records reorg candidates and commitment mismatches as findings"],
+      "side_effects": [
+        "computes verified true/false with findings",
+        "records reorg candidates and commitment mismatches as findings"
+      ],
       "human_binding": "Verification never demotes an anchor; revocation and supersession are separate governed human acts",
-      "may_not_do": ["no silent healing of a block-hash mismatch", "no status change by inference", "no authority creation"],
+      "may_not_do": [
+        "no silent healing of a block-hash mismatch",
+        "no status change by inference",
+        "no authority creation"
+      ],
       "failure_mode": "Refusal with findings (e.g. insufficient confirmations, unsupported network, commitment mismatch)",
       "evidence": "Anchor row with findings, confirmations and status",
-      "source_paths": ["src/lib/blockchain/model.ts", "src/lib/blockchain/service.ts"],
-      "tests": ["tests/blockchain/model.test.ts", "tests/blockchain/service.test.ts"],
+      "source_paths": [
+        "src/lib/blockchain/model.ts",
+        "src/lib/blockchain/service.ts"
+      ],
+      "tests": [
+        "tests/blockchain/model.test.ts",
+        "tests/blockchain/service.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
     },
     {
@@ -205,13 +330,23 @@
       "entry_point": "evaluateOracleReading",
       "trigger": "Reading recorded or consumed",
       "unattended": true,
-      "side_effects": ["computes status CURRENT/STALE/EXPIRED/DISPUTED/INVALID/MISSING and usable true/false with findings"],
+      "side_effects": [
+        "computes status CURRENT/STALE/EXPIRED/DISPUTED/INVALID/MISSING and usable true/false with findings"
+      ],
       "human_binding": "An unusable reading is a refusal to execute, not a default",
-      "may_not_do": ["no authority (grantsAuthority is structurally false)", "no settlement trigger from open data", "no adoption of a quarantined deviation"],
+      "may_not_do": [
+        "no authority (grantsAuthority is structurally false)",
+        "no settlement trigger from open data",
+        "no adoption of a quarantined deviation"
+      ],
       "failure_mode": "Fail-closed on every axis, including future-dated readings",
       "evidence": "Reading rows with findings; source register",
-      "source_paths": ["src/lib/blockchain/model.ts"],
-      "tests": ["tests/blockchain/model.test.ts"],
+      "source_paths": [
+        "src/lib/blockchain/model.ts"
+      ],
+      "tests": [
+        "tests/blockchain/model.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
     },
     {
@@ -221,13 +356,23 @@
       "entry_point": "evaluateRegistryTransition",
       "trigger": "Governed registry transition",
       "unattended": true,
-      "side_effects": ["refuses any transition outside the published edge set", "enforces that APPROVED_MAINNET is reachable only from VERIFIED_TESTNET"],
+      "side_effects": [
+        "refuses any transition outside the published edge set",
+        "enforces that APPROVED_MAINNET is reachable only from VERIFIED_TESTNET"
+      ],
       "human_binding": "The transition itself is requested by a permissioned human",
-      "may_not_do": ["no shortcut to mainnet", "no revival of a deployed or compromised record"],
+      "may_not_do": [
+        "no shortcut to mainnet",
+        "no revival of a deployed or compromised record"
+      ],
       "failure_mode": "INVALID_TRANSITION refusal",
       "evidence": "Registry row with status and provenance",
-      "source_paths": ["src/lib/blockchain/model.ts"],
-      "tests": ["tests/blockchain/model.test.ts"],
+      "source_paths": [
+        "src/lib/blockchain/model.ts"
+      ],
+      "tests": [
+        "tests/blockchain/model.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
     },
     {
@@ -237,13 +382,25 @@
       "entry_point": "GET /api/v1/blockchain/execution-posture",
       "trigger": "Read",
       "unattended": true,
-      "side_effects": ["computes permitted true/false from the governed registers; never stored"],
+      "side_effects": [
+        "computes permitted true/false from the governed registers; never stored"
+      ],
       "human_binding": "permitted true is a posture, not a permission; the execution decision belongs to a human",
-      "may_not_do": ["no signing", "no submission", "no broadcast", "no stored state"],
+      "may_not_do": [
+        "no signing",
+        "no submission",
+        "no broadcast",
+        "no stored state"
+      ],
       "failure_mode": "Refusal listing the exact missing gates",
       "evidence": "Audit entry for the read; the posture itself is not persisted",
-      "source_paths": ["src/app/api/v1/blockchain/execution-posture/route.ts", "src/lib/blockchain/model.ts"],
-      "tests": ["tests/blockchain/model.test.ts"],
+      "source_paths": [
+        "src/app/api/v1/blockchain/execution-posture/route.ts",
+        "src/lib/blockchain/model.ts"
+      ],
+      "tests": [
+        "tests/blockchain/model.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
     },
     {
@@ -253,13 +410,23 @@
       "entry_point": "reconciliation run against canonical positions",
       "trigger": "Operator invocation",
       "unattended": true,
-      "side_effects": ["records findings: CAP_TABLE_MISMATCH, OWNERSHIP_MISMATCH, VESTING_MISMATCH, TOKEN_BALANCE_MISMATCH, UNAUTHORIZED_TRANSFER, UNKNOWN_HOLDER, STALE_BLOCKCHAIN_STATE"],
+      "side_effects": [
+        "records findings: CAP_TABLE_MISMATCH, OWNERSHIP_MISMATCH, VESTING_MISMATCH, TOKEN_BALANCE_MISMATCH, UNAUTHORIZED_TRANSFER, UNKNOWN_HOLDER, STALE_BLOCKCHAIN_STATE"
+      ],
       "human_binding": "Findings require a human decision to act; the run never updates a cap table, contract or obligation",
-      "may_not_do": ["no canonical overwrite", "no position mutation"],
+      "may_not_do": [
+        "no canonical overwrite",
+        "no position mutation"
+      ],
       "failure_mode": "Reports DATA_NOT_AVAILABLE where there is nothing to compare",
       "evidence": "blockchain_reconciliation_runs with findings",
-      "source_paths": ["src/lib/blockchain/model.ts", "src/lib/blockchain/service.ts"],
-      "tests": ["tests/blockchain/service.test.ts"],
+      "source_paths": [
+        "src/lib/blockchain/model.ts",
+        "src/lib/blockchain/service.ts"
+      ],
+      "tests": [
+        "tests/blockchain/service.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -269,12 +436,21 @@
       "entry_point": "POST /api/v1/internal/events",
       "trigger": "Authenticated service token from a sector transport",
       "unattended": true,
-      "side_effects": ["appends to the immutable hash-chained enterprise_events ledger", "claims an idempotency receipt in the same transaction"],
+      "side_effects": [
+        "appends to the immutable hash-chained enterprise_events ledger",
+        "claims an idempotency receipt in the same transaction"
+      ],
       "human_binding": "None for the record; the endpoint grants no authority",
-      "may_not_do": ["no authority creation", "no financial consequence", "no second enterprise event on duplicate delivery"],
+      "may_not_do": [
+        "no authority creation",
+        "no financial consequence",
+        "no second enterprise event on duplicate delivery"
+      ],
       "failure_mode": "Duplicate delivery increments duplicateCount and returns the original event id",
       "evidence": "Enterprise event ledger with hash version 2; audit record",
-      "source_paths": ["src/app/api/v1/internal/events/route.ts"],
+      "source_paths": [
+        "src/app/api/v1/internal/events/route.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -284,13 +460,23 @@
       "entry_point": "retention service",
       "trigger": "Read/evaluation",
       "unattended": true,
-      "side_effects": ["computes retention expiry from uploaded_at plus policy retention years", "reports eligibility as a decision"],
+      "side_effects": [
+        "computes retention expiry from uploaded_at plus policy retention years",
+        "reports eligibility as a decision"
+      ],
       "human_binding": "Destruction is a separate governed process requiring human approval; legal holds block deletion regardless of expiry",
-      "may_not_do": ["no deletion", "no workflow status the database cannot represent"],
+      "may_not_do": [
+        "no deletion",
+        "no workflow status the database cannot represent"
+      ],
       "failure_mode": "Eligibility reported; destruction not performed",
       "evidence": "Decision record; policy row",
-      "source_paths": ["src/lib/data-governance/retention-service.ts"],
-      "tests": ["tests/data-governance/retention-enforcement.test.ts"],
+      "source_paths": [
+        "src/lib/data-governance/retention-service.ts"
+      ],
+      "tests": [
+        "tests/data-governance/retention-enforcement.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -300,13 +486,24 @@
       "entry_point": "simulate",
       "trigger": "Human invocation for analysis",
       "unattended": false,
-      "side_effects": ["composes identity → governance → authority → capability → permission → service → execution → audit/event/trace/lineage", "classifies every output SIMULATION"],
+      "side_effects": [
+        "composes identity → governance → authority → capability → permission → service → execution → audit/event/trace/lineage",
+        "classifies every output SIMULATION"
+      ],
       "human_binding": "Explicitly a simulation; a valid synthetic fixture may be SIMULATION_ELIGIBLE, which is not ACTIVATED and not an instruction",
-      "may_not_do": ["no production mutation (mutatedProductionState false structurally)", "no RATIFIED/APPROVED/EFFECTIVE result status", "no postJournal"],
+      "may_not_do": [
+        "no production mutation (mutatedProductionState false structurally)",
+        "no RATIFIED/APPROVED/EFFECTIVE result status",
+        "no postJournal"
+      ],
       "failure_mode": "Not applicable — never writes",
       "evidence": "Simulation output marked SIMULATION",
-      "source_paths": ["src/lib/execution/simulate.ts"],
-      "tests": ["tests/execution/simulate.test.ts"],
+      "source_paths": [
+        "src/lib/execution/simulate.ts"
+      ],
+      "tests": [
+        "tests/execution/simulate.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -316,13 +513,23 @@
       "entry_point": "evaluateAuthority / isExecutable",
       "trigger": "Capability activation check",
       "unattended": true,
-      "side_effects": ["returns a verdict; only ACTIVATED permits execution"],
+      "side_effects": [
+        "returns a verdict; only ACTIVATED permits execution"
+      ],
       "human_binding": "Activation requires an approved, recorded decision; REFERENCE_DATA never authorises",
-      "may_not_do": ["no activation by seed row, config flag, environment variable or UI state"],
+      "may_not_do": [
+        "no activation by seed row, config flag, environment variable or UI state"
+      ],
       "failure_mode": "Fail-closed for unknown, malformed or unverifiable input",
       "evidence": "Decision registry rows with provenance",
-      "source_paths": ["src/lib/decision-authority.ts", "src/lib/authority/"],
-      "tests": ["tests/governance/decision-authority.test.ts", "tests/security/activation-gate.test.ts"],
+      "source_paths": [
+        "src/lib/decision-authority.ts",
+        "src/lib/authority/"
+      ],
+      "tests": [
+        "tests/governance/decision-authority.test.ts",
+        "tests/security/activation-gate.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE_AND_TESTS"
     },
     {
@@ -332,13 +539,23 @@
       "entry_point": "idempotency ledger",
       "trigger": "Request with an Idempotency-Key",
       "unattended": true,
-      "side_effects": ["claims an IN_FLIGHT row before the domain write", "replays a completed response within TTL"],
+      "side_effects": [
+        "claims an IN_FLIGHT row before the domain write",
+        "replays a completed response within TTL"
+      ],
       "human_binding": "An uncertain claim is never auto-reclaimed and is left for a human",
-      "may_not_do": ["no cross-actor replay (scope is tenant + actor + endpoint)", "no silent different-payload replay"],
+      "may_not_do": [
+        "no cross-actor replay (scope is tenant + actor + endpoint)",
+        "no silent different-payload replay"
+      ],
       "failure_mode": "409 CONFLICT on same key with a different payload",
       "evidence": "Idempotency records with payload hash",
-      "source_paths": ["src/lib/idempotency.ts"],
-      "tests": ["tests/security/idempotency.test.ts"],
+      "source_paths": [
+        "src/lib/idempotency.ts"
+      ],
+      "tests": [
+        "tests/security/idempotency.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -348,13 +565,25 @@
       "entry_point": "listWorkforce / observation services",
       "trigger": "Read",
       "unattended": true,
-      "side_effects": ["reads the single employee master; writes evaluate and refuse"],
+      "side_effects": [
+        "reads the single employee master; writes evaluate and refuse"
+      ],
       "human_binding": "Employment lifecycle writes are authority-blocked (REQUIRES_AUTHORITY)",
-      "may_not_do": ["no second employee master", "no fabricated employees", "empty scope is DATA_NOT_AVAILABLE, never 0"],
+      "may_not_do": [
+        "no second employee master",
+        "no fabricated employees",
+        "empty scope is DATA_NOT_AVAILABLE, never 0"
+      ],
       "failure_mode": "Refusal with reason",
       "evidence": "Employee master rows; audit for governed writes",
-      "source_paths": ["src/lib/hcm.ts", "src/lib/hcm-observe.ts"],
-      "tests": ["tests/hcm/hcm.test.ts", "tests/architecture/hcm.test.ts"],
+      "source_paths": [
+        "src/lib/hcm.ts",
+        "src/lib/hcm-observe.ts"
+      ],
+      "tests": [
+        "tests/hcm/hcm.test.ts",
+        "tests/architecture/hcm.test.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -364,12 +593,20 @@
       "entry_point": "governance calendar service",
       "trigger": "Calendar or escalation event",
       "unattended": true,
-      "side_effects": ["records escalations against governance calendar events", "tracks state transitions"],
+      "side_effects": [
+        "records escalations against governance calendar events",
+        "tracks state transitions"
+      ],
       "human_binding": "Escalation resolution is a human act",
-      "may_not_do": ["no authority", "no self-resolution"],
+      "may_not_do": [
+        "no authority",
+        "no self-resolution"
+      ],
       "failure_mode": "Recorded escalation; no silent closure",
       "evidence": "governance_escalations rows; audit",
-      "source_paths": ["src/lib/governance/calendar-service.ts"],
+      "source_paths": [
+        "src/lib/governance/calendar-service.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE"
     },
     {
@@ -379,12 +616,21 @@
       "entry_point": "scripts/ (seed, payments demo, fixture reset, DR drill, migration, certification)",
       "trigger": "Operator invocation",
       "unattended": false,
-      "side_effects": ["vary by script: bootstrap seed, disposable fixtures, migration ledger, evidence capture"],
+      "side_effects": [
+        "vary by script: bootstrap seed, disposable fixtures, migration ledger, evidence capture"
+      ],
       "human_binding": "An operator runs them deliberately; CI runs migration and gate scripts",
-      "may_not_do": ["never evidence (fixture/demo data is never legal or accounting fact)", "no production mutation outside a governed release process"],
+      "may_not_do": [
+        "never evidence (fixture/demo data is never legal or accounting fact)",
+        "no production mutation outside a governed release process"
+      ],
       "failure_mode": "Script exits non-zero; CI gates on it",
       "evidence": "Where a script writes evidence, it is captured as an artefact; fixture data is not evidence",
-      "source_paths": ["scripts/", "src/db/seed.ts", "src/lib/payments/fixture-reset.ts"],
+      "source_paths": [
+        "scripts/",
+        "src/db/seed.ts",
+        "src/lib/payments/fixture-reset.ts"
+      ],
       "verification": "VERIFIED_BY_READING_SOURCE (listed as operator-invoked, not autonomous)"
     }
   ],
@@ -393,37 +639,53 @@
       "id": "HB-01",
       "name": "Contract lifecycle transitions and review gates",
       "why": "A gate closes only by a recorded human act carrying the named authority; the software never infers closure",
-      "source_paths": ["src/lib/contracts/service.ts", "src/lib/contracts/vocabulary.ts"]
+      "source_paths": [
+        "src/lib/contracts/service.ts",
+        "src/lib/contracts/vocabulary.ts"
+      ]
     },
     {
       "id": "HB-02",
       "name": "Payment confirmation (the only route from uncertain to certain)",
       "why": "Separation of duties: whoever prepared it may not confirm it; confirmation does not post and does not adjust amounts",
-      "source_paths": ["src/lib/payments/review.ts", "src/lib/finance/workflow.ts"]
+      "source_paths": [
+        "src/lib/payments/review.ts",
+        "src/lib/finance/workflow.ts"
+      ]
     },
     {
       "id": "HB-03",
       "name": "Record destruction after retention expiry",
       "why": "Eligibility is computed; destruction requires human approval; legal holds block regardless",
-      "source_paths": ["src/lib/data-governance/retention-service.ts"]
+      "source_paths": [
+        "src/lib/data-governance/retention-service.ts"
+      ]
     },
     {
       "id": "HB-04",
       "name": "Anchor revocation and supersession",
       "why": "Verification never demotes an anchor; the status change is a separate governed act",
-      "source_paths": ["src/lib/blockchain/model.ts", "src/lib/blockchain/service.ts"]
+      "source_paths": [
+        "src/lib/blockchain/model.ts",
+        "src/lib/blockchain/service.ts"
+      ]
     },
     {
       "id": "HB-05",
       "name": "Registry approval transitions and execution decisions",
       "why": "Testnet-first and reserved-matter decisions; permitted true is a posture, not a permission",
-      "source_paths": ["src/lib/blockchain/service.ts", "docs/governance/smart-contracts/SMART_CONTRACT_AUTHORITY_FRAMEWORK.md"]
+      "source_paths": [
+        "src/lib/blockchain/service.ts",
+        "docs/governance/smart-contracts/SMART_CONTRACT_AUTHORITY_FRAMEWORK.md"
+      ]
     },
     {
       "id": "HB-06",
       "name": "Incident pause, upgrade and rollback",
       "why": "Pausing, upgrading and revoking are human acts under dual control; automation may not resume a paused package",
-      "source_paths": ["docs/governance/smart-contracts/INCIDENT_PAUSE_UPGRADE_AND_ROLLBACK_RUNBOOK.md"]
+      "source_paths": [
+        "docs/governance/smart-contracts/INCIDENT_PAUSE_UPGRADE_AND_ROLLBACK_RUNBOOK.md"
+      ]
     }
   ],
   "not_in_inventory": [
@@ -439,5 +701,25 @@
     "No claim about production configuration, deployed schedules, credentials, integrations or environments is made here.",
     "Presence in this file is not authorisation. Authorisation is recorded in BEYU-SCG-08 R-AUT-01, which today contains ZERO authorised automations.",
     "No claim about legal effect, regulatory compliance or security posture is made here, and none may be inferred."
+  ],
+  "inventory_observations": [
+    {
+      "id": "D-5",
+      "subject": "src/lib/payments/risk.ts",
+      "observation": "Module header said 'Four rules' while RULE_WEIGHTS contained five and five signals were emitted (L78/113/147/175/192).",
+      "class": "DOCUMENTATION_DRIFT",
+      "risk": "LOW — the code was correct; the header understated the rule set, which could mislead a reviewer counting controls.",
+      "disposition": "FIXED in Phase 2 (header corrected to 'Five rules'). No behaviour changed, so no behavioural test was needed; the payments suites were re-run and pass.",
+      "coverage": "tests/payments/payment-controls-db.test.ts (rule weights and signals) + BEYU-SCG V-3 inventory freshness"
+    },
+    {
+      "id": "D-6",
+      "subject": "src/lib/payments/ingest.ts",
+      "observation": "Line 2 was `import { appendPaymentAudit, withPaymentTenantScope } from \"./audit-scope\"; * The payment ingestion pipeline — …` — the import was swallowed by the leading block comment (ending L32); a live duplicate import sat at L42.",
+      "class": "STRUCTURAL_DEFECT",
+      "risk": "LOW-to-MEDIUM — the live import kept the module working, so no test failed. A reader auditing 'what does this module import' would have read a commented-out line as authority, and a future deletion of the live import would have left the comment looking like a working import.",
+      "disposition": "FIXED in Phase 2 (line moved out of the comment; exactly one import remains). Re-verified: typecheck, lint and tests/payments all pass.",
+      "coverage": "tests/payments/* (185 tests) + BEYU-SCG V-3/V-7"
+    }
   ]
 }

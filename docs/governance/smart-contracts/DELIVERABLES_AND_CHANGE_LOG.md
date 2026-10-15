@@ -65,8 +65,9 @@ edited by this engagement.
 | M2 | **No custody decision and no custodian** — mainnet acts remain prohibited by governance regardless of software posture | Board `[TO BE DECIDED]` |
 | M3 | **Blocking counsel questions unanswered** (`BEYU-SCG-10`: Q-SCG-01…Q-SCG-04, Q-SCG-07, Q-SCG-09, Q-SCG-11, Q-SCG-12, Q-SCG-15, Q-SCG-19) | Counsel |
 | M4 | **Automation register empty** — intended, but a reviewer must not read the inventory (A7) as authorisation | Reviewer's understanding; board for authorisation |
-| M5 | **Proposed mechanical checks not implemented** — inventory freshness is manual until they are | Engineering (future change) |
-| M6 | **PR #108 carries two workstreams** (the legal pack and this smart-contract pack); a merge would land both | Reviewer / owner decision on how to sequence the merge |
+| M5 | **PARTIALLY CLEARED in Phase 2.** `V-3`, `V-4`, `V-4A`, `V-6` and `V-7` are implemented (`npm run verify:scg`, `tests/smart-contracts`). **Still open:** `V-5` is a human procedure (`BLK-19`); `V-3`'s coverage is a floor, not a completeness proof (`BLK-20`); a static scan cannot prove absence of a capability (`BLK-22`) | Engineering, under review |
+| M6 | **The branch now carries three workstreams** (the legal pack, the smart-contract pack, and the Phase 2 enforcement code) — **and is no longer documentation-only**, so this pack's own `V-09` reads SUPERSEDED | Reviewer / owner decision on how to sequence the merge; see `BEYU-SCG-17` §4 for the split recommendation (**recommendation only — not executed**) |
+| M7 | **Twenty-six open blockers remain, none cleared** — classified by the authority that can clear each | `BEYU-SCG-16` |
 
 *Legend: status is not `BLOCKED` in the pack sense — these are blockers to **adoption and reliance**,
 not to merging a documentation pack that states them.*
