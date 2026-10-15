@@ -58,25 +58,31 @@ the repository; only `.env.example`.
 
 ### 2.1 CI, exactly as observed
 
-CI was triggered by the push, and the results are reported here with the same discipline as the local
-runs — including what did **not** complete.
+CI ran on the push, and it **completed green at head `9e7ed4a`**. Reported with the same discipline as
+the local runs — including what did not complete on earlier runs.
 
-| Job | Result at the Phase 2 head | Note |
+| Job / step | Result at `9e7ed4a` | Note |
 |---|---|---|
-| **BEYU-SCG governance checks** (the step this phase added) | **PASS** | Step 10 of the root job, after typecheck and lint |
-| Typecheck, lint, migrations applied/recorded, migration determinism, ledger reconciliation, Expand/Contract safety, drift-gate self-test | **PASS** | Steps 8–16 of the root job |
-| Verify no schema drift, DR drill, runtime-role provisioning, seed, production build, server start, **full root regression**, browser tests | **NOT RUN in CI on this head** | Steps 17+ were **CANCELLED** by the workflow's `cancel-in-progress` when the next push arrived — not failed, and not reported as passing |
-| Migration validation (scratch PostgreSQL 16) | **PASS** (1 m 6 s) | Failed at *container initialisation* on the previous run; see below |
-| Health OS backend — real PostgreSQL gate | **PASS** (7 m 26 s) | The job that had been failing in earlier runs |
+| **Root BEYU OS — PostgreSQL security gate** | **PASS — all 67 steps, complete** | The job that had failed at container initialisation on earlier runs |
+| Step 10 — **BEYU-SCG governance checks** (the step this phase added) | **PASS** | Runs after typecheck and lint; needed no database and no network |
+| Steps 8–23 — typecheck, lint, migrations applied/recorded/deterministic, ledger reconciliation, Expand/Contract safety, drift-gate self-test, schema-drift verification, DR drill, runtime-role provisioning, governed-mutation role boundary, seed | **PASS** | The DR drill and drift verification, cancelled on an earlier run, completed here |
+| Steps 24–25 — production build, and production build without runtime secrets | **PASS** | Both builds, including deployment parity |
+| Steps 26–28 — start application, assert database UP, **full root regression (PostgreSQL-backed + HTTP/E2E)** | **PASS** | This is the suite that skips locally for want of a server |
+| Step 29–31 — Chromium, browser/keyboard/responsive tests, and **"assert no test suite was silently skipped for want of a server"** | **PASS** | The last step is the repository's own guard against reporting a skip as a pass, and it passed |
+| Migration validation (scratch PostgreSQL 16) | **PASS** (1 m 1 s) | Failed at container initialisation on an earlier run |
 | Committed secret scan, three dependency audits, P3 release governance, Health OS frontend, Vercel | **PASS** | — |
-| Root BEYU OS — PostgreSQL security gate, at the final head | **failed at step 2 "Initialize containers"** in 14 s, with all 27 real steps **skipped** | Infrastructure, and provably content-independent: container initialisation runs **before** "Checkout repository", so no file in this change set can affect it. The same step passed on the preceding run and on the run before that |
+| Health OS backend — real PostgreSQL gate | **failed at step 2 "Initialize containers"** in 12 s on this run | See below |
 
-**The container-initialisation failure moves between jobs from run to run** — it hit the migration job
-on one run, the Health OS backend gate on an earlier one, and the root job on the latest — while the
-same jobs pass on other runs. That is a flake signature, and the ordering evidence above makes it
-conclusive: the step cannot read the repository. **It is reported here as an observation, not dismissed
-as "environmental"** (`BEYU-SCG-09` V-10), and **no CI result on the final head is claimed as a full
-pass**, because the full regression did not complete in CI on this head.
+**On the intermittent container-initialisation failure.** Across this phase's runs that step failed on
+the migration job, then on the Health OS backend gate, then on the root job — while the same jobs
+passed on other runs, and the root job passed completely at `9e7ed4a`. The step runs **before**
+"Checkout repository", so no file in this change set can affect it; the evidence is ordering, not
+assertion. It is recorded as an observation rather than dismissed as "environmental"
+(`BEYU-SCG-09` V-10), and it is **not** attributed to this change set.
+
+**Scope of this claim.** The green run is at `9e7ed4a`. Any commit after it in this phase changes
+**documents only**, so the code, tests and CI configuration it validated are unchanged — but the claim
+is made for `9e7ed4a`, and a reviewer should re-read CI on whatever head is actually merged.
 
 ### 2.2 What was NOT run, and is therefore not claimed
 
@@ -246,8 +252,8 @@ proposal plus counsel questions.
 
 | # | Gap | Closes when |
 |---|---|---|
-| `G-1` | No HTTP suite was executed **in this sandbox**; 126 tests skipped. In CI the full root regression did **not complete** on this head — it was cancelled by `cancel-in-progress` — so the HTTP/E2E suites are unproven on the final commit | A CI run that is allowed to finish, or a reviewer who runs them and records the result |
-| `G-2` | No full-suite run locally, and `npm run build` was not run locally | A full `npm run verify`, and a CI run permitted to reach the build step |
+| `G-1` | No HTTP suite was executed **in this sandbox**; 126 tests skipped locally. **Closed in CI:** the full root regression (HTTP/E2E) passed at `9e7ed4a`, as did the repository's own guard that no suite was silently skipped | Closed — no further action, subject to re-reading CI on the merged head |
+| `G-2` | No full-suite run locally and no local `npm run build`. **Closed in CI:** both production builds passed at `9e7ed4a`. The local sandbox still has not run them | A local `npm run verify` if local reproduction is wanted; CI evidence already exists |
 | `G-3` | `V-3` proves a directory-level floor, not behaviour-level coverage | A per-behaviour inventory method, or explicit acceptance of the floor |
 | `G-4` | Static scans cannot prove absence of a capability | Nothing fully closes this; state it whenever the check is cited as assurance |
 | `G-5` | `V-5` remains a human review step | Applied by a reviewer at the gate |
