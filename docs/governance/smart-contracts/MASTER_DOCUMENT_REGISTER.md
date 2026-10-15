@@ -40,11 +40,13 @@ Depends on: nothing (it indexes what exists)
 | 17 | `PHASE-2_TRACEABILITY_AND_ENFORCEMENT.md` | `BEYU-SCG-15` | `INFORMATIONAL` | `INTERNAL` | the audited commit |
 | 18 | `PHASE-2_BLOCKER_REGISTER.md` | `BEYU-SCG-16` | `INFORMATIONAL` | `INTERNAL` | nothing — it records the state of the world |
 | 19 | `PHASE-2_VERIFICATION_REPORT.md` | `BEYU-SCG-17` | `INFORMATIONAL` | `INTERNAL` | the Phase 2 commits |
+| 20 | `PHASE-3_VERIFICATION_AND_PR_SEPARATION.md` | `BEYU-SCG-18` | `INFORMATIONAL` | `INTERNAL` | the Phase 3 commits |
 
-**20 registered paths: 19 Markdown documents + 1 JSON inventory.** Every path is verified to resolve
+**21 registered paths: 20 Markdown documents + 1 JSON inventory.** Every path is verified to resolve
 by `BEYU-SCG-12` V-02. The three Phase 2 documents (17–19) were added by the Phase 2 implementation
-phase; **no existing document was renumbered**, and `BEYU-SCG-01`…`BEYU-SCG-14` keep their identifiers.
-`BEYU-SCG-15`…`BEYU-SCG-17` are `INFORMATIONAL`: they record what was found and run, and none of them
+phase and the Phase 3 document (20) by the Phase 3 evidence-integrity and reconciliation phase; **no
+existing document was renumbered**, and `BEYU-SCG-01`…`BEYU-SCG-14` keep their identifiers.
+`BEYU-SCG-15`…`BEYU-SCG-18` are `INFORMATIONAL`: they record what was found and run, and none of them
 approves, adopts or authorizes anything.
 
 ## 2. Legal-pack documents this pack depends on (cross-references, never renumbered)

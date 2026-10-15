@@ -85,6 +85,7 @@ not be retrieved from a primary source, it is not cited as fact anywhere in eith
 
 | ID | Blocker | Why it blocks | Evidence that would clear it | State |
 |---|---|---|---|---|
+| `BLK-05` | **Family Office membership is not modelled at all.** There is no membership table, no seat, no term and no record of who holds a seat; `src/lib/family/office/authority.ts` derives authority only from `RESOLUTION`/`DELEGATION` references and carries no `role` field | Membership confers no authority — that is correct — but the absence of the concept also means membership cannot be evidenced, granted, limited or revoked. `BEYU-SCG-15` §7 row 11 and `BEYU-SCG-17` `A-09` record the gap | A governance decision defining seats, holders and terms, **then** an additive, isolated, reviewed schema change | **BLOCKED** |
 | `BLK-14` | **The family drafting facts are unverified drafting inputs, not identity records.** The settlors' and daughter's details are recorded as *reported* facts supplied for drafting; no identity document, date of birth, address, signature or citizenship is evidenced | Deriving a date of birth from a reported age, or treating a reported relationship as a verified identity, would fabricate evidence inside a trust instrument | Identity verification by the competent authority, with the evidence recorded | **BLOCKED** |
 | `BLK-15` | **Every `familyMembers` row enters with `verificationStatus = UNVERIFIED`, and no verifier is evidenced** | The schema is correct to default to `UNVERIFIED`; the missing piece is an authority able to verify | A verifier with evidenced authority, per row, recorded with method and date | **BLOCKED** |
 | `BLK-16` | **No trustee identity, no guardian identity and no other beneficiary identities exist.** None is invented here | The instrument has a single `[SETTLOR NAME]` slot and an undefined `[BENEFICIARY CLASS]`; the other beneficiaries are **expressly not** identified by the user | Instructions naming them, then counsel review | **BLOCKED** |
@@ -119,6 +120,7 @@ These are the blockers engineering can clear. Each is open; none is claimed as d
 
 | ID | Blocker | What would clear it | State |
 |---|---|---|---|
+| `BLK-08` | **The seed wrote fabricated verification metadata that could be read as legal or identity evidence.** `src/db/seed.ts` asserted `verificationStatus: "VERIFIED"`, `verificationMethod: "DOCUMENTARY_AND_COUNSEL_REVIEW"`, `verifiedBy: "FAMILY_COUNCIL"` and `verifiedAt: 2025-06-02` on demo family members, `eligibility: "ELIGIBLE"` + `verifiedBy: "TRUSTEE_BOARD"` + `approvedByResolutionId: R2025_007` on demo beneficiaries, `kycStatus: "VERIFIED"` + `kycMethod: "NIDA_DOCUMENT_VERIFICATION"` on every demo party, and a `dataBasis` naming a "lineage verification pack FV-2025-03". None of it happened (`BEYU-SCG-15` `C-5`, `BEYU-SCG-17` `A-08`) | Synthetic rows that carry a verifying actor, a method and a date are indistinguishable from evidence. The actor, the method and the pack did not exist; the repository's own federation registry records NIDA as `CONTRACT_PENDING` / `NONE_PUBLISHED` / `UNVERIFIED`, so the KYC claim could not have been performed at all | **CORRECTED IN CODE, PENDING HUMAN REVIEW** — the fabrication is removed and `tests/security/synthetic-fixture-integrity.test.ts` (15 tests, verified to fail against the old data and pass against the fix) now guards it. Remaining, and not cleared by that change: **the seed is never legal or identity evidence**, and every environment seeded before the fix still holds the fabricated rows — a successful re-seed does **not** overwrite them (`onConflictDoNothing`), so remediation of each existing environment is an authorised, evidenced operator action, never an unattended one | **CORRECTED IN CODE — awaiting review; residual open** |
 | `BLK-19` | `V-5` (documentation-only change set) is **not automated** and cannot be: an artefact does not carry the intent to be documentation-only. It is a pull-request property | The review checklist in `BEYU-SCG-17` §4, applied by a human reviewer | **OPEN — by design** |
 | `BLK-20` | `V-3`'s coverage check is a **directory-level floor**, not behaviour-level completeness | A per-behaviour inventory method, or accepting the floor explicitly as the standard | **OPEN** |
 | `BLK-21` | **Sixteen authority-check kinds exist; no populated determination store was observed**, so the number ever performed is unknown | Reading the determination store in a governed environment and recording the count | **OPEN** |
@@ -141,18 +143,25 @@ These are the blockers engineering can clear. Each is open; none is claimed as d
 
 | Class | Open blockers |
 |---|---|
-| TECHNICAL ENFORCEMENT | `BLK-19`, `BLK-20`, `BLK-21`, `BLK-22`, `BLK-23` |
+| TECHNICAL ENFORCEMENT | `BLK-08`, `BLK-19`, `BLK-20`, `BLK-21`, `BLK-22`, `BLK-23` |
 | GOVERNANCE-BODY DECISION | `BLK-01`, `BLK-02`, `BLK-03`, `BLK-04` |
 | CUSTODY | `BLK-09` |
 | LEGAL | `BLK-10`, `BLK-11`, `BLK-12`, `BLK-13` |
-| IDENTITY & ROLE VERIFICATION | `BLK-14`, `BLK-15`, `BLK-16` |
+| IDENTITY & ROLE VERIFICATION | `BLK-05`, `BLK-14`, `BLK-15`, `BLK-16` |
 | PRIVACY & CHILD PROTECTION | `BLK-06`, `BLK-07`, `BLK-17` |
 | PROVIDER DUE DILIGENCE | `BLK-18` |
 | OUT OF SCOPE | `BLK-24`, `BLK-25`, `BLK-26` |
 
-**26 blockers, 0 cleared.** The five technical items are open rather than blocked, because engineering
-can act on them under review. The other twenty-one require an authority that has not acted, and each
+**26 blockers, 0 cleared.** The six technical items are open rather than blocked, because engineering
+can act on them under review. The other twenty require an authority that has not acted, and each
 is recorded as `BLOCKED` for that reason.
+
+**Phase 3 reconciliation (2026-10-15).** This register previously stated a total of 26 while holding
+24 rows: `BLK-05` and `BLK-08` were cited by `BEYU-SCG-15` `C-5`, `BEYU-SCG-17` `A-08`/`A-09` and the
+legal pack's `BEYU-LF-D76` while having no row of their own. Both rows are restored above from those
+cross-references — no blocker was invented, and no count was adjusted to fit. `BLK-08` is the only
+entry with a corrective change set; **it is not cleared**, because its clearing authority is
+engineering under review and that review has not happened. See `BEYU-SCG-18`.
 
 `BLK-01` is the keystone: while no approving body is evidenced as constituted, authorization is
 unavailable, `R-AUT-01` must stay empty, and the correct posture for every automation is refusal.

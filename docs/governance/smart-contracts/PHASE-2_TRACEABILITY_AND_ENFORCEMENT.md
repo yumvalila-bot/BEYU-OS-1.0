@@ -9,7 +9,6 @@ Classification: `INTERNAL`
 Owner (proposed): Chief Governance Officer `[TO BE APPOINTED]`
 Approving authority (proposed): BEYU Holding Company board `[NOT REPRESENTED IN THIS REPOSITORY AS LEGALLY CONSTITUTED]`
 Next review date: on the next automation, contract-state or registry change
-Classification: `INTERNAL`
 Related documents: `BEYU-SCG-01`, `BEYU-SCG-02`, `BEYU-SCG-04`, `BEYU-SCG-04A`, `BEYU-SCG-09`, `BEYU-SCG-16`, `BEYU-SCG-17`
 Depends on: the audited commit; nothing else
 
@@ -284,7 +283,7 @@ existing meanings.
 | `C-2` | Nine registers are specified and **all nine open at ZERO** | `REGISTERS_AND_TEMPLATES.md` V-05 sweep | **paper-only control** | Correct as written — the registers are templates and are honestly empty. They become controls only when they hold entries |
 | `C-3` | `AUTOMATION_INVENTORY.json` recorded the `risk.ts` "four rules" drift as an observation | inventory AUT-08 | **doc/code drift** | Fixed on both sides: the header says "Five rules", and the note records `D-5` as fixed |
 | `C-4` | Sixteen authority-check kinds exist; how many were ever *performed* is recorded nowhere | `AUTHORITY_CHECK_KINDS`; no populated determination store observed in this environment | **unproven** | Recorded, not fixed — populating it would be a production action and is out of scope |
-| `C-5` | `src/db/seed.ts` (~L1114–1132) writes demo family members with `verifiedBy: "FAMILY_COUNCIL"`, `verificationMethod: "DOCUMENTARY_AND_COUNSEL_REVIEW"`, `verifiedAt: 2025-06-02` | seed source | **synthetic metadata that must never be read as legal evidence** | Recorded as `BEYU-SCG-16` `BLK-08`. No code change: rewriting seed data would change fixtures beyond this phase's mandate |
+| `C-5` | `src/db/seed.ts` (~L1114–1132) writes demo family members with `verifiedBy: "FAMILY_COUNCIL"`, `verificationMethod: "DOCUMENTARY_AND_COUNSEL_REVIEW"`, `verifiedAt: 2025-06-02` | seed source | **synthetic metadata that must never be read as legal evidence** | Recorded as `BEYU-SCG-16` `BLK-08`. No code change: rewriting seed data would change fixtures beyond this phase's mandate. **Superseded by Phase 3** (`BEYU-SCG-18` §2.2), which removed the fabricated metadata, repaired the one test that depended on it, and added `tests/security/synthetic-fixture-integrity.test.ts` |
 | `C-6` | Unreachable states in the vocabulary | None found. Every terminal state is reachable and no state lacks an entry edge; the code's transition tables were read in full | **no finding** | — |
 | `C-7` | Unsafe transitions | None found beyond the designed sequence; mainnet approval cannot precede testnet verification, and a compromised record cannot be revived | **no finding** | — |
 
