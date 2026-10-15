@@ -153,7 +153,7 @@ not ready to be considered.
 | AU-OPEN-03 | Whether any automation may act on a schedule in production at all, and under whose name | `[TO BE DECIDED]` |
 | AU-OPEN-04 | Whether automated acts bind the entity, and the basis of that view | `[COUNSEL TO CONFIRM]` — Q-SCG-11 |
 | AU-OPEN-05 | Retry policy per class for failed runs | `[TO BE DECIDED]` |
-| AU-OPEN-06 | Two documentation-drift observations recorded by the audit (a stale "four rules" comment in `payments/risk.ts`; one import statement left inside the leading comment of `payments/ingest.ts`) — cosmetic, unfixed by choice in a documentation-only change set | A future engineering change; `BEYU-SCG-13` |
+| AU-OPEN-06 | Two documentation-drift observations recorded by the audit (a stale "four rules" comment in `payments/risk.ts`; one import statement left inside the leading comment of `payments/ingest.ts`) — cosmetic, **unfixed by choice** in the Phase 1 documentation-only change set. **CLOSED in Phase 2** (`BEYU-SCG-12` `D-5`, `D-6`): both were fixed, with no behavioural change, once the change set was no longer documentation-only | **Closed.** Recorded in `AUTOMATION_INVENTORY.json` `inventory_observations`; the inventory and the source were updated in the same change set |
 
 ## 9. What this document does not establish
 

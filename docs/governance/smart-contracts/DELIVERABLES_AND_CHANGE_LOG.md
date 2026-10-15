@@ -53,7 +53,7 @@ edited by this engagement.
 | B4 | No source approved; no oracle verified | Verification requires access to the source; the environment cannot reach it |
 | B5 | No new mechanical check implemented (V-3…V-7) | The confirmed scope was documentation; implementing checks is a code change requiring its own review |
 | B6 | No legal citation added; no statutory position asserted | Counsel must answer; this environment cannot reach Tanzanian primary sources |
-| B7 | No code defect fixed (the two documentation-drift observations in `payments/risk.ts` and `payments/ingest.ts`) | A documentation-only change set must not smuggle a code change; recorded instead (`BEYU-SCG-04` AU-OPEN-06) |
+| B7 | No code defect fixed (the two documentation-drift observations in `payments/risk.ts` and `payments/ingest.ts`) | A documentation-only change set must not smuggle a code change; recorded instead (`BEYU-SCG-04` AU-OPEN-06). **Phase 2 note:** both were fixed in a **separate, clearly labelled commit** once the change set was no longer documentation-only — the separation this entry was protecting was preserved in substance, not abandoned |
 | B8 | No legal-pack document amended, renumbered or superseded | The legal pack is owned by its own engagement; this pack cross-references it |
 | B9 | No entity, appointment, instrument or custody arrangement created or named | Outside this engagement's authority and the repository's evidence |
 
