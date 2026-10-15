@@ -14,7 +14,7 @@ Depends on: the Phase 3 commits; nothing else
 
 > **CONTROL BLOCK.**
 > **This is** the record of what Phase 3 found, changed and verified: a defect in synthetic fixture data, a
-> reconciliation of this pack's blocker register, and a plan for separating a 154-path change set into
+> reconciliation of this pack's blocker register, and a plan for separating a 155-path change set into
 > reviewable units. Every number below is an observation with the command that produced it.
 > **This is not** an approval, a certification, an authorization, a risk acceptance, or the act the evidence
 > checklist in §3 describes. It does not clear a blocker, populate a register, authorize an automation, or
@@ -39,7 +39,8 @@ recorded in §6 `D-3` and `D-4`.
 | Working tree | clean before and after each commit; no force-push, no history rewrite |
 | Pull request | **#108** — OPEN, not draft, base `main`, review decision empty, **not merged** |
 | PR size at `d153529` | **151 files, +31,397 / −3** (145 added, 6 modified) |
-| PR size after `3bb33f6` | **154 files** (146 added, 8 modified) — the PR counters refresh when the commit is pushed; the post-push CI result is **not** claimed here |
+| PR size after `3bb33f6` (the `BLK-08` fix) | **154 files** (146 added, 8 modified) |
+| PR size after `d3f43a0` (this record) | **155 files, +32,265 / −14** (147 added, 8 modified) — **observed from the PR API itself**, and it agrees with `git diff --name-status main HEAD`. No post-push CI result is claimed for this head |
 
 ### 1.1 CI at `d153529` — the last fully observed run
 
@@ -207,14 +208,14 @@ checklist does not advance it.
 | Unit | Concern | Paths | Count |
 |---|---|---|---|
 | **A** | Existing legal documentation pack (`docs/governance/legal-foundations/`) | every path under that directory | **121** |
-| **B** | BEYU-SCG documentation pack (`docs/governance/smart-contracts/`) | every path under that directory | **20** |
+| **B** | BEYU-SCG documentation pack (`docs/governance/smart-contracts/`) — 20 Markdown documents + 1 JSON inventory, **including this record**, which is a path in the unit it classifies | every path under that directory | **21** |
 | **C1** | SCG runtime enforcement + its CI wiring | `src/lib/smart-contracts/registry.ts`, `src/lib/smart-contracts/checks.ts`, `scripts/scg-checks.ts`, `tests/smart-contracts/governance-enforcement.test.ts`, `.github/workflows/ci.yml`, `package.json`, `scripts/verify.mjs` | 7 |
 | **C2** | Payment-record defects found in the Phase 2A audit | `src/lib/payments/ingest.ts`, `src/lib/payments/risk.ts` | 2 |
 | **C3** | Re-runnable RLS isolation probe | `tests/security/search-rls-isolation.test.ts` | 1 |
 | **C4** | `BLK-08` evidence integrity (Phase 3) | `src/db/seed.ts`, `tests/family/office/trust-governance.test.ts`, `tests/security/synthetic-fixture-integrity.test.ts` | 3 |
 | **D** | Unrelated or unclassified | — | **0** |
 
-**Total 154 paths** = 121 A + 20 B + 13 C, with 0 unclassified. C1–C4 partition the 13 code paths with **no
+**Total 155 paths** = 121 A + 21 B + 13 C, with 0 unclassified. C1–C4 partition the 13 code paths with **no
 path appearing in two units**, which is what makes a clean separation possible at all.
 
 ### 4.2 The one hard dependency
@@ -266,6 +267,7 @@ The units own disjoint **paths** but the history is interleaved. Commit attribut
 | `9e7ed4a` | PR state and CI result | B |
 | `d153529` | green CI record | B |
 | `3bb33f6` | `BLK-08` evidence integrity | C4 |
+| `d3f43a0` | Phase 3 record: `BLK-08` reconciliation, `BLK-01` checklist, this separation plan | B |
 
 **`1758607` spans both documentation packs.** A commit-level cherry-pick therefore cannot separate A from
 B: it would drag 3 legal-pack files into the SCG pull request or leave 9 SCG files behind in the legal one.
@@ -292,7 +294,7 @@ enough to review line by line.
 
 ### 4.6 Not executed
 
-**Nothing was split, closed, force-pushed, rewritten or re-based.** PR #108 remains open with all 154
+**Nothing was split, closed, force-pushed, rewritten or re-based.** PR #108 remains open with all 155
 paths on one branch. This section is a **plan and its evidence, for human review**. Creating or mutating
 pull requests requires explicit authorisation that this phase did not receive and did not assume.
 
@@ -336,7 +338,7 @@ constraints and defaults) but was **not** isolated by an A/B test.
 |---|---|---|
 | `D-1` | `BLK-05` and `BLK-08` were **cited by three documents** (`BEYU-SCG-15` `C-5`, `BEYU-SCG-17` `A-08`/`A-09`, legal pack `BEYU-LF-D76`) while having **no row** in `BEYU-SCG-16`, whose own total claimed 26 blockers against 24 rows | **Repaired in this phase**: both rows restored in `BEYU-SCG-16` from the cross-references that cite them, summary and count reconciled to 26. No blocker was invented |
 | `D-2` | `BEYU-SCG-15` `C-5` and `BEYU-SCG-17` `A-08` still say "no fixture change (beyond mandate)" | **Stale as of this phase.** Annotated as superseded rather than rewritten — the Phase 2 records stay as they were written, and `BEYU-SCG-18` is the record of the change |
-| `D-3` | The Phase 3 brief's counts were verified against the repository: **151 files at `d153529` reconciled exactly** as 145 added + 6 modified | No discrepancy |
+| `D-3` | The Phase 3 brief's counts were verified against the repository: **151 files at `d153529` reconciled exactly** as 145 added + 6 modified. The total then grew with Phase 3's own two commits — 154 after `3bb33f6`, **155** after `d3f43a0` — because this record is itself a path in unit **B** | No discrepancy; the growth is accounted for path by path |
 | `D-4` | The working tree arrived at `main` (`05e2fba`) with branch content present as local modifications. Before any reset, **all 145 branch-only paths were byte-compared against `origin/arena/8fbc8030-beyu-os-1-0`: 145 identical, 0 differing, 0 missing** | Recorded: a fresh sandbox's local state must be verified before it is trusted or discarded |
 | `D-5` | `F-1`: pre-existing seeded databases still hold the fabricated rows; a re-seed does not repair them | **Operator decision** — an authorised, evidenced remediation per environment |
 | `D-6` | `F-3`: `relationship_to_parent` defaults to `"CHILD"`, outside the engine's relationship vocabulary | **Schema decision** |
