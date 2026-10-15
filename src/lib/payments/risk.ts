@@ -2,7 +2,7 @@
  * Deterministic risk checks on ingested money movement.
  *
  * DELIBERATELY NOT A "FRAUD ENGINE"
- *   Four rules, each a count or a comparison against a configured limit, each
+ *   Five rules, each a count or a comparison against a configured limit, each
  *   carrying the numbers it used so a reviewer can check the work. No model, no
  *   score learned from data, no probability claim — the platform has no fraud
  *   training corpus and saying otherwise would be marketing. The `score` column
