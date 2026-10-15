@@ -56,7 +56,29 @@ the repository; only `.env.example`.
 | `npx tsc --noEmit` | **exit 0** | with `NODE_OPTIONS=--max-old-space-size=3072`; the sandbox OOMs without it |
 | `npx eslint .` | **0 errors** | one pre-existing `no-img-element` warning in an unrelated component |
 
-### 2.1 What was NOT run, and is therefore not claimed
+### 2.1 CI, exactly as observed
+
+CI was triggered by the push, and the results are reported here with the same discipline as the local
+runs — including what did **not** complete.
+
+| Job | Result at the Phase 2 head | Note |
+|---|---|---|
+| **BEYU-SCG governance checks** (the step this phase added) | **PASS** | Step 10 of the root job, after typecheck and lint |
+| Typecheck, lint, migrations applied/recorded, migration determinism, ledger reconciliation, Expand/Contract safety, drift-gate self-test | **PASS** | Steps 8–16 of the root job |
+| Verify no schema drift, DR drill, runtime-role provisioning, seed, production build, server start, **full root regression**, browser tests | **NOT RUN in CI on this head** | Steps 17+ were **CANCELLED** by the workflow's `cancel-in-progress` when the next push arrived — not failed, and not reported as passing |
+| Migration validation (scratch PostgreSQL 16) | **PASS** (1 m 6 s) | Failed at *container initialisation* on the previous run; see below |
+| Health OS backend — real PostgreSQL gate | **PASS** (7 m 26 s) | The job that had been failing in earlier runs |
+| Committed secret scan, three dependency audits, P3 release governance, Health OS frontend, Vercel | **PASS** | — |
+| Root BEYU OS — PostgreSQL security gate, at the final head | **failed at step 2 "Initialize containers"** in 14 s, with all 27 real steps **skipped** | Infrastructure, and provably content-independent: container initialisation runs **before** "Checkout repository", so no file in this change set can affect it. The same step passed on the preceding run and on the run before that |
+
+**The container-initialisation failure moves between jobs from run to run** — it hit the migration job
+on one run, the Health OS backend gate on an earlier one, and the root job on the latest — while the
+same jobs pass on other runs. That is a flake signature, and the ordering evidence above makes it
+conclusive: the step cannot read the repository. **It is reported here as an observation, not dismissed
+as "environmental"** (`BEYU-SCG-09` V-10), and **no CI result on the final head is claimed as a full
+pass**, because the full regression did not complete in CI on this head.
+
+### 2.2 What was NOT run, and is therefore not claimed
 
 * **No HTTP suite.** Every `-http.test.ts` suite **skipped** for want of a running server. No HTTP
   result is claimed anywhere in this report.
@@ -100,14 +122,17 @@ exists as text with no mechanical enforcement, which is recorded rather than tre
 
 ### 4.1 Observed state of PR #108
 
-| Property | Observed |
-|---|---|
-| State | **OPEN**, not draft, not merged |
-| Head | `arena/8fbc8030-beyu-os-1-0` at `8e44971` when inspected; this phase added commits on top |
-| Base | `main` @ `05e2fba` |
-| Mergeability | MERGEABLE / mergeState UNSTABLE |
-| Size at inspection | 137 files, **+28,363 / −0**, entirely under `docs/` |
-| Review decision | empty — **no human review recorded** |
+| Property | Phase 1 head (`8e44971`) | Phase 2 head (`baa311e`) |
+|---|---|---|
+| State | OPEN, not draft, not merged | OPEN, not draft, **not merged** |
+| Base | `main` @ `05e2fba` | `main` @ `05e2fba` |
+| Mergeability | MERGEABLE / mergeState UNSTABLE | MERGEABLE / mergeState UNSTABLE |
+| Size | 137 files, **+28,363 / −0**, entirely under `docs/` | 152 files, **+31,650 / −3** — no longer documentation-only |
+| Contents | documents only | documents, plus 5 code/test paths and one CI step |
+| Review decision | empty — **no human review recorded** | empty — **still no human review recorded** |
+
+The three deletions are the two payment fixes (one header line, one stranded import line)
+and the security-test probe rebinding. Everything else added is additive.
 
 **After this phase the change set is no longer documentation-only.** It contains code, tests, a
 package script and a CI step. The pack's own verification statement `V-09` asserted the documentation-
@@ -221,8 +246,8 @@ proposal plus counsel questions.
 
 | # | Gap | Closes when |
 |---|---|---|
-| `G-1` | No HTTP suite was executed; 126 tests skipped | CI runs them with a server, or a reviewer runs them and records the result |
-| `G-2` | No full-suite run, no build, no browser specifications this phase | A full `npm run verify` |
+| `G-1` | No HTTP suite was executed **in this sandbox**; 126 tests skipped. In CI the full root regression did **not complete** on this head — it was cancelled by `cancel-in-progress` — so the HTTP/E2E suites are unproven on the final commit | A CI run that is allowed to finish, or a reviewer who runs them and records the result |
+| `G-2` | No full-suite run locally, and `npm run build` was not run locally | A full `npm run verify`, and a CI run permitted to reach the build step |
 | `G-3` | `V-3` proves a directory-level floor, not behaviour-level coverage | A per-behaviour inventory method, or explicit acceptance of the floor |
 | `G-4` | Static scans cannot prove absence of a capability | Nothing fully closes this; state it whenever the check is cited as assurance |
 | `G-5` | `V-5` remains a human review step | Applied by a reviewer at the gate |
