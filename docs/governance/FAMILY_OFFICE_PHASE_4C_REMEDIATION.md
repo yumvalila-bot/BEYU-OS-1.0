@@ -287,10 +287,18 @@ these runs failed and the reason matters.
 | `38853172543` | `53553e9` | **success** | **All 8 jobs green**, 113 steps, **52 m 55 s** |
 | `38857844624` | `688ab40` | **success** | **All 8 jobs green**, including the root gate |
 | `38862543285` | `dc50fb8` | **success** | **All 8 jobs green** again on the record-correction commit |
+| `38867873971` | `6de25bb` | **failure** | **Root gate: SUCCESS.** `Health OS backend` failed in `Initialize containers` again — *"Docker pull failed with exit code 1"* — with every repository step `skipped`. The third occurrence of the same image pull |
 
-So: **four runs reached the repository steps and all four passed the root gate**; **two runs failed, and
-both failed on a Docker image pull with every repository step skipped.** That is the whole CI picture, and
-it is deliberately not summarised as "CI is green" without those two failures attached.
+**Exact tally, as a snapshot taken while writing (six CI runs).** The root gate — the job that covers this
+change — **passed in five of the six**: `89b10fa`, `53553e9`, `688ab40`, `dc50fb8`, `6de25bb`. Its single
+failure, `38852421414`, was a Docker image pull during container initialisation with every repository step
+skipped. Two runs additionally had the *other* PostgreSQL job, `Health OS backend`, fail the same way:
+`38848304642` and `38867873971`.
+
+**Every failure in this phase was a Docker image pull during `Initialize containers`. No run ever failed
+in repository code.** That is the whole CI picture, and it is deliberately not summarised as "CI is green"
+without those failures attached. This tally is a snapshot: each push adds a run, so the PR's checks page,
+not this table, is authoritative.
 
 **Why this is recorded rather than smoothed over.** Two runs failed and the reason was **not** this
 change. The evidence is the inversion above: two runs of an *identical tree* failed *different* jobs, both
