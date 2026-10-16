@@ -36,7 +36,7 @@ to remain current.
 | Branch | `arena/8fbc8030-beyu-os-1-0` (this session's branch; the only branch worked on) |
 | HEAD at phase start | `4951c2c` — 15 commits over `main` `05e2fba`, tree clean |
 | PR #108 | **OPEN, not draft, not merged**, `MERGEABLE`, review decision empty — see §5.3 for the phase-end verification |
-| HEAD at phase end | `53553e9` — 17 commits over `main`; PR #108 reports `changed_files=158` (156 + the 2 files of §6) |
+| HEAD at phase end | `688ab40` — 18 commits over `main`; PR #108 reports `changed_files=158` (156 + the 2 files of §6). The Phase 4C **code** change is `89b10fa`; `08527f3`, `53553e9` and `688ab40` are the retrigger commits (the first two empty) and the record correction |
 | Other open PRs | **25 untouched** — none closed, modified or merged |
 | Sandbox state on arrival | **Reset again**: HEAD at `main` with branch content as uncommitted local modifications |
 | Integrity gate applied before restore | All **156** branch-only paths byte-compared against `origin/arena/8fbc8030-beyu-os-1-0` → **156 identical, 0 differing, 0 missing**; only then restored |
@@ -284,6 +284,7 @@ these runs failed and the reason matters.
 | `38848304642` | `89b10fa` | **failure** | **Root BEYU OS gate: SUCCESS.** `Health OS backend — real PostgreSQL gate` failed in the step **"Initialize containers"** with *"Docker pull failed with exit code 1"* — **every repository step was `skipped`**; the job aborted 16 s in |
 | `38852421414` | `08527f3` | **failure** | The **inverse**: `Health OS backend` **SUCCESS**, **Root BEYU OS gate** failed in `Initialize containers` with the same *"Docker pull failed"*. Same tree as the run above |
 | `38853172543` | `53553e9` | **success** | **All 8 jobs green**, 113 steps, **52 m 55 s** |
+| `38857844624` | `688ab40` | **success** | **All 8 jobs green** at HEAD, including the root gate — the clean pipeline result this phase was aiming for |
 
 **Why this is recorded rather than smoothed over.** Two runs failed and the reason was **not** this
 change. The evidence is the inversion above: two runs of an *identical tree* failed *different* jobs, both
@@ -292,7 +293,7 @@ executed. The discriminating variable is the image pull. The third run — same 
 
 **The root gate is the job that covers this change** (it runs `npm test`, i.e. the full vitest sweep,
 which includes `tests/security/family-office-uncovered-table-isolation.test.ts`). It passed at `89b10fa`,
-and again, with the complete pipeline green, at `53553e9`.
+again with the complete pipeline green at `53553e9`, and again at HEAD `688ab40`.
 
 **Re-runs were not available to me.** `gh run rerun --failed` returned *"cannot be rerun; its workflow
 file may be broken"* and the REST `rerun-failed-jobs` endpoint returned **403** *"Resource not accessible
