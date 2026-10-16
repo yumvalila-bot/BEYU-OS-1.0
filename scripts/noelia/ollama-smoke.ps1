@@ -256,7 +256,9 @@ if (-not $SkipTests) {
 
     Write-Step "7. Opt-in LIVE smoke test (real inference against your Ollama)"
     $env:NOELIA_OLLAMA_LIVE_TEST = "1"
-    & npx vitest run tests/noelia/ollama-live-smoke.test.ts
+    # Live suites live OUTSIDE the default include (`*.live.ts`) so the normal
+    # run never reports them as skipped; this config collects them explicitly.
+    & npx vitest run --config vitest.live.config.ts tests/noelia/ollama-live-smoke.live.ts
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Live smoke test passed: a real inference round-trip completed."
         Write-Note "Reported status is evidence-based: CONNECTED then VERIFIED, and COMPLETED for the governed generation."

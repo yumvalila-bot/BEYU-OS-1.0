@@ -22,7 +22,7 @@ governance boundary.
 | Configuration + validation | `src/lib/noelia/ollama-config.ts` | single resolution point; fail-closed |
 | Gateway mounting + governed execution | `src/lib/noelia/model-gateway.ts` | routing decision remains authoritative |
 | HIVE runtime integration | `src/lib/noelia/runtime.ts` | generative text is returned only as labelled, untrusted inference |
-| Tests | `tests/noelia/ollama-*.test.ts` | hermetic by default, live test opt-in |
+| Tests | `tests/noelia/ollama-*.test.ts` | hermetic; the live suite is `ollama-live-smoke.live.ts` (opt-in, excluded from the default run) |
 | PowerShell script | `scripts/noelia/ollama-smoke.ps1` | availability, models, API, tests, diagnostics |
 
 **Never** put an Ollama call in browser/client code, and never expose port
@@ -63,8 +63,10 @@ $env:NOELIA_OLLAMA_MAX_ATTEMPTS = "2"
 npx vitest run tests/noelia/ollama-provider.test.ts tests/noelia/ollama-http-integration.test.ts tests/noelia/ollama-gateway.test.ts
 
 # 6. Optional LIVE smoke test (real inference against your Ollama)
+#    Live suites are NOT part of the default run (`*.live.ts` is excluded from
+#    it), so they are always invoked explicitly through the live config.
 $env:NOELIA_OLLAMA_LIVE_TEST = "1"
-npx vitest run tests/noelia/ollama-live-smoke.test.ts
+npx vitest run --config vitest.live.config.ts tests/noelia/ollama-live-smoke.live.ts
 Remove-Item Env:NOELIA_OLLAMA_LIVE_TEST
 ```
 

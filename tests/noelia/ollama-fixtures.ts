@@ -7,7 +7,8 @@ import { resolveOllamaRuntimeConfig, type OllamaRuntimeConfig } from "@/lib/noel
  *
  * NO test in this repository requires a real Ollama runtime, the network or the
  * operator's machine. Every provider test injects an HTTP client built here.
- * The opt-in live smoke test (tests/noelia/ollama-live-smoke.test.ts) is the
+ * The opt-in live smoke test (tests/noelia/ollama-live-smoke.live.ts, run with
+ * vitest.live.config.ts) is the
  * only place a real endpoint may be contacted, and it is skipped by default.
  */
 

@@ -6,7 +6,14 @@ import { AI_PROVIDER_STATUSES } from "@/lib/noelia/model-provider";
 /**
  * OPT-IN live smoke test against a REAL Ollama runtime.
  *
- * Normal CI never runs this: it is skipped unless the operator explicitly sets
+ * This file is deliberately NOT `*.test.ts`, so the default runner never
+ * collects it and it cannot inflate the repository's skipped-test count (CI
+ * fails a run with more than 15 skips). Run it explicitly:
+ *
+ *   npx vitest run --config vitest.live.config.ts tests/noelia/ollama-live-smoke.live.ts
+ *
+ * It is still gated on the operator's explicit consent: nothing below executes
+ * unless
  *
  *   NOELIA_OLLAMA_LIVE_TEST=1
  *   NOELIA_MODEL_PROVIDER=OLLAMA
@@ -22,6 +29,8 @@ import { AI_PROVIDER_STATUSES } from "@/lib/noelia/model-provider";
  */
 const LIVE = process.env.NOELIA_OLLAMA_LIVE_TEST === "1";
 
+// Skipped rather than silently passing: an explicit live run without the opt-in
+// variable must be visibly skipped, never reported as a success.
 describe.skipIf(!LIVE)("Ollama live smoke test (opt-in: NOELIA_OLLAMA_LIVE_TEST=1)", () => {
   const config = resolveOllamaRuntimeConfig();
 

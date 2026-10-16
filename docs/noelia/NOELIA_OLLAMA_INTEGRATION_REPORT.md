@@ -144,7 +144,7 @@ and no file this change touches is involved.
 | `tests/noelia/ollama-provider.test.ts` | 32 unit tests: configuration, status transitions, request mapping, failure modes, no-leak |
 | `tests/noelia/ollama-http-integration.test.ts` | 5 tests over a real loopback HTTP server through the default `fetch` client |
 | `tests/noelia/ollama-gateway.test.ts` | 18 governed gateway/HIVE tests against PostgreSQL (rollback-scoped registrations) |
-| `tests/noelia/ollama-live-smoke.test.ts` | opt-in live test (`NOELIA_OLLAMA_LIVE_TEST=1`), skipped by default |
+| `tests/noelia/ollama-live-smoke.live.ts` | opt-in live test (`NOELIA_OLLAMA_LIVE_TEST=1`); `*.live.ts` is outside the default include, so it adds no skipped tests to the normal run |
 | `scripts/noelia/ollama-smoke.ps1` | PowerShell availability/models/API/tests/diagnostics script |
 | `docs/noelia/NOELIA_OLLAMA_LOCAL_DEVELOPMENT.md` | operator guide (PowerShell-first) |
 | `docs/noelia/NOELIA_OLLAMA_INTEGRATION_REPORT.md` | this document |
@@ -298,7 +298,7 @@ Behaviour explicitly covered by the new tests:
 **Partly — and this is stated plainly.**
 
 * **Run in this sandbox:** the opt-in live suite
-  (`tests/noelia/ollama-live-smoke.test.ts`) was executed with
+  (`tests/noelia/ollama-live-smoke.live.ts`) was executed with
   `NOELIA_OLLAMA_LIVE_TEST=1` against an Ollama-compatible **loopback mock**
   endpoint (a local HTTP server implementing the documented Ollama wire
   protocol). It reported `CONNECTED` → `VERIFIED` → `COMPLETED` and `FAILED` for
