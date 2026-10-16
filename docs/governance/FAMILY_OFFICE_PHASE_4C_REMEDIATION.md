@@ -35,7 +35,8 @@ to remain current.
 |---|---|
 | Branch | `arena/8fbc8030-beyu-os-1-0` (this session's branch; the only branch worked on) |
 | HEAD at phase start | `4951c2c` — 15 commits over `main` `05e2fba`, tree clean |
-| PR #108 | **OPEN, not draft, not merged**, `MERGEABLE`, review decision empty |
+| PR #108 | **OPEN, not draft, not merged**, `MERGEABLE`, review decision empty — see §5.3 for the phase-end verification |
+| HEAD at phase end | `53553e9` — 17 commits over `main`; PR #108 reports `changed_files=158` (156 + the 2 files of §6) |
 | Other open PRs | **25 untouched** — none closed, modified or merged |
 | Sandbox state on arrival | **Reset again**: HEAD at `main` with branch content as uncommitted local modifications |
 | Integrity gate applied before restore | All **156** branch-only paths byte-compared against `origin/arena/8fbc8030-beyu-os-1-0` → **156 identical, 0 differing, 0 missing**; only then restored |
@@ -262,11 +263,56 @@ migration suite is 105/105 green.
 **Classification: environment/operator error, not a repository failure.** Recorded because "7 failed" was
 a real observed result and the correction must be visible, not quietly overwritten.
 
-### 5.2 Reported honestly as NOT RUN
+### 5.2 Local scope, and what CI added
 
-The **full repository suite**, the **build**, and the **browser/HTTP specs** were **not** run in this
-phase. The `-http.test.ts` suites skip without a live server; **4 skipped** tests in §5 are those. No
-claim is made about them. `npm run verify` as a whole was not executed.
+Locally, this phase ran the targeted suites above rather than `npm run verify` as a whole. The
+**browser/HTTP specs** locally skip without a live server — the **4 skipped** tests in §5 are those.
+
+CI covers the rest, and it ran on this change (§5.3): the root gate executes **`npm test`** (the full
+vitest suite, including the new file), **two production builds**, the migration integrity stage, the SCG
+gate, both lint and typecheck, plus a browser suite against a booted server and a step that asserts no
+suite was silently skipped for want of a server. **Those results are CI's, observed in the runs listed
+below — not reproduced locally, and not claimed as local evidence.**
+
+### 5.3 CI — including a real infrastructure failure, and how it was isolated
+
+The pipeline was run to completion on the Phase 4C code. Reporting the failures first, because two of
+these runs failed and the reason matters.
+
+| Run | Commit | Outcome | Detail |
+|---|---|---|---|
+| `38848304642` | `89b10fa` | **failure** | **Root BEYU OS gate: SUCCESS.** `Health OS backend — real PostgreSQL gate` failed in the step **"Initialize containers"** with *"Docker pull failed with exit code 1"* — **every repository step was `skipped`**; the job aborted 16 s in |
+| `38852421414` | `08527f3` | **failure** | The **inverse**: `Health OS backend` **SUCCESS**, **Root BEYU OS gate** failed in `Initialize containers` with the same *"Docker pull failed"*. Same tree as the run above |
+| `38853172543` | `53553e9` | **success** | **All 8 jobs green**, 113 steps, **52 m 55 s** |
+
+**Why this is recorded rather than smoothed over.** Two runs failed and the reason was **not** this
+change. The evidence is the inversion above: two runs of an *identical tree* failed *different* jobs, both
+in the same container-initialisation step, both with a Docker image pull error, with no repository step
+executed. The discriminating variable is the image pull. The third run — same tree — passed everything.
+
+**The root gate is the job that covers this change** (it runs `npm test`, i.e. the full vitest sweep,
+which includes `tests/security/family-office-uncovered-table-isolation.test.ts`). It passed at `89b10fa`,
+and again, with the complete pipeline green, at `53553e9`.
+
+**Re-runs were not available to me.** `gh run rerun --failed` returned *"cannot be rerun; its workflow
+file may be broken"* and the REST `rerun-failed-jobs` endpoint returned **403** *"Resource not accessible
+by integration"*. The only available trigger was a commit, so the two retrigger commits are **empty** —
+`--allow-empty`, changing no files — and are labelled as retriggers in their messages. They exist solely
+to obtain a pipeline result for an unchanged tree.
+
+**No production action occurred, verified rather than assumed.** For the green commit, the
+`db-release` workflow ran exactly one job, **"Migration validation (scratch PostgreSQL 16)" — success**,
+and **all six production jobs were `skipped`**: production preflight, production drift report, production
+database deploy + verify, runtime verification (production `/api/health`), the Production Verification
+Gate, and the three-way release record. The workflow's own header states the design: pull-request events
+run repo-side validation only, and deploy steps are conditioned to push-to-`main`/`workflow_dispatch`
+(decision D-6, "NO AUTOMATIC PRODUCTION MIGRATION").
+
+**One incidental finding, worth carrying into `FO-IMP-01`.** The root gate's migration steps are *named*
+"migrations 0000-0075", which looks like a hardcoded bound that a `0076` migration would break. It is
+not: the assertion is `expected=$(ls drizzle/*.sql | wc -l)` compared against the applied count, so it is
+self-updating, and only the **step name** is stale. **The snapshot requirement in §2.1 remains the sole
+structural blocker** for a new migration — this was checked so that the blocker list is exact.
 
 ---
 
@@ -281,6 +327,7 @@ claim is made about them. `npm run verify` as a whole was not executed.
 | Grants / policies | **none** | 0 |
 | Seed / fixtures | **none** | 0 |
 | Existing tests | **untouched** | 0 |
+| CI retrigger commits | **empty** (`--allow-empty`, no file changes) ×2 | 0 |
 
 **Rollback:** delete the two new files. Nothing else changed, so no migration reversal, no grant
 restoration and no data repair is required. The suite is read-only apart from write probes that are always
