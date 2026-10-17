@@ -1,9 +1,12 @@
 /**
- * Production database release is never automatic (audit H-9; decision D-6).
+ * Production database release is never automatic (audit H-9; decision D-6;
+ * hardened by ADR D2).
  *
- * A push to main may run the read-only live preflight. Every job that migrates,
- * publishes a release record, verifies the live runtime or runs the Production
- * Verification Gate must run only on an explicit workflow_dispatch with mode=deploy.
+ * A push to main runs the scratch-database repo preflight only. Every job that
+ * reads or mutates production — the live preflight, the migration itself, the
+ * release record, the runtime verification and the Production Verification Gate
+ * — runs only on an explicit workflow_dispatch restricted to refs/heads/main
+ * and bound to the `Production` environment.
  * The check is textual, which matches the other workflow guards in this repository.
  */
 import { readFileSync } from "node:fs";
@@ -42,9 +45,19 @@ describe("production database release is dispatch-only (D-6)", () => {
     });
   }
 
-  it("the read-only live preflight may still run on push, and mutates nothing", () => {
+  it("the read-only live preflight never runs on push either (ADR D2)", () => {
+    // Tightened from the original D-6 wording, which allowed the read-only
+    // preflight to run on a push to main. ADR D2 requires the production
+    // secrets to live on the `Production` environment only, and an environment
+    // secret is only reachable from a job bound to that environment. A job that
+    // reads production must therefore never be reachable from a push: the
+    // preflight is dispatch-only and main-only like every other production job.
+    // Nothing is lost — `mode=preflight` produces the same read-only plan on
+    // demand, and the scheduled drift report still covers unattended drift.
     const condition = jobCondition("live-preflight");
-    expect(condition).toMatch(/github\.event_name == 'push'/);
+    expect(condition).not.toMatch(/github\.event_name == 'push'/);
+    expect(condition).toMatch(/github\.event_name == 'workflow_dispatch'/);
+    expect(condition).toMatch(/github\.ref == 'refs\/heads\/main'/);
     expect(condition).not.toMatch(/inputs\.mode == 'deploy' \|\|/);
   });
 

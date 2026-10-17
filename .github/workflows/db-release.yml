@@ -21,13 +21,23 @@
 #     loudly with an EXTERNAL_BLOCKED annotation — they never silently skip.
 #   * DESTRUCTIVE MIGRATIONS (DROP/TRUNCATE/…) against an existing schema
 #     stop the pipeline for explicit human approval (--allow-destructive).
-#   * NO AUTOMATIC PRODUCTION MIGRATION (decision D-6). A push to main runs the
-#     read-only live preflight only. The mutating jobs (deploy, release-record,
-#     runtime-verify, pvg) run solely on an explicit workflow_dispatch with
-#     mode=deploy, and the Production environment should require human reviewers.
-#     Drift reporting stays read-only and scheduled.
+#   * NO AUTOMATIC PRODUCTION MIGRATION (decision D-6), hardened by ADR D2. A push to main
+#     runs CI, build, tests and the scratch migration-safety proof, and nothing
+#     else: no job that holds a production secret or reaches a production system
+#     is reachable from a push. Every such job (live-preflight, deploy,
+#     release-record, runtime-verify, pvg, drift-report) is workflow_dispatch- or
+#     schedule-only, restricted to refs/heads/main, and bound to the GitHub
+#     `Production` environment, which carries the required human reviewer, the
+#     self-review prevention, the branch policy and the production secrets
+#     (docs/deployment/PRODUCTION_ENVIRONMENT_GATE.md).
+#   * PLAN, THEN APPLY. `mode=preflight` inspects production read-only and
+#     publishes the pending plan. `mode=deploy` runs that same read-only plan
+#     first, then waits at the Production environment gate for a human reviewer,
+#     and refuses to start unless an approved change reference and a verified
+#     backup / recovery reference were recorded on the run.
 #
-# SECRETS CONTRACT (repository secrets, set by the owner):
+# SECRETS CONTRACT (environment secrets on `Production` ONLY, set by the owner;
+# never repository-wide — a repository-wide secret is readable by every job):
 #   BEYU_ADMIN_DATABASE_URL  Supabase Postgres ADMIN/migration DSN
 #                            (postgres.<ref> @ session pooler :5432,
 #                             sslmode=verify-full). DDL authority.
@@ -45,12 +55,22 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preflight = read-only production inspection · deploy = migrate + verify + provenance · drift = scheduled drift report"
+        description: "preflight = read-only production plan · deploy = plan + approved migrate + verify + provenance (main only) · drift = read-only drift report"
         type: choice
         options: [preflight, deploy, drift]
         default: preflight
+      change_reference:
+        description: "deploy only — approved change ticket or PR URL that authorises this migration"
+        type: string
+        required: false
+        default: ""
+      backup_reference:
+        description: "deploy only — verified backup / PITR restore point id and named rollback owner"
+        type: string
+        required: false
+        default: ""
   schedule:
-    - cron: "0 6 * * 1" # Mondays 06:00 UTC — production drift detection
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC — read-only production drift report (environment-gated)
 
 # Serialize production pipeline runs; never cancel a migration mid-flight.
 concurrency:
@@ -160,12 +180,16 @@ jobs:
   live-preflight:
     name: Production preflight (read-only)
     needs: preflight-repo
+    # Dispatch-only and main-only. A push never reaches production (ADR D2).
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-       (inputs.mode == 'preflight' || inputs.mode == 'deploy'))
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      (inputs.mode == 'preflight' || inputs.mode == 'deploy')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Environment-scoped secret + the reviewer gate. In deploy mode this plan is
+    # produced before the deploy job's own gate, so a reviewer approves the plan.
+    environment: Production
     env:
       BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
     steps:
@@ -210,7 +234,9 @@ jobs:
     name: Production database deploy + verify
     needs: [live-preflight, preflight-repo]
     if: >-
-      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: Production
@@ -226,6 +252,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Require a change reference and a backup / recovery reference
+        # Human-approval evidence must be on the run before a migration can
+        # start. Both values are non-secret identifiers that appear in the
+        # audit log. They are passed through env:, never interpolated into the
+        # script body.
+        env:
+          CHANGE_REFERENCE: ${{ inputs.change_reference }}
+          BACKUP_REFERENCE: ${{ inputs.backup_reference }}
+        run: |
+          missing=0
+          if [ -z "$CHANGE_REFERENCE" ]; then
+            echo "::error::GOVERNANCE — input change_reference (approved change ticket or PR URL) is required before a production migration."
+            missing=1
+          fi
+          if [ -z "$BACKUP_REFERENCE" ]; then
+            echo "::error::GOVERNANCE — input backup_reference (verified backup or PITR restore point, and the named rollback owner) is required before a production migration."
+            missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            exit 1
+          fi
+          echo "change_reference=$CHANGE_REFERENCE"
+          echo "backup_reference=$BACKUP_REFERENCE"
       - name: Fail closed if production secrets are not configured
         # Written as an explicit if/then/fi (not a trailing `[ ... ] && exit 1`)
         # because GitHub Actions runs `run:` steps under `bash -e {0}`. A bare
@@ -294,7 +343,9 @@ jobs:
     name: Three-way release record
     needs: [deploy, preflight-repo]
     if: >-
-      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -368,7 +419,9 @@ jobs:
     name: Runtime verification (production /api/health)
     needs: deploy
     if: >-
-      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -409,9 +462,14 @@ jobs:
     name: Production Verification Gate (PVG)
     needs: [deploy, runtime-verify, preflight-repo]
     if: >-
-      github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy'
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'deploy'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # PVG reads the production schema through the admin DSN, so it is bound to
+    # the same environment as every other production-reading job (ADR D2).
+    environment: Production
     env:
       BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
       PRODUCTION_URL: ${{ vars.BEYU_PRODUCTION_URL || 'https://beyu-os-1-0.vercel.app' }}
@@ -464,10 +522,14 @@ jobs:
     name: Production drift report (read-only)
     needs: preflight-repo
     if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'drift')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' && inputs.mode == 'drift'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # Read-only, but it still reads production, so it holds the same
+    # environment-scoped secret and the same reviewer gate (ADR D2).
+    environment: Production
     env:
       BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
     steps:
