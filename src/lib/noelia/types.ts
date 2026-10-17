@@ -7,6 +7,7 @@ import type {
   PermissionCode,
 } from "@/lib/constants";
 import type { PolicyEvaluation } from "@/lib/policy";
+import type { AIFinishReason, AIUsage } from "./model-provider";
 
 /**
  * Canonical Noelia engine catalogue.
@@ -151,6 +152,33 @@ export type NoeliaAnswer = {
   routingDecisionId?: string;
   modelExecutionStatus?: "COMPLETED" | "DENIED" | "FAIL_CLOSED" | "BLOCKED" | "NOT_SUPPORTED";
   modelExecutionReason?: string;
+  /**
+   * Phase 2 additive generative attribution.
+   *
+   * Populated ONLY when a real generative runtime actually executed. The text is
+   * UNTRUSTED model output: it is never merged into `narrative`/`findings`/
+   * `sources`, never an authorization, never a tool call, and never an input to
+   * a policy, approval or audit decision. It is deliberately not written into
+   * the AI decision evidence row.
+   */
+  modelOutput?: {
+    text: string;
+    outputClass: "INFERENCE";
+    untrusted: true;
+    provenance: {
+      modelId: string;
+      modelVersion: string;
+      providerId: string | null;
+      providerName: string | null;
+      /** Clamped to the closed vocabulary in runtime.ts; never free text. */
+      runtime: string;
+      endpointScope: string;
+      /** LOCAL_LOOPBACK | SELF_HOSTED_REMOTE_HOST | OLLAMA_CLOUD | UNKNOWN_RUNTIME_KIND */
+      runtimeKind?: string;
+    };
+    usage: AIUsage | null;
+    finishReason: AIFinishReason;
+  };
 };
 
 /** Board/executive/operational briefing structure (presentation metadata only). */
