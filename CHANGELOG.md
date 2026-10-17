@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased] — MFA fail-closed ordering + production release gate (ADR P2, D2) — 2026-10-17
+
+Two changes, both hardening of controls that already existed, and a reconciliation of the audit
+backlog against `main` at `05e2fba`. Evidence and the item-by-item status of P0–P3 / D1–D7:
+`docs/audit/BEYU_OS_ADR_IMPLEMENTATION_STATUS_2026-10-17.md`.
+
+- **`src/lib/mfa.ts` (P2).** `keyMaterial()` built its candidate with the development literal already
+  in the fallback chain and then caught it by string match (`raw.includes("development-only")`), so
+  the placeholder was reachable in the production code path and the guard depended on its exact
+  spelling. Production was already rejected — this does not change that outcome — but the production
+  branch is now evaluated first, a missing or empty key throws before any fallback is considered, and
+  the literal moves to `DEVELOPMENT_MFA_KEY_MATERIAL`, read only on non-production runtimes. Length,
+  all-zero and published-test-key checks are unchanged. `tests/security/mfa-production-fail-closed.test.ts`.
+- **`.github/workflows/db-release.yml` (D2).** PR-5 (`02cef5b`) had already made the mutating jobs
+  dispatch-only and bound `deploy` to the `Production` environment. Two gaps remained and are closed:
+  `live-preflight` ran on every push to `main` while holding `BEYU_ADMIN_DATABASE_URL`, which is
+  incompatible with scoping that secret to the `Production` environment, and is now dispatch-only,
+  `refs/heads/main`-only and environment-bound; and `pvg` read the same admin DSN with no `environment:`
+  binding at all, which forced the secret to stay repository-wide. `deploy` additionally refuses to
+  start without `change_reference` and `backup_reference`.
+  `tests/security/production-release-gating.test.ts` (22 tests) pins the whole job matrix, including a
+  structural backstop that fails if any future job reads a production secret unbound.
+- **`tests/release/db-release-dispatch-only.test.ts`** asserted that `live-preflight` *may* run on push.
+  That assertion is tightened rather than removed — it now requires dispatch-only, main-only, never a
+  push. Flagged here because it changes behaviour the test previously protected.
+
 ## [Unreleased] — Vitest 4: `tinypool` removed from the repository — 2026-10-09
 
 Follow-up to the entry below, taking the owner decision it deliberately left open (§9 of
