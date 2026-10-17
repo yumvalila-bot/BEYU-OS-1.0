@@ -21,9 +21,17 @@
 #     (scripts/diagnose-runtime-dsn.mts).
 #   * It does not touch Vercel, does not rotate secrets, and does not deploy.
 #
+#   * ENVIRONMENT-SCOPED (ADR D2): the job runs in the GitHub `Production`
+#     environment, so its secrets are unavailable until a human reviewer approves
+#     the run. It is restricted to refs/heads/main.
+#   * HOST ALLOWLIST: the runtime password is sent only to a Supabase pooler
+#     (*.pooler.supabase.com, port 5432 or 6543). Any other DIAG_HOST is refused
+#     before any connection (src/lib/release/diagnostic-target.ts). Without this,
+#     the dispatch input would have been an exfiltration path for the password.
+#
 # SECRETS
-#   BEYU_RUNTIME_DB_PASSWORD  password for the NOSUPERUSER runtime role.
-#   BEYU_ADMIN_DATABASE_URL   admin/migration DSN, used ONLY as a control probe.
+#   BEYU_RUNTIME_DB_PASSWORD  password for the NOSUPERUSER runtime role (Production environment).
+#   BEYU_ADMIN_DATABASE_URL   admin/migration DSN, used ONLY as a control probe (Production environment).
 
 name: BEYU OS — runtime DSN diagnostic (read-only)
 
@@ -61,8 +69,10 @@ permissions:
 jobs:
   diagnose:
     name: Probe production runtime DSN (read-only)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    environment: Production
     env:
       BEYU_ADMIN_DATABASE_URL: ${{ secrets.BEYU_ADMIN_DATABASE_URL }}
       BEYU_RUNTIME_DB_PASSWORD: ${{ secrets.BEYU_RUNTIME_DB_PASSWORD }}

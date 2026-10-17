@@ -102,8 +102,8 @@ Contract-phase (destructive/contracting) changes require **two releases**: relea
 | Code path | Environment | Database |
 | --- | --- | --- |
 | feature branch | local + CI scratch | ephemeral (PGlite / CI service container) |
-| pull request | validation; Vercel preview (SSO-protected) | **NO production access**: `db-release.yml` live jobs are conditioned to `push`/`workflow_dispatch` and structurally cannot run from `pull_request` |
-| `main` | production | Supabase `siyzygezdmlxbvwttrdz`, schema deployed only by `db-release.yml` |
+| pull request | validation; Vercel preview (SSO-protected) | **NO production access**: `db-release.yml` live jobs are `workflow_dispatch`- or schedule-only and structurally cannot run from `pull_request` or `push` (ADR D2) |
+| `main` | production | Supabase `siyzygezdmlxbvwttrdz`. Schema changes are applied only by an approved, dispatch-only `db-release.yml` run behind the `Production` environment gate. A push never migrates production. See `PRODUCTION_ENVIRONMENT_GATE.md`. |
 
 Preview deployments receive **no** `DATABASE_URL` (owner must keep it unset in the Vercel Preview environment) — DB-dependent routes fail closed rather than touching production data. A staging Supabase project can be added later for full preview fidelity (decision pending — the pipeline supports it by pointing a second dispatch at a staging DSN).
 
@@ -113,8 +113,8 @@ Preview deployments receive **no** `DATABASE_URL` (owner must keep it unset in t
 
 | Secret | Purpose |
 | --- | --- |
-| `BEYU_ADMIN_DATABASE_URL` | Supabase admin/migration DSN — used ONLY by `db-release.yml` (DDL) |
-| `BEYU_RUNTIME_DB_PASSWORD` | password for the `beyu_runtime` role (provisioned idempotently by `scripts/setup-db-role.ts`, NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION) |
+| `BEYU_ADMIN_DATABASE_URL` | Supabase admin/migration DSN — used ONLY by `db-release.yml` (DDL). **Must be an environment secret on `Production`, not a repository secret** (ADR D2). |
+| `BEYU_RUNTIME_DB_PASSWORD` | password for the `beyu_runtime` role (provisioned idempotently by `scripts/setup-db-role.ts`, NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION). Environment secret on `Production` only. |
 
 **Vercel environment variables (Production only):**
 
@@ -130,7 +130,7 @@ Preview deployments receive **no** `DATABASE_URL` (owner must keep it unset in t
 
 ## 7. Release provenance (Phase 10)
 
-Every production push produces a release record (JSON artifact + GitHub Release with tag `db-release-<sha8>-<run>`):
+Every approved production migration run (`mode=deploy`, `main` only) produces a release record (JSON artifact + GitHub Release with tag `db-release-<sha8>-<run>`). A plain push does not produce one, because a push does not release to the database:
 
 ```json
 {

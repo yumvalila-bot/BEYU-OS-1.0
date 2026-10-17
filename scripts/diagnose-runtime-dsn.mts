@@ -40,6 +40,7 @@ import tls from "node:tls";
 import { Pool } from "pg";
 
 import { classifyConnectionError, probeDatabaseHealth, safeDriverCode } from "../src/lib/db-health";
+import { assertDiagnosticTarget } from "../src/lib/release/diagnostic-target";
 
 const HOST = process.env.DIAG_HOST ?? "aws-0-eu-west-3.pooler.supabase.com";
 const PORT = Number(process.env.DIAG_PORT ?? "6543");
@@ -192,18 +193,21 @@ async function driverProbe(dsn: string, label: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Refuse non-pooler targets BEFORE any socket opens or credential is formatted.
+  // The runtime password is only ever sent to a Supabase pooler host (ADR D2).
+  const target = assertDiagnosticTarget(HOST, PORT);
   if (!RUNTIME_PASSWORD) {
     console.log("::error::EXTERNAL_BLOCKED — BEYU_RUNTIME_DB_PASSWORD is not configured.");
     process.exit(1);
   }
 
   // 1 — credential-free TLS facts for the pooler endpoint.
-  emit("DIAG tlsProbe", await tlsProbe(HOST, PORT));
+  emit("DIAG tlsProbe", await tlsProbe(target.host, target.port));
 
   // 2 — the application's own probe against the production runtime DSN.
   const runtimeDsn = `postgresql://${encodeURIComponent(USER)}:${encodeURIComponent(
     RUNTIME_PASSWORD,
-  )}@${HOST}:${PORT}/${DATABASE}?sslmode=${SSLMODE}&pgbouncer=${PGBOUNCER}`;
+  )}@${target.host}:${target.port}/${DATABASE}?sslmode=${SSLMODE}&pgbouncer=${PGBOUNCER}`;
   process.env.DATABASE_URL = runtimeDsn;
   const started = Date.now();
   const probe = await probeDatabaseHealth();
