@@ -1,5 +1,5 @@
 /**
-import { appendPaymentAudit, withPaymentTenantScope } from "./audit-scope"; * The payment ingestion pipeline — the one door a provider event walks through.
+ * The payment ingestion pipeline — the one door a provider event walks through.
  *
  * ORDERING IS THE SECURITY MODEL. Each step may only narrow what the next step is
  * allowed to believe:

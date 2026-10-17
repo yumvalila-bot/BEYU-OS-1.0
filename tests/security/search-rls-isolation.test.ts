@@ -88,7 +88,17 @@ const PROBES: {
     insert: (id, t, token) => ({
       sql: `insert into knowledge_sources (id, code, title, domain, owner_role, provenance, scope_type, tenant_id, classification, effective_from, review_date, content, keywords)
             values ($1,$2,$3,'SEARCH','PLATFORM_ADMIN','search rls probe','TENANT',$4,'INTERNAL','2024-01-01','2027-01-01',$5,'{}')`,
-      params: [id, t, `SRCHRLS-KS-${RUN}-${token}`, t, `Search RLS probe knowledge ${token}`],
+      // BINDING ORDER IS LOAD-BEARING. `code` is UNIQUE GLOBALLY and this table
+      // is deletion-proof (`protect_knowledge_original` raises on DELETE before
+      // any owner check), so a code that is not per-run poisons the table for
+      // every later run: the first execution succeeds and all subsequent ones
+      // fail here with `duplicate key value violates unique constraint
+      // "knowledge_sources_code_uidx"`. The bindings are therefore positional
+      // against the column list above — $2 is CODE, $3 is TITLE — and $2 must
+      // stay the per-run identifier for the whole suite to remain re-runnable.
+      // CI never caught the previous mis-binding because its PostgreSQL service
+      // is ephemeral (run-scoped): it only ever performed the first run.
+      params: [id, `SRCHRLS-KS-${RUN}-${token}`, `Search RLS probe knowledge ${token}`, t, `Search RLS probe knowledge ${token}`],
     }),
   },
   {
