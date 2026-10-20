@@ -22,6 +22,14 @@ test.afterAll(async () => { await cleanupExecution("GEXUI"); });
 test("real human UI completes mandated work with a different independent verifier", async ({ page, context, baseURL }) => {
   test.setTimeout(120000);
   await useIdentity(context, secretary, baseURL!); await page.goto(`/os/governance#resolution-${resolutionId}`);
+  // Global privacy control: the cookie-consent dialog intentionally intercepts pointer events.
+  // Detect it after navigation and record an explicit privacy-preserving choice so the
+  // governed workflow can proceed without force-clicking through the modal.
+  const consentDialog = page.getByRole("dialog", { name: "How BEYU OS uses cookies" });
+  if (await consentDialog.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: "Reject optional", exact: true }).click();
+    await expect(consentDialog).toBeHidden();
+  }
   const resolution = page.locator(`[data-resolution-id="${resolutionId}"]`);
   await expect(resolution).toBeVisible();
   await resolution.getByText("Record a mandated implementation action", { exact: true }).click();
