@@ -82,9 +82,10 @@ jobs:
       BEYU_GOVERNANCE_DB_PASSWORD: ci_governance_db_password_not_a_secret
     services:
       postgres:
-        # Verified Docker Official Image mirror. This keeps the scratch proof on
-        # PostgreSQL 16 while avoiding unrelated Docker Hub pull failures.
-        image: public.ecr.aws/docker/library/postgres:16
+        # Use postgres:16-alpine (smaller pull, provides btree_gist) to avoid
+        # ECR registry flakiness observed 2026-10-19/20 (Initialize containers
+        # exit 1 on public.ecr.aws mirror). Mirrors ci.yml root/Health gates.
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
