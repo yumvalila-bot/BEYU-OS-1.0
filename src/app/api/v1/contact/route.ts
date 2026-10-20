@@ -8,6 +8,17 @@ export const dynamic = "force-dynamic";
  * Validates strictly on server; rate-limited; never exposes internals.
  * Does NOT claim delivery unless configured integration confirms.
  * Currently: validated, sanitized, acknowledged — delivery is logged but not external.
+ *
+ * Rate limiting: in-memory Map per runner instance (5/min/IP). In a multi-instance
+ * or serverless deployment (Vercel, etc.) this is NOT globally consistent — a burst
+ * distributed across instances may exceed the limit. This is an explicitly documented
+ * degraded behavior: it still provides per-instance abuse friction and fails closed
+ * (never disables validation). A distributed limiter would require Redis/KV or
+ * platform-provided edge rate limiting (e.g., Vercel Firewall, Cloudflare) — no
+ * such service is available in this repository without adding an unapproved paid
+ * dependency, so the limitation is documented here and in the gap-closure report.
+ * Server-side enforcement, payload limits, sanitization, and privacy-safe logging
+ * remain fully effective regardless of instance distribution.
  */
 
 const ContactSchema = z.object({
@@ -24,8 +35,7 @@ function validPhone(v: string | undefined): boolean {
   return digits.length >= 7 && digits.length <= 20 && /^\+?[0-9\s\-()]+$/.test(v.trim());
 }
 
-// Simple in-memory rate limit per IP (public endpoint protection)
-// In production, use Redis/KV; this is best-effort and does not persist across instances.
+// In-memory per-instance rate limit — see module header for distributed limitation.
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 function checkRate(ip: string): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();

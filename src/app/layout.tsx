@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: { default: "BEYU OS — Global Enterprise Control Plane", template: "%s | BEYU OS" },
   description:
     "BEYU OS is the constitutional, governance, identity, capital, risk, compliance, data and AI control plane of the BEYU ecosystem.",
-  keywords: ["BEYU OS", "enterprise control plane", "governance", "Tanzania", "Health OS", "Finance OS"],
+  keywords: ["BEYU OS", "enterprise control plane", "governance", "Tanzania", "constitutional"],
   authors: [{ name: "BEYU Family Trust" }],
   creator: "BEYU OS",
   publisher: "BEYU OS",
@@ -45,7 +45,6 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: BEYU_BRAND_ASSETS.favicon, type: "image/png", sizes: "32x32" },
-      { url: "/brand/favicon.svg", type: "image/svg+xml" },
     ],
     apple: [
       { url: BEYU_BRAND_ASSETS.appIcon192, sizes: "192x192", type: "image/png" },
