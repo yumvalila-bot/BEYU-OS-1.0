@@ -2,6 +2,7 @@ import "dotenv/config";
 import "../setup-env";
 import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { login } from "../helpers/http";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 
 /**
  * BEYU REGISTRY — subordinate enrollment & reporting lines in the browser.
@@ -23,6 +24,7 @@ async function identity(page: Page, context: BrowserContext, baseURL: string, em
     }),
   );
   await page.goto("/os/registration");
+  await dismissCookieConsent(page);
 }
 
 const enrollmentPayload = {

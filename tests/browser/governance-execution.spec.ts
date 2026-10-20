@@ -6,6 +6,7 @@ import { db } from "../../src/db";
 import { tasks } from "../../src/db/schema";
 import { login } from "../helpers/http";
 import { cleanupExecution, executionPrincipal, executionResolution } from "../helpers/governance-execution";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 let secretary: string, chair: string, resolutionId: string;
 async function useIdentity(context: BrowserContext, cookie: string, baseURL: string) {
   await context.clearCookies();
@@ -22,14 +23,7 @@ test.afterAll(async () => { await cleanupExecution("GEXUI"); });
 test("real human UI completes mandated work with a different independent verifier", async ({ page, context, baseURL }) => {
   test.setTimeout(120000);
   await useIdentity(context, secretary, baseURL!); await page.goto(`/os/governance#resolution-${resolutionId}`);
-  // Global privacy control: the cookie-consent dialog intentionally intercepts pointer events.
-  // Detect it after navigation and record an explicit privacy-preserving choice so the
-  // governed workflow can proceed without force-clicking through the modal.
-  const consentDialog = page.getByRole("dialog", { name: "How BEYU OS uses cookies" });
-  if (await consentDialog.isVisible().catch(() => false)) {
-    await page.getByRole("button", { name: "Reject optional", exact: true }).click();
-    await expect(consentDialog).toBeHidden();
-  }
+  await dismissCookieConsent(page);
   const resolution = page.locator(`[data-resolution-id="${resolutionId}"]`);
   await expect(resolution).toBeVisible();
   await resolution.getByText("Record a mandated implementation action", { exact: true }).click();
@@ -58,10 +52,10 @@ test("real human UI completes mandated work with a different independent verifie
   await click("Submit for verification"); await expect(card).toContainText("COMPLETED");
   await expect(card.getByRole("button", { name: "Verify independently" })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Close action" })).toHaveCount(0);
-  await useIdentity(context, chair, baseURL!); await page.reload();
+  await useIdentity(context, chair, baseURL!); await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page);
   await click("Verify independently"); await expect(card).toContainText("VERIFIED");
   await click("Close action"); await expect(card).toContainText("CLOSED");
-  await page.reload(); await expect(card).toContainText("CLOSED");
+  await page.reload(); await dismissCookieConsent(page); await expect(card).toContainText("CLOSED");
   const [closed] = await db.select().from(tasks).where(eq(tasks.id, stored.id));
   expect(closed.completedByUserId).toBe("USR_GRACE_KILELE"); expect(closed.verifiedByUserId).toBe("USR_AMANI_BEYU"); expect(closed.closedAt).not.toBeNull();
 });
