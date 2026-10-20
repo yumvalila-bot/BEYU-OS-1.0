@@ -9,13 +9,19 @@ import { expect, type Page } from "@playwright/test";
  */
 export async function dismissCookieConsent(page: Page) {
   const dialog = page.getByRole("dialog", { name: "How BEYU OS uses cookies" });
-  try {
-    // Wait briefly for hydration; the banner appears only when no prior
-    // decision is stored. If it never appears, this is a no-op.
-    await dialog.waitFor({ state: "visible", timeout: 2000 });
+  // Fast path: already visible (no wait)
+  if (await dialog.isVisible().catch(() => false)) {
     await page.getByRole("button", { name: "Reject optional", exact: true }).click();
-    await expect(dialog).toBeHidden({ timeout: 5000 });
+    await expect(dialog).toBeHidden({ timeout: 2000 });
+    return;
+  }
+  // Slow path: wait briefly for hydration — banner appears asynchronously
+  // only when no prior decision is stored. Use 500ms to stay within 60-min gate.
+  try {
+    await dialog.waitFor({ state: "visible", timeout: 500 });
+    await page.getByRole("button", { name: "Reject optional", exact: true }).click();
+    await expect(dialog).toBeHidden({ timeout: 2000 });
   } catch {
-    // No dialog — already decided or not yet hydrated; continue.
+    // No dialog — already decided or not applicable; continue.
   }
 }
