@@ -37,8 +37,18 @@ name: BEYU OS CI — PostgreSQL-backed security gate
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '**.png'
+      - 'LICENSE'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '**.png'
+      - 'LICENSE'
   workflow_dispatch:
 
 # Least privilege. Checkout is the only thing any job needs; no job writes issues,
@@ -167,9 +177,13 @@ jobs:
 
     services:
       postgres:
-        # Verified Docker Official Image mirror. Avoids Docker Hub pull outages
-        # without changing the PostgreSQL image, major version, or any gate.
-        image: public.ecr.aws/docker/library/postgres:16
+        # PostgreSQL 16 — canonical version. Uses postgres:16-alpine (smaller pull,
+        # still provides btree_gist required by migration 0000) to reduce
+        # provisioning time and ECR registry flakiness observed on 2026-10-19
+        # (Initialize containers failed with exit 1 on public.ecr.aws mirror).
+        # The smaller image reduces runner minutes equally across jobs without
+        # changing gates, version, or extensions.
+        image: postgres:16-alpine
         env:
           # Ephemeral, run-scoped. This container is destroyed when the job ends.
           POSTGRES_USER: postgres
@@ -679,9 +693,11 @@ jobs:
 
     services:
       postgres:
-        # Verified mirror of the same Docker Official PostgreSQL image used by
-        # the root gate; this is registry resilience, not a test substitution.
-        image: public.ecr.aws/docker/library/postgres:16
+        # PostgreSQL 16-alpine — same canonical version, smaller image for
+        # reliability after 2026-10-19 ECR mirror pull failure (exit 1 in
+        # Initialize containers). Alpine still ships btree_gist for migration
+        # 0000, preserving gates while reducing pull flakiness.
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

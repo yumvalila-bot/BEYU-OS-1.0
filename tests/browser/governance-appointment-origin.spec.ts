@@ -8,6 +8,7 @@ import { nominateMember } from "../../src/lib/governance/appointment-service";
 import { login } from "../helpers/http";
 import { appointmentFixture, appointmentInput, appointmentBallot, asAppointmentActor as as, cleanupAppointments } from "../helpers/appointments";
 import { withReboundAppointmentActors } from "../helpers/appointment-identity";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 let f: Awaited<ReturnType<typeof appointmentFixture>>;
 test.beforeAll(async () => { await cleanupAppointments("APPT_ORIGIN_BROWSER"); f = await appointmentFixture("APPT_ORIGIN_BROWSER"); });
 test.afterAll(() => cleanupAppointments("APPT_ORIGIN_BROWSER"));
@@ -18,6 +19,7 @@ test("stale approval UI cannot erase the original nominator through identity reb
  const cookie = await login(f.secretary.email);
  await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; }));
  await page.goto("/os/governance");
+  await dismissCookieConsent(page);
  const panel = page.locator(`[data-appointment-body="${f.bodyId}"]`); await panel.locator("summary").click();
  const card = panel.locator(`[data-appointment-id="${a.id}"]`);
  await card.getByLabel("Appointment review / consent note").fill("Original-human independence is evaluated by the backend");
@@ -33,7 +35,7 @@ test("stale approval UI cannot erase the original nominator through identity reb
  const approved = page.waitForResponse((r) => r.url().endsWith(`/appointments/${a.id}`) && r.request().method() === "POST");
  await button.click(); const approval = await approved; expect(approval.status()).toBe(200); expect(await approval.request().headerValue("idempotency-key")).toBe(deniedKey);
  await expect(card).toContainText("APPROVED");
- await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
+ await page.reload(); await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
  expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.id)))[0]).toMatchObject({ nominatedByPartyId: f.chair.partyId, approvedByPartyId: f.secretary.partyId });
  expect(await db.select().from(governanceMembers).where(eq(governanceMembers.partyId, f.candidate.partyId!))).toHaveLength(0);
 });

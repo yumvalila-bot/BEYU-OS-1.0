@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
@@ -13,7 +14,7 @@ test("preflight UI cannot cast ballots or produce authority", async ({ page, con
  await db.insert(resolutions).values({ id, reference: id, tenantId: p.tenantId, bodyId: "GOV_GROUP_BOARD", title: id, category: "POLICY", summary: "UI read-only preflight", rationale: "test", dataBasis: "test", consequences: "test", proposedBy: p.userId, requiredMajority: "SIMPLE", status: "TABLED", classification: "RESTRICTED" });
  try {
   await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0, i), value: s.slice(i+1), url: baseURL! }; }));
-  await page.goto("/os/governance"); const panel = page.getByTestId(`simulation-${id}`);
+  await page.goto("/os/governance"); await dismissCookieConsent(page); const panel = page.getByTestId(`simulation-${id}`);
   await panel.locator("summary").click(); await expect(panel.getByText("Hypothetical only. This cannot grant authority, cast votes, approve, execute or close work.")).toBeVisible();
   const response = page.waitForResponse((r) => r.url().endsWith(`/resolutions/${id}/simulation`) && r.request().method() === "POST");
   await panel.getByRole("button", { name: "Run read-only preflight" }).click(); expect((await response).status()).toBe(200);

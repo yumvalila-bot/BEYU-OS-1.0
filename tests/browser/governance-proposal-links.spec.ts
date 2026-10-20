@@ -13,6 +13,7 @@ import { login } from "../helpers/http";
 import { appointmentInput } from "../helpers/appointments";
 import { charterFixtureRules } from "../helpers/charters";
 import { establishmentFixture, establishmentInput, cleanupEstablishments, asEstablishmentActor as as } from "../helpers/establishments";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 const prefix = "PROPOSAL_LINK_BROWSER", ctx = { traceId: "PROPOSAL_LINK_BROWSER" };
 let f: Awaited<ReturnType<typeof establishmentFixture>>;
 const ids: Record<string, string> = {};
@@ -31,6 +32,7 @@ for (const [type, category] of [["GOVERNANCE_APPOINTMENT", "APPOINTMENT"], ["GOV
   const cookie = await login(f.chair.email);
   await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; }));
   await page.goto("/os/governance");
+  await dismissCookieConsent(page);
   const form = page.locator("[data-resolution-proposal]"); await form.getByRole("button", { name: "New proposal" }).click();
   await form.getByLabel("Governance body", { exact: true }).selectOption(f.bodyId);
   await form.getByLabel("Category", { exact: true }).selectOption(category);
@@ -84,6 +86,6 @@ for (const [type, category] of [["GOVERNANCE_APPOINTMENT", "APPOINTMENT"], ["GOV
   const records = await db.select().from(resolutions).where(eq(resolutions.linkedObjectId, ids[type]));
   expect(records).toHaveLength(1); expect(records[0]).toMatchObject({ id: committedId, bodyId: f.bodyId, linkedObjectType: type, linkedObjectId: ids[type], category, status: "DRAFT", quorumMet: false, votesFor: 0 });
   expect(await db.select().from(governanceMembers).where(eq(governanceMembers.partyId, f.candidate.partyId!))).toHaveLength(0);
-  await page.reload(); await expect(page.getByText(records[0].reference, { exact: true })).toBeVisible();
+  await page.reload(); await dismissCookieConsent(page); await expect(page.getByText(records[0].reference, { exact: true })).toBeVisible();
  });
 }
