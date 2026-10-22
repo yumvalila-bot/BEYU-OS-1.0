@@ -1701,6 +1701,23 @@ export const ROLES: Record<
       "communications:message.read",
     ],
   },
+  /**
+   * Sector read-only — the proposed minimum cross-sector viewing seat.
+   *
+   * Every assignment remains direct, tenant-bound, non-global and separately
+   * governed. Holding both read codes does not combine tenant scopes: the
+   * canonical sector context guard requires BEYU-AGRI for Agriculture and
+   * BEYU-UJENZI for Ujenzi, and `can()` still requires one matching authority
+   * tuple. No manage, Finance, Family Office, AI, approval or posting authority
+   * is included.
+   */
+  SECTOR_READ_ONLY: {
+    name: "Sector OS Read Only",
+    description: "Read-only Agriculture and Ujenzi visibility inside separately authorized sector tenant contexts. No operational writes or shared-capability authority.",
+    scope: "SECTOR",
+    privileged: false,
+    permissions: ["agriculture:data.read", "ujenzi:data.read"],
+  },
   SECTOR_OPERATOR: {
     name: "Sector OS Operator",
     description: "Operational execution inside a single Sector OS under BEYU OS governance.",
@@ -2017,6 +2034,9 @@ export const ROLE_CLEARANCE: Record<string, Classification> = {
   FAMILY_ANALYST: "RESTRICTED",
   FAMILY_MEMBER_VIEW: "HIGHLY_RESTRICTED",
   HCM_DIRECTOR: "RESTRICTED",
+  // Sector dashboards include RESTRICTED operational aggregates. This ceiling
+  // does not extend to HIGHLY_RESTRICTED Family Office or beneficiary data.
+  SECTOR_READ_ONLY: "RESTRICTED",
   SECTOR_OPERATOR: "CONFIDENTIAL",
   // Foundation safeguarding records are HIGHLY_RESTRICTED. These roles carry
   // explicit safeguarding grants above, so their clearance must be explicit

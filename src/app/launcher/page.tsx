@@ -10,10 +10,12 @@ import { redirect } from "next/navigation";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { can } from "@/lib/authz";
-import { resolvePrincipal } from "@/lib/session";
+import { resolvePrincipalForPage } from "@/lib/guard";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { DESTINATION_TYPE_LABEL, canonicalSurface } from "@/lib/operating-system-catalog";
+import { listSessionTenantContexts } from "@/lib/session-tenant-context";
 import { SignOutButton } from "../os/sign-out-button";
+import { TenantContextSwitcher } from "./tenant-context-switcher";
 import {
   FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
@@ -94,14 +96,18 @@ function DestinationCard({
 }
 
 export default async function LauncherPage() {
-  const principal = await resolvePrincipal();
+  const principal = await resolvePrincipalForPage();
   if (!principal) redirect("/");
 
+  const tenantContexts = await listSessionTenantContexts(principal);
   const destinations = await authorizedGovernedDestinations(principal);
-  if (destinations.length === 1) redirect(destinations[0].href);
+  // Never auto-redirect past the context selector when another directly
+  // authorized context exists. The selector creates no authority; it merely
+  // lets the user reach the context whose destination guards can then run.
+  if (destinations.length === 1 && tenantContexts.length === 1) redirect(destinations[0].href);
   const hrefFor = await destinationHrefForRequest();
 
-  if (destinations.length === 0) {
+  if (destinations.length === 0 && tenantContexts.length === 1) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <section aria-labelledby="launcher-denied-title" className="mx-auto max-w-md text-center">
@@ -201,6 +207,12 @@ export default async function LauncherPage() {
       </header>
 
       <div className="mx-auto max-w-7xl space-y-10 px-6 py-10">
+        {tenantContexts.length > 1 && <TenantContextSwitcher contexts={tenantContexts} />}
+        {destinations.length === 0 && (
+          <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
+            No destination is authorized in the current context. You may select another directly authorized context; every destination will be checked again.
+          </p>
+        )}
         {controlPlane.length > 0 && (
           <section aria-labelledby="control-plane-heading">
             <div className="mb-4">

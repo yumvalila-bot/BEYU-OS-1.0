@@ -1114,7 +1114,8 @@ describe("risk module — leaves governance and financial state untouched", () =
     //   the expansion reads governed inputs and refuses (MISSING/INVALID/NOT_APPLICABLE) where an
     //   input is absent rather than modelling a risk number of its own.
     // + 0075: Noelia authority/execution hardening creates no risk table or second risk truth.
-    expect(n).toBe(76);
+    // + 0076: Sector read-only catalogue mirror creates no risk table or second risk truth.
+    expect(n).toBe(77);
   });
 
   it("leaves all triggers enabled", async () => {

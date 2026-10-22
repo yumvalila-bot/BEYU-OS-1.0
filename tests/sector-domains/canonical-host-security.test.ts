@@ -327,7 +327,7 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    expect(journal.entries.at(-1)?.tag).toBe("0076_sector_read_only_context_access");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 

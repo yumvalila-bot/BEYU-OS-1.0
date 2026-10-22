@@ -17,7 +17,7 @@ import type { Metadata } from "next";
  */
 
 import { redirect } from "next/navigation";
-import { resolvePrincipal } from "@/lib/session";
+import { resolvePrincipalForPage } from "@/lib/guard";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { Icon } from "@/components/icons";
 import { SignOutButton } from "../os/sign-out-button";
@@ -25,7 +25,7 @@ import { SignOutButton } from "../os/sign-out-button";
 export const metadata: Metadata = { title: "Health OS" };
 
 export default async function HealthOSPage() {
-  const principal = await resolvePrincipal();
+  const principal = await resolvePrincipalForPage();
 
   // Unauthenticated → redirect to sign-in
   if (!principal) {

@@ -12,6 +12,12 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
+import {
+  RUNTIME_COLUMN_PRIVILEGES,
+  RUNTIME_NO_DELETE_TABLES,
+  RUNTIME_READ_ONLY_TABLES,
+  RUNTIME_TABLE_ALLOWLIST,
+} from "../../scripts/runtime-privilege-allowlist";
 
 const RUNTIME_URL = process.env.BEYU_RUNTIME_DATABASE_URL ?? process.env.DATABASE_URL;
 const ADMIN_URL = process.env.BEYU_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -27,6 +33,22 @@ describe("C-02 runtime role privilege & SECURITY DEFINER audit", () => {
 
   afterAll(async () => {
     await admin.end().catch(() => undefined);
+  });
+
+  it("bootstrap ceremony has column-scoped transitions without table-wide mutation", () => {
+    expect(RUNTIME_TABLE_ALLOWLIST).toContain("admin_bootstrap_state");
+    expect(RUNTIME_READ_ONLY_TABLES).toContain("admin_bootstrap_state");
+    expect(RUNTIME_NO_DELETE_TABLES).not.toContain("admin_bootstrap_state");
+    expect(RUNTIME_COLUMN_PRIVILEGES.admin_bootstrap_state).toEqual({
+      status: ["UPDATE"],
+      enrollment_started_at: ["UPDATE"],
+      sealed_at: ["UPDATE"],
+      sealed_by_user_id: ["UPDATE"],
+      admin_user_id: ["UPDATE"],
+      updated_at: ["UPDATE"],
+    });
+    expect(RUNTIME_COLUMN_PRIVILEGES.admin_bootstrap_state).not.toHaveProperty("id");
+    expect(RUNTIME_COLUMN_PRIVILEGES.admin_bootstrap_state).not.toHaveProperty("created_at");
   });
 
   it("runtime role is non-superuser, non-bypassrls, non-createrole, non-createdb", async () => {

@@ -15,6 +15,8 @@
  */
 
 import { NextResponse } from "next/server";
+import { schemaReleasePending } from "@/lib/api";
+import { isSchemaCompatibilityError } from "@/lib/schema-compatibility";
 import { resolvePrincipal, requestMeta } from "@/lib/session";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
@@ -27,7 +29,18 @@ import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 export async function GET() {
   try {
     // Resolve the authenticated principal
-    const principal = await resolvePrincipal();
+    let principal: Principal | null;
+    try {
+      principal = await resolvePrincipal();
+    } catch (error) {
+      // A pending database release is not `Unauthorized` and not a 500: the
+      // session is valid, no protected result was returned, and no authority changed.
+      if (isSchemaCompatibilityError(error)) {
+        const { traceId } = await requestMeta();
+        return schemaReleasePending(traceId);
+      }
+      throw error;
+    }
     if (!principal) {
       return NextResponse.json(
         { error: "Unauthorized", message: "Authentication required" },

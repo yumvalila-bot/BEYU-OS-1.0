@@ -81,7 +81,17 @@ export async function revokeSession(token: string): Promise<void> {
 
 /**
  * Resolve the full request principal: IDENTITY → TENANT → ROLE → PERMISSION → SCOPE.
- * Returns null when unauthenticated; never throws to the caller.
+ * Returns null when unauthenticated.
+ *
+ * One exception is NOT an authentication outcome and is deliberately allowed
+ * to reach the caller: `SchemaCompatibilityError` (src/lib/schema-compatibility.ts),
+ * raised when the database does not have an object this release reads — the
+ * state that made every authenticated view fail on 2026-10-12 and 2026-10-22.
+ * It must not collapse into `null`, because `null` means "signed out" and would
+ * bounce the caller between sign-in and the failure. Pages route it to the
+ * governed release screen (`requirePrincipal()`); APIs answer 503
+ * `SCHEMA_RELEASE_PENDING`. Authorization itself stays fail-closed — no grant
+ * is synthesised and no protected result is returned.
  */
 export async function resolvePrincipal(): Promise<Principal | null> {
   const jar = await cookies();
