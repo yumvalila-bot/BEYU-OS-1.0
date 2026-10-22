@@ -63,6 +63,8 @@ import { NextResponse } from "next/server";
 import { healthSpaHtml } from "@/app/health/os/spa-content";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { isForeignOSHost } from "@/lib/canonical-host";
+import type { Principal } from "@/lib/authz";
+import { isSchemaCompatibilityError, SCHEMA_RELEASE_PATH } from "@/lib/schema-compatibility";
 import { resolvePrincipal } from "@/lib/session";
 import {
   hostnameDenialResponse,
@@ -93,7 +95,24 @@ export type HealthOSMountRequest = { host?: string | null };
  */
 export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise<NextResponse> {
   // Gate 1 — canonical BEYU session (fail closed).
-  const principal = await resolvePrincipal();
+  let principal: Principal | null;
+  try {
+    principal = await resolvePrincipal();
+  } catch (error) {
+    /**
+     * A database that has not applied a migration this release reads is a
+     * RELEASE state, not a session state and not a refusal: it fails closed to
+     * the governed release screen instead of the sector mount, so the mount can
+     * never render a half-built sector document on a half-graded schema.
+     */
+    if (isSchemaCompatibilityError(error)) {
+      return new NextResponse(null, {
+        status: 307,
+        headers: { Location: SCHEMA_RELEASE_PATH },
+      });
+    }
+    throw error;
+  }
   if (!principal) {
     return new NextResponse(null, {
       status: 307,

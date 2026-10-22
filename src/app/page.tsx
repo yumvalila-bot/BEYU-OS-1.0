@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { resolvePrincipal } from "@/lib/session";
+import { resolvePrincipalForPage } from "@/lib/guard";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
@@ -96,7 +96,7 @@ const CONTROL_PLANE_FACTS = [
  * `src/app/sign-in/page.tsx`. There is one sign-in, not eight.
  */
 export default async function SignInPage() {
-  const principal = await resolvePrincipal();
+  const principal = await resolvePrincipalForPage();
 
   /*
    * Canonical destination host (presentation only).

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
+import { isSchemaCompatibilityError, SCHEMA_RELEASE_PATH } from "./schema-compatibility";
 import { resolvePrincipal } from "./session";
 
 import type { Classification, PermissionCode } from "./constants";
@@ -9,11 +10,43 @@ export type PageAccess =
   | { principal: Principal; allowed: true }
   | { principal: Principal; allowed: false; reason: string };
 
-/** Server-component guard. Unauthenticated users are returned to sign-in. */
+/**
+ * Server-component guard. Unauthenticated users are returned to sign-in.
+ *
+ * A database that is missing an object this release reads is NOT an
+ * authentication outcome. It used to surface here as an uncaught failure, so
+ * every authenticated view rendered the route error boundary — a screen that
+ * (rightly) says it is not an access decision, but that leaves a deployment
+ * state looking like a broken permission. That request is now routed to the
+ * governed release screen instead: still denied, still no data read, but named
+ * for what it is. Every other failure (unreachable database, permission
+ * refused, RLS violation) keeps failing closed as an error.
+ */
 export async function requirePrincipal(): Promise<Principal> {
-  const principal = await resolvePrincipal();
+  let principal: Principal | null;
+  try {
+    principal = await resolvePrincipal();
+  } catch (error) {
+    if (isSchemaCompatibilityError(error)) redirect(SCHEMA_RELEASE_PATH);
+    throw error;
+  }
   if (!principal) redirect("/");
   return principal;
+}
+
+/**
+ * The same guard for pages that legitimately render for a signed-out visitor
+ * (the sign-in page, the launcher, a sector entry). They must still reach the
+ * release screen when a session exists and the database cannot answer for it —
+ * otherwise they would redirect the visitor straight back into the failure.
+ */
+export async function resolvePrincipalForPage(): Promise<Principal | null> {
+  try {
+    return await resolvePrincipal();
+  } catch (error) {
+    if (isSchemaCompatibilityError(error)) redirect(SCHEMA_RELEASE_PATH);
+    throw error;
+  }
 }
 
 export async function requireAccess(

@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { can } from "@/lib/authz";
-import { resolvePrincipal } from "@/lib/session";
+import { resolvePrincipalForPage } from "@/lib/guard";
 import { destinationHrefForRequest } from "@/lib/canonical-host";
 import { DESTINATION_TYPE_LABEL, canonicalSurface } from "@/lib/operating-system-catalog";
 import { SignOutButton } from "../os/sign-out-button";
@@ -94,7 +94,7 @@ function DestinationCard({
 }
 
 export default async function LauncherPage() {
-  const principal = await resolvePrincipal();
+  const principal = await resolvePrincipalForPage();
   if (!principal) redirect("/");
 
   const destinations = await authorizedGovernedDestinations(principal);
