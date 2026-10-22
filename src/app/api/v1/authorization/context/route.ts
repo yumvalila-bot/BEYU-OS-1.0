@@ -34,7 +34,7 @@ export async function GET() {
       principal = await resolvePrincipal();
     } catch (error) {
       // A pending database release is not `Unauthorized` and not a 500: the
-      // session is valid, nothing was read, and no authority changed.
+      // session is valid, no protected result was returned, and no authority changed.
       if (isSchemaCompatibilityError(error)) {
         const { traceId } = await requestMeta();
         return schemaReleasePending(traceId);

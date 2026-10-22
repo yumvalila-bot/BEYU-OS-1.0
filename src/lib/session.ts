@@ -91,7 +91,7 @@ export async function revokeSession(token: string): Promise<void> {
  * bounce the caller between sign-in and the failure. Pages route it to the
  * governed release screen (`requirePrincipal()`); APIs answer 503
  * `SCHEMA_RELEASE_PENDING`. Authorization itself stays fail-closed — no grant
- * is synthesised and no data is read.
+ * is synthesised and no protected result is returned.
  */
 export async function resolvePrincipal(): Promise<Principal | null> {
   const jar = await cookies();

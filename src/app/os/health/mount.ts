@@ -63,7 +63,6 @@ import { NextResponse } from "next/server";
 import { healthSpaHtml } from "@/app/health/os/spa-content";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { isForeignOSHost } from "@/lib/canonical-host";
-import type { Principal } from "@/lib/authz";
 import { isSchemaCompatibilityError, SCHEMA_RELEASE_PATH } from "@/lib/schema-compatibility";
 import { resolvePrincipal } from "@/lib/session";
 import {
@@ -95,7 +94,7 @@ export type HealthOSMountRequest = { host?: string | null };
  */
 export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise<NextResponse> {
   // Gate 1 — canonical BEYU session (fail closed).
-  let principal: Principal | null;
+  let principal: Awaited<ReturnType<typeof resolvePrincipal>>;
   try {
     principal = await resolvePrincipal();
   } catch (error) {

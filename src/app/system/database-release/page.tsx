@@ -18,8 +18,8 @@ import { probeSchemaState } from "@/lib/health/schema-state";
  *   `requirePrincipal()` now routes that one condition here. Everything else —
  *   an unreachable database, a refused privilege, an RLS violation, any other
  *   error — still fails closed as an error. This screen is not a fallback, not
- *   a degraded mode and not an authorization outcome: nothing is read on behalf
- *   of the caller and no capability is granted.
+ *   a degraded mode and not an authorization outcome: no tenant or domain data
+ *   is read for the caller and no capability is granted.
  *
  * WHAT IT MAY PUBLISH
  *   Only the two migration tags and the count that `GET /api/health/schema`
@@ -51,8 +51,9 @@ export default async function DatabaseReleasePendingPage() {
           </p>
           <p className="mt-3 beyu-muted">
             This is a release state, not an access decision. Nothing was granted or removed, your
-            permissions are unchanged, and signing in again will not change it. No data was read or
-            written on your behalf.
+            permissions are unchanged, and signing in again will not change it. The request was
+            stopped before authorization completed; no protected data was returned and no changes
+            were made.
           </p>
 
           <dl className="mt-4 space-y-1 text-[13px]">
