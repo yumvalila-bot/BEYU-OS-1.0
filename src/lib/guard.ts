@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
 import { isSchemaCompatibilityError, SCHEMA_RELEASE_PATH } from "./schema-compatibility";
+import { canonicalSectorForPermission, resolveCanonicalSectorPrincipal } from "./sector-context";
 import { resolvePrincipal } from "./session";
 
 import type { Classification, PermissionCode } from "./constants";
@@ -53,7 +54,16 @@ export async function requireAccess(
   permission: PermissionCode,
   context?: { classification?: Classification; tenantId?: string; entityId?: string },
 ): Promise<PageAccess> {
-  const principal = await requirePrincipal();
+  const authenticated = await requirePrincipal();
+  let principal = authenticated;
+  const sector = canonicalSectorForPermission(permission);
+  if (sector) {
+    const resolved = await resolveCanonicalSectorPrincipal(authenticated, sector);
+    if (!resolved.allowed) {
+      return { principal: authenticated, allowed: false, reason: resolved.reason };
+    }
+    principal = resolved.principal;
+  }
   const decision = can(principal, permission, context);
   if (!decision.allowed) {
     return { principal, allowed: false, reason: decision.reason };

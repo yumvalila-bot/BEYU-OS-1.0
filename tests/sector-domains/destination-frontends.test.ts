@@ -476,7 +476,7 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    expect(journal.entries.at(-1)?.tag).toBe("0076_sector_read_only_context_access");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

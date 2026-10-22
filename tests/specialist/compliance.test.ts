@@ -1233,7 +1233,8 @@ describe("compliance module — creates no second truth", () => {
     //   obligations/evidence tables are untouched and no second compliance truth is created.
     // + 0075: Noelia authority/execution hardening reuses the canonical compliance evidence/audit
     //   architecture and creates no second compliance truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
+    // + 0076: Sector read-only catalogue mirror creates no second compliance truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(77);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

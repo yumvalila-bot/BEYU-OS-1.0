@@ -11,6 +11,7 @@ import {
 } from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
 import { isSchemaCompatibilityError } from "./schema-compatibility";
+import { canonicalSectorForPermission, resolveCanonicalSectorPrincipal } from "./sector-context";
 import { withTenantDatabaseContext } from "./tenant-scope";
 import { SYSTEM_VERSION, type Classification, type PermissionCode } from "./constants";
 
@@ -354,6 +355,19 @@ export async function guarded(
       return apiError("UNAUTHENTICATED", "A valid BEYU OS session is required.", 401, traceId);
     }
 
+    // Agriculture and Ujenzi APIs operate in their canonical sector tenant,
+    // not whichever tenant happens to hold a similarly named permission. A
+    // non-global caller must select that context explicitly. An already-global
+    // caller is derived into the same single-tenant RLS context; no authority
+    // is broadened and every handler continues to read ctx.principal.tenantId.
+    let sectorContextDenial: string | null = null;
+    const sector = canonicalSectorForPermission(options.permission);
+    if (sector) {
+      const resolved = await resolveCanonicalSectorPrincipal(principal, sector);
+      if (resolved.allowed) principal = resolved.principal;
+      else sectorContextDenial = resolved.reason;
+    }
+
     const context: HandlerContext = {
       principal,
       traceId,
@@ -415,10 +429,11 @@ export async function guarded(
        * endpoint cannot forget the check. Domain services re-resolve the same
        * scope for their own queries (defence in depth).
        */
-      const sectorTargetReason =
+      const foundationTargetReason =
         decision.allowed && options.permission.startsWith("foundation:")
           ? await foundationTargetScopeDenial(principal)
           : null;
+      const sectorTargetReason = sectorContextDenial ?? foundationTargetReason;
 
       if (scopeReason || sectorTargetReason || !decision.allowed) {
         const reason = scopeReason ?? sectorTargetReason ?? decision.reason;
