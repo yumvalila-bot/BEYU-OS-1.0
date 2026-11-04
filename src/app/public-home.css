@@ -64,3 +64,14 @@
 
 /* The canonical OS artwork is displayed unmodified, on its original white matte. */
 .ph-logo,.ph-footer-logo{display:flex;align-items:center;gap:10px}.ph-logo .ph-wordmark,.ph-footer-logo .ph-wordmark{font-family:Georgia,serif;letter-spacing:.12em;font-size:24px;color:#0b1f3e}.ph-footer-logo .ph-wordmark,.ph-globe-core .ph-wordmark{color:#fff}.ph-globe-core .ph-wordmark{font-family:Georgia,serif;letter-spacing:.14em;font-size:18px;margin-top:5px}
+
+/* Readable institutional gold and secondary copy on light surfaces. Keep the
+   reference palette, but do not fade text below usable contrast during reveal. */
+.ph-logo .ph-wordmark{color:#fff}
+.ph-value-bar span{color:#5f5b51}
+.public-home .ph-section .ph-eyebrow,.public-home .ph-capabilities .ph-eyebrow,.public-home .ph-security .ph-eyebrow,.public-home .ph-contact .ph-eyebrow{color:#705313}
+.public-home .ph-section h2 em,.public-home .ph-security h2 em,.public-home .ph-contact h2 em{color:#805f19}
+.public-home .ph-section-heading .ph-heading-copy,.public-home .ph-security-grid>div>p,.public-home .ph-security-caption{color:#34434c}
+.ph-note,.ph-small,.ph-arch-label,.ph-ownership summary span,.ph-arch-overline,.ph-noelia-badge>span,.ph-tech-grid summary span{color:#705313}
+.ph-disclaimer,.ph-arch-side p,.ph-cap-card summary small,.ph-tech-grid details p,.ph-contact p{color:#4e5c62}
+@keyframes ph-section-reveal{from{opacity:1;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}

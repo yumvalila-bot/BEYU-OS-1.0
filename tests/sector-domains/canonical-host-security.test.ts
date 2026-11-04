@@ -198,7 +198,7 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
     // Existing tenant/classification gates are untouched.
     expect(agriculture).toContain('governedTenantInScope(\n    principal,\n    "BEYU-AGRI",');
     expect(ujenzi).toContain('governedTenantInScope(\n    principal,\n    "BEYU-UJENZI",');
-    expect(foundation).toContain('governedTenantInScope(\n    principal,\n    "BEYU-FOUNDATION",');
+    expect(foundation).toMatch(/governedTenantInScope\(\s*principal,\s*"BEYU-FOUNDATION"/);
     expect(ujenzi).toContain("principal.entityScope.length > 0");
     expect(foundation).toContain("principal.entityScope.length > 0");
     // The Finance layout grants nothing: the pages keep their own capability guard.

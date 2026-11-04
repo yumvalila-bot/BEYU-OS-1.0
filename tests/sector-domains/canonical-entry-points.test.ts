@@ -153,7 +153,17 @@ describe("D/E. tenant isolation and deep-link security are unchanged by the host
     ] as const) {
       const c = code(source(...file));
       expect(c, tenantCode).toContain(`"${tenantCode}"`);
-      expect(c, tenantCode).toContain(`capability="${permission}"`);
+      if (tenantCode === "BEYU-FOUNDATION") {
+        // The layout uses a non-disclosing denial; the registry independently
+        // checks its capability before reading, even during concurrent render.
+        expect(c).toContain("principal.entityScope.length > 0");
+        expect(c).toContain("<FoundationDenied />");
+        const registry = code(source("src", "app", "os", "foundation", "registry", "page.tsx"));
+        expect(registry).toContain(`requireAccess("${permission}"`);
+        expect(registry.indexOf("requireAccess(")).toBeLessThan(registry.indexOf("listFoundations(access.principal)"));
+      } else {
+        expect(c, tenantCode).toContain(`capability="${permission}"`);
+      }
     }
   });
 

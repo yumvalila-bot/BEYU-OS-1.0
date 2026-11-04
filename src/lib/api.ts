@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasDatabaseTransactionContext } from "@/db";
 import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
+import { JsonInputLimitError, readBoundedJson } from "./bounded-json";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
 import {
@@ -432,6 +433,9 @@ export async function guarded(
       return denied ?? handler(context);
     });
   } catch (err) {
+    if (err instanceof JsonInputLimitError) {
+      return apiError("PAYLOAD_LIMIT_EXCEEDED", err.message, err.status, traceId);
+    }
     const applicationError = normalizeApplicationBoundaryError(err);
     if (applicationError) {
       return apiError(
@@ -448,6 +452,5 @@ export async function guarded(
 }
 
 export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
-  const json = await request.json().catch(() => ({}));
-  return schema.parse(json);
+  return schema.parse(await readBoundedJson(request));
 }

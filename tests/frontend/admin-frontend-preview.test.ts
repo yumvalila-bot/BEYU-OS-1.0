@@ -63,6 +63,7 @@ import {
 } from "@/lib/operating-systems";
 import { CANONICAL_SURFACES } from "@/lib/operating-system-catalog";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { CAPABILITY_IA } from "@/app/os/capabilities";
 import { NOELIA_CANONICAL_ID } from "@/lib/noelia/canonical-identity";
@@ -388,14 +389,19 @@ describe("the current BEYU admin previews all six frontend surfaces", () => {
   );
 
   it.skipIf(!available)(
-    "the admin's launcher lists all six surfaces with their governed state",
+    "the admin launcher lists granted surfaces and never links an unavailable Health destination",
     async () => {
       const admin = await loginOnce("admin@beyu.os");
       const launcher = await apiGet("/launcher", admin);
       expect(launcher.status).toBe(200);
       expect(launcher.html).toContain("BEYU Admin — Frontend Preview");
+      const health = await checkHealthOSAuthorization(CANONICAL_ADMIN_USER_ID);
       for (const surface of SIX_SURFACES) {
-        expect(launcher.html, `launcher must list ${surface.name}`).toContain(surface.href);
+        if (surface.name === "Health OS" && !health.authorized) {
+          expect(launcher.html).not.toContain('href="/os/health"');
+          continue;
+        }
+        expect(launcher.html, `launcher must link ${surface.name}`).toContain(`href="${surface.href}"`);
       }
     },
     120_000,

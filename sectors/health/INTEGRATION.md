@@ -71,20 +71,21 @@ TEST_DATABASE_URL=postgresql://<role>@<host>:5432/<db> npm test   # real PG (or 
   existing BEYU gate (canonical session + `beyu_identity.beyu_identity_links`
   federation check, fail-closed). The `/health` page now redirects authorized
   users to the mount; its denial/availability pages are unchanged.
-- When `HEALTH_API_URL` is configured at BEYU build time, same-origin
-  `/health-os/auth/*` is proxied to this backend via `next.config.ts`
-  rewrites; without it the SPA sign-in fails closed. No BEYU route is
-  occupied by the `/health-os/*` namespace and no credential reaches the
-  browser.
+- **BLOCKED / NOT IMPLEMENTED:** the historical `HEALTH_API_URL` rewrite is
+  not present in the current `next.config.ts`. The mounted SPA does not have a
+  verified BEYU-to-Health backend authentication exchange. Its standalone
+  login and refresh endpoints are fenced; no shared BEYU session or working
+  same-origin Health backend authentication should be inferred from the mount.
+  A rewrite must not be restored before a governed bridge is designed and
+  verified.
 
 ## Deliberately NOT done (requires architectural decision / approval)
 
 - Runtime auth-flow integration (sector accepting BEYU-asserted identity vs.
   bridged JWT) — architectural decision.
 - Wrapping sector capabilities in BEYU governed APIs (`/api/v1/health/…`) —
-  architectural decision. (The same-origin `/health-os/auth/*` proxy above is
-  a configuration-level exposure of the sector's OWN API, not a governed-API
-  reimplementation.)
+  architectural decision. No same-origin Health backend proxy is currently
+  configured by the root Next.js application.
 - Supabase/Redis/Vercel deployment wiring — BLOCKED (no real credentials).
 - Removing constitutional roles from the sector's *reference catalog* — the
   catalog is preserved (no destructive change); the grants path refuses them.

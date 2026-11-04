@@ -390,10 +390,17 @@ const text = (body: string) => body.replace(/<!--[^>]{0,8}-->/g, "");
 
 describe("E. the running server", () => {
   it.skipIf(!enabled)(
-    "serves the SAME canonical login page on all eight hosts, with the host's own context",
+    "redirects destination hosts to the one canonical sign-in with allowlisted context",
     async () => {
       for (const [host, destination] of Object.entries(EXPECTED_CONTRACT)) {
-        const reply = await get(host, "/sign-in");
+        const first = await get(host, "/sign-in");
+        let reply = first;
+        if (destination !== "HOME") {
+          const expectedCode = destinationCatalogueEntry(destination).code;
+          expect(first.status, host).toBe(307);
+          expect(first.location, host).toBe(`https://www.beyu.co.tz/sign-in?destination=${expectedCode}`);
+          reply = await get("www.beyu.co.tz", `/sign-in?destination=${expectedCode}`);
+        }
         expect(reply.status, host).toBe(200);
         const body = text(reply.body);
         // ONE login experience: the same real form and the same reference surface.
@@ -401,12 +408,11 @@ describe("E. the running server", () => {
         expect(body, host).toContain('id="beyu-signin-password"');
         expect(body, host).toContain("Log in to access your account");
         expect(body, host).toContain("/brand/beyu-os-logo.png");
-        // Host-aware CONTEXT, derived server-side — never a second login page.
-        const context = destinationCatalogueEntry(destination).name;
-        if (destination === "HOME") {
-          expect(body, host).toContain("Sign in to the control plane");
-        } else {
-          expect(body, host).toContain(`Sign in to ${context} — governed by BEYU OS`);
+        // The shared page remains neutral. The server-computed continuation is
+        // a registry code, and is reauthorized after login, not a return URL.
+        expect(body, host).toContain("Sign in to the control plane");
+        if (destination !== "HOME") {
+          expect(body, host).toContain(`/sign-in?destination=${destinationCatalogueEntry(destination).code}`);
         }
         // No cross-destination bleed: another destination's sign-in copy is absent.
         for (const [otherHost, otherDestination] of Object.entries(EXPECTED_CONTRACT)) {
