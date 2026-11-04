@@ -56,7 +56,7 @@ const CreateGrantSchema = z.object({
   grantDate: z.string().trim().regex(ISO_DATE),
   approvalRef: z.string().trim().max(200).nullish(),
   documentRef: z.string().trim().max(200).nullish(),
-  taxMetadata: z.record(z.unknown()).optional(),
+  taxMetadata: z.record(z.string(), z.unknown()).optional(),
   classification: z.enum(CLASSIFICATIONS).optional(),
 });
 

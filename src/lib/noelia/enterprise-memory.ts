@@ -271,7 +271,7 @@ export class BeyuNoeliaMemoryService {
       supersedesCode: z.string().min(3).max(64),
       expectedDigest: z.string().length(64),
       expectedVersion: z.string().min(1).max(40),
-      replacement: z.record(z.unknown()),
+      replacement: z.record(z.string(), z.unknown()),
     }).strict().parse(input);
     // Lock the exact predecessor before validating it. This serializes
     // replacement preparation with publication/supersession and prevents a
@@ -434,7 +434,7 @@ export class BeyuNoeliaMemoryService {
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
       retentionCode: z.string().min(2).max(40).default("STANDARD"),
       legalHold: z.boolean().default(false),
-      metadata: z.record(z.unknown()).default({}),
+      metadata: z.record(z.string(), z.unknown()).default({}),
     }).strict().parse(input);
 
     if (!(MEMORY_CLASSES as readonly string[]).includes(parsed.memoryClass)) {

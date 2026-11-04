@@ -404,7 +404,9 @@ export async function guarded(
         });
         return apiError(
           requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-          reason,
+          options.permission.startsWith("foundation:") && !requiresMfa
+            ? "You do not have the required access to this area."
+            : reason,
           requiresMfa ? 428 : 403,
           traceId,
         );

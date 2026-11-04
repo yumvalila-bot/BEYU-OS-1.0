@@ -458,13 +458,13 @@ export function createDefaultNoeliaToolRegistry(
       outputSchema: noeliaToolOutputSchema,
       inputSchema: z.object({
         analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
-        options: z.record(z.unknown()).optional(),
+        options: z.record(z.string(), z.unknown()).optional(),
       }).strict(),
     },
     execute: (context, input) => {
       const { analysisType, options } = z.object({
         analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
-        options: z.record(z.unknown()).optional(),
+        options: z.record(z.string(), z.unknown()).optional(),
       }).parse(input ?? {});
       return analytics.analyze(analysisType, context, options ?? {});
     },
@@ -1029,7 +1029,7 @@ export function createDefaultNoeliaToolRegistry(
         expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         retentionCode: z.string().min(2).max(40).default("STANDARD"),
         legalHold: z.boolean().default(false),
-        metadata: z.record(z.unknown()).default({}),
+        metadata: z.record(z.string(), z.unknown()).default({}),
       }).strict(),
     },
     execute: (context, input) => memory.write(context, input),

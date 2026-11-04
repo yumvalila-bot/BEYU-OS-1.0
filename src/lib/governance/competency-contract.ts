@@ -76,7 +76,7 @@ export const BoardCompositionAnalysisSchema = z.object({
   expiringWithin90Days: z.number().int().nonnegative(),
   independenceRatio: z.number().min(0).max(1),
   competencyCoverageRatio: z.number().min(0).max(1),
-  domainCoverage: z.record(z.enum(COMPETENCY_DOMAINS), z.number().int().nonnegative()),
+  domainCoverage: z.partialRecord(z.enum(COMPETENCY_DOMAINS), z.number().int().nonnegative()),
   competencyGaps: z.array(z.enum(COMPETENCY_DOMAINS)),
   compositionSatisfied: z.boolean(),
   violations: z.array(z.string()),

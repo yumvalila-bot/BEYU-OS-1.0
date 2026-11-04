@@ -1,6 +1,8 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial } from "@/lib/foundation-page-access";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { listFunds } from "@/lib/foundation/service";
 import { fundReconciliationView, listFoundationCapitalRequests } from "@/lib/foundation/finance-bridge";
 
@@ -8,7 +10,10 @@ export const dynamic = "force-dynamic";
 
 export default async function FoundationFundsPage() {
   const access = await requireAccess("foundation:fund.read", { classification: "RESTRICTED" });
-  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:fund.read" />;
+  if (!access.allowed) {
+    await auditFoundationPageDenial(access.principal, "foundation.funds", "FOUNDATION_ACCESS_DENIED");
+    return <FoundationDenied />;
+  }
   return withTenantDatabaseContext(access.principal, async () => {
     const [funds, recon, capital] = await Promise.all([
       listFunds(access.principal),

@@ -104,7 +104,7 @@ describe("auth boundary", () => {
     );
     expect(targetScopeDenied.status).toBe(403);
     expect(targetScopeDenied.body.error.code).toBe("FORBIDDEN");
-    expect(targetScopeDenied.body.error.message).toMatch(/Foundation organization target scope/);
+    expect(targetScopeDenied.body.error.message).toBe("You do not have the required access to this area.");
   });
 });
 
@@ -173,7 +173,8 @@ describe("page-level SSR gating parity", () => {
     const denied = await apiGet("/os/foundation", cfo);
     expect(denied.status).toBe(200);
     expect(isDeniedPage(denied.html)).toBe(true);
-    expect(denied.html).toMatch(/foundation:registry\.read/);
+    expect(denied.html).toContain("You do not have the required access to this area.");
+    expect(denied.html).toContain("Return to your available destinations");
   });
 
   it.skipIf(!available)("unauthenticated page access redirects to sign-in", async () => {
@@ -229,7 +230,7 @@ describe("Foundation API target-scope boundary", () => {
       );
       expect(res.status, `${path} must be denied`).toBe(403);
       expect(res.body.error?.code, `${path} must carry the governed error envelope`).toBe("FORBIDDEN");
-      expect(res.body.error?.message, `${path} must cite the target scope`).toMatch(/Foundation organization target scope/);
+      expect(res.body.error?.message, `${path} must not expose scope details`).toBe("You do not have the required access to this area.");
       expect(res.body.programs, `${path} must not return data`).toBeUndefined();
       expect(res.body.measurements, `${path} must not return data`).toBeUndefined();
     }

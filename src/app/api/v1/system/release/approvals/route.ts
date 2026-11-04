@@ -30,7 +30,7 @@ const ApprovalRequestSchema = z.object({
   decision: z.enum(["APPROVED", "REVOKED", "REJECTED"]),
   justification: z.string().min(1),
   expiresAt: z.string().nullable().optional(),
-  evidence: z.record(z.unknown()).nullable().optional(),
+  evidence: z.record(z.string(), z.unknown()).nullable().optional(),
   // REVOKED path: revoke an existing APPROVED record instead of inserting.
   revokeApprovalId: z.string().min(1).nullable().optional(),
 });

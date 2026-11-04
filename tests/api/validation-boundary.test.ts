@@ -16,7 +16,7 @@ describe("application validation boundary", () => {
         {
           code: "too_small",
           path: ["question"],
-          message: "String must contain at least 3 character(s)",
+          message: "Too small: expected string to have >=3 characters",
         },
       ],
     });

@@ -1,10 +1,12 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial, foundationPageScopeAllowed } from "@/lib/foundation-page-access";
 import Link from "next/link";
 import { requirePrincipal } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import { Icon, type IconName } from "@/components/icons";
 import type { Classification, PermissionCode } from "@/lib/constants";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { listFoundations } from "@/lib/foundation/service";
 import { complianceDashboard, deadlinesMissingEvidence, listDeadlines } from "@/lib/foundation/compliance";
 import { listFunds } from "@/lib/foundation/service";
@@ -46,6 +48,7 @@ const SECTIONS: FoundationSection[] = [
 
 export default async function FoundationPage() {
   const principal = await requirePrincipal();
+  if (!(await foundationPageScopeAllowed(principal, "foundation.dashboard"))) return <FoundationDenied />;
   const may = (permission: PermissionCode, classification: Classification) =>
     can(principal, permission, { classification }).allowed;
   const hasWorkspace = SECTIONS.some(
@@ -56,7 +59,8 @@ export default async function FoundationPage() {
       ),
   );
   if (!hasWorkspace) {
-    return <Denied reason="No Foundation organization read capability is authorized" capability="foundation:registry.read" />;
+    await auditFoundationPageDenial(principal, "foundation.dashboard", "FOUNDATION_PERMISSION_DENIED");
+    return <FoundationDenied />;
   }
 
   return withTenantDatabaseContext(principal, async () => {

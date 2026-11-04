@@ -55,10 +55,10 @@ const TransitionRequestSchema = z.object({
     "ROLLED_BACK",
   ]),
   reason: z.string().min(1),
-  verificationEvidence: z.record(z.unknown()).nullable().optional(),
+  verificationEvidence: z.record(z.string(), z.unknown()).nullable().optional(),
   correlationId: z.string().nullable().optional(),
   // For validation context
-  pvgEvidence: z.record(z.unknown()).nullable().optional(),
+  pvgEvidence: z.record(z.string(), z.unknown()).nullable().optional(),
   releaseIdentityMatches: z.boolean().optional(),
   migrationFingerprint: z.string().nullable().optional(),
   expectedMigrationFingerprint: z.string().nullable().optional(),

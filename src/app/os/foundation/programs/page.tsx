@@ -1,17 +1,21 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial, foundationPageScopeAllowed } from "@/lib/foundation-page-access";
 import { requirePrincipal } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import { listImpactMetrics, listProjects, listPrograms } from "@/lib/foundation/service-operations";
 
 export const dynamic = "force-dynamic";
 
 export default async function FoundationProgramsPage() {
   const principal = await requirePrincipal();
+  if (!(await foundationPageScopeAllowed(principal, "foundation.programs"))) return <FoundationDenied />;
   const mayReadPrograms = can(principal, "foundation:program.read", { classification: "CONFIDENTIAL" }).allowed;
   const mayReadImpact = can(principal, "foundation:impact.read", { classification: "CONFIDENTIAL" }).allowed;
   if (!mayReadPrograms && !mayReadImpact) {
-    return <Denied reason="Missing Program or Impact read permission" capability="foundation:program.read" />;
+    await auditFoundationPageDenial(principal, "foundation.programs", "FOUNDATION_PERMISSION_DENIED");
+    return <FoundationDenied />;
   }
   return withTenantDatabaseContext(principal, async () => {
     const [programs, projects, metrics] = await Promise.all([
