@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
+for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 900 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
   test(`public homepage at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const errors: string[] = [];

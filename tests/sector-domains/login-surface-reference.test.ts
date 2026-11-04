@@ -171,7 +171,7 @@ describe("D. security is not traded for visual fidelity", () => {
     expect(FORM).not.toMatch(/console\.(log|info|warn|debug|error)/);
     expect(FORM).not.toMatch(/password\s*[:=]\s*[`"'][^`"']*[`"']\s*;?\s*$/m);
     // The password only ever exists as state, and only ever leaves in the body.
-    expect(FORM).toContain("JSON.stringify({ email, password, mfaCode })");
+    expect(FORM).toContain("JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) })");
   });
 
   it("keeps the second factor in the credential path", () => {
@@ -201,7 +201,7 @@ describe("D. security is not traded for visual fidelity", () => {
     expect(guard).toBeGreaterThan(-1);
     expect(push).toBeGreaterThan(guard);
     // The landing is re-validated as a same-origin path, never taken from input.
-    expect(submit).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/os"');
+    expect(submit).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/launcher"');
     expect(submit).not.toMatch(/URLSearchParams|searchParams|window\.location/);
     // Duplicate submissions are prevented, not merely discouraged.
     expect(submit).toContain("if (busy) return;");

@@ -236,9 +236,10 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     // The existing routing is preserved after the host branch.
     expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
     expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
-    // Host is read through the one server helper; never from a query string.
+    // The host comes from the server helper; query requests are separately allowlisted.
     expect(c).toContain("canonicalHostForRequest()");
-    expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
+    expect(c).toContain("requestedEntryDestination((await searchParams)?.destination)");
+    expect(c).not.toMatch(/redirect_to|returnTo|callbackUrl/i);
   });
 
   it("a non-OS host redirects only through its existing destination gate", () => {
@@ -257,7 +258,7 @@ describe("5. reaching a canonical host authorizes nothing", () => {
   it("the post-login landing is server-computed and same-origin only", () => {
     expect(code(signIn)).toContain('landing={requestedContext ? requestedContext.href : "/os"}');
     const form = code(signInForm);
-    expect(form).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/os"');
+    expect(form).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/launcher"');
     expect(form).not.toMatch(/window\.location\.search|URLSearchParams|searchParams/);
   });
 

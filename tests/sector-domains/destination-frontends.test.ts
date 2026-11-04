@@ -289,7 +289,7 @@ describe("D. authentication is SHARED — one identity, one session, one login",
     // The destination reaches the form as a display name; the POST body is still
     // exactly email + password + MFA code.
     expect(form).toContain("destinationName");
-    expect(form).toMatch(/body: JSON\.stringify\(\{ email, password, mfaCode \}\)/);
+    expect(form).toContain("JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) })");
     // The form never resolves a host or a destination itself, and never reads
     // the URL or any other client-controlled input.
     expect(form).not.toMatch(/window\.location|URLSearchParams|searchParams|subdomain|location\.host/);
@@ -330,7 +330,7 @@ describe("D. authentication is SHARED — one identity, one session, one login",
   });
 });
 
-describe("E. sign-in is destination-aware, derived from the host only", () => {
+describe("E. destination context comes from a host or an allowlisted request", () => {
   it("produces the ONE canonical sub-line per destination", () => {
     for (const entry of MATRIX) {
       const destination = destinationForResolution(resolve(entry.host))!;
@@ -361,8 +361,9 @@ describe("E. sign-in is destination-aware, derived from the host only", () => {
     const page = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(page).toContain("canonicalHostForRequest()");
     expect(page).toContain('landing={requestedContext ? requestedContext.href : "/os"}');
-    // The landing is never an input: no query string, no callback parameter.
-    expect(page).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl|next=|continue=/i);
+    // A query can request a registry code, but cannot supply a URL.
+    expect(page).toContain("requestedEntryDestination((await searchParams)?.destination)");
+    expect(page).not.toMatch(/redirect_to|returnTo|callbackUrl|next=|continue=/i);
     // And it is never the apex: the browser stays on the canonical hostname.
     for (const target of [...page.matchAll(/redirect\(([^)]*)\)/g)].map((match) => match[1])) {
       expect(target, target).not.toMatch(/https?:|beyu\.co\.tz/);

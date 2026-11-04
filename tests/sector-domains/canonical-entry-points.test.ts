@@ -121,8 +121,9 @@ describe("B/C. direct access — no BEYU landing hop, no host-granted authority"
     const c = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).toContain("landing={requestedContext ? requestedContext.href : \"/os\"}");
-    // Landing is derived from the trusted host contract only — never from input.
-    expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
+    // A query may request a registry code, but never supplies a return URL.
+    expect(c).toContain("requestedEntryDestination((await searchParams)?.destination)");
+    expect(c).not.toMatch(/redirect_to|returnTo|callbackUrl/i);
   });
 
   it("the routing decision carries no authority: a hostname cannot grant an OS", () => {

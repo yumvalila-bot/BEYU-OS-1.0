@@ -5,10 +5,14 @@ import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { LoginCampusBand, LoginCard, LoginHero, LoginPillars, LoginShell, LoginTrustStrip } from "./login-surface";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
-import { canonicalHostForRequest } from "@/lib/canonical-host";
-import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
+import { canonicalHostForRequest, destinationHrefForRequest } from "@/lib/canonical-host";
+import { canonicalContextOf, destinationForResolution, type CanonicalDestination } from "@/lib/canonical-hosts";
 import { sessionCookiePresent } from "@/lib/session-state";
-import { can } from "@/lib/authz";
+import { can, type Principal } from "@/lib/authz";
+import { recordAudit } from "@/lib/audit";
+import { withTenantDatabaseContext } from "@/lib/tenant-scope";
+import { requestedEntryDestination, signInContinuation } from "@/lib/public-entry";
+import { signInHrefForRequest } from "@/lib/sign-in-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +88,20 @@ const CONTROL_PLANE_FACTS = [
  * selects presentation only; the existing server-side authorization gates
  * below and on each destination remain authoritative.
  */
-export default async function SignInPage() {
+/** Record a denied canonical entry in the existing tenant-scoped ledger. */
+async function auditEntryDenial(principal: Principal, destination: CanonicalDestination) {
+  await withTenantDatabaseContext(principal, () => recordAudit({
+    tenantId: principal.tenantId,
+    actorUserId: principal.userId,
+    action: "identity.destination.entry",
+    objectType: "GOVERNED_DESTINATION",
+    objectId: destination.context.code,
+    outcome: "DENIED",
+    reason: "Destination not authorized by current server-side grants or scope",
+  }));
+}
+
+export default async function SignInPage({ searchParams }: { searchParams?: Promise<{ destination?: string | string[] }> } = {}) {
   const principal = await resolvePrincipal();
 
   /*
@@ -113,6 +130,13 @@ export default async function SignInPage() {
    */
   const canonicalHost = await canonicalHostForRequest();
   const hostDestination = destinationForResolution(canonicalHost);
+  // Destination codes are requests, not grants. Ignore arbitrary URLs and
+  // duplicate/unknown query values; authorization is always resolved below.
+  const requested = requestedEntryDestination((await searchParams)?.destination);
+  if (!principal && (canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE")) {
+    const central = await signInHrefForRequest();
+    if (central !== "/sign-in") redirect(central);
+  }
   // The control plane and neutral hosts keep the pre-existing copy and landing.
   const requestedContext =
     canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
@@ -127,6 +151,18 @@ export default async function SignInPage() {
     // Smart routing resolves the one BEYU control plane and each authorised
     // Sector OS independently. A session alone never creates OS access.
     const destinations = await authorizedGovernedDestinations(principal);
+    if (requested && (canonicalHost.kind === "CONTROL_PLANE" || canonicalHost.kind === "NEUTRAL")) {
+      const context = requested.context;
+      const allowed = context.code === "NOELIA_AI" || context.code === "FAMILY_OFFICE"
+        ? can(principal, context.entryPermission).allowed
+        : destinations.some((destination) => destination.code === context.code);
+      if (allowed) {
+        const hrefFor = await destinationHrefForRequest();
+        redirect(hrefFor(context));
+      }
+      await auditEntryDenial(principal, requested);
+      return <DestinationDenied destination={requested} displayName={principal.displayName} email={principal.email} />;
+    }
     if (canonicalHost.kind === "SECTOR_OS" && destinations.some((destination) => destination.code === canonicalHost.os.code)) {
       redirect(canonicalHost.os.href);
     }
@@ -156,6 +192,7 @@ export default async function SignInPage() {
      * any direct deep link.
      */
     if (hostDestination && requestedContext) {
+      await auditEntryDenial(principal, hostDestination);
       return (
         <DestinationDenied
           destination={hostDestination}
@@ -166,8 +203,8 @@ export default async function SignInPage() {
     }
     if (destinations.length > 1) redirect("/launcher");
     if (destinations.length === 1) redirect(destinations[0].href);
-    // With no authorised destination, retain the sign-in surface rather than
-    // advertising an unusable control plane.
+    // An authenticated identity with no destination gets the safe pending page.
+    redirect("/launcher");
   }
 
   /*
@@ -257,7 +294,7 @@ export default async function SignInPage() {
             <SignInForm
               identities={identities}
               sessionExpired={sessionExpired}
-              landing={requestedContext ? requestedContext.href : "/os"}
+              landing={signInContinuation(requested)}
             />
           </LoginCard>
 

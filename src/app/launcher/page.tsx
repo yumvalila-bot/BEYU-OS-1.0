@@ -1,3 +1,4 @@
+import { signInHrefForRequest } from "@/lib/sign-in-redirect";
 /**
  * Governed destination launcher.
  *
@@ -95,7 +96,7 @@ function DestinationCard({
 
 export default async function LauncherPage() {
   const principal = await resolvePrincipal();
-  if (!principal) redirect("/sign-in");
+  if (!principal) redirect(await signInHrefForRequest());
 
   const destinations = await authorizedGovernedDestinations(principal);
   if (destinations.length === 1) redirect(destinations[0].href);
@@ -111,7 +112,7 @@ export default async function LauncherPage() {
           <h1 id="launcher-denied-title" className="mt-5 text-3xl font-semibold tracking-tight text-[#0b1f4d]">
             No governed destination access
           </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no active grant or Health federation link authorises a governed destination.</p>
+          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no workspace is currently available. An authorised administrator must assign access before you can continue.</p>
           <SignOutButton
             className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0b1f4d] px-6 text-[13px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017] disabled:cursor-not-allowed disabled:opacity-60"
           />
@@ -122,6 +123,7 @@ export default async function LauncherPage() {
 
   const controlPlane = destinations.filter((destination) => destination.level === "CONTROL_PLANE");
   const authorizedCodes = new Set(destinations.map((destination) => destination.code));
+  const sectorDestinations = SECTOR_OPERATING_SYSTEMS.filter((destination) => authorizedCodes.has(destination.code));
 
   /**
    * "BEYU Admin — Frontend Preview" — server-resolved, PRESENTATION-ONLY.
@@ -146,7 +148,7 @@ export default async function LauncherPage() {
     authorized: boolean;
     stateLabel: string;
   }> = [
-    ...SECTOR_OPERATING_SYSTEMS.map((destination) => ({
+    ...sectorDestinations.map((destination) => ({
       name: destination.name,
       href: hrefFor(destination),
       icon: destination.icon,
@@ -171,7 +173,7 @@ export default async function LauncherPage() {
       authorized: familyOfficeReadable,
       stateLabel: `${FAMILY_OFFICE_SURFACE.entryPermission} not granted`,
     },
-  ];
+  ].filter((surface) => surface.authorized);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -221,7 +223,7 @@ export default async function LauncherPage() {
           </section>
         )}
 
-        <section aria-labelledby="sector-os-heading" className="border-t border-slate-200 pt-8">
+        {sectorDestinations.length > 0 && <section aria-labelledby="sector-os-heading" className="border-t border-slate-200 pt-8">
           <div className="mb-4">
             <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">BENEATH BEYU OS</p>
             <h2 id="sector-os-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
@@ -233,7 +235,7 @@ export default async function LauncherPage() {
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {SECTOR_OPERATING_SYSTEMS.map((destination) => (
+            {sectorDestinations.map((destination) => (
               <DestinationCard
                 key={destination.code}
                 destination={destination}
@@ -242,9 +244,9 @@ export default async function LauncherPage() {
               />
             ))}
           </div>
-        </section>
+        </section>}
 
-        <section aria-labelledby="sister-organization-heading" className="border-t border-slate-200 pt-8">
+        {authorizedCodes.has(FOUNDATION_ORGANIZATION.code) && <section aria-labelledby="sister-organization-heading" className="border-t border-slate-200 pt-8">
           <div className="mb-4">
             <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">SEPARATELY GOVERNED</p>
             <h2 id="sister-organization-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
@@ -261,9 +263,9 @@ export default async function LauncherPage() {
               href={hrefFor(FOUNDATION_ORGANIZATION)}
             />
           </div>
-        </section>
+        </section>}
 
-        {frontendPreview && (
+        {frontendPreview && previewSurfaces.length > 0 && (
           <section aria-labelledby="frontend-preview-heading" className="border-t border-slate-200 pt-8">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>

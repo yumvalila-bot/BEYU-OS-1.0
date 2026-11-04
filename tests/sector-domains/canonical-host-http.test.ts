@@ -131,34 +131,21 @@ describe("Origin check (always active)", () => {
   });
 });
 
-describe("A/B. every canonical host is an independent entry point (no BEYU-landing hop)", () => {
+describe("A/B. configured destination hosts and canonical sign-in", () => {
   it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated: renders that destination's own sign-in (200) on its own host — never a redirect, never another OS's payload",
+    "unauthenticated root and deep links use the central sign-in and a registry destination",
     async () => {
-      for (const { host, copy } of CANONICAL_HOSTS) {
-        const res = await getWithHost("/", host);
-        expect(res.status, host).toBe(200);
-        expect(res.location, host).toBeUndefined();
-        expect(res.body, host).toContain(copy);
-        expect(res.body, host).not.toContain("healthSpaHtml");
-        expect(res.body, host).not.toContain("Sign in to the control plane");
+      const codes = ["HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION", "FAMILY_OFFICE", "NOELIA_AI"];
+      for (const [index, { host, home }] of CANONICAL_HOSTS.entries()) {
+        for (const path of ["/", home]) {
+          const res = await getWithHost(path, host);
+          expect(res.status, `${host}${path}`).toBe(307);
+          expect(res.location, `${host}${path}`).toBe(`https://www.beyu.co.tz/sign-in?destination=${codes[index]}`);
+        }
       }
-      // The apex keeps the control-plane copy — the central BEYU experience.
       const www = await getWithHost("/", "www.beyu.co.tz");
       expect(www.status).toBe(200);
       expect(www.body).toContain("Bridging Care");
-    },
-  );
-
-  it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated deep link on a destination host → single 307 to the SAME host's sign-in (no cross-host hop)",
-    async () => {
-      for (const { host, home } of CANONICAL_HOSTS) {
-        const res = await getWithHost(home, host);
-        expect(res.status, `${host}${home}`).toBe(307);
-        // Relative Location: the visitor stays on the canonical hostname.
-        expect(res.location, `${host}${home}`).toBe("/sign-in");
-      }
     },
   );
 
@@ -223,7 +210,7 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "no destination host ever redirects to the apex, and no redirect chain exists",
+    "absolute redirects are canonical and do not form a cross-host loop",
     async () => {
       for (const { host, home } of CANONICAL_HOSTS) {
         for (const cookie of [undefined, ceoCookie]) {
@@ -237,13 +224,15 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
               expect(location, `${host}${path}`).not.toMatch(/^\/\//);
               continue;
             }
-            // Absolute Location: it must be a canonical BEYU host that is NOT the
-            // apex/`www` (that would be the prohibited bounce), and it must OWN
-            // the path (so the followed request is served, not redirected again).
+            // Absolute locations may point to central www sign-in or a
+            // canonical destination; a follow-up must not create a cross-host loop.
             const next = new URL(location);
             expect(next.hostname, `${host}${path}`).not.toBe("beyu.co.tz");
-            expect(next.hostname, `${host}${path}`).not.toBe("www.beyu.co.tz");
-            const followed = await getWithHost(next.pathname, next.host, cookie);
+            if (next.hostname === "www.beyu.co.tz") {
+              expect(next.pathname).toBe("/sign-in");
+              expect(next.searchParams.get("destination")).toMatch(/^(HEALTH|FINANCE|AGRICULTURE|UJENZI|FOUNDATION|FAMILY_OFFICE|NOELIA_AI)$/);
+            }
+            const followed = await getWithHost(next.pathname + next.search, next.host, cookie);
             // Any further redirect is the target host's own governed hop and must
             // stay RELATIVE — never another cross-host location, never a loop.
             if (followed.status >= 300 && followed.status < 400) {

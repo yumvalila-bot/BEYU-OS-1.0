@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { resolvePrincipal } from "@/lib/session";
+import { signInHrefForRequest } from "@/lib/sign-in-redirect";
 import { canonicalHostForRequest, destinationHrefForRequest } from "@/lib/canonical-host";
 import { CANONICAL_SURFACES, FOUNDATION_ORGANIZATION, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
 import CanonicalSignInPage from "./canonical-sign-in";
@@ -19,8 +22,14 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const host = await canonicalHostForRequest();
-  // Destination hosts retain their independent, governed entry surface.
-  if (host.kind === "SECTOR_OS" || host.kind === "SURFACE") return CanonicalSignInPage();
+  // Configured destination hosts use central sign-in for unauthenticated visitors.
+  if (host.kind === "SECTOR_OS" || host.kind === "SURFACE") {
+    if (!(await resolvePrincipal())) {
+      const signIn = await signInHrefForRequest();
+      if (signIn !== "/sign-in") redirect(signIn);
+    }
+    return CanonicalSignInPage();
+  }
   const hrefFor = await destinationHrefForRequest();
   const links = Object.fromEntries(SECTOR_OPERATING_SYSTEMS.map((destination) => [destination.code, hrefFor(destination)]));
   const noelia = CANONICAL_SURFACES.find((destination) => destination.code === "NOELIA_AI");

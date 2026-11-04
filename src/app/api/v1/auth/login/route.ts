@@ -95,7 +95,9 @@ export async function POST(request: Request): Promise<NextResponse> {
         traceId,
       });
     });
-    return apiError("ACCOUNT_LOCKED", "This identity is temporarily locked.", 423, traceId);
+    // Do not distinguish an existing locked identity from unknown credentials.
+    verifyPassword(body.password, "scrypt$00000000000000000000000000000000$" + "0".repeat(128));
+    return fail();
   }
 
   if (!verifyPassword(body.password, user.passwordHash)) {

@@ -48,7 +48,7 @@ export type BootstrapIdentity = { email: string; role: string };
  */
 export function SignInForm({
   identities = [],
-  landing = "/os",
+  landing = "/launcher",
   destinationName = "BEYU OS",
   sessionExpired = false,
 }: {
@@ -104,7 +104,7 @@ export function SignInForm({
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password, mfaCode }),
+        body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }),
       });
       const json = await res.json().catch(() => null);
 
@@ -123,7 +123,7 @@ export function SignInForm({
 
       // Same-origin, server-computed route only (see `landing`): a single
       // leading slash, never a scheme-relative or absolute URL.
-      router.push(/^\/(?!\/)/.test(landing) ? landing : "/os");
+      router.push(/^\/(?!\/)/.test(landing) ? landing : "/launcher");
       router.refresh();
     } catch {
       setError("The control plane is unreachable. Try again.");

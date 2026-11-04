@@ -61,3 +61,6 @@
 .ph-contact p a{color:#163e64;text-decoration:underline;text-underline-offset:3px}
 @media (prefers-reduced-motion:no-preference){@supports (animation-timeline:view()){.public-home .ph-section-heading{animation:ph-section-reveal linear both;animation-timeline:view();animation-range:entry 0% entry 30%}}}
 @keyframes ph-section-reveal{from{opacity:.65;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* The canonical OS artwork is displayed unmodified, on its original white matte. */
+.ph-logo,.ph-footer-logo{display:flex;align-items:center;gap:10px}.ph-logo .ph-wordmark,.ph-footer-logo .ph-wordmark{font-family:Georgia,serif;letter-spacing:.12em;font-size:24px;color:#0b1f3e}.ph-footer-logo .ph-wordmark,.ph-globe-core .ph-wordmark{color:#fff}.ph-globe-core .ph-wordmark{font-family:Georgia,serif;letter-spacing:.14em;font-size:18px;margin-top:5px}

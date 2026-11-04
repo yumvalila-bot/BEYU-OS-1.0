@@ -19,7 +19,7 @@ describe("public institutional front door", () => {
   it("links to existing sign-in and the supplied governed destinations", () => {
     for (const path of ["/sign-in", "/os/health", "/os/finance", "/os/agriculture", "/os/ujenzi", "/os/noelia", "/os/foundation"]) expect(html).toContain(`href="${path}"`);
     expect(html).toContain("authorized human approval");
-    for (const asset of ["network-globe.jpg", "sector-health.jpg", "sector-finance.jpg", "sector-agriculture.jpg", "sector-ujenzi.jpg", "NOELIA.png", "beyu-logo-light.svg"]) expect(html).toContain(asset);
+    for (const asset of ["network-globe.jpg", "sector-health.jpg", "sector-finance.jpg", "sector-agriculture.jpg", "sector-ujenzi.jpg", "NOELIA.png", "beyu-os-logo.png"]) expect(html).toContain(asset);
   });
   it("provides semantic, keyboard-operable disclosure and section navigation", () => {
     expect(html).toContain('<main id="main-content">');

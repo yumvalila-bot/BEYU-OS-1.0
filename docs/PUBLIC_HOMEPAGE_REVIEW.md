@@ -9,7 +9,7 @@
 - **IMPLEMENTED**: Public content uses the repository's BEYU logo and NOELIA image. The landscape is an AI-generated illustration, not evidence of a real BEYU project or location.
 - **PLANNED / NOT VERIFIED**: Homepage descriptions of sector capabilities, API, MCP, HIVE and security express architectural scope, not a certification that all capabilities or integrations are enabled or connected.
 - **BLOCKED / NOT VERIFIED**: Authenticated login, MFA, tenant isolation and workspace flows require a configured database and valid test identities. They were not exercised end to end in this environment. At that earlier stage browser checks had not yet been run; see the reference-led revision below.
-- **BLOCKED**: No verified general public contact, published privacy policy or terms routes were found. The footer uses the repository's published security-reporting email; general contact and legal links need approved destinations before they can be added.
+- **BLOCKED**: No verified general public contact, published privacy policy or terms routes were found. The repository documents a security-reporting email, but its production deliverability is unverified; general contact and legal links need approved destinations before they can be added.
 
 ## Validation
 
@@ -21,9 +21,9 @@
 
 ## Reference-led revision
 
-The reference was inspected from the GitHub `main` branch (`Home page.png`, blob `59b684eb001ba4c87865e5d81992ebbe1f7f2556`); it was not present in this session's starting checkout. The revised page takes its dark sticky navigation, connected-globe hero, photographic sector cards, navy-and-gold NOELIA treatment, landscape and adjacent sign-in panel from the reference composition. The actual canonical BEYU SVGs and `public/NOELIA.png` remain authoritative, rather than the invented identities in the reference.
+The reference was inspected from the GitHub `main` branch (`Home page.png`, blob `59b684eb001ba4c87865e5d81992ebbe1f7f2556`); it was not present in this session's starting checkout. The revised page takes its dark sticky navigation, connected-globe hero, photographic sector cards, navy-and-gold NOELIA treatment, landscape and adjacent sign-in panel from the reference composition. The canonical BEYU OS PNG and `public/NOELIA.png` are used rather than invented identities in the reference.
 
-- **IMPLEMENTED**: The official SVG logo has a transparent background and is used unchanged. NOELIA's original portrait and its dark background are retained unchanged; background removal was not attempted because an unverified cutout could damage distinguishing details.
+- **IMPLEMENTED**: The canonical BEYU OS PNG logo, with its original white matte, is used unchanged (the historical SVG was removed from active presentation). NOELIA's original portrait and its dark background are retained unchanged; background removal was not attempted because an unverified cutout could damage distinguishing details.
 - **SIMULATED / ILLUSTRATIVE**: The globe, institutional building, landscape and four sector images are AI-generated illustrations, not evidence of completed facilities, projects or operating results. JPEGs are optimized and loaded locally; sector imagery uses responsive Next.js image handling.
 - **IMPLEMENTED**: The sign-in panel links to the shared sign-in and to canonical Sector OS and Foundation destinations. Unauthenticated deep links now redirect to `/sign-in` rather than `/`, because the neutral root is a public homepage. This preserves access to the existing sign-in without treating a hostname or link as authority. The host-aware sign-in and destination gates are unchanged.
 - **VERIFIED**: On a production-mode local server configured for the canonical domain, apex/www root returned the homepage; Health, Finance, Agriculture, Ujenzi, Foundation and NOELIA roots returned their existing sign-in surfaces. Unauthenticated Sector OS and Foundation deep links returned a 307 to `/sign-in`.

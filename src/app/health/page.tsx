@@ -1,3 +1,4 @@
+import { signInHrefForRequest } from "@/lib/sign-in-redirect";
 import type { Metadata } from "next";
 /**
  * Health OS Entry Point
@@ -29,7 +30,7 @@ export default async function HealthOSPage() {
 
   // Unauthenticated → redirect to sign-in
   if (!principal) {
-    redirect("/sign-in");
+    redirect(await signInHrefForRequest());
   }
 
   // Check Health OS authorization
