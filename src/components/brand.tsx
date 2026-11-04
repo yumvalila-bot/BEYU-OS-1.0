@@ -58,7 +58,7 @@ export function Panel({
       {(title || kicker) && (
         <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-3">
           <div>
-            {kicker && <div className="beyu-kicker text-[#b08d1c]">{kicker}</div>}
+            {kicker && <div className="beyu-kicker text-[var(--beyu-panel-gold-ink)]">{kicker}</div>}
             {title && <h2 className="mt-1 text-[15px] font-semibold tracking-tight">{title}</h2>}
           </div>
           {action}
@@ -110,7 +110,7 @@ export function Denied({ reason, capability }: { reason: string; capability: str
     <div className="beyu-panel mx-auto max-w-2xl px-6 py-8">
       <div className="flex items-center gap-3">
         <BeyuOsLogo size={30} ariaLabel="BEYU" />
-        <div className="beyu-kicker text-[#b08d1c]">Access decision recorded</div>
+        <div className="beyu-kicker text-[var(--beyu-panel-gold-ink)]">Access decision recorded</div>
       </div>
       <h1 className="mt-3 text-[20px] font-semibold tracking-tight">Authorisation denied</h1>
       <p className="mt-3 text-[13px] beyu-muted">{reason}</p>

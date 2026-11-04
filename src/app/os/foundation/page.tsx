@@ -105,7 +105,7 @@ export default async function FoundationPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">BEYU Foundation — separate nonprofit sister organization</div>
+          <div className="beyu-kicker text-[var(--beyu-panel-gold-ink)]">BEYU Foundation — separate nonprofit sister organization</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Foundation Executive Dashboard</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Foundations, formation, governance, tax, timely compliance, donors, funds, grants, programs and
@@ -126,7 +126,7 @@ export default async function FoundationPage() {
         </div>
 
         {capabilities.compliance && <Panel kicker="Attention" title="Next deadlines">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2" role="region" aria-label="Upcoming Foundation deadlines" tabIndex={0}>
             <table className="beyu-table">
               <thead><tr><th>Due</th><th>Health</th><th>Status</th><th>Period</th><th>Obligation</th></tr></thead>
               <tbody>

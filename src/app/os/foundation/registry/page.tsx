@@ -18,7 +18,7 @@ export default async function FoundationRegistryPage() {
     return (
       <div className="space-y-6">
         <header>
-          <div className="beyu-kicker text-[#b08d1c]">Foundation organization · Registry</div>
+          <div className="beyu-kicker text-[var(--beyu-panel-gold-ink)]">Foundation organization · Registry</div>
           <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Foundation Registry</h1>
           <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
             Every foundation in scope, across tenants, entities and jurisdictions. Lifecycle transitions
@@ -32,7 +32,7 @@ export default async function FoundationRegistryPage() {
           <Metric label="Restricted / suspended" value={String(rows.filter((r) => ["RESTRICTED", "SUSPENDED"].includes(r.status)).length)} sub="needs attention" />
         </div>
         <Panel kicker="Registry" title="Foundations">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2" role="region" aria-label="Foundation registry" tabIndex={0}>
             <table className="beyu-table">
               <thead><tr><th>Foundation</th><th>Vehicle</th><th>Country</th><th>Registration</th><th>Tax status</th><th>Status</th></tr></thead>
               <tbody>

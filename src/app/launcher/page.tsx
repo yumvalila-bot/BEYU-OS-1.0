@@ -69,7 +69,7 @@ function DestinationCard({
         </span>
       </span>
       <span className="mt-3 block text-[13px] leading-relaxed text-slate-600">{destination.description}</span>
-      <span className={`mt-5 flex items-center justify-between text-[12px] font-semibold ${authorized ? "text-[#9b7410]" : "text-slate-500"}`}>
+      <span className={`mt-5 flex items-center justify-between text-[12px] font-semibold ${authorized ? "text-[#70530f]" : "text-slate-500"}`}>
         {authorized ? "Open governed destination" : `Destination is ${destination.status} — access unavailable for this identity`}
         {authorized && (
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 transition group-hover:translate-x-1">
@@ -192,8 +192,8 @@ export default async function LauncherPage() {
           <div className="flex flex-col items-start gap-3 sm:items-end sm:text-right">
             <div>
               <p className="text-[13px] font-semibold">{principal.displayName}</p>
-              <p className="mt-0.5 text-[11px] text-white/55">{principal.email}</p>
-              <p className="mt-1 text-[10px] tracking-[0.12em] text-white/40">
+              <p className="mt-0.5 text-[11px] text-white/80">{principal.email}</p>
+              <p className="mt-1 text-[10px] tracking-[0.12em] text-white/80">
                 {principal.tenantCode} · {principal.clearance}
               </p>
             </div>
@@ -206,7 +206,7 @@ export default async function LauncherPage() {
         {controlPlane.length > 0 && (
           <section aria-labelledby="control-plane-heading">
             <div className="mb-4">
-              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">ONE GLOBAL KERNEL</p>
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#70530f]">ONE GLOBAL KERNEL</p>
               <h2 id="control-plane-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
                 Constitutional control plane
               </h2>
@@ -225,7 +225,7 @@ export default async function LauncherPage() {
 
         {sectorDestinations.length > 0 && <section aria-labelledby="sector-os-heading" className="border-t border-slate-200 pt-8">
           <div className="mb-4">
-            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">BENEATH BEYU OS</p>
+            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#70530f]">BENEATH BEYU OS</p>
             <h2 id="sector-os-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
               Sector operating systems
             </h2>
@@ -248,7 +248,7 @@ export default async function LauncherPage() {
 
         {authorizedCodes.has(FOUNDATION_ORGANIZATION.code) && <section aria-labelledby="sister-organization-heading" className="border-t border-slate-200 pt-8">
           <div className="mb-4">
-            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">SEPARATELY GOVERNED</p>
+            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#70530f]">SEPARATELY GOVERNED</p>
             <h2 id="sister-organization-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
               Nonprofit sister organization
             </h2>
@@ -269,7 +269,7 @@ export default async function LauncherPage() {
           <section aria-labelledby="frontend-preview-heading" className="border-t border-slate-200 pt-8">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold tracking-[0.18em] text-[#9b7410]">
+                <p className="text-[10px] font-semibold tracking-[0.18em] text-[#70530f]">
                   BEYU Admin — Frontend Preview
                 </p>
                 <h2 id="frontend-preview-heading" className="mt-1 text-xl font-semibold tracking-tight text-[#0b1f4d]">
@@ -281,7 +281,7 @@ export default async function LauncherPage() {
                   this list grants nothing and is visible only to the governed BEYU administrator.
                 </p>
               </div>
-              <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/10 px-3 py-1 text-[10px] font-semibold tracking-wide text-[#9b7410]">
+              <span className="rounded-full border border-[#d4af37]/50 bg-[#d4af37]/10 px-3 py-1 text-[10px] font-semibold tracking-wide text-[#70530f]">
                 DEVELOPMENT PREVIEW — READ-ONLY, GOVERNED
               </span>
             </div>
@@ -289,7 +289,7 @@ export default async function LauncherPage() {
               {previewSurfaces.map((surface) => (
                 <div key={surface.href} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b1f4d]/5 text-[#9b7410]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0b1f4d]/5 text-[#70530f]">
                       <Icon name={surface.icon} className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
