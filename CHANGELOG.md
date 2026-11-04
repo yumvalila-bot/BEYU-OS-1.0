@@ -1,5 +1,47 @@
 # Changelog
 
+## [Unreleased] — Trustee Command: the Family Trust authority surface, composed from real registers — 2026-11-04
+
+"Trustee Command" already existed — as a dashboard inside the **Health OS sector SPA**
+(`sectors/health/src/views/Governance.tsx`, reachable via the `trustee` demo role in
+`sectors/health/src/data/mock.ts`) showing three hard-coded trustees (`EMP-10001…3`),
+hard-coded resolutions (`TR-2026-03/04`) and hard-coded review matters to any viewer who
+selected the demo role, inside a sector surface with no authority over the Family Trust.
+
+The upgrade makes it a real BEYU OS control-plane capability at
+**`/os/family/trustee-command`** (`docs/governance/TRUSTEE_COMMAND.md`), composed from
+registers that already own the facts: `entity_appointments` (trustee office and quorum),
+`governance_bodies` (declared reserved matters, quorum, majority rule),
+`trust_instruments` / `trust_provisions` / `trust_decisions` / `trust_distributions`,
+`legal_entities` (trust identity and the ownership tree beneath it) and the
+`CAP_POSTING` activation gate.
+
+- **No new permission, no new authority.** The surface reuses the existing
+  `familyoffice:trust.read` capability — the same one the trust API enforces — in both the
+  page guard and `GET /api/v1/family-office/trustee-command`. It is a capability entry in
+  the Family Office domains group; it is never an OS, and it grants nothing. Trustee status
+  is an appointment in the canonical registry, not a capability.
+- **Read-only by construction.** There is no POST sibling (405 at the boundary), no form, no
+  server action, and no `.insert/.update/.delete` in any of the four new files. Every
+  consequential act stays in `trust-governance-service.ts` / the governance engine.
+- **No fabricated state.** Reserved matters with no governed record type report
+  `NOT_INSTRUMENTED` instead of borrowing an unrelated decision type; the seeded database
+  has zero trustee appointments, so the surface says quorum is *not met* rather than
+  inventing founding trustees; provisions without a ratified legal-effect reference are
+  counted `INERT` and enforceability is never assumed; executed distributions with no
+  Finance reference are reported as awaiting Finance OS.
+- **Scope.** The trust resolves from the principal's tenant scope only (an out-of-scope id
+  and a non-existent id are indistinguishable); an entity-scoped grant is refused rather
+  than widened, mirroring the canonical `guarded()` rule for `familyoffice:*`; clearance is
+  enforced as a second dimension.
+- **CAP_POSTING stays LOCKED** and is *reported* from the activation gate — including its
+  `blockedBy` decision list — never reachable from this surface.
+- **Certification.** `tests/frontend/trustee-command.test.ts` (28 pure tests) and
+  `tests/family/trustee-command-http.test.ts` (6 transport tests: 401, 403, redirect, full
+  model, real rendered surface, 405 on POST). Full regression sweep of
+  `tests/frontend tests/authorization tests/admin tests/family tests/architecture
+  tests/security tests/database tests/migration`: 2068 passed, 0 failed.
+
 ## [Unreleased] — Vitest 4: `tinypool` removed from the repository — 2026-10-09
 
 Follow-up to the entry below, taking the owner decision it deliberately left open (§9 of

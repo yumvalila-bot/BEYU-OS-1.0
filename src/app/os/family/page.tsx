@@ -24,6 +24,9 @@ export default async function FamilyPage() {
   const canVault = can(access.principal, "family:vault.read").allowed;
   const canBeneficiary = can(access.principal, "family:beneficiary.read").allowed;
   const canGovernance = can(access.principal, "governance:resolution.read").allowed;
+  // Trustee Command carries its OWN grant. Linking it here is presentation only —
+  // the destination re-runs `familyoffice:trust.read` on the server.
+  const canTrusteeCommand = can(access.principal, "familyoffice:trust.read").allowed;
 
   // Family-member and vault rows do not carry a legal-entity key. Under a
   // named entity grant, containment cannot be proven, so those reads fail
@@ -161,6 +164,28 @@ export default async function FamilyPage() {
           >
             Open the families registry →
           </Link>
+          <div className="mt-4 border-t border-[color:var(--beyu-line)] pt-3">
+            <div className="beyu-kicker beyu-muted">Constitutional authority</div>
+            {canTrusteeCommand ? (
+              <>
+                <p className="mt-1 text-[12px] beyu-muted">
+                  Trustee Command reviews the trustee office, reserved matters, instruments and distribution
+                  decision records. It decides nothing.
+                </p>
+                <Link
+                  href="/os/family/trustee-command"
+                  className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[#0b1f4d]/25 bg-[#0b1f4d]/5 px-3 py-2 text-[12px] font-semibold text-[#0b1f4d] transition hover:bg-[#0b1f4d]/10 dark:border-white/20 dark:bg-white/10 dark:text-white"
+                >
+                  Open Trustee Command →
+                </Link>
+              </>
+            ) : (
+              <p className="mt-1 text-[11.5px] beyu-muted">
+                familyoffice:trust.read is not granted to your roles; the trustee authority surface is not
+                advertised and was not queried.
+              </p>
+            )}
+          </div>
         </Panel>
 
         <Panel kicker="Family line · branch · generation" title="Lineage registry with verification provenance">

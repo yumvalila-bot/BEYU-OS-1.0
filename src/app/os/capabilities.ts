@@ -536,6 +536,22 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
     title: "Family Office domains",
     items: [
       {
+        // Constitutional authority surface of the BEYU Family Trust. It replaces
+        // the demonstration "Trustee Command" dashboard that shipped inside the
+        // Health OS sector SPA with a real read-only composition of the trust,
+        // appointment, governance and activation registers. A capability entry,
+        // never an OS, and never a grant: the page re-runs the same
+        // `familyoffice:trust.read` guard this visibility tests.
+        href: "/os/family/trustee-command",
+        label: "Trustee Command",
+        description: "Constitutional authority of the Family Trust: trustee office and quorum, the reserved-matter review map, instruments, provisions, distribution decision records, the ownership map and the authority rails — advisory and read-only.",
+        icon: "constitution",
+        visibility: {
+          kind: "permission",
+          permission: "familyoffice:trust.read",
+        },
+      },
+      {
         href: "/os/family/capital",
         label: "Family Capital & Wealth",
         description: "Family capital position, investment theses, obligations and generational planning.",
