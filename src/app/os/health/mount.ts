@@ -97,7 +97,7 @@ export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise
   if (!principal) {
     return new NextResponse(null, {
       status: 307,
-      headers: { Location: "/" },
+      headers: { Location: "/sign-in" },
     });
   }
 

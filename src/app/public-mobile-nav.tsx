@@ -3,8 +3,9 @@
 import { useState } from "react";
 
 const links = [
-  ["#about", "About"], ["#ecosystem", "Our ecosystem"], ["#governance", "Governance"],
-  ["#noelia", "NOELIA AI"], ["#impact", "Our vision"], ["/sign-in", "Sign in to BEYU ↗"],
+  ["#about", "About BEYU"], ["#governance", "Our Architecture"], ["#ecosystem", "Sector OS"],
+  ["#capabilities", "Capabilities"], ["#noelia", "NOELIA AI"], ["#technology", "Technology"],
+  ["#impact", "Our vision"], ["#contact", "Contact"], ["/sign-in", "Sign in to BEYU ↗"],
 ];
 
 export function PublicMobileNav() {

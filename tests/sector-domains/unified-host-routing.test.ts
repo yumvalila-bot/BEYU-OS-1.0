@@ -393,7 +393,7 @@ describe("E. the running server", () => {
     "serves the SAME canonical login page on all eight hosts, with the host's own context",
     async () => {
       for (const [host, destination] of Object.entries(EXPECTED_CONTRACT)) {
-        const reply = await get(host);
+        const reply = await get(host, "/sign-in");
         expect(reply.status, host).toBe(200);
         const body = text(reply.body);
         // ONE login experience: the same real form and the same reference surface.
@@ -432,12 +432,12 @@ describe("E. the running server", () => {
         { "x-host": "health.beyu.co.tz" },
       ];
       for (const spoof of spoofs) {
-        const onApex = text((await get("beyu.co.tz", "/", spoof)).body);
+        const onApex = text((await get("beyu.co.tz", "/sign-in", spoof)).body);
         expect(onApex, JSON.stringify(spoof)).toContain("Sign in to the control plane");
         expect(onApex, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
       }
       // …and a spoofed header cannot turn an unknown host into a destination either.
-      const unknown = text((await get("billing.beyu.co.tz", "/", { "x-forwarded-host": "finance.beyu.co.tz" })).body);
+      const unknown = text((await get("billing.beyu.co.tz", "/sign-in", { "x-forwarded-host": "finance.beyu.co.tz" })).body);
       expect(unknown).toContain("Sign in to the control plane");
       expect(unknown).not.toContain("Sign in to Finance OS");
     },

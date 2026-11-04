@@ -12,7 +12,7 @@ export type PageAccess =
 /** Server-component guard. Unauthenticated users are returned to sign-in. */
 export async function requirePrincipal(): Promise<Principal> {
   const principal = await resolvePrincipal();
-  if (!principal) redirect("/");
+  if (!principal) redirect("/sign-in");
   return principal;
 }
 

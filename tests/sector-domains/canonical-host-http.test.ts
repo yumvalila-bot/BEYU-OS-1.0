@@ -146,7 +146,7 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
       // The apex keeps the control-plane copy — the central BEYU experience.
       const www = await getWithHost("/", "www.beyu.co.tz");
       expect(www.status).toBe(200);
-      expect(www.body).toContain("Sign in to the control plane");
+      expect(www.body).toContain("Bridging Care");
     },
   );
 
@@ -157,7 +157,7 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
         const res = await getWithHost(home, host);
         expect(res.status, `${host}${home}`).toBe(307);
         // Relative Location: the visitor stays on the canonical hostname.
-        expect(res.location, `${host}${home}`).toBe("/");
+        expect(res.location, `${host}${home}`).toBe("/sign-in");
       }
     },
   );
@@ -420,7 +420,7 @@ describe("hostile Host values", () => {
       ]) {
         const res = await getWithHost("/", host);
         expect(res.status, host).toBe(200);
-        expect(res.body, host).toContain("Sign in to the control plane");
+        expect(res.body, host).toContain("Bridging Care");
         const cross = await getWithHost("/os/finance", host, ceoCookie);
         expect(cross.status, host).toBe(200); // served in place, no redirect
       }

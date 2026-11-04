@@ -76,7 +76,7 @@ test("implemented shell domain labels and distinct Trust governance artwork", as
 
 test("public surfaces and metadata resolve without an authenticated session", async ({ page, context }) => {
   await context.clearCookies();
-  for (const path of ["/", "/enroll", "/not-a-real-beyu-route"]) {
+  for (const path of ["/sign-in", "/enroll", "/not-a-real-beyu-route"]) {
     await page.goto(path);
     await expect(page.locator('img[src="/brand/beyu-os-logo.png"]').first()).toBeVisible();
   }
@@ -96,9 +96,9 @@ test("unauthenticated deep links still redirect, including Ujenzi and Health", a
   for (const path of ["/os", "/os/finance", "/os/health", "/os/agriculture", "/os/foundation", "/os/ujenzi", "/os/family", "/os/family/protection", "/health/os"]) {
     const response = await page.request.get(path, { maxRedirects: 0 });
     expect(response.status()).toBe(307);
-    expect(response.headers().location).toBe("/");
+    expect(response.headers().location).toBe("/sign-in");
     await page.goto(path);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/sign-in$/);
     await expect(page.getByRole("navigation", { name: "Page history" })).toHaveCount(0);
   }
 });

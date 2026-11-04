@@ -29,7 +29,7 @@ export default async function HealthOSPage() {
 
   // Unauthenticated → redirect to sign-in
   if (!principal) {
-    redirect("/");
+    redirect("/sign-in");
   }
 
   // Check Health OS authorization

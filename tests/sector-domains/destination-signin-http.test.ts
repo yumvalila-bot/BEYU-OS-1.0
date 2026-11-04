@@ -288,6 +288,10 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
+          if (path === "/") {
+            expect(text(res.body), `${host}${path}`).toContain("Bridging Care");
+            continue;
+          }
           expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
           expect(text(res.body), `${host}${path}`).toContain(CONTROL_PLANE_ONLY);
           expect(res.body, `${host}${path}`).toContain('aria-label="Sign in to BEYU OS"');
@@ -305,7 +309,7 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          expect(text(res.body), `${host}${path}`).toContain(path === "/" ? "Bridging Care" : "Sign in to the control plane");
           // No privileged destination frontend is reachable by spoofing a host.
           for (const destination of DESTINATIONS) {
             expect(text(res.body), `${host}${path}`).not.toContain(destination.copy);
@@ -662,7 +666,7 @@ describe("9. the documented inactive state — no canonical domain configured", 
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          expect(text(res.body), `${host}${path}`).toContain(path === "/" ? "Bridging Care" : "Sign in to the control plane");
         }
       }
     },

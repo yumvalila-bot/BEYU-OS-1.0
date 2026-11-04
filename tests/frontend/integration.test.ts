@@ -33,7 +33,7 @@ beforeAll(async () => {
 
 const REDIRECT_TO_SIGNIN = async (path: string) => {
   const res = await apiGet(path, null);
-  // Unauthenticated server components call redirect("/") → the sign-in page.
+  // Unauthenticated server components call redirect("/sign-in") → the sign-in page.
   expect([307, 200]).toContain(res.status);
   expect(res.html).toMatch(/BEYU OS|Sign in|Welcome/i);
 };

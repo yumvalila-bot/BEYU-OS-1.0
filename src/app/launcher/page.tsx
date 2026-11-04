@@ -95,7 +95,7 @@ function DestinationCard({
 
 export default async function LauncherPage() {
   const principal = await resolvePrincipal();
-  if (!principal) redirect("/");
+  if (!principal) redirect("/sign-in");
 
   const destinations = await authorizedGovernedDestinations(principal);
   if (destinations.length === 1) redirect(destinations[0].href);
