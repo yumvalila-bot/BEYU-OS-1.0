@@ -36,7 +36,7 @@ const serverHelper = source("src", "lib", "canonical-host.ts");
 const proxy = source("src", "proxy.ts");
 const cookie = source("src", "lib", "session-cookie.ts");
 const mount = source("src", "app", "os", "health", "mount.ts");
-const signIn = source("src", "app", "page.tsx");
+const signIn = source("src", "app", "canonical-sign-in.tsx");
 const signInForm = source("src", "app", "sign-in-form.tsx");
 const login = source("src", "app", "api", "v1", "auth", "login", "route.ts");
 const logout = source("src", "app", "api", "v1", "auth", "logout", "route.ts");
@@ -271,6 +271,7 @@ describe("5. reaching a canonical host authorizes nothing", () => {
       .map((file) => path.relative(ROOT, file).split(path.sep).join("/"))
       .sort();
     expect(consumers).toEqual([
+      "src/app/canonical-sign-in.tsx",
       "src/app/launcher/page.tsx",
       "src/app/os/agriculture/layout.tsx",
       "src/app/os/capability-map.tsx",

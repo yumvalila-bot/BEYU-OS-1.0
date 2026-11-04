@@ -258,7 +258,7 @@ describe("C. every destination has a real sign-in route and a real home", () => 
     expect(shared).not.toMatch(/family-trust-logo|BEYU_FAMILY_TRUST_ASSETS/);
     expect(shared).not.toMatch(/(?:function|class) (?:FinanceLogo|HealthLogo|AgricultureLogo|UjenziLogo|FoundationLogo|FamilyOfficeLogo)\b/);
 
-    const page = code(source("src", "app", "page.tsx"));
+    const page = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(page).toContain("<GovernedSignIn");
     expect(page).toContain("<DestinationDenied");
     expect(page).toContain("destinationForResolution(canonicalHost)");
@@ -321,7 +321,7 @@ describe("D. authentication is SHARED — one identity, one session, one login",
 
   it("makes /sign-in the SAME implementation as / — no second sign-in to drift", () => {
     const signIn = code(source("src", "app", "sign-in", "page.tsx"));
-    expect(signIn).toContain('import CanonicalSignInPage from "../page"');
+    expect(signIn).toContain('import CanonicalSignInPage from "../canonical-sign-in"');
     expect(signIn).toContain("export default CanonicalSignInPage");
     expect(signIn).toContain('export const dynamic = "force-dynamic"');
     // It re-implements nothing: no second session resolution, no second login
@@ -358,7 +358,7 @@ describe("E. sign-in is destination-aware, derived from the host only", () => {
   });
 
   it("computes the post-auth landing SERVER-SIDE from the canonical contract", () => {
-    const page = code(source("src", "app", "page.tsx"));
+    const page = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(page).toContain("canonicalHostForRequest()");
     expect(page).toContain('landing={requestedContext ? requestedContext.href : "/os"}');
     // The landing is never an input: no query string, no callback parameter.
@@ -376,7 +376,7 @@ describe("E. sign-in is destination-aware, derived from the host only", () => {
     }
     // The canonical hostname remains the canonical frontend address: no
     // destination home is expressed as an apex URL anywhere in the frontend.
-    const page = source("src", "app", "page.tsx");
+    const page = source("src", "app", "canonical-sign-in.tsx");
     const shared = source("src", "app", "governed-sign-in.tsx");
     expect(page).not.toContain("beyu.co.tz/os/");
     expect(shared).not.toContain("beyu.co.tz/os/");
@@ -391,7 +391,7 @@ describe("F. hostname is not authentication and not authorization", () => {
   });
 
   it("answers destination access only through the PRE-EXISTING server-side resolvers", () => {
-    const page = code(source("src", "app", "page.tsx"));
+    const page = code(source("src", "app", "canonical-sign-in.tsx"));
     const resolver = page.indexOf("authorizedGovernedDestinations(principal)");
     const sectorGate = page.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     const surfaceGate = page.indexOf("can(principal, canonicalHost.surface.entryPermission).allowed");
@@ -404,7 +404,7 @@ describe("F. hostname is not authentication and not authorization", () => {
   });
 
   it("denies on the destination host instead of silently redirecting to another OS", () => {
-    const page = code(source("src", "app", "page.tsx"));
+    const page = code(source("src", "app", "canonical-sign-in.tsx"));
     // The denial is rendered BEFORE the pre-existing control-plane routing, so a
     // signed-in visitor on a destination host is never bounced to `/launcher` or
     // to whichever other OS they do hold.

@@ -43,7 +43,7 @@ const text = (html: string) =>
 
 const SURFACE = code(source("src", "app", "login-surface.tsx"));
 const FORM = code(source("src", "app", "sign-in-form.tsx"));
-const PAGE = code(source("src", "app", "page.tsx"));
+const PAGE = code(source("src", "app", "canonical-sign-in.tsx"));
 const GOVERNED = code(source("src", "app", "governed-sign-in.tsx"));
 const RECOVERY_PAGE = code(source("src", "app", "forgot-password", "page.tsx"));
 const RECOVERY_ROUTE = code(source("src", "app", "api", "v1", "auth", "recovery", "request", "route.ts"));
@@ -240,7 +240,7 @@ describe("D. security is not traded for visual fidelity", () => {
 
 describe("E. the rendered surface (live server)", () => {
   it.skipIf(!available)("serves the reference login page unauthenticated", async () => {
-    const res = await apiGet("/", null);
+    const res = await apiGet("/sign-in", null);
     expect(res.status).toBe(200);
     const body = text(res.html);
     for (const marker of [

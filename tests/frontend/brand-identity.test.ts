@@ -223,7 +223,7 @@ describe("<FamilyTrustLogo />", () => {
 
 describe("institutional identity separation across surfaces", () => {
   it("the sign-in surface presents the authoritative BEYU OS identity", () => {
-    const signIn = readFileSync(path.join(ROOT, "src", "app", "page.tsx"), "utf8");
+    const signIn = readFileSync(path.join(ROOT, "src", "app", "canonical-sign-in.tsx"), "utf8");
     expect(signIn).toContain("BeyuOsLogo");
     // The Family Trust institutional asset never appears on the OS sign-in.
     expect(signIn).not.toContain("family-trust-logo");
@@ -240,7 +240,7 @@ describe("institutional identity separation across surfaces", () => {
     const navigation = readFileSync(path.join(ROOT, "src", "app", "os", "os-navigation.tsx"), "utf8");
     const shell = readFileSync(path.join(ROOT, "src", "app", "os", "layout.tsx"), "utf8");
     const launcher = readFileSync(path.join(ROOT, "src", "app", "launcher", "page.tsx"), "utf8");
-    const signIn = readFileSync(path.join(ROOT, "src", "app", "page.tsx"), "utf8");
+    const signIn = readFileSync(path.join(ROOT, "src", "app", "canonical-sign-in.tsx"), "utf8");
     const enrollment = readFileSync(path.join(ROOT, "src", "app", "enroll", "page.tsx"), "utf8");
     const settings = readFileSync(path.join(ROOT, "src", "app", "os", "settings", "page.tsx"), "utf8");
 

@@ -118,7 +118,7 @@ describe("B/C. direct access — no BEYU landing hop, no host-granted authority"
   });
 
   it("the sign-in landing is the resolved context's route, computed server-side", () => {
-    const c = code(source("src", "app", "page.tsx"));
+    const c = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).toContain("landing={requestedContext ? requestedContext.href : \"/os\"}");
     // Landing is derived from the trusted host contract only — never from input.
@@ -220,7 +220,7 @@ describe("H/I. URL preservation and the absence of routing loops", () => {
   });
 
   it("the sign-in branch redirects relatively on every host", () => {
-    const c = code(source("src", "app", "page.tsx"));
+    const c = code(source("src", "app", "canonical-sign-in.tsx"));
     const redirects = [...c.matchAll(/redirect\(([^)]*)\)/g)].map((m) => m[1]);
     expect(redirects.length).toBeGreaterThan(0);
     for (const target of redirects) {
