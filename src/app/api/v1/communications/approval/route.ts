@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency, apiError } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency, apiError } from "@/lib/api";
 import { db } from "@/db";
 import { communicationMessages } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -31,8 +32,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.approval.decide", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, ApprovalSchema);
+      const payload = await readBoundedJson(request);
+      const body = ApprovalSchema.parse(payload);
+      return withIdempotency(ctx, "communications.approval.decide", payload, async () => {
 
         const [message] = await db
           .select()

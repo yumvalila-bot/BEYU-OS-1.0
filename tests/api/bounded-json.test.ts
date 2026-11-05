@@ -10,6 +10,11 @@ describe("bounded JSON validation boundary", () => {
     expect(await parseBody(request('{"items":[1,2]}'), z.object({ items: z.array(z.number()) }))).toEqual({ items: [1, 2] });
     expect(await readBoundedJson(request("{"))).toEqual({});
   });
+  it("rejects a previously consumed body rather than validating an empty object", async () => {
+    const consumed = request('{"secret":"original"}');
+    await consumed.json();
+    await expect(parseBody(consumed, z.object({}).passthrough())).rejects.toMatchObject({ status: 400 });
+  });
   it("rejects an oversized array before Zod evaluates its elements", async () => {
     const element = vi.fn((value: unknown) => value);
     const schema = z.array(z.unknown().transform(element).pipe(z.number()));

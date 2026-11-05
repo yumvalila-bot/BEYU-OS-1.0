@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { db } from "@/db";
 import { communicationScheduled } from "@/db/schema";
 import { and, eq, desc } from "drizzle-orm";
@@ -65,8 +66,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.scheduled.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, ScheduleSchema);
+      const payload = await readBoundedJson(request);
+      const body = ScheduleSchema.parse(payload);
+      return withIdempotency(ctx, "communications.scheduled.create", payload, async () => {
         const id = newId(ID_PREFIX.commScheduled);
         const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
         const idempotencyKey = body.idempotencyKey ?? newId(ID_PREFIX.idempotencyKey);

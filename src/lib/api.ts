@@ -447,6 +447,9 @@ export async function guarded(
     if (err instanceof JsonInputLimitError) {
       return apiError("PAYLOAD_LIMIT_EXCEEDED", err.message, err.status, traceId);
     }
+    if (err instanceof JsonRequestFormatError) {
+      return apiError(err.status === 415 ? "UNSUPPORTED_MEDIA_TYPE" : "INVALID_BODY", err.message, err.status, traceId);
+    }
     const applicationError = normalizeApplicationBoundaryError(err);
     if (applicationError) {
       return apiError(

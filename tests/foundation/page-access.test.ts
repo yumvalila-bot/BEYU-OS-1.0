@@ -40,3 +40,20 @@ describe("Foundation page scope boundary", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("Foundation page dependency-failure audit", () => {
+  it("records a scoped technical failure and does not leak underlying audit errors", async () => {
+    const { auditFoundationPageFailure } = await import("@/lib/foundation-page-access");
+    await auditFoundationPageFailure(principal, "/os/foundation/registry", "trace-test");
+    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: "test-tenant", actorUserId: "test-user", objectId: "/os/foundation/registry",
+      outcome: "FAILURE", reason: "AUTHORIZATION_UNAVAILABLE", traceId: "trace-test",
+      newValue: { entityScope: ["test-entity"] },
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.audit.mockRejectedValueOnce(new Error("private database detail"));
+    await expect(auditFoundationPageFailure(principal, "/os/foundation/registry", "trace-test")).resolves.toBeUndefined();
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("private database detail");
+    vi.restoreAllMocks();
+  });
+});

@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, withIdempotency } from "@/lib/api";
 import { handleInvoiceEvent } from "@/lib/communications/invoice-service";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +39,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.invoice.send", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, InvoiceSchema);
+      const payload = await readBoundedJson(request);
+      const body = InvoiceSchema.parse(payload);
+      return withIdempotency(ctx, "communications.invoice.send", payload, async () => {
         const { newId, ID_PREFIX } = await import("@/lib/ids");
         const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 

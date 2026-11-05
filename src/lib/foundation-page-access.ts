@@ -40,3 +40,22 @@ export async function foundationPageScopeAllowed(principal: Principal, resource:
   await auditFoundationPageDenial(principal, resource, "FOUNDATION_SCOPE_DENIED");
   return false;
 }
+
+/** An outage is recorded as a technical failure, never as a permission denial. */
+export async function auditFoundationPageFailure(principal: Principal, resource: string, traceId: string): Promise<void> {
+  try {
+    await withTenantDatabaseContext(principal, () => recordAudit({
+      tenantId: principal.tenantId,
+      actorUserId: principal.userId,
+      action: "foundation.page.access",
+      objectType: "FOUNDATION_PAGE",
+      objectId: resource,
+      outcome: "FAILURE",
+      reason: "AUTHORIZATION_UNAVAILABLE",
+      traceId,
+      newValue: { entityScope: principal.entityScope },
+    }));
+  } catch {
+    console.error(JSON.stringify({ event: "foundation_page_failure_audit_failed", traceId }));
+  }
+}

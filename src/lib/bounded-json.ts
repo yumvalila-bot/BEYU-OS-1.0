@@ -99,8 +99,10 @@ export async function readBoundedJson(
     if (mediaType !== "application/json") throw new JsonRequestFormatError(415);
     if (!request.body || request.bodyUsed) throw new JsonRequestFormatError(400);
   }
-  // Preserve the shared parseBody fallback for previously consumed/empty bodies.
-  if (!request.body || request.bodyUsed) return {};
+  // A consumed body cannot be validated or bounded a second time. Never turn
+  // it into a valid-looking empty object, even for a permissive schema.
+  if (request.bodyUsed) throw new JsonRequestFormatError(400);
+  if (!request.body) return {};
   const data = await readBoundedBytes(request, maxBytes);
   let json: unknown;
   try {
