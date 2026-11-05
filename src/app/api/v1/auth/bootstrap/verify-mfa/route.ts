@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
-import { apiError, apiOk, rateLimit } from "@/lib/api";
+import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
+import { readCredentialJson } from "@/lib/bounded-json";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { trustedClientIp } from "@/lib/session";
 import { BOOTSTRAP_ENROLLMENT_COOKIE } from "@/lib/constants";
@@ -32,8 +33,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let body: z.infer<typeof VerifySchema>;
   try {
-    body = VerifySchema.parse(await request.json());
-  } catch {
+    body = VerifySchema.parse(await readCredentialJson(request));
+  } catch (error) {
+    const inputError = credentialInputErrorResponse(error, traceId);
+    if (inputError) return inputError;
     return apiError("VALIDATION_FAILED", "A 6-digit authenticator code is required.", 422, traceId);
   }
 

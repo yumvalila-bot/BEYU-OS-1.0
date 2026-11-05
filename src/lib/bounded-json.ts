@@ -17,6 +17,18 @@ export class JsonInputLimitError extends Error {
   }
 }
 
+/** Format failures at strict credential endpoints. No input is included. */
+export class JsonRequestFormatError extends Error {
+  constructor(readonly status: 400 | 415) {
+    super(status === 415 ? "A JSON request is required." : "The request body is invalid.");
+    this.name = "JsonRequestFormatError";
+  }
+}
+
+/** Credential schemas have at most a few 200-character fields; 16 KiB also
+ * leaves room for JSON escaping without accepting unbounded unauthenticated input. */
+export const CREDENTIAL_JSON_BYTES = 16 * 1024;
+
 /** Iterative traversal avoids recursing on attacker-controlled JSON depth. */
 export function assertJsonComplexity(value: unknown): void {
   const pending: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
@@ -41,12 +53,11 @@ export function assertJsonComplexity(value: unknown): void {
   }
 }
 
-/** Stream with a byte cap even when Content-Length is missing or dishonest. */
-export async function readBoundedJson(request: Request): Promise<unknown> {
+/** Stream raw bytes with a cap even when Content-Length is missing or dishonest. */
+async function readBoundedBytes(request: Request, maxBytes: number): Promise<Uint8Array> {
   const contentLength = request.headers.get("content-length");
-  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > JSON_INPUT_LIMITS.bytes) throw new JsonInputLimitError(413);
-  // Match the previous request.json().catch(() => ({})) behavior for absent or consumed bodies.
-  if (!request.body || request.bodyUsed) return {};
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > maxBytes) throw new JsonInputLimitError(413);
+  if (!request.body || request.bodyUsed) throw new JsonRequestFormatError(400);
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let length = 0;
@@ -55,7 +66,7 @@ export async function readBoundedJson(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       length += value.byteLength;
-      if (length > JSON_INPUT_LIMITS.bytes) {
+      if (length > maxBytes) {
         void reader.cancel().catch(() => undefined);
         throw new JsonInputLimitError(413);
       }
@@ -67,13 +78,43 @@ export async function readBoundedJson(request: Request): Promise<unknown> {
   const data = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.byteLength; }
+  return data;
+}
+
+/** Preserve the Web Request.text() UTF-8 decoding used by webhook signatures. */
+export async function readBoundedText(request: Request, maxBytes: number): Promise<string> {
+  // Request.text() returns an empty string for an absent body.
+  if (!request.body && !request.bodyUsed) return "";
+  return new TextDecoder().decode(await readBoundedBytes(request, maxBytes));
+}
+
+/** Stream with a byte cap even when Content-Length is missing or dishonest. */
+export async function readBoundedJson(
+  request: Request,
+  options: { maxBytes?: number; strict?: boolean } = {},
+): Promise<unknown> {
+  const maxBytes = options.maxBytes ?? JSON_INPUT_LIMITS.bytes;
+  if (options.strict) {
+    const mediaType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+    if (mediaType !== "application/json") throw new JsonRequestFormatError(415);
+    if (!request.body || request.bodyUsed) throw new JsonRequestFormatError(400);
+  }
+  // Preserve the shared parseBody fallback for previously consumed/empty bodies.
+  if (!request.body || request.bodyUsed) return {};
+  const data = await readBoundedBytes(request, maxBytes);
   let json: unknown;
   try {
-    json = JSON.parse(new TextDecoder().decode(data));
+    json = JSON.parse(new TextDecoder("utf-8", { fatal: options.strict }).decode(data));
   } catch {
+    if (options.strict) throw new JsonRequestFormatError(400);
     // Preserve parseBody's historical malformed/empty JSON behavior.
     return {};
   }
   assertJsonComplexity(json);
   return json;
+}
+
+/** Strict streaming boundary for public credential and enrollment endpoints. */
+export function readCredentialJson(request: Request): Promise<unknown> {
+  return readBoundedJson(request, { maxBytes: CREDENTIAL_JSON_BYTES, strict: true });
 }

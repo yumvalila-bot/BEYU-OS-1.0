@@ -171,6 +171,8 @@ describe("page-level SSR gating parity", () => {
     expect(ok.html).toMatch(/Foundation organization|Registry/i);
 
     const denied = await apiGet("/os/foundation", cfo);
+    // Observes the current streaming defect, not the required 403 contract.
+    // Replace this assertion when the pre-stream status boundary is fixed.
     expect(denied.status).toBe(200);
     expect(isDeniedPage(denied.html)).toBe(true);
     expect(denied.html).toContain("You do not have the required access to this area.");
@@ -358,6 +360,7 @@ describe("Foundation API target-scope boundary", () => {
 
   it.skipIf(!available)("UI parity: the denied API path renders the governed denial panel", async () => {
     const page = await apiGet("/os/foundation/programs", sector);
+    // Current defective status; this is not evidence that a denial should be 200.
     expect(page.status).toBe(200);
     expect(isDeniedPage(page.html)).toBe(true);
   });

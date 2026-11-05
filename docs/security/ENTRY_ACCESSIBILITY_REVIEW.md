@@ -1,0 +1,5 @@
+# Entry accessibility and responsive review
+
+**Status: partial verification, not a WCAG certification.** The browser responsive matrix checks the public homepage and shared sign-in at the 14 requested dimensions plus 844×390 landscape; it checks primary visible elements and document-wide overflow. Other application screens were not checked at every size. The existing automated axe A/AA-tag tests cover public home, sign-in, Foundation dashboard/registry, launcher and unrelated-user Foundation denials at five widths; two checks exercise explicit dark-theme Foundation colors. Existing browser tests also exercise a real isolated MFA challenge and keyboard navigation.
+
+The responsive matrix is not real-device, browser-zoom, safe-area, touch-target, screen-reader or complete WCAG 2.2 AA testing. Dark-mode contrast for all screens, accessible loading/outage states, every role-specific workspace, assistive-technology flows and the full keyboard path need manual review by accessibility and domain owners. Foundation denial HTML still returns HTTP 200 rather than 403, independently of its visual accessibility.

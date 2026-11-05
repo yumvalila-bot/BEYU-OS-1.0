@@ -22,7 +22,8 @@ import { sessions, users } from "@/db/schema";
 import { verifyPassword } from "@/lib/crypto";
 import { decryptSecret, hashRecoveryCode, verifyTotp } from "@/lib/mfa";
 import { recordAudit, recordAuditTx, publishEventTx } from "@/lib/audit";
-import { apiError, apiOk, rateLimit } from "@/lib/api";
+import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
+import { readCredentialJson } from "@/lib/bounded-json";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { LOGIN_RATE_LIMIT, loginRateLimitKeys, newSessionValues, trustedClientIp } from "@/lib/session";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
@@ -47,12 +48,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let body: z.infer<typeof MobileLoginSchema>;
   try {
-    body = MobileLoginSchema.parse(await request.json());
-  } catch {
+    body = MobileLoginSchema.parse(await readCredentialJson(request));
+  } catch (error) {
     if (ip) {
       const limited = rateLimit(`mobile-login:ip:${ip}`, LOGIN_RATE_LIMIT.perIpAccount, LOGIN_RATE_LIMIT.windowMs);
       if (!limited.ok) return apiError("RATE_LIMITED", "Too many attempts. Try again shortly.", 429, traceId);
     }
+    const inputError = credentialInputErrorResponse(error, traceId);
+    if (inputError) return inputError;
     return apiError("VALIDATION_FAILED", "A valid email, password and MFA code are required.", 422, traceId);
   }
 

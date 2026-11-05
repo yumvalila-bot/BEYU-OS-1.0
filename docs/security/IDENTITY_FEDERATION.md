@@ -1,5 +1,7 @@
 # Identity Federation — BEYU OS ⇄ Sector Operating Systems
 
+> **Current review note:** The certification below concerns the historical sector-to-root identity link and sector-issued credentials. It does not certify a BEYU browser-session-to-Health-backend exchange or the current deployment. That exchange remains unimplemented and blocked on the owner decisions in [HEALTH_SESSION_FEDERATION_CONTRACT.md](./HEALTH_SESSION_FEDERATION_CONTRACT.md).
+
 **Status:** Implemented and certified (cross-OS certification: 10/10 scenarios against the real BEYU OS root control plane and the real Health OS backend, over real HTTP and real PostgreSQL on both sides — see [CROSS_OS_IDENTITY_CERTIFICATION_REPORT.md](./CROSS_OS_IDENTITY_CERTIFICATION_REPORT.md)).
 
 **Scope:** The canonical identity contract between the BEYU OS root platform (`/` of this repository — Next.js + PostgreSQL `beyu_os`, RLS-guarded immutable audit ledger) and sector operating systems (reference sector: Health OS, `sectors/health/backend` — NestJS + its own PostgreSQL database). This document is the normative reference for the identity federation boundary; it supersedes informal notes.

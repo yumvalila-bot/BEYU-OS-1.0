@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { hasDatabaseTransactionContext } from "@/db";
 import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
-import { JsonInputLimitError, readBoundedJson } from "./bounded-json";
+import { JsonInputLimitError, JsonRequestFormatError, readBoundedJson } from "./bounded-json";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
 import {
@@ -98,6 +98,17 @@ export function apiError(
       },
     },
   );
+}
+
+/** Map strict credential parser errors without exposing submitted content. */
+export function credentialInputErrorResponse(error: unknown, traceId: string): NextResponse | null {
+  if (error instanceof JsonInputLimitError) {
+    return apiError("PAYLOAD_LIMIT_EXCEEDED", error.message, error.status, traceId);
+  }
+  if (error instanceof JsonRequestFormatError) {
+    return apiError(error.status === 415 ? "UNSUPPORTED_MEDIA_TYPE" : "INVALID_BODY", error.message, error.status, traceId);
+  }
+  return null;
 }
 
 export function apiOk<T>(
