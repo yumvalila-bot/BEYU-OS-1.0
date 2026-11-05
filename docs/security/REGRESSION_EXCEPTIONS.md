@@ -2,6 +2,12 @@
 
 This records the 12 skips and 31 TODOs in the completed `8fc176d` full run. A later run must be compared separately; TODOs are not passing tests. Tests mentioned can only be run against disposable isolated systems.
 
+## Follow-up isolated runs on the `66b197e` source tree
+
+- The four `foundation.test.ts` and two `preparation.test.ts` cases passed on a newly migrated, empty disposable database; the database was dropped afterward.
+- The inactive-routing case passed against a separate local server with canonical routing unset; the other 14 cases were filtered out in that focused run, not counted as passes.
+- All five enrollment HTTP cases were attempted on a separately provisioned database and restricted runtime role: three passed and **two failed** (weak-password validation and complete enrollment returned 500). The runtime role cannot lock the read-only `admin_bootstrap_state` row. This is an open blocker, not a successful execution of the historical skipped cases. The isolated server, database and test roles were removed.
+
 ## Skipped tests
 
 | Exact test | Why skipped in that run | Release risk | Executable without external policy approval? |
