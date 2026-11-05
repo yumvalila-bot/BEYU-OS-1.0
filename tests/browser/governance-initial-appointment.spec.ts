@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -13,7 +14,7 @@ test.beforeAll(async () => { await cleanupEstablishments("INITIAL_APPT_BROWSER")
 test.afterAll(() => cleanupEstablishments("INITIAL_APPT_BROWSER"));
 test("superior nomination and approval obtain consent without individually activating a dormant committee", async ({ page, context, baseURL }) => {
  test.setTimeout(180000);
- async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); }
+ async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); await dismissCookieConsent(page); }
  await identity(f.chair.email);
  const panel = page.locator(`[data-appointment-body="${f.childId}"]`); await panel.locator("summary").click();
  await expect(panel).toContainText("No membership or body activation occurs here");

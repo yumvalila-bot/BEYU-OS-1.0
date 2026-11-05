@@ -93,10 +93,19 @@
   --beyu-card: #0b1d3a;
 }
 
+html {
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+}
 html,
 body {
   background: var(--beyu-surface);
   color: var(--beyu-text);
+  overflow-x: clip;
+}
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 body {
@@ -236,4 +245,42 @@ html.beyu-reduce-motion *::after {
 
 .beyu-gold-ink {
   color: var(--beyu-gold-ink);
+}
+
+/* Responsive & accessibility helpers */
+:where(a, button, [role="button"], input, select, textarea) {
+  min-height: 44px;
+}
+:where(a, button):focus-visible {
+  outline: 2px solid #0B1F4D;
+  outline-offset: 2px;
+}
+.beyu-focus-ring:focus-visible {
+  outline: 2px solid #D4A017;
+  outline-offset: 2px;
+}
+/* Ensure tables and wide content scroll rather than overflow viewport */
+.beyu-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* Skip link already styled inline in layouts; ensure it is above overlays */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  width: auto;
+  height: auto;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  background: #0B1F4D;
+  color: white;
+  border-radius: 0.375rem;
 }

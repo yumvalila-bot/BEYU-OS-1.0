@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ test.beforeAll(async () => { await cleanupEstablishments("ESTABLISH_BROWSER"); f
 test.afterAll(() => cleanupEstablishments("ESTABLISH_BROWSER"));
 test("superior review establishes only an inactive committee, survives reload and denies self-authority", async ({ page, context, baseURL }) => {
  test.setTimeout(150000);
- async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); }
+ async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); await dismissCookieConsent(page); }
  await identity(f.chair.email);
  const panel = page.locator(`[data-establishment-parent="${f.bodyId}"]`); await panel.locator("summary").click();
  await panel.getByLabel("Committee registry code").fill("COM_BROWSER_ESTABLISHMENT");
@@ -30,7 +31,7 @@ test("superior review establishes only an inactive committee, survives reload an
  await card.getByRole("button", { name: "Record independent establishment approval" }).click(); await expect(card).toContainText("APPROVED");
  await card.getByLabel("Establishment review note").fill("Recheck source and record only a dormant canonical committee");
  await card.getByRole("button", { name: "Establish inactive committee" }).click(); await expect(card).toContainText("ESTABLISHED");
- await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("Canonical DRAFT committee:");
+ await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText("Canonical DRAFT committee:");
  const [body] = await db.select().from(governanceBodies).where(eq(governanceBodies.code, "COM_BROWSER_ESTABLISHMENT")); expect(body.status).toBe("DRAFT");
  expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId, body.id))).toHaveLength(0);
  const denied = await page.evaluate(async (url) => { const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ code: "COM_SELF_ESTABLISHED", name: "Cannot establish myself", purpose: "A dormant body has no power to create another authority", documentId: "DOC_D4", rules: { quorumMinimum: 4, majorityRule: "SIMPLE", minimumVotingMembers: 4, maximumVotingMembers: 8, requiredSeats: [{ role: "CHAIR", minimum: 1, maximum: 1 }] } }) }); return r.status; }, `/api/v1/governance/bodies/${body.id}/establishments`);

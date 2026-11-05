@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test,expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -12,7 +13,7 @@ test.afterAll(()=>cleanupBodyLifecycle("BODY_LIFE_BROWSER"));
 test("independent superior suspension, resumption, dissolution and archival retain canonical history",async({page,context,baseURL})=>{
  test.setTimeout(300000);
  const panel=page.locator(`[data-body-lifecycle="${f.childId}"]`);
- async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance");await panel.locator("summary").click();}
+ async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance"); await dismissCookieConsent(page); await panel.locator("summary").click();}
  await identity(f.candidate.email);
  expect((await page.request.post(`/api/v1/governance/bodies/${f.childId}/lifecycle-changes`,{data:{command:"SUSPEND",expectedRevision:0,documentId:"DOC_D4",rationale:"Child authority cannot authorize its own cessation"},headers:{"idempotency-key":crypto.randomUUID()}})).status()).toBe(403);
  for(const command of ["SUSPEND","RESUME","DISSOLVE","ARCHIVE"]){
@@ -27,7 +28,7 @@ test("independent superior suspension, resumption, dissolution and archival reta
   const applied=page.waitForResponse(r=>r.url().endsWith(`/lifecycle-changes/${id}`)&&r.request().method()==="POST");await change.getByRole("button",{name:"Apply independent body lifecycle decision"}).click();const response=await applied;expect(response.status()).toBe(200);if(key)expect(await response.request().headerValue("idempotency-key")).toBe(key);
   const label=command==="SUSPEND"?"SUSPENDED":command==="RESUME"?"ACTIVE":command==="DISSOLVE"?"DISSOLVED":"ARCHIVED";await expect(panel.getByRole("heading")).toContainText(label);
  }
- await page.reload();await panel.locator("summary").click();await expect(panel.getByRole("heading")).toContainText("ARCHIVED");await expect(panel.getByRole("button",{name:"Propose body lifecycle change"})).toHaveCount(0);
+ await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page); await panel.locator("summary").click();await expect(panel.getByRole("heading")).toContainText("ARCHIVED");await expect(panel.getByRole("button",{name:"Propose body lifecycle change"})).toHaveCount(0);
  for(const command of ["SUSPEND","RESUME","DISSOLVE","ARCHIVE"])await expect(panel).toContainText(`${command} · APPLIED`);
  expect((await db.select().from(governanceBodies).where(eq(governanceBodies.id,f.childId)))[0].status).toBe("RETIRED");expect(await db.select().from(governanceMembers).where(eq(governanceMembers.bodyId,f.childId))).toEqual(f.members);
 });

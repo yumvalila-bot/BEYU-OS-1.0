@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../src/db";
 import { resolutions, resolutionVotes } from "../../src/db/schema";
 import { apiPost, login } from "../helpers/http";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 
 let cookie: string;
 let id: string;
@@ -32,6 +33,7 @@ test("self-recusal is persisted, audited and enforced beyond the UI", async ({ p
     return { name: part.slice(0, index), value: part.slice(index + 1), url: baseURL! };
   }));
   await page.goto("/os/governance");
+  await dismissCookieConsent(page);
   const card = page.locator(`[data-resolution-id="${id}"]`);
   await expect(card).toBeVisible();
   await card.getByLabel("Conflict / recusal reason (recorded in the audit trail)").fill("Related-party interest identified during browser verification");
@@ -44,6 +46,6 @@ test("self-recusal is persisted, audited and enforced beyond the UI", async ({ p
   expect(record.vote).toBe("RECUSED"); expect(record.conflictDeclared).toBe(true);
   const direct = await page.request.post(`/api/v1/governance/resolutions/${id}/votes`, { data: { vote: "FOR" } });
   expect(direct.status()).toBe(403);
-  await page.reload();
+  await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page);
   await expect(card.getByText("Your recorded vote:")).toContainText("RECUSED");
 });

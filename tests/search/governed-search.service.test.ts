@@ -125,16 +125,16 @@ beforeAll(async () => {
   admin = new Client({ connectionString: process.env.BEYU_ADMIN_DATABASE_URL! });
   await admin.connect();
   // Clean any stale fixtures from a crashed prior run.
-  await admin.query(`delete from ujenzi_boqs where id like $1`, [`UJZB_SRCH_%_${RUN}`]);
-  await admin.query(`delete from ujenzi_projects where id like $1`, [`UJZP_SRCH_%_${RUN}`]);
-  await admin.query(`delete from agriculture_projects where id like $1`, [`AGP_SRCH_%_${RUN}`]);
-  await admin.query(`delete from agriculture_farms where id like $1`, [`FARM_SRCH_%_${RUN}`]);
-  await admin.query(`delete from foundations where id like $1`, [`FDN_SRCH_%_${RUN}`]);
+  await admin.query(`delete from ujenzi_boqs where id like 'UJZB_SRCH_%'`);
+  await admin.query(`delete from ujenzi_projects where id like 'UJZP_SRCH_%'`);
+  await admin.query(`delete from agriculture_projects where id like 'AGP_SRCH_%'`);
+  await admin.query(`delete from agriculture_farms where id like 'FARM_SRCH_%'`);
+  await admin.query(`delete from foundations where id like 'FDN_SRCH_%'`);
   // knowledge_sources are immutable governed evidence. RUN-scoped ids make
   // every fixture unique, so setup never deletes or rewrites prior evidence.
-  await admin.query(`delete from resolutions where id like $1`, [`RES_SRCH_%_${RUN}`]);
-  await admin.query(`delete from documents where id like $1`, [`DOC_SRCH_%_${RUN}`]);
-  await admin.query(`delete from legal_entities where id = any($1::text[])`, [[F.leA, F.leB]]);
+  await admin.query(`delete from resolutions where id like 'RES_SRCH_%'`);
+  await admin.query(`delete from documents where id like 'DOC_SRCH_%'`);
+  await admin.query(`delete from legal_entities where id like 'LEN_SRCH_%'`);
 
   await admin.query(
     `insert into legal_entities (id, tenant_id, code, legal_name, entity_type, country_code, effective_from, classification)
@@ -225,7 +225,7 @@ afterAll(async () => {
 describe("Shared Search — authorization", () => {
   it("A. same-tenant authorized results are visible (ujenzi operator)", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projA);
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projB);
     expect(ids(r, "UJENZI_BOQ")).toContain(F.boqA);
@@ -246,7 +246,7 @@ describe("Shared Search — authorization", () => {
 
   it("B. cross-tenant results are invisible", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     // Tenant-FOUNDATION rows must not appear for a UJENZI-scoped principal.
     expect(ids(r, "DOCUMENT")).not.toContain(F.docB);
     expect(ids(r, "FOUNDATION")).not.toContain(F.fdnA);
@@ -264,7 +264,7 @@ describe("Shared Search — authorization", () => {
 
   it("B2. the foundation principal sees the foundation registry row (same-tenant positive control)", async () => {
     const p = await principalFor("foundation.director@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(ids(r, "FOUNDATION")).toContain(F.fdnA);
   });
 
@@ -280,7 +280,7 @@ describe("Shared Search — authorization", () => {
         countryCode: "TZ",
       })),
     };
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     // Entity-bound sources: only entity-B rows.
     expect(ids(r, "UJENZI_PROJECT")).toEqual([F.projB]);
     expect(ids(r, "AGRICULTURE_FARM")).toEqual([F.farmB]);
@@ -299,7 +299,7 @@ describe("Shared Search — authorization", () => {
 
   it("D. classification above the ceiling is invisible (ujenzi=CONFIDENTIAL)", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(ids(r, "DOCUMENT")).not.toContain(F.docARestricted); // RESTRICTED
     expect(ids(r, "UJENZI_PROJECT")).not.toContain(F.projCRestricted); // RESTRICTED
     expect(ids(r, "KNOWLEDGE")).not.toContain(F.ksHR); // HIGHLY_RESTRICTED
@@ -310,7 +310,7 @@ describe("Shared Search — authorization", () => {
 
   it("D2. the group CEO (HIGHLY_RESTRICTED) sees the above-ceiling rows", async () => {
     const p = await principalFor("ceo@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(ids(r, "DOCUMENT")).toContain(F.docARestricted);
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projCRestricted);
     expect(ids(r, "KNOWLEDGE")).toContain(F.ksHR);
@@ -321,7 +321,7 @@ describe("Shared Search — authorization", () => {
     // ujenzi.ops holds platform:search.read but NOT foundation:registry.read
     // and NOT governance:resolution.read: those sources are simply not searched.
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(r.sourcesSearched).not.toContain("FOUNDATION");
     expect(r.sourcesSearched).not.toContain("GOVERNANCE_RESOLUTION");
     expect(ids(r, "FOUNDATION")).toEqual([]);
@@ -341,7 +341,7 @@ describe("Shared Search — authorization", () => {
 
   it("F. unknown clearance fails closed to an empty result set", async () => {
     const p = { ...(await principalFor("ujenzi.ops@beyu.os")), clearance: "SUSAN_CLEARANCE" as never };
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     expect(r.results).toEqual([]);
     expect(r.total).toBe(0);
     expect(r.sourcesSearched).toEqual([]);
@@ -349,7 +349,7 @@ describe("Shared Search — authorization", () => {
 
   it("G. knowledge respects the existing Noelia governance boundary (window + ceiling + scope)", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     // Expired review window: matched by nothing — never returned.
     expect(ids(r, "KNOWLEDGE")).not.toContain(F.ksExpired);
     // Ceiling: HIGHLY_RESTRICTED hidden at CONFIDENTIAL.
@@ -377,7 +377,7 @@ describe("Shared Search — correctness", () => {
 
   it("H2. one query spans multiple resource types across multiple OSes", async () => {
     const p = await principalFor("ceo@beyu.os");
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     const osSeen = new Set(r.results.map((x) => x.os));
     expect(osSeen.has("BEYU")).toBe(true);
     expect(osSeen.has("UJENZI")).toBe(true);
@@ -539,7 +539,7 @@ describe("Shared Search — security surface", () => {
   it("M. the service is read-only: no audit/ledger side effects, no new grants", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
     const before = (await admin.query(`select count(*)::int n from audit_log`)).rows[0].n;
-    const r = await search(p, "search");
+    const r = await search(p, `search ${RUN}`);
     const after = (await admin.query(`select count(*)::int n from audit_log`)).rows[0].n;
     expect(after).toBe(before); // no writes at all
     expect(r.results.length).toBeGreaterThan(0);

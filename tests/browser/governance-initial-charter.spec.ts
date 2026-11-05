@@ -8,6 +8,7 @@ import { apiPost, login } from "../helpers/http";
 import { concludedCharterBallot } from "../helpers/charters";
 import { initialCharterFixture } from "../helpers/initial-charters";
 import { cleanupEstablishments } from "../helpers/establishments";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 let f: Awaited<ReturnType<typeof initialCharterFixture>>;
 let id: string, resolutionId: string, chair: string, secretary: string;
 test.beforeAll(async () => { test.setTimeout(120000); await cleanupEstablishments("INITIAL_CHARTER_BROWSER"); f = await initialCharterFixture("INITIAL_CHARTER_BROWSER"); chair = await login("ceo@beyu.os"); secretary = await login("governance@beyu.os"); });
@@ -16,6 +17,7 @@ test("superior approves a dormant charter; stale expired-authority UI is denied 
  test.setTimeout(180000);
  async function identity(cookie: string) { await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); }
  await identity(chair); await page.goto("/os/governance");
+  await dismissCookieConsent(page);
  await expect(page.locator(`[data-appointment-body="${f.childId}"]`).getByRole("button", { name: "Nominate a body member" })).toHaveCount(0);
  const panel = page.locator(`[data-charter-body="${f.childId}"]`); await panel.locator("summary").click();
  await panel.getByLabel("Charter document ID", { exact: true }).fill("DOC_D4");
@@ -30,7 +32,7 @@ test("superior approves a dormant charter; stale expired-authority UI is denied 
  await expect(card).toContainText("IN_REVIEW"); await expect(card.getByRole("button", { name: "Record superior charter approval" })).toHaveCount(0);
  resolutionId = await concludedCharterBallot(id);
  expect((await apiPost(`/api/v1/governance/resolutions/${resolutionId}/decision`, {}, { cookie: chair })).status).toBe(200);
- await identity(secretary); await page.reload(); await panel.locator("summary").click();
+ await identity(secretary); await page.reload(); await dismissCookieConsent(page); await panel.locator("summary").click();
  await card.getByLabel("Review note").fill("Independently record the approved charter adoption");
  await card.getByLabel("Approved charter-specific POLICY resolution ID").fill(resolutionId);
  let deniedKey: string | null = null;
@@ -43,7 +45,7 @@ test("superior approves a dormant charter; stale expired-authority UI is denied 
   expect((await db.select().from(governanceCharters).where(eq(governanceCharters.id, id)))[0].status).toBe("IN_REVIEW");
  } finally { for (const grant of grants) await db.update(roleAssignments).set({ effectiveTo: grant.effectiveTo }).where(eq(roleAssignments.id, grant.id)); }
  const adopting = page.waitForResponse((r) => r.url().endsWith(`/charters/${id}`)); await card.getByRole("button", { name: "Record superior charter approval" }).click(); const approval = await adopting; expect(approval.status()).toBe(200); expect(await approval.request().headerValue("idempotency-key")).toBe(deniedKey);
- await expect(card).toContainText("APPROVED"); await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
+ await expect(card).toContainText("APPROVED"); await page.reload(); await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
  await expect(panel).toContainText("Initial charter approved, not effective");
  const [record] = await db.select().from(governanceCharters).where(eq(governanceCharters.id, id)); expect(record.adoptedByUserId).toBe("USR_GRACE_KILELE"); expect(record.resolutionId).toBe(resolutionId);
  expect(record.authorityBodyId).toBe(f.bodyId);

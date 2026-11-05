@@ -7,6 +7,7 @@ import { documents, governanceAppointments, governanceMembers, roleAssignments }
 import { nominateMember, commandAppointment } from "../../src/lib/governance/appointment-service";
 import { login } from "../helpers/http";
 import { appointmentFixture, appointmentInput, appointmentBallot, cleanupAppointments, asAppointmentActor as as } from "../helpers/appointments";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 let f: Awaited<ReturnType<typeof appointmentFixture>>;
 const prefix = "APPT_BROWSER_DENIAL", ctx = { traceId: "APPOINTMENT_BROWSER_DENIAL" };
 test.beforeAll(async () => { await cleanupAppointments(prefix); f = await appointmentFixture(prefix); });
@@ -15,6 +16,7 @@ async function identity(page: Page, context: BrowserContext, baseURL: string, em
  const cookie = await login(email); await context.clearCookies();
  await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0, i), value: s.slice(i + 1), url: baseURL }; }));
  await page.goto("/os/governance");
+  await dismissCookieConsent(page);
 }
 async function prepared(activate: boolean) {
  const a = await as(f.chair, () => nominateMember(f.chair, f.bodyId, appointmentInput(f.candidate.userId), ctx));
@@ -54,7 +56,7 @@ for (const command of ["APPROVE", "ACTIVATE"] as const) {
     else for (const g of grants) await db.update(roleAssignments).set({ effectiveTo: g.effectiveTo, legalEntityId: g.legalEntityId }).where(eq(roleAssignments.id, g.id));
     await db.update(documents).set({ jurisdictionCode: doc.jurisdictionCode }).where(eq(documents.id, doc.id));
    }
-   await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText(command === "APPROVE" ? "NOMINATED" : "ACCEPTED");
+   await page.reload(); await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText(command === "APPROVE" ? "NOMINATED" : "ACCEPTED");
   });
  }
 }
@@ -78,6 +80,6 @@ test("non-nominee cannot consent through a forged browser request", async ({ pag
   const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() }, body: JSON.stringify({ command: "ACCEPT", expectedRevision: 2, note: "Attempt to accept for another human" }) }); return response.status;
  }, `/api/v1/governance/bodies/${f.bodyId}/appointments/${a.id}`);
  expect(result).toBe(403);
- await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
+ await page.reload(); await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText("APPROVED");
  expect((await db.select().from(governanceAppointments).where(eq(governanceAppointments.id, a.id)))[0].acceptedAt).toBeNull();
 });

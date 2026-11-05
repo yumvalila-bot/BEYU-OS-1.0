@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -12,7 +13,7 @@ test.beforeAll(async()=>{await cleanupBodyActivation("BODY_ACT_BROWSER");f=await
 test.afterAll(()=>cleanupBodyActivation("BODY_ACT_BROWSER"));
 test("initial nomination → independent approval → consent → exact composition decision → atomic body activation → visible seats",async({page,context,baseURL})=>{
  test.setTimeout(300000);
- async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance");}
+ async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance"); await dismissCookieConsent(page); }
  const appointments=page.locator(`[data-appointment-body="${f.childId}"]`),panel=page.locator(`[data-activation-body="${f.childId}"]`);
  await identity(f.chair.email);await appointments.locator("summary").click();
  await appointments.getByLabel("Nominee user ID").fill(f.candidates[3].userId);

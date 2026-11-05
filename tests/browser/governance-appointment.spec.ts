@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ test.beforeAll(async () => { await cleanupAppointments("APPT_BROWSER"); f = awai
 test.afterAll(() => cleanupAppointments("APPT_BROWSER"));
 test("nomination, independent approval, human consent and activation survive reload", async ({ page, context, baseURL }) => {
  test.setTimeout(150000);
- async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); }
+ async function identity(email: string) { const cookie = await login(email); await context.clearCookies(); await context.addCookies(cookie.split("; ").map((s) => { const i = s.indexOf("="); return { name: s.slice(0,i), value: s.slice(i+1), url: baseURL! }; })); await page.goto("/os/governance"); await dismissCookieConsent(page); }
  await identity(f.chair.email); const panel = page.locator(`[data-appointment-body="${f.bodyId}"]`); await panel.locator("summary").click();
  await panel.getByLabel("Nominee user ID").fill(f.candidate.userId); await panel.getByLabel("Appointment instrument document ID").fill("DOC_D4");
  await panel.getByLabel("Term start").fill(new Date().toISOString().slice(0,10)); await panel.getByLabel("Term end (inclusive)").fill("2030-12-31");
@@ -28,6 +29,6 @@ test("nomination, independent approval, human consent and activation survive rel
  await expect(card.getByRole("button", { name: "Activate canonical membership" })).toHaveCount(0);
  await identity(f.secretary.email); await panel.locator("summary").click(); await card.getByLabel("Appointment review / consent note").fill("Rechecked current authority and composition before activation");
  await card.getByRole("button", { name: "Activate canonical membership" }).click(); await expect(card).toContainText("ACTIVE");
- await page.reload(); await panel.locator("summary").click(); await expect(card).toContainText("Canonical membership:");
+ await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page); await panel.locator("summary").click(); await expect(card).toContainText("Canonical membership:");
  expect(await db.select().from(governanceMembers).where(eq(governanceMembers.partyId, f.candidate.partyId!))).toHaveLength(1);
 });

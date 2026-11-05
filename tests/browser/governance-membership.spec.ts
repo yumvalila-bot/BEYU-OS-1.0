@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { dismissCookieConsent } from "../helpers/cookie-consent";
 import "../setup-env";
 import { test,expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
@@ -13,7 +14,7 @@ test("superior suspension removes live authority; independent reinstatement and 
  test.setTimeout(300000);
  const member=f.members.find(m=>m.partyId===f.candidate.partyId)!;
  const panel=page.locator(`[data-membership-body="${f.childId}"]`),card=panel.locator(`[data-membership-id="${member.id}"]`);
- async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance");await panel.locator("summary").click();}
+ async function identity(email:string){const cookie=await login(email);await context.clearCookies();await context.addCookies(cookie.split("; ").map(s=>{const i=s.indexOf("=");return{name:s.slice(0,i),value:s.slice(i+1),url:baseURL!};}));await page.goto("/os/governance"); await dismissCookieConsent(page); await panel.locator("summary").click();}
  async function propose(command:string){await card.getByLabel("Membership action").selectOption(command);await card.getByLabel("Membership instrument document ID").fill("DOC_D4");await card.getByLabel("Membership change rationale").fill("Preserve original membership evidence while enforcing current human authority");const pending=page.waitForResponse(r=>r.url().endsWith(`/members/${member.id}/changes`)&&r.request().method()==="POST");await card.getByRole("button",{name:"Record membership request"}).click();const r=await pending;expect(r.status()).toBe(201);return (await r.json()).data.id as string;}
  await identity(f.chair.email);const suspended=await propose("SUSPEND"),resolutionId=await membershipBallot(suspended,f);
  await expect(card.getByRole("heading")).toContainText("ACTIVE");
@@ -29,6 +30,6 @@ test("superior suspension removes live authority; independent reinstatement and 
  await identity(f.chair.email);const restored=await propose("REINSTATE"),restoreDecision=await membershipBallot(restored,f);
  await identity(f.secretary.email);const reinstate=card.locator(`[data-membership-change="${restored}"]`);await reinstate.getByLabel("Approved membership-specific RESERVED_MATTER resolution ID").fill(restoreDecision);await reinstate.getByLabel("Independent membership review note").fill("Restore eligibility only within the original unchanged term");await reinstate.getByRole("button",{name:"Apply independent membership decision"}).click();await expect(card.getByRole("heading")).toContainText("ACTIVE");
  await identity(f.candidate.email);await propose("RESIGN");await expect(card.getByRole("heading")).toContainText("RESIGNED");await expect(card).toContainText("SUSPEND · APPLIED");await expect(card).toContainText("REINSTATE · APPLIED");await expect(card).toContainText("RESIGN · APPLIED");
- await page.reload();await panel.locator("summary").click();await expect(card.getByRole("heading")).toContainText("RESIGNED");
+ await page.reload(); await dismissCookieConsent(page);  await dismissCookieConsent(page); await panel.locator("summary").click();await expect(card.getByRole("heading")).toContainText("RESIGNED");
  expect((await db.select().from(governanceMembers).where(eq(governanceMembers.id,member.id)))[0]).toEqual({...member,lifecycleStatus:"RESIGNED",lifecycleRevision:3});
 });
