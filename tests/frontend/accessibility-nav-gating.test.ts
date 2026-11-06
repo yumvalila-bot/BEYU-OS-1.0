@@ -101,8 +101,12 @@ async function deniedRoutes(cookie: string): Promise<string[]> {
   const denied: string[] = [];
   for (const route of MODULE_ROUTES) {
     const res = await apiGet(route.href, cookie);
-    expect(res.status).toBe(200);
-    if (isDeniedPage(res.html)) denied.push(route.href);
+    const isDenied = isDeniedPage(res.html);
+    // Foundation has a pre-stream refusal boundary; all other modules retain
+    // their existing rendered-denial contract. A Foundation denial must not
+    // be accepted as a streamed 200, and a 403 must contain the denial page.
+    expect(res.status, route.href).toBe(route.href === "/os/foundation" && isDenied ? 403 : 200);
+    if (isDenied) denied.push(route.href);
   }
   return denied;
 }

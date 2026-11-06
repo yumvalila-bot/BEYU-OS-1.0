@@ -324,7 +324,7 @@ describe("the six surfaces keep their server-side entry guards", () => {
       const hcm = await loginOnce("hcm@beyu.os");
       for (const surface of SIX_SURFACES.filter((s) => s.name !== "Health OS")) {
         const res = await apiGet(surface.href, hcm);
-        expect(res.status, `${surface.href}`).toBe(200);
+        expect(res.status, `${surface.href}`).toBe(surface.href === "/os/foundation" ? 403 : 200);
         expect(isDeniedPage(res.html), `${surface.href} must render the governed denial panel`).toBe(true);
       }
       // Health fails closed to the truthful federation state page.
@@ -347,7 +347,7 @@ describe("the six surfaces keep their server-side entry guards", () => {
       ];
       for (const url of poisoned) {
         const res = await apiGet(url, hcm);
-        expect(res.status, url).toBe(200);
+        expect(res.status, url).toBe(url.startsWith("/os/foundation?") ? 403 : 200);
         expect(isDeniedPage(res.html), `${url} must stay denied`).toBe(true);
       }
     },

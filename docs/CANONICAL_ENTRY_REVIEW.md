@@ -2,7 +2,9 @@
 
 This is a review-branch implementation, not a deployment or certification. No production DNS, secrets, cookie scope, database schema, or environment configuration was changed. At inspection, `main` contained one commit beyond the branch point: `5df9e01` adds `Home page.png`, the visual reference. The branch retains the separate reference-led homepage and authentic BEYU/NOELIA assets documented in `PUBLIC_HOMEPAGE_REVIEW.md`. The homepage now uses the canonical BEYU OS raster mark rather than the legacy SVG, with its original appearance intact.
 
-## Enterprise remediation continuation — current review snapshot
+## Enterprise remediation continuation — historical review snapshot
+
+This snapshot predates the Foundation pre-stream boundary and later landscape fix; see `security/ENTERPRISE_BLOCKER_REGISTER.md` for current findings.
 
 **NOT READY — REMEDIATION REQUIRED.** Baseline `6d0a956` was clean, PR #114 was open against `main`, and the root PostgreSQL GitHub security gate for that baseline passed. `main` subsequently contained two reference-image commits; no merge or production change was performed. Historical snapshots below describe their own commit and must not be read as final-head evidence.
 
