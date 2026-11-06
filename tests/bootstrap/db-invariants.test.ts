@@ -78,6 +78,15 @@ describe("bootstrap database invariants", () => {
     }
   });
 
+  it("rolls back a failed fixture reset without disabling the terminal seal", async () => {
+    await resetBootstrap(ADMIN_USER_ID);
+    await db.execute(sql`update admin_bootstrap_state set status='SEALED', sealed_at=now(), sealed_by_user_id=${ADMIN_USER_ID}, admin_user_id=${ADMIN_USER_ID} where id='SINGLETON'`);
+    await expect(resetBootstrap("nonexistent-bootstrap-user")).rejects.toThrow();
+    const state = await db.execute<{ status: string }>(sql`select status from admin_bootstrap_state where id='SINGLETON'`);
+    expect(state.rows[0]?.status).toBe("SEALED");
+    await expect(db.execute(sql`update admin_bootstrap_state set status='AVAILABLE' where id='SINGLETON'`)).rejects.toThrow();
+  });
+
   it("enforces a unique enrollment token hash", async () => {
     await resetBootstrap(ADMIN_USER_ID);
     const insert = (id: string) =>

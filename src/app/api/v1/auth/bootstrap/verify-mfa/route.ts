@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attemptBootstrapOperation, noStoreBootstrapResponse } from "@/lib/bootstrap/http-boundary";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
@@ -21,6 +22,10 @@ const VerifySchema = z.object({ code: z.string().min(6).max(6) });
  * through logs or referrers. Replay-protected and locked after repeated failures.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  return noStoreBootstrapResponse(await handlePost(request));
+}
+
+async function handlePost(request: Request): Promise<NextResponse> {
   const h = await headers();
   const ip = trustedClientIp(h);
   const userAgent = h.get("user-agent");
@@ -43,7 +48,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const jar = await cookies();
   const token = jar.get(BOOTSTRAP_ENROLLMENT_COOKIE)?.value;
 
-  const result = await verifyEnrollmentMfa({ token, code: body.code, ip, userAgent, traceId });
+  const attempt = await attemptBootstrapOperation(traceId, () => verifyEnrollmentMfa({ token, code: body.code, ip, userAgent, traceId }));
+  if (!attempt.ok) return attempt.response;
+  const result = attempt.value;
   if (!result.ok) {
     switch (result.code) {
       case "NO_SESSION":

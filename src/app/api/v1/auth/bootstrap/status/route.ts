@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attemptBootstrapOperation, noStoreBootstrapResponse } from "@/lib/bootstrap/http-boundary";
 import { apiOk } from "@/lib/api";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { getBootstrapStatus } from "@/lib/bootstrap/service";
@@ -16,12 +17,6 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(): Promise<NextResponse> {
   const traceId = newId(ID_PREFIX.event);
-  try {
-    const status = await getBootstrapStatus();
-    return apiOk(status, traceId);
-  } catch {
-    // Fail closed: if the control plane cannot determine state, report the
-    // safest non-enrollable answer rather than leaking an internal error.
-    return apiOk({ state: "NOT_PREPARED", secretConfigured: false, enrollable: false }, traceId);
-  }
+  const attempt = await attemptBootstrapOperation(traceId, getBootstrapStatus);
+  return noStoreBootstrapResponse(attempt.ok ? apiOk(attempt.value, traceId) : attempt.response);
 }

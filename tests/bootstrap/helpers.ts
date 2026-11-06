@@ -12,13 +12,15 @@ import { generateTotpCode } from "../../src/lib/mfa";
  * available here and NOT to the runtime role.
  */
 export async function resetBootstrap(adminUserId: string): Promise<void> {
-  await db.execute(sql`alter table admin_bootstrap_state disable trigger beyu_admin_bootstrap_seal_guard`);
-  await db.execute(sql`delete from admin_enrollment_sessions`);
-  await db.execute(sql`delete from admin_bootstrap_state`);
-  await db.execute(sql`alter table admin_bootstrap_state enable trigger beyu_admin_bootstrap_seal_guard`);
-  await db.execute(
-    sql`insert into admin_bootstrap_state (id, status, admin_user_id) values ('SINGLETON', 'AVAILABLE', ${adminUserId})`,
-  );
+  // DDL and fixture writes are one transaction: an error must not leave the
+  // terminal-seal trigger disabled or the fixture half-reset.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`alter table admin_bootstrap_state disable trigger beyu_admin_bootstrap_seal_guard`);
+    await tx.execute(sql`delete from admin_enrollment_sessions`);
+    await tx.execute(sql`delete from admin_bootstrap_state`);
+    await tx.execute(sql`insert into admin_bootstrap_state (id, status, admin_user_id) values ('SINGLETON', 'AVAILABLE', ${adminUserId})`);
+    await tx.execute(sql`alter table admin_bootstrap_state enable trigger beyu_admin_bootstrap_seal_guard`);
+  });
 }
 
 /** Force the singleton into SEALED (used to assert a sealed deployment refuses to reopen). */

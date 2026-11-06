@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attemptBootstrapOperation, noStoreBootstrapResponse } from "@/lib/bootstrap/http-boundary";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
@@ -34,6 +35,10 @@ function productionMode(): boolean {
  * Rate limited aggressively per source to resist brute force of the secret.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  return noStoreBootstrapResponse(await handlePost(request));
+}
+
+async function handlePost(request: Request): Promise<NextResponse> {
   const h = await headers();
   const ip = trustedClientIp(h);
   const userAgent = h.get("user-agent");
@@ -59,13 +64,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     return apiError("VALIDATION_FAILED", "A bootstrap secret and password are required.", 422, traceId);
   }
 
-  const result = await beginEnrollment({
+  const attempt = await attemptBootstrapOperation(traceId, () => beginEnrollment({
     secret: body.bootstrapSecret,
     password: body.password,
     ip,
     userAgent,
     traceId,
-  });
+  }));
+  if (!attempt.ok) return attempt.response;
+  const result = attempt.value;
 
   if (!result.ok) {
     switch (result.code) {

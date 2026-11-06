@@ -8,6 +8,10 @@ This records the 12 skips and 31 TODOs in the completed `8fc176d` full run. A la
 - The inactive-routing case passed against a separate local server with canonical routing unset; the other 14 cases were filtered out in that focused run, not counted as passes.
 - All five enrollment HTTP cases were attempted on a separately provisioned database and restricted runtime role: three passed and **two failed** (weak-password validation and complete enrollment returned 500). The runtime role cannot lock the read-only `admin_bootstrap_state` row. This is an open blocker, not a successful execution of the historical skipped cases. The isolated server, database and test roles were removed.
 
+## Restricted-role bootstrap follow-up
+
+An additional run used the same newly migrated disposable database for both the HTTP server and privileged test fixture, with independently provisioned non-bypass runtime/governance roles. Three HTTP tests passed; weak-password validation and complete enrollment still failed because the runtime role cannot lock the read-only state. They now received sanitized no-store 503 instead of 500. The ordinary runtime independently failed `SELECT FOR UPDATE`, `UPDATE`, and `DELETE` with PostgreSQL 42501; no broad grant was introduced. A no-secret skipped run was also checked to leave the disposable admin and bootstrap fixture unchanged, and failed fixture reset now rolls back trigger changes atomically. These do not constitute a working enrollment ceremony.
+
 ## Skipped tests
 
 | Exact test | Why skipped in that run | Release risk | Executable without external policy approval? |

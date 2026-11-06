@@ -55,7 +55,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (available) {
+  // A skipped ceremony must not rewrite credentials or reset the seal merely
+  // because an HTTP server happens to be available.
+  if (runnable) {
     // Restore the seeded admin so other suites' login("admin@beyu.os") works:
     // shared bootstrap password + a fresh valid MFA secret.
     const password = process.env.BEYU_BOOTSTRAP_PASSWORD;

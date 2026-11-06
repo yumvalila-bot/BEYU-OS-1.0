@@ -9,6 +9,13 @@ is **permanently sealed**.
 This document describes the enrollment path end to end. For the step-by-step
 operational checklist, see [`../runbooks/RB-024-initial-administrator-enrollment.md`](../runbooks/RB-024-initial-administrator-enrollment.md).
 
+> **Implementation blocker:** with the reviewed non-bypass runtime role, the
+> current ceremony cannot lock/update the intentionally read-only bootstrap
+> state. A restricted-role isolated HTTP run still fails the weak-password and
+> full-enrollment cases (503 rather than 422/201). Do not use broad runtime
+> grants to work around this. Dependency failures now return a generic,
+> no-store 503; the bootstrap authority redesign remains unimplemented.
+
 ---
 
 ## 1. Design goals

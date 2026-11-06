@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { attemptBootstrapOperation, noStoreBootstrapResponse } from "@/lib/bootstrap/http-boundary";
 import { cookies, headers } from "next/headers";
 import { apiError, apiOk, rateLimit } from "@/lib/api";
 import { newId, ID_PREFIX } from "@/lib/ids";
@@ -21,6 +22,10 @@ export const dynamic = "force-dynamic";
  * ceremony grants no ambient authority.
  */
 export async function POST(): Promise<NextResponse> {
+  return noStoreBootstrapResponse(await handlePost());
+}
+
+async function handlePost(): Promise<NextResponse> {
   const h = await headers();
   const ip = trustedClientIp(h);
   const userAgent = h.get("user-agent");
@@ -34,7 +39,9 @@ export async function POST(): Promise<NextResponse> {
   const jar = await cookies();
   const token = jar.get(BOOTSTRAP_ENROLLMENT_COOKIE)?.value;
 
-  const result = await completeEnrollment({ token, ip, userAgent, traceId });
+  const attempt = await attemptBootstrapOperation(traceId, () => completeEnrollment({ token, ip, userAgent, traceId }));
+  if (!attempt.ok) return attempt.response;
+  const result = attempt.value;
   if (!result.ok) {
     switch (result.code) {
       case "NO_SESSION":
