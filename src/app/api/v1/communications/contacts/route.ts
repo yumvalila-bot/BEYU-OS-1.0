@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = CreateContactSchema.parse(payload);
       return withIdempotency(ctx, "communications.contacts.create", payload, async () => {
 

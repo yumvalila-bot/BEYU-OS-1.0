@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = CreateFeedbackSchema.parse(payload);
       return withIdempotency(ctx, "communications.feedback.create", payload, async () => {
 

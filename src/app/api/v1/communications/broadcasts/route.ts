@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = CreateBroadcastSchema.parse(payload);
       return withIdempotency(ctx, "communications.broadcasts.create", payload, async () => {
         const id = newId(ID_PREFIX.commBroadcast);

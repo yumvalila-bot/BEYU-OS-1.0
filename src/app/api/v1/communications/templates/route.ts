@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = CreateTemplateSchema.parse(payload);
       return withIdempotency(ctx, "communications.templates.create", payload, async () => {
 

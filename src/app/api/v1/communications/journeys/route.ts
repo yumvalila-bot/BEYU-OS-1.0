@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = CreateJourneySchema.parse(payload);
       return withIdempotency(ctx, "communications.journeys.create", payload, async () => {
 

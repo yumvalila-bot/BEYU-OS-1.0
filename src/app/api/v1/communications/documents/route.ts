@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = AttachSchema.parse(payload);
       return withIdempotency(ctx, "communications.documents.attach", payload, async () => {
 

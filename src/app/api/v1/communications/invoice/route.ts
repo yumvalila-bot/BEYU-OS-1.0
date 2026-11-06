@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      const payload = await readBoundedJson(request);
+      const payload = await readBoundedJson(request, { strict: true });
       const body = InvoiceSchema.parse(payload);
       return withIdempotency(ctx, "communications.invoice.send", payload, async () => {
         const { newId, ID_PREFIX } = await import("@/lib/ids");
