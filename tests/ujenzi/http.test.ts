@@ -45,15 +45,17 @@ describe.skipIf(!available)("Ujenzi OS API over HTTP", () => {
     expect(res.status).toBe(403);
   });
 
-  it("Agriculture operator's Ujenzi view is RLS-bounded to its own tenant (no construction rows)", async () => {
-    // SECTOR_OPERATOR holds ujenzi:data.read, but the request transaction pins
-    // RLS to the principal's OWN tenant (BEYU-AGRI), which contains no
-    // construction rows: tenant isolation at the database layer, zeros — never
-    // another tenant's data.
+  it("Agriculture operator is denied Ujenzi rather than receiving an own-tenant empty success", async () => {
+    // SECTOR_OPERATOR holds the same read code in BEYU-AGRI, but a similarly
+    // named permission is not canonical Ujenzi authority. The request must be
+    // denied before the handler/RLS query; an empty BEYU-AGRI result is not a
+    // successful Ujenzi response.
     const res = await apiGetJson("/api/v1/ujenzi/projects", { cookie: agriOpsCookie });
-    expect(res.status).toBe(200);
-    const body = res.body as unknown as { items: Array<{ code: string }> };
-    expect(body.items.some((item) => item.code === `${RUN}P`)).toBe(false);
+    expect(res.status).toBe(403);
+    const body = res.body as unknown as { error?: { code?: string; message?: string }; items?: unknown[] };
+    expect(body.error?.code).toBe("FORBIDDEN");
+    expect(body.error?.message).toContain("BEYU-UJENZI");
+    expect(body.items).toBeUndefined();
   });
 
   it("Agriculture operator cannot create construction records bound to its own (non-construction) entity", async () => {

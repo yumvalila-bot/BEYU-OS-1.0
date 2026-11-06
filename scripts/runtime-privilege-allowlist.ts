@@ -534,12 +534,28 @@ export const RUNTIME_READ_ONLY_TABLES = [
 ] as const;
 
 /**
- * Narrow column privileges needed only for PostgreSQL row locking. The runtime
- * cannot change this immutable catalog: migration 0074 installs an owner-only
- * UPDATE/DELETE trigger. UPDATE(id) exists solely because SELECT ... FOR SHARE
- * requires one UPDATE-capable column even though it does not modify the row.
+ * Narrow column privileges for operations that must remain table-level read
+ * only. The runtime cannot change the immutable constitution catalog:
+ * migration 0074 installs an owner-only UPDATE/DELETE trigger, and UPDATE(id)
+ * exists solely because SELECT ... FOR SHARE requires one UPDATE-capable
+ * column even though it does not modify the row.
+ *
+ * The bootstrap state is different: the canonical, owner-secret/MFA-gated
+ * ceremony intentionally runs on the runtime role and locks/transitions its
+ * singleton row. Keep table-level INSERT/UPDATE/DELETE denied, but grant only
+ * the columns written by beginEnrollment/completeEnrollment. The terminal
+ * database trigger remains the final seal guard; these grants do not permit
+ * creating, deleting, or re-identifying the singleton row.
  */
 export const RUNTIME_COLUMN_PRIVILEGES = {
+  admin_bootstrap_state: {
+    status: ["UPDATE"],
+    enrollment_started_at: ["UPDATE"],
+    sealed_at: ["UPDATE"],
+    sealed_by_user_id: ["UPDATE"],
+    admin_user_id: ["UPDATE"],
+    updated_at: ["UPDATE"],
+  },
   constitution_articles: { id: ["UPDATE"] },
 } as const;
 

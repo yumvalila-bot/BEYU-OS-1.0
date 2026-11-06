@@ -10,6 +10,8 @@ import {
   releaseIdempotencyKey,
 } from "./idempotency";
 import { resolvePrincipal, requestMeta } from "./session";
+import { isSchemaCompatibilityError } from "./schema-compatibility";
+import { canonicalSectorForPermission, resolveCanonicalSectorPrincipal } from "./sector-context";
 import { withTenantDatabaseContext } from "./tenant-scope";
 import { SYSTEM_VERSION, type Classification, type PermissionCode } from "./constants";
 
@@ -96,6 +98,26 @@ export function apiError(
         "x-correlation-id": correlationId,
       },
     },
+  );
+}
+
+/**
+ * 503 for a database that has not applied a migration this release reads.
+ *
+ * `SCHEMA_RELEASE_PENDING` is deliberately not `UNAUTHENTICATED` and not a
+ * permission error: the caller's session is valid and no authority changed.
+ * The body carries no SQLSTATE, no object name and no driver text — the same
+ * facts `GET /api/health/schema` publishes are public, everything else stays
+ * in the server log.
+ */
+export function schemaReleasePending(traceId: string, correlationId = traceId): NextResponse<ApiErrorBody> {
+  return apiError(
+    "SCHEMA_RELEASE_PENDING",
+    "A governed BEYU OS database release is pending. Your session and permissions are unchanged. The request was stopped before authorization completed; no protected data was returned and no changes were made. Retry after the release completes.",
+    503,
+    traceId,
+    undefined,
+    correlationId,
   );
 }
 
@@ -316,9 +338,34 @@ export async function guarded(
   const meta = await requestMeta();
   const traceId = meta.traceId;
   try {
-    const principal = await resolvePrincipal();
+    let principal: Principal | null;
+    try {
+      principal = await resolvePrincipal();
+    } catch (error) {
+      // A missing migration is a release state, not an authentication outcome
+      // and not an authorization denial: 503 with a governed code, no protected
+      // result and no mutation. A browser-bound caller is pointed at the release
+      // screen; every other failure keeps failing closed as a 500.
+      if (isSchemaCompatibilityError(error)) {
+        return schemaReleasePending(traceId, meta.correlationId);
+      }
+      throw error;
+    }
     if (!principal) {
       return apiError("UNAUTHENTICATED", "A valid BEYU OS session is required.", 401, traceId);
+    }
+
+    // Agriculture and Ujenzi APIs operate in their canonical sector tenant,
+    // not whichever tenant happens to hold a similarly named permission. A
+    // non-global caller must select that context explicitly. An already-global
+    // caller is derived into the same single-tenant RLS context; no authority
+    // is broadened and every handler continues to read ctx.principal.tenantId.
+    let sectorContextDenial: string | null = null;
+    const sector = canonicalSectorForPermission(options.permission);
+    if (sector) {
+      const resolved = await resolveCanonicalSectorPrincipal(principal, sector);
+      if (resolved.allowed) principal = resolved.principal;
+      else sectorContextDenial = resolved.reason;
     }
 
     const context: HandlerContext = {
@@ -382,10 +429,11 @@ export async function guarded(
        * endpoint cannot forget the check. Domain services re-resolve the same
        * scope for their own queries (defence in depth).
        */
-      const sectorTargetReason =
+      const foundationTargetReason =
         decision.allowed && options.permission.startsWith("foundation:")
           ? await foundationTargetScopeDenial(principal)
           : null;
+      const sectorTargetReason = sectorContextDenial ?? foundationTargetReason;
 
       if (scopeReason || sectorTargetReason || !decision.allowed) {
         const reason = scopeReason ?? sectorTargetReason ?? decision.reason;

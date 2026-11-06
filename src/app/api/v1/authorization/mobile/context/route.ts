@@ -9,12 +9,13 @@
 import { NextResponse } from "next/server";
 import { recordAudit, publishEvent } from "@/lib/audit";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { apiOk, apiError } from "@/lib/api";
+import { apiOk, apiError, schemaReleasePending } from "@/lib/api";
 import { db } from "@/db";
 import { sessions, users, parties, tenants } from "@/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { sha256 } from "@/lib/crypto";
 import { loadGrants, permissionsForRoles } from "@/lib/authz";
+import { isSchemaCompatibilityError } from "@/lib/schema-compatibility";
 import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
@@ -64,7 +65,14 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // Load grants
-  const grants = await loadGrants(session.userId, session.tenantId);
+  let grants: Awaited<ReturnType<typeof loadGrants>>;
+  try {
+    grants = await loadGrants(session.userId, session.tenantId);
+  } catch (error) {
+    // A pending database release is a release state, not an invalid token.
+    if (isSchemaCompatibilityError(error)) return schemaReleasePending(traceId);
+    throw error;
+  }
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
 

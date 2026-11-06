@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { recordAudit } from "@/lib/audit";
-import { apiOk } from "@/lib/api";
+import { apiOk, schemaReleasePending } from "@/lib/api";
+import type { Principal } from "@/lib/authz";
+import { isSchemaCompatibilityError } from "@/lib/schema-compatibility";
 import { SESSION_COOKIE } from "@/lib/constants";
 import { sessionCookieClearTargets } from "@/lib/session-cookie";
 import { newId, ID_PREFIX } from "@/lib/ids";
@@ -19,7 +21,19 @@ export async function POST(): Promise<NextResponse> {
   const traceId = newId(ID_PREFIX.event);
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  const principal = token ? await resolvePrincipal() : null;
+  let principal: Principal | null = null;
+  try {
+    principal = token ? await resolvePrincipal() : null;
+  } catch (error) {
+    /**
+     * A pending database release cannot revoke the session durably, so this
+     * route does NOT half-log-out the caller (no cookie clear, no audit row):
+     * it reports the release state and leaves the governed session intact for
+     * the release screen to explain.
+     */
+    if (isSchemaCompatibilityError(error)) return schemaReleasePending(traceId);
+    throw error;
+  }
 
   if (token && principal) {
     await withTenantDatabaseContext(principal, async () => {

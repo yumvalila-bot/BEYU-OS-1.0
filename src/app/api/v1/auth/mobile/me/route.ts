@@ -7,12 +7,13 @@
 
 import { NextResponse } from "next/server";
 import { newId, ID_PREFIX } from "@/lib/ids";
-import { apiOk, apiError } from "@/lib/api";
+import { apiOk, apiError, schemaReleasePending } from "@/lib/api";
 import { db } from "@/db";
 import { sessions, users, parties, tenants } from "@/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { sha256 } from "@/lib/crypto";
 import { loadGrants, permissionsForRoles, clearanceForRoles } from "@/lib/authz";
+import { isSchemaCompatibilityError } from "@/lib/schema-compatibility";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,16 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // Load grants
-  const grants = await loadGrants(session.userId, session.tenantId);
+  let grants: Awaited<ReturnType<typeof loadGrants>>;
+  try {
+    grants = await loadGrants(session.userId, session.tenantId);
+  } catch (error) {
+    // A pending database release is not an invalid token and not a 500: the
+    // session is valid and no authority changed, so the governed 503 answers
+    // instead of a mobile client retrying a sign-in that already succeeded.
+    if (isSchemaCompatibilityError(error)) return schemaReleasePending(traceId);
+    throw error;
+  }
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
 

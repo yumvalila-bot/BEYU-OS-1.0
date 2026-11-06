@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, or, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { adminAuthorityDelegations, emergencyAccessGrants, legalEntities, roleAssignments, roles, tenants, users } from "@/db/schema";
+import { asSchemaCompatibilityError, type SchemaCompatibilityError } from "./schema-compatibility";
 import {
   AGRICULTURE_OS_TENANT_CODE,
   UJENZI_OS_TENANT_CODE,
@@ -93,9 +94,17 @@ export type AccessDecision = {
   highRisk: boolean;
 };
 
-export async function loadGrants(userId: string, tenantId: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = await db
+/**
+ * The canonical role-grant read.
+ *
+ * This is the first database statement of every authenticated request, and it
+ * is the one that failed in production (2026-10-12, 2026-10-22) when the
+ * database had not applied the migration that adds
+ * `role_assignments.global_scope`: SQLSTATE 42703, every authenticated view
+ * rendered as a load failure, and nothing on screen named the release.
+ */
+async function queryRoleGrants(userId: string, today: string) {
+  return db
     .select({
       id: roleAssignments.id,
       code: roles.code,
@@ -116,6 +125,46 @@ export async function loadGrants(userId: string, tenantId: string) {
         or(isNull(roleAssignments.effectiveTo), gte(roleAssignments.effectiveTo, today)),
       ),
     );
+}
+
+/**
+ * One structured line per process. The condition is a deployment state, not a
+ * per-request event: repeating it on every request would bury the log without
+ * adding a single fact. The missing object is a catalog name from the
+ * repository — no tenant, entity, actor or credential is ever logged.
+ */
+let schemaDriftLogged = false;
+function logSchemaDriftOnce(error: SchemaCompatibilityError): void {
+  if (schemaDriftLogged) return;
+  schemaDriftLogged = true;
+  console.warn("[BEYU OS] schema_compatibility", {
+    sqlstate: error.sqlstate,
+    kind: error.kind,
+    missingObject: error.missingObject,
+    surface: "loadGrants",
+    effect: "authorization remains fail-closed; authenticated views route to the database-release screen",
+    remedy: "apply the pending database release (db-release → mode=deploy)",
+  });
+}
+
+export async function loadGrants(userId: string, tenantId: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  let rows: Awaited<ReturnType<typeof queryRoleGrants>>;
+  try {
+    rows = await queryRoleGrants(userId, today);
+  } catch (error) {
+    /**
+     * A missing column is a statement about the RELEASE, not about this
+     * principal's authority — so it is re-thrown as one, and the caller routes
+     * it to the governed release screen. It is never swallowed, never retried
+     * without the column and never downgraded to "no grants": an unknown
+     * authorization state must stay denied.
+     */
+    const drift = asSchemaCompatibilityError(error);
+    if (!drift) throw error;
+    logSchemaDriftOnce(drift);
+    throw drift;
+  }
   // Tenant isolation: grants apply only in the granted tenant or its ancestors.
   const tenantChain = await tenantAncestry(tenantId);
   return rows.filter((r) => tenantChain.includes(r.tenantId));
