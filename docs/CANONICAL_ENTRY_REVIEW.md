@@ -2,6 +2,10 @@
 
 This is a review-branch implementation, not a deployment or certification. No production DNS, secrets, cookie scope, database schema, or environment configuration was changed. At inspection, `main` contained one commit beyond the branch point: `5df9e01` adds `Home page.png`, the visual reference. The branch retains the separate reference-led homepage and authentic BEYU/NOELIA assets documented in `PUBLIC_HOMEPAGE_REVIEW.md`. The homepage now uses the canonical BEYU OS raster mark rather than the legacy SVG, with its original appearance intact.
 
+## Latest independent hardening continuation
+
+See `security/PR114_STAGE_LEDGER.md` for the non-duplicated stage-to-commit ledger and `security/ENTERPRISE_BLOCKER_REGISTER.md` for current release blockers. Bootstrap returns sanitized no-store dependency failures but restricted-role enrollment still fails. Fifteen Communications mutations use strict bounded single-read JSON; unknown Foundation pages fail closed, but status and audit races remain. Health federation and persisted workspace governance have not been approved or invented. Selected checks are not production certification. PR #114 remains draft and must not be merged or deployed as production.
+
 ## Enterprise remediation continuation — historical review snapshot
 
 This snapshot predates the Foundation pre-stream boundary and later landscape fix; see `security/ENTERPRISE_BLOCKER_REGISTER.md` for current findings.
