@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FOUNDATION_PAGE_REQUIREMENTS, foundationPageRequirements } from "@/lib/foundation/page-policy";
@@ -6,8 +6,16 @@ import { FOUNDATION_PAGE_REQUIREMENTS, foundationPageRequirements } from "@/lib/
 describe("Foundation preflight catalogue parity", () => {
   it("covers every existing Foundation page and no unknown child paths", () => {
     const root = join(process.cwd(), "src/app/os/foundation");
-    const dirs = readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory());
-    const pages = dirs.filter((d) => { try { readFileSync(join(root, d.name, "page.tsx")); return true; } catch { return false; } }).map((d) => d.name).sort();
+    function pagesUnder(dir: string, prefix = ""): string[] {
+      return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        if (!entry.isDirectory()) return [];
+        const route = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const folder = join(dir, entry.name);
+        const ownPage = ["tsx", "ts", "jsx", "js"].some((extension) => existsSync(join(folder, `page.${extension}`)));
+        return [...(ownPage ? [route] : []), ...pagesUnder(folder, route)];
+      });
+    }
+    const pages = pagesUnder(root).sort();
     expect(Object.keys(FOUNDATION_PAGE_REQUIREMENTS).sort()).toEqual(pages);
     expect(foundationPageRequirements("/os/foundation/not-a-page")).toBeNull();
     expect(foundationPageRequirements("/os/foundation")?.length).toBeGreaterThan(13);

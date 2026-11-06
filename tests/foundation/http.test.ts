@@ -200,6 +200,17 @@ describe("page-level SSR gating parity", () => {
     expect(audit.rows[0]).toMatchObject({ outcome: "DENIED", reason: "FOUNDATION_PERMISSION_DENIED", trace_id: expect.any(String), actor_user_id: expect.any(String) });
   });
 
+  it.skipIf(!available)("unregistered nested Foundation routes fail closed before rendering", async () => {
+    for (const cookie of [director, cfo, ""]) {
+      const response = await fetch(`${baseUrl()}/os/foundation/unknown/nested`, {
+        headers: cookie ? { cookie } : {}, redirect: "manual",
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(await response.text()).not.toContain("Foundation Executive Dashboard");
+    }
+  });
+
   it.skipIf(!available)("unauthenticated page access redirects to sign-in", async () => {
     const res = await apiGet("/os/foundation", null);
     expect([307, 200]).toContain(res.status);

@@ -23,8 +23,10 @@ function refusal(status: 403 | 503): NextResponse {
 
 export async function foundationPagePreflight(request: NextRequest): Promise<NextResponse> {
   const requirements = foundationPageRequirements(request.nextUrl.pathname);
-  // Existing routing supplies 404 for non-existent nested paths.
-  if (!requirements) return NextResponse.next();
+  // Unknown or newly-added paths must not reach the renderer until their
+  // independent policy is registered. Preserve a generic not-found response;
+  // never assume an unregistered future page has its own effective guard.
+  if (!requirements) return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" } });
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   // Preserve the established unauthenticated redirect and host handling.
   if (!token) return NextResponse.next();

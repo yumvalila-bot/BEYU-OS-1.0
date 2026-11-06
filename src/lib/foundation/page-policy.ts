@@ -26,7 +26,7 @@ export const FOUNDATION_PAGE_REQUIREMENTS: Readonly<Record<string, readonly Requ
   safeguarding: [requirement("foundation:safeguarding.read", "HIGHLY_RESTRICTED")],
 };
 
-/** null means an unregistered route is left to the framework's normal 404. */
+/** null means preflight refuses the unregistered route with a generic 404. */
 export function foundationPageRequirements(pathname: string): readonly Requirement[] | null {
   const normalized = pathname.replace(/\/+$/, "");
   if (normalized === "/os/foundation") return Object.values(FOUNDATION_PAGE_REQUIREMENTS).flat();
