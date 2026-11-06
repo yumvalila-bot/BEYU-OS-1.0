@@ -1,0 +1,473 @@
+import { redirect } from "next/navigation";
+import { resolvePrincipal } from "@/lib/session";
+import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
+import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
+import { LoginCampusBand, LoginCard, LoginHero, LoginPillars, LoginShell, LoginTrustStrip } from "./login-surface";
+import { authorizedGovernedDestinations } from "@/lib/operating-systems";
+import { canonicalHostForRequest } from "@/lib/canonical-host";
+import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
+import { sessionCookiePresent } from "@/lib/session-state";
+import { can } from "@/lib/authz";
+
+export const dynamic = "force-dynamic";
+
+/** True when this instance is serving in production mode. */
+function isProductionDeployment(): boolean {
+  return process.env["NODE_ENV"] === "production";
+}
+
+const BOOTSTRAP_IDENTITIES: BootstrapIdentity[] = [
+  { email: "ceo@beyu.os", role: "Group Chief Executive" },
+  { email: "cfo@beyu.os", role: "Group CFO — Finance OS authority" },
+  { email: "governance@beyu.os", role: "Chief Governance Officer" },
+  { email: "risk@beyu.os", role: "Chief Risk & Compliance" },
+  { email: "family@beyu.os", role: "Family Office Principal" },
+  { email: "auditor@beyu.os", role: "Internal Auditor (read-only)" },
+];
+
+const GOVERNANCE_FOUNDATIONS = [
+  { title: "Trust", copy: "One constitution, one authority model, one audit truth." },
+  { title: "Care", copy: "Family, workforce and beneficiary data held to the highest tier." },
+  { title: "Integrity", copy: "Hash-chained audit; financial history is never overwritten." },
+  { title: "Innovation", copy: "Noelia AI on the HIVE runtime — governed, never unbounded." },
+  { title: "Impact", copy: "Capital, waterfall and foundation allocation, fully explainable." },
+];
+
+const CONTROL_PLANE_FACTS = [
+  "ZERO TRUST",
+  "RBAC + ABAC",
+  "TENANT ISOLATION",
+  "HASH-CHAINED AUDIT",
+  "JURISDICTION AWARE",
+  "HUMAN ACCOUNTABILITY",
+] as const;
+
+const topNavItems = ["About BEYU", "Our Architecture", "Sector OS", "Capabilities", "NOELIA AI", "Technology", "Contact"];
+
+const sectorCards = [
+  { name: "HEALTH_OS", accent: "#1aa3ff", label: "Integrated healthcare operations for healthier communities.", button: "Explore" },
+  { name: "FINANCE_OS", accent: "#f2d15d", label: "Financial management for intelligent growth.", button: "Explore" },
+  { name: "AGRICULTURE_OS", accent: "#6fd88d", label: "Smart agriculture for food security.", button: "Explore" },
+  { name: "UJENZI_OS", accent: "#f1bc38", label: "Infrastructure for a stronger tomorrow.", button: "Explore" },
+] as const;
+
+const capabilityItems = [
+  { title: "Constitutional Governance", icon: "⚖" },
+  { title: "Human Capital Management", icon: "👥" },
+  { title: "Family Office", icon: "🏢" },
+  { title: "Risk & Assurance", icon: "✓" },
+  { title: "Knowledge Management", icon: "📚" },
+  { title: "Audit & Accountability", icon: "🧾" },
+] as const;
+
+function HeaderBrand() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 ring-1 ring-[#d4a017]/40 shadow-[0_12px_28px_rgba(0,0,0,0.18)]">
+        <BeyuOsLogo size={28} ariaLabel="BEYU" className="drop-shadow-[0_0_10px_rgba(212,175,55,0.35)]" />
+      </div>
+      <div className="leading-none text-white">
+        <div className="text-[16px] font-extrabold tracking-[0.05em]">BEYU</div>
+        <div className="mt-0.5 text-[7px] font-medium tracking-[0.12em] text-[#d4a017] uppercase">
+          Bridging Care. Building Trust.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroGlobe() {
+  return (
+    <div className="relative mx-auto h-[350px] w-[430px] max-w-full sm:h-[420px] sm:w-[520px]">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute h-[250px] w-[250px] rounded-full border-[2px] border-[#6dc7ff]/40 bg-[radial-gradient(circle,_rgba(255,255,255,0.18),_rgba(14,36,93,0.0)_60%)] shadow-[0_0_30px_rgba(99,191,255,0.45)] sm:h-[300px] sm:w-[300px]" />
+        <div className="absolute h-[300px] w-[300px] rounded-full border-[10px] border-[#e4bb4a] shadow-[0_0_50px_rgba(228,187,74,0.7)] sm:h-[360px] sm:w-[360px]" />
+        <div className="absolute h-[220px] w-[220px] rounded-full border-[1px] border-[#e6f0ff]/40 bg-[radial-gradient(circle,_rgba(35,130,240,0.8),_rgba(9,26,57,0.8)_60%,_rgba(3,16,40,0.95)_100%)] sm:h-[260px] sm:w-[260px]" />
+        <div className="absolute flex h-[120px] w-[120px] items-center justify-center rounded-full bg-white text-[52px] font-black text-[#0b1d3a] shadow-[0_0_35px_rgba(255,255,255,0.4)]">B</div>
+      </div>
+      <div className="absolute left-0 top-8 rounded-full border border-[#a3d8ff]/30 bg-[#d8f3ff]/5 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-[#dceeff] uppercase sm:text-[12px]">
+        HEALTH_OS
+      </div>
+      <div className="absolute right-0 top-8 rounded-full border border-[#a3d8ff]/30 bg-[#d8f3ff]/5 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-[#dceeff] uppercase sm:text-[12px]">
+        FINANCE_OS
+      </div>
+      <div className="absolute left-4 bottom-16 rounded-full border border-[#a3d8ff]/30 bg-[#d8f3ff]/5 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-[#dceeff] uppercase sm:text-[12px]">
+        AGRICULTURE_OS
+      </div>
+      <div className="absolute right-4 bottom-16 rounded-full border border-[#a3d8ff]/30 bg-[#d8f3ff]/5 px-3 py-1 text-[10px] font-semibold tracking-[0.18em] text-[#dceeff] uppercase sm:text-[12px]">
+        UJENZI_OS
+      </div>
+      <div className="absolute left-1/2 top-1/2 h-[160px] w-[160px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#f7d977]/60" />
+      <div className="absolute left-1/2 top-1/2 h-[230px] w-[230px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#9ad7ff]/30" />
+      <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#f4d46f] text-[54px] font-black text-[#0b1d3a] shadow-[0_0_35px_rgba(244,212,111,0.9)]">
+          B
+        </div>
+        <div className="mt-2 text-[18px] font-black uppercase tracking-[0.15em] text-[#0b1d3a]">BEYU</div>
+        <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-[#0b1d3a]">System</div>
+      </div>
+    </div>
+  );
+}
+
+function MarketingPage() {
+  return (
+    <main className="min-h-screen bg-[#061d4a] text-[#0b1d3a]">
+      <div className="mx-auto max-w-[1400px] bg-[#061d4a] px-0 pb-0">
+        <header className="relative border-b border-[#f0c962]/30 bg-[linear-gradient(180deg,_rgba(7,17,38,0.93),_rgba(4,15,34,0.98))]">
+          <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
+            <HeaderBrand />
+            <nav className="hidden items-center gap-6 text-[13px] font-medium text-white/90 lg:flex">
+              {topNavItems.map((item) => (
+                <a key={item} href="#" className="transition hover:text-[#f1cb5d]">
+                  {item}
+                </a>
+              ))}
+            </nav>
+            <button className="inline-flex items-center gap-2 rounded-full border border-[#f0c962]/80 bg-[#f0c962] px-5 py-2.5 text-[12px] font-bold tracking-[0.04em] text-[#0b1d3a] shadow-[0_8px_24px_rgba(240,201,98,0.38)] transition hover:brightness-105">
+              Sign In →
+            </button>
+          </div>
+        </header>
+
+        <section className="relative overflow-hidden bg-[radial-gradient(circle_at_50%_10%,_rgba(45,115,212,0.9),_rgba(11,29,58,0.88)_30%,_rgba(5,18,41,0.98)_60%,_rgba(2,12,25,1)_100%)]">
+          <div className="absolute inset-0 opacity-80" style={{ backgroundImage: "radial-gradient(circle at center, rgba(255,255,255,0.15), transparent 32%), linear-gradient(90deg, rgba(255,255,255,0.04), transparent 20%, transparent 80%, rgba(255,255,255,0.04))" }} />
+          <div className="relative mx-auto grid max-w-[1360px] items-center gap-10 px-5 py-8 sm:px-8 lg:grid-cols-[1.05fr_1.1fr] lg:px-10 lg:py-12">
+            <div className="pt-4">
+              <h1 className="max-w-[540px] text-[46px] font-black leading-[0.95] tracking-[-0.04em] text-[#f4c84d] sm:text-[60px] lg:text-[72px]">
+                Bridging Care.
+                <span className="mt-2 block text-[#ffd76e]">Building Trust.</span>
+              </h1>
+              <p className="mt-6 text-[18px] text-[#dfefff] sm:text-[20px]">
+                A Constitutional Enterprise Operating Ecosystem.
+              </p>
+              <p className="mt-5 max-w-[560px] text-[15px] leading-[1.7] text-[#d8ebff]">
+                BEYU connects institutional governance, enterprise operations, intelligence and multi-sector capabilities through one unified operating architecture.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <button className="inline-flex items-center rounded-xl border border-[#f3c759] bg-[#f3c759] px-5 py-3 text-[14px] font-bold text-[#0b1d3a] shadow-[0_10px_25px_rgba(243,199,89,0.4)]">
+                  Explore BEYU →
+                </button>
+                <button className="inline-flex items-center rounded-xl border border-[#f3c759]/80 bg-transparent px-5 py-3 text-[14px] font-bold text-[#f3c759]">
+                  Explore Our Operating Systems →
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-center py-2 lg:justify-end">
+              <HeroGlobe />
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#edf3fa] px-5 py-8 sm:px-8 lg:px-10">
+          <div className="mx-auto max-w-[1360px]">
+            <div className="grid items-center gap-6 lg:grid-cols-[1.05fr_1.15fr]">
+              <div>
+                <h2 className="text-[28px] font-black tracking-[-0.04em] text-[#0b1d3a] sm:text-[36px]">ABOUT BEYU</h2>
+                <div className="mt-4 h-[4px] w-[90px] rounded-full bg-[#f0c962]" />
+                <p className="mt-6 max-w-[520px] text-[18px] leading-[1.6] text-[#1f3150]">
+                  BEYU is a constitutional enterprise ecosystem built on three foundational pillars: Constitutional Control Plane, Enterprise Operating Kernel and Governed Intelligence Layer.
+                </p>
+                <button className="mt-7 inline-flex items-center rounded-xl border border-[#f0c962] bg-[#f0c962] px-5 py-3 text-[14px] font-bold text-[#0b1d3a]">
+                  Learn More →
+                </button>
+              </div>
+
+              <div className="relative overflow-hidden rounded-[20px] border border-[#d5e2ef] bg-[linear-gradient(135deg,#dcebf8,#9bb6d3_35%,#f3d9b1_100%)] shadow-[0_25px_60px_rgba(11,29,58,0.15)]">
+                <div className="h-[278px] w-full bg-[linear-gradient(180deg,rgba(7,27,56,0.06),rgba(7,27,56,0.16)),radial-gradient(circle_at_50%_25%,rgba(255,255,255,0.75),rgba(140,178,210,0.38)_30%,rgba(62,91,129,0.12)_55%,rgba(13,37,67,0.05)_100%)]" />
+                <div className="absolute inset-x-6 bottom-6 top-6 rounded-[18px] border border-white/30 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.02)),linear-gradient(160deg,#a6bfd6_0%,#d9e6f4_26%,#efc98c_100%)] opacity-90" />
+                <div className="absolute inset-x-0 bottom-0 h-[58%] bg-[linear-gradient(180deg,rgba(0,0,0,0),rgba(7,27,56,0.18))]" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#edf3fa] px-5 pb-8 sm:px-8 lg:px-10">
+          <div className="mx-auto max-w-[1360px]">
+            <h3 className="text-center text-[28px] font-black uppercase leading-tight tracking-[-0.04em] text-[#0b1d3a] sm:text-[36px]">
+              ONE ECOSYSTEM. FOUR SECTOR OPERATING SYSTEMS.
+            </h3>
+            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+              {sectorCards.map((sector, index) => (
+                <div key={sector.name} className="overflow-hidden rounded-[18px] border border-[#1b4d88]/10 bg-[linear-gradient(180deg,#0b2d6a,#0a2457)] shadow-[0_20px_36px_rgba(8,24,54,0.18)]">
+                  <div className="relative h-[150px] overflow-hidden border-b border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.22),rgba(255,255,255,0.03))]">
+                    <div className="absolute inset-0 opacity-80" style={{ background: `radial-gradient(circle at 50% 20%, ${sector.accent} 0%, rgba(20,55,110,0.9) 26%, rgba(10,24,49,0.85) 52%, transparent 100%)` }} />
+                    <div className="absolute inset-x-0 bottom-0 h-[42%] bg-[linear-gradient(180deg,rgba(4,22,41,0),rgba(4,22,41,0.75))]" />
+                    <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/90 backdrop-blur-sm" />
+                    <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center text-[20px] font-bold text-[#0b1d3a]">{sector.name.slice(0, 1)}</div>
+                  </div>
+                  <div className="px-5 pb-5 pt-4">
+                    <div className="flex items-center gap-2 text-[#f2d36f]">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#f2d36f]" />
+                      <span className="text-[15px] font-bold uppercase tracking-[0.08em]">{sector.name}</span>
+                    </div>
+                    <p className="mt-3 text-[14px] leading-[1.5] text-[#d7ebff]">{sector.label}</p>
+                    <button className="mt-5 inline-flex items-center rounded-xl border border-[#f0c962] bg-[#f0c962] px-4 py-2 text-[12px] font-bold text-[#0b1d3a]">
+                      {sector.button} →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#edf3fa] px-5 pb-8 sm:px-8 lg:px-10">
+          <div className="mx-auto max-w-[1360px] rounded-[22px] bg-[#dfeaf6] p-0 shadow-[0_24px_60px_rgba(7,29,58,0.08)]">
+            <div className="grid gap-0 lg:grid-cols-[1.35fr_0.78fr]">
+              <div className="px-6 py-7 sm:px-8 lg:px-10 lg:py-8">
+                <h3 className="text-[28px] font-black tracking-[-0.04em] text-[#0b1d3a] sm:text-[32px]">SHARED ENTERPRISE CAPABILITIES</h3>
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {capabilityItems.map((item) => (
+                    <div key={item.title} className="flex min-h-[120px] flex-col items-center justify-center rounded-[14px] border border-[#0b1d3a]/10 bg-white/70 px-4 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e9f0fb] text-[22px] text-[#0b1d3a]">{item.icon}</div>
+                      <div className="mt-3 text-[12px] font-semibold leading-[1.4] text-[#0b1d3a]">{item.title}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative overflow-hidden rounded-r-[22px] bg-[linear-gradient(180deg,#0c1d3e,#082449)] p-6">
+                <div className="absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 30%), linear-gradient(180deg, rgba(9,35,66,0.2), rgba(5,17,34,0.75))" }} />
+                <div className="relative h-full min-h-[220px]">
+                  <div className="mx-auto mt-6 flex h-40 w-40 items-center justify-center rounded-full border-[6px] border-[#f0c962] bg-[radial-gradient(circle,_rgba(255,255,255,0.8),_rgba(211,230,246,0.5)_35%,_rgba(32,78,133,0.9)_100%)] shadow-[0_0_30px_rgba(240,201,98,0.33)]">
+                    <div className="h-24 w-24 rounded-full bg-[radial-gradient(circle,_#f2d87d,_#a57218)]" />
+                  </div>
+                  <div className="mt-5 text-right text-white">
+                    <div className="text-[26px] font-black tracking-[-0.04em]">NOELIA</div>
+                    <div className="mt-1 text-[15px] font-medium text-[#dfeeff]">Intelligence · Governance · Care</div>
+                    <p className="mt-3 text-[13px] text-[#dfeeff]">Your governed AI assistant, supporting the BEYU ecosystem.</p>
+                    <button className="mt-4 inline-flex items-center rounded-xl border border-[#f0c962] bg-[#0f3d75] px-4 py-2 text-[12px] font-bold text-[#f8d87b]">
+                      Discover NOELIA →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#edf3fa] px-5 pb-8 sm:px-8 lg:px-10">
+          <div className="mx-auto grid max-w-[1360px] gap-6 lg:grid-cols-[1.45fr_0.7fr]">
+            <div className="overflow-hidden rounded-[22px] bg-[linear-gradient(180deg,#0a2c68,#0d2a4f)] p-6 text-white shadow-[0_24px_60px_rgba(7,29,58,0.12)]">
+              <div className="grid gap-6 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+                <div>
+                  <h3 className="text-[28px] font-black leading-[1.1] tracking-[-0.04em] text-[#f1d778] sm:text-[36px]">
+                    BUILDING INSTITUTIONS. CREATING LASTING IMPACT.
+                  </h3>
+                  <p className="mt-5 max-w-[430px] text-[18px] leading-[1.6] text-[#d9ebff]">
+                    Rooted in Africa. Inspired globally. BEYU is committed to sustainable development across healthcare, finance, agriculture, infrastructure and communities.
+                  </p>
+                  <button className="mt-7 inline-flex items-center rounded-xl border border-[#f0c962] bg-[#f0c962] px-5 py-3 text-[14px] font-bold text-[#0b1d3a]">
+                    Our Vision →
+                  </button>
+                </div>
+                <div className="relative h-[250px] overflow-hidden rounded-[18px] border border-white/15 bg-[linear-gradient(180deg,#d7e7ff,#9eccd4_40%,#d9a76d_100%)]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.7),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.1),rgba(9,34,58,0.28))]" />
+                  <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-[52%] rounded-full bg-[#c2d7d8]/80 shadow-[0_0_40px_rgba(38,103,142,0.35)]" />
+                  <div className="absolute inset-x-0 bottom-0 h-[24%] bg-[linear-gradient(180deg,rgba(6,23,41,0),rgba(8,24,46,0.5))]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center overflow-hidden rounded-[22px] bg-[linear-gradient(180deg,#0b2f6a,#0a2654)] p-7 text-white shadow-[0_24px_60px_rgba(7,29,58,0.12)]">
+              <div className="w-full text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-[4px] border-[#f0c962] bg-[#f0c962] text-[32px] text-[#0b1d3a] shadow-[0_0_30px_rgba(240,201,98,0.5)]">🔒</div>
+                <div className="mt-5 text-[28px] font-black tracking-[-0.04em] text-[#f0c962]">SIGN IN TO BEYU</div>
+                <p className="mt-4 text-[16px] leading-[1.6] text-[#dfeeff]">Access your BEYU environment and explore the ecosystem.</p>
+                <button className="mt-6 inline-flex items-center rounded-full border border-[#f0c962] bg-transparent px-5 py-3 text-[14px] font-bold text-[#f0c962]">
+                  Sign In →
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="border-t-[3px] border-[#f0c962] bg-[#061d4a] px-5 py-7 sm:px-8 lg:px-10">
+          <div className="mx-auto grid max-w-[1360px] gap-6 lg:grid-cols-[0.9fr_0.7fr_0.7fr_0.7fr]">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 ring-1 ring-[#f0c962]/40">
+                <BeyuOsLogo size={22} ariaLabel="BEYU" />
+              </div>
+              <div className="text-white">
+                <div className="text-[24px] font-black tracking-[-0.04em]">BEYU</div>
+                <div className="text-[10px] font-medium tracking-[0.12em] text-[#f0c962] uppercase">Bridging Care. Building Trust.</div>
+              </div>
+            </div>
+
+            <div className="text-[14px] leading-[1.8] text-[#dfeeff]">
+              <div className="mb-2 font-bold uppercase tracking-[0.08em] text-[#f0c962]">About BEYU</div>
+              <div>Institutional Structure</div>
+              <div>Governance</div>
+              <div>Sector OS</div>
+              <div>Health OS</div>
+            </div>
+
+            <div className="text-[14px] leading-[1.8] text-[#dfeeff]">
+              <div className="mb-2 font-bold uppercase tracking-[0.08em] text-[#f0c962]">Operating Systems</div>
+              <div>Finance OS</div>
+              <div>Agriculture OS</div>
+              <div>Ujenzi OS</div>
+              <div>BEYU Foundation</div>
+            </div>
+
+            <div className="text-[14px] leading-[1.8] text-[#dfeeff]">
+              <div className="mb-2 font-bold uppercase tracking-[0.08em] text-[#f0c962]">Policy</div>
+              <div>Privacy Policy</div>
+              <div>Terms & Conditions</div>
+              <div>Security</div>
+              <div className="mt-2 flex gap-3 text-[18px] text-[#f0c962]">
+                <span>in</span>
+                <span>𝕏</span>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+export default async function SignInPage() {
+  const principal = await resolvePrincipal();
+
+  const canonicalHost = await canonicalHostForRequest();
+  const hostDestination = destinationForResolution(canonicalHost);
+  const requestedContext =
+    canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
+      ? canonicalContextOf(canonicalHost)
+      : null;
+  const sessionExpired = !principal && (await sessionCookiePresent());
+  const identities = isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES;
+
+  if (principal) {
+    const destinations = await authorizedGovernedDestinations(principal);
+    if (canonicalHost.kind === "SECTOR_OS" && destinations.some((destination) => destination.code === canonicalHost.os.code)) {
+      redirect(canonicalHost.os.href);
+    }
+    if (canonicalHost.kind === "SURFACE") {
+      const allowed =
+        canonicalHost.surface.code === "FOUNDATION"
+          ? destinations.some((destination) => destination.code === "FOUNDATION")
+          : can(principal, canonicalHost.surface.entryPermission).allowed;
+      if (allowed) redirect(canonicalHost.surface.href);
+    }
+    if (hostDestination && requestedContext) {
+      return (
+        <DestinationDenied
+          destination={hostDestination}
+          displayName={principal.displayName}
+          email={principal.email}
+        />
+      );
+    }
+    if (destinations.length > 1) redirect("/launcher");
+    if (destinations.length === 1) redirect(destinations[0].href);
+  }
+
+  if (!principal && hostDestination && requestedContext) {
+    return (
+      <GovernedSignIn
+        destination={hostDestination}
+        identities={identities}
+        sessionExpired={sessionExpired}
+        landing={requestedContext ? requestedContext.href : "/os"}
+      />
+    );
+  }
+
+  return <MarketingPage />;
+}
+
+// Original sign-in shell retained for route-level use outside the public landing page.
+export function LegacySignInSurface() {
+  return (
+    <LoginShell>
+      <LoginHero />
+      <div className="mt-9 grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:items-start lg:gap-x-12">
+        <section className="order-2 lg:order-1" aria-labelledby="beyu-controlplane-headline">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-[#0B1F4D]/10">
+              <BeyuOsLogo size={44} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+            </span>
+            <p className="beyu-kicker text-[#5b6b85]">BEYU OS · GLOBAL ENTERPRISE CONTROL PLANE</p>
+          </div>
+
+          <h1
+            id="beyu-controlplane-headline"
+            className="mt-4 max-w-2xl text-[24px] leading-[1.2] font-semibold tracking-tight text-[#0B1F4D] sm:text-[29px]"
+          >
+            The constitutional control plane of the <span className="beyu-gold-ink">BEYU ecosystem</span>.
+          </h1>
+          <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-[#41527a]">
+            BEYU OS governs identity, organisation, ownership, governance, risk, compliance, capital,
+            workforce, data, audit and AI once — and only once. Health OS, Finance OS, Agriculture OS
+            and Ujenzi OS are exactly the four Sector OSs beneath it. The separate nonprofit BEYU Foundation
+            consumes shared capabilities through its own governed tenant and legal-entity scope.
+          </p>
+
+          <LoginPillars
+            className="mt-8"
+            extra={
+              <div className="mt-6 rounded-2xl border border-[#0B1F4D]/10 bg-white/70 p-4">
+                <h3 className="beyu-kicker text-[#5b6b85]">Governance foundations</h3>
+                <dl className="mt-3 grid list-none gap-2 p-0 sm:grid-cols-2">
+                  {GOVERNANCE_FOUNDATIONS.map((foundation) => (
+                    <div key={foundation.title} className="text-[12px] leading-relaxed">
+                      <dt className="font-semibold text-[#0B1F4D]">{foundation.title}</dt>
+                      <dd className="text-[#5b6b85]">{foundation.copy}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            }
+          />
+
+          <LoginTrustStrip items={CONTROL_PLANE_FACTS} />
+        </section>
+
+        <div className="order-1 lg:order-2">
+          <LoginCard
+            titleId="beyu-controlplane-signin-title"
+            signInSubtitle={"Sign in to the control plane"}
+            className="mt-0"
+          >
+            <SignInForm
+              identities={identities}
+              sessionExpired={sessionExpired}
+              landing={requestedContext ? requestedContext.href : "/os"}
+            />
+          </LoginCard>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-[#5b6b85]">
+            Access is least-privilege and fully audited. High-risk capabilities require step-up
+            authentication. Unauthorised access attempts are recorded in the immutable audit ledger.
+          </p>
+        </div>
+      </div>
+
+      <LoginCampusBand
+        notices={
+          <p className="text-[11px] leading-relaxed">
+            First-time setup?{" "}
+            <a
+              href="/enroll"
+              className="text-[#e2c25f] underline underline-offset-2 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Enroll the initial administrator
+            </a>
+            . Reaching a hostname grants nothing: identity, access and tenant scope are decided server-side, and
+            every consequential action is attributable in the audit ledger.
+          </p>
+        }
+      />
+    </LoginShell>
+  );
+}
+
+export { MarketingPage };
+
+
