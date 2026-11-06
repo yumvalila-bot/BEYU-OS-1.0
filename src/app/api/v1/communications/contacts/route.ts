@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { createContact, searchContacts } from "@/lib/communications/contact-service";
 import { db } from "@/db";
 import { communicationContacts } from "@/db/schema";
@@ -81,8 +82,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.contacts.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, CreateContactSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = CreateContactSchema.parse(payload);
+      return withIdempotency(ctx, "communications.contacts.create", payload, async () => {
 
         const result = await createContact({
           tenantId: ctx.principal.tenantId,

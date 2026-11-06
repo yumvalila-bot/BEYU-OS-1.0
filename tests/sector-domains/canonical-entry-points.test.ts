@@ -118,11 +118,12 @@ describe("B/C. direct access — no BEYU landing hop, no host-granted authority"
   });
 
   it("the sign-in landing is the resolved context's route, computed server-side", () => {
-    const c = code(source("src", "app", "page.tsx"));
+    const c = code(source("src", "app", "canonical-sign-in.tsx"));
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).toContain("landing={requestedContext ? requestedContext.href : \"/os\"}");
-    // Landing is derived from the trusted host contract only — never from input.
-    expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
+    // A query may request a registry code, but never supplies a return URL.
+    expect(c).toContain("requestedEntryDestination((await searchParams)?.destination)");
+    expect(c).not.toMatch(/redirect_to|returnTo|callbackUrl/i);
   });
 
   it("the routing decision carries no authority: a hostname cannot grant an OS", () => {
@@ -152,7 +153,17 @@ describe("D/E. tenant isolation and deep-link security are unchanged by the host
     ] as const) {
       const c = code(source(...file));
       expect(c, tenantCode).toContain(`"${tenantCode}"`);
-      expect(c, tenantCode).toContain(`capability="${permission}"`);
+      if (tenantCode === "BEYU-FOUNDATION") {
+        // The layout uses a non-disclosing denial; the registry independently
+        // checks its capability before reading, even during concurrent render.
+        expect(c).toContain("principal.entityScope.length > 0");
+        expect(c).toContain("<FoundationDenied />");
+        const registry = code(source("src", "app", "os", "foundation", "registry", "page.tsx"));
+        expect(registry).toContain(`requireAccess("${permission}"`);
+        expect(registry.indexOf("requireAccess(")).toBeLessThan(registry.indexOf("listFoundations(access.principal)"));
+      } else {
+        expect(c, tenantCode).toContain(`capability="${permission}"`);
+      }
     }
   });
 
@@ -220,7 +231,7 @@ describe("H/I. URL preservation and the absence of routing loops", () => {
   });
 
   it("the sign-in branch redirects relatively on every host", () => {
-    const c = code(source("src", "app", "page.tsx"));
+    const c = code(source("src", "app", "canonical-sign-in.tsx"));
     const redirects = [...c.matchAll(/redirect\(([^)]*)\)/g)].map((m) => m[1]);
     expect(redirects.length).toBeGreaterThan(0);
     for (const target of redirects) {

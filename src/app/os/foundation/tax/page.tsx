@@ -1,13 +1,18 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial } from "@/lib/foundation-page-access";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { listTaxAssessments, listTaxRules } from "@/lib/foundation/service";
 
 export const dynamic = "force-dynamic";
 
 export default async function FoundationTaxPage() {
   const access = await requireAccess("foundation:tax.read", { classification: "RESTRICTED" });
-  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:tax.read" />;
+  if (!access.allowed) {
+    await auditFoundationPageDenial(access.principal, "foundation.tax", "FOUNDATION_ACCESS_DENIED");
+    return <FoundationDenied />;
+  }
   return withTenantDatabaseContext(access.principal, async () => {
     const [rules, assessments] = await Promise.all([
       listTaxRules(access.principal),

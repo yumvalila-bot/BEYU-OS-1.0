@@ -15,10 +15,11 @@
  *      canonical Sector OS to that OS's canonical host — same path, target
  *      host built from the catalogue + `BEYU_CANONICAL_DOMAIN`, never from the
  *      request; cannot loop because the target host owns the path;
- *   4. passes everything else through unchanged.
+ *   4. calls a Foundation-only pre-stream refusal boundary; all page and API
+ *      guards remain in place; passes other requests through unchanged.
  *
- * What it never does: it reads no cookie, resolves no session, touches no
- * database, and grants nothing. A hostname selects a home; the route's own
+ * The hostname adapter itself reads no session and grants nothing; the separate
+ * Foundation refusal boundary checks the live session and scope before streaming. A hostname selects a home; the route's own
  * server-side gate (session → tenant → entity → country → classification →
  * RBAC/ABAC → permission → policy → OS authorization → RLS) decides access on
  * every request, on every host, exactly as before this file existed.
@@ -27,9 +28,10 @@
  * destination and only the Origin check is active.
  */
 import { NextResponse, type NextRequest } from "next/server";
+import { foundationPagePreflight } from "@/lib/foundation/page-preflight";
 import { canonicalHostOptionsFromEnvironment, decideProxyAction } from "@/lib/canonical-hosts";
 
-export function proxy(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse | Promise<NextResponse> {
   const action = decideProxyAction(
     {
       host: request.headers.get("host"),
@@ -61,6 +63,11 @@ export function proxy(request: NextRequest): NextResponse {
       return NextResponse.redirect(location, action.status);
     }
     default:
+      // Foundation performs an additional refusal-only live authorization before
+      // streaming. The renderer and services independently recheck authority.
+      if (request.nextUrl.pathname === "/os/foundation" || request.nextUrl.pathname.startsWith("/os/foundation/")) {
+        return foundationPagePreflight(request);
+      }
       return NextResponse.next();
   }
 }

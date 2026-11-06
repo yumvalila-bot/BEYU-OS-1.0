@@ -8,7 +8,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency, apiError } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency, apiError } from "@/lib/api";
 import { orchestrateCommunication, orchestrateMultiChannel } from "@/lib/communications/orchestrator";
 import { listMessages } from "@/lib/communications/message-service";
 import { newId, ID_PREFIX } from "@/lib/ids";
@@ -101,8 +102,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.messages.send", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, SendMessageSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = SendMessageSchema.parse(payload);
+      return withIdempotency(ctx, "communications.messages.send", payload, async () => {
 
         if (!body.body && !body.templateCode) {
           return { status: 422, body: { error: { code: "BODY_REQUIRED", message: "Either body or templateCode is required" } } };

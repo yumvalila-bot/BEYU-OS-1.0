@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { listTemplates, createTemplate } from "@/lib/communications/template-service";
 
 export const dynamic = "force-dynamic";
@@ -76,8 +77,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.templates.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, CreateTemplateSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = CreateTemplateSchema.parse(payload);
+      return withIdempotency(ctx, "communications.templates.create", payload, async () => {
 
         const template = await createTemplate({
           tenantId: ctx.principal.tenantId,

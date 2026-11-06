@@ -85,7 +85,11 @@ export async function revokeSession(token: string): Promise<void> {
  */
 export async function resolvePrincipal(): Promise<Principal | null> {
   const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  return resolvePrincipalFromToken(jar.get(SESSION_COOKIE)?.value);
+}
+
+/** Resolve the same live principal for server request boundaries that cannot use next/headers. */
+export async function resolvePrincipalFromToken(token: string | undefined): Promise<Principal | null> {
   if (!token) return null;
 
   const [row] = await db

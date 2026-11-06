@@ -178,7 +178,7 @@ describe("Health OS route under hostile Host values", () => {
     ]) {
       const res = await getWithHost("/os/health", host);
       expect(res.status, host).toBe(307);
-      expect(res.location, host).toBe("/");
+      expect(res.location, host).toBe("/sign-in");
     }
   });
 

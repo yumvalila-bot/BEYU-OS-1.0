@@ -67,6 +67,7 @@
   /* consumes it.                                                        */
   /* ------------------------------------------------------------------ */
   --beyu-gold-ink: #8a6a12;
+  --beyu-panel-gold-ink: #805e0b;
   --beyu-sage: #4c6f4e;
   --beyu-surface: #f7f9fc;
   --beyu-line: rgba(11, 29, 58, 0.1);
@@ -86,6 +87,7 @@
 }
 
 .dark {
+  --beyu-panel-gold-ink: #efd98f;
   --beyu-surface: #050f22;
   --beyu-line: rgba(212, 175, 55, 0.16);
   --beyu-text: #eef2f8;

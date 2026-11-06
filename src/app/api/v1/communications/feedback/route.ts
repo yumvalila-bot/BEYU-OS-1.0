@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { createFeedback, listFeedback } from "@/lib/communications/feedback-service";
 import { newId, ID_PREFIX } from "@/lib/ids";
 
@@ -60,8 +61,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.feedback.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, CreateFeedbackSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = CreateFeedbackSchema.parse(payload);
+      return withIdempotency(ctx, "communications.feedback.create", payload, async () => {
 
         const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 

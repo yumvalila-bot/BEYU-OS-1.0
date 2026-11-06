@@ -13,6 +13,8 @@
 import "dotenv/config";
 import { beforeAll, describe, expect, it } from "vitest";
 import { apiGet, apiPost, apiGetJson, isDeniedPage, login, serverAvailable } from "../helpers/http";
+import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
+import { fixedId, ID_PREFIX } from "@/lib/ids";
 
 const available = await serverAvailable();
 
@@ -33,7 +35,7 @@ beforeAll(async () => {
 
 const REDIRECT_TO_SIGNIN = async (path: string) => {
   const res = await apiGet(path, null);
-  // Unauthenticated server components call redirect("/") → the sign-in page.
+  // Unauthenticated server components call redirect("/sign-in") → the sign-in page.
   expect([307, 200]).toContain(res.status);
   expect(res.html).toMatch(/BEYU OS|Sign in|Welcome/i);
 };
@@ -239,12 +241,12 @@ describe("Stage 2/6 — per-route authorization (authorized renders, unauthorize
 });
 
 describe("Operating-system launcher hierarchy", () => {
-  it.skipIf(!available)("shows one BEYU control plane above all four Sector OS cards", async () => {
+  it.skipIf(!available)("shows the control plane and only authorized Sector OS cards", async () => {
     const launcher = await apiGet("/launcher", ceo);
     expect(launcher.status).toBe(200);
     expect(launcher.html).toContain("Constitutional control plane");
     expect(launcher.html).toContain("Sector operating systems");
-    for (const os of ["Finance OS", "Health OS", "Agriculture OS", "Ujenzi OS"]) {
+    for (const os of ["Finance OS", "Agriculture OS", "Ujenzi OS"]) {
       expect(launcher.html).toContain(os);
     }
     expect(launcher.html).toContain("Nonprofit sister organization");
@@ -253,10 +255,15 @@ describe("Operating-system launcher hierarchy", () => {
     expect(launcher.html).toContain('href="/os/agriculture"');
     expect(launcher.html).toContain('href="/os/foundation"');
     expect(launcher.html).toContain('href="/os/ujenzi"');
-    // A missing Health federation link is presented truthfully as unavailable,
-    // never as a launchable URL. In an environment with a real link it may be
-    // authorised instead, and /os/health will recheck that link on entry.
-    expect(launcher.html).toMatch(/href="\/os\/health"|NOT IN CURRENT GRANT/);
+    // A missing Health federation link cannot appear as a launchable URL.
+    // The live backend link, not the hostname or preview capability, decides.
+    const health = await checkHealthOSAuthorization(fixedId(ID_PREFIX.user, "AMANI_BEYU"));
+    if (health.authorized) {
+      expect(launcher.html).toContain('href="/os/health"');
+      expect(launcher.html).toContain("Health OS");
+    } else {
+      expect(launcher.html).not.toContain('href="/os/health"');
+    }
     expect(launcher.html).toContain("Finance OS remains the financial source of truth");
   });
 });

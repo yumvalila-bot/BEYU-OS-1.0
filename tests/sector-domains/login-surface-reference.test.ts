@@ -43,7 +43,7 @@ const text = (html: string) =>
 
 const SURFACE = code(source("src", "app", "login-surface.tsx"));
 const FORM = code(source("src", "app", "sign-in-form.tsx"));
-const PAGE = code(source("src", "app", "page.tsx"));
+const PAGE = code(source("src", "app", "canonical-sign-in.tsx"));
 const GOVERNED = code(source("src", "app", "governed-sign-in.tsx"));
 const RECOVERY_PAGE = code(source("src", "app", "forgot-password", "page.tsx"));
 const RECOVERY_ROUTE = code(source("src", "app", "api", "v1", "auth", "recovery", "request", "route.ts"));
@@ -171,7 +171,7 @@ describe("D. security is not traded for visual fidelity", () => {
     expect(FORM).not.toMatch(/console\.(log|info|warn|debug|error)/);
     expect(FORM).not.toMatch(/password\s*[:=]\s*[`"'][^`"']*[`"']\s*;?\s*$/m);
     // The password only ever exists as state, and only ever leaves in the body.
-    expect(FORM).toContain("JSON.stringify({ email, password, mfaCode })");
+    expect(FORM).toContain("JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) })");
   });
 
   it("keeps the second factor in the credential path", () => {
@@ -201,7 +201,7 @@ describe("D. security is not traded for visual fidelity", () => {
     expect(guard).toBeGreaterThan(-1);
     expect(push).toBeGreaterThan(guard);
     // The landing is re-validated as a same-origin path, never taken from input.
-    expect(submit).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/os"');
+    expect(submit).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/launcher"');
     expect(submit).not.toMatch(/URLSearchParams|searchParams|window\.location/);
     // Duplicate submissions are prevented, not merely discouraged.
     expect(submit).toContain("if (busy) return;");
@@ -240,7 +240,7 @@ describe("D. security is not traded for visual fidelity", () => {
 
 describe("E. the rendered surface (live server)", () => {
   it.skipIf(!available)("serves the reference login page unauthenticated", async () => {
-    const res = await apiGet("/", null);
+    const res = await apiGet("/sign-in", null);
     expect(res.status).toBe(200);
     const body = text(res.html);
     for (const marker of [

@@ -5,7 +5,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { recordAudit, publishEvent } from "@/lib/audit";
-import { apiError, apiOk, rateLimit } from "@/lib/api";
+import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
+import { readCredentialJson } from "@/lib/bounded-json";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { RECOVERY_RATE_LIMIT, recoveryRateLimitKeys, trustedClientIp } from "@/lib/auth-limits";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
@@ -61,12 +62,14 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let body: z.infer<typeof RecoverySchema>;
   try {
-    body = RecoverySchema.parse(await request.json());
-  } catch {
+    body = RecoverySchema.parse(await readCredentialJson(request));
+  } catch (error) {
     if (ip) {
       const limited = rateLimit(`recovery:ip:${ip}`, RECOVERY_RATE_LIMIT.perIpAccount, RECOVERY_RATE_LIMIT.windowMs);
       if (!limited.ok) return apiError("RATE_LIMITED", "Too many attempts. Try again shortly.", 429, traceId);
     }
+    const inputError = credentialInputErrorResponse(error, traceId);
+    if (inputError) return inputError;
     return apiError("VALIDATION_FAILED", "Enter the BEYU identity address you sign in with.", 422, traceId);
   }
 

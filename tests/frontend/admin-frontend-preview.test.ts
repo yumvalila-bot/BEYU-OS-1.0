@@ -63,6 +63,7 @@ import {
 } from "@/lib/operating-systems";
 import { CANONICAL_SURFACES } from "@/lib/operating-system-catalog";
 import { tenantScopeIds } from "@/lib/tenant-scope";
+import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { CAPABILITY_IA } from "@/app/os/capabilities";
 import { NOELIA_CANONICAL_ID } from "@/lib/noelia/canonical-identity";
@@ -323,7 +324,7 @@ describe("the six surfaces keep their server-side entry guards", () => {
       const hcm = await loginOnce("hcm@beyu.os");
       for (const surface of SIX_SURFACES.filter((s) => s.name !== "Health OS")) {
         const res = await apiGet(surface.href, hcm);
-        expect(res.status, `${surface.href}`).toBe(200);
+        expect(res.status, `${surface.href}`).toBe(surface.href === "/os/foundation" ? 403 : 200);
         expect(isDeniedPage(res.html), `${surface.href} must render the governed denial panel`).toBe(true);
       }
       // Health fails closed to the truthful federation state page.
@@ -346,7 +347,7 @@ describe("the six surfaces keep their server-side entry guards", () => {
       ];
       for (const url of poisoned) {
         const res = await apiGet(url, hcm);
-        expect(res.status, url).toBe(200);
+        expect(res.status, url).toBe(url.startsWith("/os/foundation?") ? 403 : 200);
         expect(isDeniedPage(res.html), `${url} must stay denied`).toBe(true);
       }
     },
@@ -388,14 +389,19 @@ describe("the current BEYU admin previews all six frontend surfaces", () => {
   );
 
   it.skipIf(!available)(
-    "the admin's launcher lists all six surfaces with their governed state",
+    "the admin launcher lists granted surfaces and never links an unavailable Health destination",
     async () => {
       const admin = await loginOnce("admin@beyu.os");
       const launcher = await apiGet("/launcher", admin);
       expect(launcher.status).toBe(200);
       expect(launcher.html).toContain("BEYU Admin — Frontend Preview");
+      const health = await checkHealthOSAuthorization(CANONICAL_ADMIN_USER_ID);
       for (const surface of SIX_SURFACES) {
-        expect(launcher.html, `launcher must list ${surface.name}`).toContain(surface.href);
+        if (surface.name === "Health OS" && !health.authorized) {
+          expect(launcher.html).not.toContain('href="/os/health"');
+          continue;
+        }
+        expect(launcher.html, `launcher must link ${surface.name}`).toContain(`href="${surface.href}"`);
       }
     },
     120_000,

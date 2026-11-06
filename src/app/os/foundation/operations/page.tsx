@@ -1,8 +1,10 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial, foundationPageScopeAllowed } from "@/lib/foundation-page-access";
 import { requirePrincipal } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import type { PermissionCode } from "@/lib/constants";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
 import {
   listAssets,
   listInvestments,
@@ -14,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function FoundationOperationsPage() {
   const principal = await requirePrincipal();
+  if (!(await foundationPageScopeAllowed(principal, "foundation.operations"))) return <FoundationDenied />;
   const permitted = (permission: PermissionCode, classification: "CONFIDENTIAL" | "RESTRICTED") =>
     can(principal, permission, { classification }).allowed;
   const capabilities = {
@@ -23,7 +26,8 @@ export default async function FoundationOperationsPage() {
     assignment: permitted("foundation:assignment.read", "CONFIDENTIAL"),
   };
   if (!Object.values(capabilities).some(Boolean)) {
-    return <Denied reason="Missing an Operations read permission" capability="foundation:procurement.read" />;
+    await auditFoundationPageDenial(principal, "foundation.operations", "FOUNDATION_PERMISSION_DENIED");
+    return <FoundationDenied />;
   }
 
   return withTenantDatabaseContext(principal, async () => {

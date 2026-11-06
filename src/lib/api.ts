@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasDatabaseTransactionContext } from "@/db";
 import type { ZodSchema } from "zod";
 import { recordAudit } from "./audit";
+import { JsonInputLimitError, JsonRequestFormatError, readBoundedJson } from "./bounded-json";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
 import {
@@ -97,6 +98,17 @@ export function apiError(
       },
     },
   );
+}
+
+/** Map strict credential parser errors without exposing submitted content. */
+export function credentialInputErrorResponse(error: unknown, traceId: string): NextResponse | null {
+  if (error instanceof JsonInputLimitError) {
+    return apiError("PAYLOAD_LIMIT_EXCEEDED", error.message, error.status, traceId);
+  }
+  if (error instanceof JsonRequestFormatError) {
+    return apiError(error.status === 415 ? "UNSUPPORTED_MEDIA_TYPE" : "INVALID_BODY", error.message, error.status, traceId);
+  }
+  return null;
 }
 
 export function apiOk<T>(
@@ -404,7 +416,9 @@ export async function guarded(
         });
         return apiError(
           requiresMfa ? "MFA_REQUIRED" : "FORBIDDEN",
-          reason,
+          options.permission.startsWith("foundation:") && !requiresMfa
+            ? "You do not have the required access to this area."
+            : reason,
           requiresMfa ? 428 : 403,
           traceId,
         );
@@ -430,6 +444,12 @@ export async function guarded(
       return denied ?? handler(context);
     });
   } catch (err) {
+    if (err instanceof JsonInputLimitError) {
+      return apiError("PAYLOAD_LIMIT_EXCEEDED", err.message, err.status, traceId);
+    }
+    if (err instanceof JsonRequestFormatError) {
+      return apiError(err.status === 415 ? "UNSUPPORTED_MEDIA_TYPE" : "INVALID_BODY", err.message, err.status, traceId);
+    }
     const applicationError = normalizeApplicationBoundaryError(err);
     if (applicationError) {
       return apiError(
@@ -446,6 +466,5 @@ export async function guarded(
 }
 
 export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
-  const json = await request.json().catch(() => ({}));
-  return schema.parse(json);
+  return schema.parse(await readBoundedJson(request));
 }

@@ -1,3 +1,4 @@
+import { signInHrefForRequest } from "./sign-in-redirect";
 import { redirect } from "next/navigation";
 import { can, type Principal } from "./authz";
 import { foundationTargetScopeDenial } from "./foundation/target-scope";
@@ -12,7 +13,7 @@ export type PageAccess =
 /** Server-component guard. Unauthenticated users are returned to sign-in. */
 export async function requirePrincipal(): Promise<Principal> {
   const principal = await resolvePrincipal();
-  if (!principal) redirect("/");
+  if (!principal) redirect(await signInHrefForRequest());
   return principal;
 }
 

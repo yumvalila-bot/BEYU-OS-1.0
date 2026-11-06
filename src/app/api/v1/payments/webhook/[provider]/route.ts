@@ -21,6 +21,7 @@
  */
 import { apiError, apiOk, rateLimit } from "@/lib/api";
 import { requestMeta } from "@/lib/session";
+import { JsonInputLimitError, readBoundedText } from "@/lib/bounded-json";
 import { ingestWebhookEvent, MAX_PAYLOAD_BYTES, INGEST_VERSION } from "@/lib/payments/ingest";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,15 @@ export async function POST(request: Request, context: { params: Promise<{ provid
     return apiError("RATE_LIMITED", "Too many webhook attempts for this channel.", 429, traceId);
   }
 
-  const rawBody = await request.text();
+  let rawBody: string;
+  try {
+    rawBody = await readBoundedText(request, MAX_PAYLOAD_BYTES);
+  } catch (error) {
+    if (error instanceof JsonInputLimitError) {
+      return apiError("PAYLOAD_TOO_LARGE", `Body exceeds ${MAX_PAYLOAD_BYTES} bytes.`, 413, traceId);
+    }
+    return apiError("INVALID_BODY", "The request body could not be read.", 400, traceId);
+  }
   if (Buffer.byteLength(rawBody, "utf8") > MAX_PAYLOAD_BYTES) {
     return apiError("PAYLOAD_TOO_LARGE", `Body exceeds ${MAX_PAYLOAD_BYTES} bytes.`, 413, traceId);
   }

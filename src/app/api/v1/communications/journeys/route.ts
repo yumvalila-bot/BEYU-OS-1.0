@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { listJourneys, createJourney } from "@/lib/communications/journey-service";
 
 export const dynamic = "force-dynamic";
@@ -57,8 +58,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.journeys.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, CreateJourneySchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = CreateJourneySchema.parse(payload);
+      return withIdempotency(ctx, "communications.journeys.create", payload, async () => {
 
         const journey = await createJourney({
           tenantId: ctx.principal.tenantId,

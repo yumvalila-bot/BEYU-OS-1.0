@@ -29,7 +29,7 @@ const Phase5ActionsSchema = z.object({
     "resilience.guarded-call",
     "assurance.attest",
   ]),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 }).strict();
 
 function asRecord(value: unknown): Record<string, unknown> {

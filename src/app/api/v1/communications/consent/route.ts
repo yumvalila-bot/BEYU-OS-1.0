@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { getAllConsents, recordConsent, checkConsentAllowed } from "@/lib/communications/consent-service";
 
 export const dynamic = "force-dynamic";
@@ -53,8 +54,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.consent.record", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, RecordConsentSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = RecordConsentSchema.parse(payload);
+      return withIdempotency(ctx, "communications.consent.record", payload, async () => {
 
         const consent = await recordConsent({
           contactId: body.contactId,

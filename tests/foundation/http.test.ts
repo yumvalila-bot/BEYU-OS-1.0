@@ -15,7 +15,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { apiGet, apiGetJson, apiPost, isDeniedPage, login, serverAvailable } from "../helpers/http";
+import { apiGet, apiGetJson, apiPost, baseUrl, isDeniedPage, login, serverAvailable } from "../helpers/http";
 
 const available = await serverAvailable();
 
@@ -104,7 +104,7 @@ describe("auth boundary", () => {
     );
     expect(targetScopeDenied.status).toBe(403);
     expect(targetScopeDenied.body.error.code).toBe("FORBIDDEN");
-    expect(targetScopeDenied.body.error.message).toMatch(/Foundation organization target scope/);
+    expect(targetScopeDenied.body.error.message).toBe("You do not have the required access to this area.");
   });
 });
 
@@ -171,9 +171,44 @@ describe("page-level SSR gating parity", () => {
     expect(ok.html).toMatch(/Foundation organization|Registry/i);
 
     const denied = await apiGet("/os/foundation", cfo);
-    expect(denied.status).toBe(200);
+    expect(denied.status).toBe(403);
     expect(isDeniedPage(denied.html)).toBe(true);
-    expect(denied.html).toMatch(/foundation:registry\.read/);
+    expect(denied.html).toContain("You do not have the required access to this area.");
+    expect(denied.html).toContain("Return to your available destinations");
+  });
+
+  it.skipIf(!available)("refuses direct RSC and prefetch requests without rendering protected data", async () => {
+    for (const path of ["/os/foundation", "/os/foundation/registry", "/os/foundation/programs"]) {
+      for (const prefetch of [false, true]) {
+        const response = await fetch(`${baseUrl()}${path}`, {
+          headers: { cookie: cfo, rsc: "1", ...(prefetch ? { "next-router-prefetch": "1" } : {}) },
+          redirect: "manual",
+        });
+        expect(response.status, `${path} prefetch=${prefetch}`).toBe(403);
+        expect(response.headers.get("cache-control")).toContain("no-store");
+        const text = await response.text();
+        expect(text).toContain("Authorisation denied");
+        expect(text).not.toContain("Foundation Executive Dashboard");
+      }
+    }
+    const audit = await db.execute<{ outcome: string; reason: string; trace_id: string; actor_user_id: string }>(sql`
+      select outcome, reason, trace_id, actor_user_id from audit_log
+      where action = 'foundation.page.access' and object_id = '/os/foundation/registry'
+        and actor_user_id = (select id from users where email = 'cfo@beyu.os')
+      order by sequence desc limit 1
+    `);
+    expect(audit.rows[0]).toMatchObject({ outcome: "DENIED", reason: "FOUNDATION_PERMISSION_DENIED", trace_id: expect.any(String), actor_user_id: expect.any(String) });
+  });
+
+  it.skipIf(!available)("unregistered nested Foundation routes fail closed before rendering", async () => {
+    for (const cookie of [director, cfo, ""]) {
+      const response = await fetch(`${baseUrl()}/os/foundation/unknown/nested`, {
+        headers: cookie ? { cookie } : {}, redirect: "manual",
+      });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(await response.text()).not.toContain("Foundation Executive Dashboard");
+    }
   });
 
   it.skipIf(!available)("unauthenticated page access redirects to sign-in", async () => {
@@ -229,7 +264,7 @@ describe("Foundation API target-scope boundary", () => {
       );
       expect(res.status, `${path} must be denied`).toBe(403);
       expect(res.body.error?.code, `${path} must carry the governed error envelope`).toBe("FORBIDDEN");
-      expect(res.body.error?.message, `${path} must cite the target scope`).toMatch(/Foundation organization target scope/);
+      expect(res.body.error?.message, `${path} must not expose scope details`).toBe("You do not have the required access to this area.");
       expect(res.body.programs, `${path} must not return data`).toBeUndefined();
       expect(res.body.measurements, `${path} must not return data`).toBeUndefined();
     }
@@ -357,7 +392,7 @@ describe("Foundation API target-scope boundary", () => {
 
   it.skipIf(!available)("UI parity: the denied API path renders the governed denial panel", async () => {
     const page = await apiGet("/os/foundation/programs", sector);
-    expect(page.status).toBe(200);
+    expect(page.status).toBe(403);
     expect(isDeniedPage(page.html)).toBe(true);
   });
 });

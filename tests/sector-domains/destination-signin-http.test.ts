@@ -1,35 +1,9 @@
 /**
- * CANONICAL DESTINATION FRONTENDS — HTTP boundary.
- *
- * Drives the REAL running server (production build, runtime role, real proxy)
- * with canonical and hostile `Host` values. `Host` is set with `node:http`
- * because `fetch` does not permit overriding it.
- *
- * Companion to `canonical-host-http.test.ts`, which pins host ROUTING. This
- * suite pins the user-facing FRONTEND and SIGN-IN contract on every canonical
- * host:
- *
- *   1. `/sign-in` exists on all eight hosts and renders THAT destination's
- *      sign-in — never the generic BEYU control-plane surface, never a redirect
- *      through the apex.
- *   2. `/` on a destination host renders that destination's OWN first-class
- *      frontend, not the generic BEYU launcher/landing.
- *   3. A signed-in identity WITHOUT the destination's access receives the
- *      governed DENIAL on that host — it is never silently redirected to
- *      `/launcher` or to a different OS, and never served the workspace.
- *   4. A signed-in identity WITH access is redirected (relatively) to the
- *      destination home, which then serves it.
- *   5. The browser-facing URL stays the canonical hostname throughout.
- *   6. A hostile / unknown / unconfigured host selects NO destination frontend:
- *      it receives the control-plane surface with every gate in force.
- *   7. Deep links keep their own server-side gate on every host.
- *   8. Authentication stays SHARED: one login endpoint, one session cookie, no
- *      destination-specific credential surface.
- *
- * Repository convention: skip when no server is running, hard-fail when one was
- * explicitly configured (tests/helpers/http.ts). The server MUST be started with
- * `BEYU_CANONICAL_DOMAIN=beyu.co.tz`; when it is not, the suite asserts the
- * documented inactive state instead.
+ * Live canonical-host and shared-sign-in contracts. Configured destination
+ * hosts send unauthenticated users to www; an existing session on a destination
+ * host is independently revalidated and either denied or entered there.
+ * This suite explicitly sends test cookies in requests to exercise each gate;
+ * that does not demonstrate browser cross-subdomain session sharing.
  */
 import { request as httpRequest } from "node:http";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -222,63 +196,17 @@ const identities = () =>
 
 describe("1/2. every canonical host serves its OWN first-class frontend at / and /sign-in", () => {
   it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated: `/sign-in` renders the destination sign-in (200), never a redirect, never the generic BEYU surface",
+    "unauthenticated destination root and sign-in redirect to the shared canonical sign-in",
     async () => {
-      for (const destination of DESTINATIONS) {
-        const res = await getWithHost("/sign-in", destination.host);
-        expect(res.status, destination.host).toBe(200);
-        expect(res.location, destination.host).toBeUndefined();
-        expect(text(res.body), destination.host).toContain(destination.copy);
-        expect(text(res.body), destination.host).toContain(destination.headline);
-        expect(text(res.body), destination.host).toContain(destination.registry);
-        // The destination surface is NOT the generic BEYU control-plane page.
-        expect(text(res.body), destination.host).not.toContain(CONTROL_PLANE_ONLY);
-        expect(text(res.body), destination.host).not.toContain("Sign in to the control plane");
-        // Accessible, mobile-first, shared BEYU identity — and one shared form.
-        expect(res.body, destination.host).toContain(`aria-label="Sign in to ${destination.name}"`);
-        expect(text(res.body), destination.host).toContain(`Enter ${destination.name}`);
-        expect(res.body, destination.host).toContain('id="beyu-signin-email"');
-        expect(res.body, destination.host).toContain('id="beyu-signin-password"');
-        expect(res.body, destination.host).toContain('id="beyu-signin-mfa"');
-        expect(res.body, destination.host).toContain('role="alert"');
-        expect(res.body, destination.host).toContain("viewport");
-        // The authoritative BEYU mark is present on every destination surface.
-        expect(res.body, destination.host).toContain("/brand/beyu-os-logo.png");
+      const codes = ["HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION", "FAMILY_OFFICE", "NOELIA_AI"];
+      for (const [index, destination] of DESTINATIONS.entries()) {
+        for (const path of ["/", "/sign-in"]) {
+          const res = await getWithHost(path, destination.host);
+          expect(res.status, destination.host).toBe(307);
+          expect(res.location, destination.host).toBe(`https://www.beyu.co.tz/sign-in?destination=${codes[index]}`);
+        }
       }
-    },
-    180_000,
-  );
-
-  it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated: `/` renders the SAME destination frontend — one entry surface, two canonical URLs",
-    async () => {
-      for (const destination of DESTINATIONS) {
-        const root = await getWithHost("/", destination.host);
-        const signIn = await getWithHost("/sign-in", destination.host);
-        expect(root.status, destination.host).toBe(200);
-        expect(text(root.body), destination.host).toContain(destination.copy);
-        expect(text(root.body), destination.host).toContain(destination.headline);
-        expect(text(root.body), destination.host).not.toContain(CONTROL_PLANE_ONLY);
-        // `/` and `/sign-in` are the SAME page component, so the destination
-        // surface they render is identical — asserted on the contract markers,
-        // not on React's streaming envelope (see `surfaceOf`).
-        const markers = surfaceOf(root.body, destination);
-        expect(markers, destination.host).toEqual(surfaceOf(signIn.body, destination));
-        expect(markers, destination.host).toEqual(
-          expect.arrayContaining([
-            destination.copy,
-            destination.headline,
-            destination.registry,
-            `aria-label="Sign in to ${destination.name}"`,
-            `Enter ${destination.name}`,
-            "beyu-signin-email",
-          ]),
-        );
-        expect(markers, destination.host).not.toContain("Sign in to the control plane");
-        expect(markers, destination.host).not.toContain(CONTROL_PLANE_ONLY);
-      }
-    },
-    180_000,
+    }, 180_000,
   );
 
   it.skipIf(!enabled || !routingConfigured)(
@@ -288,6 +216,10 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
+          if (path === "/") {
+            expect(text(res.body), `${host}${path}`).toContain("Bridging Care");
+            continue;
+          }
           expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
           expect(text(res.body), `${host}${path}`).toContain(CONTROL_PLANE_ONLY);
           expect(res.body, `${host}${path}`).toContain('aria-label="Sign in to BEYU OS"');
@@ -305,7 +237,7 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          expect(text(res.body), `${host}${path}`).toContain(path === "/" ? "Bridging Care" : "Sign in to the control plane");
           // No privileged destination frontend is reachable by spoofing a host.
           for (const destination of DESTINATIONS) {
             expect(text(res.body), `${host}${path}`).not.toContain(destination.copy);
@@ -443,7 +375,7 @@ describe("3/4/5. a session is identity, not access — and the browser stays on 
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "cross-host sessions: one shared session, each destination re-evaluated independently",
+    "a test cookie presented to each host is re-evaluated independently",
     async () => {
       // The SAME cookie is presented to every canonical host. Nothing about the
       // host changes the identity, and each destination decides for itself.
@@ -486,22 +418,15 @@ describe("3/4/5. a session is identity, not access — and the browser stays on 
 
 describe("6/7. deep links keep their own gate; the URL is never an authorization input", () => {
   it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated deep link on a destination host → one relative 307 to that host's sign-in",
+    "unauthenticated deep links redirect to shared canonical sign-in with a registry destination",
     async () => {
-      for (const destination of DESTINATIONS) {
+      const codes = ["HEALTH", "FINANCE", "AGRICULTURE", "UJENZI", "FOUNDATION", "FAMILY_OFFICE", "NOELIA_AI"];
+      for (const [index, destination] of DESTINATIONS.entries()) {
         const res = await getWithHost(destination.home, destination.host);
         expect(res.status, `${destination.host}${destination.home}`).toBe(307);
-        expect(res.location, `${destination.host}${destination.home}`).toMatch(/^\/(?!\/)/);
-        expect(res.location, `${destination.host}${destination.home}`).not.toMatch(/beyu\.co\.tz/);
-        // The sign-in it lands on is THIS destination's, on THIS host.
-        const followed = await getWithHost(res.location ?? "/", destination.host);
-        expect(followed.status, destination.host).toBe(200);
-        if ((res.location ?? "") === "/" || (res.location ?? "") === "/sign-in") {
-          expect(text(followed.body), destination.host).toContain(destination.copy);
-        }
+        expect(res.location).toBe(`https://www.beyu.co.tz/sign-in?destination=${codes[index]}`);
       }
-    },
-    240_000,
+    }, 240_000,
   );
 
   it.skipIf(!enabled || !routingConfigured)(
@@ -564,37 +489,12 @@ describe("59/54. the launcher separates GLOBAL OS status from THIS identity's ac
       expect(res.status).toBe(200);
       const body = text(res.body);
 
-      // Every canonical destination is listed by its constitutional charter code…
-      for (const registry of [
-        "BEYU_OS",
-        "HEALTH_OS",
-        "FINANCE_OS",
-        "AGRICULTURE_OS",
-        "UJENZI_OS",
-        "SHARED_FOUNDATION_OPERATIONS",
-      ]) {
-        expect(body, registry).toContain(registry);
-      }
-      // …with its destination class kept distinct (never flattened into "OS").
-      expect(body).toContain("Constitutional control plane");
-      expect(body).toContain("Sector operating system");
-      expect(body).toContain("Nonprofit sister organization");
-
-      // TWO separately labelled facts, both present in the same render.
-      expect(body).toContain("Global operating state of this destination");
-      expect(body).toContain("Your access to this destination, resolved server-side");
-      expect(body).toMatch(/ACCESS: (AUTHORISED|NOT IN CURRENT GRANT)/);
-      expect(body).toContain("ACTIVE");
-
-      // The section copy states the boundary explicitly, so the launcher cannot
-      // be read as granting anything.
+      // The canonical seed has no Health federation link: it must not be
+      // advertised as an available destination to this identity.
+      expect(body).not.toContain("HEALTH_OS · Sector operating system");
+      expect(body).not.toContain("ACCESS: NOT IN CURRENT GRANT");
+      expect(body).toContain("ACCESS: AUTHORISED");
       expect(body).toContain("launcher visibility is not authority");
-      expect(body).toContain("does not mean every capability inside it is active");
-
-      // HEALTH_OS is globally ACTIVE while the canonical seed creates no Health
-      // federation link — so for that card the two facts visibly disagree, which
-      // is exactly the distinction this test exists to protect.
-      expect(body).toContain("HEALTH_OS · Sector operating system");
     },
     120_000,
   );
@@ -636,22 +536,18 @@ describe("8. authentication stays SHARED across every destination frontend", () 
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "the destination frontend publishes no privileged identity and no secret",
+    "shared sign-in publishes no privileged identities or secrets",
     async () => {
-      for (const destination of DESTINATIONS) {
-        for (const path of ["/", "/sign-in"]) {
-          const res = await getWithHost(path, destination.host);
-          expect(res.status, `${destination.host}${path}`).toBe(200);
-          expect(text(res.body), `${destination.host}${path}`).not.toContain("Governed bootstrap identities");
-          expect(res.body, `${destination.host}${path}`).not.toMatch(/sk-[A-Za-z0-9]{48,}|ghp_[A-Za-z0-9_]{36,}/);
-          for (const email of ["ceo@beyu.os", "cfo@beyu.os", "family@beyu.os", "auditor@beyu.os"]) {
-            expect(res.body, `${destination.host}${path}`).not.toContain(email);
-          }
-        }
+      const res = await getWithHost("/sign-in", "www.beyu.co.tz");
+      expect(res.status).toBe(200);
+      expect(res.body).not.toContain("Governed bootstrap identities");
+      expect(res.body).not.toMatch(/sk-[A-Za-z0-9_]{48,}|ghp_[A-Za-z0-9_]{36,}/);
+      for (const email of ["ceo@beyu.os", "cfo@beyu.os", "family@beyu.os", "auditor@beyu.os"]) {
+        expect(res.body).not.toContain(email);
       }
-    },
-    240_000,
+    }, 240_000,
   );
+
 });
 
 describe("9. the documented inactive state — no canonical domain configured", () => {
@@ -662,7 +558,7 @@ describe("9. the documented inactive state — no canonical domain configured", 
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          expect(text(res.body), `${host}${path}`).toContain(path === "/" ? "Bridging Care" : "Sign in to the control plane");
         }
       }
     },

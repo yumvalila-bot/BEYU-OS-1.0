@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, withIdempotency } from "@/lib/api";
 import { createDocumentDelivery } from "@/lib/communications/document-service";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.documents.attach", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, AttachSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = AttachSchema.parse(payload);
+      return withIdempotency(ctx, "communications.documents.attach", payload, async () => {
 
         const result = await createDocumentDelivery({
           messageId: body.messageId,

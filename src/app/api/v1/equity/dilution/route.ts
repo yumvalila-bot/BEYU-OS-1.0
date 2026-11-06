@@ -34,7 +34,7 @@ const CreateScenarioSchema = z.object({
   legalEntityId: z.string().trim().min(1).max(100),
   name: z.string().trim().min(1).max(200),
   scenarioType: z.enum(SCENARIO_TYPES),
-  assumptions: z.record(z.unknown()).optional(),
+  assumptions: z.record(z.string(), z.unknown()).optional(),
   transactions: z.array(TransactionSchema).min(1).max(50),
   decisionOwnerUserId: z.string().trim().max(100).nullish(),
   classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]).optional(),

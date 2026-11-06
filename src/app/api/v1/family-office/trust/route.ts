@@ -106,7 +106,7 @@ const ProposeDistributionSchema = z.object({
   currency: z.string().trim().regex(/^[A-Z]{3}$/).nullish(),
   assetDescription: z.string().trim().max(2000).nullish(),
   discretionBasis: z.string().trim().max(4000).nullish(),
-  conditionsMet: z.record(z.unknown()).optional(),
+  conditionsMet: z.record(z.string(), z.unknown()).optional(),
   effectiveDate: z.string().trim().regex(ISO_DATE).nullish(),
 });
 

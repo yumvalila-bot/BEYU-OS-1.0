@@ -1,3 +1,4 @@
+import { signInHrefForRequest } from "@/lib/sign-in-redirect";
 /**
  * Canonical Health OS mount — ONE implementation for the governed Health OS
  * entry points.
@@ -97,7 +98,7 @@ export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise
   if (!principal) {
     return new NextResponse(null, {
       status: 307,
-      headers: { Location: "/" },
+      headers: { Location: await signInHrefForRequest() },
     });
   }
 

@@ -256,7 +256,7 @@ export function DestinationDenied({
               {d.name} · {d.status}
             </dd>
             <dd className="mt-1 text-[11.5px] leading-relaxed text-[#5b6b85]">
-              The destination is live and governed. This is a global fact, not a statement about your identity.
+              This is the catalogue status, not a confirmation of production availability or your access.
             </dd>
           </div>
           <div className="rounded-xl border border-[#0B1F4D]/10 bg-white/80 px-4 py-3">

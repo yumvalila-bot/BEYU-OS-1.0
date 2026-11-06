@@ -12,9 +12,10 @@
  *  - governed fallback never selects an unapproved/inactive model.
  */
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { db, withDatabaseTransactionContext } from "@/db";
-import { noeliaAiTelemetry, noeliaAiEvaluationRuns, knowledgeSources } from "@/db/schema";
+import { noeliaAiTelemetry, noeliaAiEvaluationRuns, noeliaRagRetrievalEvents, knowledgeSources } from "@/db/schema";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
 import { principal } from "./fixtures";
@@ -202,10 +203,14 @@ describe("Noelia Phase 5 platform (migration 0027)", () => {
       // runtime API. Runtime registration itself is tested above as removed;
       // production knowledge reaches AUTHORITATIVE only through governed action
       // ingestion followed by separately approved publication.
+      // The corpus is append-only across runs and retrieval returns a bounded,
+      // unordered page. Isolate the query with an unpredictable run lexeme so
+      // unrelated authorized documents cannot crowd out this fixture.
+      const lexeme = `phasefive${randomBytes(12).toString("hex")}`;
       const fixture = {
         code: "P5-KNOWLEDGE-RETRIEVE",
         version: "1.0.0",
-        content: "The governed retrieval gate authorizes before context assembly.",
+        content: `The governed retrieval gate authorizes before context assembly. ${lexeme}`,
         scopeType: "GLOBAL",
         classification: "INTERNAL",
       } as const;
@@ -230,9 +235,15 @@ describe("Noelia Phase 5 platform (migration 0027)", () => {
         scope: { tenantIds: [p.tenantId], legalEntityIds: [], countryCodes: [], entities: [], tenantCountries: [], enterprise: true },
         target: { tenantId: p.tenantId, legalEntityId: null, countryCode: null },
         osId: "BEYU",
-        question: "Who authorizes retrieval before context assembly?",
+        question: lexeme,
       });
       expect(results.some((result) => result.ref === "P5-KNOWLEDGE-RETRIEVE")).toBe(true);
+      const events = await db.select().from(noeliaRagRetrievalEvents).where(and(
+        eq(noeliaRagRetrievalEvents.traceId, "TRACE_P5_RAG_RETRIEVE"),
+        eq(noeliaRagRetrievalEvents.sourceCode, "P5-KNOWLEDGE-RETRIEVE"),
+      ));
+      expect(events).toHaveLength(1);
+      expect(events[0].authorizationDecision).toBe("ALLOWED");
     });
   });
 

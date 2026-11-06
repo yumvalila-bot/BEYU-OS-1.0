@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, withIdempotency } from "@/lib/api";
 import { distributeReport } from "@/lib/communications/report-service";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +38,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.reports.distribute", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, ReportSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = ReportSchema.parse(payload);
+      return withIdempotency(ctx, "communications.reports.distribute", payload, async () => {
         const { newId, ID_PREFIX } = await import("@/lib/ids");
         const correlationId = body.correlationId ?? newId(ID_PREFIX.correlationId);
 

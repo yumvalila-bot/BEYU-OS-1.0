@@ -5,7 +5,8 @@
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
+import { readBoundedJson } from "@/lib/bounded-json";
+import { guarded, apiOk, withIdempotency } from "@/lib/api";
 import { listProviders, createProvider } from "@/lib/communications/provider-registry";
 import { isValidChannel } from "@/lib/communications/channel-registry";
 
@@ -75,8 +76,9 @@ export async function POST(request: NextRequest) {
       databaseContext: "handler",
     },
     async (ctx) => {
-      return withIdempotency(ctx, "communications.providers.create", await request.json().catch(() => ({})), async () => {
-        const body = await parseBody(request, CreateProviderSchema);
+      const payload = await readBoundedJson(request, { strict: true });
+      const body = CreateProviderSchema.parse(payload);
+      return withIdempotency(ctx, "communications.providers.create", payload, async () => {
 
         if (!isValidChannel(body.channelCode)) {
           return { status: 422, body: { error: { code: "INVALID_CHANNEL", message: `Channel ${body.channelCode} is not a known communications channel` } } };

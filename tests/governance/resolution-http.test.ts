@@ -253,7 +253,7 @@ describe.skipIf(!available)("governed mutation over HTTP", () => {
 
     it("denies the foundation page to an out-of-scope principal (H-NEW-2)", async () => {
       const page = await apiGet("/os/foundation", sectorOperator);
-      expect(page.status).toBe(200);
+      expect(page.status).toBe(403);
       expect(isDeniedPage(page.html)).toBe(true);
       expect(page.html).not.toContain("BEYU Holdings Ltd");
     });

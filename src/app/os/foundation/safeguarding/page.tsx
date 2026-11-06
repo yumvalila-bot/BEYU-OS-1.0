@@ -1,13 +1,18 @@
+import { FoundationDenied } from "@/components/foundation-denied";
+import { auditFoundationPageDenial } from "@/lib/foundation-page-access";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
-import { Badge, Denied, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
+import { Badge, EmptyState, Metric, Panel, stateTone } from "@/components/brand";
 import { listSafeguardingCases } from "@/lib/foundation/service-operations";
 
 export const dynamic = "force-dynamic";
 
 export default async function SafeguardingPage() {
   const access = await requireAccess("foundation:safeguarding.read", { classification: "HIGHLY_RESTRICTED" });
-  if (!access.allowed) return <Denied reason={access.reason} capability="foundation:safeguarding.read" />;
+  if (!access.allowed) {
+    await auditFoundationPageDenial(access.principal, "foundation.safeguarding", "FOUNDATION_ACCESS_DENIED");
+    return <FoundationDenied />;
+  }
   return withTenantDatabaseContext(access.principal, async () => {
     const rows = await listSafeguardingCases(access.principal);
     return (

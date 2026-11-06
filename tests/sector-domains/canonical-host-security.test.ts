@@ -36,7 +36,7 @@ const serverHelper = source("src", "lib", "canonical-host.ts");
 const proxy = source("src", "proxy.ts");
 const cookie = source("src", "lib", "session-cookie.ts");
 const mount = source("src", "app", "os", "health", "mount.ts");
-const signIn = source("src", "app", "page.tsx");
+const signIn = source("src", "app", "canonical-sign-in.tsx");
 const signInForm = source("src", "app", "sign-in-form.tsx");
 const login = source("src", "app", "api", "v1", "auth", "login", "route.ts");
 const logout = source("src", "app", "api", "v1", "auth", "logout", "route.ts");
@@ -198,7 +198,7 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
     // Existing tenant/classification gates are untouched.
     expect(agriculture).toContain('governedTenantInScope(\n    principal,\n    "BEYU-AGRI",');
     expect(ujenzi).toContain('governedTenantInScope(\n    principal,\n    "BEYU-UJENZI",');
-    expect(foundation).toContain('governedTenantInScope(\n    principal,\n    "BEYU-FOUNDATION",');
+    expect(foundation).toMatch(/governedTenantInScope\(\s*principal,\s*"BEYU-FOUNDATION"/);
     expect(ujenzi).toContain("principal.entityScope.length > 0");
     expect(foundation).toContain("principal.entityScope.length > 0");
     // The Finance layout grants nothing: the pages keep their own capability guard.
@@ -236,9 +236,10 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     // The existing routing is preserved after the host branch.
     expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
     expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
-    // Host is read through the one server helper; never from a query string.
+    // The host comes from the server helper; query requests are separately allowlisted.
     expect(c).toContain("canonicalHostForRequest()");
-    expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
+    expect(c).toContain("requestedEntryDestination((await searchParams)?.destination)");
+    expect(c).not.toMatch(/redirect_to|returnTo|callbackUrl/i);
   });
 
   it("a non-OS host redirects only through its existing destination gate", () => {
@@ -257,7 +258,7 @@ describe("5. reaching a canonical host authorizes nothing", () => {
   it("the post-login landing is server-computed and same-origin only", () => {
     expect(code(signIn)).toContain('landing={requestedContext ? requestedContext.href : "/os"}');
     const form = code(signInForm);
-    expect(form).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/os"');
+    expect(form).toContain('/^\\/(?!\\/)/.test(landing) ? landing : "/launcher"');
     expect(form).not.toMatch(/window\.location\.search|URLSearchParams|searchParams/);
   });
 
@@ -271,6 +272,7 @@ describe("5. reaching a canonical host authorizes nothing", () => {
       .map((file) => path.relative(ROOT, file).split(path.sep).join("/"))
       .sort();
     expect(consumers).toEqual([
+      "src/app/canonical-sign-in.tsx",
       "src/app/launcher/page.tsx",
       "src/app/os/agriculture/layout.tsx",
       "src/app/os/capability-map.tsx",

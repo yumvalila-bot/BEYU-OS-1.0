@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { attemptBootstrapOperation, noStoreBootstrapResponse } from "@/lib/bootstrap/http-boundary";
 import { cookies, headers } from "next/headers";
 import { z } from "zod";
-import { apiError, apiOk, rateLimit } from "@/lib/api";
+import { apiError, apiOk, credentialInputErrorResponse, rateLimit } from "@/lib/api";
+import { readCredentialJson } from "@/lib/bounded-json";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import { trustedClientIp } from "@/lib/session";
 import { BOOTSTRAP_ENROLLMENT_COOKIE } from "@/lib/constants";
@@ -33,6 +35,10 @@ function productionMode(): boolean {
  * Rate limited aggressively per source to resist brute force of the secret.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  return noStoreBootstrapResponse(await handlePost(request));
+}
+
+async function handlePost(request: Request): Promise<NextResponse> {
   const h = await headers();
   const ip = trustedClientIp(h);
   const userAgent = h.get("user-agent");
@@ -51,18 +57,22 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   let body: z.infer<typeof BeginSchema>;
   try {
-    body = BeginSchema.parse(await request.json());
-  } catch {
+    body = BeginSchema.parse(await readCredentialJson(request));
+  } catch (error) {
+    const inputError = credentialInputErrorResponse(error, traceId);
+    if (inputError) return inputError;
     return apiError("VALIDATION_FAILED", "A bootstrap secret and password are required.", 422, traceId);
   }
 
-  const result = await beginEnrollment({
+  const attempt = await attemptBootstrapOperation(traceId, () => beginEnrollment({
     secret: body.bootstrapSecret,
     password: body.password,
     ip,
     userAgent,
     traceId,
-  });
+  }));
+  if (!attempt.ok) return attempt.response;
+  const result = attempt.value;
 
   if (!result.ok) {
     switch (result.code) {
