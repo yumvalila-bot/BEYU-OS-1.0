@@ -14,13 +14,16 @@
  *     partial); the withheld rows themselves never reach this component.
  *   • Exports go through the governed ledger endpoint only (viewing is not
  *     exporting); the downloaded bytes are the same governed manifest.
- *   • Honest labels: WebGL 3D, XR, PDF/IFC export and Health clinical
- *     datasets are shown as PLANNED/NOT_IMPLEMENTED — the UI never implies
- *     capability the repository does not contain.
+ *   • Honest labels: interactive WebGL 3D (implemented, progressive
+ *     enhancement with capability probe and deterministic fallback), XR and
+ *     physical holographic hardware (NOT implemented), PDF/IFC export
+ *     (NOT implemented) and Health clinical datasets (PLANNED) are shown at
+ *     their true status — the UI never implies capability the repository
+ *     does not contain.
  *   • Reduced motion is honored (matchMedia + server hint); no decorative
  *     animation; keyboard operable through native controls.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { Badge, EmptyState, LoadingState, Panel, stateTone } from "@/components/brand";
 import type { SceneLayer, SceneManifest } from "@/lib/viz/scene-model";
 import type { AdapterDescriptor } from "@/lib/viz/adapters/types";
@@ -291,7 +294,9 @@ function SceneProjection({ manifest }: { manifest: SceneManifest }) {
       </svg>
       <figcaption className="mt-1 text-[10.5px] beyu-muted">
         2D projection of {located.length} located object(s) — equirectangular fit, CRS per object
-        metadata. 3D (WebGL) rendering is PLANNED; this projection is its governed 2D foundation.
+        metadata. An interactive 3D (WebGL) view of the same governed manifest can be enabled above
+        where the device supports it; this projection and the accessible table below are the
+        always-available channels.
       </figcaption>
     </figure>
   );
@@ -299,7 +304,35 @@ function SceneProjection({ manifest }: { manifest: SceneManifest }) {
 
 /* ─────────────────────────── manifest view ─────────────────────────── */
 
-function ManifestView({ manifest, onInspect }: { manifest: SceneManifest; onInspect: (id: string) => void }) {
+type Scene3DComponent = ComponentType<{
+  manifest: SceneManifest;
+  reducedMotion: boolean;
+  selectedId: string | null;
+  onSelect: (objectId: string) => void;
+  onExit: (reason?: string) => void;
+}>;
+
+type ThreeDToggle = {
+  enabled: boolean;
+  loading: boolean;
+  notice: string | null;
+  Scene3D: Scene3DComponent | null;
+  reducedMotion: boolean;
+  selectedId: string | null;
+  onEnable: () => void;
+  onDisable: (reason?: string) => void;
+  onSelect: (objectId: string) => void;
+};
+
+function ManifestView({
+  manifest,
+  onInspect,
+  three,
+}: {
+  manifest: SceneManifest;
+  onInspect: (id: string) => void;
+  three: ThreeDToggle;
+}) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-[11px] beyu-muted">
@@ -322,6 +355,39 @@ function ManifestView({ manifest, onInspect }: { manifest: SceneManifest; onInsp
           </Badge>
         ))}
       </div>
+      {three.enabled && three.Scene3D ? (
+        <three.Scene3D
+          key={manifest.generatedAt}
+          manifest={manifest}
+          reducedMotion={three.reducedMotion}
+          selectedId={three.selectedId}
+          onSelect={three.onSelect}
+          onExit={three.onDisable}
+        />
+      ) : (
+        <div className="rounded border border-slate-500/25 bg-slate-500/5 px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={three.onEnable}
+              disabled={three.loading}
+              className="rounded bg-[#0B1F4D] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0B1F4D]/90 disabled:opacity-50"
+              data-testid="enable-3d"
+            >
+              {three.loading ? "Loading 3D view…" : "Open 3D view (WebGL)"}
+            </button>
+            <span className="text-[10.5px] beyu-muted">
+              Progressive enhancement — interactive 3D on this device&apos;s screen (capability-probed;
+              falls back to the 2D projection below). Not an optical hologram, not AR/VR.
+            </span>
+          </div>
+          {three.notice && (
+            <p role="status" className="mt-2 text-[11px] text-amber-700" data-testid="scene3d-notice">
+              {three.notice}
+            </p>
+          )}
+        </div>
+      )}
       <SceneProjection manifest={manifest} />
       <div>
         <h3 className="beyu-kicker text-[#b08d1c]">Accessible table equivalent (always present)</h3>
@@ -480,6 +546,37 @@ export function VizWorkspace(props: VizWorkspaceProps) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [threeDEnabled, setThreeDEnabled] = useState(false);
+  const [threeDLoading, setThreeDLoading] = useState(false);
+  const [threeDNotice, setThreeDNotice] = useState<string | null>(null);
+  const [Scene3D, setScene3D] = useState<Scene3DComponent | null>(null);
+
+  /** Lazy-load the 3D chunk only when the user opens it (progressive
+   * enhancement: the main bundle never carries the renderer). A failed chunk
+   * load degrades to the 2D channel with an honest notice. */
+  const enable3D = useCallback(async () => {
+    setThreeDNotice(null);
+    if (!Scene3D) {
+      setThreeDLoading(true);
+      try {
+        const mod = await import("./scene3d");
+        setScene3D(() => mod.Scene3DPanel);
+      } catch {
+        setThreeDNotice(
+          "The 3D view could not be loaded on this device — staying on the 2D projection and accessible table.",
+        );
+        setThreeDLoading(false);
+        return;
+      }
+      setThreeDLoading(false);
+    }
+    setThreeDEnabled(true);
+  }, [Scene3D]);
+
+  const disable3D = useCallback((reason?: string) => {
+    setThreeDEnabled(false);
+    setThreeDNotice(reason ?? null);
+  }, []);
 
   useEffect(() => {
     // Subscription-only synchronization: the initial value is picked up
@@ -802,7 +899,21 @@ export function VizWorkspace(props: VizWorkspaceProps) {
               kicker={`${manifest.sector} · ${manifest.dimensions.join(" + ")}`}
               action={<Badge tone="slate">{manifest.objects.length} object(s)</Badge>}
             >
-              <ManifestView manifest={manifest} onInspect={setInspectedId} />
+              <ManifestView
+                manifest={manifest}
+                onInspect={setInspectedId}
+                three={{
+                  enabled: threeDEnabled,
+                  loading: threeDLoading,
+                  notice: threeDNotice,
+                  Scene3D,
+                  reducedMotion,
+                  selectedId: inspectedId,
+                  onEnable: () => void enable3D(),
+                  onDisable: disable3D,
+                  onSelect: setInspectedId,
+                }}
+              />
             </Panel>
             <ObjectInspector manifest={manifest} objectId={inspectedId} />
           </>
@@ -1082,8 +1193,9 @@ export function VizWorkspace(props: VizWorkspaceProps) {
             </div>
             <p className="mt-2 text-[11px] beyu-muted">
               Physical holographic hardware support is NOT claimed. FUTURE_HOLOGRAPHIC_DEVICE devices can
-              only ever be REGISTERED or NOT_IMPLEMENTED. WebGL/WebGPU 3D rendering is PLANNED; the
-              accessible 2D/table fallback is the canonical channel today.
+              only ever be REGISTERED or NOT_IMPLEMENTED. Interactive WebGL 3D rendering is IMPLEMENTED
+              as progressive enhancement (dependency-free, capability-probed, falls back deterministically);
+              WebGPU and XR remain NOT_IMPLEMENTED, and the accessible 2D/table channel is always available.
             </p>
           </Panel>
         </div>

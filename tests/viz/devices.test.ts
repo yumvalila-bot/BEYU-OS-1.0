@@ -103,21 +103,41 @@ describe("Holograph device registry — governed lifecycle", () => {
     await expect(setDeviceStatus(futureDeviceId, "ACTIVE", "still refused", actorFor(admin), admin)).rejects.toThrow(/FUTURE_HOLOGRAPHIC_DEVICE|only be/i);
   });
 
-  it("a device on a PLANNED renderer (WEBGL_3D) cannot reach ACTIVE — capability is not fabricated", async () => {
+  it("a device on a NOT_IMPLEMENTED renderer (WEBGPU_3D) cannot reach ACTIVE — capability is not fabricated", async () => {
+    const device = await registerDevice(
+      {
+        name: `${RUN} webgpu station`,
+        deviceClass: "DESKTOP",
+        renderingBackend: "WEBGPU_3D",
+        rationale: "Declared for a future WebGPU rollout (renderer NOT_IMPLEMENTED in the canonical matrix).",
+      },
+      actorFor(admin),
+      admin,
+    );
+    await expect(
+      setDeviceStatus(device.id, "ACTIVE", "must be refused", actorFor(admin), admin),
+    ).rejects.toThrow(/not an IMPLEMENTED renderer/i);
+  });
+
+  it("a device on the IMPLEMENTED WEBGL_3D renderer can reach ACTIVE (dependency-free WebGL1 renderer)", async () => {
+    // WEBGL_3D became an IMPLEMENTED renderer (src/lib/viz/webgl — verified by
+    // tests/viz/webgl.test.ts), so activation on this backend is legitimate
+    // now; the anti-fabrication invariant above still blocks every
+    // non-IMPLEMENTED backend (WEBGPU_3D, XR, CANVAS_2D…).
     const device = await registerDevice(
       {
         name: `${RUN} webgl station`,
         deviceClass: "DESKTOP",
         renderingBackend: "WEBGL_3D",
-        rationale: "Declared for a future WebGL rollout (renderer PLANNED).",
+        rationale: "Backend is the implemented dependency-free WebGL renderer with SPATIAL_PROJECTION fallback.",
       },
       actorFor(admin),
       admin,
     );
     webglDeviceId = device.id;
-    await expect(
-      setDeviceStatus(webglDeviceId, "ACTIVE", "must be refused", actorFor(admin), admin),
-    ).rejects.toThrow(/not an IMPLEMENTED renderer/i);
+    const result = await setDeviceStatus(webglDeviceId, "ACTIVE", "Backend verified as an IMPLEMENTED renderer.", actorFor(admin), admin);
+    expect(result.status).toBe("ACTIVE");
+    expect(await eventCount("VIZ_DEVICE_STATUS_CHANGED", webglDeviceId)).toBe(1);
   });
 
   it("REVOKED is terminal", async () => {

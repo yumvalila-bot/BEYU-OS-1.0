@@ -145,7 +145,7 @@ export const CANONICAL_DIMENSIONS: readonly DimensionDefinition[] = Object.freez
     order: 3,
     capabilities: ["deterministic planar/isometric projection of governed scene objects (foundation renderer)", "spatial coordinate handling with explicit CRS", "object inspection", "2D fallback when 3D is unavailable"],
     dataRequirements: ["authorized records with spatial attributes (coordinates, bounds or geometry references); geometry is OPTIONAL — never assumed"],
-    renderingRequirements: ["SVG_2D projection (foundation)", "WEBGL_3D (planned abstraction; no renderer dependency is bundled)"],
+    renderingRequirements: ["SVG_2D projection (foundation)", "WEBGL_3D interactive rendering (dependency-free WebGL1; capability-probed; SPATIAL_PROJECTION fallback)"],
     permissions: ["viz:scene.read"],
     sectorApplicability: "*",
     lifecycleState: "EXPERIMENTAL",

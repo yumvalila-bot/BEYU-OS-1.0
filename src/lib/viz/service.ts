@@ -794,7 +794,7 @@ export const VIZ_SUBSYSTEM_STATUS: Array<{ subsystem: string; status: string; wh
   { subsystem: "C. Visualization Registry", status: "IMPLEMENTED", where: "src/lib/viz/adapters (descriptor matrix) + viz_scenes" },
   { subsystem: "D. Scene Model", status: "IMPLEMENTED", where: "src/lib/viz/scene-model.ts" },
   { subsystem: "E. Data Adapter Layer", status: "IMPLEMENTED", where: "src/lib/viz/adapters/*" },
-  { subsystem: "F. Renderer Abstraction", status: "IMPLEMENTED", where: "src/lib/viz/renderers.ts (SVG/table/projection; WebGL PLANNED)" },
+  { subsystem: "F. Renderer Abstraction", status: "IMPLEMENTED", where: "src/lib/viz/renderers.ts (SVG/table/projection + WebGL_3D; WebGPU/XR declared NOT_IMPLEMENTED)" },
   { subsystem: "G. Interaction Layer", status: "IMPLEMENTED", where: "src/app/os/viz/workspace.tsx (keyboard contract, inspection)" },
   { subsystem: "H. Time Engine (4D)", status: "IMPLEMENTED", where: "src/lib/viz/engines/time.ts" },
   { subsystem: "I. Quantity/Cost/Resource Engine (5D)", status: "IMPLEMENTED", where: "src/lib/viz/engines/quantity.ts (READ-ONLY; CAP_POSTING LOCKED)" },
@@ -809,7 +809,8 @@ export const VIZ_SUBSYSTEM_STATUS: Array<{ subsystem: string; status: string; wh
   { subsystem: "R. Permission/Policy Enforcement", status: "IMPLEMENTED", where: "src/lib/viz/authorization.ts over the canonical can()/guarded()/RLS kernel" },
   { subsystem: "S. Audit/Event Integration", status: "IMPLEMENTED", where: "withAuditTransaction + enterprise_events (VIZ_* acts) — the existing chains" },
   { subsystem: "BIM/IFC geometry parsing", status: "NOT_IMPLEMENTED", where: "declared in the Ujenzi adapter descriptor; no parser exists" },
-  { subsystem: "3D WebGL rendering", status: "PLANNED", where: "renderer abstraction declares WEBGL_3D; no dependency bundled" },
+  { subsystem: "3D WebGL rendering", status: "IMPLEMENTED", where: "src/lib/viz/webgl (dependency-free WebGL1, capability-probed) + progressive 3D view on /os/viz; SPATIAL_PROJECTION/HTML_TABLE fallback always available" },
+  { subsystem: "Spatial display adapters (external/spatial hardware seam)", status: "PARTIALLY_IMPLEMENTED", where: "src/lib/viz/spatial-display.ts (browser adapter implemented; hardware templates fail closed — UNVERIFIED_NO_HARDWARE)" },
   { subsystem: "Health clinical/facility datasets", status: "PLANNED", where: "requires a governed non-PHI Health federation data contract" },
 ];
 

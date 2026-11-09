@@ -9,12 +9,15 @@
  *
  * DEPENDENCY DISCIPLINE
  * ─────────────────────
- * The repository ships no graphics stack (no three.js, no D3, no maplibre).
- * None is added: the implemented renderers are dependency-free (server-side
- * manifest + client-side inline SVG/HTML). WEBGL_3D and XR are declared as
- * PLANNED/NOT_IMPLEMENTED adapter points — the abstraction exists so a future
- * WebGL/WebGPU/XR renderer can be registered WITHOUT changing the scene model,
- * the adapters or the authorization pipeline. No vendor lock-in is introduced.
+ * The repository ships no third-party graphics stack (no three.js, no D3, no
+ * maplibre) and none was added for 3D: WEBGL_3D is implemented as a small,
+ * capability-probed, dependency-free WebGL1 renderer over the governed
+ * manifest (procedural box geometry only — no binary model assets, no
+ * external requests; see src/lib/viz/webgl/). WEBGPU_3D and XR remain
+ * declared as NOT_IMPLEMENTED adapter points — the abstraction exists so a
+ * future WebGPU/XR renderer can be registered WITHOUT changing the scene
+ * model, the adapters or the authorization pipeline. No vendor lock-in is
+ * introduced.
  *
  * The renderer is NEVER an authorization boundary (§19): it receives an
  * already-governed SceneManifest and decides only HOW to draw it.
@@ -135,12 +138,13 @@ export const RENDERER_REGISTRY: readonly RendererDescriptor[] = Object.freeze([
   },
   {
     kind: "WEBGL_3D",
-    contract: "Full 3D scene rendering (WebGL). The abstraction point exists; NO WebGL renderer dependency is bundled and none may be added without a governed dependency decision.",
+    contract:
+      "Interactive 3D scene rendering over WebGL1 from the governed manifest alone: procedural box/prism geometry (no binary model assets, no textures, no external requests), orbit/pan/zoom with keyboard equivalents, render-on-demand (reduced-motion safe), context-loss fail-safe, and capability-probed client-side with deterministic degradation to SPATIAL_PROJECTION. Consumes only the allowlisted manifest — rendering never widens data access.",
     dimensions: ["3D", "4D", "6D"],
-    status: "PLANNED",
-    requirements: { webgl: true, lowBandwidthCapable: false, reducedMotionCapable: true, mobileCapable: false },
+    status: "IMPLEMENTED",
+    requirements: { webgl: true, lowBandwidthCapable: true, reducedMotionCapable: true, mobileCapable: true },
     fallback: "SPATIAL_PROJECTION",
-    futureDependencies: ["a governed WebGL/WebGPU scene library (NOT selected, NOT bundled)"],
+    futureDependencies: [],
   },
   {
     kind: "WEBGPU_3D",
@@ -246,9 +250,9 @@ function statusReason(kind: RendererKind, device: DeviceProfile): string {
 
 /**
  * Choose the best renderer for a dimension combination + layer kinds on a
- * device. 3D content prefers SPATIAL_PROJECTION (the implemented foundation)
- * and only a future governed WebGL renderer would upgrade it; 2D content uses
- * SVG_2D; pure 1D uses HTML_TABLE.
+ * device. 3D content prefers WEBGL_3D when the device probe confirms WebGL
+ * and degrades to SPATIAL_PROJECTION otherwise; 2D content uses SVG_2D;
+ * pure 1D uses HTML_TABLE.
  */
 export function resolveForDimensions(dimensions: string[], device: DeviceProfile): RendererResolution[] {
   const wants = new Set<RendererKind>();
