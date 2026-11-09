@@ -32,7 +32,7 @@ Single source of truth: `src/lib/viz/dimensions.ts` (code registry) + `viz_dimen
 | --- | --- | --- |
 | 1D | Information / document dimension | IMPLEMENTED |
 | 2D | Flat graphics (plans, maps, diagrams, charts) | IMPLEMENTED |
-| 3D | Spatial/geometry foundation (points, polygons, CRS-tagged) | IMPLEMENTED as governed 2D/3D **foundation** — WebGL/WebGPU renderers are PLANNED (contract + honest fallbacks exist; no 3D runtime dependency is bundled) |
+| 3D | Spatial/geometry foundation (points, polygons, CRS-tagged) | IMPLEMENTED — governed 2D/3D foundation **plus interactive WebGL 3D** (dependency-free WebGL1 renderer in `src/lib/viz/webgl/`, capability-probed, progressive enhancement with deterministic SPATIAL_PROJECTION fallback). WebGPU remains PLANNED; no third-party graphics dependency is bundled |
 | 4D | Time (occurred / planned / forecast anchors) | IMPLEMENTED (`engines/time.ts`) |
 | 5D | Quantity / cost / resource — **read-governed** | IMPLEMENTED (`engines/quantity.ts`); never posts; UNAVAILABLE is never rendered as 0 |
 | 6D | Environment / performance / sustainability | IMPLEMENTED (`engines/performance.ts`); preserves sector `epistemicStatus` |
@@ -116,6 +116,15 @@ renderer matrices and the honest subsystem status table. Brand-consistent (Navy 
 `#D4A017`), keyboard-operable through native controls, `prefers-reduced-motion` honored, low-bandwidth
 mode lowers the server-side object ceiling (never security).
 
+**Interactive 3D (progressive enhancement).** The manifest view offers an opt-in "3D view (WebGL)":
+a lazily loaded chunk (never in the main bundle) that renders the same governed manifest as
+touch/mouse/keyboard-navigable 3D boxes (`src/lib/viz/webgl/`). It feature-probes WebGL first and
+fails closed to the 2D projection with an honest reason; context loss and shader failures surface as
+error states with a one-click return path (never an indefinite loader); there is no animation loop
+(render-on-demand, reduced-motion safe); object selection has an accessible button list alternative;
+captions state explicitly that this is a **screen 3D visualization, not an optical hologram**. The
+render-scene builder reads only allowlisted manifest fields (exact node key set asserted by tests).
+
 ## 8. Honest status matrix
 
 Canonical machine-readable copy: `VIZ_SUBSYSTEM_STATUS` in `src/lib/viz/service.ts` (rendered in the
@@ -126,14 +135,18 @@ UI "Capability status" tab and asserted by tests).
 | Graphics core, Dimension Registry, Visualization Registry, Scene Model, Adapter Layer, Renderer abstraction (SVG/table/projection), Interaction, 4D–8D engines, Digital Twin layer, Provenance, Accessibility, RBAC/policy enforcement, Audit/event integration | **IMPLEMENTED** |
 | Export layer | **PARTIALLY_IMPLEMENTED** — JSON/CSV server-side (ledgered); SVG/PNG client-side from the identical manifest; **PDF/IFC NOT_IMPLEMENTED** |
 | XR adapter foundation | **PARTIALLY_IMPLEMENTED** — governed contract + fail-closed null adapter ship today; **no XR runtime is bundled (NOT_IMPLEMENTED)** |
-| WebGL/WebGPU 3D rendering | **PLANNED** — declared in the renderer abstraction with deterministic fallbacks; no dependency bundled |
+| WebGL 3D rendering | **IMPLEMENTED** — dependency-free WebGL1 renderer (`src/lib/viz/webgl/`), capability-probed client-side, deterministic fallback to SPATIAL_PROJECTION/HTML_TABLE; no third-party graphics dependency, no binary model assets, no external requests |
+| WebGPU 3D rendering | **PLANNED** — declared in the renderer abstraction with deterministic fallbacks; no dependency bundled |
+| Spatial display adapters (screen + external/spatial hardware seam) | **PARTIALLY_IMPLEMENTED** — browser adapter VERIFIED_IN_SOFTWARE; AR-glass/VR/spatial-display/volumetric/optical-holographic adapters are registered templates that FAIL CLOSED as UNVERIFIED_NO_HARDWARE (never grant; documented dependency lists) |
 | BIM/IFC geometry parsing (Ujenzi) | **NOT_IMPLEMENTED** — declared in the adapter descriptor, not faked |
 | Health clinical/facility/epidemiology datasets | **PLANNED** — behind a governed non-PHI Health federation data contract that does not exist yet |
 | BEYU control-plane adapter | **PARTIALLY_IMPLEMENTED** — honest empty dataset |
 
 ## 9. Verification
 
-- `tests/viz/` — 9 suites / 83 tests: dimension registry purity, scene-model allowlist + ceilings,
+- `tests/viz/` — 17 suites / 193 tests: dependency-free WebGL 3D scene-build invariants,
+  spatial-display capability boundary (browser adapter VERIFIED_IN_SOFTWARE, hardware adapters
+  fail closed as UNVERIFIED_NO_HARDWARE, consent/eviction/registry), dimension registry purity, scene-model allowlist + ceilings,
   RBAC + sector conjunction + deep-link re-authorization + entity-scope fail-closed, service lifecycle
   (audit + events atomic), **leak prevention** over a real Ujenzi fixture (forbidden-key deep scan,
   CSV/JSON export equality with the screen), **CAP_POSTING lock** (static import graph + live

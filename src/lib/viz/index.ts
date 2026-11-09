@@ -38,6 +38,8 @@ export * from "./authorization";
 export * from "./events";
 export * from "./exports";
 export * from "./renderers";
+export * from "./capability";
+export * from "./spatial-display";
 export * from "./render-profiles";
 export * from "./xr";
 export * from "./accessibility";
