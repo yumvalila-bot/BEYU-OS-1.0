@@ -159,7 +159,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("EXPIRED token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -224,7 +224,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_AUDIENCE token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -243,7 +243,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_ISSUER token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -261,7 +261,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   });
 
   it("MISSING_SUBJECT token → no actor", async () => {
-    const token = sign(
+    const token = await sign(
       { email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: 0 },
       { issuer: "beyu", audience: "beyu-api" },
     );
@@ -282,7 +282,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("STALE_SECURITY_VERSION → 401 AUTHORIZATION_CHANGED", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -300,7 +300,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("REVOKED (disabled account) → 401 ACCOUNT_DISABLED", async () => {
     const u = await linkedUser(tenantAId);
     await repo.setAccountStatus(u.id, "disabled");
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -325,7 +325,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       tenantId: tenantAId,
       role: "doctor",
     });
-    const token = sign(
+    const token = await sign(
       {
         sub: user.global_user_id,
         email: "m@a.example",
@@ -344,7 +344,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       code: `MATRIX-B-${Math.random().toString(36).slice(2, 6)}`,
       name: "B",
     });
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -365,7 +365,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       accountStatus: "active",
     });
     // No membership, no link.
-    const token = sign(
+    const token = await sign(
       {
         sub: user.global_user_id,
         email: "m@a.example",
@@ -382,7 +382,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       linkedBy: "spec-fixture",
     });
     const sv = await repo.getSecurityVersion(user.global_user_id);
-    const token2 = sign(
+    const token2 = await sign(
       { sub: user.global_user_id, email: "m@a.example", role: "patient", sv },
       { issuer: "beyu", audience: "beyu-api" },
     );
