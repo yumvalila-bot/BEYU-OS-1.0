@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolvePrincipal } from "@/lib/session";
 import { signHealthAuthorizationAssertion } from "@/lib/health-authorization-assertion";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * Same-origin browser hand-off. The BEYU session cookie is read server-side;
  * no BEYU session token or private signing material reaches the browser.
