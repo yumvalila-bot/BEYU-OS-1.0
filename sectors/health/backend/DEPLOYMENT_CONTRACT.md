@@ -64,7 +64,7 @@ a separate trust direction from the human assertion exchange.
 | `BEYU_AUTH_ASSERTION_PUBLIC_KEYS` | Optional JSON map `kid → PEM public key` for overlapping key rotation. |
 | `BEYU_AUTH_ASSERTION_ISSUER` | Defaults to `https://www.beyu.co.tz`. |
 | `BEYU_AUTH_ASSERTION_AUDIENCE` | Defaults to `beyu-health-os`. |
-| `BEYU_TRUSTED_BROWSER_ORIGINS` | Exact browser origin allow-list; defaults to `CORS_ORIGIN`. Wildcards are refused. |
+| `BEYU_TRUSTED_BROWSER_ORIGINS` | Exact browser origin allow-list (include `https://www.beyu.co.tz` and `https://health.beyu.co.tz`); defaults to `CORS_ORIGIN`. Wildcards are refused. |
 | `BEYU_IDENTITY_ENDPOINT` | BEYU base URL for the existing Health → BEYU identity API. |
 | `BEYU_IDENTITY_TOKEN` | Health → BEYU service credential; separate from the Ed25519 human assertion. |
 | `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE` | Health-local access JWT configuration. |
