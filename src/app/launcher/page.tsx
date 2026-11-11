@@ -35,14 +35,16 @@ function DestinationCard({
   destination,
   authorized,
   href,
+  requiresSectorAuthorization = false,
 }: {
   destination: GovernedDestination;
   authorized: boolean;
   href: string;
+  requiresSectorAuthorization?: boolean;
 }) {
   const content = (
     <>
-      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${authorized ? "bg-[#0b1f4d] text-[#e7c45c]" : "bg-slate-100 text-slate-400"}`}>
+      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${authorized || requiresSectorAuthorization ? "bg-[#0b1f4d] text-[#e7c45c]" : "bg-slate-100 text-slate-400"}`}>
         <Icon name={destination.icon} className="h-6 w-6" />
       </span>
       <span className="mt-5 flex flex-wrap items-start justify-between gap-3">
@@ -50,7 +52,7 @@ function DestinationCard({
           <span className="block text-[11px] font-semibold tracking-[0.16em] text-slate-500">
             {destination.registryCode} · {DESTINATION_TYPE_LABEL[destination.destinationType]}
           </span>
-          <span className={`mt-1 block text-xl font-semibold tracking-tight ${authorized ? "text-[#0b1f4d]" : "text-slate-500"}`}>{destination.name}</span>
+          <span className={`mt-1 block text-xl font-semibold tracking-tight ${authorized || requiresSectorAuthorization ? "text-[#0b1f4d]" : "text-slate-500"}`}>{destination.name}</span>
         </span>
         <span className="flex flex-wrap items-center justify-end gap-2">
           <span
@@ -63,14 +65,14 @@ function DestinationCard({
             className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide ${authorized ? "border-emerald-600/25 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-500"}`}
             title="Your access to this destination, resolved server-side"
           >
-            {authorized ? "ACCESS: AUTHORISED" : "ACCESS: NOT IN CURRENT GRANT"}
+            {authorized ? "ACCESS: AUTHORISED" : requiresSectorAuthorization ? "ACCESS: CHECKED BY HEALTH" : "ACCESS: NOT IN CURRENT GRANT"}
           </span>
         </span>
       </span>
       <span className="mt-3 block text-[13px] leading-relaxed text-slate-600">{destination.description}</span>
       <span className={`mt-5 flex items-center justify-between text-[12px] font-semibold ${authorized ? "text-[#9b7410]" : "text-slate-500"}`}>
-        {authorized ? "Open governed destination" : `Destination is ${destination.status} — access unavailable for this identity`}
-        {authorized && (
+        {authorized ? "Open governed destination" : requiresSectorAuthorization ? "Continue to Health-local authorization" : `Destination is ${destination.status} — access unavailable for this identity`}
+        {(authorized || requiresSectorAuthorization) && (
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 transition group-hover:translate-x-1">
             <path d="m9 5 7 7-7 7" />
           </svg>
@@ -79,7 +81,7 @@ function DestinationCard({
     </>
   );
 
-  if (!authorized) {
+  if (!authorized && !requiresSectorAuthorization) {
     return <article className="relative overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white/60 p-6">{content}</article>;
   }
 
@@ -98,27 +100,8 @@ export default async function LauncherPage() {
   if (!principal) redirect("/");
 
   const destinations = await authorizedGovernedDestinations(principal);
-  if (destinations.length === 1) redirect(destinations[0].href);
   const hrefFor = await destinationHrefForRequest();
 
-  if (destinations.length === 0) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <section aria-labelledby="launcher-denied-title" className="mx-auto max-w-md text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e7c45c]">
-            <Icon name="security" className="h-7 w-7" />
-          </span>
-          <h1 id="launcher-denied-title" className="mt-5 text-3xl font-semibold tracking-tight text-[#0b1f4d]">
-            No governed destination access
-          </h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-slate-600">Your identity is valid, but no active grant or Health federation link authorises a governed destination.</p>
-          <SignOutButton
-            className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0b1f4d] px-6 text-[13px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d4a017] disabled:cursor-not-allowed disabled:opacity-60"
-          />
-        </section>
-      </main>
-    );
-  }
 
   const controlPlane = destinations.filter((destination) => destination.level === "CONTROL_PLANE");
   const authorizedCodes = new Set(destinations.map((destination) => destination.code));
@@ -154,7 +137,7 @@ export default async function LauncherPage() {
       authorized: authorizedCodes.has(destination.code),
       stateLabel:
         destination.code === "HEALTH" && !authorizedCodes.has("HEALTH")
-          ? "Federation link not active — canonical state at /health"
+          ? "Health-local membership is checked on entry"
           : "Not in current grant",
     })),
     {
@@ -228,8 +211,7 @@ export default async function LauncherPage() {
               Sector operating systems
             </h2>
             <p className="mt-1 max-w-3xl text-[12.5px] text-slate-600">
-              Only Sector OSs covered by your current grants or canonical federation link are launchable.
-              Every destination rechecks authority on entry.
+              Finance, Agriculture and Ujenzi require BEYU grants and scope. Health is discoverable here, then verifies identity, tenant and membership in its own database before granting access.
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -238,6 +220,7 @@ export default async function LauncherPage() {
                 key={destination.code}
                 destination={destination}
                 authorized={authorizedCodes.has(destination.code)}
+                requiresSectorAuthorization={destination.code === "HEALTH"}
                 href={hrefFor(destination)}
               />
             ))}
