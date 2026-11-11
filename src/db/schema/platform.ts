@@ -185,8 +185,8 @@ export const auditLog = pgTable(
   {
     id: text("id").primaryKey(),
     sequence: bigserial("sequence", { mode: "number" }).notNull(),
-    tenantId: text("tenant_id").notNull(),
-    actorUserId: text("actor_user_id").notNull(),
+    tenantId: text("tenant_id"),
+    actorUserId: text("actor_user_id"),
     actorType: text("actor_type").notNull().default("HUMAN"), // HUMAN | SERVICE | AI
     action: text("action").notNull(),
     objectType: text("object_type").notNull(),
