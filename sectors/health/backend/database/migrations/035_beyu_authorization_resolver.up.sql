@@ -93,3 +93,34 @@ $grant$;
 GRANT USAGE ON SCHEMA beyu_identity TO beyu_health_runtime;
 GRANT EXECUTE ON FUNCTION beyu_identity.resolve_beyu_authorization(text, text)
   TO beyu_health_runtime;
+
+DO $ownership$
+DECLARE
+  resolver_owner text;
+  users_owner text;
+  tenants_owner text;
+  memberships_owner text;
+  links_owner text;
+BEGIN
+  SELECT pg_get_userbyid(p.proowner) INTO resolver_owner
+    FROM pg_proc p
+   WHERE p.oid = 'beyu_identity.resolve_beyu_authorization(text,text)'::regprocedure;
+  SELECT pg_get_userbyid(c.relowner) INTO users_owner
+    FROM pg_class c WHERE c.oid = 'beyu_identity.users'::regclass;
+  SELECT pg_get_userbyid(c.relowner) INTO tenants_owner
+    FROM pg_class c WHERE c.oid = 'beyu_identity.tenants'::regclass;
+  SELECT pg_get_userbyid(c.relowner) INTO memberships_owner
+    FROM pg_class c WHERE c.oid = 'beyu_identity.tenant_memberships'::regclass;
+  SELECT pg_get_userbyid(c.relowner) INTO links_owner
+    FROM pg_class c WHERE c.oid = 'beyu_identity.beyu_identity_links'::regclass;
+
+  IF resolver_owner = 'beyu_health_runtime'
+     OR resolver_owner IS DISTINCT FROM users_owner
+     OR resolver_owner IS DISTINCT FROM tenants_owner
+     OR resolver_owner IS DISTINCT FROM memberships_owner
+     OR resolver_owner IS DISTINCT FROM links_owner THEN
+    RAISE EXCEPTION
+      '035 blocked: resolver must be owned by the privileged identity-table owner, never beyu_health_runtime';
+  END IF;
+END
+$ownership$;

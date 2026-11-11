@@ -64,12 +64,16 @@ runtimeSuite(
     it("executes as beyu_health_runtime while the function remains migration-owned", async () => {
       const owner = await runtime!.query(
         `SELECT current_user AS runtime_role,
-                pg_get_userbyid(p.proowner) AS function_owner
+                pg_get_userbyid(p.proowner) AS function_owner,
+                pg_get_userbyid(t.relowner) AS identity_table_owner
            FROM pg_proc p
-          WHERE p.oid = 'beyu_identity.resolve_beyu_authorization(text,text)'::regprocedure`,
+           CROSS JOIN pg_class t
+          WHERE p.oid = 'beyu_identity.resolve_beyu_authorization(text,text)'::regprocedure
+            AND t.oid = 'beyu_identity.tenants'::regclass`,
       );
       expect(owner.rows[0]?.runtime_role).toBe("beyu_health_runtime");
       expect(owner.rows[0]?.function_owner).not.toBe("beyu_health_runtime");
+      expect(owner.rows[0]?.function_owner).toBe(owner.rows[0]?.identity_table_owner);
 
       const resolved = await runtime!.query(
         "SELECT * FROM beyu_identity.resolve_beyu_authorization($1, $2)",
