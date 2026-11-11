@@ -16,7 +16,6 @@ type AssertionClaims = {
   sub: string;
   sid: string;
   tenant_id: string;
-  tenant_code?: string;
   iat: number;
   exp: number;
   jti: string;
