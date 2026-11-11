@@ -101,14 +101,6 @@ export class AuthService {
       throw new ServiceUnavailableException("BEYU_FEDERATION_NOT_CONFIGURED");
     }
     const actor = await this.beyuAssertion.verifyAndResolve(assertion);
-    await this.audit.record({
-      globalUserId: actor.user.global_user_id,
-      tenantId: actor.tenantId,
-      eventType: "beyu_assertion_exchanged",
-      result: "SUCCESS",
-      context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
-    });
-
     const accessJti = this.sessions.newJti();
     const opaqueRefresh = this.sessions.newJti();
     const expiresAt = new Date(Date.now() + this.accessTokenTtlMs());
@@ -122,6 +114,17 @@ export class AuthService {
       refreshToken: opaqueRefresh,
       jti: accessJti,
       expiresAt,
+    });
+    if (this.federation) {
+      const link = await this.federation.requireLinkedIdentity(actor.user.global_user_id);
+      await this.federation.assertCanonicalStatusActive(link);
+    }
+    await this.audit.record({
+      globalUserId: actor.user.global_user_id,
+      tenantId: actor.tenantId,
+      eventType: "beyu_assertion_exchanged",
+      result: "SUCCESS",
+      context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
     });
     return {
       accessToken: this.signAccessToken(actor.user, actor.role, actor.tenantId, accessJti, `${Math.floor(this.accessTokenTtlMs() / 1000)}s`),
