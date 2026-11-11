@@ -156,6 +156,8 @@ export class BeyuAuthorizationAssertionService {
       security_version: number | null;
       tenant_id: string | null;
       role: string | null;
+      country_code: string | null;
+      entity_code: string | null;
     }>(
       `SELECT * FROM beyu_identity.resolve_beyu_authorization($1, $2)`,
       [claims.sub, claims.tenant_id],
@@ -171,7 +173,9 @@ export class BeyuAuthorizationAssertionService {
       !actor.display_name ||
       actor.security_version === null ||
       !actor.tenant_id ||
-      !actor.role
+      !actor.role ||
+      !actor.country_code ||
+      !actor.entity_code
     ) {
       throw new ForbiddenException(actor.decision_code);
     }
@@ -184,6 +188,8 @@ export class BeyuAuthorizationAssertionService {
       },
       tenantId: actor.tenant_id,
       role: actor.role,
+      countryCode: actor.country_code,
+      entityCode: actor.entity_code,
       canonicalUserId: claims.sub,
     };
   }

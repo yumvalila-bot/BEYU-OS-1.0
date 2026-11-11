@@ -79,8 +79,10 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
         refreshToken: randomUUID(),
         jti,
         expiresAt: new Date(Date.now() + 15 * 60_000),
+        countryCode: tenantId ? "TZ" : null,
+        entityCode: tenantId ? "BEYU" : null,
       });
-      payload = { ...payload, jti };
+      payload = { ...payload, jti, ...(tenantId ? { countryCode: "TZ", entityCode: "BEYU" } : {}) };
     }
     return jwt.sign(payload, { secret: SECRET, ...opts });
   };

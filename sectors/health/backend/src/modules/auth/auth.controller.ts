@@ -144,9 +144,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Body() logoutDto: LogoutDto,
   ) {
-    const actor = req.user as { userId?: string; jti?: string } | undefined;
-    if (actor?.userId && actor.jti) {
-      await this.authService.logoutAccessSession(actor.userId, actor.jti);
+    const actor = req.user as {
+      userId?: string;
+      jti?: string;
+      tenantId?: string;
+      countryCode?: string;
+      entityCode?: string;
+    } | undefined;
+    if (actor?.userId && actor.jti && actor.tenantId && actor.countryCode && actor.entityCode) {
+      await this.authService.logoutAccessSession(actor.userId, actor.jti, {
+        tenantId: actor.tenantId,
+        countryCode: actor.countryCode,
+        entityCode: actor.entityCode,
+      });
     } else {
       const refreshToken = logoutDto?.refreshToken ?? this.readRefreshToken(req);
       await this.authService.logout(refreshToken);

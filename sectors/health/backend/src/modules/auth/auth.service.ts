@@ -96,8 +96,12 @@ export class AuthService {
    * token. Identity, tenant, membership and permissions are resolved by the
    * Health database; no permissions are accepted from the assertion.
    */
-  async logoutAccessSession(globalUserId: string, jti: string): Promise<void> {
-    await this.sessions.revokeByJti(globalUserId, jti);
+  async logoutAccessSession(
+    globalUserId: string,
+    jti: string,
+    context: { tenantId: string; countryCode: string; entityCode: string },
+  ): Promise<void> {
+    await this.sessions.revokeByJti(globalUserId, jti, context);
   }
 
   async exchangeBeyuAssertion(assertion: string) {
@@ -120,6 +124,8 @@ export class AuthService {
       actor.tenantId,
       accessJti,
       Math.floor(ttlMs / 1000),
+      actor.countryCode,
+      actor.entityCode,
     );
     // A Health-local session row anchors the access token to the local user,
     // tenant and security_version. The opaque refresh secret is intentionally
@@ -131,10 +137,14 @@ export class AuthService {
       refreshToken: opaqueRefresh,
       jti: accessJti,
       expiresAt,
+      countryCode: actor.countryCode,
+      entityCode: actor.entityCode,
     });
     await this.audit.record({
       globalUserId: actor.user.global_user_id,
       tenantId: actor.tenantId,
+      countryCode: actor.countryCode,
+      entityCode: actor.entityCode,
       eventType: "beyu_assertion_exchanged",
       result: "SUCCESS",
       context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
@@ -501,6 +511,8 @@ export class AuthService {
     tenantId: string | null,
     jti: string,
     expiresIn?: number,
+    countryCode?: string | null,
+    entityCode?: string | null,
   ): string {
     return this.jwtService.sign(
       {
@@ -508,6 +520,8 @@ export class AuthService {
         role,
         tenantId,
         jti,
+        ...(countryCode ? { countryCode } : {}),
+        ...(entityCode ? { entityCode } : {}),
         // Security version: bumped on disable / role / membership / permission
         // change; the server rejects any access token with a stale version.
         sv: user.security_version,

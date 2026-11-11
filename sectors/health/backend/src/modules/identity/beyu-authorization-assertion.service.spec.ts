@@ -57,7 +57,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
     localTenantId = tenant.tenant_id;
     await repo.ensureMembership({ globalUserId: localUserId, tenantId: localTenantId, role: "doctor" });
     await conn.query(
-      "UPDATE beyu_identity.tenants SET beyu_tenant_id = $2 WHERE tenant_id = $1",
+      "UPDATE beyu_identity.tenants SET beyu_tenant_id = $2, country_code = 'TZ', entity_code = 'BEYU' WHERE tenant_id = $1",
       [localTenantId, "BEYU_TENANT_TEST_01"],
     );
     await conn.query(
@@ -88,6 +88,8 @@ describe("BEYU signed assertion → Health-local authorization", () => {
     expect(actor.user.global_user_id).toBe(localUserId);
     expect(actor.tenantId).toBe(localTenantId);
     expect(actor.role).toBe("doctor");
+    expect(actor.countryCode).toBe("TZ");
+    expect(actor.entityCode).toBe("BEYU");
     expect(actor.canonicalUserId).toBe("BEYU_USER_TEST_01");
   });
 

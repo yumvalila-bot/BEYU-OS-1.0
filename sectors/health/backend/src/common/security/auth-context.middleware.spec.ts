@@ -60,9 +60,11 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
       refreshToken: randomUUID(),
       jti,
       expiresAt: new Date(Date.now() + 15 * 60_000),
+      countryCode: tenantId ? "TZ" : null,
+      entityCode: tenantId ? "BEYU" : null,
     });
     return jwt.sign(
-      { sub, jti, email: "doc@a.example", role, tenantId, sv },
+      { sub, jti, email: "doc@a.example", role, tenantId, sv, countryCode: tenantId ? "TZ" : undefined, entityCode: tenantId ? "BEYU" : undefined },
       { secret: SECRET },
     );
   };
@@ -250,6 +252,8 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
         email: "doc@a.example",
         role: "doctor",
         tenantId: tenantAId,
+        countryCode: "TZ",
+        entityCode: "BEYU",
         sv,
       },
       { secret: SECRET, issuer: "beyu", audience: "beyu-api" },

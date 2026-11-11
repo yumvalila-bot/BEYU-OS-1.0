@@ -109,7 +109,9 @@ RETURNS TABLE (
   display_name text,
   security_version integer,
   tenant_id uuid,
-  role text
+  role text,
+  country_code text,
+  entity_code text
 )
 LANGUAGE sql
 STABLE
@@ -127,6 +129,8 @@ AS $function$
       u.account_status,
       t.tenant_id,
       t.status AS tenant_status,
+      t.country_code,
+      t.entity_code,
       m.status AS membership_status,
       m.role
     FROM (SELECT 1) AS seed
@@ -162,7 +166,9 @@ AS $function$
     CASE WHEN decision = 'AUTHORIZED' THEN display_name END,
     CASE WHEN decision = 'AUTHORIZED' THEN security_version END,
     CASE WHEN decision = 'AUTHORIZED' THEN tenant_id END,
-    CASE WHEN decision = 'AUTHORIZED' THEN role END
+    CASE WHEN decision = 'AUTHORIZED' THEN role END,
+    CASE WHEN decision = 'AUTHORIZED' THEN country_code END,
+    CASE WHEN decision = 'AUTHORIZED' THEN entity_code END
   FROM evaluated;
 $function$;
 

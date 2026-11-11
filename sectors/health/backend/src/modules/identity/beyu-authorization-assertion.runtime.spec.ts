@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { Client } from "pg";
 import { randomUUID } from "node:crypto";
+import { IdentityRepository } from "./identity.repository";
+import { PgConnection } from "./db-connection";
 
 const runtimeUrl = process.env.DATABASE_URL;
 const adminUrl = process.env.TEST_DATABASE_URL_SUPERUSER;
@@ -11,6 +13,8 @@ runtimeSuite(
   () => {
     let runtime: Client | undefined;
     let admin: Client | undefined;
+    let repoConnection: PgConnection | undefined;
+    let repository: IdentityRepository | undefined;
     const globalUserId = randomUUID();
     const tenantId = randomUUID();
     const beyuUserId = `BEYU_RUNTIME_USER_${randomUUID()}`;
@@ -23,6 +27,8 @@ runtimeSuite(
       admin = new Client({ connectionString: adminUrl! });
       await runtime.connect();
       await admin.connect();
+      repoConnection = new PgConnection({ connectionString: runtimeUrl! });
+      repository = new IdentityRepository(repoConnection);
 
       await admin.query(
         `INSERT INTO beyu_identity.users
@@ -52,6 +58,8 @@ runtimeSuite(
 
     afterAll(async () => {
       if (admin) {
+        await admin.query("DELETE FROM beyu_identity.auth_events WHERE global_user_id = $1", [globalUserId]).catch(() => undefined);
+        await admin.query("DELETE FROM beyu_identity.sessions WHERE global_user_id = $1", [globalUserId]).catch(() => undefined);
         await admin.query("DELETE FROM beyu_identity.beyu_identity_links WHERE global_user_id = $1", [globalUserId]).catch(() => undefined);
         await admin.query("DELETE FROM beyu_identity.tenant_memberships WHERE global_user_id = $1", [globalUserId]).catch(() => undefined);
         await admin.query("DELETE FROM beyu_identity.users WHERE global_user_id = $1", [globalUserId]).catch(() => undefined);
@@ -59,6 +67,7 @@ runtimeSuite(
         await admin.end().catch(() => undefined);
       }
       if (runtime) await runtime.end().catch(() => undefined);
+      if (repoConnection) await repoConnection.close().catch(() => undefined);
     });
 
     it("executes as beyu_health_runtime while the function remains migration-owned", async () => {
@@ -85,7 +94,48 @@ runtimeSuite(
         email,
         tenant_id: tenantId,
         role: "doctor",
+        country_code: "TZ",
+        entity_code: "BEYU",
       });
+
+      const context = { tenantId, countryCode: "TZ", entityCode: "BEYU" };
+      const jti = randomUUID();
+      const created = await repository!.createSession({
+        globalUserId,
+        tenantId,
+        refreshTokenHash: randomUUID(),
+        jti,
+        expiresAt: new Date(Date.now() + 60_000),
+        tenantContext: context,
+      });
+      expect(created.status).toBe("active");
+
+      const unscopedSession = await runtime!.query(
+        "SELECT session_id FROM beyu_identity.sessions WHERE jti = $1",
+        [jti],
+      );
+      expect(unscopedSession.rows).toHaveLength(0);
+      const unscopedMembership = await runtime!.query(
+        "SELECT membership_id FROM beyu_identity.tenant_memberships WHERE global_user_id = $1 AND tenant_id = $2",
+        [globalUserId, tenantId],
+      );
+      expect(unscopedMembership.rows).toHaveLength(0);
+
+      const found = await repository!.findSessionByJti(globalUserId, jti, context);
+      expect(found?.session_id).toBe(created.session_id);
+      const membership = await repository!.findActiveMembership(globalUserId, tenantId, context);
+      expect(membership?.role).toBe("doctor");
+      await repository!.recordAuthEvent({
+        globalUserId,
+        tenantId,
+        countryCode: "TZ",
+        entityCode: "BEYU",
+        eventType: "runtime_context_probe",
+        result: "SUCCESS",
+      });
+      await repository!.updateSessionStatus(created.session_id, "revoked", context);
+      const revoked = await repository!.findSessionByJti(globalUserId, jti, context);
+      expect(revoked?.status).toBe("revoked");
     });
 
     it("denies revoked local membership and returns no user profile fields", async () => {
