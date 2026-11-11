@@ -96,6 +96,10 @@ export class AuthService {
    * token. Identity, tenant, membership and permissions are resolved by the
    * Health database; no permissions are accepted from the assertion.
    */
+  async logoutAccessSession(globalUserId: string, jti: string): Promise<void> {
+    await this.sessions.revokeByJti(globalUserId, jti);
+  }
+
   async exchangeBeyuAssertion(assertion: string) {
     if (!this.beyuAssertion) {
       throw new ServiceUnavailableException("BEYU_FEDERATION_NOT_CONFIGURED");
