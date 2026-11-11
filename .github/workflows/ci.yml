@@ -298,7 +298,7 @@ jobs:
         # approval, NOT a certification, and it authorizes nothing.
         run: npm run verify:scg
 
-      - name: Apply canonical root migrations 0000-0075
+      - name: Apply canonical root migrations 0000-0076
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -308,7 +308,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0075 are all recorded
+      - name: Verify migrations 0000-0076 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -778,7 +778,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-045 against real PostgreSQL
+      - name: Apply Health migrations 001-034 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -828,7 +828,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-045 are all recorded
+      - name: Verify Health migrations 001-034 are all recorded
         shell: bash
         run: |
           set -euo pipefail
@@ -911,7 +911,7 @@ jobs:
           set -euo pipefail
           node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand \
             rls-isolation isolation-boundaries identity.integration migration-consistency \
-            beyu-bridge identity-federation auth-wiring auth-context.middleware \
+            beyu-bridge identity-federation beyu-authorization-assertion auth-wiring auth-context.middleware \
             audit-chain-integrity outbound-audit-integrity 2>&1 \
             | tee /tmp/health-tests-realpg.log
           grep -qE 'Tests:.*[1-9][0-9]* passed' /tmp/health-tests-realpg.log \
