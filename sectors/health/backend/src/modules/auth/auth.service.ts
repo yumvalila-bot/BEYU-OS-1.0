@@ -20,6 +20,7 @@ import { AuditService as IdentityAuditService } from "../identity/audit.service"
 import { MfaService as LegacyMfaService } from "../identity/mfa.service";
 import { RateLimiter } from "../../common/security/rate-limiter";
 import { IdentityFederationService } from "../identity/identity-federation.service";
+import { BeyuAuthorizationAssertionService } from "../identity/beyu-authorization-assertion.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -52,7 +53,7 @@ export class AuthService {
     @Optional()
     @Inject(IdentityFederationService)
     private readonly federation?: IdentityFederationService,
-    @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,
+    @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,\n    @Optional() @Inject(BeyuAuthorizationAssertionService) private readonly beyuAssertion?: BeyuAuthorizationAssertionService,
   ) {}
 
   /**
@@ -85,6 +86,59 @@ export class AuthService {
         resetAll: () => {},
       } as unknown as RateLimiter)
     );
+  }
+
+  /**
+   * Exchange a one-use BEYU assertion for a short-lived Health-local access
+   * token. Identity, tenant, membership and permissions are resolved by the
+   * Health database; no permissions are accepted from the assertion.
+   */
+  async exchangeBeyuAssertion(assertion: string) {
+    if (!this.beyuAssertion) {
+      throw new ServiceUnavailableException("BEYU_FEDERATION_NOT_CONFIGURED");
+    }
+    const actor = await this.beyuAssertion.verifyAndResolve(assertion);
+    await this.audit.record({
+      globalUserId: actor.user.global_user_id,
+      tenantId: actor.tenantId,
+      eventType: "beyu_assertion_exchanged",
+      result: "SUCCESS",
+      context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
+    });
+
+    const accessJti = this.sessions.newJti();
+    const opaqueRefresh = this.sessions.newJti();
+    const expiresAt = new Date(Date.now() + this.accessTokenTtlMs());
+    // A Health-local session row anchors the access token to the local user,
+    // tenant and security_version. The opaque refresh secret is intentionally
+    // discarded: continuation requires a fresh BEYU assertion, not a Health-
+    // issued refresh credential.
+    await this.sessions.createSession({
+      globalUserId: actor.user.global_user_id,
+      tenantId: actor.tenantId,
+      refreshToken: opaqueRefresh,
+      jti: accessJti,
+      expiresAt,
+    });
+    return {
+      accessToken: this.signAccessToken(actor.user, actor.role, actor.tenantId, accessJti),
+      user: {
+        globalUserId: actor.user.global_user_id,
+        email: actor.user.email,
+        displayName: actor.user.display_name,
+        role: actor.role,
+        tenantId: actor.tenantId,
+      },
+    };
+  }
+
+  private accessTokenTtlMs(): number {
+    const raw = this.configService.get<string>("JWT_EXPIRATION", "15m");
+    const match = /^(\\d+)(s|m|h|d)$/.exec(raw);
+    if (!match) return 15 * 60_000;
+    const amount = Number(match[1]);
+    const unit = match[2] === "s" ? 1_000 : match[2] === "m" ? 60_000 : match[2] === "h" ? 3_600_000 : 86_400_000;
+    return Math.min(amount * unit, 15 * 60_000);
   }
 
   // ── Registration ───────────────────────────────────────────────────────────
