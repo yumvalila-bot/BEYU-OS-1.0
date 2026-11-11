@@ -423,7 +423,7 @@ describe("F. hostname is not authentication and not authorization", () => {
 
   it("leaves every deep-link gate exactly where it was", () => {
     for (const [file, gate] of [
-      [["src", "app", "os", "health", "mount.ts"], "checkHealthOSAuthorization("],
+      [["src", "app", "os", "health", "mount.ts"], "resolvePrincipal()"],
       [["src", "app", "os", "finance", "layout.tsx"], 'requestIsOnForeignOSHost("FINANCE")'],
       [["src", "app", "os", "agriculture", "layout.tsx"], "governedTenantInScope("],
       [["src", "app", "os", "ujenzi", "layout.tsx"], "governedTenantInScope("],
