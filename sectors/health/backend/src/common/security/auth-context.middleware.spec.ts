@@ -140,6 +140,14 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     expect(tenant.current()).toBeNull();
   });
 
+  it("rejects a locally revoked access-session jti immediately", async () => {
+    const doctorId = await freshDoctor();
+    const token = await signToken(doctorId, await repo.getSecurityVersion(doctorId), tenantAId);
+    const claims = jwt.verify<{ jti: string }>(token, { secret: SECRET });
+    await sessions.revokeByJti(doctorId, claims.jti);
+    await expect(enter(token)).rejects.toThrow("SESSION_INVALID");
+  });
+
   it("rejects a stale token after a security-version bump (role change)", async () => {
     const doctorId = await freshDoctor();
     const oldSv = await repo.getSecurityVersion(doctorId);
