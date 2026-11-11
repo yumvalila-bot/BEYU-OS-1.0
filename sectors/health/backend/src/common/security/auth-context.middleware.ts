@@ -128,6 +128,16 @@ export class AuthContextMiddleware implements NestMiddleware {
       });
       throw new UnauthorizedException("NO_CANONICAL_IDENTITY_LINK");
     }
+    if (link.status !== "active") {
+      await this.audit.record({
+        globalUserId: userId,
+        ...tenantContext,
+        eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "canonical_identity_link_not_active", status: link.status },
+      });
+      throw new UnauthorizedException("CANONICAL_IDENTITY_LINK_NOT_ACTIVE");
+    }
 
     // ── Canonical status revalidation (revocation propagation) ────────────
     // LIVE federation re-checks the canonical lifecycle status at most once
@@ -186,8 +196,7 @@ export class AuthContextMiddleware implements NestMiddleware {
       await this.audit.record({
         globalUserId: userId,
         ...tenantContext,
-        tenantId,
-        eventType: "token_rejected",
+                eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "local_session_inactive_or_mismatched", jti: claims.jti },
       });
@@ -208,8 +217,7 @@ export class AuthContextMiddleware implements NestMiddleware {
         await this.audit.record({
           globalUserId: userId,
         ...tenantContext,
-          tenantId,
-          eventType: "token_rejected",
+                    eventType: "token_rejected",
           result: "DENIED",
           context: { reason: "no_active_membership" },
         });

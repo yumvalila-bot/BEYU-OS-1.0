@@ -206,6 +206,13 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     await expect(enter(token)).rejects.toThrow("NO_CANONICAL_IDENTITY_LINK");
   });
 
+  it("rejects a revoked Health-local canonical identity link", async () => {
+    const doctorId = await freshDoctor();
+    const token = await signToken(doctorId, await repo.getSecurityVersion(doctorId), tenantAId);
+    await bridge.revokeLink({ globalUserId: doctorId, revokedBy: "security-regression-test" });
+    await expect(enter(token)).rejects.toThrow("CANONICAL_IDENTITY_LINK_NOT_ACTIVE");
+  });
+
   it("does not enter an actor for a request without a token", async () => {
     await enter(null);
     // No actor should have been established for this (fresh) async chain.
