@@ -46,6 +46,18 @@ CREATE TABLE IF NOT EXISTS beyu_identity.beyu_identity_links (
 );
 CREATE INDEX IF NOT EXISTS idx_beyu_links_party ON beyu_identity.beyu_identity_links(beyu_party_id);
 
+-- One-use BEYU authorization assertions. The Health database owns replay
+-- detection; assertion ids are never stored or checked in BEYU's database.
+CREATE TABLE IF NOT EXISTS beyu_identity.authorization_assertion_replays (
+  jti               text PRIMARY KEY,
+  canonical_user_id text NOT NULL,
+  expires_at        timestamptz NOT NULL,
+  consumed_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_health_assertion_replays_expiry
+  ON beyu_identity.authorization_assertion_replays(expires_at);
+
+
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS beyu_tenant_id text UNIQUE;
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS country_code text;
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS entity_code text;
