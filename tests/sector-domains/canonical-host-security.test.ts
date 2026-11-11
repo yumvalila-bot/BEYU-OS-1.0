@@ -163,7 +163,6 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
     expect(foreign).toBeGreaterThan(-1);
     expect(foreign).toBeGreaterThan(c.indexOf("resolvePrincipal()"));
     expect(foreign).toBeLessThan(c.indexOf("new NextResponse(healthSpaHtml"));
-    expect(foreign).toBeLessThan(c.indexOf("new NextResponse(healthSpaHtml"));
     // The refusal is the uniform, information-free 404 — never a redirect.
     expect(c.slice(foreign, foreign + 200)).toContain("hostnameDenialResponse()");
     // Pre-existing gates are intact.
