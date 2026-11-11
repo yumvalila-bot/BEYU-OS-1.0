@@ -58,10 +58,10 @@ export async function POST(request: Request): Promise<Response> {
     }, 400);
   }
 
-  const principal = await resolvePrincipal();
-  if (!principal) return errorResponse(401, "A valid BEYU human session is required.");
-
   try {
+    const principal = await resolvePrincipal();
+    if (!principal) return errorResponse(401, "A valid BEYU human session is required.");
+
     const response = await withTenantDatabaseContext(principal, async () => {
       const scope = await resolveNoeliaAuthorizedScope(principal);
       const context: ToolInvocationContext = {
