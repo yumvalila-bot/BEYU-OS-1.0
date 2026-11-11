@@ -38,7 +38,6 @@ import {
   UJENZI_OS_READ_PERMISSIONS,
   governedTenantInScope,
 } from "@/lib/operating-systems";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import type { Classification, PermissionCode } from "@/lib/constants";
 import type { VizDomainCode } from "./dimensions";
 
@@ -120,10 +119,10 @@ export async function assertSectorAccess(
         : { allowed: false, reason: "Sector authorization: Finance OS visualization requires an authorized Finance read path (READ-GOVERNED; CAP_POSTING remains LOCKED and visualization never posts)." };
     }
     case "HEALTH": {
-      const health = await checkHealthOSAuthorization(principal.userId);
-      return health.authorized
-        ? { allowed: true, reason: "Authorized through the Health federation identity bridge." }
-        : { allowed: false, reason: `Sector authorization: Health OS visualization requires the federated Health identity link (${health.reason ?? "NOT_LINKED"}). No PHI is ever exposed through visualization.` };
+      // BEYU cannot infer Health-local membership from its own database.
+      // Health-local authorization must be established in the Health backend;
+      // this cross-OS visualization route therefore fails closed.
+      return { allowed: false, reason: "Health OS visualization requires a Health-local authenticated session; BEYU does not query Health identity tables or expose PHI." };
     }
     default: {
       // Fail closed on any sector this build does not know.
