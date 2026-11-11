@@ -1,5 +1,7 @@
 # Canonical Destination Frontends — First-Class Entry + Destination-Aware Sign-In
 
+> **Health authorization update (2026-11-11):** this document's earlier BEYU-side Health identity-link gate is superseded. BEYU verifies its own session at the mount and issues a short-lived Ed25519 assertion; the Health backend verifies it and authorizes against its dedicated local database. See `docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md`.
+
 Status: **READ-ONLY REALITY AUDIT COMPLETE → IMPLEMENTED IN THE REPOSITORY** ·
 **VERCEL DOMAINS + DNS: HUMAN-CONTROLLED, UNCHANGED** ·
 baseline `main` = `2bcff13badb26fdd2d71178040c8e85e3c0448ed` (PR #101) ·
