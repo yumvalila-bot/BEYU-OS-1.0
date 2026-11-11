@@ -182,3 +182,29 @@ ChatGPT custom MCP availability depends on the ChatGPT plan and client surface. 
 ## 11. Definition of done
 
 The gateway is not complete merely because `/mcp` responds. Completion requires authenticated end-to-end client interoperability, principal-bound tool discovery, per-invocation BEYU authorization, negative isolation tests, durable audit evidence, token lifecycle/revocation tests, provider cost controls and a human-reviewed release decision.
+
+
+## 12. Phase 1 implementation status (branch work)
+
+**Implemented on `feature/noelia-unified-intelligence-gateway`:**
+
+- `src/lib/noelia/mcp-server.ts` provides a stateless JSON-RPC MCP dispatcher for initialization, ping, principal-specific tool discovery and tool calls.
+- `src/app/api/mcp/route.ts` provides the Node.js HTTP transport. It is disabled unless `NOELIA_MCP_ENABLED=1`, requires an existing canonical BEYU human browser session, resolves tenant/entity/country scope server-side inside `withTenantDatabaseContext`, and ignores caller-supplied identity or target claims.
+- `tests/noelia/mcp-server.test.ts` covers protocol negotiation, authorized tool discovery, read-only filtering, per-call registry re-authorization, notification handling and fail-closed denials.
+
+**Phase 1 exposure rules in code:**
+
+- Only registered tools with `sideEffects === "NONE"`, `risk === "LOW"`, and both registered Zod input/output schemas are eligible.
+- Tool discovery uses `authorizedToolNames(context)`; every call invokes the existing registry again, preserving its BEYU permission, scope, classification, kill-switch, input/output validation and audit controls.
+- Domain-write and audit-only tools are never exposed. There is no model/provider invocation, sector database connection, arbitrary SQL, filesystem, shell, URL fetch or agent tool surface in this transport.
+- The MCP transport has a bounded 256 KiB request body and does not return exception messages or stack traces to clients.
+- The HTTP endpoint is **off by default**. Phase 1 uses the existing BEYU session cookie as a temporary same-application authentication bridge. It is not yet an OAuth remote-client endpoint; OAuth 2.1/PKCE remains Phase 2.
+- The HTTP route is currently `/api/mcp`. A public hostname, reverse proxy, OAuth registration, CORS policy or deployment alias is not configured.
+
+**Local-first / cost policy:**
+
+- Phase 1 does not call OpenAI, Anthropic, Ollama Cloud or any paid inference endpoint.
+- It does not change `NOELIA_MODEL_PROVIDER`, Ollama configuration, Hermes configuration, model registry activation or cloud fallback behaviour.
+- Existing deterministic/local-first NOELIA model routing remains unchanged.
+
+**Verification limitation:** source and branch writes were confirmed through GitHub, but the repository test suite, TypeScript compiler, lint and HTTP end-to-end tests have not been executed in this environment. Phase 1 must remain a draft implementation until those checks run successfully in the repository's CI or a local checkout. Do not enable `NOELIA_MCP_ENABLED` in production before review.
