@@ -115,6 +115,20 @@ export class SessionService {
     return { session: created, newRefreshToken: issuedRefreshToken };
   }
 
+  /** Revoke a local access session by its signed JWT jti and owning user. */
+  async revokeByJti(globalUserId: string, jti: string): Promise<void> {
+    const session = await this.repo.findSessionByJti(globalUserId, jti);
+    if (!session || session.status !== "active") return;
+    await this.repo.updateSessionStatus(session.session_id, "revoked");
+    await this.repo.recordAuthEvent({
+      globalUserId,
+      tenantId: session.tenant_id,
+      eventType: "session_revoked",
+      result: "SUCCESS",
+      context: { reason: "federated_access_logout", sessionId: session.session_id, jti },
+    });
+  }
+
   /** Revoke a specific session (logout). */
   async revokeSession(refreshToken: string, _userId?: string): Promise<void> {
     const hash = this.hashToken(refreshToken);
