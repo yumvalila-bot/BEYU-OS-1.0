@@ -56,7 +56,7 @@ The two federation directions are distinct:
 | Health exchange endpoint | `sectors/health/backend/src/modules/auth/auth.controller.ts` |
 | Health local session issuance | `sectors/health/backend/src/modules/auth/auth.service.ts` |
 | Health replay DDL | `sectors/health/backend/src/modules/identity/boundary-schema.ts` |
-| Health replay migration | `sectors/health/backend/database/migrations/033_beyu_authorization_assertion_replay.up.sql` |
+| Health replay migration | `sectors/health/backend/database/migrations/033_beyu_authorization_assertion_replay.up.sql` and `034_unique_health_session_jti.up.sql` |
 | Health SPA client | `sectors/health/src/services/auth.ts` |
 | Server-only API proxy | `next.config.ts` |
 
