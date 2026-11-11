@@ -46,9 +46,10 @@
  *
  * What is deliberately NOT done here:
  *   - No second shell, sidebar, session system or authorization provider.
- *   - No bridging of the BEYU session into the sector's own JWT session — that
- *     runtime auth-flow integration is a documented architectural decision
- *     (`sectors/health/INTEGRATION.md`), not routing.
+ *   - No direct forwarding or reuse of the BEYU session credential as a
+ *     Health bearer token. The SPA requests a short-lived signed assertion;
+ *     Health verifies it locally and issues its own JWT only after local
+ *     account, tenant and membership checks.
  *   - Health backend calls remain same-origin under `/health-os/*`
  *     (the existing `VITE_API_BASE_URL` build-time knob), proxied to the sector
  *     backend by `next.config.ts` only when `HEALTH_API_URL` is configured.
