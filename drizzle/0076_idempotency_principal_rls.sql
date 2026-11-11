@@ -55,8 +55,6 @@ CREATE INDEX IF NOT EXISTS idempotency_records_principal_idx
 
 --> statement-breakpoint
 
--- The runtime role is a non-owner grantee; RLS, not table ownership, is its
--- authorization boundary. Provisioning must create this role before migration.
-GRANT SELECT, INSERT, UPDATE, DELETE
-  ON TABLE public.idempotency_records
-  TO beyu_runtime;
+-- Runtime DML grants are reconciled by scripts/setup-db-role.ts from the
+-- reviewed runtime privilege allowlist after migrations. The RLS policy below
+-- is independent of role provisioning and never grants global-scope bypass.
