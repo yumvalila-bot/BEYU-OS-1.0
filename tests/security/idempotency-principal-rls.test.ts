@@ -8,9 +8,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { randomUUID } from "node:crypto";
+import { and, eq, sql } from "drizzle-orm";
+import { db, pool, withDatabaseTransactionContext, withIndependentPrincipalDatabase } from "@/db";
+import { idempotencyRecords } from "@/db/schema";
 
 const runtimeUrl = process.env.BEYU_RUNTIME_DATABASE_URL ?? process.env.DATABASE_URL;
 const runtimeRole = process.env.BEYU_RUNTIME_DB_ROLE ?? "beyu_runtime";
+// The global Vitest setup redirects DATABASE_URL to a privileged test role for
+// other suites. This file deliberately restores the actual runtime DSN before
+// the lazy application pool is first used, so the helper under test also logs in
+// as beyu_runtime rather than inheriting the administrator connection.
+if (runtimeUrl) process.env.DATABASE_URL = runtimeUrl;
 
 describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runtime connection", () => {
   const client = new Client({ connectionString: runtimeUrl });
@@ -33,6 +41,55 @@ describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runti
   afterAll(async () => {
     if (transactionOpen) await client.query("ROLLBACK").catch(() => undefined);
     await client.end().catch(() => undefined);
+    await pool.end().catch(() => undefined);
+  });
+
+  it("uses a fresh transaction with explicit principal GUCs instead of inheriting the request transaction", async () => {
+    const tenantA = randomUUID();
+    const tenantB = randomUUID();
+    const actorA = randomUUID();
+    const actorB = randomUUID();
+    const key = randomUUID();
+    const scope = `${tenantA}:${actorA}:POST /__independent_probe`;
+
+    await withDatabaseTransactionContext(async (outer) => {
+      await outer.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantB}, true)`);
+      await outer.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
+      await outer.execute(sql`select set_config('beyu.actor_user_id', ${actorB}, true)`);
+
+      await withIndependentPrincipalDatabase(tenantA, actorA, async (independent) => {
+        await independent.insert(idempotencyRecords).values({
+          scope,
+          idempotencyKey: key,
+          requestHash: "independent-context-probe",
+          state: "IN_FLIGHT",
+          tenantId: tenantA,
+          actorUserId: actorA,
+          expiresAt: new Date(Date.now() + 60_000),
+        });
+        const own = await independent
+          .select({ key: idempotencyRecords.idempotencyKey })
+          .from(idempotencyRecords)
+          .where(and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)));
+        expect(own).toHaveLength(1);
+      });
+
+      // The caller's still-open transaction retains its original tenant/actor
+      // scope. If the independent helper accidentally reused the ALS transaction,
+      // these values would have been overwritten by tenantA/actorA.
+      const hidden = await outer
+        .select({ key: idempotencyRecords.idempotencyKey })
+        .from(idempotencyRecords)
+        .where(eq(idempotencyRecords.idempotencyKey, key));
+      expect(hidden).toHaveLength(0);
+    });
+
+    // Clean up the committed synthetic probe through the same constrained helper.
+    await withIndependentPrincipalDatabase(tenantA, actorA, (independent) =>
+      independent.delete(idempotencyRecords).where(
+        and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)),
+      ),
+    );
   });
 
   it("isolates reads, writes and deletes by both tenant and actor; global scope never bypasses", async () => {
