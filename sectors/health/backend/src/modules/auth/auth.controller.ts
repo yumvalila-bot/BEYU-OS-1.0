@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
-import { UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto, LogoutDto } from "./dto";
 import { JwtAuthGuard } from "./guards/jwt.guard";
@@ -40,6 +40,30 @@ export class AuthController {
     private authService: AuthService,
     @Inject(DB_CONNECTION) private readonly db: DbConnection,
   ) {}
+
+  /**
+   * BEYU → Health one-use identity exchange. This is the only production
+   * credential bootstrap path; standalone password registration/login remain
+   * fenced. The browser may call it only from the same origin.
+   */
+  @Post("federation/exchange")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Exchange a signed BEYU assertion for a Health-local session" })
+  async exchangeBeyuAssertion(
+    @Body("assertion") assertion: string,
+    @Req() req: Request,
+  ) {
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    if (!origin || !host || new URL(origin).host !== host) {
+      throw new ForbiddenException("FEDERATION_ORIGIN_NOT_ALLOWED");
+    }
+    if (typeof assertion !== "string" || !assertion) {
+      throw new UnauthorizedException("BEYU_ASSERTION_REQUIRED");
+    }
+    return this.authService.exchangeBeyuAssertion(assertion);
+  }
 
   @Post("register")
   @Public()
