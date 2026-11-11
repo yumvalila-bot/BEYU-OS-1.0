@@ -124,7 +124,7 @@ export class AuthService {
       expiresAt,
     });
     return {
-      accessToken: this.signAccessToken(actor.user, actor.role, actor.tenantId, accessJti),
+      accessToken: this.signAccessToken(actor.user, actor.role, actor.tenantId, accessJti, `${Math.floor(this.accessTokenTtlMs() / 1000)}s`),
       user: {
         globalUserId: actor.user.global_user_id,
         email: actor.user.email,
@@ -483,6 +483,7 @@ export class AuthService {
     role: string,
     tenantId: string | null,
     jti: string,
+    expiresIn?: string,
   ): string {
     return this.jwtService.sign(
       {
@@ -496,7 +497,7 @@ export class AuthService {
       },
       {
         subject: user.global_user_id,
-        expiresIn: this.configService.get("JWT_EXPIRATION", "15m"),
+        expiresIn: expiresIn ?? this.configService.get("JWT_EXPIRATION", "15m"),
       },
     );
   }
