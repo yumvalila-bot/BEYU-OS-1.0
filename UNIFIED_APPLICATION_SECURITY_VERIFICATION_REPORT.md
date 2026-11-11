@@ -1,5 +1,7 @@
 # BEYU OS — Unified Application Security Verification Report
 
+> **Historical snapshot — superseded Health federation model:** Historical verification snapshot. The direct BEYU database lookup described below is no longer the current Health authorization model; see `docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md` for the dedicated Health database and signed assertion exchange.
+
 **Date:** 2026-09-05  
 **Branch:** `arena/01a06f7a-beyu-os-1-0`  
 **Commit:** `7354e50`  
