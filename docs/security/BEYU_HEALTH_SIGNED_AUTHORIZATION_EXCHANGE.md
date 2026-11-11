@@ -18,7 +18,7 @@ decision for Health resources and never queries the BEYU database.
    table, checks the local account, maps the signed canonical tenant to a
    Health-local tenant, checks active local membership, and derives role and
    permissions from Health-local tables.
-6. Health issues a short-lived Health-local access JWT (maximum 15 minutes)
+6. Health issues a short-lived Health-local access JWT (maximum 15 minutes), anchored to a unique local session `jti` that middleware checks on every protected request and logout revokes
    anchored to a Health-local session/security version. No Health refresh
    credential is returned; renewal requires a fresh BEYU assertion.
 
