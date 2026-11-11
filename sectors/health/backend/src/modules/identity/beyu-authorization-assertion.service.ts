@@ -26,7 +26,6 @@ export type ResolvedBeyuActor = {
   user: StoredUser;
   tenantId: string;
   role: string;
-  permissions: string[];
   canonicalUserId: string;
 };
 
@@ -176,12 +175,10 @@ export class BeyuAuthorizationAssertionService {
     if (!membership) {
       throw new ForbiddenException("HEALTH_LOCAL_MEMBERSHIP_NOT_ACTIVE");
     }
-    const permissions = await this.repo.permissionsForRole(membership.role);
     return {
       user,
       tenantId: localTenant.tenant_id,
       role: membership.role,
-      permissions: permissions as string[],
       canonicalUserId: claims.sub,
     };
   }
