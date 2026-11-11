@@ -58,6 +58,8 @@ describe("BEYU Health Ed25519 assertion", () => {
     expect(claims.jti).toBeTruthy();
     expect(claims).not.toHaveProperty("permissions");
     expect(claims).not.toHaveProperty("roles");
+    expect(claims).not.toHaveProperty("tenant_code");
+    expect(claims).not.toHaveProperty("mfa_satisfied");
   });
 
   it("refuses to mint if the private signing key or session context is missing", () => {
