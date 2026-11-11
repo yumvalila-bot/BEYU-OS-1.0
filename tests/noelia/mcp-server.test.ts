@@ -118,9 +118,13 @@ describe("NOELIA MCP read-only transport", () => {
     expect((response?.result as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name)).toEqual(["risk.register.query"]);
   });
 
-  it("returns 202 semantics for notifications and rejects unsupported calls", async () => {
-    const { value } = registry();
+  it("returns 202 semantics for notifications and never executes notification-shaped tool calls", async () => {
+    const { value, invoke } = registry();
     expect(await handleNoeliaMcpMessage({ jsonrpc: "2.0", method: "notifications/initialized" }, null, value, context)).toBeNull();
+    expect(await handleNoeliaMcpMessage({
+      jsonrpc: "2.0", method: "tools/call", params: { name: "risk.register.query", arguments: {} },
+    }, NOELIA_MCP_PROTOCOL_VERSION, value, context)).toBeNull();
+    expect(invoke).not.toHaveBeenCalled();
     const response = await handleNoeliaMcpMessage({ jsonrpc: "2.0", id: 7, method: "not-a-method" }, NOELIA_MCP_PROTOCOL_VERSION, value, context);
     expect(response?.error).toMatchObject({ code: -32601 });
   });
