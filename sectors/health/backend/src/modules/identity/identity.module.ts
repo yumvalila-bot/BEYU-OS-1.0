@@ -5,6 +5,7 @@ import { AuditService } from "./audit.service";
 import { MfaService } from "./mfa.service";
 import { BeyuIdentityBridge } from "./beyu-bridge";
 import { IdentityFederationService } from "./identity-federation.service";
+import { BeyuAuthorizationAssertionService } from "./beyu-authorization-assertion.service";
 
 /**
  * Identity foundation module — owns the persistent identity repositories and
@@ -28,6 +29,8 @@ import { IdentityFederationService } from "./identity-federation.service";
     // Canonical identity federation (register/login/refresh/middleware gates).
     // IdentityAdapter comes from the @Global() BeyuIntegrationModule.
     IdentityFederationService,
+    BeyuAuthorizationAssertionService,
+    BeyuAuthorizationAssertionService,
   ],
   exports: [
     IdentityRepository,
