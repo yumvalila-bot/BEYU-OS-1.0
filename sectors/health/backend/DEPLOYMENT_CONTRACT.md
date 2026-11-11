@@ -93,7 +93,7 @@ openssl pkey -in beyu-health-ed25519-private.pem -pubout -out beyu-health-ed2551
 - Apply Health migrations through the governed Health migration runner only.
 - Health runtime role: `beyu_health_runtime`, `LOGIN NOSUPERUSER NOBYPASSRLS
   NOCREATEROLE`; it must not own the Health identity tables.
-- Migration 033 creates `beyu_identity.authorization_assertion_replays` and
+- Migrations 033–034 create `beyu_identity.authorization_assertion_replays`, enforce unique non-null Health session `jti` values, and
   grants the Health runtime role only the required `SELECT`, `INSERT` and
   `DELETE` privileges for atomic replay consumption and expiry cleanup.
 - No BEYU runtime role is granted access to Health tables. No Health runtime
@@ -132,7 +132,7 @@ Before release:
    separately approved release process.
 4. Run Health backend integration tests against the dedicated database or
    PGlite scratch engine.
-5. Run BEYU Finance RLS regression tests as the actual non-owner
+5. Verify Health migration status includes 033–034 and run BEYU Finance RLS regression tests as the actual non-owner
    `beyu_runtime` role; verify tenant and actor isolation, INSERT/UPDATE
    WITH CHECK, and global-scope non-bypass.
 6. Configure keys and `HEALTH_API_URL` in secret stores; do not commit values.
