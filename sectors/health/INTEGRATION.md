@@ -1,90 +1,95 @@
 # BEYU Health OS — Sector Integration Boundary
 
-**Status:** integrated into BEYU-OS-1.0 under the Sector OS boundary (2026-08-30).
-**Import:** `git subtree add --prefix=sectors/health` from
-`yumvalila-bot/HEALTH-OS-1.0` @ `06053179fa48098d3c6e7e36350325ae309a1c8b`
-(full history preserved; all 13 source commits in BEYU history).
+**Current architecture decision:** dedicated Health PostgreSQL database with signed BEYU-to-Health identity federation. This supersedes the historical shared-database assumption in earlier integration notes.
 
-## Position in the BEYU architecture
+## Constitutional position
 
 ```
-BEYU OS (constitutional control plane: identity, governance, audit, authorization)
-        ↓  governs
-BEYU Health OS (this sector: execution layer for healthcare operations)
-        ↓  executes
-Clinical / operational domain
+BEYU OS — canonical identity issuer, governance and strategic control plane
+        │
+        │ short-lived Ed25519 identity assertion
+        ▼
+Health OS — independent local authorization and clinical execution
+        │
+        ▼
+Health-local clinical, operational and tenant data
 ```
 
-- **BEYU OS governs. This sector executes.** Nothing in this sector is a
-  competing constitutional authority.
-- **One canonical GlobalUserID** (BEYU `public.users` / `public.parties`).
-  This sector's `beyu_identity.users.global_user_id` is a **domain identifier**
-  that acts only under a 1:1 link in `beyu_identity.beyu_identity_links`.
-- **Isolation:** tenant + entity + country boundaries. Linked tenants are
-  RLS-enforced against their canonical country/entity (migration 003);
-  unlinked legacy tenants keep tenant-only isolation.
-- **AI:** no sector AI runtime exists. Future Health AI capabilities must
-  operate as governed HIVE tools through the unified Noelia identity.
-  Noelia cannot approve its own actions (BEYU constitutional invariants 2/3).
+- BEYU remains the canonical identity issuer and governance authority.
+- Health is a separate Sector OS with its own PostgreSQL database, identity projection, memberships, roles, permissions, sessions and clinical data.
+- Health owns the authorization decision for Health resources. BEYU never queries Health identity tables or clinical data.
+- A hostname, launcher tile, browser claim or signed assertion alone is not a Health permission grant.
+- No Foundation OS, Family Office OS or second NOELIA identity is introduced.
 
-## Canonical boundaries enforced in this sector
+## Identity and authorization exchange
 
-| Boundary | Enforcement | Evidence |
-| --- | --- | --- |
-| One GlobalUserID | `beyu_identity_links` 1:1 (PK + UNIQUE), fail-closed `requireCanonicalLink` | `backend/src/modules/identity/beyu-bridge.spec.ts` (15 tests, real PostgreSQL) |
-| Tenant isolation | RLS `app.tenant_id` (imported migration 001) | imported `rls-isolation.spec.ts` (real PostgreSQL) |
-| Country isolation | RLS via `tenant_matches_boundary` (migration 003) | `isolation-boundaries.spec.ts` (cross-country denial, real PostgreSQL) |
-| Entity isolation | RLS via `tenant_matches_boundary` (migration 003) | `isolation-boundaries.spec.ts` (cross-entity denial, real PostgreSQL) |
-| Constitutional authority | `assertSectorGrantAllowed` refuses trustee/board/general-counsel + constitutional permissions via the sector path | `beyu-bridge.spec.ts` |
-| Canonical tenant linkage | set-once `linkTenant`; conflicts are hard errors | `beyu-bridge.spec.ts` |
+1. An authenticated BEYU session requests `POST /api/v1/health/authorization-assertion`.
+2. BEYU signs a 60-second, one-use Ed25519 JWT assertion. It contains the canonical GlobalUserID, BEYU session reference, canonical tenant reference, issuer, fixed Health audience, timestamps and unique `jti`. It contains no Health role, permission, patient data or BEYU bearer token.
+3. The Health SPA posts the assertion to `POST /auth/federation/exchange` through the same-origin `/health-os/*` proxy.
+4. Health verifies EdDSA signature, key id, issuer, audience, expiry, maximum lifetime and replay status using its own database.
+5. Health resolves the canonical subject through its local `beyu_identity.beyu_identity_links`, checks the local account, maps the asserted BEYU tenant to a Health-local tenant, and requires an active local membership.
+6. Health derives role and permissions from its own tables and issues a Health-local access JWT anchored to a local session and security version. The access token lifetime is capped at 15 minutes; renewal requires a fresh BEYU assertion.
+7. Health request middleware rechecks local account, link lifecycle, membership, permissions and security version. LIVE canonical status revalidation remains a separate Health-to-BEYU service call.
 
-## Database topology (canonical)
+The two federation directions are distinct:
+- Health → BEYU: existing service-authenticated canonical registration/status lookup APIs.
+- BEYU → Health: new asymmetric, short-lived, replay-protected human identity assertion.
 
-- One PostgreSQL database (the canonical BEYU database).
-- `public` schema: BEYU OS (untouched by this sector).
-- `beyu_identity` schema: this sector (migrations 001 imported; 002/003
-  additive, this integration).
-- Sector runtime role: `beyu_health_runtime` — non-owner grantee,
-  NOSUPERUSER NOBYPASSRLS, DML on `beyu_identity.*`, SELECT on
-  `public.tenants|countries|legal_entities` (control-plane catalogs are
-  authority-gated at the BEYU app layer by design; tenant *data* tables
-  remain RLS-gated).
-- GUC namespaces are disjoint: BEYU `beyu.*`, sector `app.*` — they coexist.
+## Database topology and isolation
 
-## Build & test (standalone sector package — root BEYU toolchain does not compile it)
+- BEYU and Health use **separate PostgreSQL databases** and separate runtime credentials.
+- BEYU database: canonical users/parties, sessions, grants, policy, governance and Finance operational ledgers.
+- Health database: `beyu_identity` local identity projection, links, tenant mapping, memberships, roles, permissions, local sessions, auth events and all Health domain data.
+- Health stores the canonical BEYU tenant reference in its local `beyu_identity.tenants.beyu_tenant_id` mapping. No cross-database foreign key, linked server, shared pool or read grant is used.
+- Health runtime role: `beyu_health_runtime`, non-owner, `NOSUPERUSER NOBYPASSRLS NOCREATEROLE`, with only required Health-schema DML and the explicit replay-ledger grants.
+- Health tenant/entity/country boundaries are enforced by Health-local RLS and request context. BEYU tenant and actor GUCs are not reused by Health.
+- The Health assertion replay table is private to the Health database. Its `jti` primary key makes consumption atomic and rejects replay.
 
-```bash
-# frontend (React/Vite SPA)
-cd sectors/health && npm ci && npm run typecheck && npm test && npm run build
+## Canonical files
 
-# backend (NestJS)
-cd sectors/health/backend && npm ci && npx tsc --noEmit
-TEST_DATABASE_URL=postgresql://<role>@<host>:5432/<db> npm test   # real PG (or PGlite fallback)
+| Area | Location |
+|---|---|
+| BEYU signer | `src/lib/health-authorization-assertion.ts` |
+| BEYU assertion endpoint | `src/app/api/v1/health/authorization-assertion/route.ts` |
+| BEYU Health mount | `src/app/os/health/mount.ts` |
+| Health verifier | `sectors/health/backend/src/modules/identity/beyu-authorization-assertion.service.ts` |
+| Health exchange endpoint | `sectors/health/backend/src/modules/auth/auth.controller.ts` |
+| Health local session issuance | `sectors/health/backend/src/modules/auth/auth.service.ts` |
+| Health replay DDL | `sectors/health/backend/src/modules/identity/boundary-schema.ts` |
+| Health replay migration | `sectors/health/backend/database/migrations/033_beyu_authorization_assertion_replay.up.sql` |
+| Health SPA client | `sectors/health/src/services/auth.ts` |
+| Server-only API proxy | `next.config.ts` |
+
+## Build and test
+
+```sh
+# BEYU root
+npm ci
+npm run typecheck
+npm test
+
+# Health frontend
+cd sectors/health
+npm ci
+npm run typecheck
+npm test
+npm run build
+
+# Health backend
+cd sectors/health/backend
+npm ci
+npx tsc --noEmit
+npm test
 ```
 
-## Frontend mount in BEYU OS (done 2026-09-17, BEYU-OS-1.0)
+Backend integration tests use PGlite by default and can use a real PostgreSQL
+scratch database through the test connection factory. The Finance RLS policy
+must additionally be exercised as the actual non-owner `beyu_runtime` role.
 
-- The single-file SPA is compiled by the BEYU root build
-  (`scripts/build-health-spa.mjs`, this package's own lockfile/toolchain,
-  `VITE_API_BASE_URL=/health-os` — the package's existing documented knob) and
-  served at `/health/os` by `src/app/health/os/route.ts`, which re-runs the
-  existing BEYU gate (canonical session + `beyu_identity.beyu_identity_links`
-  federation check, fail-closed). The `/health` page now redirects authorized
-  users to the mount; its denial/availability pages are unchanged.
-- When `HEALTH_API_URL` is configured at BEYU build time, same-origin
-  `/health-os/auth/*` is proxied to this backend via `next.config.ts`
-  rewrites; without it the SPA sign-in fails closed. No BEYU route is
-  occupied by the `/health-os/*` namespace and no credential reaches the
-  browser.
+## Production actions remain separate
 
-## Deliberately NOT done (requires architectural decision / approval)
-
-- Runtime auth-flow integration (sector accepting BEYU-asserted identity vs.
-  bridged JWT) — architectural decision.
-- Wrapping sector capabilities in BEYU governed APIs (`/api/v1/health/…`) —
-  architectural decision. (The same-origin `/health-os/auth/*` proxy above is
-  a configuration-level exposure of the sector's OWN API, not a governed-API
-  reimplementation.)
-- Supabase/Redis/Vercel deployment wiring — BLOCKED (no real credentials).
-- Removing constitutional roles from the sector's *reference catalog* — the
-  catalog is preserved (no destructive change); the grants path refuses them.
+This repository change does not create or rotate production keys, configure
+`HEALTH_API_URL`, provision a Health database, apply migration 033, deploy a
+backend or change production data. Each remains a separate human-approved
+release action. The deployment contract lists the exact configuration and
+verification gates.
