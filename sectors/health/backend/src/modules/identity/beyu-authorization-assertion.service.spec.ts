@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { ConfigService } from "@nestjs/config";
-import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { generateKeyPairSync, randomUUID, sign, type KeyObject } from "node:crypto";
 import { createTestDbConnection } from "./test-connection";
 import type { DbConnection } from "./db-connection";
 import { IdentityRepository } from "./identity.repository";
@@ -15,7 +15,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
   let service: BeyuAuthorizationAssertionService;
   let localUserId: string;
   let localTenantId: string;
-  let privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"];
+  let privateKey: KeyObject;
 
   const issuer = "https://www.beyu.co.tz";
   const audience = "beyu-health-os";
@@ -40,8 +40,8 @@ describe("BEYU signed assertion → Health-local authorization", () => {
   }
 
   beforeAll(async () => {
-    conn = await createTestDbConnection() as DbConnection;
-    repo = new IdentityRepository(conn as never);
+    conn = await createTestDbConnection();
+    repo = new IdentityRepository(conn);
     await repo.ensureSchema();
     await ensureBridgeSchema(conn);
     await ensureBoundarySchema(conn);
