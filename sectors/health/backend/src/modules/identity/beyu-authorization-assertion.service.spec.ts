@@ -124,6 +124,12 @@ describe("BEYU signed assertion → Health-local authorization", () => {
     );
   });
 
+  it("denies a disabled Health-local account", async () => {
+    await repo.setAccountStatus(localUserId, "disabled");
+    await expect(service.verifyAndResolve(assertion())).rejects.toThrow("HEALTH_LOCAL_ACCOUNT_NOT_ACTIVE");
+    await repo.setAccountStatus(localUserId, "active");
+  });
+
   it("denies a missing local membership even when the signed BEYU identity is valid", async () => {
     await conn.query(
       "UPDATE beyu_identity.tenant_memberships SET status = 'revoked' WHERE global_user_id = $1 AND tenant_id = $2",
