@@ -53,7 +53,10 @@ export class AuthService {
     @Optional()
     @Inject(IdentityFederationService)
     private readonly federation?: IdentityFederationService,
-    @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,\n    @Optional() @Inject(BeyuAuthorizationAssertionService) private readonly beyuAssertion?: BeyuAuthorizationAssertionService,
+    @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,
+    @Optional()
+    @Inject(BeyuAuthorizationAssertionService)
+    private readonly beyuAssertion?: BeyuAuthorizationAssertionService,
   ) {}
 
   /**
