@@ -52,3 +52,11 @@ CREATE POLICY idempotency_records_principal_isolation
 
 CREATE INDEX IF NOT EXISTS idempotency_records_principal_idx
   ON public.idempotency_records (tenant_id, actor_user_id, expires_at);
+
+--> statement-breakpoint
+
+-- The runtime role is a non-owner grantee; RLS, not table ownership, is its
+-- authorization boundary. Provisioning must create this role before migration.
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.idempotency_records
+  TO beyu_runtime;
