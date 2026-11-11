@@ -143,7 +143,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
   it("rejects a stale token after a security-version bump (role change)", async () => {
     const doctorId = await freshDoctor();
     const oldSv = await repo.getSecurityVersion(doctorId);
-    const token = signToken(doctorId, oldSv, tenantAId);
+    const token = await signToken(doctorId, oldSv, tenantAId);
     // Role change bumps security_version → old token must now be rejected.
     await repo.setMembershipRole(doctorId, tenantAId, "nurse");
     await expect(enter(token)).rejects.toBeInstanceOf(UnauthorizedException);
@@ -151,7 +151,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
 
   it("rejects a disabled account even with a valid token", async () => {
     const doctorId = await freshDoctor();
-    const token = signToken(
+    const token = await signToken(
       doctorId,
       await repo.getSecurityVersion(doctorId),
       tenantAId,
@@ -167,7 +167,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     // (post-revoke) sv so the freshness check passes and the missing-membership
     // denial is reached.
     await repo.revokeMembership(doctorId, tenantAId);
-    const token = signToken(
+    const token = await signToken(
       doctorId,
       await repo.getSecurityVersion(doctorId),
       tenantAId,
@@ -188,7 +188,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
       role: "doctor",
     });
     // NOTE: no canonical link created — exactly the unlinked-sector-user case.
-    const token = signToken(
+    const token = await signToken(
       user.global_user_id,
       await repo.getSecurityVersion(user.global_user_id),
       tenantAId,
