@@ -92,12 +92,23 @@ export async function POST(request: Request): Promise<Response> {
 
     const response = await withTenantDatabaseContext(principal, async () => {
       const scope = await resolveNoeliaAuthorizedScope(principal);
+      // A target is selected only when BEYU's server-resolved authority leaves
+      // exactly one unambiguous entity/country choice. Multiple choices remain
+      // unset rather than allowing the MCP caller to pick a scope dimension.
+      const soleEntity = principal.entityScope.length === 1
+        ? scope.entities.find((entity) => entity.id === principal.entityScope[0] && entity.tenantId === principal.tenantId)
+        : undefined;
+      const tenantCountries = scope.tenantCountries.filter((item) => item.tenantId === principal.tenantId);
+      const soleCountry = soleEntity?.countryCode
+        ?? (tenantCountries.length === 1 ? tenantCountries[0]?.countryCode ?? null : null);
       const context: ToolInvocationContext = {
         principal,
         traceId: `MCP_${randomUUID()}`,
-        // The initial MCP surface is restricted to the authenticated user's
-        // own canonical tenant. Client-provided target dimensions are ignored.
-        target: { tenantId: principal.tenantId, legalEntityId: null, countryCode: null },
+        target: {
+          tenantId: principal.tenantId,
+          legalEntityId: soleEntity?.id ?? null,
+          countryCode: soleCountry,
+        },
         scope,
         approval: null,
       };
