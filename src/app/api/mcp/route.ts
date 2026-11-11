@@ -29,8 +29,19 @@ function errorResponse(status: number, message: string): Response {
 export async function POST(request: Request): Promise<Response> {
   if (process.env.NOELIA_MCP_ENABLED !== "1") return new Response(null, { status: 404 });
 
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("application/json")) return errorResponse(415, "MCP requests must use application/json.");
+  const contentType = (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") return errorResponse(415, "MCP requests must use application/json.");
+
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== new URL(request.url).origin) {
+        return errorResponse(403, "Cross-origin MCP requests are not accepted.");
+      }
+    } catch {
+      return errorResponse(403, "Invalid MCP request origin.");
+    }
+  }
 
   const declaredLength = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declaredLength) && declaredLength > NOELIA_MCP_MAX_BODY_BYTES) {
@@ -39,12 +50,29 @@ export async function POST(request: Request): Promise<Response> {
 
   let raw: string;
   try {
-    raw = await request.text();
+    const reader = request.body?.getReader();
+    if (!reader) return errorResponse(400, "MCP request body is required.");
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > NOELIA_MCP_MAX_BODY_BYTES) {
+        await reader.cancel();
+        return errorResponse(413, "MCP request body exceeds the configured limit.");
+      }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    raw = new TextDecoder("utf-8", { fatal: true }).decode(body);
   } catch {
-    return errorResponse(400, "MCP request body could not be read.");
-  }
-  if (Buffer.byteLength(raw, "utf8") > NOELIA_MCP_MAX_BODY_BYTES) {
-    return errorResponse(413, "MCP request body exceeds the configured limit.");
+    return errorResponse(400, "MCP request body could not be read as valid UTF-8.");
   }
 
   let message: unknown;
