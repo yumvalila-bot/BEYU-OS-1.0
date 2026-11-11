@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { db, withIndependentDatabase } from "@/db";
+import { withIndependentPrincipalDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 import { sha256, stableStringify } from "./crypto";
 import type { Principal } from "./authz";
@@ -37,7 +37,7 @@ export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
  */
 
 export type IdempotencyOutcome =
-  | { kind: "PROCEED"; scope: string; key: string; requestHash: string }
+  | { kind: "PROCEED"; scope: string; key: string; requestHash: string; tenantId: string; actorUserId: string }
   | { kind: "NO_KEY" }
   | { kind: "REPLAY"; statusCode: number; body: unknown }
   | { kind: "MISMATCH" }
@@ -49,6 +49,9 @@ export type IdempotencyOutcome =
  * client cannot influence it.
  */
 export function idempotencyScope(principal: Principal, endpoint: string): string {
+  if (!principal.tenantId?.trim() || !principal.userId?.trim() || !endpoint.trim()) {
+    throw new Error("Idempotency requires an authenticated tenant, actor, and endpoint.");
+  }
   return `${principal.tenantId}:${principal.userId}:${endpoint}`;
 }
 
@@ -83,13 +86,20 @@ export async function claimIdempotencyKey(
   // that transaction later rolls back or the process crashes, the durable
   // IN_FLIGHT record remains and forces operator reconciliation rather than
   // permitting an uncertain mutation to execute twice.
-  return withIndependentDatabase(async (database) => {
+  return withIndependentPrincipalDatabase(principal.tenantId, principal.userId, async (database) => {
   // Completed responses may be cleaned up after their TTL. IN_FLIGHT rows are
   // retained indefinitely: expiry must never turn an uncertain outcome into a
   // second execution opportunity.
   await database
     .delete(idempotencyRecords)
-    .where(and(eq(idempotencyRecords.state, "COMPLETED"), lt(idempotencyRecords.expiresAt, now)));
+    .where(
+      and(
+        eq(idempotencyRecords.tenantId, principal.tenantId),
+        eq(idempotencyRecords.actorUserId, principal.userId),
+        eq(idempotencyRecords.state, "COMPLETED"),
+        lt(idempotencyRecords.expiresAt, now),
+      ),
+    );
 
   // Claim atomically. ON CONFLICT DO NOTHING means exactly one concurrent caller
   // inserts the row; everyone else falls through to inspect the existing record.
@@ -107,7 +117,7 @@ export async function claimIdempotencyKey(
     .onConflictDoNothing()
     .returning({ scope: idempotencyRecords.scope });
 
-  if (inserted.length > 0) return { kind: "PROCEED", scope, key, requestHash };
+  if (inserted.length > 0) return { kind: "PROCEED", scope, key, requestHash, tenantId: principal.tenantId, actorUserId: principal.userId };
 
   const [existing] = await database
     .select()
@@ -117,7 +127,7 @@ export async function claimIdempotencyKey(
 
   if (!existing) {
     // Raced with the expiry sweep; the key is free again.
-    return { kind: "PROCEED", scope, key, requestHash };
+    return { kind: "PROCEED", scope, key, requestHash, tenantId: principal.tenantId, actorUserId: principal.userId };
   }
 
   // Same key, different payload — never return the previous result.
@@ -145,24 +155,28 @@ export async function completeIdempotencyKey(
   body: unknown,
   traceId?: string,
 ): Promise<void> {
-  const completed = await db
-    .update(idempotencyRecords)
-    .set({
-      state: "COMPLETED",
-      statusCode,
-      responseBody: body as Record<string, unknown>,
-      completedAt: new Date(),
-      traceId,
-    })
-    .where(
-      and(
-        eq(idempotencyRecords.scope, claim.scope),
-        eq(idempotencyRecords.idempotencyKey, claim.key),
-        eq(idempotencyRecords.requestHash, claim.requestHash),
-        eq(idempotencyRecords.state, "IN_FLIGHT"),
-      ),
-    )
-    .returning({ scope: idempotencyRecords.scope });
+  const completed = await withIndependentPrincipalDatabase(claim.tenantId, claim.actorUserId, (database) =>
+    database
+      .update(idempotencyRecords)
+      .set({
+        state: "COMPLETED",
+        statusCode,
+        responseBody: body as Record<string, unknown>,
+        completedAt: new Date(),
+        traceId,
+      })
+      .where(
+        and(
+          eq(idempotencyRecords.scope, claim.scope),
+          eq(idempotencyRecords.idempotencyKey, claim.key),
+          eq(idempotencyRecords.requestHash, claim.requestHash),
+          eq(idempotencyRecords.tenantId, claim.tenantId),
+          eq(idempotencyRecords.actorUserId, claim.actorUserId),
+          eq(idempotencyRecords.state, "IN_FLIGHT"),
+        ),
+      )
+      .returning({ scope: idempotencyRecords.scope }),
+  );
   if (completed.length !== 1) {
     // The domain operation may already have committed. Do not silently return a
     // response that cannot be replayed, and do not release the uncertain claim.
@@ -179,15 +193,19 @@ export async function completeIdempotencyKey(
 export async function releaseIdempotencyKey(
   claim: Extract<IdempotencyOutcome, { kind: "PROCEED" }>,
 ): Promise<void> {
-  await db
-    .delete(idempotencyRecords)
-    .where(
-      and(
-        eq(idempotencyRecords.scope, claim.scope),
-        eq(idempotencyRecords.idempotencyKey, claim.key),
-        eq(idempotencyRecords.state, "IN_FLIGHT"),
+  await withIndependentPrincipalDatabase(claim.tenantId, claim.actorUserId, (database) =>
+    database
+      .delete(idempotencyRecords)
+      .where(
+        and(
+          eq(idempotencyRecords.scope, claim.scope),
+          eq(idempotencyRecords.idempotencyKey, claim.key),
+          eq(idempotencyRecords.tenantId, claim.tenantId),
+          eq(idempotencyRecords.actorUserId, claim.actorUserId),
+          eq(idempotencyRecords.state, "IN_FLIGHT"),
+        ),
       ),
-    );
+  );
 }
 
 /** Test/ops helper: how many live claims exist for a principal's scope. */
