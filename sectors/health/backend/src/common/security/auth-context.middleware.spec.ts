@@ -13,11 +13,13 @@ import {
   TestDbConnection,
 } from "../../modules/identity/test-connection";
 import { IdentityRepository } from "../../modules/identity/identity.repository";
+import { SessionService } from "../../modules/identity/session.service";
 import { AuditService } from "../../modules/identity/audit.service";
 import { TenantContext, ActorContext } from "./tenant-context";
 import { AuthContextMiddleware } from "./auth-context.middleware";
 import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
 import * as bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 
 jest.setTimeout(60_000);
 
@@ -31,6 +33,7 @@ function makeRequest(token: string | null): any {
 describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
   let conn: TestDbConnection;
   let repo: IdentityRepository;
+  let sessions: SessionService;
   let audit: AuditService;
   let tenant: TenantContext;
   let jwt: JwtService;
@@ -44,16 +47,25 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
   const enter = (token: string | null, onNext?: () => void) =>
     middleware.use(makeRequest(token), {} as any, () => onNext?.());
 
-  const signToken = (
+  const signToken = async (
     sub: string,
     sv: number,
     tenantId: string | null,
     role = "doctor",
-  ) =>
-    jwt.sign(
-      { sub, email: "doc@a.example", role, tenantId, sv },
+  ) => {
+    const jti = randomUUID();
+    await sessions.createSession({
+      globalUserId: sub,
+      tenantId,
+      refreshToken: randomUUID(),
+      jti,
+      expiresAt: new Date(Date.now() + 15 * 60_000),
+    });
+    return jwt.sign(
+      { sub, jti, email: "doc@a.example", role, tenantId, sv },
       { secret: SECRET },
     );
+  };
 
   /** Fresh user + membership per test so tests never mutate shared state. */
   const freshDoctor = async () => {
@@ -81,6 +93,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     conn = await createTestDbConnection();
     repo = new IdentityRepository(conn);
     await repo.ensureSchema();
+    sessions = new SessionService(repo);
     audit = new AuditService(repo);
     tenant = new TenantContext();
     jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: "15m" } });
@@ -108,7 +121,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
 
   it("enters a DB-derived actor for a valid, current token", async () => {
     const doctorId = await freshDoctor();
-    const token = signToken(
+    const token = await signToken(
       doctorId,
       await repo.getSecurityVersion(doctorId),
       tenantAId,
@@ -206,7 +219,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     );
 
     // Token signed WITHOUT issuer/audience → rejected (no actor established).
-    const plain = signToken(doctorId, sv, tenantAId);
+    const plain = await signToken(doctorId, sv, tenantAId);
     let actorPlain: ActorContext | null = "sentinel" as any;
     await mw.use(makeRequest(plain), {} as any, () => {
       actorPlain = tenant.current();
@@ -214,9 +227,18 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     expect(actorPlain).toBeNull();
 
     // Token signed WITH matching issuer/audience → accepted.
+    const goodJti = randomUUID();
+    await sessions.createSession({
+      globalUserId: doctorId,
+      tenantId: tenantAId,
+      refreshToken: randomUUID(),
+      jti: goodJti,
+      expiresAt: new Date(Date.now() + 15 * 60_000),
+    });
     const good = jwt.sign(
       {
         sub: doctorId,
+        jti: goodJti,
         email: "doc@a.example",
         role: "doctor",
         tenantId: tenantAId,
