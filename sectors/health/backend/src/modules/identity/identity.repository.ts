@@ -403,6 +403,17 @@ export class IdentityRepository {
     return rows.length ? mapSession(rows[0]) : null;
   }
 
+  async findSessionByJti(globalUserId: string, jti: string): Promise<StoredSession | null> {
+    const rows = await this.conn.query(
+      `SELECT * FROM beyu_identity.sessions
+        WHERE global_user_id = $1 AND jti = $2
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [globalUserId, jti],
+    );
+    return rows.length ? mapSession(rows[0]) : null;
+  }
+
   async updateSessionStatus(
     sessionId: string,
     status: SessionStatus,
