@@ -12,9 +12,9 @@
  *   self-contained document and owns its own in-UI chrome. It is mounted as a
  *   route handler for the same reason `/health/os` always was — the BEYU OS
  *   shell (`src/app/os/layout.tsx`) is the CONTROL PLANE shell, and forcing a
- *   Health-only principal (valid session + federation link, but deliberately
- *   granted no control-plane capability) through it would bounce them to
- *   `/launcher` and break the canonical Health destination. A route handler is
+ *   Health-only principal (valid BEYU session, but deliberately granted no
+ *   BEYU control-plane capability) through it would bounce them to `/launcher`
+ *   and break the canonical Health destination. A route handler is
  *   not rendered through layouts, so the canonical route reaches the sector
  *   implementation directly — with no second shell and no relaxation of the
  *   gate, which still runs server-side on every request (`./mount`).
