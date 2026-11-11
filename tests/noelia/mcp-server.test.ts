@@ -47,12 +47,12 @@ function registry() {
     decision: { allowed: true as const, code: "ALLOWED" as const, reason: "authorized" },
     output: { headline: "Risk register summary", findings: [] },
   }));
-  const value = {
+  const raw = {
     list: vi.fn(() => [safeTool]),
     authorizedToolNames: vi.fn(() => ["risk.register.query"]),
     invoke,
   };
-  return { value, invoke };
+  return { value: raw as unknown as Parameters<typeof handleNoeliaMcpMessage>[2], raw, invoke };
 }
 
 describe("NOELIA MCP read-only transport", () => {
@@ -108,12 +108,12 @@ describe("NOELIA MCP read-only transport", () => {
   });
 
   it("does not expose audit-only or domain-write tools", async () => {
-    const { value } = registry();
-    value.list.mockReturnValue([
+    const { value, raw } = registry();
+    raw.list.mockReturnValue([
       safeTool,
       { ...safeTool, name: "write.action", metadata: { ...safeTool.metadata, sideEffects: "DOMAIN_WRITE" } },
       { ...safeTool, name: "audit.action", metadata: { ...safeTool.metadata, sideEffects: "AUDIT_ONLY" } },
-    ]);
+    ] as never);
     const response = await handleNoeliaMcpMessage({ jsonrpc: "2.0", id: 6, method: "tools/list" }, NOELIA_MCP_PROTOCOL_VERSION, value, context);
     expect((response?.result as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name)).toEqual(["risk.register.query"]);
   });
@@ -130,7 +130,7 @@ describe("NOELIA MCP read-only transport", () => {
     value.invoke.mockResolvedValue({
       allowed: false,
       decision: { allowed: false, code: "PERMISSION_DENIED", reason: "denied" },
-    });
+    } as never);
     const response = await handleNoeliaMcpMessage({
       jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "risk.register.query", arguments: {} },
     }, NOELIA_MCP_PROTOCOL_VERSION, value, context);
