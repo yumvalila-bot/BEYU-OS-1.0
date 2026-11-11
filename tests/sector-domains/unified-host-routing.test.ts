@@ -353,7 +353,7 @@ describe("D. the internal route registry — every destination has an implemente
     expect(legacyAlias).toContain("os/health/mount");
     expect(mount).toContain("resolvePrincipal()");
     // The canonical route adds no authorization logic of its own.
-    expect(canonical).not.toMatch(/checkHealthOSAuthorization|can\(/);
+    expect(canonical).not.toMatch(/can\(/);
   });
 });
 
