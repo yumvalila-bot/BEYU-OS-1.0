@@ -330,8 +330,15 @@ export const KNOWN_METADATA_DEBT = {
     // silent rot. The applied DDL is verified against src/db/schema by the
     // schema-drift gate instead.
     "0073",
-    // 0074 and later migrations have source-generated snapshots chained from
-    // the real predecessor. New migrations must not extend this debt register.
+    // 0076 is a hand-authored, reviewed RLS hardening migration for the existing
+    // idempotency ledger. Its nullability, policy and supporting index are
+    // verified against src/db/schema/platform.ts and the actual beyu_runtime
+    // PostgreSQL regression. No snapshot was generated at authoring time, so
+    // none is fabricated after the fact; the journal entry is present and this
+    // metadata gap is explicitly acknowledged for this migration only.
+    "0076",
+    // New migrations must not extend this debt register without an explicit
+    // reviewable metadata-debt entry and matching schema-drift verification.
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */
