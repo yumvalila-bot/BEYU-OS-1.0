@@ -103,7 +103,7 @@ export class BeyuAuthorizationAssertionService {
     } else if (configuredKid === header.kid) {
       publicPem = this.config.get<string>("BEYU_AUTH_ASSERTION_PUBLIC_KEY");
     }
-    if (!publicPem) throw new UnauthorizedException("BEYU_ASSERTION_KEY_UNKNOWN");
+    if (!keySetRaw && (!configuredKid || !this.config.get<string>("BEYU_AUTH_ASSERTION_PUBLIC_KEY"))) {\n      throw new ServiceUnavailableException("BEYU_ASSERTION_VERIFIER_NOT_CONFIGURED");\n    }\n    if (!publicPem) throw new UnauthorizedException("BEYU_ASSERTION_KEY_UNKNOWN");
 
     try {
       const key = createPublicKey(publicPem.replace(/\\n/g, "\n"));
