@@ -112,7 +112,15 @@ export class AuthService {
     await this.federation.assertCanonicalStatusActive(link);
     const accessJti = this.sessions.newJti();
     const opaqueRefresh = this.sessions.newJti();
-    const expiresAt = new Date(Date.now() + this.accessTokenTtlMs());
+    const ttlMs = this.accessTokenTtlMs();
+    const expiresAt = new Date(Date.now() + ttlMs);
+    const accessToken = this.signAccessToken(
+      actor.user,
+      actor.role,
+      actor.tenantId,
+      accessJti,
+      `${Math.floor(ttlMs / 1000)}s`,
+    );
     // A Health-local session row anchors the access token to the local user,
     // tenant and security_version. The opaque refresh secret is intentionally
     // discarded: continuation requires a fresh BEYU assertion, not a Health-
@@ -132,7 +140,7 @@ export class AuthService {
       context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
     });
     return {
-      accessToken: this.signAccessToken(actor.user, actor.role, actor.tenantId, accessJti, `${Math.floor(this.accessTokenTtlMs() / 1000)}s`),
+      accessToken,
       user: {
         globalUserId: actor.user.global_user_id,
         email: actor.user.email,
@@ -148,6 +156,7 @@ export class AuthService {
     const match = /^(\d+)(s|m|h|d)$/.exec(raw);
     if (!match) return 15 * 60_000;
     const amount = Number(match[1]);
+    if (!Number.isSafeInteger(amount) || amount < 1) return 15 * 60_000;
     const unit = match[2] === "s" ? 1_000 : match[2] === "m" ? 60_000 : match[2] === "h" ? 3_600_000 : 86_400_000;
     return Math.min(amount * unit, 15 * 60_000);
   }
