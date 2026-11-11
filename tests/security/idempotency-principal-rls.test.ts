@@ -55,33 +55,33 @@ describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runti
     try {
       await withDatabaseTransactionContext(async (outer) => {
         await outer.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantB}, true)`);
-      await outer.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
-      await outer.execute(sql`select set_config('beyu.actor_user_id', ${actorB}, true)`);
+        await outer.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
+        await outer.execute(sql`select set_config('beyu.actor_user_id', ${actorB}, true)`);
 
-      await withIndependentPrincipalDatabase(tenantA, actorA, async (independent) => {
-        await independent.insert(idempotencyRecords).values({
-          scope,
-          idempotencyKey: key,
-          requestHash: "independent-context-probe",
-          state: "IN_FLIGHT",
-          tenantId: tenantA,
-          actorUserId: actorA,
-          expiresAt: new Date(Date.now() + 60_000),
+        await withIndependentPrincipalDatabase(tenantA, actorA, async (independent) => {
+          await independent.insert(idempotencyRecords).values({
+            scope,
+            idempotencyKey: key,
+            requestHash: "independent-context-probe",
+            state: "IN_FLIGHT",
+            tenantId: tenantA,
+            actorUserId: actorA,
+            expiresAt: new Date(Date.now() + 60_000),
+          });
+          const own = await independent
+            .select({ key: idempotencyRecords.idempotencyKey })
+            .from(idempotencyRecords)
+            .where(and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)));
+          expect(own).toHaveLength(1);
         });
-        const own = await independent
+
+        // The caller's still-open transaction retains its original tenant/actor
+        // scope. If the independent helper accidentally reused the ALS transaction,
+        // these values would have been overwritten by tenantA/actorA.
+        const hidden = await outer
           .select({ key: idempotencyRecords.idempotencyKey })
           .from(idempotencyRecords)
-          .where(and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)));
-        expect(own).toHaveLength(1);
-      });
-
-      // The caller's still-open transaction retains its original tenant/actor
-      // scope. If the independent helper accidentally reused the ALS transaction,
-      // these values would have been overwritten by tenantA/actorA.
-      const hidden = await outer
-        .select({ key: idempotencyRecords.idempotencyKey })
-        .from(idempotencyRecords)
-        .where(eq(idempotencyRecords.idempotencyKey, key));
+          .where(eq(idempotencyRecords.idempotencyKey, key));
         expect(hidden).toHaveLength(0);
       });
     } finally {
