@@ -137,7 +137,7 @@ export class AuthService {
 
   private accessTokenTtlMs(): number {
     const raw = this.configService.get<string>("JWT_EXPIRATION", "15m");
-    const match = /^(\\d+)(s|m|h|d)$/.exec(raw);
+    const match = /^(\d+)(s|m|h|d)$/.exec(raw);
     if (!match) return 15 * 60_000;
     const amount = Number(match[1]);
     const unit = match[2] === "s" ? 1_000 : match[2] === "m" ? 60_000 : match[2] === "h" ? 3_600_000 : 86_400_000;
