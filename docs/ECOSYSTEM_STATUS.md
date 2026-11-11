@@ -26,6 +26,65 @@ to a file, a test, or a command run in this session — not to prior reports.
 
 ---
 
+## 0. Active security remediation branch — NOT MERGED
+
+**Branch:** `security/health-finance-boundary-remediation`  
+**Base:** `main` at `dc8f848226ed8860ef293f817fe10394360abb1d`  
+**Scope:** Health signed authorization exchange + Health-local session verification; Finance idempotency tenant/actor RLS.
+
+This section describes branch work only. It does not change the status of `main`
+or claim production deployment.
+
+### Health — branch implementation
+
+- BEYU signs a 60-second Ed25519 assertion from the authenticated BEYU session.
+- Health verifies key id, fixed algorithm, issuer, audience, time window and
+  replay identifier using its own database.
+- Health resolves active local identity link, account, tenant mapping and
+  membership. Health roles/permissions are derived locally; none are accepted
+  from BEYU claims.
+- Health issues a local access JWT capped at 15 minutes. Each protected request
+  now checks the local session `jti`, account state, canonical link lifecycle,
+  local membership and security version. Logout revokes that local session.
+- Health migrations 033–034 add assertion replay protection and unique local
+  access-session identifiers. The BEYU mount no longer reads Health identity
+  tables through the BEYU connection.
+- Production keys, `HEALTH_API_URL`, Health database provisioning and migrations
+  remain unconfigured and unapplied by this branch.
+
+### Finance — branch implementation
+
+- Idempotency claim, completion, release and diagnostics use an independent
+  transaction with explicit single-tenant and actor RLS context.
+- Migration 0076 makes tenant and actor mandatory, enables and forces RLS, adds
+  a strict two-dimension policy and explicitly grants DML to `beyu_runtime`.
+- The live BEYU table currently has zero rows and no missing tenant/actor values.
+  Its RLS and FORCE RLS flags are still false because migration 0076 has not
+  been applied to production.
+
+### Verification evidence and limitations
+
+- The connected BEYU database confirms `beyu_runtime` is LOGIN,
+  `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEROLE` and `NOCREATEDB`; it has the
+  required DML grants on the idempotency table.
+- A transaction-scoped test executed as the actual `beyu_runtime` role against
+  a temporary table with the proposed policy. It verified own-row access,
+  cross-tenant and cross-actor read denial, cross-tenant INSERT and UPDATE
+  rejection, cross-actor DELETE denial, and that global scope does not bypass
+  the policy. The transaction rolled back; no persistent schema/data or role
+  membership change remains.
+- The actual `public.idempotency_records` table has not yet had migration 0076
+  applied, so it has not been tested under the new policy in place.
+- Health backend integration tests and the full root/Health suites have been
+  added/updated but have **not yet been executed** in this environment. The
+  local GitHub clone attempt failed because `github.com` DNS resolution was
+  unavailable. CI has been enabled for this remediation branch so the
+  PostgreSQL-backed suite can run on the next branch push.
+- No draft PR is open. The review gate remains closed until automated test
+  results and code review evidence are available.
+
+---
+
 ## 1. Identity — CURRENT IMPLEMENTATION
 
 - ONE canonical human identity: `GlobalUserID = users.id`, resolved through
