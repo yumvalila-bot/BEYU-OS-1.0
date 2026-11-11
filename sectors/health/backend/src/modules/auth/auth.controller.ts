@@ -55,8 +55,11 @@ export class AuthController {
     @Req() req: Request,
   ) {
     const origin = req.headers.origin;
-    const host = req.headers.host;
-    if (!origin || !host || new URL(origin).host !== host) {
+    const allowedOrigins = (process.env.BEYU_TRUSTED_BROWSER_ORIGINS ?? process.env.CORS_ORIGIN ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value && value !== "*");
+    if (!origin || !allowedOrigins.includes(origin)) {
       throw new ForbiddenException("FEDERATION_ORIGIN_NOT_ALLOWED");
     }
     if (typeof assertion !== "string" || !assertion) {
