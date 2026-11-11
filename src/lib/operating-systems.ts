@@ -136,7 +136,6 @@ export async function authorizedOperatingSystems(
   if (FINANCE_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)) {
     allowed.add("FINANCE");
   }
-  // Discoverability only. Health verifies the signed BEYU assertion against\n  // its own identity, tenant and membership records before issuing a local session.\n  allowed.add("HEALTH");
   if (agricultureInScope && can(principal, "agriculture:data.read").allowed) {
     allowed.add("AGRICULTURE");
   }
