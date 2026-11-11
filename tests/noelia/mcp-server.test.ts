@@ -82,10 +82,10 @@ describe("NOELIA MCP read-only transport", () => {
   });
 
   it("lists only registered, authorized, low-risk, read-only capabilities", async () => {
-    const { value } = registry();
+    const { value, raw } = registry();
     const response = await handleNoeliaMcpMessage({ jsonrpc: "2.0", id: 3, method: "tools/list" }, NOELIA_MCP_PROTOCOL_VERSION, value, context);
     expect(response?.result).toMatchObject({ tools: [{ name: "risk.register.query", annotations: { readOnlyHint: true, destructiveHint: false } }] });
-    expect(value.authorizedToolNames).toHaveBeenCalledWith(context);
+    expect(raw.authorizedToolNames).toHaveBeenCalledWith(context);
   });
 
   it("rechecks authorization in the registry on every invocation", async () => {
@@ -98,8 +98,8 @@ describe("NOELIA MCP read-only transport", () => {
   });
 
   it("does not invoke a tool outside the principal's visible allowlist", async () => {
-    const { value, invoke } = registry();
-    value.authorizedToolNames.mockReturnValue([]);
+    const { value, raw, invoke } = registry();
+    raw.authorizedToolNames.mockReturnValue([]);
     const response = await handleNoeliaMcpMessage({
       jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "risk.register.query", arguments: {} },
     }, NOELIA_MCP_PROTOCOL_VERSION, value, context);
@@ -126,8 +126,8 @@ describe("NOELIA MCP read-only transport", () => {
   });
 
   it("fails closed when registry invocation denies", async () => {
-    const { value } = registry();
-    value.invoke.mockResolvedValue({
+    const { value, raw } = registry();
+    raw.invoke.mockResolvedValue({
       allowed: false,
       decision: { allowed: false, code: "PERMISSION_DENIED", reason: "denied" },
     } as never);
