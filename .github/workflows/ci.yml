@@ -36,7 +36,7 @@ name: BEYU OS CI — PostgreSQL-backed security gate
 
 on:
   push:
-    branches: [main]
+    branches: [main, security/health-finance-boundary-remediation]
   pull_request:
     branches: [main]
   workflow_dispatch:
