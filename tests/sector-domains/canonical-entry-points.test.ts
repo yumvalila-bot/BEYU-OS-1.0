@@ -94,7 +94,7 @@ describe("A. every canonical entry point exists and is REAL", () => {
 
   it("every OS home keeps a server-side gate file of its own", () => {
     for (const entry of [
-      { file: ["src", "app", "os", "health", "mount.ts"], gate: "checkHealthOSAuthorization(" },
+      { file: ["src", "app", "os", "health", "mount.ts"], gate: "resolvePrincipal()" },
       { file: ["src", "app", "os", "finance", "layout.tsx"], gate: "requestIsOnForeignOSHost(" },
       { file: ["src", "app", "os", "agriculture", "layout.tsx"], gate: "governedTenantInScope(" },
       { file: ["src", "app", "os", "ujenzi", "layout.tsx"], gate: "governedTenantInScope(" },
