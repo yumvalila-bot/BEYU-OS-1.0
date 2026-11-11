@@ -137,14 +137,18 @@ export class AuthController {
 
   @Post("logout")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Logout (revoke the session and clear cookie)" })
+  @ApiBearerAuth("access-token")
+  @ApiOperation({ summary: "Revoke the current Health-local access session" })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() logoutDto: LogoutDto,
   ) {
-    const refreshToken = logoutDto.refreshToken ?? this.readRefreshToken(req);
-    if (refreshToken) {
+    const actor = req.user as { userId?: string; jti?: string } | undefined;
+    if (actor?.userId && actor.jti) {
+      await this.authService.logoutAccessSession(actor.userId, actor.jti);
+    } else {
+      const refreshToken = logoutDto?.refreshToken ?? this.readRefreshToken(req);
       await this.authService.logout(refreshToken);
     }
     res.clearCookie(REFRESH_COOKIE, this.cookieOptions());
