@@ -4,8 +4,7 @@ import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { createTestDbConnection } from "./test-connection";
 import type { DbConnection } from "./db-connection";
 import { IdentityRepository } from "./identity.repository";
-import { BeyuIdentityBridge } from "./beyu-bridge";
-import { ensureBoundarySchema } from "./boundary-schema";
+import { ensureBoundarySchema, ensureBridgeSchema } from "./boundary-schema";
 import { BeyuAuthorizationAssertionService } from "./beyu-authorization-assertion.service";
 
 jest.setTimeout(30000);
@@ -44,8 +43,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
     conn = await createTestDbConnection() as DbConnection;
     repo = new IdentityRepository(conn as never);
     await repo.ensureSchema();
-    const bridge = new BeyuIdentityBridge(conn);
-    await bridge.ensureBridgeSchema();
+    await ensureBridgeSchema(conn);
     await ensureBoundarySchema(conn);
 
     const user = await repo.createUser({
