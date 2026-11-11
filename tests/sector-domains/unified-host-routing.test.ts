@@ -351,7 +351,7 @@ describe("D. the internal route registry — every destination has an implemente
     const mount = source("src", "app", "os", "health", "mount.ts");
     expect(canonical).toContain('from "./mount"');
     expect(legacyAlias).toContain("os/health/mount");
-    expect(mount).toContain("checkHealthOSAuthorization(");
+    expect(mount).toContain("resolvePrincipal()");
     // The canonical route adds no authorization logic of its own.
     expect(canonical).not.toMatch(/checkHealthOSAuthorization|can\(/);
   });
