@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const healthApiUrl = process.env.HEALTH_API_URL?.replace(/\/+$/, "");
     if (!healthApiUrl) return [];
-    return [{ source: "/health-os/:path*", destination: \`${healthApiUrl}/:path*\` }];
+    return [{ source: "/health-os/:path*", destination: `${healthApiUrl}/:path*` }];
   },
   async headers() {
     return [
@@ -37,11 +37,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Health OS: no proxy to the standalone sector backend. The Health SPA's
-  // sign-in calls /health-os/auth/* and now fails closed, because the backend
-  // refuses standalone credentials (audit C-2, decision D-3). Identity is BEYU's.
-  // Do not add a rewrite here until the governed identity bridge is implemented
-  // and verified. Whether the sector backend is deployed at all is decision D-4.
+  // Health API proxy is same-origin and enabled only when HEALTH_API_URL is
+  // configured on the server. No backend credential is exposed to the browser.
+  // Health identity is established only through the signed BEYU assertion exchange.
 };
 
 export default nextConfig;
