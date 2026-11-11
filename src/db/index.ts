@@ -205,9 +205,9 @@ export async function withIndependentPrincipalDatabase<T>(
     await tx.execute(
       sql`select set_config('beyu.current_tenant_ids', ${tenantId}, true)`,
     );
-    await tx.execute((await import("drizzle-orm")).sql`select set_config('beyu.global_scope', 'off', true)`);
+    await tx.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
     await tx.execute(
-      (await import("drizzle-orm")).sql`select set_config('beyu.actor_user_id', ${actorUserId}, true)`,
+      sql`select set_config('beyu.actor_user_id', ${actorUserId}, true)`,
     );
     return operation(tx);
   });
