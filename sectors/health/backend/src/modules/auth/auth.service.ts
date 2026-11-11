@@ -119,7 +119,7 @@ export class AuthService {
       actor.role,
       actor.tenantId,
       accessJti,
-      `${Math.floor(ttlMs / 1000)}s`,
+      Math.floor(ttlMs / 1000),
     );
     // A Health-local session row anchors the access token to the local user,
     // tenant and security_version. The opaque refresh secret is intentionally
@@ -500,7 +500,7 @@ export class AuthService {
     role: string,
     tenantId: string | null,
     jti: string,
-    expiresIn?: string,
+    expiresIn?: number,
   ): string {
     return this.jwtService.sign(
       {
