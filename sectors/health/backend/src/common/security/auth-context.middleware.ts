@@ -20,6 +20,7 @@ interface TokenClaims {
   role: string;
   tenantId?: string | null;
   sv?: number;
+  jti?: string;
   permissions?: string[];
 }
 
@@ -163,6 +164,38 @@ export class AuthContextMiddleware implements NestMiddleware {
 
     // Resolve tenant + role + permissions from the DATABASE (never token claims).
     const tenantId = claims.tenantId ?? null;
+    if (!claims.jti) {
+      await this.audit.record({
+        globalUserId: userId,
+        tenantId,
+        eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "missing_session_jti" },
+      });
+      throw new UnauthorizedException("SESSION_INVALID");
+    }
+    const localSession = await this.repo.findSessionByJti(userId, claims.jti);
+    if (
+      !localSession ||
+      localSession.status !== "active" ||
+      new Date(localSession.expires_at).getTime() <= Date.now() ||
+      localSession.tenant_id !== tenantId
+    ) {
+      await this.audit.record({
+        globalUserId: userId,
+        tenantId,
+        eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "local_session_inactive_or_mismatched", jti: claims.jti },
+      });
+      throw new UnauthorizedException("SESSION_INVALID");
+    }
+    (req as Request & { user?: unknown }).user = {
+      userId,
+      jti: claims.jti,
+      sessionId: localSession.session_id,
+      tenantId,
+    };
     let role = claims.role ?? "patient";
     if (tenantId) {
       const membership = await this.repo.findActiveMembership(userId, tenantId);
