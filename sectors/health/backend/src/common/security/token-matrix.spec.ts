@@ -34,6 +34,8 @@ import {
   TestDbConnection,
 } from "../../modules/identity/test-connection";
 import { IdentityRepository } from "../../modules/identity/identity.repository";
+import { SessionService } from "../../modules/identity/session.service";
+import { randomUUID } from "node:crypto";
 import { AuditService } from "../../modules/identity/audit.service";
 import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
 import { TenantContext, ActorContext } from "./tenant-context";
@@ -51,6 +53,7 @@ function makeRequest(token: string | null): any {
 describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   let conn: TestDbConnection;
   let repo: IdentityRepository;
+  let sessions: SessionService;
   let audit: AuditService;
   let tenant: TenantContext;
   let jwt: JwtService;
@@ -62,10 +65,25 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   const enter = (token: string | null) =>
     middleware.use(makeRequest(token), {} as any, () => undefined);
 
-  const sign = (
+  const sign = async (
     payload: Record<string, unknown>,
     opts: Record<string, unknown> = {},
-  ) => jwt.sign(payload, { secret: SECRET, ...opts });
+  ) => {
+    const subject = typeof payload.sub === "string" ? payload.sub : null;
+    if (subject) {
+      const jti = randomUUID();
+      const tenantId = typeof payload.tenantId === "string" ? payload.tenantId : null;
+      await sessions.createSession({
+        globalUserId: subject,
+        tenantId,
+        refreshToken: randomUUID(),
+        jti,
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+      });
+      payload = { ...payload, jti };
+    }
+    return jwt.sign(payload, { secret: SECRET, ...opts });
+  };
 
   /** Create a user + membership + canonical link; return its id + current sv. */
   async function linkedUser(tenantId: string, role = "doctor") {
@@ -97,6 +115,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     conn = await createTestDbConnection();
     repo = new IdentityRepository(conn);
     await repo.ensureSchema();
+    sessions = new SessionService(repo);
     audit = new AuditService(repo);
     tenant = new TenantContext();
     jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: "15m" } });
@@ -120,7 +139,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("VALID token → actor established with canonical link present", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
