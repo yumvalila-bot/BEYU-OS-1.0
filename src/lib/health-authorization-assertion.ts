@@ -37,8 +37,6 @@ export function signHealthAuthorizationAssertion(principal: Principal): {
     sub: principal.userId,
     sid: principal.sessionId,
     tenant_id: principal.tenantId,
-    tenant_code: principal.tenantCode,
-    mfa_satisfied: Boolean(principal.mfaSatisfied),
     iat: now,
     exp: expiresAt,
     jti: randomUUID(),
