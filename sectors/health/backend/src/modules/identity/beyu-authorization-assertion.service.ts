@@ -8,7 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { createPublicKey, verify as verifySignature } from "node:crypto";
 import { DB_CONNECTION, type DbConnection } from "./db-connection";
 import { Inject } from "@nestjs/common";
-import { IdentityRepository, type StoredUser } from "./identity.repository";
+
 
 type AssertionClaims = {
   iss: string;
@@ -22,7 +22,12 @@ type AssertionClaims = {
 };
 
 export type ResolvedBeyuActor = {
-  user: StoredUser;
+  user: {
+    global_user_id: string;
+    email: string;
+    display_name: string;
+    security_version: number;
+  };
   tenantId: string;
   role: string;
   canonicalUserId: string;
@@ -38,7 +43,6 @@ export class BeyuAuthorizationAssertionService {
   constructor(
     private readonly config: ConfigService,
     @Inject(DB_CONNECTION) private readonly conn: DbConnection,
-    private readonly repo: IdentityRepository,
   ) {}
 
   private decodePart(part: string): Record<string, unknown> {
@@ -144,40 +148,42 @@ export class BeyuAuthorizationAssertionService {
       throw new UnauthorizedException("BEYU_ASSERTION_REPLAYED");
     }
 
-    const links = await this.conn.query<{ global_user_id: string; status: string }>(
-      `SELECT global_user_id, status
-         FROM beyu_identity.beyu_identity_links
-        WHERE beyu_user_id = $1`,
-      [claims.sub],
+    const resolved = await this.conn.query<{
+      decision_code: string;
+      global_user_id: string | null;
+      email: string | null;
+      display_name: string | null;
+      security_version: number | null;
+      tenant_id: string | null;
+      role: string | null;
+    }>(
+      `SELECT * FROM beyu_identity.resolve_beyu_authorization($1, $2)`,
+      [claims.sub, claims.tenant_id],
     );
-    const link = links[0];
-    if (!link || link.status !== "active") {
-      throw new ForbiddenException("HEALTH_IDENTITY_LINK_NOT_ACTIVE");
+    const actor = resolved[0];
+    if (!actor) {
+      throw new ServiceUnavailableException("HEALTH_AUTHORIZATION_RESOLVER_UNAVAILABLE");
     }
-
-    const tenantRows = await this.conn.query<{ tenant_id: string; status: string }>(
-      `SELECT tenant_id, status
-         FROM beyu_identity.tenants
-        WHERE beyu_tenant_id = $1`,
-      [claims.tenant_id],
-    );
-    const localTenant = tenantRows[0];
-    if (!localTenant || localTenant.status !== "active") {
-      throw new ForbiddenException("HEALTH_TENANT_NOT_ACTIVE_OR_LINKED");
-    }
-
-    const user = await this.repo.findUserById(link.global_user_id);
-    if (!user || user.account_status !== "active") {
-      throw new ForbiddenException("HEALTH_LOCAL_ACCOUNT_NOT_ACTIVE");
-    }
-    const membership = await this.repo.findActiveMembership(user.global_user_id, localTenant.tenant_id);
-    if (!membership) {
-      throw new ForbiddenException("HEALTH_LOCAL_MEMBERSHIP_NOT_ACTIVE");
+    if (
+      actor.decision_code !== "AUTHORIZED" ||
+      !actor.global_user_id ||
+      !actor.email ||
+      !actor.display_name ||
+      actor.security_version === null ||
+      !actor.tenant_id ||
+      !actor.role
+    ) {
+      throw new ForbiddenException(actor.decision_code);
     }
     return {
-      user,
-      tenantId: localTenant.tenant_id,
-      role: membership.role,
+      user: {
+        global_user_id: actor.global_user_id,
+        email: actor.email,
+        display_name: actor.display_name,
+        security_version: actor.security_version,
+      },
+      tenantId: actor.tenant_id,
+      role: actor.role,
       canonicalUserId: claims.sub,
     };
   }

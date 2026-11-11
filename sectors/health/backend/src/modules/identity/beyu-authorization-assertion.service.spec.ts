@@ -76,7 +76,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
       BEYU_AUTH_ASSERTION_ISSUER: issuer,
       BEYU_AUTH_ASSERTION_AUDIENCE: audience,
     } as never);
-    service = new BeyuAuthorizationAssertionService(config, conn, repo);
+    service = new BeyuAuthorizationAssertionService(config, conn);
   });
 
   afterAll(async () => {
@@ -84,7 +84,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
   });
 
   it("verifies BEYU signature and resolves account, tenant, role and permissions locally", async () => {
-    const actor = await service.verifyAndResolve(assertion());
+    const actor = await service.verifyAndResolve(assertion({ role: 'platform_admin', permissions: ['clinical:*'] }));
     expect(actor.user.global_user_id).toBe(localUserId);
     expect(actor.tenantId).toBe(localTenantId);
     expect(actor.role).toBe("doctor");

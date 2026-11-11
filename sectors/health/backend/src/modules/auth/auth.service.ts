@@ -496,7 +496,7 @@ export class AuthService {
   }
 
   private signAccessToken(
-    user: StoredUser,
+    user: Pick<StoredUser, "global_user_id" | "email" | "display_name" | "security_version">,
     role: string,
     tenantId: string | null,
     jti: string,

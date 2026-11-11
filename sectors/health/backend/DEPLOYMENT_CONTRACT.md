@@ -93,9 +93,7 @@ openssl pkey -in beyu-health-ed25519-private.pem -pubout -out beyu-health-ed2551
 - Apply Health migrations through the governed Health migration runner only.
 - Health runtime role: `beyu_health_runtime`, `LOGIN NOSUPERUSER NOBYPASSRLS
   NOCREATEROLE`; it must not own the Health identity tables.
-- Migrations 033–034 create `beyu_identity.authorization_assertion_replays`, enforce unique non-null Health session `jti` values, and
-  grants the Health runtime role only the required `SELECT`, `INSERT` and
-  `DELETE` privileges for atomic replay consumption and expiry cleanup.
+- Migrations 033–035 create the Health-local assertion replay ledger, enforce unique non-null session `jti` values, and install a narrowly scoped `SECURITY DEFINER` identity resolver. `beyu_health_runtime` receives `EXECUTE` on that resolver only; it does not receive cross-database access or table ownership.
 - No BEYU runtime role is granted access to Health tables. No Health runtime
   role is granted access to BEYU tables.
 - Local authorization requires an active link, active Health account, active
@@ -128,11 +126,11 @@ npm test
 Before release:
 1. Verify the Health DB endpoint and `beyu_health_runtime` role attributes.
 2. Verify migration status and checksum through the Health migration runner.
-3. Apply migration 033 only to the dedicated Health database through the
+3. Apply migrations 033–035 only to the dedicated Health database through the
    separately approved release process.
 4. Run Health backend integration tests against the dedicated database or
    PGlite scratch engine.
-5. Verify Health migration status includes 033–034 and run BEYU Finance RLS regression tests as the actual non-owner
+5. Verify Health migration status includes 033–035 and run BEYU Finance RLS regression tests as the actual non-owner
    `beyu_runtime` role; verify tenant and actor isolation, INSERT/UPDATE
    WITH CHECK, and global-scope non-bypass.
 6. Configure keys and `HEALTH_API_URL` in secret stores; do not commit values.
@@ -147,8 +145,9 @@ Before release:
 - Unset `HEALTH_API_URL` and redeploy BEYU to remove the same-origin proxy.
 - Revert application code only after the deployment plan accounts for already
   issued Health-local access tokens (maximum 15-minute lifetime).
-- Roll back migration 033 only after all Health services no longer require
-  replay protection and through the governed migration runner.
+- Roll back migrations 035, 034 and 033 only after all Health services no longer
+  require the resolver, session-jti uniqueness and replay protection, using the
+  governed migration runner in reverse order.
 
 No step in this contract changes production configuration, secrets, database
 schema or deployed services without separate explicit approval.

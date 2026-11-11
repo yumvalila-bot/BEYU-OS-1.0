@@ -27,7 +27,7 @@ Health-local clinical, operational and tenant data
 2. BEYU signs a 60-second, one-use Ed25519 JWT assertion. It contains the canonical GlobalUserID, BEYU session reference, canonical tenant reference, issuer, fixed Health audience, timestamps and unique `jti`. It contains no Health role, permission, patient data or BEYU bearer token.
 3. The Health SPA posts the assertion to `POST /auth/federation/exchange` through the same-origin `/health-os/*` proxy.
 4. Health verifies EdDSA signature, key id, issuer, audience, expiry, maximum lifetime and replay status using its own database.
-5. Health resolves the canonical subject through its local `beyu_identity.beyu_identity_links`, checks the local account, maps the asserted BEYU tenant to a Health-local tenant, and requires an active local membership.
+5. Health calls the narrowly scoped `beyu_identity.resolve_beyu_authorization` security-definer function, which checks the local identity link, account, tenant mapping and membership in one Health-local query. The function is owned by the privileged migration role; `beyu_health_runtime` receives `EXECUTE` only, avoiding a bootstrap query that would be blocked by tenant RLS before context exists.
 6. Health derives role and permissions from its own tables and issues a Health-local access JWT anchored to a local session and security version. The access token lifetime is capped at 15 minutes; renewal requires a fresh BEYU assertion.
 7. Health request middleware rechecks local account, link lifecycle, membership, permissions and security version. LIVE canonical status revalidation remains a separate Health-to-BEYU service call.
 
@@ -56,7 +56,7 @@ The two federation directions are distinct:
 | Health exchange endpoint | `sectors/health/backend/src/modules/auth/auth.controller.ts` |
 | Health local session issuance | `sectors/health/backend/src/modules/auth/auth.service.ts` |
 | Health replay DDL | `sectors/health/backend/src/modules/identity/boundary-schema.ts` |
-| Health replay migration | `sectors/health/backend/database/migrations/033_beyu_authorization_assertion_replay.up.sql` and `034_unique_health_session_jti.up.sql` |
+| Health replay migration | `sectors/health/backend/database/migrations/033_beyu_authorization_assertion_replay.up.sql` and `034_unique_health_session_jti.up.sql` and `035_beyu_authorization_resolver.up.sql` |
 | Health SPA client | `sectors/health/src/services/auth.ts` |
 | Server-only API proxy | `next.config.ts` |
 
