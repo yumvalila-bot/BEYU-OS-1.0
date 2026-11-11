@@ -115,10 +115,11 @@ export class AuthService {
       jti: accessJti,
       expiresAt,
     });
-    if (this.federation) {
-      const link = await this.federation.requireLinkedIdentity(actor.user.global_user_id);
-      await this.federation.assertCanonicalStatusActive(link);
+    if (!this.federation) {
+      throw new ServiceUnavailableException("CANONICAL_IDENTITY_FEDERATION_UNAVAILABLE");
     }
+    const link = await this.federation.requireLinkedIdentity(actor.user.global_user_id);
+    await this.federation.assertCanonicalStatusActive(link);
     await this.audit.record({
       globalUserId: actor.user.global_user_id,
       tenantId: actor.tenantId,
