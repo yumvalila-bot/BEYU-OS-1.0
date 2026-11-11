@@ -18,7 +18,6 @@ import type { Metadata } from "next";
 
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { Icon } from "@/components/icons";
 import { SignOutButton } from "../os/sign-out-button";
 
@@ -32,12 +31,7 @@ export default async function HealthOSPage() {
     redirect("/");
   }
 
-  // Check Health OS authorization
-  const healthAuth = await checkHealthOSAuthorization(principal.userId);
-
-  if (!healthAuth.authorized) {
-    const unavailable = healthAuth.reason === "AUTHORIZATION_SERVICE_UNAVAILABLE";
-    return (
+  // The Health backend is authoritative for local identity, tenant and membership.\n  // The signed assertion exchange in the SPA performs that verification.\n  redirect("/os/health");\n\n  /* Legacy denial UI retained below as unreachable migration context.\n  if (false) {\n    const unavailable = true;\n    return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <section aria-labelledby="health-access-title" className="max-w-md mx-auto text-center p-8">
           <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0b1f4d] text-[#e7c45c]">
@@ -74,5 +68,5 @@ export default async function HealthOSPage() {
   // canonical Sector OS route. `/os/health` serves the compiled sector SPA and
   // re-runs this exact gate (canonical session + federation link, fail-closed)
   // on every request, so this redirect never relaxes authority.
-  redirect("/os/health");
+  */
 }
