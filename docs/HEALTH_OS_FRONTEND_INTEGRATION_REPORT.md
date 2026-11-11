@@ -1,5 +1,7 @@
 # Health OS — Frontend Integration Report
 
+> **Historical snapshot — superseded Health federation model:** Historical implementation report. Its statement that the BEYU mount authorizes by reading the Health identity-link table is superseded by the current signed BEYU → Health assertion exchange documented in `docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md`.
+
 **Companion to** `docs/HEALTH_OS_FRONTEND_INTEGRATION_AUDIT.md` (the reality audit; every claim there is traced to a file, CI workflow, or production URL).
 **Branch:** `arena/01a0adcf-beyu-os-1-0` (Arena session-pinned branch, branched from `main` @ `51f50b8`, the merged PR #65 state).
 **One-line summary:** the EXISTING Health OS single-file SPA (`sectors/health`) is now mounted at `/health/os` inside the BEYU authenticated shell, behind the unchanged BEYU session + canonical federation-link gate (fail-closed); the placeholder "Coming Soon" card at `/health` is gone; no new OS, no new authorization model, no schema change, no RLS change, no CAP_POSTING change.
