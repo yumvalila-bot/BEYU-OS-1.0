@@ -2,10 +2,10 @@
  * BEYU Health OS — real backend authentication client.
  *
  * Security model:
- *  - The refresh token lives in an httpOnly, SameSite cookie set by the backend;
- *    browser JS can never read it. All requests use `credentials: 'include'`.
- *  - The access token is held in memory only (never localStorage) and refreshed
- *    transparently on 401 via /auth/refresh.
+ *  - BEYU issues a one-use Ed25519 assertion; Health resolves all local
+ *    identity, tenant, membership and permission state before issuing a local JWT.
+ *  - The Health access token is held in memory only (never localStorage), is
+ *    capped at 15 minutes, and is renewed by obtaining a fresh BEYU assertion.
  *  - Authorization is enforced server-side; this client never defines it.
  */
 
@@ -136,16 +136,22 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 
 export async function logout(): Promise<void> {
   try {
+    const token = getAccessToken();
     await fetch(`${API_BASE}/auth/logout`, {
       method: "POST",
       credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({}),
     });
   } finally {
     setAccessToken(null);
   }
 }
 
-/** Restore a session from the httpOnly refresh cookie (on app load). */
+/** Obtain a fresh Health-local session from the authenticated BEYU browser session. */
 export async function restoreSession(): Promise<AuthUser | null> {
   try {
     const data = await exchangeFromBeyu();
