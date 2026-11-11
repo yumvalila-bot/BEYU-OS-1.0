@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { tenants } from "@/db/schema";
 import { can, type Principal } from "@/lib/authz";
 import { classificationsAtOrBelow, type Classification, type PermissionCode } from "@/lib/constants";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { checkBeyuOSAuthorization } from "@/lib/os-authorization";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 
@@ -131,14 +130,13 @@ export async function authorizedOperatingSystems(
   // query before its savepoint is rolled back.
   const agricultureInScope = await governedTenantInScope(principal, "BEYU-AGRI");
   const ujenziInScope = await governedTenantInScope(principal, "BEYU-UJENZI");
-  const health = await checkHealthOSAuthorization(principal.userId);
   const allowed = new Set<OperatingSystemDestination["code"]>();
 
   if (checkBeyuOSAuthorization(principal).authorized) allowed.add("BEYU");
   if (FINANCE_OS_READ_PERMISSIONS.some((permission) => can(principal, permission).allowed)) {
     allowed.add("FINANCE");
   }
-  if (health.authorized) allowed.add("HEALTH");
+  // Discoverability only. Health verifies the signed BEYU assertion against\n  // its own identity, tenant and membership records before issuing a local session.\n  allowed.add("HEALTH");
   if (agricultureInScope && can(principal, "agriculture:data.read").allowed) {
     allowed.add("AGRICULTURE");
   }
