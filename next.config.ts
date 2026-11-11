@@ -24,7 +24,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  async rewrites() {\n    const healthApiUrl = process.env.HEALTH_API_URL?.replace(/\\/+$/, "");\n    if (!healthApiUrl) return [];\n    return [{ source: "/health-os/:path*", destination: `${healthApiUrl}/:path*` }];\n  },\n  async headers() {
+  async rewrites() {
+    const healthApiUrl = process.env.HEALTH_API_URL?.replace(/\/+$/, "");
+    if (!healthApiUrl) return [];
+    return [{ source: "/health-os/:path*", destination: \`${healthApiUrl}/:path*\` }];
+  },
+  async headers() {
     return [
       {
         source: "/(.*)",
