@@ -73,8 +73,9 @@ export function authorizeVisualization(
  * DATA AUTHORIZATION stage: prove the principal may read the SECTOR whose
  * data a visualization would present. This is the canonical Sector OS
  * resolution — the identical conjunctions `authorizedOperatingSystems()`
- * applies for the launcher (permission grant + tenant scope for the
- * tenant-backed Sector OSs; the federation identity bridge for Health OS).
+ * applies for BEYU-authorized destinations. Health visualization is denied
+ * here because only a Health-local authenticated session can authorize Health
+ * data; the BEYU visualization layer cannot infer that local session.
  *
  * Holding `viz:scene.read` is NEVER access to sector data on its own:
  *   • UJENZI      — ujenzi:data.read AND the BEYU-UJENZI tenant in scope;
