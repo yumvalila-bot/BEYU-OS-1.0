@@ -9,19 +9,15 @@
  * gate. There is no second mount, no second shell, no second authorization
  * check and no duplicated sector bundle.
  *
- * Authorization is re-run HERE, on every request, on both URLs:
- *
- *   1. `resolvePrincipal()` — canonical BEYU session (unauthenticated → 307 `/`).
- *      A direct deep link is never trusted.
- *   2. `checkHealthOSAuthorization()` — canonical identity federation link in
- *      `beyu_identity.beyu_identity_links`, fail-closed (not linked / service
- *      unavailable → 307 back to `/health`, which renders the truthful denial
- *      or availability page).
+ * The BEYU mount verifies the canonical BEYU session on every request and
+ * refuses foreign OS/capability hosts. It does not connect to Health's
+ * database. The compiled SPA obtains a short-lived signed assertion from BEYU;
+ * the Health backend verifies it and performs the authoritative local identity,
+ * account, tenant and membership checks before issuing a Health-local session.
  *
  * The URL is NOT an authorization input: no branch in this module reads the
- * pathname or search params, and the host is used for ONE purpose only — to
- * REFUSE. Health OS authority comes only from the canonical session and the
- * federation link, exactly as before this route was made canonical.
+ * pathname or search params, and the host is used only to refuse a foreign
+ * namespace. A successful BEYU session gate does not itself grant Health data.
  *
  * TENANT HOSTNAMES (governed tenant domains, Phase 2)
  *   The third gate resolves the request's Host header against the governed
