@@ -80,6 +80,20 @@ describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runti
       [key],
     );
     expect(crossActorDelete.rowCount).toBe(0);
+    const crossActorUpdate = await client.query(
+      "update public.idempotency_records set state = 'COMPLETED' where idempotency_key = $1",
+      [key],
+    );
+    expect(crossActorUpdate.rowCount).toBe(0);
+
+    await client.query("SAVEPOINT cross_actor_insert");
+    await expect(client.query(
+      `insert into public.idempotency_records
+        (scope, idempotency_key, request_hash, state, tenant_id, actor_user_id, expires_at)
+       values ($1,$2,$3,'IN_FLIGHT',$4,$5,now()+interval '5 minutes')`,
+      [`${tenantA}:${actorA}:POST /__rls_probe`, randomUUID(), "actor-mismatch", tenantA, actorA],
+    )).rejects.toThrow();
+    await client.query("ROLLBACK TO SAVEPOINT cross_actor_insert");
 
     await client.query("select set_config('beyu.actor_user_id', $1, true)", [actorA]);
     await client.query("select set_config('beyu.current_tenant_ids', $1, true)", [tenantB]);
