@@ -78,8 +78,8 @@ or claim production deployment.
 - Health backend integration tests and the full root/Health suites have been
   added/updated but have **not yet been executed** in this environment. The
   local GitHub clone attempt failed because `github.com` DNS resolution was
-  unavailable. CI has been enabled for this remediation branch so the
-  PostgreSQL-backed suite can run on the next branch push.
+  unavailable. The workflow definition includes this remediation branch in its
+  push trigger; no GitHub Actions run has yet been observed for the current head.
 - No draft PR is open. The review gate remains closed until automated test
   results and code review evidence are available.
 
