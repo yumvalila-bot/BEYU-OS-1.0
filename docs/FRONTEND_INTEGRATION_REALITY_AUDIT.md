@@ -1,5 +1,7 @@
 # BEYU OS — Frontend Integration Reality Audit
 
+> **Historical snapshot — superseded Health federation model:** Historical audit snapshot. Health identity federation and authorization have since moved to a signed BEYU assertion with Health-local verification; see `docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md`.
+
 **Audit date:** 2026-09-17
 **Auditor:** Arena Agent (forensic repository + production audit)
 **Mandate:** Forensic audit of the existing GitHub ↔ Vercel frontend integration and safe exposure of every already-implemented shared capability into the authenticated frontend. No rebuilds, no duplicate OSs, no invented APIs.
