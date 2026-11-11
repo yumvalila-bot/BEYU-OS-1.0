@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { buildPgConnectionConfig } from "./tls";
@@ -202,7 +203,7 @@ export async function withIndependentPrincipalDatabase<T>(
   }
   return baseDb.transaction(async (tx) => {
     await tx.execute(
-      (await import("drizzle-orm")).sql`select set_config('beyu.current_tenant_ids', ${tenantId}, true)`,
+      sql`select set_config('beyu.current_tenant_ids', ${tenantId}, true)`,
     );
     await tx.execute((await import("drizzle-orm")).sql`select set_config('beyu.global_scope', 'off', true)`);
     await tx.execute(
