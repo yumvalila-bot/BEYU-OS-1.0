@@ -85,6 +85,9 @@ export async function handleNoeliaMcpMessage(
   if (message.method === "notifications/initialized" || message.method === "notifications/cancelled") {
     return null;
   }
+  // JSON-RPC notifications never receive a response and must never trigger a
+  // capability invocation (including a malformed tools/call notification).
+  if (isNotification) return null;
 
   if (message.method === "initialize") {
     const requestedVersion = message.params?.protocolVersion;
