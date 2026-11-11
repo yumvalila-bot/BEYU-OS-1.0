@@ -30,6 +30,8 @@ export interface DbConnection {
   /** Run one or more statements (DDL/multi-statement) with no result rows. */
   exec(sql: string): Promise<void>;
   transaction<T>(fn: (conn: DbConnection) => Promise<T>): Promise<T>;
+  /** Close an owned test/standalone connection; shared injected connections may omit it. */
+  close?(): Promise<void>;
 }
 
 /** node-postgres backed connection (production). */
