@@ -1,5 +1,7 @@
 # Health OS — Frontend Integration Audit
 
+> **Historical snapshot — superseded Health federation model:** This audit is a historical snapshot. Its BEYU-side read of `beyu_identity.beyu_identity_links` is superseded by `docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md`: BEYU now issues a signed assertion and Health performs all identity, tenant and membership checks in its own database.
+
 **Mission:** bring the EXISTING Health OS implementation (`sectors/health/`) into the authenticated BEYU OS frontend at `/health` — integration only, no rebuild, no second Health OS, no second authorization model, no RLS bypass.
 
 **Audit basis:** branch `arena/01a0adcf-beyu-os-1-0` @ `51f50b82ec236fa638dd2af619fa563a6a81903b` (== `main` == merged PR #65 state). Every claim below is traced to an actual file, CI workflow, or production URL. No assumption is recorded as fact.
