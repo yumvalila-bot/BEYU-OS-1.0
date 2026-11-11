@@ -462,6 +462,18 @@ jobs:
           fi
           echo "Runtime role login verified against the governed credential."
 
+      - name: Finance idempotency RLS — actual beyu_runtime login
+        # This test uses a fresh TCP connection authenticated as beyu_runtime.
+        # It never uses SET ROLE or a superuser session, and rolls back all rows.
+        env:
+          BEYU_RUNTIME_DATABASE_URL: postgresql://beyu_runtime:ci_runtime_db_password_not_a_secret@127.0.0.1:5432/beyu_os
+          BEYU_RUNTIME_DB_ROLE: beyu_runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BEYU_RUNTIME_DATABASE_URL"
+          npx vitest run --config vitest.config.ts tests/security/idempotency-principal-rls.test.ts
+
       - name: Independently assert governed-mutation role boundary
         shell: bash
         run: |
