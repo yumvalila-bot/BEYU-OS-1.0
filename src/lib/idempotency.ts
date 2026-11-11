@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { db, withIndependentPrincipalDatabase } from "@/db";
+import { withIndependentPrincipalDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 import { sha256, stableStringify } from "./crypto";
 import type { Principal } from "./authz";
@@ -208,10 +208,13 @@ export async function releaseIdempotencyKey(
   );
 }
 
-/** Test/ops helper: how many live claims exist for a principal's scope. */
-export async function idempotencyDepth(scope: string): Promise<number> {
-  const r = await db.execute<{ n: string }>(
-    sql`select count(*)::text as n from idempotency_records where scope = ${scope}`,
-  );
-  return Number(r.rows[0]?.n ?? 0);
+/** Test/ops helper: count only the authenticated principal's endpoint scope. */
+export async function idempotencyDepth(principal: Principal, endpoint: string): Promise<number> {
+  const scope = idempotencyScope(principal, endpoint);
+  return withIndependentPrincipalDatabase(principal.tenantId, principal.userId, async (database) => {
+    const r = await database.execute<{ n: string }>(
+      sql`select count(*)::text as n from idempotency_records where scope = ${scope}`,
+    );
+    return Number(r.rows[0]?.n ?? 0);
+  });
 }
