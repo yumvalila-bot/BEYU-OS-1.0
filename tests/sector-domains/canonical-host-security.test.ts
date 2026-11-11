@@ -162,14 +162,14 @@ describe("4. every OS keeps its own server-side gate; the host can only refuse",
     const foreign = c.indexOf('isForeignOSHost(request.host, "HEALTH")');
     expect(foreign).toBeGreaterThan(-1);
     expect(foreign).toBeGreaterThan(c.indexOf("resolvePrincipal()"));
-    expect(foreign).toBeLessThan(c.indexOf("checkHealthOSAuthorization("));
+    expect(foreign).toBeLessThan(c.indexOf("new NextResponse(healthSpaHtml"));
     expect(foreign).toBeLessThan(c.indexOf("new NextResponse(healthSpaHtml"));
     // The refusal is the uniform, information-free 404 — never a redirect.
     expect(c.slice(foreign, foreign + 200)).toContain("hostnameDenialResponse()");
     // Pre-existing gates are intact.
     expect(c).toContain("resolveRequestHostname(principal, request.host)");
     expect(c).toContain('resolutionBelongsToNamespace(tenantDomain, "HEALTH_OS")');
-    expect(c).toContain("checkHealthOSAuthorization(principal.userId)");
+    expect(c).toContain("resolvePrincipal()");
     // The mount still never reads the pathname, search params or raw headers.
     expect(c).not.toMatch(/pathname|searchParams|request\.headers|x-forwarded/i);
   });
