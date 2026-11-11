@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
-import { db, pool, withDatabaseTransactionContext, withIndependentPrincipalDatabase } from "@/db";
+import { pool, withDatabaseTransactionContext, withIndependentPrincipalDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 
 const runtimeUrl = process.env.BEYU_RUNTIME_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -52,8 +52,9 @@ describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runti
     const key = randomUUID();
     const scope = `${tenantA}:${actorA}:POST /__independent_probe`;
 
-    await withDatabaseTransactionContext(async (outer) => {
-      await outer.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantB}, true)`);
+    try {
+      await withDatabaseTransactionContext(async (outer) => {
+        await outer.execute(sql`select set_config('beyu.current_tenant_ids', ${tenantB}, true)`);
       await outer.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
       await outer.execute(sql`select set_config('beyu.actor_user_id', ${actorB}, true)`);
 
@@ -81,15 +82,16 @@ describe.skipIf(!runtimeUrl)("Finance idempotency principal RLS — actual runti
         .select({ key: idempotencyRecords.idempotencyKey })
         .from(idempotencyRecords)
         .where(eq(idempotencyRecords.idempotencyKey, key));
-      expect(hidden).toHaveLength(0);
-    });
-
-    // Clean up the committed synthetic probe through the same constrained helper.
-    await withIndependentPrincipalDatabase(tenantA, actorA, (independent) =>
-      independent.delete(idempotencyRecords).where(
-        and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)),
-      ),
-    );
+        expect(hidden).toHaveLength(0);
+      });
+    } finally {
+      // Clean up even when an assertion fails; this test never leaves probe rows.
+      await withIndependentPrincipalDatabase(tenantA, actorA, (independent) =>
+        independent.delete(idempotencyRecords).where(
+          and(eq(idempotencyRecords.scope, scope), eq(idempotencyRecords.idempotencyKey, key)),
+        ),
+      );
+    }
   });
 
   it("isolates reads, writes and deletes by both tenant and actor; global scope never bypasses", async () => {
