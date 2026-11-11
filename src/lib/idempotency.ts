@@ -1,5 +1,5 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { withIndependentPrincipalDatabase } from "@/db";
+import { db, withIndependentPrincipalDatabase } from "@/db";
 import { idempotencyRecords } from "@/db/schema";
 import { sha256, stableStringify } from "./crypto";
 import type { Principal } from "./authz";
