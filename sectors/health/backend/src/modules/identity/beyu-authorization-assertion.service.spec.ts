@@ -80,7 +80,7 @@ describe("BEYU signed assertion → Health-local authorization", () => {
   });
 
   afterAll(async () => {
-    await conn.close();
+    await conn.close?.();
   });
 
   it("verifies BEYU signature and resolves account, tenant, role and permissions locally", async () => {
