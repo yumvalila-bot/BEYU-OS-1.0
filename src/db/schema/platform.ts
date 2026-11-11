@@ -505,8 +505,8 @@ export const idempotencyRecords = pgTable(
     state: text("state").notNull().default("IN_FLIGHT"), // IN_FLIGHT | COMPLETED
     statusCode: integer("status_code"),
     responseBody: jsonb("response_body").$type<Record<string, unknown> | null>(),
-    tenantId: text("tenant_id"),
-    actorUserId: text("actor_user_id"),
+    tenantId: text("tenant_id").notNull(),
+    actorUserId: text("actor_user_id").notNull(),
     traceId: text("trace_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
