@@ -61,7 +61,6 @@
  */
 import { NextResponse } from "next/server";
 import { healthSpaHtml } from "@/app/health/os/spa-content";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { isForeignOSHost } from "@/lib/canonical-host";
 import { resolvePrincipal } from "@/lib/session";
 import {
@@ -137,15 +136,6 @@ export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise
     resolutionIsPlatformNeutral(tenantDomain) || resolutionBelongsToNamespace(tenantDomain, "HEALTH_OS");
   if (!hostInHealthNamespace) {
     return hostnameDenialResponse();
-  }
-
-  // Gate 2 — canonical identity federation link (fail closed).
-  const healthAuth = await checkHealthOSAuthorization(principal.userId);
-  if (!healthAuth.authorized) {
-    return new NextResponse(null, {
-      status: 307,
-      headers: { Location: HEALTH_OS_DENIAL_PATH },
-    });
   }
 
   // Authorized — serve the compiled sector SPA document.
