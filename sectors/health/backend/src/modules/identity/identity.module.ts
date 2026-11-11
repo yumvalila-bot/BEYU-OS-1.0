@@ -30,7 +30,6 @@ import { BeyuAuthorizationAssertionService } from "./beyu-authorization-assertio
     // IdentityAdapter comes from the @Global() BeyuIntegrationModule.
     IdentityFederationService,
     BeyuAuthorizationAssertionService,
-    BeyuAuthorizationAssertionService,
   ],
   exports: [
     IdentityRepository,
@@ -39,6 +38,7 @@ import { BeyuAuthorizationAssertionService } from "./beyu-authorization-assertio
     MfaService,
     BeyuIdentityBridge,
     IdentityFederationService,
+    BeyuAuthorizationAssertionService,
   ],
 })
 export class IdentityModule {}
