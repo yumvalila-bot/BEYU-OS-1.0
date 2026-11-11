@@ -62,8 +62,8 @@ describe("BEYU signed assertion → Health-local authorization", () => {
     );
     await conn.query(
       `INSERT INTO beyu_identity.beyu_identity_links
-        (global_user_id, beyu_user_id, linked_by, status, source)
-       VALUES ($1, $2, $3, 'active', 'test')`,
+        (global_user_id, beyu_user_id, linked_by, status)
+       VALUES ($1, $2, $3, 'active')`,
       [localUserId, "BEYU_USER_TEST_01", "integration-test"],
     );
 
