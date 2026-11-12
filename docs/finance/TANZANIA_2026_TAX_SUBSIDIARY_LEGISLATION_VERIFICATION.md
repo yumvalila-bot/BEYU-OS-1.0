@@ -87,20 +87,51 @@ Before any compliance workflow is designed, confirm:
 - Privacy/security risks from publicly displaying tax identifiers or certificates.
 - Penalty/enforcement provisions, any exceptions, and later amendments or notices.
 
-## Other 2026 instruments still in the discovery queue
+## Seven 2026 TRA-listed tax instruments — expanded source map
 
-The TRA resource catalogue lists these further 2026 instruments. Their titles are discovery leads; the following list does not claim Gazette authentication:
+| GN | Instrument | Source status | Source locator |
+|---|---|---|---|
+| 158A | VAT (Requirements for Deferment on Trailers) Order, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4642 |
+| 158B | Income Tax (Presumptive Tax Relief for New Traders) Regulations, 2026 | Reproduced copy located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-presumptive-tax-relief-for-new-traders-regulations-2026 |
+| 158C | Electronic Transactions (Mandatory Electronic Payments for Specified Transactions) Order, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4644 |
+| 158D | Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4645 |
+| 158E | Excise (Non-Resident Service Provider) Regulations, 2026 | Reproduced copy and professional analysis located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-excise-non-resident-service-provider-regulations-2026 |
+| 158F | Income Tax (Single Instalment Tax on Forest Produce) Regulations, 2026 | Reproduced copy located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-single-instalment-tax-on-forest-produce-regulations-2026 |
+| 158G | Tax Administration (General) (Amendment) Regulations, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4648 |
 
-1. Electronic Transactions (Mandatory Electronic Payments for Specified Transactions) Order, 2026.
-2. Excise (Non-Resident Service Provider) Regulations, 2026.
-3. Income Tax (Presumptive Tax Relief for New Traders) Regulations, 2026.
-4. Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026.
-5. Value Added Tax (Requirements for Deferment on Trailers) Order, 2026.
+OAG MIS confirms the metadata for GN 158A, 158C, 158D and 158G, including publication on 30 June 2026 and commencement on 1 July 2026. GN 158B, 158E and 158F are identified by reproduced texts/professional analyses but remain pending exact official Gazette matching. Do not infer the missing OAG identifiers or Gazette supplement numbers.
 
-TRA catalogue discovery page:
-https://lysonlaw.co.tz/index.php/guidelines?gate=1&regulator=tra
+### GN 158B — new-trader presumptive relief
 
-For each instrument, obtain the signed official Gazette instrument, GN/order number, publication and commencement dates, enabling provision, amendments/revocations, complete text, page locators and checksum. Do not infer GN numbers from neighbouring notices.
+The reproduced text describes a 12-month income-tax relief application for a newly registered individual obtaining a TIN to commence a business for the first time, where projected annual turnover falls within the statutory presumptive regime and the business remains exclusively within that regime. It also describes:
+- An electronic application with statutory declaration, business description and projected turnover.
+- A seven-working-day Commissioner review/decision period.
+- Anti-chaining criteria, including use of a spouse, dependent, child or nominee, and a similar trade at the same location within 180 days after cessation of the previous business.
+- Non-transferability, an end-of-relief turnover declaration within 30 days before expiry, revocation grounds, show-cause procedure and objection rights.
+
+The relief is not automatic. Reconcile the official regulation against the Finance Act 2026 First Schedule, the current presumptive turnover table, definitions and any transitional conditions before any taxpayer eligibility or deadline workflow is considered.
+
+### GN 158E — excise for non-resident service providers
+
+Professional analyses and a reproduced copy describe an administrative regime for non-resident providers of specified services delivered through the internet or other electronic means to Mainland Tanzania residents who are not registered or required to file returns under the Excise Act for the same service. The reported covered categories include electronic communication, pay-to-view television/streaming, betting/gaming/lottery advertising, and money transfer/payment services.
+
+The reproduced and professional sources describe online registration, customer-location indicators, monthly electronic returns, payment by the seventh day of the following month, a 90-day transition for providers already operating at commencement, permitted convertible-currency payment and an EFD exemption. These details remain subject to official text matching. The charging provisions are in Excise Act section 126(4)–(5), inserted by Finance Act 2026 section 8; do not treat the regulations as the source of the charge or infer that the regime is VAT.
+
+Before implementation, confirm:
+- The precise services and definitions in the official regulations and Act.
+- The statutory test for unregistered recipients and the reliability hierarchy for customer-location evidence.
+- Registration timing, including the 90-day transition and its calculation.
+- Return/payment deadlines, currencies and exchange-rate date.
+- EFD exemption scope, error-correction procedure, penalties, interest and deregistration.
+- Overlap and non-duplication with VAT on electronic services, withholding taxes and other levies.
+
+### GN 158A, GN 158C and GN 158D
+
+The official OAG MIS metadata identifies these instruments and their publication/commencement dates, but the full text still needs to be downloaded and checked.
+
+- GN 158A: obtain the trailer classes, conditions and documentation required for VAT deferment.
+- GN 158C: obtain the precise transactions prescribed for mandatory electronic payment and the required proof-of-payment mechanism. Finance Act 2026 section 6 provides the enabling amendment to the Electronic Transactions Act; it does not by itself establish which transaction classes the Order prescribes.
+- GN 158D: obtain the fee base, covered customs transactions, exceptions, calculation, collection and transitional provisions before modifying customs-cost calculations.
 
 ## BEYU source-control and NOELIA rules
 
