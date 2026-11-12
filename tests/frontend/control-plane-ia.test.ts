@@ -67,10 +67,12 @@ describe("canonical constitutional hierarchy", () => {
       { id: "executive-governance", title: "Organisation & Constitutional Governance" },
       { id: "identity-access", title: "Identity & Access Management" },
       { id: "enterprise-operations", title: "Enterprise Operations" },
-      { id: "finance-governance", title: "Finance & Capital Governance" },
+      { id: "finance-governance", title: "Finance OS Domains" },
       { id: "family-office", title: "Family Office" },
+      { id: "family-office-domains", title: "Family Office Domains" },
       { id: "noelia-hive", title: "NOELIA AI / HIVE" },
       { id: "sector", title: "Sector Operating Systems" },
+      { id: "agriculture-domains", title: "Agriculture OS Domains" },
       { id: "platform-administration", title: "Platform Administration" },
       { id: "system-assurance", title: "System Operations & Assurance" },
     ]);
