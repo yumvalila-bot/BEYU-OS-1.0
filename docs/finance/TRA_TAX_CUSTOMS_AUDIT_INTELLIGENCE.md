@@ -83,3 +83,34 @@ A separate source-verification dossier and read-only FINANCE_OS panel now cover:
 The forest-produce reproduced text is mapped clause-by-clause to the official Income Tax Act section 116A as replaced by Finance Act No. 2 of 2026, section 25. The four statutory payment triggers, forest-cess event, valuation definition and temporal version history are preserved. The shorter reproduced regulation 3 wording is explicitly not allowed to narrow the Act.
 
 All subsidiary-instrument records remain SOURCE_LINKED_NOT_INGESTED. GN 158F is not represented as officially authenticated. No certificate workflow, tax calculation, penalty calculation, transport clearance, filing or payment automation is activated.
+
+
+## Six-capability implementation
+
+The six-capability architecture and activation contract is documented in
+[`TAX_INTELLIGENCE_CAPABILITY_ARCHITECTURE.md`](./TAX_INTELLIGENCE_CAPABILITY_ARCHITECTURE.md).
+The existing FINANCE_OS tax workspace now surfaces Tax Law Intelligence, Tax Computation,
+Customs/HS, Compliance, Audit/Dispute and NOELIA Tax Intelligence as one integrated capability
+set. They are explicitly inactive until their evidence and specialist gates are satisfied.
+
+Migration `0076_tax_legal_authority_metadata.sql` adds legal-source provenance fields to the
+existing `knowledge_sources` registry: instrument kind, publication/commencement/effective
+dates, original-document SHA-256, official source host, text-validation reviewer, specialist
+reviewer, enabling provision, amendment/repeal links and provision citations. It does not create
+a duplicate tax document table.
+
+The existing governed `knowledge.ingest` action accepts a strict tax-legal metadata envelope.
+Tax legal sources remain UNDER_REVIEW and source-authentication status SPECIALIST_REVIEWED after
+ingestion; the existing approved `knowledge.publish` action is the only promotion path. It
+rechecks the original source and named review evidence against the comma-separated
+`TAX_OFFICIAL_SOURCE_HOSTS` allowlist before promotion. The database constraint independently
+rejects an incomplete AUTHORITATIVE tax legal source.
+
+NOELIA's TAX knowledge and citation-status paths now exclude legacy TAX summaries and accept
+only `TAX_LEGAL_AUTHORITY` records with both authority status and source-authentication status
+AUTHORITATIVE, within their effective/review windows and the caller's existing scope.
+
+Computation, customs, compliance, audit and NOELIA capability contracts are present, but this
+does not activate numeric tax calculations, HS determinations, filing calendars, return/payment
+actions or customs clearances. The tax rule registry remains empty until official source
+authentication and specialist-approved deterministic rules are complete.
