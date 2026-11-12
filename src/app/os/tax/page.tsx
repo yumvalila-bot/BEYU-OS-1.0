@@ -75,6 +75,7 @@ export default async function TaxPage() {
           .orderBy(taxStrategies.jurisdictionCode)
       : [];
   const canAssess = can(access.principal, "finance:tax.assess").allowed;
+  const canReviewTax = can(access.principal, "finance:tax.review").allowed;
   const assessable = strategies.filter((s) => s.position !== "PROHIBITED_EVASION");
 
   return (
@@ -98,6 +99,7 @@ export default async function TaxPage() {
 
       <TaxComputationWorkbench
         canCompute={canAssess}
+        canReview={canReviewTax}
         entities={entities.map((e) => ({ id: e.id, name: e.legalName, country: e.countryCode }))}
       />
 
