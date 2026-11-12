@@ -36,8 +36,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
   const [whtCategory, setWhtCategory] = useState("SERVICE_FEE");
   const [payeeResidency, setPayeeResidency] = useState("RESIDENT");
   const [cargoType, setCargoType] = useState("DRY_NON_PETROLEUM");
-  const [importOrigin, setImportOrigin] = useState("NON_EAC");
-  const [originEvidenceVerified, setOriginEvidenceVerified] = useState(false);
+
   const [result, setResult] = useState<Result | null>(null);
   const [drafts, setDrafts] = useState<SavedDraft[]>([]);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -107,7 +106,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
                 ? { ...common, taxableSuppliesTzs: value }
                 : taxType === "WITHHOLDING_TAX"
                   ? { ...common, grossPaymentTzs: value, category: whtCategory, payeeResidency }
-                  : { ...common, cargoType, importOrigin, originEvidenceVerified, ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
+                  : { ...common, cargoType, importOrigin: "NON_EAC", ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
       const response = await fetch("/api/v1/finance/tax/compute", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -187,17 +186,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
                 <option value="WET_PETROLEUM">Wet petroleum cargo</option>
               </select>
             </label>
-            <label className="text-[11.5px]">Import origin
-              <select className={inputClass} value={importOrigin} onChange={(e) => setImportOrigin(e.target.value)}>
-                <option value="NON_EAC">Outside EAC</option>
-                <option value="EAC_NON_ORIGINATING">EAC goods — not originating</option>
-                <option value="EAC_ORIGINATING">EAC originating goods</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2 self-end text-[11.5px]">
-              <input type="checkbox" checked={originEvidenceVerified} onChange={(e) => setOriginEvidenceVerified(e.target.checked)} />
-              Rules of Origin evidence verified
-            </label>
+            <p className="self-end text-[10.5px] beyu-muted">Current estimate is limited to imports from outside EAC. EAC origin claims and exemptions are blocked until source documents are verified server-side.</p>
           </>
         )}
         {taxType === "WITHHOLDING_TAX" && (
