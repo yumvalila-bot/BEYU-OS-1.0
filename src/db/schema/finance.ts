@@ -3,8 +3,10 @@
  * Authoritative for financial consequences: ledger, capital, treasury,
  * the configurable waterfall engine and Tax Strategy Intelligence.
  */
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
