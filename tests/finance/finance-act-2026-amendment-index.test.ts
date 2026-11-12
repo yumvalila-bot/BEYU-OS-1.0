@@ -38,7 +38,7 @@ describe("Finance Act No. 2 of 2026 tax amendment index", () => {
     const digitalIntermediary = changes.find((change) => change.code === "FA2026_VAT_S51_DIGITAL_INTERMEDIARY");
     const frameworkExcise = changes.find((change) => change.code === "FA2026_EXCISE_S146B_FRAMEWORK");
     const presumptive = changes.find((change) => change.code === "FA2026_IT_FIRST_SCHEDULE_PRESUMPTIVE");
-    const vatWithholdingDeadline = changes.find((change) => change.code === "FA2026_VAT_S71_WITHHOLDING_DEADLINE");
+    const vatWithholdingDeadline = changes.find((change) => change.code === "FA2026_VAT_S71_WITHHOLDING_DEADLINES");
 
     expect(forest?.summary).toContain("not a corporation");
     expect(forest?.caveat).toContain("Regulations");
