@@ -115,13 +115,41 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Tax return receipt document does not exist';
   END IF;
-  IF receipt.tenant_id <> NEW.tenant_id
-     OR receipt.entity_scope <> NEW.legal_entity_id
-     OR receipt.jurisdiction_code <> NEW.jurisdiction_code
-     OR receipt.category <> 'TAX_FILING_RECEIPT'
-     OR receipt.authority_status::text <> 'AUTHORITATIVE'
+  IF receipt.tenant_id IS DISTINCT FROM NEW.tenant_id
+     OR receipt.entity_scope IS DISTINCT FROM NEW.legal_entity_id
+     OR receipt.jurisdiction_code IS DISTINCT FROM NEW.jurisdiction_code
+     OR receipt.category IS DISTINCT FROM 'TAX_FILING_RECEIPT'
+     OR receipt.authority_status::text IS DISTINCT FROM 'AUTHORITATIVE'
      OR receipt.storage_uri IS NULL
-     OR receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}$' THEN
+     OR receipt.checksum IS NULL
+     OR receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}
+    RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
+  END IF;
+  RETURN NEW;
+END;
+$tax_return_receipt$;--> statement-breakpoint
+DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
+CREATE TRIGGER tax_return_drafts_receipt_scope_trg
+  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
+  ON "tax_return_drafts"
+  FOR EACH ROW EXECUTE FUNCTION beyu_validate_tax_return_receipt_document();--> statement-breakpoint
+
+DO $tax_return_verify$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime') THEN
+    GRANT SELECT, INSERT, UPDATE ON "tax_return_drafts" TO beyu_runtime;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = current_schema() AND c.relname = 'tax_return_drafts' AND c.relrowsecurity AND c.relforcerowsecurity
+  ) THEN
+    RAISE EXCEPTION 'tax_return_drafts must have ENABLE and FORCE ROW LEVEL SECURITY';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'tax_return_drafts_scope') THEN
+    RAISE EXCEPTION 'tax_return_drafts tenant/classification isolation policy is required';
+  END IF;
+END $tax_return_verify$;
+ THEN
     RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
   END IF;
   RETURN NEW;
