@@ -34,6 +34,8 @@ describe("Tanzania 2026 tax subsidiary legislation verification", () => {
     const excise = instruments.find((item) => item.code === "TZ_GN_158E_2026_EXCISE_NON_RESIDENT");
     expect(presumptive).toMatchObject({ governmentNotice: "158B of 2026", sourceStatus: "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING" });
     expect(excise).toMatchObject({ governmentNotice: "158E of 2026", sourceStatus: "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING" });
+    expect(excise?.reproducedTextUris).toHaveLength(1);
+    expect(excise?.supportingAnalysisUris).toHaveLength(2);
   });
 
   it("records GN 158G using official OAG metadata without claiming text ingestion", () => {
