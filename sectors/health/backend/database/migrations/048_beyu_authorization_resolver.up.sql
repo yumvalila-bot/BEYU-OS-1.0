@@ -107,9 +107,12 @@ DECLARE
   tenants_owner text;
   memberships_owner text;
   links_owner text;
+  resolver_owner_bypass boolean;
 BEGIN
-  SELECT pg_get_userbyid(p.proowner) INTO resolver_owner
+  SELECT pg_get_userbyid(p.proowner), (r.rolsuper OR r.rolbypassrls)
+    INTO resolver_owner, resolver_owner_bypass
     FROM pg_proc p
+    JOIN pg_roles r ON r.oid = p.proowner
    WHERE p.oid = 'beyu_identity.resolve_beyu_authorization(text,text)'::regprocedure;
   SELECT pg_get_userbyid(c.relowner) INTO users_owner
     FROM pg_class c WHERE c.oid = 'beyu_identity.users'::regclass;
@@ -121,6 +124,7 @@ BEGIN
     FROM pg_class c WHERE c.oid = 'beyu_identity.beyu_identity_links'::regclass;
 
   IF resolver_owner = 'beyu_health_runtime'
+     OR resolver_owner_bypass IS DISTINCT FROM true
      OR resolver_owner IS DISTINCT FROM users_owner
      OR resolver_owner IS DISTINCT FROM tenants_owner
      OR resolver_owner IS DISTINCT FROM memberships_owner
