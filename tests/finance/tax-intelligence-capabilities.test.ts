@@ -136,7 +136,7 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
       approvedOfficialHosts: OFFICIAL_HOSTS,
     });
     expect(uncovered.allowed).toBe(false);
-    expect(uncovered.reasons).toContain("Approval must explicitly cover currently effective authenticated source codes.");
+    expect(uncovered.reasons).toContain("Approval must explicitly cover every source supplied for this operation, and only currently effective authenticated source codes.");
   });
 
   it("allows a gate only when activation, specialist and effective source evidence all agree", () => {
@@ -206,6 +206,8 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
       title: "VAT return",
       jurisdictionCode: "TZ",
       period: "2026-10",
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
       dueDate: "2026-11-20",
       sourceCode: "TZ_ACT_TEST_2026",
       provisionReference: "section 99",
