@@ -11,7 +11,7 @@
  */
 export type TanzaniaTaxType =
   | "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX"
-  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
+  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "FOREST_PRODUCE_SINGLE_INSTALMENT" | "CUSTOMS_PROCESSING_FEE";
 
 export type TaxSourceRef = {
   code: string;
@@ -20,7 +20,7 @@ export type TaxSourceRef = {
   provision: string;
   effectiveFrom?: string;
   effectiveTo?: string;
-  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING";
+  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING" | "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING";
 };
 
 export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
@@ -70,9 +70,17 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     code: "TZ_FINANCE_ACT_2_2026",
     title: "The Finance Act, No. 2 of 2026 — Office of the Solicitor General e-Library",
     uri: "https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download",
-    provision: "Sections 27, 91 and 95: presumptive tax turnover schedule; supplier entitlement proportions for goods/services, mixed-supply apportionment and section 71 payment/statement deadline",
+    provision: "Sections 25, 27, 91 and 95: forest-produce single instalment tax (2% and statutory triggers); presumptive tax schedule; VAT supplier entitlement and mixed-supply apportionment; withholding payment/statement deadlines",
     effectiveFrom: "2026-07-01",
     evidenceStatus: "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
+  },
+  OAG_GN_158F_2026: {
+    code: "TZ_GN_158F_2026_FOREST_PRODUCE",
+    title: "Income Tax (Single Instalment Tax on Forest Produce) Regulations, 2026 — reproduced copy",
+    uri: "https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-single-instalment-tax-on-forest-produce-regulations-2026",
+    provision: "Certificate validity, buyer payment on behalf, transport prohibition, inspection and penalty; reproduced copy only",
+    effectiveFrom: "2026-07-01",
+    evidenceStatus: "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING",
   },
   OAG_GN_158D_2026: {
     code: "TZ_GN_158D_2026",
@@ -260,6 +268,27 @@ export function calculateVat(input: {
   ]);
 }
 
+export function calculateForestProduceSingleInstalment(input: {
+  farmGatePriceTzs: number;
+  purchasePriceTzs: number;
+  tfsValueTzs: number;
+  trigger: "PAYMENT_RECEIVED" | "TRANSPORT" | "POSSESSION_OR_CONTROL" | "FOREST_CESS_PAID";
+}): TaxCalculation {
+  assertMoney(input.farmGatePriceTzs, "Farm-gate price");
+  assertMoney(input.purchasePriceTzs, "Purchase price");
+  assertMoney(input.tfsValueTzs, "TFS value");
+  const base = Math.max(input.farmGatePriceTzs, input.purchasePriceTzs, input.tfsValueTzs);
+  if (base <= 0) throw new TaxCalculationError("At least one statutory gross-payment valuation must be greater than zero.");
+  const tax = roundBps(base, 200);
+  return result("FOREST_PRODUCE_SINGLE_INSTALMENT", base, tax, [
+    { label: `Single instalment tax — 2% at trigger ${input.trigger}`, baseTzs: base, rateBps: 200, taxTzs: tax },
+  ], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.OAG_GN_158F_2026], [
+    "Finance Act 2026 section 25 applies 2% to the greatest of farm-gate price, purchase price or Tanzania Forest Services value and identifies statutory trigger events.",
+    "Confirm the seller is an instalment payer under Income Tax Act section 116A and retain valuation evidence before relying on this estimate.",
+    "GN 158F is currently a reproduced copy pending official Gazette matching and original-file checksum; certificate, buyer-payment, transport and inspection workflows are not activated.",
+  ]);
+}
+
 export function calculateVatWithholding(input: {
   taxableValueTzs: number;
   supplyType: "GOODS" | "SERVICES" | "MIXED";
@@ -392,6 +421,7 @@ export function computeTanzaniaTax(input:
   | { taxType: "PRESUMPTIVE_INCOME_TAX"; annualTurnoverTzs: number; records: "COMPLETE" | "INCOMPLETE"; newBusinessReliefApproved?: boolean }
   | { taxType: "VAT"; taxableSuppliesTzs: number; inputVatCreditTzs?: number; inputVatCreditVerified?: boolean; rate?: "STANDARD_18" | "ZERO_RATED" }
   | { taxType: "VAT_WITHHOLDING"; taxableValueTzs: number; supplyType: "GOODS" | "SERVICES" | "MIXED" }
+  | { taxType: "FOREST_PRODUCE_SINGLE_INSTALMENT"; farmGatePriceTzs: number; purchasePriceTzs: number; tfsValueTzs: number; trigger: "PAYMENT_RECEIVED" | "TRANSPORT" | "POSSESSION_OR_CONTROL" | "FOREST_CESS_PAID" }
   | { taxType: "WITHHOLDING_TAX"; grossPaymentTzs: number; category: WithholdingCategory; payeeResidency: "RESIDENT" | "NON_RESIDENT"; treatyReliefClaimed?: boolean }
   | { taxType: "CUSTOMS_PROCESSING_FEE"; cargoType: "DRY_NON_PETROLEUM" | "WET_PETROLEUM"; importOrigin: "NON_EAC" | "EAC_NON_ORIGINATING" | "EAC_ORIGINATING"; originEvidenceVerified: boolean; fobValueTzs?: number; vesselCount?: number; exemptionClaimed?: boolean }
 ): TaxCalculation {
@@ -402,6 +432,7 @@ export function computeTanzaniaTax(input:
     case "PRESUMPTIVE_INCOME_TAX": return calculatePresumptiveIncomeTax(input);
     case "VAT": return calculateVat(input);
     case "VAT_WITHHOLDING": return calculateVatWithholding(input);
+    case "FOREST_PRODUCE_SINGLE_INSTALMENT": return calculateForestProduceSingleInstalment(input);
     case "WITHHOLDING_TAX": return calculateWithholdingTax(input);
     case "CUSTOMS_PROCESSING_FEE": return calculateCustomsProcessingFee(input);
   }
