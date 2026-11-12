@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Entity = { id: string; name: string; country: string };
 type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
+type SavedDraft = { id: string; legalEntityId: string; taxType: string; periodStart: string; periodEnd: string; dueDate: string | null; amountPayable: string; currency: string; status: string; createdAt: string };
 type Result = {
   calculation: {
     status: string;
@@ -38,6 +39,7 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
   const [importOrigin, setImportOrigin] = useState("NON_EAC");
   const [originEvidenceVerified, setOriginEvidenceVerified] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [drafts, setDrafts] = useState<SavedDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,6 +54,15 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
     anchor.click();
     URL.revokeObjectURL(url);
   }
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/v1/finance/tax/returns")
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((json) => { if (active && json?.data?.drafts) setDrafts(json.data.drafts as SavedDraft[]); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   async function calculate() {
     setBusy(true);
@@ -81,6 +92,9 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
       const json = await response.json();
       if (!response.ok) throw new Error(json?.error?.message ?? "Tax calculation rejected.");
       setResult(json.data as Result);
+      const saved = await fetch("/api/v1/finance/tax/returns");
+      const savedJson = await saved.json();
+      if (saved.ok && savedJson?.data?.drafts) setDrafts(savedJson.data.drafts as SavedDraft[]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to calculate tax.");
     } finally {
@@ -181,6 +195,17 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
         {busy ? "Calculating…" : "Calculate and prepare draft"}
       </button>
       {error && <p role="alert" className="text-[12px] text-rose-600">{error}</p>}
+      <div className="rounded-xl border border-[color:var(--beyu-line)] p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2"><strong className="text-[12px]">Saved tax return drafts</strong><span className="text-[10px] beyu-muted">{drafts.length} shown · maximum 50</span></div>
+        {drafts.length === 0 ? <p className="text-[11px] beyu-muted">No saved drafts in your authorized entity scope.</p> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[10.5px]">
+              <thead><tr className="beyu-muted"><th className="py-1 pr-3">Tax type</th><th className="py-1 pr-3">Period</th><th className="py-1 pr-3">Due</th><th className="py-1 pr-3">Amount</th><th className="py-1">Status</th></tr></thead>
+              <tbody>{drafts.map((draft) => <tr key={draft.id} className="border-t border-[color:var(--beyu-line)]"><td className="py-2 pr-3">{draft.taxType.replaceAll("_", " ")}</td><td className="py-2 pr-3">{draft.periodStart} – {draft.periodEnd}</td><td className="py-2 pr-3">{draft.dueDate ?? "—"}</td><td className="py-2 pr-3 tabular-nums">{money(Number(draft.amountPayable))}</td><td className="py-2">{draft.status}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
       {result && (
         <div className="space-y-3 rounded-xl border border-[color:var(--beyu-line)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
