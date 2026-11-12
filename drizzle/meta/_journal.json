@@ -533,6 +533,13 @@
       "when": 1791404013646,
       "tag": "0075_noelia_authority_execution_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1794510960000,
+      "tag": "0076_tax_legal_authority_metadata",
+      "breakpoints": true
     }
   ]
 }
