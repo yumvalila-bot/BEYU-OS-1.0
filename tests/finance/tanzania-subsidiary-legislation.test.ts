@@ -27,6 +27,11 @@ describe("Tanzania 2026 tax subsidiary legislation verification", () => {
     expect(vat).toMatchObject({ governmentNotice: "158A of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
     expect(payments).toMatchObject({ governmentNotice: "158C of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
     expect(customs).toMatchObject({ governmentNotice: "158D of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
+    expect(vat?.reproducedTextUris).toHaveLength(1);
+    expect(payments?.reproducedTextUris).toHaveLength(1);
+    expect(payments?.supportingAnalysisUris).toHaveLength(1);
+    expect(customs?.reproducedTextUris).toHaveLength(1);
+    expect(customs?.supportingAnalysisUris).toHaveLength(1);
   });
 
   it("records GN 158B and GN 158E as reproduced-source leads, not authenticated official copies", () => {
