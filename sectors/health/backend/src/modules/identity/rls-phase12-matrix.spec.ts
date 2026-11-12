@@ -322,12 +322,12 @@ export const BYPASSRLS_IN_MIGRATIONS = (() => {
     .filter((x) => x.endsWith(".up.sql"))) {
     const sql = fs
       .readFileSync(path.join(MIG_DIR, f), "utf8")
-      .replace(/--[^\\r\\n]*/g, "")
-      .replace(/\\/\\*[\\s\\S]*?\\*\\//g, "");
+      .replace(/--[^\r\n]*/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
     const statements = sql.split(";");
     if (
       statements.some((statement) =>
-        /\\b(?:CREATE|ALTER)\\s+(?:ROLE|USER)\\b[\\s\\S]*\\bBYPASSRLS\\b/i.test(
+        /\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b[\s\S]*\bBYPASSRLS\b/i.test(
           statement,
         ),
       )
