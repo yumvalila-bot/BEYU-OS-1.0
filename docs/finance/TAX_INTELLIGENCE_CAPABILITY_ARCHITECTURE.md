@@ -53,7 +53,7 @@ Tax legal sources are registered as `source_type = TAX_LEGAL_AUTHORITY` in `know
 - amendments, repeals and supersession links;
 - page/section/regulation/article references.
 
-The database constraint prevents a tax legal source from being promoted to `AUTHORITATIVE` unless these required evidence fields, including the original uploaded document link, are present. The ingest/publish workflow verifies the linked original document is in the same tenant scope, checks its stored SHA-256 against the submitted digest, and validates the official source host against the deployment configuration `TAX_OFFICIAL_SOURCE_HOSTS` (comma-separated hostnames). An empty host register fails closed.
+The database constraint prevents a tax legal source from being promoted to `AUTHORITATIVE` unless these required evidence fields, including the original uploaded document link, are present. The ingest/publish workflow verifies the linked original document is in the same tenant scope, checks its stored SHA-256 against the submitted digest, binds the named specialist reviewer to the authenticated ingest actor, and validates the official source host against the deployment configuration `TAX_OFFICIAL_SOURCE_HOSTS` (comma-separated hostnames). An empty host register fails closed. Publication remains a separate existing human-approved action. The dedicated Tax Specialist role/appointment mapping and persisted capability activation approvals are not yet provisioned; capability operations therefore remain inactive.
 
 ### Effective-date rules
 
