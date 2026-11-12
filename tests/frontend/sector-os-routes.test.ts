@@ -123,7 +123,7 @@ describe("A. canonical Sector OS route resolution", () => {
     expect(
       sectorGroup().items.map(({ label, href }) => ({ label, href })),
     ).toEqual(CANONICAL_ROUTES.map(({ name, href }) => ({ label: name, href })));
-    expect(CAPABILITY_IA.find((entry) => entry.id === "sister-organization")?.items)
+    expect(CAPABILITY_IA.find((entry) => entry.id === "enterprise-operations")?.items)
       .toEqual(expect.arrayContaining([expect.objectContaining({ href: FOUNDATION_ORGANIZATION.href })]));
   });
 
