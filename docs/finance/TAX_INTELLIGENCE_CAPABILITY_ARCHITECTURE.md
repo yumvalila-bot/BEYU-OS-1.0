@@ -45,7 +45,7 @@ An official metadata listing is not a substitute for the original instrument. A 
 Tax legal sources are registered as `source_type = TAX_LEGAL_AUTHORITY` in `knowledge_sources`. They carry:
 - instrument kind and jurisdiction;
 - official source URI and exact host;
-- original-document SHA-256;
+- reference to the original uploaded document in the governed `documents` registry, with its stored SHA-256 checked against the supplied digest;
 - publication, commencement, effective-from and effective-to dates;
 - text-validation date and reviewer;
 - specialist-review date and reviewer identity;
@@ -53,7 +53,7 @@ Tax legal sources are registered as `source_type = TAX_LEGAL_AUTHORITY` in `know
 - amendments, repeals and supersession links;
 - page/section/regulation/article references.
 
-The database constraint prevents a tax legal source from being promoted to `AUTHORITATIVE` unless these required evidence fields are present. The ingest/publish workflow also validates the official source host against the deployment configuration `TAX_OFFICIAL_SOURCE_HOSTS` (comma-separated hostnames). An empty host register fails closed.
+The database constraint prevents a tax legal source from being promoted to `AUTHORITATIVE` unless these required evidence fields, including the original uploaded document link, are present. The ingest/publish workflow verifies the linked original document is in the same tenant scope, checks its stored SHA-256 against the submitted digest, and validates the official source host against the deployment configuration `TAX_OFFICIAL_SOURCE_HOSTS` (comma-separated hostnames). An empty host register fails closed.
 
 ### Effective-date rules
 
