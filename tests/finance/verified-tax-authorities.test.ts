@@ -52,6 +52,14 @@ describe("Tanzania verified tax authority register", () => {
     expect(act2025?.notes.join(" ")).toContain("repealed and replaced");
   });
 
+  it("records the enacted presumptive and VAT-withholding amendments", () => {
+    const act = records.find((record) => record.code === "TZ_FINANCE_ACT_2026_NO_2")!;
+    const notes = act.notes.join(" ");
+    expect(notes).toContain("4.0% above TZS 11m");
+    expect(notes).toContain("fifteen percent for goods and twelve percent for services");
+    expect(notes).toContain("within ten days");
+  });
+
   it("uses official government and parliamentary source hosts", () => {
     const act = records.find((record) => record.code === "TZ_FINANCE_ACT_2026_NO_2")!;
     const act2025 = records.find((record) => record.code === "TZ_FINANCE_ACT_2025_NO_11")!;
@@ -59,7 +67,7 @@ describe("Tanzania verified tax authority register", () => {
     expect(act.officialMetadataUri).toMatch(/^https:\/\/oagmis\.oag\.go\.tz\//);
     expect(act2025.officialMetadataUri).toMatch(/^https:\/\/oagmis\.oag\.go\.tz\//);
     expect(act2025.officialDocumentUri).toMatch(/^https:\/\/oagmis\.oag\.go\.tz\//);
-    expect(act.officialDocumentUri).toMatch(/^https:\/\/oagmis\.oag\.go\.tz\//);
+    expect(act.officialDocumentUri).toMatch(/^https:\/\/elibrary\.osg\.go\.tz\/bitstreams\//);
     expect(bill.officialMetadataUri).toMatch(/^https:\/\/oagmis\.oag\.go\.tz\//);
     expect(bill.officialDocumentUri).toMatch(/^https:\/\/polis\.parliament\.go\.tz\//);
   });
