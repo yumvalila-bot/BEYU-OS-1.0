@@ -1,0 +1,37 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { ROLES, PERMISSIONS } from "@/lib/constants";
+
+describe("FINANCE_OS tax return separation of duties", () => {
+  const reviewRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/review/route.ts"), "utf8");
+  const approveRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/approve/route.ts"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "drizzle/0077_tax_return_drafts.sql"), "utf8");
+
+  it("defines distinct specialist-review and Group-CFO approval permissions", () => {
+    expect(PERMISSIONS["finance:tax.review"]).toBeDefined();
+    expect(PERMISSIONS["finance:tax.approve"]).toBeDefined();
+    expect(ROLES.TAX_SPECIALIST.permissions).toContain("finance:tax.review");
+    expect(ROLES.TAX_MANAGER.permissions).toContain("finance:tax.review");
+    expect(ROLES.CUSTOMS_SPECIALIST.permissions).toContain("finance:tax.review");
+    expect(ROLES.GROUP_CFO.permissions).toContain("finance:tax.approve");
+    expect(ROLES.TAX_SPECIALIST.permissions).not.toContain("finance:tax.approve");
+  });
+
+  it("prevents preparer/reviewer self-approval and records provisional review only", () => {
+    expect(reviewRoute).toContain("draft.createdBy === ctx.principal.userId");
+    expect(reviewRoute).toContain("SPECIALIST_REVIEWED_PROVISIONAL");
+    expect(reviewRoute).toContain("PROVISIONAL_REVIEW_ONLY_NOT_LEGAL_AUTHORITY_OR_SUBMISSION_APPROVAL");
+    expect(approveRoute).toContain("draft.specialistReviewerId === ctx.principal.userId");
+    expect(approveRoute).toContain("SOURCE_AUTHORITY_INCOMPLETE");
+    expect(approveRoute).toContain("source.evidenceStatus === \"AUTHORITATIVE\"");
+  });
+
+  it("database constraints require specialist review and independent approval before submission", () => {
+    expect(migration).toContain("'SPECIALIST_REVIEWED_PROVISIONAL'");
+    expect(migration).toContain("'APPROVED_FOR_SUBMISSION'");
+    expect(migration).toContain('"specialist_reviewer_id" IS NOT NULL');
+    expect(migration).toContain('"approved_by" IS NOT NULL');
+    expect(migration).toContain('"external_reference" IS NOT NULL');
+  });
+});
