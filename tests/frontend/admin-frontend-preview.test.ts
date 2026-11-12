@@ -671,8 +671,8 @@ describe("the canonical structure is preserved", () => {
   });
 
   it("Tax remains a shared capability (Finance OS tax surface + Foundation tax, no Tax OS)", () => {
-    const financeDomains = CAPABILITY_IA.find((g) => g.id === "finance-governance");
-    expect(financeDomains?.items.find((i) => i.href === "/os/tax")?.label).toBe("Tax Governance");
+    const sectorDomains = CAPABILITY_IA.find((g) => g.id === "sector");
+    expect(sectorDomains?.items.find((i) => i.href === "/os/tax")?.label).toBe("Tax Governance");
     expect(PERMISSIONS).toHaveProperty("finance:tax.read");
     expect(PERMISSIONS).toHaveProperty("foundation:tax.read");
   });
