@@ -298,3 +298,10 @@ Capability: `finance:tax.review`. Tax Specialist / Tax Manager, or Customs Speci
 Capability: `finance:tax.approve` (Group CFO). Second-person approval is blocked until the stored calculation has AUTHORITATIVE status, an approved rule-set reference and only AUTHORITATIVE source references. No current provisional calculation can pass this gate. Approval never submits or pays.
 
 TRA submission is not automated. After a future approved submission integration or controlled manual filing, the official TRA reference and acceptance evidence must be recorded before the draft lifecycle can advance to SUBMITTED / ACCEPTED.
+
+
+#### `POST /api/v1/finance/tax/returns/:id/record-submission`
+Capability: `finance:tax.submit` (Tax Filing Officer). Records the TRA reference and submission timestamp after an authorized person has manually filed an approved return in the TRA taxpayer portal. It does not contact TRA.
+
+#### `POST /api/v1/finance/tax/returns/:id/record-receipt`
+Capability: `finance:tax.receipt` (Tax Specialist / Tax Manager / Tax Filing Officer). Records ACCEPTED or REJECTED only when a checksum-backed, AUTHORITATIVE `TAX_FILING_RECEIPT` document exists in the same tenant, entity and jurisdiction. The preparer, reviewer, approver and submitter cannot verify the same receipt.
