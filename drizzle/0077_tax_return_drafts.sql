@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
   "approved_at" timestamptz,
   "submitted_at" timestamptz,
   "submitted_by" text,
+  "receipt_document_id" text REFERENCES "documents"("id"),
   "external_reference" text,
   "accepted_at" timestamptz,
   "created_at" timestamptz NOT NULL DEFAULT now(),
