@@ -117,3 +117,12 @@ This architecture provides the traceability and fail-closed controls. It does no
 ## Explicitly not done
 
 No production migration, deployment, Vercel setting, domain/DNS change, return submission, tax payment, customs filing, ledger posting or activation of tax computation/compliance was performed by this implementation.
+
+
+## Operational estimate and filing workflow extension — 12 November 2026
+
+The FINANCE_OS tax workbench now exposes `POST /api/v1/finance/tax/compute`, persists TIN-backed draft packs in `tax_return_drafts`, lists them through `GET /api/v1/finance/tax/returns`, and supports specialist provisional review plus a second-person CFO approval gate. The calculation module is `tanzania-tax-computation-engine.ts`; source schedules, formula version and warnings are attached to every result. See `TANZANIA_TAX_COMPUTATION_AND_FILING_ENGINE.md`.
+
+The calculator's PAYE monthly brackets and presumptive schedule are cross-checked to the current TRA Individual Income Tax guide; VAT and WHT schedules/deadlines to current TRA guides; standard CIT to the Income Tax Act; GN 158D processing fee to the official OAG PDF endpoint. All remain provisional pending original-document checksum ingestion, complete statutory amendment crosswalk and specialist ratification.
+
+The Group CFO approval endpoint requires calculation authority status AUTHORITATIVE, a rule approval reference and every source reference at AUTHORITATIVE. No current estimate satisfies those conditions. No TRA filing API/credential integration is enabled, no external receipt is fabricated, and CAP_POSTING remains untouched.
