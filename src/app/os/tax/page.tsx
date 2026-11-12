@@ -7,6 +7,7 @@ import { can } from "@/lib/authz";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
+import { TraSourceLibrary } from "./source-library";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +148,8 @@ export default async function TaxPage() {
           ))}
         </div>
       </Panel>
+
+      <TraSourceLibrary />
     </div>
   );  });
 }
