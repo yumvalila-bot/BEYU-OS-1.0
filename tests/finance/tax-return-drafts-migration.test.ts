@@ -25,6 +25,9 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
     expect(migration).toContain('"submitted_by" text');
     expect(migration).toContain('"receipt_document_id" text REFERENCES "documents"("id")');
     expect(migration).toContain('"receipt_document_id" IS NOT NULL');
+    expect(migration).toContain("beyu_validate_tax_return_receipt_document");
+    expect(migration).toContain("'TAX_FILING_RECEIPT'");
+    expect(migration).toContain("'AUTHORITATIVE'");
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
     expect(migration).toContain("beyu_tenant_ids()");
