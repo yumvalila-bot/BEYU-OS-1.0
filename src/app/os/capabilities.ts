@@ -14,14 +14,15 @@ import {
  * an authorization layer: each destination still resolves the principal and
  * re-runs RBAC, ABAC, tenant/entity scope and RLS on the server.
  *
- * The first four groups express the constitutional hierarchy directly:
+ * The primary groups express the constitutional hierarchy directly:
  *   EXECUTIVE            — control surfaces of the one BEYU control plane;
  *   SHARED CAPABILITIES  — implemented once in BEYU OS, never separate OSs;
  *   SISTER ORGANIZATION  — the separate nonprofit BEYU Foundation context;
  *   SECTOR OS            — exactly Finance, Health, Agriculture and Ujenzi.
  *
- * The remaining workspace groups preserve useful, already-implemented focused
- * views without promoting those views into duplicate operating systems.
+ * Every capability is listed once under its owning domain. Sector-specific
+ * Finance and Agriculture workspaces stay within Sector Operating Systems;
+ * Family Office capabilities stay together in one Family Office group.
  */
 
 /** How a destination's VISIBILITY (never its authority) is decided. */
@@ -237,43 +238,6 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
     ],
   },
   {
-    id: "finance-governance",
-    title: "Finance OS Domains",
-    items: [
-      {
-              href: "/os/capital",
-              label: "Capital & Treasury",
-              description: "Finance OS capital pipeline and consolidated treasury positions.",
-              icon: "capital",
-              visibility: { kind: "permission", permission: "finance:capital.read" },
-            },
-      {
-              href: "/os/waterfall",
-              label: "Waterfall Engine",
-              description: "Governed, deterministic distribution waterfall with board authority checks.",
-              icon: "waterfall",
-              visibility: {
-                kind: "permission",
-                permission: "finance:waterfall.read",
-              },
-            },
-      {
-              href: "/os/tax",
-              label: "Tax Governance",
-              description: "Jurisdiction-gated tax strategy intelligence inside Finance OS.",
-              icon: "tax",
-              visibility: { kind: "permission", permission: "finance:tax.read" },
-            },
-      {
-              href: "/os/finance/payments",
-              label: "Payments & Settlements",
-              description: "Payment-provider evidence, transaction verification, matching, exceptions, settlement and accounting handoff.",
-              icon: "payments",
-              visibility: { kind: "permission", permission: "finance:payments.read" },
-            }
-    ],
-  },
-  {
     id: "family-office",
     title: "Family Office",
     items: [
@@ -299,13 +263,7 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
                 kind: "permission",
                 permission: "familyoffice:trust.read",
               },
-            }
-    ],
-  },
-  {
-    id: "family-office-domains",
-    title: "Family Office Domains",
-    items: [
+            },
       {
               href: "/os/family/capital",
               label: "Family Capital & Wealth",
@@ -403,13 +361,38 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
               description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, quality, HSE, variations, claims, payment certificates and handover under BEYU governance and Finance boundaries.",
               icon: "ujenzi",
               visibility: { kind: "permission", permission: "ujenzi:data.read" },
-            }
-    ],
-  },
-  {
-    id: "agriculture-domains",
-    title: "Agriculture OS Domains",
-    items: [
+            },
+      {
+              href: "/os/capital",
+              label: "Capital & Treasury",
+              description: "Finance OS capital pipeline and consolidated treasury positions.",
+              icon: "capital",
+              visibility: { kind: "permission", permission: "finance:capital.read" },
+            },
+      {
+              href: "/os/waterfall",
+              label: "Waterfall Engine",
+              description: "Governed, deterministic distribution waterfall with board authority checks.",
+              icon: "waterfall",
+              visibility: {
+                kind: "permission",
+                permission: "finance:waterfall.read",
+              },
+            },
+      {
+              href: "/os/tax",
+              label: "Tax Governance",
+              description: "Jurisdiction-gated tax strategy intelligence inside Finance OS.",
+              icon: "tax",
+              visibility: { kind: "permission", permission: "finance:tax.read" },
+            },
+      {
+              href: "/os/finance/payments",
+              label: "Payments & Settlements",
+              description: "Payment-provider evidence, transaction verification, matching, exceptions, settlement and accounting handoff.",
+              icon: "payments",
+              visibility: { kind: "permission", permission: "finance:payments.read" },
+            },
       {
               href: "/os/agriculture/capabilities",
               label: "Agriculture Capability Surface",
