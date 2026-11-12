@@ -73,10 +73,3 @@ the operational financial system of record. BEYU OS retains strategic capital go
    and NOELIA citations.
 6. Implement calculations only from specialist-verified, effective-dated rules and only after
    the existing authority gate permits them.
-
-## Deployment isolation
-
-The feature branch uses root `vercel.json` `git.deploymentEnabled` with the branch pattern
-`finance-os/*: false`. Vercel documents this as a branch-specific deployment opt-out;
-unspecified branches retain their default behavior. Do not remove this guard until the owner
-explicitly authorizes a deployment workflow for this branch.
