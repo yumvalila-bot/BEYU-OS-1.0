@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Entity = { id: string; name: string; country: string };
-type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
+type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
 type SavedDraft = { id: string; legalEntityId: string; taxType: string; periodStart: string; periodEnd: string; dueDate: string | null; amountPayable: string; currency: string; status: string; createdAt: string };
 type Result = {
   calculation: {
@@ -34,6 +34,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
   const [employeeStatus, setEmployeeStatus] = useState("RESIDENT_PRIMARY");
   const [records, setRecords] = useState("COMPLETE");
   const [whtCategory, setWhtCategory] = useState("SERVICE_FEE");
+  const [vatSupplyType, setVatSupplyType] = useState("GOODS");
   const [payeeResidency, setPayeeResidency] = useState("RESIDENT");
   const [cargoType, setCargoType] = useState("DRY_NON_PETROLEUM");
 
@@ -104,7 +105,9 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
               ? { ...common, annualTurnoverTzs: value, records }
               : taxType === "VAT"
                 ? { ...common, taxableSuppliesTzs: value }
-                : taxType === "WITHHOLDING_TAX"
+                : taxType === "VAT_WITHHOLDING"
+                  ? { ...common, taxableValueTzs: value, supplyType: vatSupplyType }
+                  : taxType === "WITHHOLDING_TAX"
                   ? { ...common, grossPaymentTzs: value, category: whtCategory, payeeResidency }
                   : { ...common, cargoType, importOrigin: "NON_EAC", ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
       const response = await fetch("/api/v1/finance/tax/compute", {
@@ -147,11 +150,12 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
             <option value="PERSONAL_INCOME_TAX">Personal income tax — annual</option>
             <option value="PRESUMPTIVE_INCOME_TAX">Presumptive income tax — annual</option>
             <option value="VAT">VAT — taxable supplies</option>
+            <option value="VAT_WITHHOLDING">VAT withholding — Finance Act 2026</option>
             <option value="WITHHOLDING_TAX">Withholding tax</option>
             <option value="CUSTOMS_PROCESSING_FEE">Customs processing fee — GN 158D</option>
           </select>
         </label>
-        <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : "Taxable income (TZS)"}
+        <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "VAT_WITHHOLDING" ? "Taxable supply value (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : "Taxable income (TZS)"}
           <input className={inputClass} type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
         <label className="text-[11.5px]">Period start
@@ -175,6 +179,15 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
             <select className={inputClass} value={records} onChange={(e) => setRecords(e.target.value)}>
               <option value="COMPLETE">Complete records</option>
               <option value="INCOMPLETE">Incomplete records</option>
+            </select>
+          </label>
+        )}
+        {taxType === "VAT_WITHHOLDING" && (
+          <label className="text-[11.5px]">Supply type
+            <select className={inputClass} value={vatSupplyType} onChange={(e) => setVatSupplyType(e.target.value)}>
+              <option value="GOODS">Goods — 15%</option>
+              <option value="SERVICES">Services — 12%</option>
+              <option value="MIXED">Mixed — statutory 3:2 split</option>
             </select>
           </label>
         )}
