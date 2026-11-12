@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomUUID } from "crypto";
-import { IdentityRepository, StoredSession } from "./identity.repository";
+import { IdentityRepository, StoredSession, TenantRlsContext } from "./identity.repository";
 
 /**
  * Persistent session management with:
@@ -24,13 +24,20 @@ export class SessionService {
     refreshToken: string;
     jti: string;
     expiresAt: Date;
+    countryCode?: string | null;
+    entityCode?: string | null;
   }): Promise<StoredSession> {
+    const tenantContext =
+      input.tenantId && input.countryCode && input.entityCode
+        ? { tenantId: input.tenantId, countryCode: input.countryCode, entityCode: input.entityCode }
+        : undefined;
     return this.repo.createSession({
       globalUserId: input.globalUserId,
       tenantId: input.tenantId,
       refreshTokenHash: this.hashToken(input.refreshToken),
       jti: input.jti,
       expiresAt: input.expiresAt,
+      tenantContext,
     });
   }
 
@@ -113,6 +120,26 @@ export class SessionService {
       },
     });
     return { session: created, newRefreshToken: issuedRefreshToken };
+  }
+
+  /** Revoke a local access session by its signed JWT jti and owning user. */
+  async revokeByJti(
+    globalUserId: string,
+    jti: string,
+    context: TenantRlsContext,
+  ): Promise<void> {
+    const session = await this.repo.findSessionByJti(globalUserId, jti, context);
+    if (!session || session.status !== "active") return;
+    await this.repo.updateSessionStatus(session.session_id, "revoked", context);
+    await this.repo.recordAuthEvent({
+      globalUserId,
+      tenantId: session.tenant_id,
+      countryCode: context.countryCode,
+      entityCode: context.entityCode,
+      eventType: "session_revoked",
+      result: "SUCCESS",
+      context: { reason: "federated_access_logout", sessionId: session.session_id, jti },
+    });
   }
 
   /** Revoke a specific session (logout). */

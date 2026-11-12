@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS beyu_identity.tenants (
   tenant_code  text NOT NULL UNIQUE,
   name         text NOT NULL,
   status       text NOT NULL DEFAULT 'active',  -- active | suspended | archived
+  country_code text,
+  entity_code  text,
   metadata     jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
@@ -86,6 +88,7 @@ CREATE TABLE IF NOT EXISTS beyu_identity.sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON beyu_identity.sessions(global_user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_refresh_hash ON beyu_identity.sessions(refresh_token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_sv ON beyu_identity.sessions(global_user_id, security_version);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_jti_unique ON beyu_identity.sessions(jti) WHERE jti IS NOT NULL;
 ALTER TABLE beyu_identity.sessions ADD COLUMN IF NOT EXISTS security_version integer NOT NULL DEFAULT 0;
 
 CREATE OR REPLACE FUNCTION beyu_identity.revoke_all_sessions_bump_sv(p_user_id uuid)

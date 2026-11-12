@@ -46,6 +46,18 @@ CREATE TABLE IF NOT EXISTS beyu_identity.beyu_identity_links (
 );
 CREATE INDEX IF NOT EXISTS idx_beyu_links_party ON beyu_identity.beyu_identity_links(beyu_party_id);
 
+-- One-use BEYU authorization assertions. The Health database owns replay
+-- detection; assertion ids are never stored or checked in BEYU's database.
+CREATE TABLE IF NOT EXISTS beyu_identity.authorization_assertion_replays (
+  jti               text PRIMARY KEY,
+  canonical_user_id text NOT NULL,
+  expires_at        timestamptz NOT NULL,
+  consumed_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_health_assertion_replays_expiry
+  ON beyu_identity.authorization_assertion_replays(expires_at);
+
+
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS beyu_tenant_id text UNIQUE;
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS country_code text;
 ALTER TABLE beyu_identity.tenants ADD COLUMN IF NOT EXISTS entity_code text;
@@ -82,6 +94,93 @@ ALTER TABLE beyu_identity.beyu_identity_links
 CREATE INDEX IF NOT EXISTS idx_beyu_links_status
   ON beyu_identity.beyu_identity_links(status)
   WHERE status != 'active';
+`;
+
+/** Migration 035 — privileged, minimal bootstrap resolver for the assertion exchange. */
+export const BEYU_AUTHORIZATION_RESOLVER_SQL = `
+CREATE OR REPLACE FUNCTION beyu_identity.resolve_beyu_authorization(
+  p_beyu_user_id text,
+  p_beyu_tenant_id text
+)
+RETURNS TABLE (
+  decision_code text,
+  global_user_id uuid,
+  email text,
+  display_name text,
+  security_version integer,
+  tenant_id uuid,
+  role text,
+  country_code text,
+  entity_code text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, beyu_identity
+AS $function$
+  WITH resolved AS (
+    SELECT
+      l.global_user_id AS linked_user_id,
+      l.status AS link_status,
+      u.global_user_id AS user_id,
+      u.email,
+      u.display_name,
+      u.security_version,
+      u.account_status,
+      t.tenant_id,
+      t.status AS tenant_status,
+      t.country_code,
+      t.entity_code,
+      m.status AS membership_status,
+      m.role
+    FROM (SELECT 1) AS seed
+    LEFT JOIN beyu_identity.beyu_identity_links AS l
+      ON l.beyu_user_id = p_beyu_user_id
+    LEFT JOIN beyu_identity.users AS u
+      ON u.global_user_id = l.global_user_id
+    LEFT JOIN beyu_identity.tenants AS t
+      ON t.beyu_tenant_id = p_beyu_tenant_id
+    LEFT JOIN beyu_identity.tenant_memberships AS m
+      ON m.global_user_id = u.global_user_id
+     AND m.tenant_id = t.tenant_id
+  ),
+  evaluated AS (
+    SELECT *,
+      CASE
+        WHEN linked_user_id IS NULL OR link_status IS DISTINCT FROM 'active'
+          THEN 'HEALTH_IDENTITY_LINK_NOT_ACTIVE'
+        WHEN user_id IS NULL OR account_status IS DISTINCT FROM 'active'
+          THEN 'HEALTH_LOCAL_ACCOUNT_NOT_ACTIVE'
+        WHEN tenant_id IS NULL OR tenant_status IS DISTINCT FROM 'active'
+          THEN 'HEALTH_TENANT_NOT_ACTIVE_OR_LINKED'
+        WHEN membership_status IS DISTINCT FROM 'active'
+          THEN 'HEALTH_LOCAL_MEMBERSHIP_NOT_ACTIVE'
+        ELSE 'AUTHORIZED'
+      END AS decision
+    FROM resolved
+  )
+  SELECT
+    decision,
+    CASE WHEN decision = 'AUTHORIZED' THEN user_id END,
+    CASE WHEN decision = 'AUTHORIZED' THEN email END,
+    CASE WHEN decision = 'AUTHORIZED' THEN display_name END,
+    CASE WHEN decision = 'AUTHORIZED' THEN security_version END,
+    CASE WHEN decision = 'AUTHORIZED' THEN tenant_id END,
+    CASE WHEN decision = 'AUTHORIZED' THEN role END,
+    CASE WHEN decision = 'AUTHORIZED' THEN country_code END,
+    CASE WHEN decision = 'AUTHORIZED' THEN entity_code END
+  FROM evaluated;
+$function$;
+
+REVOKE ALL ON FUNCTION beyu_identity.resolve_beyu_authorization(text, text) FROM PUBLIC;
+DO $grant$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_health_runtime') THEN
+    EXECUTE 'GRANT USAGE ON SCHEMA beyu_identity TO beyu_health_runtime';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION beyu_identity.resolve_beyu_authorization(text, text) TO beyu_health_runtime';
+  END IF;
+END
+$grant$;
 `;
 
 /** Migration 003 — country/entity isolation boundaries for linked tenants (up). */
@@ -131,8 +230,10 @@ export async function ensureBridgeSchema(conn: {
   exec(sql: string): Promise<void>;
 }): Promise<void> {
   await conn.exec(BEYU_IDENTITY_BRIDGE_SQL);
-  // Apply lifecycle columns (migration 031).
+  // Apply lifecycle columns (migration 031), then the signed-assertion
+  // bootstrap resolver (migration 035). The runtime role receives EXECUTE only.
   await conn.exec(BEYU_BRIDGE_LIFECYCLE_SQL);
+  await conn.exec(BEYU_AUTHORIZATION_RESOLVER_SQL);
 }
 
 /** Bring the isolation-boundary upgrade into a connection (idempotent). */

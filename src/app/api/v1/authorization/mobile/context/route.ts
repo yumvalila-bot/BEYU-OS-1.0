@@ -15,7 +15,6 @@ import { sessions, users, parties, tenants } from "@/db/schema";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { sha256 } from "@/lib/crypto";
 import { loadGrants, permissionsForRoles } from "@/lib/authz";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 import { withDatabaseRlsContext } from "@/lib/tenant-scope";
 
 export const dynamic = "force-dynamic";
@@ -68,8 +67,6 @@ export async function GET(request: Request): Promise<NextResponse> {
   const roleCodes = [...new Set(grants.map((g) => g.code))];
   const entityScope = [...new Set(grants.map((g) => g.entityId).filter((v): v is string => Boolean(v)))];
 
-  // Resolve OS authorizations (same as web)
-  const healthAuth = await checkHealthOSAuthorization(session.userId);
 
   // Build authorization context
   const authorizedOSs: Array<{
@@ -97,16 +94,6 @@ export async function GET(request: Request): Promise<NextResponse> {
     permissions: Array.from(permissionsForRoles(roleCodes)),
   });
 
-  // Health OS: Authorized if user has canonical identity link
-  if (healthAuth.authorized) {
-    authorizedOSs.push({
-      osCode: "HEALTH",
-      osName: "Health OS (Sector)",
-      authorized: true,
-      sectorUserId: healthAuth.sectorUserId,
-      linkedAt: healthAuth.linkedAt,
-    });
-  }
 
   // Determine routing recommendation
   const authorizedCount = authorizedOSs.filter((os) => os.authorized).length;

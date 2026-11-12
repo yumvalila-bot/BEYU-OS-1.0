@@ -73,6 +73,14 @@ function assertProductionConfig(): void {
   if (refreshSecret && INSECURE_JWT_SECRETS.has(refreshSecret))
     missingRequired.push("auth(JWT_REFRESH_SECRET=default/insecure)");
 
+  const assertionVerifierConfigured = Boolean(
+    process.env.BEYU_AUTH_ASSERTION_PUBLIC_KEYS ||
+    (process.env.BEYU_AUTH_ASSERTION_PUBLIC_KEY && process.env.BEYU_AUTH_ASSERTION_KID)
+  );
+  if ((process.env.NODE_ENV ?? "development") === "production" && !assertionVerifierConfigured) {
+    missingRequired.push("identity(BEYU_AUTH_ASSERTION_PUBLIC_KEY(S)+KID)");
+  }
+
   if ((process.env.NODE_ENV ?? "development") === "production") {
     if (missingRequired.length) {
       throw new Error(

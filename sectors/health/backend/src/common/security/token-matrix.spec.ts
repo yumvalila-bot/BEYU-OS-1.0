@@ -24,7 +24,8 @@
  * REPLAYED_REQUEST (idempotency) and CSRF replay are covered by the
  * idempotency + CSRF suites; WRONG_SERVICE/INSUFFICIENT_SCOPE are
  * service-token concerns (see root matrix). MISSING_TENANT is the
- * tenantless-login case (role falls back to patient; still requires link).
+ * tenantless-login case: the canonical link is necessary but tenant context
+ * and an active Health membership are still required to establish an actor.
  */
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import { JwtService } from "@nestjs/jwt";
@@ -34,6 +35,8 @@ import {
   TestDbConnection,
 } from "../../modules/identity/test-connection";
 import { IdentityRepository } from "../../modules/identity/identity.repository";
+import { SessionService } from "../../modules/identity/session.service";
+import { randomUUID } from "node:crypto";
 import { AuditService } from "../../modules/identity/audit.service";
 import { BeyuIdentityBridge } from "../../modules/identity/beyu-bridge";
 import { TenantContext, ActorContext } from "./tenant-context";
@@ -51,6 +54,7 @@ function makeRequest(token: string | null): any {
 describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   let conn: TestDbConnection;
   let repo: IdentityRepository;
+  let sessions: SessionService;
   let audit: AuditService;
   let tenant: TenantContext;
   let jwt: JwtService;
@@ -62,10 +66,27 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   const enter = (token: string | null) =>
     middleware.use(makeRequest(token), {} as any, () => undefined);
 
-  const sign = (
+  const sign = async (
     payload: Record<string, unknown>,
     opts: Record<string, unknown> = {},
-  ) => jwt.sign(payload, { secret: SECRET, ...opts });
+  ) => {
+    const subject = typeof payload.sub === "string" ? payload.sub : null;
+    if (subject) {
+      const jti = randomUUID();
+      const tenantId = typeof payload.tenantId === "string" ? payload.tenantId : null;
+      await sessions.createSession({
+        globalUserId: subject,
+        tenantId,
+        refreshToken: randomUUID(),
+        jti,
+        expiresAt: new Date(Date.now() + 15 * 60_000),
+        countryCode: tenantId ? "TZ" : null,
+        entityCode: tenantId ? "BEYU" : null,
+      });
+      payload = { ...payload, jti, ...(tenantId ? { countryCode: "TZ", entityCode: "BEYU" } : {}) };
+    }
+    return jwt.sign(payload, { secret: SECRET, ...opts });
+  };
 
   /** Create a user + membership + canonical link; return its id + current sv. */
   async function linkedUser(tenantId: string, role = "doctor") {
@@ -97,6 +118,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     conn = await createTestDbConnection();
     repo = new IdentityRepository(conn);
     await repo.ensureSchema();
+    sessions = new SessionService(repo);
     audit = new AuditService(repo);
     tenant = new TenantContext();
     jwt = new JwtService({ secret: SECRET, signOptions: { expiresIn: "15m" } });
@@ -110,7 +132,12 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       new ConfigService({ JWT_ISSUER: "beyu", JWT_AUDIENCE: "beyu-api" }),
       bridge,
     );
-    const ta = await repo.createTenant({ code: "MATRIX-A", name: "A" });
+    const ta = await repo.createTenant({
+      code: "MATRIX-A",
+      name: "A",
+      countryCode: "TZ",
+      entityCode: "HOSP-A",
+    });
     tenantAId = ta.tenant_id;
   });
 
@@ -120,7 +147,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("VALID token → actor established with canonical link present", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -140,7 +167,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("EXPIRED token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -205,7 +232,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_AUDIENCE token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -224,7 +251,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("WRONG_ISSUER token → no actor", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -242,7 +269,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   });
 
   it("MISSING_SUBJECT token → no actor", async () => {
-    const token = sign(
+    const token = await sign(
       { email: "m@a.example", role: "doctor", tenantId: tenantAId, sv: 0 },
       { issuer: "beyu", audience: "beyu-api" },
     );
@@ -263,7 +290,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
 
   it("STALE_SECURITY_VERSION → 401 AUTHORIZATION_CHANGED", async () => {
     const u = await linkedUser(tenantAId);
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -281,7 +308,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
   it("REVOKED (disabled account) → 401 ACCOUNT_DISABLED", async () => {
     const u = await linkedUser(tenantAId);
     await repo.setAccountStatus(u.id, "disabled");
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -306,7 +333,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       tenantId: tenantAId,
       role: "doctor",
     });
-    const token = sign(
+    const token = await sign(
       {
         sub: user.global_user_id,
         email: "m@a.example",
@@ -324,8 +351,10 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     const other = await repo.createTenant({
       code: `MATRIX-B-${Math.random().toString(36).slice(2, 6)}`,
       name: "B",
+      countryCode: "TZ",
+      entityCode: "HOSP-B",
     });
-    const token = sign(
+    const token = await sign(
       {
         sub: u.id,
         email: "m@a.example",
@@ -338,7 +367,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     await expect(enter(token)).rejects.toThrow("NO_TENANT_MEMBERSHIP");
   });
 
-  it("MISSING_TENANT (tenantless) still requires the canonical link", async () => {
+  it("MISSING_TENANT requires a canonical link but still denies a tenantless Health session", async () => {
     const user = await repo.createUser({
       email: `mx-notenant-${Math.random().toString(36).slice(2)}@a.example`,
       displayName: "NoTenant",
@@ -346,7 +375,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       accountStatus: "active",
     });
     // No membership, no link.
-    const token = sign(
+    const token = await sign(
       {
         sub: user.global_user_id,
         email: "m@a.example",
@@ -356,21 +385,18 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       { issuer: "beyu", audience: "beyu-api" },
     );
     await expect(enter(token)).rejects.toThrow("NO_CANONICAL_IDENTITY_LINK");
-    // With a link, the tenantless token is accepted (patient default role).
+    // A canonical link is necessary but not sufficient: Health sessions must
+    // carry an active Health tenant membership and isolation context.
     await bridge.linkUser({
       globalUserId: user.global_user_id,
       beyuUserId: `BEYU-TEST-${user.global_user_id}`,
       linkedBy: "spec-fixture",
     });
     const sv = await repo.getSecurityVersion(user.global_user_id);
-    const token2 = sign(
+    const token2 = await sign(
       { sub: user.global_user_id, email: "m@a.example", role: "patient", sv },
       { issuer: "beyu", audience: "beyu-api" },
     );
-    let actor: ActorContext | null = null;
-    await middleware.use(makeRequest(token2), {} as any, () => {
-      actor = tenant.current();
-    });
-    expect(actor).not.toBeNull();
+    await expect(enter(token2)).rejects.toThrow("SESSION_INVALID");
   });
 });

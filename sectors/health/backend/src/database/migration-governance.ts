@@ -122,8 +122,13 @@ export function sha256(input: string): string {
 const ROLE_LEVEL_DDL =
   /\bCREATE\s+ROLE\b|\bALTER\s+ROLE\b|\bDROP\s+ROLE\b|\bCOMMENT\s+ON\s+ROLE\b/i;
 
+const PRIVILEGED_AUTHORIZATION_RESOLVER_DDL =
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+beyu_identity\.resolve_beyu_authorization\s*\(/i;
+
 export function migrationRequiresPrivilegedRole(sql: string): boolean {
-  return ROLE_LEVEL_DDL.test(sql);
+  // The assertion resolver is SECURITY DEFINER and must be owned by a
+  // privileged migration principal, never the application runtime role.
+  return ROLE_LEVEL_DDL.test(sql) || PRIVILEGED_AUTHORIZATION_RESOLVER_DDL.test(sql);
 }
 
 /**

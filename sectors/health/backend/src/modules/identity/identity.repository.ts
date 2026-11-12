@@ -26,6 +26,8 @@ export interface StoredTenant {
   tenant_code: string;
   name: string;
   status: string;
+  country_code: string | null;
+  entity_code: string | null;
   metadata: Record<string, unknown>;
   created_at: Date;
   updated_at: Date;
@@ -52,9 +54,17 @@ export interface StoredSession {
   created_at: Date;
 }
 
+export interface TenantRlsContext {
+  tenantId: string;
+  countryCode: string;
+  entityCode: string;
+}
+
 export interface AuthEventInput {
   globalUserId?: string | null;
   tenantId?: string | null;
+  countryCode?: string | null;
+  entityCode?: string | null;
   eventType: string;
   result: "SUCCESS" | "FAILURE" | "DENIED";
   context?: Record<string, unknown>;
@@ -100,6 +110,21 @@ function mapSession(row: Record<string, unknown>): StoredSession {
 @Injectable()
 export class IdentityRepository {
   constructor(@Inject(DB_CONNECTION) private readonly conn: DbConnection) {}
+
+  private async withTenantRlsContext<T>(
+    context: TenantRlsContext,
+    operation: (tx: DbConnection) => Promise<T>,
+  ): Promise<T> {
+    if (!context.tenantId || !context.countryCode || !context.entityCode) {
+      throw new Error("A complete Health-local tenant RLS context is required.");
+    }
+    return this.conn.transaction(async (tx) => {
+      await tx.query("SELECT set_config('app.tenant_id', $1, true)", [context.tenantId]);
+      await tx.query("SELECT set_config('app.country_code', $1, true)", [context.countryCode]);
+      await tx.query("SELECT set_config('app.entity_code', $1, true)", [context.entityCode]);
+      return operation(tx);
+    });
+  }
 
   async ensureSchema(): Promise<void> {
     await ensureIdentitySchema(this.conn);
@@ -248,23 +273,24 @@ export class IdentityRepository {
   async createTenant(input: {
     code: string;
     name: string;
+    countryCode?: string | null;
+    entityCode?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<StoredTenant> {
     const rows = await this.conn.query(
-      `INSERT INTO beyu_identity.tenants (tenant_code, name, metadata)
-       VALUES ($1, $2, $3)
+      `INSERT INTO beyu_identity.tenants
+         (tenant_code, name, country_code, entity_code, metadata)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [input.code, input.name, JSON.stringify(input.metadata ?? {})],
+      [
+        input.code,
+        input.name,
+        input.countryCode ?? null,
+        input.entityCode ?? null,
+        JSON.stringify(input.metadata ?? {}),
+      ],
     );
-    return {
-      tenant_id: String(rows[0].tenant_id),
-      tenant_code: String(rows[0].tenant_code),
-      name: String(rows[0].name),
-      status: String(rows[0].status),
-      metadata: (rows[0].metadata as Record<string, unknown>) ?? {},
-      created_at: new Date(rows[0].created_at as string),
-      updated_at: new Date(rows[0].updated_at as string),
-    };
+    return this.mapTenant(rows[0]);
   }
 
   async findTenantByCode(code: string): Promise<StoredTenant | null> {
@@ -289,6 +315,8 @@ export class IdentityRepository {
       tenant_code: String(row.tenant_code),
       name: String(row.name),
       status: String(row.status),
+      country_code: row.country_code == null ? null : String(row.country_code),
+      entity_code: row.entity_code == null ? null : String(row.entity_code),
       metadata: (row.metadata as Record<string, unknown>) ?? {},
       created_at: new Date(row.created_at as string),
       updated_at: new Date(row.updated_at as string),
@@ -315,13 +343,17 @@ export class IdentityRepository {
   async findActiveMembership(
     globalUserId: string,
     tenantId: string,
+    context?: TenantRlsContext,
   ): Promise<StoredMembership | null> {
-    const rows = await this.conn.query(
-      `SELECT * FROM beyu_identity.tenant_memberships
-       WHERE global_user_id = $1 AND tenant_id = $2 AND status = 'active'`,
-      [globalUserId, tenantId],
-    );
-    return rows.length ? this.mapMembership(rows[0]) : null;
+    const query = async (conn: DbConnection) => {
+      const rows = await conn.query(
+        `SELECT * FROM beyu_identity.tenant_memberships
+         WHERE global_user_id = $1 AND tenant_id = $2 AND status = 'active'`,
+        [globalUserId, tenantId],
+      );
+      return rows.length ? this.mapMembership(rows[0]) : null;
+    };
+    return context ? this.withTenantRlsContext(context, query) : query(this.conn);
   }
 
   private mapMembership(row: Record<string, unknown>): StoredMembership {
@@ -367,30 +399,36 @@ export class IdentityRepository {
     jti: string | null;
     expiresAt: Date;
     securityVersion?: number;
+    tenantContext?: TenantRlsContext;
   }): Promise<StoredSession> {
-    const sv =
-      input.securityVersion ??
-      (
-        await this.conn.query<{ security_version: number }>(
-          `SELECT security_version FROM beyu_identity.users WHERE global_user_id = $1`,
-          [input.globalUserId],
-        )
-      )[0]?.security_version ??
-      0;
-    const rows = await this.conn.query(
-      `INSERT INTO beyu_identity.sessions (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at, security_version)
-       VALUES ($1, $2, $3, $4, 'active', $5, $6)
-       RETURNING *`,
-      [
-        input.globalUserId,
-        input.tenantId,
-        input.refreshTokenHash,
-        input.jti,
-        input.expiresAt,
-        Number(sv),
-      ],
-    );
-    return mapSession(rows[0]);
+    const insert = async (conn: DbConnection) => {
+      const sv =
+        input.securityVersion ??
+        (
+          await conn.query<{ security_version: number }>(
+            `SELECT security_version FROM beyu_identity.users WHERE global_user_id = $1`,
+            [input.globalUserId],
+          )
+        )[0]?.security_version ??
+        0;
+      const rows = await conn.query(
+        `INSERT INTO beyu_identity.sessions (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at, security_version)
+         VALUES ($1, $2, $3, $4, 'active', $5, $6)
+         RETURNING *`,
+        [
+          input.globalUserId,
+          input.tenantId,
+          input.refreshTokenHash,
+          input.jti,
+          input.expiresAt,
+          Number(sv),
+        ],
+      );
+      return mapSession(rows[0]);
+    };
+    return input.tenantContext
+      ? this.withTenantRlsContext(input.tenantContext, insert)
+      : insert(this.conn);
   }
 
   async findSessionByRefreshHash(
@@ -403,14 +441,37 @@ export class IdentityRepository {
     return rows.length ? mapSession(rows[0]) : null;
   }
 
+  async findSessionByJti(
+    globalUserId: string,
+    jti: string,
+    context?: TenantRlsContext,
+  ): Promise<StoredSession | null> {
+    const query = async (conn: DbConnection) => {
+      const rows = await conn.query(
+        `SELECT * FROM beyu_identity.sessions
+          WHERE global_user_id = $1 AND jti = $2
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [globalUserId, jti],
+      );
+      return rows.length ? mapSession(rows[0]) : null;
+    };
+    return context ? this.withTenantRlsContext(context, query) : query(this.conn);
+  }
+
   async updateSessionStatus(
     sessionId: string,
     status: SessionStatus,
+    context?: TenantRlsContext,
   ): Promise<void> {
-    await this.conn.query(
-      `UPDATE beyu_identity.sessions SET status = $2, updated_at = now() WHERE session_id = $1`,
-      [sessionId, status],
-    );
+    const update = async (conn: DbConnection) => {
+      await conn.query(
+        `UPDATE beyu_identity.sessions SET status = $2, updated_at = now() WHERE session_id = $1`,
+        [sessionId, status],
+      );
+    };
+    if (context) await this.withTenantRlsContext(context, update);
+    else await update(this.conn);
   }
 
   async updateSessionJti(sessionId: string, jti: string): Promise<void> {
@@ -441,19 +502,26 @@ export class IdentityRepository {
 
   // ── Audit events ───────────────────────────────────────────────────────────
   async recordAuthEvent(input: AuthEventInput): Promise<string> {
-    const rows = await this.conn.query(
-      `INSERT INTO beyu_identity.auth_events (global_user_id, tenant_id, event_type, result, context)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING event_id`,
-      [
-        input.globalUserId ?? null,
-        input.tenantId ?? null,
-        input.eventType,
-        input.result,
-        JSON.stringify(input.context ?? {}),
-      ],
-    );
-    return String(rows[0].event_id);
+    const insert = async (conn: DbConnection) => {
+      const rows = await conn.query(
+        `INSERT INTO beyu_identity.auth_events (global_user_id, tenant_id, event_type, result, context)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING event_id`,
+        [
+          input.globalUserId ?? null,
+          input.tenantId ?? null,
+          input.eventType,
+          input.result,
+          JSON.stringify(input.context ?? {}),
+        ],
+      );
+      return String(rows[0].event_id);
+    };
+    const context =
+      input.tenantId && input.countryCode && input.entityCode
+        ? { tenantId: input.tenantId, countryCode: input.countryCode, entityCode: input.entityCode }
+        : undefined;
+    return context ? this.withTenantRlsContext(context, insert) : insert(this.conn);
   }
 
   async latestAuthEvents(limit = 50): Promise<Array<Record<string, unknown>>> {

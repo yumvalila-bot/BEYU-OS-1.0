@@ -11,7 +11,7 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
-import { UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginDto, RegisterDto, LogoutDto } from "./dto";
 import { JwtAuthGuard } from "./guards/jwt.guard";
@@ -40,6 +40,33 @@ export class AuthController {
     private authService: AuthService,
     @Inject(DB_CONNECTION) private readonly db: DbConnection,
   ) {}
+
+  /**
+   * BEYU → Health one-use identity exchange. This is the only production
+   * credential bootstrap path; standalone password registration/login remain
+   * fenced. The browser may call it only from the same origin.
+   */
+  @Post("federation/exchange")
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Exchange a signed BEYU assertion for a Health-local session" })
+  async exchangeBeyuAssertion(
+    @Body("assertion") assertion: string,
+    @Req() req: Request,
+  ) {
+    const origin = req.headers.origin;
+    const allowedOrigins = (process.env.BEYU_TRUSTED_BROWSER_ORIGINS ?? process.env.CORS_ORIGIN ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value && value !== "*");
+    if (!origin || !allowedOrigins.includes(origin)) {
+      throw new ForbiddenException("FEDERATION_ORIGIN_NOT_ALLOWED");
+    }
+    if (typeof assertion !== "string" || !assertion) {
+      throw new UnauthorizedException("BEYU_ASSERTION_REQUIRED");
+    }
+    return this.authService.exchangeBeyuAssertion(assertion);
+  }
 
   @Post("register")
   @Public()
@@ -110,14 +137,28 @@ export class AuthController {
 
   @Post("logout")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Logout (revoke the session and clear cookie)" })
+  @ApiBearerAuth("access-token")
+  @ApiOperation({ summary: "Revoke the current Health-local access session" })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() logoutDto: LogoutDto,
   ) {
-    const refreshToken = logoutDto.refreshToken ?? this.readRefreshToken(req);
-    if (refreshToken) {
+    const actor = req.user as {
+      userId?: string;
+      jti?: string;
+      tenantId?: string;
+      countryCode?: string;
+      entityCode?: string;
+    } | undefined;
+    if (actor?.userId && actor.jti && actor.tenantId && actor.countryCode && actor.entityCode) {
+      await this.authService.logoutAccessSession(actor.userId, actor.jti, {
+        tenantId: actor.tenantId,
+        countryCode: actor.countryCode,
+        entityCode: actor.entityCode,
+      });
+    } else {
+      const refreshToken = logoutDto?.refreshToken ?? this.readRefreshToken(req);
       await this.authService.logout(refreshToken);
     }
     res.clearCookie(REFRESH_COOKIE, this.cookieOptions());

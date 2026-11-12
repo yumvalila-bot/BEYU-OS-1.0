@@ -20,6 +20,9 @@ interface TokenClaims {
   role: string;
   tenantId?: string | null;
   sv?: number;
+  jti?: string;
+  countryCode?: string | null;
+  entityCode?: string | null;
   permissions?: string[];
 }
 
@@ -83,6 +86,21 @@ export class AuthContextMiddleware implements NestMiddleware {
     }
 
     const userId = claims.sub;
+    // A token without a subject is unauthenticated, not a malformed session
+    // that may be allowed to reach downstream handlers.
+    if (typeof userId !== "string" || !userId) {
+      next();
+      return;
+    }
+    const tenantId = claims.tenantId ?? null;
+    const countryCode = claims.countryCode ?? null;
+    const entityCode = claims.entityCode ?? null;
+    if (!claims.jti) throw new UnauthorizedException("SESSION_INVALID");
+    const tenantContext =
+      tenantId && countryCode && entityCode
+        ? { tenantId, countryCode, entityCode }
+        : null;
+    const auditTenantContext = tenantContext ?? {};
     const user = await this.repo.findUserById(userId);
     if (!user) {
       next();
@@ -92,6 +110,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     if (user.account_status !== "active") {
       await this.audit.record({
         globalUserId: userId,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "account_disabled", status: user.account_status },
@@ -110,11 +129,22 @@ export class AuthContextMiddleware implements NestMiddleware {
     if (!link) {
       await this.audit.record({
         globalUserId: userId,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "no_canonical_identity_link" },
       });
       throw new UnauthorizedException("NO_CANONICAL_IDENTITY_LINK");
+    }
+    if (link.status !== "active") {
+      await this.audit.record({
+        globalUserId: userId,
+        ...auditTenantContext,
+        eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "canonical_identity_link_not_active", status: link.status },
+      });
+      throw new UnauthorizedException("CANONICAL_IDENTITY_LINK_NOT_ACTIVE");
     }
 
     // ── Canonical status revalidation (revocation propagation) ────────────
@@ -130,6 +160,7 @@ export class AuthContextMiddleware implements NestMiddleware {
       } catch (e) {
         await this.audit.record({
           globalUserId: userId,
+        ...auditTenantContext,
           eventType: "token_rejected",
           result: "DENIED",
           context: {
@@ -145,11 +176,16 @@ export class AuthContextMiddleware implements NestMiddleware {
       }
     }
 
+    // The canonical-link denial above intentionally precedes this check:
+    // a tenantless legacy token cannot bypass identity-link enforcement.
+    if (!tenantContext) throw new UnauthorizedException("SESSION_INVALID");
+
     // Authorization changed after the token was issued → reject stale claims.
     const tokenSv = claims.sv ?? 0;
     if (tokenSv !== user.security_version) {
       await this.audit.record({
         globalUserId: userId,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: {
@@ -162,15 +198,38 @@ export class AuthContextMiddleware implements NestMiddleware {
     }
 
     // Resolve tenant + role + permissions from the DATABASE (never token claims).
-    const tenantId = claims.tenantId ?? null;
+    const localSession = await this.repo.findSessionByJti(userId, claims.jti, tenantContext);
+    if (
+      !localSession ||
+      localSession.status !== "active" ||
+      new Date(localSession.expires_at).getTime() <= Date.now() ||
+      localSession.tenant_id !== tenantId
+    ) {
+      await this.audit.record({
+        globalUserId: userId,
+        ...auditTenantContext,
+                eventType: "token_rejected",
+        result: "DENIED",
+        context: { reason: "local_session_inactive_or_mismatched", jti: claims.jti },
+      });
+      throw new UnauthorizedException("SESSION_INVALID");
+    }
+    (req as Request & { user?: unknown }).user = {
+      userId,
+      jti: claims.jti,
+      sessionId: localSession.session_id,
+      tenantId,
+      countryCode,
+      entityCode,
+    };
     let role = claims.role ?? "patient";
     if (tenantId) {
-      const membership = await this.repo.findActiveMembership(userId, tenantId);
+      const membership = await this.repo.findActiveMembership(userId, tenantId, tenantContext);
       if (!membership) {
         await this.audit.record({
           globalUserId: userId,
-          tenantId,
-          eventType: "token_rejected",
+        ...auditTenantContext,
+                    eventType: "token_rejected",
           result: "DENIED",
           context: { reason: "no_active_membership" },
         });

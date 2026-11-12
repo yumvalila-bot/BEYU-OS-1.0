@@ -57,10 +57,14 @@ describe("Phase 1A identity persistence (real PostgreSQL)", () => {
     const tenantA = await repo.createTenant({
       code: "TENANT-A",
       name: "Tenant A",
+      countryCode: "TZ",
+      entityCode: "HOSP-A",
     });
     const tenantB = await repo.createTenant({
       code: "TENANT-B",
       name: "Tenant B",
+      countryCode: "TZ",
+      entityCode: "HOSP-B",
     });
     tenantAId = tenantA.tenant_id;
     tenantBId = tenantB.tenant_id;

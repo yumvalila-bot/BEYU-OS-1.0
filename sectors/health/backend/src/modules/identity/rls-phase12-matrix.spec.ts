@@ -313,14 +313,27 @@ async function auditImmutability(bed: any): Promise<string> {
   return "MISSING_IMMUTABILITY";
 }
 
-// Static check: migrations must not contain BYPASSRLS (privileged bypass).
+// Static check: reject a positive BYPASSRLS role attribute. NOBYPASSRLS is
+// the required safe setting and must not be mistaken for the unsafe token.
+// SQL comments are stripped first so documentation cannot trigger a failure.
 export const BYPASSRLS_IN_MIGRATIONS = (() => {
-  let found = false;
   for (const f of fs
     .readdirSync(MIG_DIR)
     .filter((x) => x.endsWith(".up.sql"))) {
-    if (/BYPASSRLS/i.test(fs.readFileSync(path.join(MIG_DIR, f), "utf8")))
-      found = true;
+    const sql = fs
+      .readFileSync(path.join(MIG_DIR, f), "utf8")
+      .replace(/--[^\r\n]*/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
+    const statements = sql.split(";");
+    if (
+      statements.some((statement) =>
+        /\b(?:CREATE|ALTER)\s+(?:ROLE|USER)\b[\s\S]*\bBYPASSRLS\b/i.test(
+          statement,
+        ),
+      )
+    ) {
+      return true;
+    }
   }
-  return found;
+  return false;
 })();
