@@ -107,11 +107,11 @@ export const FINANCE_ACT_2026_CHANGE_INDEX: readonly FinanceAct2026Change[] = [
     principalAct: "Income Tax Act, Cap. 332",
     principalProvision: "First Schedule, paragraph 2",
     financeActProvision: "Finance Act No. 2 of 2026, section 27",
-    summary: "Amends the turnover threshold and substitutes the presumptive-tax table, including treatment linked to compliance with section 43 of the Tax Administration Act.",
+    summary: "Raises the presumptive turnover threshold from TZS 100m to TZS 200m and substitutes the First Schedule table: NIL up to TZS 4m; TZS 100k or 3% of excess over TZS 4m for TZS 4m–7m depending on section 43 compliance; TZS 250k or TZS 90k plus 3% of excess over TZS 7m for TZS 7m–11m; and 4.0% of turnover above TZS 11m to TZS 200m. A qualifying new business may apply for a first-twelve-month exemption, subject to Commissioner satisfaction.",
     sourcePages: "Printed pages 31–33",
     reviewGate: "CONSOLIDATION_AND_SPECIALIST_REVIEW_REQUIRED",
     operationalStatus: "INDEX_ONLY_NOT_A_TAX_RULE",
-    caveat: "The full table, turnover definitions, taxpayer exclusions and cross-reference to section 43 must be transcribed and checked before any presumptive assessment. " + commonCaveat,
+    caveat: "The enacted Act table is transcribed from the official OSG PDF; the new-business exemption still requires an application and Commissioner decision, and eligibility, exclusions, section 43 compliance evidence and effective-date treatment require specialist validation. " + commonCaveat,
   },
   {
     code: "FA2026_TA_S8A_FRAMEWORK_AGREEMENT",
