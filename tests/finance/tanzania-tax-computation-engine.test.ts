@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateCorporateIncomeTax,
+  calculateCustomsProcessingFee,
   calculatePaye,
   calculatePersonalIncomeTax,
   calculatePresumptiveIncomeTax,
@@ -81,12 +82,28 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(pack.submission.receiptNumber).toBeNull();
   });
 
+  it("computes GN 158D customs processing fees without inventing import duty", () => {
+    expect(calculateCustomsProcessingFee({ cargoType: "DRY_NON_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, fobValueTzs: 10000000 }).taxAmountTzs).toBe(100000);
+    expect(calculateCustomsProcessingFee({ cargoType: "WET_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, vesselCount: 2 }).taxAmountTzs).toBe(40000000);
+    expect(calculateCustomsProcessingFee({ cargoType: "DRY_NON_PETROLEUM", importOrigin: "EAC_ORIGINATING", originEvidenceVerified: true, fobValueTzs: 10000000 }).taxAmountTzs).toBe(0);
+    expect(() => calculateCustomsProcessingFee({ cargoType: "WET_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, vesselCount: 0 })).toThrow(TaxCalculationError);
+    expect(() => calculateCustomsProcessingFee({ cargoType: "DRY_NON_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, fobValueTzs: 10000000, exemptionClaimed: true })).toThrow(TaxCalculationError);
+  });
+
   it("prepares WHT/PAYE due dates and annual income tax deadline", () => {
     const taxpayer = { legalEntityId: "entity-1", legalName: "Example Ltd", tin: "123456789" };
     const wht = prepareTaxFilingPack({ taxpayer, periodStart: "2026-10-01", periodEnd: "2026-10-31", calculation: calculateWithholdingTax({ grossPaymentTzs: 100000, category: "INTEREST", payeeResidency: "RESIDENT" }) });
     expect(wht.dueDate).toBe("2026-11-07");
     const cit = prepareTaxFilingPack({ taxpayer, periodStart: "2026-01-01", periodEnd: "2026-12-31", calculation: calculateCorporateIncomeTax({ taxableIncomeTzs: 1000000 }) });
     expect(cit.dueDate).toBe("2027-06-30");
+  });
+
+  it("rejects partial-month VAT, PAYE and WHT filing packs", () => {
+    const taxpayer = { legalEntityId: "entity-1", legalName: "Example Ltd", tin: "123456789" };
+    expect(() => prepareTaxFilingPack({
+      taxpayer, periodStart: "2026-10-05", periodEnd: "2026-10-31",
+      calculation: calculateVat({ taxableSuppliesTzs: 1000 }),
+    })).toThrow(TaxCalculationError);
   });
 
   it("rejects invalid amounts, invalid TINs and malformed filing periods", () => {
