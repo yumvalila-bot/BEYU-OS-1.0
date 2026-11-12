@@ -75,10 +75,12 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     commencementDate: "2026-07-01",
     sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4642",
-    reproducedTextUris: [],
+    reproducedTextUris: [
+      "https://www.scribd.com/document/1076424796/Gn158a-The-Value-Added-Tax-Requirements-for-Deferment-Order-2026-Tgpa",
+    ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["OAG MIS metadata confirms GN 158A, publication 30 June 2026 and commencement 1 July 2026.", "Obtain the complete Order and verify the qualifying trailer categories, documentary conditions, process and any limits before modelling VAT deferment."],
+    notes: ["OAG MIS metadata confirms GN 158A, publication 30 June 2026 and commencement 1 July 2026.", "A reproduced copy describes eligibility for manufacturers/assemblers of locally manufactured or assembled trailers under HS heading 87.16, including staffing and industrial equipment thresholds and premises inspection.", "Do not operationalize the reported 100 skilled staff, five Tanzanian engineers or equipment list until the official Order and the enabling VAT Act provisions are checked."],
   },
   {
     code: "TZ_GN_158B_2026_PRESUMPTIVE_NEW_TRADERS",
@@ -103,10 +105,15 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     commencementDate: "2026-07-01",
     sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4644",
-    reproducedTextUris: [],
+    reproducedTextUris: [
+      "https://lysonlaw.co.tz/index.php/guidelines/the-electronic-transactions-mandatory-electronic-payments-for-specified-transactions-order-2026",
+    ],
+    supportingAnalysisUris: [
+      "https://globaltaxnews.ey.com/news/2026-1753-tanzania-introduces-mandatory-electronic-payment-for-specific-identified-transactions",
+    ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["OAG MIS metadata confirms GN 158C, publication 30 June 2026 and commencement 1 July 2026.", "Finance Act No. 2 of 2026, section 6 enables Gazette orders prescribing payments to be made electronically and makes proof of electronic payment a requirement for specified asset-transfer application approvals; the exact Order schedules and transactions must be obtained before implementation."],
+    notes: ["OAG MIS metadata confirms GN 158C, publication 30 June 2026 and commencement 1 July 2026.", "Finance Act No. 2 of 2026, section 6 enables Gazette orders prescribing payments to be made electronically and makes proof of electronic payment a requirement for specified asset-transfer application approvals.", "Reproduced text and professional analysis describe specified payment categories across transport, shopping/entertainment, education, accommodation/food/tourism, high-value property/vehicle transactions and certain agricultural cooperative transactions, with a six-month transition for existing recipients of those payments.", "Do not generalize this into a blanket ban on cash. Verify the exact schedule, transaction descriptions, exclusions, pre-existing contract protection and transition wording in the official Order."],
   },
   {
     code: "TZ_GN_158D_2026_CUSTOMS_PROCESSING_FEE",
