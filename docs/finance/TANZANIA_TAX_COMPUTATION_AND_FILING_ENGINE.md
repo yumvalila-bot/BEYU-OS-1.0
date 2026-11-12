@@ -47,7 +47,7 @@ Migration `0077_tax_return_drafts.sql` and schema `taxReturnDrafts` add tenant/e
 
 PostgreSQL ENABLE + FORCE RLS uses `beyu_tenant_ids()`, classification context and legal-entity/tenant consistency. Runtime grants omit DELETE. Database constraints prevent a draft from becoming APPROVED_FOR_SUBMISSION, SUBMITTED or ACCEPTED without named specialist review/approval and, for submission/acceptance, an external TRA reference and timestamps.
 
-The compute API creates DRAFT records. A separate specialist-review endpoint can record a provisional review, and a second-person Group CFO approval endpoint exists. The CFO endpoint deliberately rejects every current provisional calculation until source references are AUTHORITATIVE and the calculation carries an approved rule-set reference. TRA submission, external receipt reconciliation and accepted-return lifecycle endpoints remain to be implemented and independently reviewed.
+The compute API creates DRAFT records. A separate specialist-review endpoint can record a provisional review, and a second-person Group CFO approval endpoint exists. The CFO endpoint deliberately rejects every current provisional calculation until source references are AUTHORITATIVE and the calculation carries an approved rule-set reference. Manual submission recording and verified receipt recording endpoints are implemented. The Filing Officer records the TRA reference only after filing externally; a specialist records ACCEPTED/REJECTED only with a same-tenant/entity/jurisdiction, checksum-backed and AUTHORITATIVE `TAX_FILING_RECEIPT` document. BEYU still does not submit to TRA.
 
 ## 4. Filing-calendar rules currently encoded
 
