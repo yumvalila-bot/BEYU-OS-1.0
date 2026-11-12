@@ -10,6 +10,7 @@
  */
 export type SubsidiaryLegislationSourceStatus =
   | "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED"
+  | "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED"
   | "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING";
 
 export type TanzaniaTaxSubsidiaryInstrument = {
@@ -20,6 +21,7 @@ export type TanzaniaTaxSubsidiaryInstrument = {
   commencementDate: string;
   sourceStatus: SubsidiaryLegislationSourceStatus;
   officialMetadataUri?: string;
+  officialPdfUri?: string;
   reproducedTextUris: readonly string[];
   supportingAnalysisUris?: readonly string[];
   ingestionStatus: "SOURCE_LINKED_NOT_INGESTED";
@@ -54,17 +56,18 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     governmentNotice: "158G of 2026",
     publicationDate: "2026-06-30",
     commencementDate: "2026-07-01",
-    sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
+    sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4648",
+    officialPdfUri: "https://oagmis.oag.go.tz/portal/legislation/4648/download",
     reproducedTextUris: [
       "https://www.scribd.com/document/1072984603/Gn_158g-Amendment-of-the-Tax-Administration-General_regulations,_2026-Tgpa",
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
     notes: [
-      "OAG MIS identifies GN 158G of 2026, publication 30 June 2026 and commencement 1 July 2026.",
-      "The full signed / gazetted text and checksum have not yet been acquired in this repository task.",
-      "A third-party transcription reports a new display obligation for persons conducting business on social media; do not operationalize this summary until the official instrument is checked.",
+      "OAG MIS identifies GN 158G of 2026, publication 30 June 2026 and commencement 1 July 2026; its official two-page? PDF endpoint is available at the OAG MIS download URL.",
+      "The official PDF text has been inspected, but its original bytes have not been stored in the governed documents registry or checksum-verified in this repository task; specialist review remains pending.",
+      "The official text amends regulation 58 of the Tax Administration (General) Regulations, 2016: a person conducting business on social media must display the Certificate, TIN or Tax Clearance Certificate visibly on the profile/account. Confirm exact application and privacy implications with a tax specialist before operationalizing.",
     ],
   },
   {
@@ -73,14 +76,15 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     governmentNotice: "158A of 2026",
     publicationDate: "2026-06-30",
     commencementDate: "2026-07-01",
-    sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
+    sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4642",
+    officialPdfUri: "https://oagmis.oag.go.tz/portal/legislation/4642/download",
     reproducedTextUris: [
       "https://www.scribd.com/document/1076424796/Gn158a-The-Value-Added-Tax-Requirements-for-Deferment-Order-2026-Tgpa",
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["OAG MIS metadata confirms GN 158A, publication 30 June 2026 and commencement 1 July 2026.", "A reproduced copy describes eligibility for manufacturers/assemblers of locally manufactured or assembled trailers under HS heading 87.16, including staffing and industrial equipment thresholds and premises inspection.", "Do not operationalize the reported 100 skilled staff, five Tanzanian engineers or equipment list until the official Order and the enabling VAT Act provisions are checked."],
+    notes: ["OAG MIS metadata confirms GN 158A, publication 30 June 2026 and commencement 1 July 2026; the official two-page PDF is available at the OAG MIS download URL.", "The official PDF text confirms applicability to manufacturers of trailers under HS heading 87.16 and requirements of at least 100 skilled personnel, five qualified Tanzanian engineers, two overhead cranes of at least eight tons each, six MIG welders, a 50-ton hydraulic bending machine, power cutting equipment, power hacksaw machines and two forklifts.", "The Commissioner General may inspect premises; a manufacturer/assembler that does not meet the requirements does not qualify for VAT deferment.", "The PDF bytes have not yet been stored in the governed documents registry or checksum-verified; specialist review and cross-check against VAT Act section 11 remain required."],
   },
   {
     code: "TZ_GN_158B_2026_PRESUMPTIVE_NEW_TRADERS",
@@ -103,8 +107,9 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     governmentNotice: "158C of 2026",
     publicationDate: "2026-06-30",
     commencementDate: "2026-07-01",
-    sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
+    sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4644",
+    officialPdfUri: "https://oagmis.oag.go.tz/portal/legislation/4644/download",
     reproducedTextUris: [
       "https://lysonlaw.co.tz/index.php/guidelines/the-electronic-transactions-mandatory-electronic-payments-for-specified-transactions-order-2026",
     ],
@@ -113,8 +118,7 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["OAG MIS metadata confirms GN 158C, publication 30 June 2026 and commencement 1 July 2026.", "Finance Act No. 2 of 2026, section 6 enables Gazette orders prescribing payments to be made electronically and makes proof of electronic payment a requirement for specified asset-transfer application approvals.", "Reproduced text and professional analysis describe specified payment categories across transport, shopping/entertainment, education, accommodation/food/tourism, high-value property/vehicle transactions and certain agricultural cooperative transactions, with a six-month transition for existing recipients of those payments.", "Do not generalize this into a blanket ban on cash. Verify the exact schedule, transaction descriptions, exclusions, pre-existing contract protection and transition wording in the official Order.",
-      "As at 12 November 2026, the reported six-month implementation transition to the end of December 2026 is still running; verify the precise start/end computation and any category-specific conditions before setting compliance deadlines."],
+    notes: ["OAG MIS metadata confirms GN 158C, publication 30 June 2026 and commencement 1 July 2026; the official two-page PDF is available at the OAG MIS download URL.", "The official text requires electronic payment for transactions in its Schedule and defines electronic means to include mobile money, bank transfer, EFT, payment card, e-wallet, POS, internet/mobile banking and Government electronic payment systems.", "The Schedule lists BRT/ferry/bridge/long-distance bus/online taxi/air/rail/parking charges; purchases in shopping malls, gyms, cinemas, filling stations, conference/event venues, sports arenas and international trade exhibitions; education fees/contributions; hotel/restaurant/cafe accommodation, food and beverages; tourism services; building/plot/farm rent/sale/purchase; motor vehicle sale/purchase; and specified strategic-crop cooperative and agricultural-input/pesticide transactions.", "Existing recipients of payments for specified transactions have six months from commencement to put electronic means in place; arrangements/contracts made before commencement are not affected. Do not generalize this into a blanket ban on cash.", "The official PDF bytes have not yet been stored in the governed documents registry or checksum-verified; specialist review remains required. As at 12 November 2026, the six-month transition is still running; verify the exact deadline computation and any category-specific conditions."],
   },
   {
     code: "TZ_GN_158D_2026_CUSTOMS_PROCESSING_FEE",
@@ -122,12 +126,13 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     governmentNotice: "158D of 2026",
     publicationDate: "2026-06-30",
     commencementDate: "2026-07-01",
-    sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
+    sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4645",
+    officialPdfUri: "https://oagmis.oag.go.tz/portal/legislation/4645/download",
     reproducedTextUris: [],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["OAG MIS metadata confirms GN 158D, publication 30 June 2026 and commencement 1 July 2026.", "Obtain the full Regulations and reconcile fee basis, covered customs entries/services, exceptions, collection mechanism and any transition from the prior fee before customs costing changes."],
+    notes: ["OAG MIS metadata confirms GN 158D, publication 30 June 2026 and commencement 1 July 2026; the official two-page PDF is available at the OAG MIS download URL.", "The official text applies to home-consumption imports from outside EAC Partner States and EAC goods that do not meet EAC Rules of Origin, subject to the Second Schedule exemptions.", "The First Schedule states 1% of FOB value for dry cargo other than petroleum products and TZS 20 million per vessel for wet petroleum cargo (diesel, petrol, Jet A-1 and illuminating kerosene). Payment is due when entering goods for home consumption.", "The Second Schedule lists diplomatic/first-arrival privileges, qualifying donor and international/regional organizations, Chapter 30 pharmaceutical goods, government-approved grant/loan project goods, presidential-use goods and official armed-forces-use goods as exempt.", "The official PDF bytes have not yet been stored in the governed documents registry or checksum-verified; customs specialist review is required before fee calculation or exemptions are activated."],
   },
   {
     code: "TZ_GN_158E_2026_EXCISE_NON_RESIDENT",
