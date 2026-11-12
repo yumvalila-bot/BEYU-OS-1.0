@@ -75,7 +75,7 @@ export async function CapabilityMap({ principal }: { principal: Principal }) {
 
   const groups = CAPABILITY_IA.map((group) => {
     const items = group.items.filter((item) =>
-      group.id === "sector" || group.id === "sister-organization"
+      group.id === "sector" || item.href === "/os/foundation"
         ? governedDestinationHrefs.has(item.href)
         : visible(principal, item),
     );
