@@ -115,7 +115,7 @@ The relief is not automatic. Reconcile the official regulation against the Finan
 
 Professional analyses and a reproduced copy describe an administrative regime for non-resident providers of specified services delivered through the internet or other electronic means to Mainland Tanzania residents who are not registered or required to file returns under the Excise Act for the same service. The reported covered categories include electronic communication, pay-to-view television/streaming, betting/gaming/lottery advertising, and money transfer/payment services.
 
-The reproduced and professional sources describe online registration, customer-location indicators, monthly electronic returns, payment by the seventh day of the following month, a 90-day transition for providers already operating at commencement, permitted convertible-currency payment and an EFD exemption. These details remain subject to official text matching. The charging provisions are in Excise Act section 126(4)–(5), inserted by Finance Act 2026 section 8; do not treat the regulations as the source of the charge or infer that the regime is VAT.
+The reproduced and professional sources describe online registration, customer-location indicators, monthly electronic returns, payment by the seventh day of the following month, a 90-day transition for providers already operating at commencement, permitted convertible-currency payment and an EFD exemption. These details remain subject to official text matching. As at 12 November 2026, the reported 90-day transition period appears to have elapsed; confirm the exact statutory counting rule and any subsequent relief before determining that a provider is late. The charging provisions are in Excise Act section 126(4)–(5), inserted by Finance Act 2026 section 8; do not treat the regulations as the source of the charge or infer that the regime is VAT.
 
 Before implementation, confirm:
 - The precise services and definitions in the official regulations and Act.
@@ -150,6 +150,6 @@ The official OAG MIS metadata identifies these instruments and their publication
 2. Verify GN numbers, instrument titles, publication/commencement dates, enabling provisions, signature, pages and complete text.
 3. Compare the official text byte-for-byte or page-by-page against reproduced copies and record corrections.
 4. Acquire the official 2026 forest-produce regulations and Tax Administration amendment as immutable originals; calculate SHA-256 and file metadata.
-5. Acquire the remaining five 2026 instruments in the TRA catalogue and complete the same source-verification workflow.
+5. Acquire and verify the complete official text for all seven GN 158A–158G instruments, including the three instruments currently represented by reproduced copies only.
 6. Have Tanzanian tax counsel/specialist approve the statutory crosswalk and any candidate compliance requirements.
 7. Only after those gates may the team design effective-dated rule candidates and separately test them; no automatic activation is permitted.
