@@ -103,10 +103,6 @@ GRANT EXECUTE ON FUNCTION beyu_identity.resolve_beyu_authorization(text, text)
 DO $ownership$
 DECLARE
   resolver_owner text;
-  users_owner text;
-  tenants_owner text;
-  memberships_owner text;
-  links_owner text;
   resolver_owner_bypass boolean;
 BEGIN
   SELECT pg_get_userbyid(p.proowner), (r.rolsuper OR r.rolbypassrls)
@@ -114,23 +110,13 @@ BEGIN
     FROM pg_proc p
     JOIN pg_roles r ON r.oid = p.proowner
    WHERE p.oid = 'beyu_identity.resolve_beyu_authorization(text,text)'::regprocedure;
-  SELECT pg_get_userbyid(c.relowner) INTO users_owner
-    FROM pg_class c WHERE c.oid = 'beyu_identity.users'::regclass;
-  SELECT pg_get_userbyid(c.relowner) INTO tenants_owner
-    FROM pg_class c WHERE c.oid = 'beyu_identity.tenants'::regclass;
-  SELECT pg_get_userbyid(c.relowner) INTO memberships_owner
-    FROM pg_class c WHERE c.oid = 'beyu_identity.tenant_memberships'::regclass;
-  SELECT pg_get_userbyid(c.relowner) INTO links_owner
-    FROM pg_class c WHERE c.oid = 'beyu_identity.beyu_identity_links'::regclass;
 
+  -- The resolver is a narrow SECURITY DEFINER boundary. Its owner must be a
+  -- privileged migration principal with RLS bypass, never the application role.
   IF resolver_owner = 'beyu_health_runtime'
-     OR resolver_owner_bypass IS DISTINCT FROM true
-     OR resolver_owner IS DISTINCT FROM users_owner
-     OR resolver_owner IS DISTINCT FROM tenants_owner
-     OR resolver_owner IS DISTINCT FROM memberships_owner
-     OR resolver_owner IS DISTINCT FROM links_owner THEN
+     OR resolver_owner_bypass IS DISTINCT FROM true THEN
     RAISE EXCEPTION
-      '048 blocked: resolver must be owned by the privileged identity-table owner, never beyu_health_runtime';
+      '048 blocked: resolver owner must be a privileged BYPASSRLS migration principal, never beyu_health_runtime';
   END IF;
 END
 $ownership$;
