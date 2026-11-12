@@ -9,6 +9,7 @@ import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
 import { TraSourceLibrary } from "./source-library";
 import { VerifiedTaxAuthorities } from "./verified-authorities";
+import { FinanceAct2026AmendmentIndex } from "./finance-act-2026-index";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +152,7 @@ export default async function TaxPage() {
       </Panel>
 
       <VerifiedTaxAuthorities />
+      <FinanceAct2026AmendmentIndex />
       <TraSourceLibrary />
     </div>
   );  });
