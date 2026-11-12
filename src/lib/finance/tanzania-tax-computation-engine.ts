@@ -74,7 +74,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     effectiveFrom: "2026-07-01",
     evidenceStatus: "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
   },
-  OAG_GN_158F_2026: {
+  GN_158F_REPRODUCED_2026: {
     code: "TZ_GN_158F_2026_FOREST_PRODUCE",
     title: "Income Tax (Single Instalment Tax on Forest Produce) Regulations, 2026 — reproduced copy",
     uri: "https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-single-instalment-tax-on-forest-produce-regulations-2026",
@@ -282,7 +282,7 @@ export function calculateForestProduceSingleInstalment(input: {
   const tax = roundBps(base, 200);
   return result("FOREST_PRODUCE_SINGLE_INSTALMENT", base, tax, [
     { label: `Single instalment tax — 2% at trigger ${input.trigger}`, baseTzs: base, rateBps: 200, taxTzs: tax },
-  ], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.OAG_GN_158F_2026], [
+  ], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.GN_158F_REPRODUCED_2026], [
     "Finance Act 2026 section 25 applies 2% to the greatest of farm-gate price, purchase price or Tanzania Forest Services value and identifies statutory trigger events.",
     "Confirm the seller is an instalment payer under Income Tax Act section 116A and retain valuation evidence before relying on this estimate.",
     "GN 158F is currently a reproduced copy pending official Gazette matching and original-file checksum; certificate, buyer-payment, transport and inspection workflows are not activated.",
