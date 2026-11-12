@@ -23,9 +23,15 @@ END
 $migration$;
 --> statement-breakpoint
 
+-- A validated CHECK enforces the principal dimensions without using
+-- SET NOT NULL (a contraction gate). It is additive and can be validated
+-- independently after the explicit legacy-row preflight above.
 ALTER TABLE public.idempotency_records
-  ALTER COLUMN tenant_id SET NOT NULL,
-  ALTER COLUMN actor_user_id SET NOT NULL;
+  ADD CONSTRAINT idempotency_records_principal_required
+  CHECK (tenant_id IS NOT NULL AND actor_user_id IS NOT NULL) NOT VALID;
+--> statement-breakpoint
+ALTER TABLE public.idempotency_records
+  VALIDATE CONSTRAINT idempotency_records_principal_required;
 --> statement-breakpoint
 
 ALTER TABLE public.idempotency_records ENABLE ROW LEVEL SECURITY;
