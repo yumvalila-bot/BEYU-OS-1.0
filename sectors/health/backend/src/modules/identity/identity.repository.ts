@@ -281,15 +281,7 @@ export class IdentityRepository {
        RETURNING *`,
       [input.code, input.name, JSON.stringify(input.metadata ?? {})],
     );
-    return {
-      tenant_id: String(rows[0].tenant_id),
-      tenant_code: String(rows[0].tenant_code),
-      name: String(rows[0].name),
-      status: String(rows[0].status),
-      metadata: (rows[0].metadata as Record<string, unknown>) ?? {},
-      created_at: new Date(rows[0].created_at as string),
-      updated_at: new Date(rows[0].updated_at as string),
-    };
+    return this.mapTenant(rows[0]);
   }
 
   async findTenantByCode(code: string): Promise<StoredTenant | null> {
