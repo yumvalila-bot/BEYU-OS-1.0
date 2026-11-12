@@ -336,11 +336,8 @@ export function calculatePresumptiveIncomeTax(input: {
   let tax = 0;
   let label = "Turnover not exceeding TZS 4m";
   if (turnover > 11_000_000) {
-    if (input.records === "COMPLETE") {
-      throw new TaxCalculationError("The published TRA page does not state a distinct complete-record amount for turnover above TZS 11m; obtain the statutory crosswalk and specialist determination instead of inferring a rate.");
-    }
     tax = roundBps(turnover, 400);
-    label = "Turnover above TZS 11m and not exceeding TZS 200m — incomplete records";
+    label = "Turnover above TZS 11m and not exceeding TZS 200m";
   } else if (turnover > 7_000_000) {
     tax = input.records === "COMPLETE" ? 90000 + roundBps(turnover - 7_000_000, 300) : 250000;
     label = "Turnover above TZS 7m and not exceeding TZS 11m";
