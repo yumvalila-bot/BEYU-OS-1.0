@@ -21,6 +21,7 @@ export type TanzaniaTaxSubsidiaryInstrument = {
   sourceStatus: SubsidiaryLegislationSourceStatus;
   officialMetadataUri?: string;
   reproducedTextUris: readonly string[];
+  supportingAnalysisUris?: readonly string[];
   ingestionStatus: "SOURCE_LINKED_NOT_INGESTED";
   noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW";
   notes: readonly string[];
@@ -129,7 +130,10 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     sourceStatus: "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING",
     reproducedTextUris: [
       "https://lysonlaw.co.tz/index.php/guidelines/the-excise-non-resident-service-provider-regulations-2026",
+    ],
+    supportingAnalysisUris: [
       "https://globaltaxnews.ey.com/news/2026-1725-tanzania-issues-excise-non-resident-service-provider-regulations-2026",
+      "https://www.clydeco.com/fr/insights/2026/07/the-tanzania-excise-non-resident-service-providers",
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
