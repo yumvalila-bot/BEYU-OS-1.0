@@ -103,36 +103,38 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
         <label className="text-[11.5px]">Period end
           <input className={inputClass} type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
         </label>
-        {#if taxType === "PAYE"}
-        <label className="text-[11.5px]">Employment category
-          <select className={inputClass} value={employeeStatus} onChange={(e) => setEmployeeStatus(e.target.value)}>
-            <option value="RESIDENT_PRIMARY">Resident — primary employment</option>
-            <option value="RESIDENT_SECONDARY">Resident — secondary employment</option>
-            <option value="NON_RESIDENT">Non-resident employee</option>
-            <option value="NON_FULL_TIME_DIRECTOR">Non-full-time director</option>
-          </select>
-        </label>
-        {/if}
-        {#if taxType === "PRESUMPTIVE_INCOME_TAX"}
-        <label className="text-[11.5px]">Record keeping
-          <select className={inputClass} value={records} onChange={(e) => setRecords(e.target.value)}>
-            <option value="COMPLETE">Complete records</option>
-            <option value="INCOMPLETE">Incomplete records</option>
-          </select>
-        </label>
-        {/if}
-        {#if taxType === "WITHHOLDING_TAX"}
-        <label className="text-[11.5px]">Payment category
-          <select className={inputClass} value={whtCategory} onChange={(e) => setWhtCategory(e.target.value)}>
-            <option value="SERVICE_FEE">Service fee</option><option value="DIVIDEND_LISTED">Listed-company dividend</option><option value="DIVIDEND_OTHER">Other dividend</option><option value="INTEREST">Interest</option><option value="ROYALTY">Royalty</option><option value="COMMERCIAL_RENT">Commercial rent</option><option value="OTHER_INVESTMENT_RETURN">Other investment return</option><option value="MINING_TECHNICAL_SERVICE">Mining technical service</option><option value="NATURAL_RESOURCE_PAYMENT">Natural resource payment</option><option value="NON_FULL_TIME_DIRECTOR_FEE">Non-full-time director fee</option><option value="GOVERNMENT_GOODS_SUPPLY">Goods supplied to Government</option><option value="FOREST_PRODUCE">Forest produce</option><option value="PRECIOUS_METALS">Precious metals / gemstones</option>
-          </select>
-        </label>
-        <label className="text-[11.5px]">Payee residency
-          <select className={inputClass} value={payeeResidency} onChange={(e) => setPayeeResidency(e.target.value)}>
-            <option value="RESIDENT">Resident</option><option value="NON_RESIDENT">Non-resident</option>
-          </select>
-        </label>
-        {/if}
+        {taxType === "PAYE" && (
+          <label className="text-[11.5px]">Employment category
+            <select className={inputClass} value={employeeStatus} onChange={(e) => setEmployeeStatus(e.target.value)}>
+              <option value="RESIDENT_PRIMARY">Resident — primary employment</option>
+              <option value="RESIDENT_SECONDARY">Resident — secondary employment</option>
+              <option value="NON_RESIDENT">Non-resident employee</option>
+              <option value="NON_FULL_TIME_DIRECTOR">Non-full-time director</option>
+            </select>
+          </label>
+        )}
+        {taxType === "PRESUMPTIVE_INCOME_TAX" && (
+          <label className="text-[11.5px]">Record keeping
+            <select className={inputClass} value={records} onChange={(e) => setRecords(e.target.value)}>
+              <option value="COMPLETE">Complete records</option>
+              <option value="INCOMPLETE">Incomplete records</option>
+            </select>
+          </label>
+        )}
+        {taxType === "WITHHOLDING_TAX" && (
+          <>
+            <label className="text-[11.5px]">Payment category
+              <select className={inputClass} value={whtCategory} onChange={(e) => setWhtCategory(e.target.value)}>
+                <option value="SERVICE_FEE">Service fee</option><option value="DIVIDEND_LISTED">Listed-company dividend</option><option value="DIVIDEND_OTHER">Other dividend</option><option value="INTEREST">Interest</option><option value="ROYALTY">Royalty</option><option value="COMMERCIAL_RENT">Commercial rent</option><option value="OTHER_INVESTMENT_RETURN">Other investment return</option><option value="MINING_TECHNICAL_SERVICE">Mining technical service</option><option value="NATURAL_RESOURCE_PAYMENT">Natural resource payment</option><option value="NON_FULL_TIME_DIRECTOR_FEE">Non-full-time director fee</option><option value="GOVERNMENT_GOODS_SUPPLY">Goods supplied to Government</option><option value="FOREST_PRODUCE">Forest produce</option><option value="PRECIOUS_METALS">Precious metals / gemstones</option>
+              </select>
+            </label>
+            <label className="text-[11.5px]">Payee residency
+              <select className={inputClass} value={payeeResidency} onChange={(e) => setPayeeResidency(e.target.value)}>
+                <option value="RESIDENT">Resident</option><option value="NON_RESIDENT">Non-resident</option>
+              </select>
+            </label>
+          </>
+        )}
       </div>
       <button type="button" disabled={busy || !entityId || !periodStart || !periodEnd || !Number.isSafeInteger(Number(amount)) || Number(amount) < 0} onClick={calculate} className="rounded-lg bg-[#0b1d3a] px-4 py-2.5 text-[12px] font-semibold text-white disabled:opacity-50">
         {busy ? "Calculating…" : "Calculate and prepare draft"}
