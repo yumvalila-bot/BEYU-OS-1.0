@@ -25,6 +25,7 @@ import {
   versionStatusEnum,
 } from "./enums";
 import { legalEntities, tenants } from "./core";
+import { documents } from "./platform";
 
 export const financialPeriods = pgTable(
   "financial_periods",
@@ -350,6 +351,7 @@ export const taxReturnDrafts = pgTable(
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     submittedBy: text("submitted_by"),
+    receiptDocumentId: text("receipt_document_id").references(() => documents.id),
     externalReference: text("external_reference"),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -369,7 +371,7 @@ export const taxReturnDrafts = pgTable(
     check("tax_return_drafts_specialist_review_gate_ck", sql`${t.status} NOT IN ('SPECIALIST_REVIEWED_PROVISIONAL','PENDING_FINANCE_APPROVAL','APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED') OR (${t.specialistReviewerId} IS NOT NULL AND ${t.specialistReviewedAt} IS NOT NULL)`),
     check("tax_return_drafts_review_gate_ck", sql`${t.status} NOT IN ('APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED') OR (${t.specialistReviewerId} IS NOT NULL AND ${t.specialistReviewedAt} IS NOT NULL AND ${t.approvedBy} IS NOT NULL AND ${t.approvedAt} IS NOT NULL)`),
     check("tax_return_drafts_submission_gate_ck", sql`${t.status} NOT IN ('SUBMITTED','ACCEPTED') OR (${t.submittedAt} IS NOT NULL AND ${t.submittedBy} IS NOT NULL AND ${t.externalReference} IS NOT NULL)`),
-    check("tax_return_drafts_acceptance_gate_ck", sql`${t.status} <> 'ACCEPTED' OR (${t.acceptedAt} IS NOT NULL AND ${t.externalReference} IS NOT NULL)`),
+    check("tax_return_drafts_acceptance_gate_ck", sql`${t.status} <> 'ACCEPTED' OR (${t.acceptedAt} IS NOT NULL AND ${t.externalReference} IS NOT NULL AND ${t.receiptDocumentId} IS NOT NULL)`),
     check("tax_return_drafts_filing_json_ck", sql`jsonb_typeof(${t.calculationPayload}) = 'object' AND jsonb_typeof(${t.filingPack}) = 'object'`),
   ],
 );
