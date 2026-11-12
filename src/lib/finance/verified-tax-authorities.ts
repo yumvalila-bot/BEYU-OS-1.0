@@ -63,7 +63,7 @@ export const VERIFIED_TAX_AUTHORITIES: readonly VerifiedTaxAuthorityRecord[] = [
       "Publication and commencement dates are recorded separately; do not infer that every provision has identical application beyond the Act's commencement and any specific transitional wording.",
       "The official OSG e-Library record identifies the enacted 57-page Act PDF, published 30 June 2026 as Act Supplement No. 2 of 2026; do not substitute the earlier Special Bill Supplement.",
       "Section 27 amends the presumptive threshold to TZS 200m and substitutes the First Schedule table, including 4.0% of turnover above TZS 11m and a first-twelve-month exemption subject to application and Commissioner satisfaction.",
-      "Section 91 sets VAT withholding at 15% for goods and 12% for taxable-person services and apportions mixed supplies 3:2 (goods:services); section 95 requires payment within ten days after the tax period and a withholding VAT statement within ten days of the following month.",
+      "Section 91 specifies supplier entitlement proportions of 15% for goods and 12% for services and apportions mixed supplies 3:2 (goods:services). The current TRA VAT guide states that the actual withholding deduction is 3% of consideration for goods and 6% for services. Section 95 requires payment within ten days after the tax period and a withholding VAT statement within ten days of the following month.",
       "The original PDF is text-inspected but its bytes/checksum have not yet been ingested into the governed documents registry; NOELIA reliance remains blocked pending ingestion and specialist review.",
     ],
   },
