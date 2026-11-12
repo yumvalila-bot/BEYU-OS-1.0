@@ -132,7 +132,7 @@ function HomePageContent() {
 
       <section className="beyu-about-section" id="about">
         <div className="beyu-home-inner beyu-about-grid">
-          <div className="beyu-about-copy">
+          <div className="beyu-about-copy" id="architecture">
             <h2>ABOUT BEYU</h2>
             <div className="beyu-bar" />
             <p>
@@ -142,7 +142,7 @@ function HomePageContent() {
             <a href="#architecture" className="beyu-learn-btn">Learn More <span aria-hidden="true">→</span></a>
           </div>
 
-          <div className="beyu-building-visual" id="architecture" aria-hidden="true">
+          <div className="beyu-building-visual" aria-hidden="true">
             <div className="beyu-building-card">
               <div className="beyu-building-main" />
               <div className="beyu-building-side" />
@@ -185,10 +185,17 @@ function HomePageContent() {
                 ["Knowledge Management", "📚"],
                 ["Audit & Accountability", "🧾"],
               ].map(([label, icon]) => (
-                <div key={label} className="beyu-capability-item">
-                  <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
-                  <span>{label}</span>
-                </div>
+                label === "Family Office" ? (
+                  <a key={label} href="/os/family" className="beyu-capability-item">
+                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
+                    <span>{label}</span>
+                  </a>
+                ) : (
+                  <div key={label} className="beyu-capability-item">
+                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                )
               ))}
             </div>
           </div>
