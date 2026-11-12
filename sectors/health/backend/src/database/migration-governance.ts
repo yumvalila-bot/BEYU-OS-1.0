@@ -123,7 +123,7 @@ const ROLE_LEVEL_DDL =
   /\bCREATE\s+ROLE\b|\bALTER\s+ROLE\b|\bDROP\s+ROLE\b|\bCOMMENT\s+ON\s+ROLE\b/i;
 
 const PRIVILEGED_AUTHORIZATION_RESOLVER_DDL =
-  /CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+beyu_identity\\.resolve_beyu_authorization\\s*\\(/i;
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+beyu_identity\.resolve_beyu_authorization\s*\(/i;
 
 export function migrationRequiresPrivilegedRole(sql: string): boolean {
   // The assertion resolver is SECURITY DEFINER and must be owned by a
