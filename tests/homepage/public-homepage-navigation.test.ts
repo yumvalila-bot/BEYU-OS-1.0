@@ -34,5 +34,7 @@ describe("canonical public homepage navigation", () => {
     expect(page).toContain('<summary aria-label="Open site navigation">');
     expect(styles).toContain(".beyu-mobile-nav > nav");
     expect(styles).toContain("@media (max-width: 900px)");
+    expect(styles).toContain("@media (max-width: 480px)");
+    expect(styles).toContain(".beyu-theme-mark { display: none; }");
   });
 });
