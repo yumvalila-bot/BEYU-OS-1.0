@@ -65,7 +65,9 @@ export async function POST(request: Request) {
       : "annualTaxableIncomeTzs" in body ? body.annualTaxableIncomeTzs
       : "annualTurnoverTzs" in body ? body.annualTurnoverTzs
       : "taxableSuppliesTzs" in body ? body.taxableSuppliesTzs
+      : "taxableValueTzs" in body ? body.taxableValueTzs
       : "grossPaymentTzs" in body ? body.grossPaymentTzs
+      : "farmGatePriceTzs" in body ? Math.max(body.farmGatePriceTzs, body.purchasePriceTzs, body.tfsValueTzs)
       : "fobValueTzs" in body ? (body.fobValueTzs ?? 0)
       : (body.vesselCount ?? 0) * 20_000_000;
     const policy = await evaluatePolicy({
