@@ -8,6 +8,7 @@ import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
 import { TraSourceLibrary } from "./source-library";
+import { VerifiedTaxAuthorities } from "./verified-authorities";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +150,7 @@ export default async function TaxPage() {
         </div>
       </Panel>
 
+      <VerifiedTaxAuthorities />
       <TraSourceLibrary />
     </div>
   );  });
