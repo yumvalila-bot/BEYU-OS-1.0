@@ -346,7 +346,7 @@ export class AuthService {
       : null;
     const tenantId = tenant ? tenant.tenant_id : null;
 
-    const { role } = await this.resolveActor(user, tenantId);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, tenantId);
 
     // ── Canonical identity gate (fail-closed) ─────────────────────────────
     // No canonical link → no session. When LIVE, the canonical lifecycle
@@ -363,7 +363,7 @@ export class AuthService {
       result: "SUCCESS",
       context: { ...ctx, role, canonical: link.beyuUserId },
     });
-    return this.issueTokens(user, role, tenantId, ctx);
+    return this.issueTokens(user, role, tenantId, ctx, countryCode, entityCode);
   }
   async refreshToken(refreshTokenDto: RefreshTokenDto, ctx: LoginContext = {}) {
     const presented = refreshTokenDto.refreshToken;
@@ -381,7 +381,7 @@ export class AuthService {
     if (!user || user.account_status !== "active") {
       throw new UnauthorizedException("ACCOUNT_DISABLED");
     }
-    const { role } = await this.resolveActor(user, session.tenant_id);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, session.tenant_id);
 
     // Canonical identity gate on session continuation (revocation at
     // refresh, not just at next login).
@@ -402,6 +402,9 @@ export class AuthService {
         role,
         session.tenant_id,
         accessJti,
+        undefined,
+        countryCode,
+        entityCode,
       ),
       refreshToken: issuedRefresh,
     };
@@ -417,7 +420,7 @@ export class AuthService {
     // Canonical identity gate on session restoration.
     const link = await this.fed().requireLinkedIdentity(user.global_user_id);
     await this.fed().assertCanonicalStatusActive(link);
-    const { role } = await this.resolveActor(user, session.tenant_id);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, session.tenant_id);
     const accessJti = this.sessions.newJti();
     await this.sessions.updateJti(session.session_id, accessJti);
     return {
@@ -426,6 +429,9 @@ export class AuthService {
         role,
         session.tenant_id,
         accessJti,
+        undefined,
+        countryCode,
+        entityCode,
       ),
       user: { ...this.publicUser(user), role, tenantId: session.tenant_id },
     };
@@ -459,9 +465,18 @@ export class AuthService {
   private async resolveActor(
     user: StoredUser,
     tenantId: string | null,
-  ): Promise<{ role: string; permissions: string[] }> {
+  ): Promise<{
+    role: string;
+    permissions: string[];
+    countryCode: string | null;
+    entityCode: string | null;
+  }> {
     if (!tenantId) {
-      return { role: "patient", permissions: [] };
+      return { role: "patient", permissions: [], countryCode: null, entityCode: null };
+    }
+    const tenant = await this.repo.findTenantById(tenantId);
+    if (!tenant || tenant.status !== "active" || !tenant.country_code || !tenant.entity_code) {
+      throw new UnauthorizedException("TENANT_BOUNDARY_INVALID");
     }
     const membership = await this.repo.findActiveMembership(
       user.global_user_id,
@@ -471,7 +486,12 @@ export class AuthService {
       throw new UnauthorizedException("NO_TENANT_MEMBERSHIP");
     }
     const permissions = await this.repo.permissionsForRole(membership.role);
-    return { role: membership.role, permissions: permissions as string[] };
+    return {
+      role: membership.role,
+      permissions: permissions as string[],
+      countryCode: tenant.country_code,
+      entityCode: tenant.entity_code,
+    };
   }
 
   private async issueTokens(
@@ -479,6 +499,8 @@ export class AuthService {
     role: string,
     tenantId: string | null,
     _ctx: LoginContext = {},
+    countryCode?: string | null,
+    entityCode?: string | null,
   ): Promise<AuthTokens> {
     const accessJti = this.sessions.newJti();
     const rawRefresh = this.sessions.newJti();
@@ -491,10 +513,12 @@ export class AuthService {
       refreshToken: rawRefresh,
       jti: accessJti,
       expiresAt,
+      countryCode,
+      entityCode,
     });
 
     return {
-      accessToken: this.signAccessToken(user, role, tenantId, accessJti),
+      accessToken: this.signAccessToken(user, role, tenantId, accessJti, undefined, countryCode, entityCode),
       refreshToken: rawRefresh,
       user: {
         globalUserId: user.global_user_id,
