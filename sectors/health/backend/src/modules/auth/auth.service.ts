@@ -20,6 +20,7 @@ import { AuditService as IdentityAuditService } from "../identity/audit.service"
 import { MfaService as LegacyMfaService } from "../identity/mfa.service";
 import { RateLimiter } from "../../common/security/rate-limiter";
 import { IdentityFederationService } from "../identity/identity-federation.service";
+import { BeyuAuthorizationAssertionService } from "../identity/beyu-authorization-assertion.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -53,6 +54,9 @@ export class AuthService {
     @Inject(IdentityFederationService)
     private readonly federation?: IdentityFederationService,
     @Optional() @Inject(RateLimiter) private readonly rateLimiter?: RateLimiter,
+    @Optional()
+    @Inject(BeyuAuthorizationAssertionService)
+    private readonly beyuAssertion?: BeyuAuthorizationAssertionService,
   ) {}
 
   /**
@@ -85,6 +89,87 @@ export class AuthService {
         resetAll: () => {},
       } as unknown as RateLimiter)
     );
+  }
+
+  /**
+   * Exchange a one-use BEYU assertion for a short-lived Health-local access
+   * token. Identity, tenant, membership and permissions are resolved by the
+   * Health database; no permissions are accepted from the assertion.
+   */
+  async logoutAccessSession(
+    globalUserId: string,
+    jti: string,
+    context: { tenantId: string; countryCode: string; entityCode: string },
+  ): Promise<void> {
+    await this.sessions.revokeByJti(globalUserId, jti, context);
+  }
+
+  async exchangeBeyuAssertion(assertion: string) {
+    if (!this.beyuAssertion) {
+      throw new ServiceUnavailableException("BEYU_FEDERATION_NOT_CONFIGURED");
+    }
+    // verifyAndResolve validates the signature and resolves the identity link,
+    // account state, tenant and membership from Health's own database. Do not
+    // call the legacy live BEYU identity adapter here: that would reintroduce a
+    // cross-OS lookup and defeat the signed, bounded authorization exchange.
+    // Canonical BEYU session validity is checked before signing; this assertion
+    // is single-use and expires within 60 seconds.
+    const actor = await this.beyuAssertion.verifyAndResolve(assertion);
+    const accessJti = this.sessions.newJti();
+    const opaqueRefresh = this.sessions.newJti();
+    const ttlMs = this.accessTokenTtlMs();
+    const expiresAt = new Date(Date.now() + ttlMs);
+    const accessToken = this.signAccessToken(
+      actor.user,
+      actor.role,
+      actor.tenantId,
+      accessJti,
+      Math.floor(ttlMs / 1000),
+      actor.countryCode,
+      actor.entityCode,
+    );
+    // A Health-local session row anchors the access token to the local user,
+    // tenant and security_version. The opaque refresh secret is intentionally
+    // discarded: continuation requires a fresh BEYU assertion, not a Health-
+    // issued refresh credential.
+    await this.sessions.createSession({
+      globalUserId: actor.user.global_user_id,
+      tenantId: actor.tenantId,
+      refreshToken: opaqueRefresh,
+      jti: accessJti,
+      expiresAt,
+      countryCode: actor.countryCode,
+      entityCode: actor.entityCode,
+    });
+    await this.audit.record({
+      globalUserId: actor.user.global_user_id,
+      tenantId: actor.tenantId,
+      countryCode: actor.countryCode,
+      entityCode: actor.entityCode,
+      eventType: "beyu_assertion_exchanged",
+      result: "SUCCESS",
+      context: { canonicalUserId: actor.canonicalUserId, role: actor.role },
+    });
+    return {
+      accessToken,
+      user: {
+        globalUserId: actor.user.global_user_id,
+        email: actor.user.email,
+        displayName: actor.user.display_name,
+        role: actor.role,
+        tenantId: actor.tenantId,
+      },
+    };
+  }
+
+  private accessTokenTtlMs(): number {
+    const raw = this.configService.get<string>("JWT_EXPIRATION", "15m");
+    const match = /^(\d+)(s|m|h|d)$/.exec(raw);
+    if (!match) return 15 * 60_000;
+    const amount = Number(match[1]);
+    if (!Number.isSafeInteger(amount) || amount < 1) return 15 * 60_000;
+    const unit = match[2] === "s" ? 1_000 : match[2] === "m" ? 60_000 : match[2] === "h" ? 3_600_000 : 86_400_000;
+    return Math.min(amount * unit, 15 * 60_000);
   }
 
   // ── Registration ───────────────────────────────────────────────────────────
@@ -261,7 +346,7 @@ export class AuthService {
       : null;
     const tenantId = tenant ? tenant.tenant_id : null;
 
-    const { role } = await this.resolveActor(user, tenantId);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, tenantId);
 
     // ── Canonical identity gate (fail-closed) ─────────────────────────────
     // No canonical link → no session. When LIVE, the canonical lifecycle
@@ -278,7 +363,7 @@ export class AuthService {
       result: "SUCCESS",
       context: { ...ctx, role, canonical: link.beyuUserId },
     });
-    return this.issueTokens(user, role, tenantId, ctx);
+    return this.issueTokens(user, role, tenantId, ctx, countryCode, entityCode);
   }
   async refreshToken(refreshTokenDto: RefreshTokenDto, ctx: LoginContext = {}) {
     const presented = refreshTokenDto.refreshToken;
@@ -296,7 +381,7 @@ export class AuthService {
     if (!user || user.account_status !== "active") {
       throw new UnauthorizedException("ACCOUNT_DISABLED");
     }
-    const { role } = await this.resolveActor(user, session.tenant_id);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, session.tenant_id);
 
     // Canonical identity gate on session continuation (revocation at
     // refresh, not just at next login).
@@ -317,6 +402,9 @@ export class AuthService {
         role,
         session.tenant_id,
         accessJti,
+        undefined,
+        countryCode,
+        entityCode,
       ),
       refreshToken: issuedRefresh,
     };
@@ -332,7 +420,7 @@ export class AuthService {
     // Canonical identity gate on session restoration.
     const link = await this.fed().requireLinkedIdentity(user.global_user_id);
     await this.fed().assertCanonicalStatusActive(link);
-    const { role } = await this.resolveActor(user, session.tenant_id);
+    const { role, countryCode, entityCode } = await this.resolveActor(user, session.tenant_id);
     const accessJti = this.sessions.newJti();
     await this.sessions.updateJti(session.session_id, accessJti);
     return {
@@ -341,6 +429,9 @@ export class AuthService {
         role,
         session.tenant_id,
         accessJti,
+        undefined,
+        countryCode,
+        entityCode,
       ),
       user: { ...this.publicUser(user), role, tenantId: session.tenant_id },
     };
@@ -374,9 +465,18 @@ export class AuthService {
   private async resolveActor(
     user: StoredUser,
     tenantId: string | null,
-  ): Promise<{ role: string; permissions: string[] }> {
+  ): Promise<{
+    role: string;
+    permissions: string[];
+    countryCode: string | null;
+    entityCode: string | null;
+  }> {
     if (!tenantId) {
-      return { role: "patient", permissions: [] };
+      return { role: "patient", permissions: [], countryCode: null, entityCode: null };
+    }
+    const tenant = await this.repo.findTenantById(tenantId);
+    if (!tenant || tenant.status !== "active" || !tenant.country_code || !tenant.entity_code) {
+      throw new UnauthorizedException("TENANT_BOUNDARY_INVALID");
     }
     const membership = await this.repo.findActiveMembership(
       user.global_user_id,
@@ -386,7 +486,12 @@ export class AuthService {
       throw new UnauthorizedException("NO_TENANT_MEMBERSHIP");
     }
     const permissions = await this.repo.permissionsForRole(membership.role);
-    return { role: membership.role, permissions: permissions as string[] };
+    return {
+      role: membership.role,
+      permissions: permissions as string[],
+      countryCode: tenant.country_code,
+      entityCode: tenant.entity_code,
+    };
   }
 
   private async issueTokens(
@@ -394,6 +499,8 @@ export class AuthService {
     role: string,
     tenantId: string | null,
     _ctx: LoginContext = {},
+    countryCode?: string | null,
+    entityCode?: string | null,
   ): Promise<AuthTokens> {
     const accessJti = this.sessions.newJti();
     const rawRefresh = this.sessions.newJti();
@@ -406,10 +513,12 @@ export class AuthService {
       refreshToken: rawRefresh,
       jti: accessJti,
       expiresAt,
+      countryCode,
+      entityCode,
     });
 
     return {
-      accessToken: this.signAccessToken(user, role, tenantId, accessJti),
+      accessToken: this.signAccessToken(user, role, tenantId, accessJti, undefined, countryCode, entityCode),
       refreshToken: rawRefresh,
       user: {
         globalUserId: user.global_user_id,
@@ -422,10 +531,13 @@ export class AuthService {
   }
 
   private signAccessToken(
-    user: StoredUser,
+    user: Pick<StoredUser, "global_user_id" | "email" | "display_name" | "security_version">,
     role: string,
     tenantId: string | null,
     jti: string,
+    expiresIn?: number,
+    countryCode?: string | null,
+    entityCode?: string | null,
   ): string {
     return this.jwtService.sign(
       {
@@ -433,13 +545,15 @@ export class AuthService {
         role,
         tenantId,
         jti,
+        ...(countryCode ? { countryCode } : {}),
+        ...(entityCode ? { entityCode } : {}),
         // Security version: bumped on disable / role / membership / permission
         // change; the server rejects any access token with a stale version.
         sv: user.security_version,
       },
       {
         subject: user.global_user_id,
-        expiresIn: this.configService.get("JWT_EXPIRATION", "15m"),
+        expiresIn: expiresIn ?? this.configService.get("JWT_EXPIRATION", "15m"),
       },
     );
   }

@@ -1,157 +1,153 @@
-# BEYU Health OS backend — governed deployment contract
+# BEYU Health OS — governed deployment contract
 
-> **Status:** NOT DEPLOYED. No hosting target, hostname, production database or
-> production secret exists for the Health backend. This document authorizes
-> nothing. It defines what a human-authorized deployment must satisfy.
-> Supersedes `sectors/health/docs/DEPLOYMENT_GUIDE.md`, a legacy generic guide
-> (TypeORM/Kubernetes) that does not describe this codebase.
+> **Status: NOT DEPLOYED.** This contract defines the approved architecture and
+> required release controls. It authorizes no hosting, production database,
+> secret, migration, or deployment action.
 
-## 1. Canonical components (single instances — do not duplicate)
+## 1. Canonical components
 
 | Component | Canonical location |
 |---|---|
-| Frontend | `sectors/health` (Vite/React SPA). Embedded into the BEYU root build by `scripts/build-health-spa.mjs` and served only at `/os/health` (alias `/health/os`) behind the BEYU gates: session → tenant domain → active identity link. |
-| Backend | `sectors/health/backend` (NestJS 10) — this package. |
-| Registry entry | `src/lib/operating-system-catalog.ts`, code `HEALTH`, href `/os/health`. |
-| Root authorization gate | `src/lib/health-os-authorization.ts`. Only an **active** `beyu_identity.beyu_identity_links` row authorizes. |
-| Identity authority | BEYU OS, `POST /api/v1/internal/identity/{register,lookup}`. |
-| Migrations | `database/migrations/001–032`, applied only by `src/database/migration-runner.ts`. |
+| BEYU public home / identity | BEYU root Next.js application |
+| Health frontend | `sectors/health` Vite/React SPA, embedded at `/os/health` |
+| Health backend | `sectors/health/backend` NestJS service |
+| Health-local database | Dedicated PostgreSQL database; never the BEYU database |
+| BEYU assertion signer | `src/lib/health-authorization-assertion.ts` |
+| Health assertion verifier | `sectors/health/backend/src/modules/identity/beyu-authorization-assertion.service.ts` |
+| Health local session issuer | `sectors/health/backend/src/modules/auth/auth.service.ts` |
+| Health migrations | `sectors/health/backend/database/migrations` |
 
-Request path once deployed:
+## 2. Request and trust flow
 
 ```
-Browser → BEYU /os/health (root gates) → embedded SPA
-        → same-origin /health-os/auth/*  → BEYU Next.js rewrite (HEALTH_API_URL, build time)
-        → Health backend /auth/*          → Health database
-Health backend → BEYU /api/v1/internal/identity/{register,lookup} (HS256 service token)
+Browser
+  │
+  ├─ GET /os/health
+  │    BEYU session + canonical host boundary only
+  │
+  ├─ POST /api/v1/health/authorization-assertion
+  │    BEYU signs one-use Ed25519 assertion (60 seconds)
+  │
+  └─ POST /health-os/auth/federation/exchange
+       Next rewrite → Health backend /auth/federation/exchange
+         ├─ Verify EdDSA, kid, issuer, audience, iat, exp, jti
+         ├─ Consume jti in Health-local replay table
+         ├─ Verify Health-local identity link and account
+         ├─ Map BEYU tenant reference to Health-local tenant
+         ├─ Require active Health-local membership
+         ├─ Derive Health role/permissions from Health tables
+         └─ Issue Health-local access JWT (≤15 minutes)
 ```
 
-The backend is a long-running NestJS server. It is **not** a Vercel
-function. Host it on a container platform, using the `Dockerfile` in this
-directory.
+The BEYU mount does not read the Health database. The Health backend does not
+read the BEYU database. Health's existing outbound identity adapter may call
+BEYU's internal registration/lookup API using its service credential; this is
+a separate trust direction from the human assertion exchange.
 
-## 2. Build and run
+## 3. Environment contract
 
-| Step | Command |
+### BEYU server deployment
+
+| Variable | Purpose |
 |---|---|
-| Build the image | `docker build -t beyu-health-backend sectors/health/backend` |
-| Serve | image default: `node dist/main`. Runs as the `node` user, listens on `PORT` (default 3000). |
-| Liveness | `GET /health/live` → 200 whenever the process is alive. |
-| Readiness | `GET /health/ready` → 200 only when all of these hold: the DB is reachable; the ledger holds **every** committed migration with matching checksums and nothing unknown (`ledger_fingerprint == expected_fingerprint`); critical config is present. Otherwise 503 with a reason code (`LEDGER_ABSENT`, `MIGRATIONS_PENDING`, `CHECKSUM_DRIFT`, `CHECKSUM_MISSING`, `LEDGER_AHEAD_OF_SOURCE`, `LEDGER_FOREIGN`, `MIGRATION_SOURCE_UNAVAILABLE`). |
-| Migration status (read-only) | `docker run --rm -e DATABASE_URL=<migration DSN> <image> node dist/database/migration-runner.js status` |
-| Migration apply | `… node dist/database/migration-runner.js up`. This is a **separate, human-authorized release step** and never runs at start-up. |
-| Post-deploy probe (read-only) | `node scripts/verify-deployment.mjs --backend https://<health-host> --beyu https://<beyu-host>` |
+| `HEALTH_API_URL` | Health backend base URL, no trailing slash. Used by the server-side Next rewrite. A redeploy is required after changing it. |
+| `HEALTH_AUTH_ASSERTION_KID` | Active Ed25519 signing key id. |
+| `HEALTH_AUTH_ASSERTION_PRIVATE_KEY` | Ed25519 PKCS#8 PEM private key. Server-side only; never `NEXT_PUBLIC_*`. |
 
-Committed-source fingerprint for 001–032:
-`01d7618f85e852c7ed792602ff3c24680941605e2b08d302ead9e8d465de7994`.
-Recompute it with `node dist/database/migration-runner.js status` or with the probe.
+### Health backend deployment
 
-## 3. Environment contract (production)
-
-The process refuses to boot if a **required** value is missing or insecure.
-Three validators enforce this (`src/main.ts`, `src/common/config/production-boot.guard.ts`,
-`src/common/security/boot-validation.ts`), plus `MfaService` at construction.
-
-| Variable | Required | Secret | Rule |
-|---|---|---|---|
-| `NODE_ENV` | yes | no | `production` |
-| `DATABASE_URL` | yes | **yes** | Runtime-role DSN. Non-local hosts are TLS-verified (`rejectUnauthorized`); `sslmode=disable`/`ssl=false` is refused. No `DB_*` fallback in production. |
-| `JWT_SECRET` | yes | **yes** | ≥32 chars, random, not a default |
-| `JWT_REFRESH_SECRET` | yes | **yes** | random, not a default |
-| `REFRESH_TOKEN_SECRET` | yes | **yes** | ≥32 chars, random |
-| `CSRF_SECRET` | yes | **yes** | ≥32 chars, random |
-| `JWT_ISSUER`, `JWT_AUDIENCE` | yes | no | explicit, non-default |
-| `COOKIE_SECURE` | yes | no | `true` |
-| `CORS_ORIGIN` | yes | no | explicit allow-list; no `*`, no localhost |
-| `ENCRYPTION_KEY` | yes | **yes** | random |
-| `MFA_ENCRYPTION_KEY` | yes | **yes** | exactly 64 hex chars |
-| `BEYU_IDENTITY_ENDPOINT` | yes | no | BEYU **base** URL (https) |
-| `BEYU_IDENTITY_TOKEN` | yes | **yes** | must **equal** BEYU's `BEYU_INTERNAL_SERVICE_TOKEN` |
-| `QUEUE_BACKEND` | yes | no | `redis` (`memory` is refused) |
-| `REDIS_URL` (or `REDIS_HOST`) | yes | **yes** if it embeds credentials | |
-| `PORT` | no | no | default 3000 |
-| `BEYU_IDENTITY_STATUS_TTL_MS` / `…_MAX_STALE_MS` | no | no | defaults 30 s / 300 s; caps 300 s / 900 s |
-| `DB_SKIP_RLS_CHECK`, `BEYU_HCM_BYPASS_FOR_TEST`, `BEYU_IDENTITY_TEST_HARNESS` | **must be unset** | — | boot refuses them |
-
-On the BEYU root (Vercel) deployment:
-
-| Variable | Rule |
+| Variable | Purpose |
 |---|---|
-| `HEALTH_API_URL` | `https://<health-host>`, no trailing slash. Read at **build** time by `next.config.ts`, so a redeploy is required after setting it. Without it, `/health-os/auth/*` returns 404 and Health sign-in fails closed. This is the current production state. |
-| `BEYU_INTERNAL_SERVICE_TOKEN` | ≥32 chars. The same value as the Health `BEYU_IDENTITY_TOKEN`. |
+| `DATABASE_URL` | Dedicated Health PostgreSQL runtime DSN; never BEYU's database URL. |
+| `BEYU_AUTH_ASSERTION_KID` | Key id matching BEYU's active signer. |
+| `BEYU_AUTH_ASSERTION_PUBLIC_KEY` | Ed25519 SPKI PEM public key. |
+| `BEYU_AUTH_ASSERTION_PUBLIC_KEYS` | Optional JSON map `kid → PEM public key` for overlapping key rotation. |
+| `BEYU_AUTH_ASSERTION_ISSUER` | Defaults to `https://www.beyu.co.tz`. |
+| `BEYU_AUTH_ASSERTION_AUDIENCE` | Defaults to `beyu-health-os`. |
+| `BEYU_TRUSTED_BROWSER_ORIGINS` | Exact browser origin allow-list (include `https://www.beyu.co.tz` and `https://health.beyu.co.tz`); defaults to `CORS_ORIGIN`. Wildcards are refused. |
+| `BEYU_IDENTITY_ENDPOINT` | BEYU base URL for the existing Health → BEYU identity API. |
+| `BEYU_IDENTITY_TOKEN` | Health → BEYU service credential; separate from the Ed25519 human assertion. |
+| `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE` | Health-local access JWT configuration. |
+| `CORS_ORIGIN` | Explicit BEYU browser origin allow-list. |
+| `REDIS_URL`, encryption and MFA secrets | As required by the existing Health production boot contract. |
 
-Secrets inventory (Health side, 9–10 values): `DATABASE_URL`, `JWT_SECRET`,
-`JWT_REFRESH_SECRET`, `REFRESH_TOKEN_SECRET`, `CSRF_SECRET`, `ENCRYPTION_KEY`,
-`MFA_ENCRYPTION_KEY`, `BEYU_IDENTITY_TOKEN` (shared with BEYU), `REDIS_URL`,
-plus the separate privileged **migration** DSN used only by the release step.
-None of these exist in the repository, and none may be committed.
+### Key generation and custody
 
-## 4. Hostname
+Generate an Ed25519 pair offline:
 
-None is provisioned. `health.beyuos.co.tz`, `beyuos.co.tz`, `api.health.*` and
-`health-api.*` do not resolve (checked 2026-09-28). Choosing a hostname and a
-TLS certificate is a human action. The host must serve HTTPS only.
+```sh
+openssl genpkey -algorithm ED25519 -out beyu-health-ed25519-private.pem
+openssl pkey -in beyu-health-ed25519-private.pem -pubout -out beyu-health-ed25519-public.pem
+```
 
-## 5. Database contract
+- Private key: BEYU server secret store only.
+- Public key: Health backend secret/config store only.
+- Never commit either key or place the private key in frontend build variables.
+- Rotate using a new `kid`; temporarily configure both public keys in Health's
+  `BEYU_AUTH_ASSERTION_PUBLIC_KEYS`, switch BEYU's active signer, wait beyond
+  the assertion lifetime, then remove the old key.
 
-- PostgreSQL 16. Migrations 001–032 are applied **only** through the governed
-  runner. Never use `drizzle-kit push`, and never hand-run DDL.
-- Ledger: `beyu_migrations` in the connection's current schema, with columns
-  `id, checksum, owner='health', sector='HEALTH_OS', mode, provenance`.
-- Roles:
-  - **Migration channel** (release step only): owns the schema. It needs `CREATEROLE`
-    (or equivalent) because 032 creates `beyu_health_federation_read`. It is never
-    the runtime DSN.
-  - **Runtime** (`DATABASE_URL`): `LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE`.
-    Readiness needs `SELECT` on the ledger. The application grants it needs are
-    **not** defined by any migration yet (open item L-2).
-  - `beyu_health_federation_read`: `NOLOGIN`, no members (032).
+## 4. Health database and runtime role
 
-### Topology is an open human decision (T-1 / T-2), and both options are blocked today
+- Provision a dedicated Health PostgreSQL database.
+- Apply Health migrations through the governed Health migration runner only.
+- Health runtime role: `beyu_health_runtime`, `LOGIN NOSUPERUSER NOBYPASSRLS
+  NOCREATEROLE`; it must not own the Health identity tables.
+- Migrations 033–035 create the Health-local assertion replay ledger, enforce unique non-null session `jti` values, and install a narrowly scoped `SECURITY DEFINER` identity resolver. `beyu_health_runtime` receives `EXECUTE` on that resolver only; it does not receive cross-database access or table ownership.
+- No BEYU runtime role is granted access to Health tables. No Health runtime
+  role is granted access to BEYU tables.
+- Local authorization requires an active link, active Health account, active
+  local tenant mapping and active membership. Local roles/permissions are
+  resolved from Health tables; assertion permission claims are not accepted.
 
-| Option | What breaks with the current code |
-|---|---|
-| **Shared** canonical BEYU database | **T-2 ledger collision.** The root migrator's `public.beyu_migrations` (`version, checksum NOT NULL, mode NOT NULL, description`) has the same name as the Health ledger. The unmodified Health runner would `ALTER` the root ledger before failing; this was reproduced on PostgreSQL 16. The runner now refuses (`ForeignLedgerError`) before any statement. Deciding where the Health ledger lives is required. Separately, the BEYU runtime role would need `SELECT` on `beyu_identity.beyu_identity_links`, and no root migration grants it. |
-| **Separate** Health database | The root gate reads `beyu_identity.beyu_identity_links` through **BEYU's** `DATABASE_URL`, so with a separate DB it always returns `AUTHORIZATION_SERVICE_UNAVAILABLE` (fail closed) and nobody is authorized. A governed cross-DB read path would be needed (for example the 032 federation role plus a new, reviewed interface). |
+## 5. Build, migration and verification
 
-`docs/security/IDENTITY_FEDERATION.md` (separate DB) and
-`docs/architecture/HEALTH_SECTOR_INTEGRATION_DESIGN.md` (canonical DB)
-contradict each other. Resolving that is a governance decision, not a code fix.
+```sh
+# Health backend
+cd sectors/health/backend
+npm ci
+npx tsc --noEmit
+npm test
 
-## 6. Federation contract (existing; nothing here activates it)
+# Health frontend
+cd ../
+npm ci
+npm run typecheck
+npm test
+npm run build
 
-- Health → BEYU: `POST {BEYU_IDENTITY_ENDPOINT}/api/v1/internal/identity/register` and `/lookup`.
-- Token: HS256 JWT signed with `BEYU_IDENTITY_TOKEN`. Claims: `iss=HEALTH_OS`,
-  `aud=BEYU_OS`, `sub=service:HEALTH_OS`, `iat`, `exp` (Health issues 60 s;
-  BEYU rejects >300 s), `jti`.
-- BEYU verifies these against `BEYU_INTERNAL_SERVICE_TOKEN`, an issuer allowlist,
-  and the `service_principals` row `HEALTH_OS` (must be `ACTIVE`).
-- Revocation: a link's `status` moves to `revoked`/`expired` (031). **Both** the
-  Health bridge and the root gate deny non-active links.
-- Status cache: TTL 30 s, maximum staleness 300 s (capped).
+# BEYU root
+cd ../../..
+npm ci
+npm run typecheck
+npm test
+```
 
-## 7. Rollback
+Before release:
+1. Verify the Health DB endpoint and `beyu_health_runtime` role attributes.
+2. Verify migration status and checksum through the Health migration runner.
+3. Apply migrations 033–035 only to the dedicated Health database through the
+   separately approved release process.
+4. Run Health backend integration tests against the dedicated database or
+   PGlite scratch engine.
+5. Verify Health migration status includes 033–035 and run BEYU Finance RLS regression tests as the actual non-owner
+   `beyu_runtime` role; verify tenant and actor isolation, INSERT/UPDATE
+   WITH CHECK, and global-scope non-bypass.
+6. Configure keys and `HEALTH_API_URL` in secret stores; do not commit values.
+7. Deploy Health backend and BEYU preview separately; perform signed exchange,
+   replay, revoked-link, suspended-account, missing-membership and expiry probes.
+8. Obtain human release approval before production deployment.
 
-- Application: redeploy the previous image. Readiness reports
-  `LEDGER_AHEAD_OF_SOURCE` if the database is newer than the image. That is
-  intentional: it fails closed until a human decides.
-- Schema: `migration-runner.js down [N]` via the migration channel, by human
-  authorization only, after a verified backup.
-- Proxy: unset `HEALTH_API_URL` and redeploy BEYU. `/health-os/auth/*` then
-  returns 404 and sign-in fails closed.
+## 6. Rollback
 
-## 8. Human actions required, in order
+- Disable the BEYU assertion endpoint by removing its private key from the
+  server secret store; it fails closed with 503.
+- Unset `HEALTH_API_URL` and redeploy BEYU to remove the same-origin proxy.
+- Revert application code only after the deployment plan accounts for already
+  issued Health-local access tokens (maximum 15-minute lifetime).
+- Roll back migrations 035, 034 and 033 only after all Health services no longer
+  require the resolver, session-jti uniqueness and replay protection, using the
+  governed migration runner in reverse order.
 
-1. Decide the database topology (T-1) and the Health ledger location (T-2).
-2. Author and review migration 033+ for runtime grants (L-2) and for
-   column-level restriction of the 032 federation role, which can currently read
-   `users.password_hash` (L-1). Never edit 032.
-3. Choose and authorize a container host, hostname and TLS.
-4. Provision the Health PostgreSQL database, the migration role and the runtime role.
-5. Generate secrets in the host's secret store (§3). Set BEYU
-   `BEYU_INTERNAL_SERVICE_TOKEN` and Health `BEYU_IDENTITY_TOKEN` to the same value.
-6. Run `migration-runner.js status`, then `up`, through the governed release process.
-7. Deploy the image, then run `scripts/verify-deployment.mjs --backend …`.
-8. Set `HEALTH_API_URL` on BEYU, redeploy, and re-run the probe with `--beyu …`.
-9. Identity registration, linking, tenant binding and federation activation
-   are **Phase 9**. Each needs explicit per-item human authorization.
+No step in this contract changes production configuration, secrets, database
+schema or deployed services without separate explicit approval.

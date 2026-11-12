@@ -9,6 +9,7 @@ import {
   date,
   index,
   integer,
+  check,
   jsonb,
   numeric,
   pgTable,
@@ -22,6 +23,7 @@ import { countries, legalEntities, tenants } from "./core";
 import { users } from "./identity";
 import { approvals } from "./governance";
 import { tsvector } from "./search";
+import { sql } from "drizzle-orm";
 
 /**
  * Serialized append head for tamper-evident ledgers. Writers must lock the
@@ -515,6 +517,8 @@ export const idempotencyRecords = pgTable(
   (t) => [
     primaryKey({ columns: [t.scope, t.idempotencyKey] }),
     index("idempotency_expiry_idx").on(t.expiresAt),
+    index("idempotency_records_principal_idx").on(t.tenantId, t.actorUserId, t.expiresAt),
+    check("idempotency_records_principal_required", sql`${t.tenantId} IS NOT NULL AND ${t.actorUserId} IS NOT NULL`),
   ],
 );
 

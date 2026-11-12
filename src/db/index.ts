@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { buildPgConnectionConfig } from "./tls";
@@ -187,6 +188,35 @@ export function hasDatabaseTransactionContext(): boolean {
   return Boolean(transactionContext.getStore());
 }
 
+/**
+ * Run a control-ledger operation on a fresh, pinned transaction with an
+ * explicit single-tenant, single-actor RLS context. This intentionally does
+ * not inherit AsyncLocalStorage state from the caller's request transaction.
+ */
+export async function withIndependentPrincipalDatabase<T>(
+  tenantId: string,
+  actorUserId: string,
+  operation: (database: DatabaseTransaction) => Promise<T>,
+): Promise<T> {
+  if (!tenantId.trim() || !actorUserId.trim()) {
+    throw new Error("Independent principal database context requires tenant and actor identifiers.");
+  }
+  return baseDb.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('beyu.current_tenant_ids', ${tenantId}, true)`,
+    );
+    await tx.execute(sql`select set_config('beyu.global_scope', 'off', true)`);
+    await tx.execute(
+      sql`select set_config('beyu.actor_user_id', ${actorUserId}, true)`,
+    );
+    return operation(tx);
+  });
+}
+
+/**
+ * Legacy escape hatch retained for source compatibility. New sensitive
+ * control-ledger operations must use withIndependentPrincipalDatabase().
+ */
 export async function withIndependentDatabase<T>(
   operation: (database: Database) => Promise<T>,
 ): Promise<T> {

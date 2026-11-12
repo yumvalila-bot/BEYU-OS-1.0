@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  // Session restoration on first load (reads the httpOnly refresh cookie server-side).
+  // Session restoration obtains a fresh BEYU assertion; Health authorizes locally.
   useEffect(() => {
     let active = true;
     void restoreSession().then((restored) => {

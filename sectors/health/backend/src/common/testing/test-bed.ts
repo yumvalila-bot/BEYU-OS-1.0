@@ -76,6 +76,12 @@ export interface TestBed {
 export async function buildTestBed(): Promise<TestBed> {
   const db = new PGlite();
   const conn = new PGliteConnection(db);
+  // The in-process PostgreSQL instance starts with a privileged postgres
+  // principal but no Health application role. Create the constrained role
+  // before replaying migrations that grant it local assertion/replay access.
+  await conn.exec(
+    "CREATE ROLE beyu_health_runtime NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOREPLICATION;",
+  );
   const migs = fs
     .readdirSync(MIG_DIR)
     .filter((f) => f.endsWith(".up.sql"))

@@ -62,10 +62,24 @@ describe("frontend auth client (Phase 1A)", () => {
   });
 
   it("restoreSession returns the user on success and null on failure", async () => {
-    vi.spyOn(globalThis, "fetch")
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ assertion: "signed-beyu-assertion" }))
       .mockResolvedValueOnce(jsonResponse({ accessToken: "tok", user }))
       .mockResolvedValueOnce(jsonResponse({}, 401));
     const ok = await restoreSession();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/health/authorization-assertion",
+      expect.objectContaining({ method: "POST", credentials: "same-origin" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("/auth/federation/exchange"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ assertion: "signed-beyu-assertion" }),
+      }),
+    );
     expect(ok?.email).toBe("doctor@a.example");
     expect(getAccessToken()).toBe("tok");
     setAccessToken(null);

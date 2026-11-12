@@ -19,7 +19,6 @@ import { resolvePrincipal, requestMeta } from "@/lib/session";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import type { Principal } from "@/lib/authz";
 import { recordAudit, publishEvent } from "@/lib/audit";
-import { checkHealthOSAuthorization } from "@/lib/health-os-authorization";
 
 /**
  * Resolve complete authorization context for the authenticated principal
@@ -63,8 +62,6 @@ export async function GET() {
 async function resolveContext(principal: Principal): Promise<NextResponse> {
   const meta = await requestMeta();
 
-  // Resolve OS authorizations
-  const healthAuth = await checkHealthOSAuthorization(principal.userId);
 
   // Build authorization context
   const authorizedOSs: Array<{
@@ -92,18 +89,6 @@ async function resolveContext(principal: Principal): Promise<NextResponse> {
     permissions: Array.from(principal.permissions),
   });
 
-  // Health OS: Authorized if user has canonical identity link
-  if (healthAuth.authorized) {
-    authorizedOSs.push({
-      osCode: "HEALTH",
-      osName: "Health OS (Sector)",
-      authorized: true,
-      sectorUserId: healthAuth.sectorUserId,
-      linkedAt: healthAuth.linkedAt,
-      // Health OS has its own roles/permissions managed by Health backend
-      // Client will need to call Health backend /auth/me for full Health context
-    });
-  }
 
   // Determine routing recommendation
   const authorizedCount = authorizedOSs.filter((os) => os.authorized).length;

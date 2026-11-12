@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "./auth/AuthContext";
-import { Landing } from "./views/Landing";
-import { Login } from "./views/Login";
 import { Sidebar, TopBar, type NavItem } from "./components/Chrome";
 import { AICoPilot } from "./components/AICoPilot";
 
@@ -84,8 +82,6 @@ import { TaxOrchestrationScreen } from "./views/TaxOrchestration";
 import { NABHScreen } from "./views/NABH";
 
 import { ROLES, TENANTS } from "./data/mock";
-
-type Stage = "landing" | "login" | "app";
 
 const ROLE_USERS: Record<string, { name: string; role: string }> = {
   trustee: { name: "Dr. John Doe", role: "Trustee · BEYU Family Trust" },
@@ -219,7 +215,6 @@ function navBoard(): NavItem[] {
 
 export default function App() {
   const { status: authStatus, user: authUser, logout } = useAuth();
-  const [stage, setStage] = useState<Stage>("landing");
   const [role, setRole] = useState<string>("ceo");
   const [tenant, setTenant] = useState<string>(TENANTS[0].id);
   const [active, setActive] = useState<string>("home");
@@ -259,8 +254,29 @@ export default function App() {
     );
   }
   if (authStatus === "unauthenticated") {
-    if (stage === "landing") return <Landing onLogin={() => setStage("login")} />;
-    return <Login onBack={() => setStage("landing")} />;
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-navy-900 px-5 py-12 text-white">
+        <section className="w-full max-w-xl rounded-2xl border border-white/15 bg-white/5 p-8 shadow-2xl">
+          <p className="text-xs font-semibold tracking-[0.2em] text-gold-300">BEYU HEALTH OS</p>
+          <h1 className="mt-4 font-display text-2xl font-semibold">Health access could not be established</h1>
+          <p className="mt-4 text-sm leading-7 text-white/75">
+            Health OS does not use a separate password login. Sign in through BEYU, then Health verifies
+            your local account, tenant and active membership. A BEYU session alone does not grant access
+            to clinical records.
+          </p>
+          <p className="mt-3 text-sm leading-7 text-white/75">
+            If you are already signed in to BEYU, ask your Health administrator to verify your Health-local
+            identity link and membership.
+          </p>
+          <a
+            href="https://www.beyu.co.tz"
+            className="mt-7 inline-flex min-h-11 items-center justify-center rounded-lg bg-gold-400 px-5 py-3 text-sm font-semibold text-navy-900 transition hover:bg-gold-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300"
+          >
+            Return to BEYU sign-in
+          </a>
+        </section>
+      </main>
+    );
   }
 
   const displayName = authUser?.displayName || authUser?.email || "User";
