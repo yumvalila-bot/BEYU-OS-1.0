@@ -273,13 +273,22 @@ export class IdentityRepository {
   async createTenant(input: {
     code: string;
     name: string;
+    countryCode?: string | null;
+    entityCode?: string | null;
     metadata?: Record<string, unknown>;
   }): Promise<StoredTenant> {
     const rows = await this.conn.query(
-      `INSERT INTO beyu_identity.tenants (tenant_code, name, metadata)
-       VALUES ($1, $2, $3)
+      `INSERT INTO beyu_identity.tenants
+         (tenant_code, name, country_code, entity_code, metadata)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [input.code, input.name, JSON.stringify(input.metadata ?? {})],
+      [
+        input.code,
+        input.name,
+        input.countryCode ?? null,
+        input.entityCode ?? null,
+        JSON.stringify(input.metadata ?? {}),
+      ],
     );
     return this.mapTenant(rows[0]);
   }
