@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
   "approved_by" text,
   "approved_at" timestamptz,
   "submitted_at" timestamptz,
+  "submitted_by" text,
   "external_reference" text,
   "accepted_at" timestamptz,
   "created_at" timestamptz NOT NULL DEFAULT now(),
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
   ),
   CONSTRAINT "tax_return_drafts_submission_gate_ck" CHECK (
     "status" NOT IN ('SUBMITTED', 'ACCEPTED')
-    OR ("submitted_at" IS NOT NULL AND "external_reference" IS NOT NULL)
+    OR ("submitted_at" IS NOT NULL AND "submitted_by" IS NOT NULL AND "external_reference" IS NOT NULL)
   ),
   CONSTRAINT "tax_return_drafts_acceptance_gate_ck" CHECK (
     "status" <> 'ACCEPTED' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL)
