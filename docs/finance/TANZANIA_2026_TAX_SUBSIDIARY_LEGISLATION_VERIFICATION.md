@@ -78,7 +78,7 @@ The reproduced GN 158F text states that it was made under section 155 of the Inc
 The OAG MIS official metadata record confirms GN 158G of 2026, published 30 June 2026 and commencing 1 July 2026:
 https://oagmis.oag.go.tz/portal/legislation/4648
 
-A third-party transcription reports an amendment to regulation 58 requiring a person conducting business on social media to display a Certificate, TIN or Tax Clearance Certificate visibly on the social-media profile/account. This detail is not treated as verified operative text until the complete official GN 158G is acquired and checked.
+The official OAG PDF text confirms an amendment to regulation 58 requiring a person conducting business on social media to display the Certificate, TIN or Tax Clearance Certificate visibly on the social-media profile/account. The original PDF bytes are not yet stored/checksummed in the governed documents registry; scope, privacy, application and enforcement details still require specialist review.
 
 Before any compliance workflow is designed, confirm:
 - The exact amended regulation and whether the display requirement is confined to a defined class of social-media business.
