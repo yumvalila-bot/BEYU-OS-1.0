@@ -45,7 +45,7 @@ describe("Finance Act No. 2 of 2026 tax amendment index", () => {
     expect(forest?.caveat).toContain("Finance Act No. 11 of 2025");
     expect(forest?.caveat).toContain("1 January 2026");
     expect(withholdingVat?.caveat).toContain("not the general VAT rate");
-    expect(withholdingVat?.summary).toContain("fifteen percent for goods and twelve percent for services");
+    expect(withholdingVat?.summary).toContain("fifteen percent supplier entitlement for goods and twelve percent for services");
     expect(presumptive?.summary).toContain("4.0% of turnover");
     expect(presumptive?.summary).toContain("TZS 200m");
     expect(vatWithholdingDeadline?.summary).toContain("ten days");
