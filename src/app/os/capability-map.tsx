@@ -80,7 +80,6 @@ function SectorCard({
             </span>
             <span className="mt-1 block text-[12px] leading-relaxed beyu-muted">{item.description}</span>
           </span>
-          <Icon name="arrow-up-right" className="mt-1 h-4 w-4 shrink-0 text-[color:var(--beyu-muted)] transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
       </div>
       {children.length > 0 && (
