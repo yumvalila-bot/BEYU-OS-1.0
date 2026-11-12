@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import {
+  documents,
   enterpriseMemory,
   knowledgeSources,
 } from "@/db/schema";
@@ -43,6 +44,7 @@ export const TAX_LEGAL_AUTHORITY_INPUT = z.object({
   publishedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   commencedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  originalDocumentId: z.string().min(3).max(128),
   originalSourceSha256: z.string().regex(/^[a-f0-9]{64}$/i),
   officialSourceHost: z.string().min(3).max(253),
   textValidatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -153,10 +155,23 @@ export class BeyuNoeliaMemoryService {
       }
       const officialHosts = (process.env.TAX_OFFICIAL_SOURCE_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
       const tax = parsed.taxLegalAuthority;
+      if (parsed.scopeType === "GLOBAL") throw new Error("Tax legal sources must be bound to an authorized tenant/country scope and an uploaded original document.");
+      const [originalDocument] = await db.select().from(documents).where(and(
+        eq(documents.id, tax.originalDocumentId),
+        eq(documents.tenantId, context.target.tenantId),
+      )).limit(1);
+      const registeredChecksum = originalDocument?.checksum.replace(/^sha256:/i, "").toLowerCase();
+      if (!originalDocument || !originalDocument.storageUri || registeredChecksum !== tax.originalSourceSha256.toLowerCase() || ["REJECTED", "SUPERSEDED", "EXPIRED"].includes(originalDocument.authorityStatus)) {
+        return {
+          headline: "Tax source ingest denied: uploaded original document, tenant scope and matching SHA-256 are required.",
+          findings: [{ label: "Original document verification", value: "DOCUMENT_CHECKSUM_OR_SCOPE_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+          humanReviewRequired: true, confidence: 1,
+        };
+      }
       const candidate: TaxLegalAuthorityRecord = {
         sourceCode: parsed.code, title: parsed.title, jurisdictionCode: parsed.jurisdictionCode,
         instrumentKind: tax.instrumentKind as TaxInstrumentKind, sourceUri: parsed.sourceUri,
-        sourceSha256: tax.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
+        originalDocumentId: tax.originalDocumentId, sourceSha256: tax.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
         publishedOn: tax.publishedOn, commencedOn: tax.commencedOn, effectiveFrom: parsed.effectiveFrom,
         effectiveTo: tax.effectiveTo ?? null, officialSourceHost: tax.officialSourceHost,
         textValidatedAt: tax.textValidatedAt, textValidatedBy: tax.textValidatedBy,
@@ -261,6 +276,7 @@ export class BeyuNoeliaMemoryService {
       publishedOn: parsed.taxLegalAuthority?.publishedOn ?? null,
       commencedOn: parsed.taxLegalAuthority?.commencedOn ?? null,
       effectiveTo: parsed.taxLegalAuthority?.effectiveTo ?? null,
+      originalDocumentId: parsed.taxLegalAuthority?.originalDocumentId ?? null,
       originalSourceSha256: parsed.taxLegalAuthority?.originalSourceSha256 ?? null,
       officialSourceHost: parsed.taxLegalAuthority?.officialSourceHost ?? null,
       textValidatedAt: parsed.taxLegalAuthority ? new Date(parsed.taxLegalAuthority.textValidatedAt + "T00:00:00.000Z") : null,
@@ -432,7 +448,7 @@ export class BeyuNoeliaMemoryService {
       const candidate: TaxLegalAuthorityRecord = {
         sourceCode: source.code, title: source.title, jurisdictionCode: source.jurisdictionCode ?? "",
         instrumentKind: (source.instrumentKind ?? "OTHER") as TaxInstrumentKind, sourceUri: source.sourceUri,
-        sourceSha256: source.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
+        originalDocumentId: source.originalDocumentId, sourceSha256: source.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
         publishedOn: source.publishedOn, commencedOn: source.commencedOn, effectiveFrom: source.effectiveFrom,
         effectiveTo: source.effectiveTo, officialSourceHost: source.officialSourceHost,
         textValidatedAt: dateOnly(source.textValidatedAt), textValidatedBy: source.textValidatedBy,
@@ -442,6 +458,13 @@ export class BeyuNoeliaMemoryService {
         provisionReferences: source.provisionReferences ?? [],
       };
       const authentication = authenticateTaxLegalSource(candidate, officialHosts);
+      const [originalDocument] = source.originalDocumentId && source.tenantId
+        ? await db.select().from(documents).where(and(eq(documents.id, source.originalDocumentId), eq(documents.tenantId, source.tenantId))).limit(1)
+        : [];
+      const registeredChecksum = originalDocument?.checksum.replace(/^sha256:/i, "").toLowerCase();
+      if (!originalDocument || !originalDocument.storageUri || registeredChecksum !== (source.originalSourceSha256 ?? "").toLowerCase() || ["REJECTED", "SUPERSEDED", "EXPIRED"].includes(originalDocument.authorityStatus)) {
+        return { headline: "Tax legal publication denied: original uploaded document is missing, out of scope or checksum-mismatched.", findings: [{ label: "Original document verification", value: "DOCUMENT_CHECKSUM_OR_SCOPE_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }], humanReviewRequired: true, confidence: 1 };
+      }
       if (source.sourceAuthenticationStatus !== "SPECIALIST_REVIEWED" || !authentication.authenticated) {
         return {
           headline: "Tax legal publication denied: authenticated original-source evidence and specialist review are required.",
