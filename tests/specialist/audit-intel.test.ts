@@ -969,7 +969,8 @@ describe("audit module — never mutates the ledger it inspects", () => {
     //   chain stays the one owned by recordAudit. (pe_exit_events is a private-capital deal ledger —
     //   excluded by exact name in the table-name guard above, like the other domain event ledgers.)
     // + 0075: Noelia authority/execution hardening. Adds no audit-intel table or second ledger truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
+    // + 0076: Sector read-only catalogue mirror. Adds no audit-intel table or second ledger truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(77);  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

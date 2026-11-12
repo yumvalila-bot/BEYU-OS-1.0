@@ -298,7 +298,7 @@ jobs:
         # approval, NOT a certification, and it authorizes nothing.
         run: npm run verify:scg
 
-      - name: Apply canonical root migrations 0000-0075
+      - name: Apply canonical root migrations 0000-0076
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -308,7 +308,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0075 are all recorded
+      - name: Verify migrations 0000-0076 are all recorded
         shell: bash
         run: |
           set -euo pipefail

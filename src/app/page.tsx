@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { resolvePrincipal } from "@/lib/session";
+import { resolvePrincipalForPage } from "@/lib/guard";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
@@ -278,7 +278,7 @@ function HomePageContent() {
 }
 
 export default async function SignInPage() {
-  const principal = await resolvePrincipal();
+  const principal = await resolvePrincipalForPage();
 
   const canonicalHost = await canonicalHostForRequest();
   const hostDestination = destinationForResolution(canonicalHost);
