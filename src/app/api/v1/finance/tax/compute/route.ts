@@ -24,6 +24,7 @@ const ComputeSchema = z.discriminatedUnion("taxType", [
   z.object({ ...base, taxType: z.literal("PRESUMPTIVE_INCOME_TAX"), annualTurnoverTzs: z.number().int().nonnegative().safe(), records: z.enum(["COMPLETE", "INCOMPLETE"]), newBusinessReliefApproved: z.boolean().optional() }),
   z.object({ ...base, taxType: z.literal("VAT"), taxableSuppliesTzs: z.number().int().nonnegative().safe(), inputVatCreditTzs: z.number().int().nonnegative().safe().optional(), inputVatCreditVerified: z.boolean().optional(), rate: z.enum(["STANDARD_18", "ZERO_RATED"]).optional() }),
   z.object({ ...base, taxType: z.literal("WITHHOLDING_TAX"), grossPaymentTzs: z.number().int().nonnegative().safe(), category: z.enum(["DIVIDEND_LISTED", "DIVIDEND_OTHER", "INTEREST", "ROYALTY", "OTHER_INVESTMENT_RETURN", "COMMERCIAL_RENT", "MINING_TECHNICAL_SERVICE", "NON_RESIDENT_TRANSPORT", "NON_RESIDENT_INSURANCE", "GAMING_ADVERTISING_COMMISSION", "SALT_PURCHASE", "MOTOR_VEHICLE_HIRE", "FOREST_PRODUCE", "NATURAL_RESOURCE_PAYMENT", "SERVICE_FEE", "NON_FULL_TIME_DIRECTOR_FEE", "MOBILE_MONEY_AGENT_COMMISSION", "GOVERNMENT_GOODS_SUPPLY", "AIRCRAFT_PAYMENT", "CARBON_CREDIT", "PRECIOUS_METALS"]), payeeResidency: z.enum(["RESIDENT", "NON_RESIDENT"]), treatyReliefClaimed: z.boolean().optional() }),
+  z.object({ ...base, taxType: z.literal("CUSTOMS_PROCESSING_FEE"), cargoType: z.enum(["DRY_NON_PETROLEUM", "WET_PETROLEUM"]), importOrigin: z.enum(["NON_EAC", "EAC_NON_ORIGINATING", "EAC_ORIGINATING"]), originEvidenceVerified: z.boolean(), fobValueTzs: z.number().int().nonnegative().safe().optional(), vesselCount: z.number().int().positive().safe().optional(), exemptionClaimed: z.boolean().optional() }),
 ]);
 
 /**
@@ -58,7 +59,9 @@ export async function POST(request: Request) {
       : "annualTaxableIncomeTzs" in body ? body.annualTaxableIncomeTzs
       : "annualTurnoverTzs" in body ? body.annualTurnoverTzs
       : "taxableSuppliesTzs" in body ? body.taxableSuppliesTzs
-      : body.grossPaymentTzs;
+      : "grossPaymentTzs" in body ? body.grossPaymentTzs
+      : "fobValueTzs" in body ? (body.fobValueTzs ?? 0)
+      : (body.vesselCount ?? 0) * 20_000_000;
     const policy = await evaluatePolicy({
       action: "finance:tax.assess",
       tenantId: ctx.principal.tenantId,
