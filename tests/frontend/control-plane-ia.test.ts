@@ -62,7 +62,7 @@ const group = (id: string) => {
 };
 
 describe("canonical constitutional hierarchy", () => {
-  it("exposes the nine approved top-level categories in canonical order", () => {
+  it("exposes the eight approved top-level categories in canonical order", () => {
     expect(CAPABILITY_IA.map(({ id, title }) => ({ id, title }))).toEqual([
       { id: "executive-governance", title: "Organisation & Constitutional Governance" },
       { id: "identity-access", title: "Identity & Access Management" },
@@ -109,13 +109,24 @@ describe("canonical constitutional hierarchy", () => {
     expect(SECTOR_OPERATING_SYSTEMS.map(({ name: label, href }) => ({ label, href }))).toEqual(expected);
     expect(BEYU_CONTROL_PLANE.level).toBe("CONTROL_PLANE");
     expect(SECTOR_OPERATING_SYSTEMS.every((destination) => destination.level === "SECTOR_OS")).toBe(true);
-    expect(group("sector").items.map(({ href }) => href)).toEqual(expect.arrayContaining([
+    const sectorHrefs = group("sector").items.map(({ href }) => href);
+    expect(sectorHrefs).toEqual(expect.arrayContaining([
+      "/os/finance",
+      "/os/agriculture",
       "/os/capital",
       "/os/waterfall",
       "/os/tax",
       "/os/finance/payments",
       "/os/agriculture/capabilities",
     ]));
+    const capabilityMap = source("src", "app", "os", "capability-map.tsx");
+    expect(capabilityMap).toContain('"/os/finance": [');
+    expect(capabilityMap).toContain('"/os/capital"');
+    expect(capabilityMap).toContain('"/os/waterfall"');
+    expect(capabilityMap).toContain('"/os/tax"');
+    expect(capabilityMap).toContain('"/os/finance/payments"');
+    expect(capabilityMap).toContain('"/os/agriculture": ["/os/agriculture/capabilities"]');
+    expect(capabilityMap).toContain("governedDestinationHrefs.has(item.href)");
     expect(group("family-office").items.map(({ href }) => href)).toEqual(expect.arrayContaining([
       "/os/family",
       "/os/family/trustee-command",
