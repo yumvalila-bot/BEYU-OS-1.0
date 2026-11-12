@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "BEYU — Bridging Care. Building Trust.",
     description: "A constitutional enterprise operating ecosystem, built for lasting impact.",
-    images: [{ url: "/brand/beyu-os-logo-transparent.svg", alt: "BEYU emblem" }],
+    images: [{ url: "/brand/beyu-os-logo.png", alt: "BEYU OS" }],
     type: "website",
   },
 };
