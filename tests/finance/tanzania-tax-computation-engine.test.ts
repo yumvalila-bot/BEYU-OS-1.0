@@ -48,7 +48,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
   });
 
   it("computes Finance Act 2026 VAT withholding on goods, services and mixed supplies", () => {
-    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }).taxAmountTzs).toBe(150000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }).taxAmountTzs).toBe(30000);
     expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "SERVICES" }).taxAmountTzs).toBe(60000);
     expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).taxAmountTzs).toBe(42000);
     expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).sourceRefs.some((source) => source.code === "TZ_FINANCE_ACT_2_2026")).toBe(true);
