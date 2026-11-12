@@ -67,3 +67,20 @@ The code index also preserves printed-page locators for each entry.
 4. Validate the statutory text, page locators and any OCR against the official PDF.
 5. Have a qualified Tanzanian tax specialist approve each rule candidate, effective period, taxpayer scope and evidence requirement.
 6. Only then consider registering effective-dated rules. No automatic promotion from this index is permitted.
+
+### Forest-produce instalment tax — temporal version history
+
+The original Income Tax Act section 116A was inserted by Finance Act No. 11 of 2025,
+section 58, at two percent and was expressly scheduled to commence on 1 January 2026.
+Finance Act No. 2 of 2026, section 25, repealed and replaced that section. The 2026
+replacement retains two percent but expands/changes the payment-trigger events and
+definitions. The 2025 and 2026 texts must therefore be treated as separate effective
+versions, not merged into one timeless rule.
+
+Official 2025 source:
+- OAG MIS record: https://oagmis.oag.go.tz/portal/acts/329
+- Official Act PDF: https://oagmis.oag.go.tz/portal/acts/329/download
+
+The 2026 replacement must be reconciled with the 2026 Income Tax (Single Instalment Tax on
+Forest Produce) Regulations, the Local Government Finance Act forest cess interface and
+any transitional facts before implementation.
