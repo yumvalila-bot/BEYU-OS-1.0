@@ -10,6 +10,7 @@ import { TaxWorkbench } from "./workbench";
 import { TraSourceLibrary } from "./source-library";
 import { VerifiedTaxAuthorities } from "./verified-authorities";
 import { FinanceAct2026AmendmentIndex } from "./finance-act-2026-index";
+import { TanzaniaSubsidiaryLegislationReview } from "./subsidiary-legislation-review";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,7 @@ export default async function TaxPage() {
 
       <VerifiedTaxAuthorities />
       <FinanceAct2026AmendmentIndex />
+      <TanzaniaSubsidiaryLegislationReview />
       <TraSourceLibrary />
     </div>
   );  });
