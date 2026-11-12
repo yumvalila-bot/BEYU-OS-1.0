@@ -49,10 +49,12 @@ CREATE POLICY idempotency_records_principal_isolation
   USING (
     tenant_id = ANY (beyu_tenant_ids())
     AND actor_user_id = NULLIF(current_setting('beyu.actor_user_id', true), '')
+    AND COALESCE(current_setting('beyu.global_scope', true), 'off') <> 'on'
   )
   WITH CHECK (
     tenant_id = ANY (beyu_tenant_ids())
     AND actor_user_id = NULLIF(current_setting('beyu.actor_user_id', true), '')
+    AND COALESCE(current_setting('beyu.global_scope', true), 'off') <> 'on'
   );
 --> statement-breakpoint
 
