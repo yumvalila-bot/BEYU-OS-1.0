@@ -31,6 +31,7 @@ Update the public root homepage on the current production baseline (`dc8f848226e
 
 ## Review limitations / next gates
 
-- The current repo contains the canonical logo and NOELIA portrait but does not contain separate production-ready photo assets for every building, globe, and sector-card illustration in the design reference. The homepage retains semantic CSS illustration treatments rather than using a flattened screenshot or inventing new brand assets.
+- The route currently uses the repository `BeyuOsLogo` component. The transparent B/tree/leaf/gold-arc emblem designated as the canonical public BEYU mark has not yet been integrated into `public/brand`, so final public brand parity remains open. The canonical `/NOELIA.png` portrait is referenced by the NOELIA panel.
+- The repository does not contain separate production-ready photo assets for every building, globe, and Sector OS card illustration in the design reference. The homepage retains semantic CSS illustration treatments rather than using a flattened screenshot or inventing new brand assets.
 - Human review should compare the actual preview at 320px, 390px, 768px, 1024px and 1440px, verify contrast/focus/keyboard behavior, and decide whether additional approved photographic assets are required for pixel-level fidelity.
 - This PR remains draft. Do not merge, auto-merge, promote, or deploy to Production.
