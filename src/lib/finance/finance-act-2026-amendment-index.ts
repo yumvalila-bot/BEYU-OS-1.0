@@ -191,7 +191,7 @@ export const FINANCE_ACT_2026_CHANGE_INDEX: readonly FinanceAct2026Change[] = [
     principalAct: "Value Added Tax Act, Cap. 148",
     principalProvision: "Section 5(5) and new section 5(7)",
     financeActProvision: "Finance Act No. 2 of 2026, section 91",
-    summary: "Amends withholding VAT wording to specify fifteen percent for goods and twelve percent for services supplied to a taxable person; where a supply contains both, the taxable value subject to withholding is apportioned three to two for goods and services respectively.",
+    summary: "Amends withholding VAT wording to specify fifteen percent supplier entitlement for goods and twelve percent for services supplied to a taxable person; where a supply contains both, the taxable value subject to withholding is apportioned three to two for goods and services respectively.",
     sourcePages: "Printed pages 52–53",
     reviewGate: "CONSOLIDATION_AND_SPECIALIST_REVIEW_REQUIRED",
     operationalStatus: "INDEX_ONLY_NOT_A_TAX_RULE",
