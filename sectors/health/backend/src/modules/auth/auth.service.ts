@@ -108,12 +108,13 @@ export class AuthService {
     if (!this.beyuAssertion) {
       throw new ServiceUnavailableException("BEYU_FEDERATION_NOT_CONFIGURED");
     }
+    // verifyAndResolve validates the signature and resolves the identity link,
+    // account state, tenant and membership from Health's own database. Do not
+    // call the legacy live BEYU identity adapter here: that would reintroduce a
+    // cross-OS lookup and defeat the signed, bounded authorization exchange.
+    // Canonical BEYU session validity is checked before signing; this assertion
+    // is single-use and expires within 60 seconds.
     const actor = await this.beyuAssertion.verifyAndResolve(assertion);
-    if (!this.federation) {
-      throw new ServiceUnavailableException("CANONICAL_IDENTITY_FEDERATION_UNAVAILABLE");
-    }
-    const link = await this.federation.requireLinkedIdentity(actor.user.global_user_id);
-    await this.federation.assertCanonicalStatusActive(link);
     const accessJti = this.sessions.newJti();
     const opaqueRefresh = this.sessions.newJti();
     const ttlMs = this.accessTokenTtlMs();
