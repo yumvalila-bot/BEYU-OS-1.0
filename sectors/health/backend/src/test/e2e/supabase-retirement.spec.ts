@@ -26,6 +26,7 @@ import "reflect-metadata";
 const request: any = require("supertest");
 import * as fs from "fs";
 import * as path from "path";
+import { randomUUID } from "node:crypto";
 import { buildE2EHarness, E2EHarness } from "../../common/testing/e2e-harness";
 
 const SRC_ROOT = path.resolve(__dirname, "..", "..");
@@ -56,12 +57,28 @@ describe("P0: legacy Supabase data proxy is retired", () => {
     // route would answer 401/403 — only an absent route answers 404.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const jwt = require("jsonwebtoken");
+    const jti = randomUUID();
+    await h.conn.query(
+      `INSERT INTO beyu_identity.sessions
+         (global_user_id, tenant_id, refresh_token_hash, jti, status, expires_at, security_version)
+       VALUES ($1, $2, $3, $4, 'active', now() + interval '5 minutes', 0)`,
+      [
+        "00000000-0000-0000-0000-000000000001",
+        "11111111-1111-1111-1111-111111111111",
+        randomUUID(),
+        jti,
+      ],
+    );
     const token = jwt.sign(
       {
         sub: "00000000-0000-0000-0000-000000000001",
         email: "doc@beyu.health",
         role: "doctor",
         tenantId: "11111111-1111-1111-1111-111111111111",
+        countryCode: "TZ",
+        entityCode: "HOSP-1",
+        sv: 0,
+        jti,
         permissions: ["phi:read", "patient:read"],
       },
       process.env.JWT_SECRET as string,
