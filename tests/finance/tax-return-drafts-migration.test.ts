@@ -22,6 +22,9 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
     expect(migration).toContain("'APPROVED_FOR_SUBMISSION'");
     expect(migration).toContain('"specialist_reviewer_id" IS NOT NULL');
     expect(migration).toContain('"external_reference" IS NOT NULL');
+    expect(migration).toContain('"submitted_by" text');
+    expect(migration).toContain('"receipt_document_id" text REFERENCES "documents"("id")');
+    expect(migration).toContain('"receipt_document_id" IS NOT NULL');
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
     expect(migration).toContain("beyu_tenant_ids()");
