@@ -268,15 +268,15 @@ export function calculateVatWithholding(input: {
   assertMoney(base, "Taxable supply value");
   const goodsBase = input.supplyType === "GOODS" ? base : input.supplyType === "MIXED" ? Math.round((base * 3) / 5) : 0;
   const servicesBase = base - goodsBase;
-  const goodsTax = roundBps(goodsBase, 1500);
-  const servicesTax = roundBps(servicesBase, 1200);
+  const goodsTax = roundBps(goodsBase, 300);
+  const servicesTax = roundBps(servicesBase, 600);
   return result("VAT_WITHHOLDING", base, goodsTax + servicesTax, [
-    { label: "VAT withheld on goods — Finance Act 2026 s.91", baseTzs: goodsBase, rateBps: 1500, taxTzs: goodsTax },
-    { label: "VAT withheld on services — Finance Act 2026 s.91", baseTzs: servicesBase, rateBps: 1200, taxTzs: servicesTax },
+    { label: "VAT withheld on goods — 3% of consideration (TRA VAT guidance)", baseTzs: goodsBase, rateBps: 300, taxTzs: goodsTax },
+    { label: "VAT withheld on services — 6% of consideration (TRA VAT guidance)", baseTzs: servicesBase, rateBps: 600, taxTzs: servicesTax },
   ], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.TRA_VAT_2026], [
     "Only an appointed VAT withholding agent may withhold. Verify the appointment, taxable status, supply characterization and tax period before use.",
     "For mixed goods/services supplies, the statutory taxable value is apportioned 3:2 (goods:services).",
-    "The official Finance Act text is reviewed, but original PDF bytes still require storage/checksum in the governed documents registry and specialist ratification.",
+    "Finance Act 2026 section 91 states the supplier entitlement proportions (15% goods / 12% services) and mixed-supply 3:2 apportionment; the current TRA VAT guide describes the actual withholding amounts as 3% of consideration for goods and 6% for services. The original Act PDF bytes still require storage/checksum and specialist ratification.",
   ]);
 }
 
