@@ -37,12 +37,18 @@ describe("Finance Act No. 2 of 2026 tax amendment index", () => {
     const withholdingVat = changes.find((change) => change.code === "FA2026_VAT_S5_WITHHOLDING");
     const digitalIntermediary = changes.find((change) => change.code === "FA2026_VAT_S51_DIGITAL_INTERMEDIARY");
     const frameworkExcise = changes.find((change) => change.code === "FA2026_EXCISE_S146B_FRAMEWORK");
+    const presumptive = changes.find((change) => change.code === "FA2026_IT_FIRST_SCHEDULE_PRESUMPTIVE");
+    const vatWithholdingDeadline = changes.find((change) => change.code === "FA2026_VAT_S71_WITHHOLDING_DEADLINE");
 
     expect(forest?.summary).toContain("not a corporation");
     expect(forest?.caveat).toContain("Regulations");
     expect(forest?.caveat).toContain("Finance Act No. 11 of 2025");
     expect(forest?.caveat).toContain("1 January 2026");
     expect(withholdingVat?.caveat).toContain("not the general VAT rate");
+    expect(withholdingVat?.summary).toContain("fifteen percent for goods and twelve percent for services");
+    expect(presumptive?.summary).toContain("4.0% of turnover");
+    expect(presumptive?.summary).toContain("TZS 200m");
+    expect(vatWithholdingDeadline?.summary).toContain("ten days");
     expect(digitalIntermediary?.summary).toContain("unregistered person in Mainland Tanzania");
     expect(frameworkExcise?.caveat).toContain("Gazette order");
   });
