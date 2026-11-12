@@ -54,6 +54,9 @@ export class BeyuNoeliaLegalService {
       .from(knowledgeSources)
       .where(and(
         eq(knowledgeSources.domain, parsed.domain),
+        parsed.domain === "TAX" ? eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY") : sql`true`,
+        parsed.domain === "TAX" ? eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE") : sql`true`,
+        parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${today})` : sql`true`,
         inArray(knowledgeSources.classification, classifications),
         parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
         eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
@@ -120,7 +123,15 @@ export class BeyuNoeliaLegalService {
           .select()
           .from(knowledgeSources)
           .where(and(
-            inArray(knowledgeSources.domain, ["LEGAL", "TAX"]),
+            or(
+              eq(knowledgeSources.domain, "LEGAL"),
+              and(
+                eq(knowledgeSources.domain, "TAX"),
+                eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY"),
+                eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE"),
+              ),
+            ),
+            sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${today})`,
             inArray(knowledgeSources.classification, classifications),
             parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
             sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.provenance}) ~ ${parsed.citation.toLowerCase()}`,
