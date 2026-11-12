@@ -501,6 +501,9 @@ export function prepareTaxFilingPack(input: {
   if (input.calculation.taxType === "VAT") {
     const nextMonth = addMonthsDate(input.periodEnd, 1);
     dueDate = `${nextMonth.slice(0, 7)}-20`;
+  } else if (input.calculation.taxType === "VAT_WITHHOLDING") {
+    const nextMonth = addMonthsDate(input.periodEnd, 1);
+    dueDate = `${nextMonth.slice(0, 7)}-10`;
   } else if (input.calculation.taxType === "PAYE" || input.calculation.taxType === "WITHHOLDING_TAX") {
     const nextMonth = addMonthsDate(input.periodEnd, 1);
     dueDate = `${nextMonth.slice(0, 7)}-07`;
@@ -516,6 +519,28 @@ export function prepareTaxFilingPack(input: {
     }));
     if (input.calculation.taxType === "PRESUMPTIVE_INCOME_TAX" && input.calculation.taxAmountTzs <= 50000) paymentMilestones.splice(0, paymentMilestones.length);
   }
+  const checklist = [
+    "Confirm TIN and tax registration for this return type.",
+    "Reconcile taxable income/supplies/payments to the general ledger and source documents.",
+    "Attach invoices, payroll, withholding certificates, bank/payment evidence and supporting schedules as applicable.",
+    "Verify tax rules and all amendments effective during the filing period.",
+    "Obtain Tax Specialist review and Group CFO approval before submission.",
+    "Confirm the due date and filing form against the current TRA portal before submission.",
+  ];
+  if (input.calculation.taxType === "VAT_WITHHOLDING") {
+    checklist.push("Confirm the entity is an appointed VAT withholding agent and issue the required withholding certificate to the supplier.");
+  }
+  if (input.calculation.taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT") {
+    checklist.push(
+      "Confirm the seller is an instalment payer and identify the statutory trigger event.",
+      "Retain evidence of farm-gate price, purchase price and Tanzania Forest Services value; use the greatest value.",
+      "Pay the 2% single instalment tax electronically and obtain the certificate before transport.",
+      "GN 158F reproduced text says the certificate is valid for 10 days; official Gazette authentication is still pending.",
+    );
+  }
+  if (input.calculation.taxType === "CUSTOMS_PROCESSING_FEE") {
+    checklist.push("Confirm home-consumption entry, cargo category, EAC origin and all statutory exemptions against the official GN 158D source.");
+  }
   return {
     status: "DRAFT_NOT_SUBMITTED",
     returnType: input.calculation.taxType,
@@ -525,15 +550,8 @@ export function prepareTaxFilingPack(input: {
     dueDate,
     amountPayableTzs: input.calculation.taxAmountTzs,
     calculation: input.calculation,
-    checklist: [
-      "Confirm TIN and tax registration for this return type.",
-      "Reconcile taxable income/supplies/payments to the general ledger and source documents.",
-      "Attach invoices, payroll, withholding certificates, bank/payment evidence and supporting schedules as applicable.",
-      "Verify tax rules and all amendments effective during the filing period.",
-      "Obtain Tax Specialist review and Finance Controller approval.",
-      "Confirm the due date and filing form against the current TRA portal before submission.",
-    ],
-    requiredApprovals: ["TAX_SPECIALIST", "FINANCE_CONTROLLER"],
+    checklist,
+    requiredApprovals: ["TAX_SPECIALIST", "GROUP_CFO"],
     submission: { channel: "TRA_IDRAS_OR_TAXPAYER_PORTAL", status: "NOT_SUBMITTED", receiptNumber: null },
   };
 }
