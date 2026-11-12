@@ -8,7 +8,7 @@ describe("Finance Act No. 2 of 2026 tax amendment index", () => {
   const changes = getFinanceAct2026ChangeIndex();
 
   it("indexes selected enacted amendments across the tax and customs domains", () => {
-    expect(changes.length).toBeGreaterThanOrEqual(18);
+    expect(changes).toHaveLength(20);
     expect(new Set(changes.map((change) => change.domain))).toEqual(new Set([
       "INCOME_TAX",
       "TAX_ADMINISTRATION",
