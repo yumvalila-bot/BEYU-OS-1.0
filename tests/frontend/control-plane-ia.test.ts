@@ -67,15 +67,15 @@ describe("canonical constitutional hierarchy", () => {
       { id: "executive-governance", title: "Organisation & Constitutional Governance" },
       { id: "identity-access", title: "Identity & Access Management" },
       { id: "enterprise-operations", title: "Enterprise Operations" },
-      { id: "finance-governance", title: "Finance OS Domains" },
       { id: "family-office", title: "Family Office" },
-      { id: "family-office-domains", title: "Family Office Domains" },
       { id: "noelia-hive", title: "NOELIA AI / HIVE" },
       { id: "sector", title: "Sector Operating Systems" },
-      { id: "agriculture-domains", title: "Agriculture OS Domains" },
       { id: "platform-administration", title: "Platform Administration" },
       { id: "system-assurance", title: "System Operations & Assurance" },
     ]);
+    expect(CAPABILITY_IA.some(({ id }) =>
+      ["finance-governance", "family-office-domains", "agriculture-domains"].includes(id),
+    )).toBe(false);
   });
 
   it("keeps the Executive Command Centre and constitutional registry together", () => {
@@ -109,6 +109,19 @@ describe("canonical constitutional hierarchy", () => {
     expect(SECTOR_OPERATING_SYSTEMS.map(({ name: label, href }) => ({ label, href }))).toEqual(expected);
     expect(BEYU_CONTROL_PLANE.level).toBe("CONTROL_PLANE");
     expect(SECTOR_OPERATING_SYSTEMS.every((destination) => destination.level === "SECTOR_OS")).toBe(true);
+    expect(group("sector").items.map(({ href }) => href)).toEqual(expect.arrayContaining([
+      "/os/capital",
+      "/os/waterfall",
+      "/os/tax",
+      "/os/finance/payments",
+      "/os/agriculture/capabilities",
+    ]));
+    expect(group("family-office").items.map(({ href }) => href)).toEqual(expect.arrayContaining([
+      "/os/family",
+      "/os/family/trustee-command",
+      "/os/family/capital",
+      "/os/family/protection",
+    ]));
   });
 
   it("keeps Foundation as a separate nonprofit organization, not a Sector OS", () => {
