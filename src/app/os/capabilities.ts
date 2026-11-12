@@ -337,7 +337,7 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
               href: "/os/viz",
               label: "Holograph & Spatial Intelligence",
               description:
-                "Holograph — the shared spatial visualization and digital-twin capability: governed 1D–8D+ scenes, a 3D/asset registry with provenance and integrity, hardware-independent device and renderer abstractions with a 2D fallback, governed interactions (denials included) and the governed Family Office spatial view — over each Sector OS's own authorized data. Never an OS; never a second copy of sector truth; CAP_POSTING remains LOCKED.",
+                "Holograph is NOELIA AI / HIVE's spatial-intelligence capability: spatial visualization, enterprise digital twins, 3D organisation views, infrastructure and asset twins, geospatial intelligence, and simulation/scenario planning. It consumes only authorized Sector OS data, never becomes a separate OS or a second source of truth; CAP_POSTING remains LOCKED.",
               icon: "dimensional",
               visibility: { kind: "any", permissions: ["viz:scene.read", "viz:registry.read"] },
             },
