@@ -15,7 +15,8 @@ type Result = {
     sourceRefs: Array<{ code: string; title: string; uri: string; provision: string }>;
     warnings: string[];
   };
-  filingPack: { status: string; dueDate: string | null; checklist: string[]; submission: { status: string }; taxpayer: { tin: string } } | null;
+  filingPack: { status: string; dueDate: string | null; periodEnd: string; checklist: string[]; submission: { status: string }; taxpayer: { tin: string } } | null;
+  draftId: string | null;
   filingReadiness: string;
   governance: { specialistReviewRequired: boolean; canSubmit: boolean; canPost: boolean; reason: string };
 };
@@ -195,6 +196,7 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
               <strong>Draft filing pack</strong>
               <div>Due date: {result.filingPack.dueDate ?? "Not calculated"}</div>
               <div>Status: {result.filingPack.status}</div>
+              <div>Saved draft reference: <span className="font-mono">{result.draftId ?? "Not saved"}</span></div>
               <div>Submission: {result.filingPack.submission.status}</div>
               <button type="button" onClick={downloadDraftPack} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2 font-semibold">Export draft filing pack (JSON)</button>
             </div>
