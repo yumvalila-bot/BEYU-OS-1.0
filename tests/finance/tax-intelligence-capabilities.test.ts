@@ -20,6 +20,7 @@ const validSource = (overrides: Partial<TaxLegalAuthorityRecord> = {}): TaxLegal
   jurisdictionCode: "TZ",
   instrumentKind: "FINANCE_ACT",
   sourceUri: "https://oagmis.oag.go.tz/portal/legislation/test",
+  originalDocumentId: "DOC_TAX_ACT_2026",
   sourceSha256: "a".repeat(64),
   sourceAuthorityStatus: "AUTHORITATIVE",
   publishedOn: "2026-06-30",
@@ -63,6 +64,7 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
       sourceAuthorityStatus: "OFFICIAL_METADATA_VERIFIED",
       sourceSha256: null,
       sourceUri: null,
+      originalDocumentId: null,
       officialSourceHost: null,
     }), OFFICIAL_HOSTS);
     expect(result.authenticated).toBe(false);
