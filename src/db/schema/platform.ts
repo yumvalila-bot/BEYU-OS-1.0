@@ -344,6 +344,7 @@ export const knowledgeSources = pgTable(
     publishedOn: date("published_on"),
     commencedOn: date("commenced_on"),
     effectiveTo: date("effective_to"),
+    originalDocumentId: text("original_document_id").references(() => documents.id),
     originalSourceSha256: text("original_source_sha256"),
     officialSourceHost: text("official_source_host"),
     sourceAuthenticationStatus: text("source_authentication_status").notNull().default("DISCOVERED"),
