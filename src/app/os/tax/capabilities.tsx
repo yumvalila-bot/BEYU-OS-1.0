@@ -39,7 +39,7 @@ export function TaxIntelligenceCapabilities() {
             <li>Effective-date and jurisdiction matching, with amendments, repeal and supersession relationships preserved.</li>
             <li>Capability-specific approval by an authorized specialist, with an approval reference and review period.</li>
             <li>NOELIA citations restricted to authenticated sources; model-generated text is never legal authority.</li>
-            <li>Drafts may be prepared and saved; specialist approval is required before submission. No tax posting, TRA filing, customs declaration, payment or clearance is automated.</li>
+            <li>Drafts may be prepared and saved; specialist approval is required before submission. No tax posting, automated TRA filing, customs declaration, payment or clearance is enabled; manual filing must be authorized and its receipt recorded.</li>
           </ul>
         </div>
       </div>
