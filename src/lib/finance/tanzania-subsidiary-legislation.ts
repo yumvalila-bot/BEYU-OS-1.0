@@ -133,7 +133,8 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
-    notes: ["Professional tax alerts identify GN 158E, publication 30 June 2026 and commencement 1 July 2026; the official Gazette PDF / OAG metadata record remains to be matched in this workflow.", "Reproduced and professional summaries describe registration, customer-location indicators, monthly filing/payment, a 90-day transition for existing providers and an electronic fiscal device exemption.", "Do not activate non-resident registration, location sourcing, rate calculation or filing workflows from summaries; reconcile with Excise Act section 126(4)–(5), the exact regulations and other applicable tax regimes."],
+    notes: ["Professional tax alerts identify GN 158E, publication 30 June 2026 and commencement 1 July 2026; the official Gazette PDF / OAG metadata record remains to be matched in this workflow.", "Reproduced and professional summaries describe registration, customer-location indicators, monthly filing/payment, a 90-day transition for existing providers and an electronic fiscal device exemption.",
+      "As at 12 November 2026, the reported 90-day transition period appears to have elapsed; confirm the exact statutory counting rule and any later relief before treating a provider as late.", "Do not activate non-resident registration, location sourcing, rate calculation or filing workflows from summaries; reconcile with Excise Act section 126(4)–(5), the exact regulations and other applicable tax regimes."],
   },
 ] as const;
 
