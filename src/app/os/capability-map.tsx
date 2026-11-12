@@ -210,6 +210,50 @@ export async function CapabilityMap({ principal }: { principal: Principal }) {
           </section>
         );
       })}
+
+      {governedDestinationHrefs.has("/os/finance") && (
+        <section
+          aria-labelledby="shared-finance-services"
+          className="overflow-hidden rounded-2xl border border-[#d4af37]/45 bg-[#0b1f4d] text-white shadow-sm"
+        >
+          <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#d4af37]/50 bg-[#d4af37]/15 text-[#f0d88b]">
+                <Icon name="finance" className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#f0d88b]">Shared enterprise capability</p>
+                <h3 id="shared-finance-services" className="mt-1 text-base font-bold tracking-tight">Finance OS · Shared Services</h3>
+                <p className="mt-1 max-w-3xl text-[12px] leading-relaxed text-white/75">
+                  The same Finance OS serves as a canonical Sector OS and provides governed financial services to authorized enterprise entities and other Sector OSs. No duplicate finance system or ledger is created.
+                </p>
+              </div>
+            </div>
+            <Link
+              href={renderedHref.get("/os/finance") ?? "/os/finance"}
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#d4af37]/60 bg-[#d4af37] px-4 py-2.5 text-[12px] font-bold text-[#0b1f4d] transition hover:bg-[#f0d88b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              Open Finance OS
+            </Link>
+          </div>
+          <div className="grid gap-2 border-t border-white/15 bg-white/[0.04] px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 sm:px-5">
+            {[
+              "Holding & Board reporting",
+              "Health financial services",
+              "Agriculture financial services",
+              "Ujenzi project finance",
+              "Foundation accountability",
+              "Family wealth visibility",
+            ].map((service) => (
+              <div key={service} className="flex min-w-0 items-center gap-2 text-[11px] text-white/85">
+                <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d4af37]" />
+                {service}
+              </div>
+            ))}
+          </div>
+          <p className="px-4 pb-3 text-[10px] text-white/55 sm:px-5">One Finance OS · One financial source of truth · Permission-controlled access</p>
+        </section>
+      )}
     </section>
   );
 }
