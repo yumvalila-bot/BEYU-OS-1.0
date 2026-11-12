@@ -128,3 +128,26 @@ The existing Communications platform (migration 0072) already provides WhatsApp 
 - The current repository connector provides GitHub API access, but this environment does not expose a checked-out working tree or local test/build execution. Do not claim code verification until CI or a supported execution environment supplies it.
 
 This document is the architecture and acceptance contract for the implementation. It does not connect accounts, provision secrets, call external social APIs, enable live publishing, or claim the feature is implemented.
+
+## 11. Reconciliation with the live BEYU website (2026-11-12)
+
+The live public website was inspected through the Vercel deployment fetch path on 2026-11-12:
+
+- https://www.beyu.co.tz/ returned HTTP 200 and rendered the canonical public BEYU homepage (public-home layout, BEYU brand mark, public navigation, four Sector OS presentation, NOELIA section and sign-in entry point).
+- Vercel identifies the current production deployment as dpl_751hDuGn17jdxtfs2PaxtZgWGdvZ, Ready, on main, built from dc8f848226ed8860ef293f817fe10394360abb1d.
+- That production SHA is exactly the base SHA used by this PR. The BEYU CONNECT branch is therefore based directly on the currently deployed production source, not on a stale branch or alternate Arena prototype.
+- Vercel project: beyu-os-1-0; configured custom domains include www.beyu.co.tz and beyu.co.tz plus the existing sector and shared-surface hosts. This PR must not change project/domain/DNS settings.
+- Unauthenticated requests to https://www.beyu.co.tz/os/communications were internally resolved to the existing /sign-in route (x-matched-path: /sign-in). The route is not evidence of a public Communications dashboard; the authenticated workspace boundary must be preserved. The Vercel fetch returned HTTP 200 for the internally resolved sign-in page, so status code alone must not be interpreted as anonymous workspace access.
+- The public homepage and sign-in experience are outside the BEYU CONNECT implementation scope and must not be redesigned, replaced, redirected, or exposed as a social-management surface.
+
+### Reconciliation rules for the implementation
+
+1. Keep the live public homepage, brand, navigation, canonical sign-in and existing hostname/domain routing unchanged.
+2. Implement BEYU CONNECT only inside the authenticated existing BEYU Communications workspace and existing Communications navigation/authorization model.
+3. Preserve the existing /os/communications unauthenticated guard. Do not make account lists, OAuth callbacks, drafts, approvals, messages, analytics or provider health data publicly readable.
+4. Extend the Communications provider/channel model rather than introducing a parallel app, login, tenant model or separate OS.
+5. Do not add social links or account-management controls to the public homepage. The public site may link to the existing sign-in entry point only.
+6. The PR base remains the live production commit dc8f848226ed8860ef293f817fe10394360abb1d. If main advances before implementation is complete, re-inspect and reconcile the branch with the new production source before requesting review.
+7. This reconciliation is observational/documentary only. No Vercel settings, deployment aliases, production domains, DNS records, environment variables, secrets or production traffic were changed.
+
+This section records the production baseline and guard behavior observed at inspection time; it does not claim that BEYU CONNECT is present on the live website or that any social account is connected.
