@@ -55,13 +55,16 @@ export const VERIFIED_TAX_AUTHORITIES: readonly VerifiedTaxAuthorityRecord[] = [
     publicationDate: "2026-06-30",
     commencementDate: "2026-07-01",
     officialMetadataUri: "https://oagmis.oag.go.tz/portal/acts/337",
-    officialDocumentUri: "https://oagmis.oag.go.tz/portal/acts/337/download",
+    officialDocumentUri: "https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download",
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
     notes: [
       "Official Office of the Attorney General metadata identifies this as Enactment No. 2 of 2026.",
       "Publication and commencement dates are recorded separately; do not infer that every provision has identical application beyond the Act's commencement and any specific transitional wording.",
-      "The official PDF is the enacted Act, not the earlier Special Bill Supplement.",
+      "The official OSG e-Library record identifies the enacted 57-page Act PDF, published 30 June 2026 as Act Supplement No. 2 of 2026; do not substitute the earlier Special Bill Supplement.",
+      "Section 27 amends the presumptive threshold to TZS 200m and substitutes the First Schedule table, including 4.0% of turnover above TZS 11m and a first-twelve-month exemption subject to application and Commissioner satisfaction.",
+      "Section 91 sets VAT withholding at 15% for goods and 12% for taxable-person services and apportions mixed supplies 3:2 (goods:services); section 95 requires payment within ten days after the tax period and a withholding VAT statement within ten days of the following month.",
+      "The original PDF is text-inspected but its bytes/checksum have not yet been ingested into the governed documents registry; NOELIA reliance remains blocked pending ingestion and specialist review.",
     ],
   },
   {
