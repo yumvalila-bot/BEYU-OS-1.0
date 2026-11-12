@@ -648,8 +648,8 @@ describe("the canonical structure is preserved", () => {
     ]);
     expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).not.toContain("FOUNDATION");
     expect(SECTOR_OPERATING_SYSTEMS.map((os) => os.code)).not.toContain("FAMILY_OFFICE");
-    expect(CAPABILITY_IA.find((g) => g.id === "sister-organization")?.items)
-      .toEqual([expect.objectContaining({ label: "BEYU Foundation" })]);
+    expect(CAPABILITY_IA.find((g) => g.id === "enterprise-operations")?.items)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ label: "Foundation Organization" })]));
   });
 
   it("no Foundation, Mining, Family Office, Tax or HCM OS exists in current source", () => {
@@ -660,9 +660,9 @@ describe("the canonical structure is preserved", () => {
   });
 
   it("Family Office remains a capability surface (one canonical route inside the control plane)", () => {
-    const group = CAPABILITY_IA.find((g) => g.id === "shared");
+    const group = CAPABILITY_IA.find((g) => g.id === "family-office");
     const familyItem = group?.items.find((item) => item.href === "/os/family");
-    expect(familyItem, "the Family Office capability must stay in the shared group").toBeTruthy();
+    expect(familyItem, "the Family Office capability must stay in its own capability category").toBeTruthy();
     expect(familyItem?.label).toBe("Family Office");
     // Never advertised as a Sector OS.
     expect(CAPABILITY_IA.find((g) => g.id === "sector")?.items.map((i) => i.href)).not.toContain("/os/family");
@@ -671,14 +671,14 @@ describe("the canonical structure is preserved", () => {
   });
 
   it("Tax remains a shared capability (Finance OS tax surface + Foundation tax, no Tax OS)", () => {
-    const financeDomains = CAPABILITY_IA.find((g) => g.id === "finance-domains");
+    const financeDomains = CAPABILITY_IA.find((g) => g.id === "finance-governance");
     expect(financeDomains?.items.find((i) => i.href === "/os/tax")?.label).toBe("Tax Governance");
     expect(PERMISSIONS).toHaveProperty("finance:tax.read");
     expect(PERMISSIONS).toHaveProperty("foundation:tax.read");
   });
 
   it("HCM remains a shared capability (one canonical route, no HCM OS)", () => {
-    const shared = CAPABILITY_IA.find((g) => g.id === "shared");
+    const shared = CAPABILITY_IA.find((g) => g.id === "enterprise-operations");
     expect(shared?.items.find((i) => i.href === "/os/hcm")?.label).toBe("HCM");
     expect(PERMISSIONS).toHaveProperty("hcm:employee.read");
   });
