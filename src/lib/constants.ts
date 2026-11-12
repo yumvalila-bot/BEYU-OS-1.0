@@ -268,7 +268,9 @@ export const PERMISSIONS = {
   "finance:tax.read": "Read tax strategy intelligence",
   "finance:tax.assess": "Assess tax strategy eligibility",
   "finance:tax.review": "Record a specialist review of a tax calculation or draft return",
-  "finance:tax.approve": "Approve a specialist-reviewed tax return draft for submission (does not submit or post) ",
+  "finance:tax.approve": "Approve a specialist-reviewed tax return draft for submission (does not submit or post)",
+  "finance:tax.submit": "Record a manually submitted tax return and its TRA reference",
+  "finance:tax.receipt": "Record TRA acceptance or rejection evidence for a submitted return",
   // Payments & banking integration. Deliberately split read / ingest / review /
   // authorize / configure: a single "payments" permission would let one grant
   // carry both ingestion and payout authorisation, which is the separation of
@@ -1040,6 +1042,7 @@ export const ROLES: Record<
       "finance:tax.read",
       "finance:tax.assess",
       "finance:tax.review",
+      "finance:tax.receipt",
       "documents:registry.read",
       "audit:log.read",
     ],
@@ -1054,6 +1057,20 @@ export const ROLES: Record<
       "finance:tax.read",
       "finance:tax.assess",
       "finance:tax.review",
+      "documents:registry.read",
+      "audit:log.read",
+    ],
+  },
+  TAX_FILING_OFFICER: {
+    name: "Tax Filing Officer",
+    description: "Prepares and records authorized manual submissions through the TRA taxpayer portal; cannot approve or review own returns.",
+    scope: "TENANT",
+    privileged: false,
+    permissions: [
+      "platform:dashboard.read",
+      "finance:tax.read",
+      "finance:tax.submit",
+      "finance:tax.receipt",
       "documents:registry.read",
       "audit:log.read",
     ],
