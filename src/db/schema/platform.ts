@@ -846,7 +846,7 @@ export const noeliaWorkflowSteps = pgTable(
     ),
     check(
       "knowledge_sources_tax_authoritative_evidence_ck",
-      sql`source_type <> 'TAX_LEGAL_AUTHORITY' OR authority_status <> 'AUTHORITATIVE' OR (source_authentication_status = 'AUTHORITATIVE' AND source_uri IS NOT NULL AND original_document_id IS NOT NULL AND official_source_host IS NOT NULL AND original_source_sha256 ~ '^[0-9a-fA-F]{64}
+      sql`source_type <> 'TAX_LEGAL_AUTHORITY' OR authority_status <> 'AUTHORITATIVE' OR (source_authentication_status = 'AUTHORITATIVE' AND source_uri IS NOT NULL AND original_document_id IS NOT NULL AND official_source_host IS NOT NULL AND original_source_sha256 IS NOT NULL AND original_source_sha256 ~ '^[0-9a-fA-F]{64}
   ],
 );
 
