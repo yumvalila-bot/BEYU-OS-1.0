@@ -5,6 +5,7 @@ ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "instrument_kind" text;
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "published_on" date;--> statement-breakpoint
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "commenced_on" date;--> statement-breakpoint
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "effective_to" date;--> statement-breakpoint
+ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "original_document_id" text REFERENCES "documents"("id");--> statement-breakpoint
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "original_source_sha256" text;--> statement-breakpoint
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "official_source_host" text;--> statement-breakpoint
 ALTER TABLE "knowledge_sources" ADD COLUMN IF NOT EXISTS "source_authentication_status" text NOT NULL DEFAULT 'DISCOVERED';--> statement-breakpoint
@@ -54,6 +55,7 @@ DO $$ BEGIN
         OR (
           "source_authentication_status" = 'AUTHORITATIVE'
           AND "source_uri" IS NOT NULL
+          AND "original_document_id" IS NOT NULL
           AND "official_source_host" IS NOT NULL
           AND "original_source_sha256" ~ '^[0-9a-fA-F]{64}$'
           AND "published_on" IS NOT NULL
