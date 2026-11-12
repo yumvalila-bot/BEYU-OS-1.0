@@ -50,6 +50,20 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     provision: "Published presumptive-turnover schedule; new-business relief is excluded pending individual eligibility approval",
     evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
   },
+  TRA_INDIVIDUAL_2026: {
+    code: "TRA_INDIVIDUAL_TAX_GUIDE",
+    title: "Tanzania Revenue Authority — Income Tax for Individuals",
+    uri: "https://www.tra.go.tz/page/income-tax-for-individuals",
+    provision: "Mainland monthly individual tax bands, presumptive eligibility/schedule and individual filing/payment calendar",
+    evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
+  },
+  TRA_CORPORATION_2026: {
+    code: "TRA_CORPORATION_TAX_GUIDE",
+    title: "Tanzania Revenue Authority — Corporation Tax",
+    uri: "https://www.tra.go.tz/page/corporation-tax",
+    provision: "Corporate provisional/final return filing periods and instalment calendar",
+    evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
+  },
   OAG_GN_158D_2026: {
     code: "TZ_GN_158D_2026",
     title: "OAG — Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026",
@@ -60,7 +74,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
   OAG_INCOME_TAX_ACT_2023: {
     code: "TZ_INCOME_TAX_ACT_CAP332_RE2023",
     title: "Income Tax Act, Cap. 332 R.E. 2023",
-    uri: "https://oagmis.oag.go.tz/portal/acts/revised/436/download",
+    uri: "https://www.tra.go.tz/images/uploads/acts/The_Income_Tax_Act.pdf",
     provision: "First Schedule paragraphs 1(1) and 3(1): resident individual annual bands and standard corporate rate",
     evidenceStatus: "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK",
   },
@@ -171,7 +185,7 @@ export function calculatePaye(input: {
     { upTo: 1000000, bps: 2500 },
     { upTo: null, bps: 3000 },
   ]);
-  return result("PAYE", base, calc.tax, calc.lines, [TANZANIA_TAX_SOURCES.TRA_PAYE_2026]);
+  return result("PAYE", base, calc.tax, calc.lines, [TANZANIA_TAX_SOURCES.TRA_PAYE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026, TANZANIA_TAX_SOURCES.OAG_INCOME_TAX_ACT_2023]);
 }
 
 export function calculateCorporateIncomeTax(input: {
@@ -184,7 +198,7 @@ export function calculateCorporateIncomeTax(input: {
     throw new TaxCalculationError("Special corporate regimes, incentives, perpetual-loss turnover tax and exemptions require a separately ratified rule; this standard-rate calculator refuses to apply them.");
   }
   const tax = roundBps(base, 3000);
-  return result("CORPORATE_INCOME_TAX", base, tax, [{ label: "Standard corporate rate — Income Tax Act First Schedule para 3(1)", baseTzs: base, rateBps: 3000, taxTzs: tax }], [TANZANIA_TAX_SOURCES.OAG_INCOME_TAX_ACT_2023], ["Special incentives, sector-specific rates, permanent-establishment repatriated income, loss rules, tax credits and adjustments are not modelled. Verify subsequent amendments before finalization."]);
+  return result("CORPORATE_INCOME_TAX", base, tax, [{ label: "Standard corporate rate — Income Tax Act First Schedule para 3(1)", baseTzs: base, rateBps: 3000, taxTzs: tax }], [TANZANIA_TAX_SOURCES.OAG_INCOME_TAX_ACT_2023, TANZANIA_TAX_SOURCES.TRA_CORPORATION_2026], ["Special incentives, sector-specific rates, permanent-establishment repatriated income, loss rules, tax credits and adjustments are not modelled. Verify subsequent amendments before finalization."]);
 }
 
 export function calculatePersonalIncomeTax(input: {
@@ -204,7 +218,7 @@ export function calculatePersonalIncomeTax(input: {
     { upTo: 12000000, bps: 2500 },
     { upTo: null, bps: 3000 },
   ]);
-  return result("PERSONAL_INCOME_TAX", base, calc.tax, calc.lines, [TANZANIA_TAX_SOURCES.OAG_INCOME_TAX_ACT_2023], ["Investment-gain and commuted-pension special calculation, credits, foreign tax relief and other special rules are excluded."]);
+  return result("PERSONAL_INCOME_TAX", base, calc.tax, calc.lines, [TANZANIA_TAX_SOURCES.OAG_INCOME_TAX_ACT_2023, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["Investment-gain and commuted-pension special calculation, credits, foreign tax relief and other special rules are excluded."]);
 }
 
 export function calculateVat(input: {
@@ -304,7 +318,7 @@ export function calculatePresumptiveIncomeTax(input: {
     tax = input.records === "COMPLETE" ? roundBps(turnover - 4_000_000, 300) : 100000;
     label = "Turnover above TZS 4m and not exceeding TZS 7m";
   }
-  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
+  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
 }
 
 export function calculateCustomsProcessingFee(input: {
@@ -400,7 +414,13 @@ export function prepareTaxFilingPack(input: {
   if (!validDate(input.periodStart) || !validDate(input.periodEnd) || input.periodEnd < input.periodStart) {
     throw new TaxCalculationError("Filing period must contain valid ordered ISO dates.");
   }
+  const isCalendarYear = input.periodStart.endsWith("-01-01") && input.periodEnd.endsWith("-12-31") &&
+    input.periodStart.slice(0, 4) === input.periodEnd.slice(0, 4);
+  if (["PERSONAL_INCOME_TAX", "PRESUMPTIVE_INCOME_TAX"].includes(input.calculation.taxType) && !isCalendarYear) {
+    throw new TaxCalculationError("Individual and presumptive year-of-income filing packs require 1 January through 31 December.");
+  }
   let dueDate: string | null = null;
+  const paymentMilestones: Array<{ dueDate: string; label: string }> = [];
   if (["VAT", "PAYE", "WITHHOLDING_TAX"].includes(input.calculation.taxType)) {
     const start = new Date(`${input.periodStart}T00:00:00Z`);
     const end = new Date(`${input.periodEnd}T00:00:00Z`);
@@ -419,6 +439,15 @@ export function prepareTaxFilingPack(input: {
     dueDate = `${nextMonth.slice(0, 7)}-07`;
   } else if (input.calculation.taxType === "CORPORATE_INCOME_TAX" || input.calculation.taxType === "PERSONAL_INCOME_TAX") {
     dueDate = addMonthsDate(input.periodEnd, 6);
+  }
+  if (["CORPORATE_INCOME_TAX", "PERSONAL_INCOME_TAX", "PRESUMPTIVE_INCOME_TAX"].includes(input.calculation.taxType) && isCalendarYear) {
+    const year = Number(input.periodEnd.slice(0, 4));
+    const dates = ["03-31", "06-30", "09-30", "12-31"];
+    dates.forEach((date, index) => paymentMilestones.push({
+      dueDate: `${year}-${date}`,
+      label: index === 0 ? "First estimated-tax instalment / provisional statement" : `Estimated-tax instalment ${index + 1}`,
+    }));
+    if (input.calculation.taxType === "PRESUMPTIVE_INCOME_TAX" && input.calculation.taxAmountTzs <= 50000) paymentMilestones.splice(0, paymentMilestones.length);
   }
   return {
     status: "DRAFT_NOT_SUBMITTED",
