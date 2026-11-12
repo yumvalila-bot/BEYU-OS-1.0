@@ -20,18 +20,25 @@ describe("Tanzania 2026 tax subsidiary legislation verification", () => {
     expect(forest?.notes.join(" ")).toContain("not an authenticated official Gazette copy");
   });
 
-  it("records the three other OAG-confirmed 2026 instruments without claiming text ingestion", () => {
+  it("records four OAG instruments with official PDF endpoints but no stored checksum or ingestion", () => {
     const vat = instruments.find((item) => item.code === "TZ_GN_158A_2026_VAT_TRAILER_DEFERMENT");
     const payments = instruments.find((item) => item.code === "TZ_GN_158C_2026_MANDATORY_EPAYMENTS");
     const customs = instruments.find((item) => item.code === "TZ_GN_158D_2026_CUSTOMS_PROCESSING_FEE");
-    expect(vat).toMatchObject({ governmentNotice: "158A of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
-    expect(payments).toMatchObject({ governmentNotice: "158C of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
-    expect(customs).toMatchObject({ governmentNotice: "158D of 2026", sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" });
+    const taxAdmin = instruments.find((item) => item.code === "TZ_GN_158G_2026_TAX_ADMIN_GENERAL");
+    expect(vat).toMatchObject({ governmentNotice: "158A of 2026", sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED" });
+    expect(payments).toMatchObject({ governmentNotice: "158C of 2026", sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED" });
+    expect(customs).toMatchObject({ governmentNotice: "158D of 2026", sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED" });
+    expect(taxAdmin).toMatchObject({ governmentNotice: "158G of 2026", sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED" });
+    expect(vat?.officialPdfUri).toContain("/4642/download");
+    expect(payments?.officialPdfUri).toContain("/4644/download");
+    expect(customs?.officialPdfUri).toContain("/4645/download");
+    expect(taxAdmin?.officialPdfUri).toContain("/4648/download");
     expect(vat?.reproducedTextUris).toHaveLength(1);
     expect(payments?.reproducedTextUris).toHaveLength(1);
     expect(payments?.supportingAnalysisUris).toHaveLength(1);
-    expect(customs?.reproducedTextUris).toHaveLength(1);
-    expect(customs?.supportingAnalysisUris).toHaveLength(1);
+    expect(customs?.reproducedTextUris).toHaveLength(0);
+    expect(customs?.notes.join(" ")).toContain("1% of FOB value");
+    expect(taxAdmin?.notes.join(" ")).toContain("social media");
   });
 
   it("records GN 158B and GN 158E as reproduced-source leads, not authenticated official copies", () => {
@@ -58,8 +65,9 @@ describe("Tanzania 2026 tax subsidiary legislation verification", () => {
       governmentNotice: "158G of 2026",
       publicationDate: "2026-06-30",
       commencementDate: "2026-07-01",
-      sourceStatus: "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED",
+      sourceStatus: "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED",
       officialMetadataUri: "https://oagmis.oag.go.tz/portal/legislation/4648",
+      officialPdfUri: "https://oagmis.oag.go.tz/portal/legislation/4648/download",
     });
   });
 
