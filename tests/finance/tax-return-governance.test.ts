@@ -44,10 +44,12 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(submitRoute).toContain("TAX_FILING_OFFICER");
     expect(submitRoute).toContain("APPROVED_FOR_SUBMISSION");
     expect(submitRoute).toContain("SEPARATION_OF_DUTIES");
+    expect(submitRoute).toContain("submittedAt < draft.approvedAt");
     expect(submitRoute).toContain("BEYU did not submit to TRA");
     expect(receiptRoute).toContain('eq(documents.category, "TAX_FILING_RECEIPT")');
     expect(receiptRoute).toContain('eq(documents.authorityStatus, "AUTHORITATIVE")');
     expect(receiptRoute).toContain("receiptDocumentId");
+    expect(receiptRoute).toContain("receivedAt < draft.submittedAt");
     expect(receiptRoute).toContain("BEYU did not contact TRA");
   });
 
