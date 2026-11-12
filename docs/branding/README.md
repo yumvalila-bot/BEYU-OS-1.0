@@ -45,6 +45,8 @@ full/mark/light/dark arguments no longer select competing artwork or distort the
 square source into a wide SVG lockup. Existing SVG files are retained as historical
 assets, not referenced by active UI or metadata. See the forensic inventory.
 
+The public homepage uses `public/brand/beyu-os-logo-transparent.svg`, a tightly cropped transparent presentation of the approved BEYU tree-and-B emblem. This homepage presentation asset does not replace the existing operating-system source or the separate Family Trust identity.
+
 ## Platform assets and provenance
 
 - Asset URLs remain in `src/components/brand-assets.ts`.
