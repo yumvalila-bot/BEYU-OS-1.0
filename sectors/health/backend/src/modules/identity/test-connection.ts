@@ -168,6 +168,16 @@ export async function createTestDbConnectionWithMigrationRole(): Promise<TestDbW
   const url = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) {
     const conn = new PGliteConnection(new PGlite());
+    // PGlite starts with a privileged postgres role but no cluster-level
+    // Health application role. Provision the same constrained role contract
+    // used by CI before replaying migrations that grant it scoped privileges.
+    await conn.exec(`
+      DO $ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_health_runtime') THEN
+          CREATE ROLE beyu_health_runtime NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOREPLICATION;
+        END IF;
+      END $;
+    `);
     return {
       conn,
       applySchemaSql: (sql) => conn.exec(sql),
