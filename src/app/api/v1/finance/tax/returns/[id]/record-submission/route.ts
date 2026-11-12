@@ -43,7 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return apiError("SEPARATION_OF_DUTIES", "The preparer, specialist reviewer or approver cannot record the same return as submitted.", 403, ctx.traceId);
     }
     const submittedAt = new Date(body.submittedAt);
-    if (Number.isNaN(submittedAt.getTime()) || submittedAt.getTime() > Date.now() + 5 * 60_000) {
+    if (Number.isNaN(submittedAt.getTime()) || submittedAt.getTime() > Date.now() + 5 * 60_000 || !draft.approvedAt || submittedAt < draft.approvedAt) {
       return apiError("INVALID_SUBMISSION_TIME", "Submission timestamp must be valid and cannot be materially in the future.", 422, ctx.traceId);
     }
     const filingPack = {
