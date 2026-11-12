@@ -400,3 +400,17 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
     animation-iteration-count: 1 !important;
   }
 }
+
+@media (max-width: 480px) {
+  .beyu-home-inner { width: calc(100% - 24px); }
+  .beyu-topbar-inner { gap: 6px; }
+  .beyu-brand { gap: 6px; }
+  .beyu-brand-mark { width: 40px; height: 40px; flex-basis: 40px; }
+  .beyu-brand-name { font-size: 19px; }
+  .beyu-brand-tag { font-size: 6px; letter-spacing: -.03em; }
+  .beyu-mobile-nav summary { width: 40px; justify-content: center; padding-inline: 0; font-size: 0; }
+  .beyu-mobile-nav summary span { font-size: 18px; }
+  .beyu-top-actions { gap: 0; }
+  .beyu-signin-btn { min-height: 40px; padding-inline: 10px; font-size: 11px; }
+  .beyu-theme-mark { display: none; }
+}
