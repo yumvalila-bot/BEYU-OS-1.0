@@ -131,7 +131,12 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       new ConfigService({ JWT_ISSUER: "beyu", JWT_AUDIENCE: "beyu-api" }),
       bridge,
     );
-    const ta = await repo.createTenant({ code: "MATRIX-A", name: "A" });
+    const ta = await repo.createTenant({
+      code: "MATRIX-A",
+      name: "A",
+      countryCode: "TZ",
+      entityCode: "HOSP-A",
+    });
     tenantAId = ta.tenant_id;
   });
 
@@ -345,6 +350,8 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     const other = await repo.createTenant({
       code: `MATRIX-B-${Math.random().toString(36).slice(2, 6)}`,
       name: "B",
+      countryCode: "TZ",
+      entityCode: "HOSP-B",
     });
     const token = await sign(
       {
@@ -377,7 +384,8 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       { issuer: "beyu", audience: "beyu-api" },
     );
     await expect(enter(token)).rejects.toThrow("NO_CANONICAL_IDENTITY_LINK");
-    // With a link, the tenantless token is accepted (patient default role).
+    // A canonical link is necessary but not sufficient: Health sessions must
+    // carry an active Health tenant membership and isolation context.
     await bridge.linkUser({
       globalUserId: user.global_user_id,
       beyuUserId: `BEYU-TEST-${user.global_user_id}`,
@@ -388,10 +396,6 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
       { sub: user.global_user_id, email: "m@a.example", role: "patient", sv },
       { issuer: "beyu", audience: "beyu-api" },
     );
-    let actor: ActorContext | null = null;
-    await middleware.use(makeRequest(token2), {} as any, () => {
-      actor = tenant.current();
-    });
-    expect(actor).not.toBeNull();
+    await expect(enter(token2)).rejects.toThrow("SESSION_INVALID");
   });
 });
