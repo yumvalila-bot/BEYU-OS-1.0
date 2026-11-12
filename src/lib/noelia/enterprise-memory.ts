@@ -40,14 +40,14 @@ const MEMORY_SCOPE_TYPES = ["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY
 /** Strict metadata envelope for a tax legal source entering the shared knowledge registry. */
 export const TAX_LEGAL_AUTHORITY_INPUT = z.object({
   instrumentKind: z.enum(["ACT", "FINANCE_ACT", "REGULATION", "ORDER", "TREATY", "RULING", "JUDGMENT", "PRACTICE_NOTICE", "RATE_TABLE", "CUSTOMS_TARIFF", "CUSTOMS_NOTICE", "OFFICIAL_FORM", "OTHER"]),
-  publishedOn: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
-  commencedOn: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
-  effectiveTo: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).nullable().optional(),
+  publishedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  commencedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   originalSourceSha256: z.string().regex(/^[a-f0-9]{64}$/i),
   officialSourceHost: z.string().min(3).max(253),
-  textValidatedAt: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+  textValidatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   textValidatedBy: z.string().min(2).max(128),
-  specialistReviewedAt: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/),
+  specialistReviewedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   specialistReviewerId: z.string().min(2).max(128),
   enablingProvision: z.string().max(200).nullable().optional(),
   amendsSourceCodes: z.array(z.string().min(3).max(64)).max(50).default([]),
@@ -426,6 +426,31 @@ export class BeyuNoeliaMemoryService {
       throw new Error("Knowledge publication requires one live authority tuple matching the source scope.");
     }
 
+    if (source.sourceType === "TAX_LEGAL_AUTHORITY") {
+      const officialHosts = (process.env.TAX_OFFICIAL_SOURCE_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
+      const dateOnly = (value: Date | null): string | null => value ? value.toISOString().slice(0, 10) : null;
+      const candidate: TaxLegalAuthorityRecord = {
+        sourceCode: source.code, title: source.title, jurisdictionCode: source.jurisdictionCode ?? "",
+        instrumentKind: (source.instrumentKind ?? "OTHER") as TaxInstrumentKind, sourceUri: source.sourceUri,
+        sourceSha256: source.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
+        publishedOn: source.publishedOn, commencedOn: source.commencedOn, effectiveFrom: source.effectiveFrom,
+        effectiveTo: source.effectiveTo, officialSourceHost: source.officialSourceHost,
+        textValidatedAt: dateOnly(source.textValidatedAt), textValidatedBy: source.textValidatedBy,
+        specialistReviewedAt: dateOnly(source.specialistReviewedAt), specialistReviewerId: source.specialistReviewerId,
+        enablingProvision: source.enablingProvision, amendsSourceCodes: source.amendsSourceCodes ?? [],
+        repealsSourceCodes: source.repealsSourceCodes ?? [], supersedesSourceCodes: source.supersedesCode ? [source.supersedesCode] : [],
+        provisionReferences: source.provisionReferences ?? [],
+      };
+      const authentication = authenticateTaxLegalSource(candidate, officialHosts);
+      if (source.sourceAuthenticationStatus !== "SPECIALIST_REVIEWED" || !authentication.authenticated) {
+        return {
+          headline: "Tax legal publication denied: authenticated original-source evidence and specialist review are required.",
+          findings: (source.sourceAuthenticationStatus !== "SPECIALIST_REVIEWED" ? ["Source has not completed specialist review."] : []).concat(authentication.reasons).map((reason) => ({ label: "Tax authority gate", value: reason, kind: "INFERENCE" as const, status: "REQUIRES_HUMAN_REVIEW" as const })),
+          humanReviewRequired: true, confidence: 1,
+        };
+      }
+    }
+
     let superseded: typeof source | null = null;
     if (source.supersedesCode) {
       await db.execute(sql`select id from knowledge_sources where code = ${source.supersedesCode} for update`);
@@ -460,7 +485,7 @@ export class BeyuNoeliaMemoryService {
           .returning({ id: knowledgeSources.id });
         if (predecessorTransition.length !== 1) throw new Error("Knowledge predecessor was not superseded exactly once.");
       }
-      const publication = await tx.update(knowledgeSources).set({ authorityStatus: "AUTHORITATIVE" })
+      const publication = await tx.update(knowledgeSources).set({ authorityStatus: "AUTHORITATIVE", ...(source.sourceType === "TAX_LEGAL_AUTHORITY" ? { sourceAuthenticationStatus: "AUTHORITATIVE" } : {}) })
         .where(and(eq(knowledgeSources.id, source.id), eq(knowledgeSources.contentDigest, parsed.expectedDigest), eq(knowledgeSources.authorityStatus, "UNDER_REVIEW")))
         .returning({ id: knowledgeSources.id });
       if (publication.length !== 1) throw new Error("Knowledge source was not published exactly once.");
