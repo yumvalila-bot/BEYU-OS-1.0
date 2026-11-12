@@ -12,6 +12,7 @@ type Result = {
     taxBaseTzs: number;
     taxAmountTzs: number;
     effectiveRateBps: number;
+    sourceSnapshotDate: string;
     breakdown: Array<{ label: string; baseTzs: number; rateBps: number; taxTzs: number }>;
     sourceRefs: Array<{ code: string; title: string; uri: string; provision: string; effectiveFrom?: string }>;
     warnings: string[];
