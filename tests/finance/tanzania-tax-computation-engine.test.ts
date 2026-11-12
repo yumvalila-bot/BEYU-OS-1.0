@@ -6,6 +6,7 @@ import {
   calculatePersonalIncomeTax,
   calculatePresumptiveIncomeTax,
   calculateVat,
+  calculateVatWithholding,
   calculateWithholdingTax,
   computeTanzaniaTax,
   prepareTaxFilingPack,
@@ -46,6 +47,13 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(calculateVat({ taxableSuppliesTzs: 1000000, rate: "ZERO_RATED" }).taxAmountTzs).toBe(0);
   });
 
+  it("computes Finance Act 2026 VAT withholding on goods, services and mixed supplies", () => {
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }).taxAmountTzs).toBe(150000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "SERVICES" }).taxAmountTzs).toBe(120000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).taxAmountTzs).toBe(138000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).sourceRefs.some((source) => source.code === "TZ_FINANCE_ACT_2_2026")).toBe(true);
+  });
+
   it("computes withholding categories and refuses treaty relief without approved treaty evidence", () => {
     expect(calculateWithholdingTax({ grossPaymentTzs: 1000000, category: "DIVIDEND_OTHER", payeeResidency: "RESIDENT" }).taxAmountTzs).toBe(100000);
     expect(calculateWithholdingTax({ grossPaymentTzs: 1000000, category: "SERVICE_FEE", payeeResidency: "NON_RESIDENT" }).taxAmountTzs).toBe(150000);
@@ -57,7 +65,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 6000000, records: "INCOMPLETE" }).taxAmountTzs).toBe(100000);
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 10000000, records: "COMPLETE" }).taxAmountTzs).toBe(180000);
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "INCOMPLETE" }).taxAmountTzs).toBe(480000);
-    expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "COMPLETE" })).toThrow(TaxCalculationError);
+    expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "COMPLETE" }).taxAmountTzs).toBe(480000);
     expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 201000000, records: "COMPLETE" })).toThrow(TaxCalculationError);
     expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 6000000, records: "COMPLETE", newBusinessReliefApproved: true })).toThrow(TaxCalculationError);
   });
@@ -104,6 +112,16 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
       calculation: calculatePresumptiveIncomeTax({ annualTurnoverTzs: 3000000, records: "COMPLETE" }),
     });
     expect(small.paymentMilestones).toHaveLength(0);
+  });
+
+  it("prepares VAT withholding statement/payment due date under Finance Act 2026", () => {
+    const pack = prepareTaxFilingPack({
+      taxpayer: { legalEntityId: "entity-1", legalName: "Example Ltd", tin: "123456789" },
+      periodStart: "2026-10-01",
+      periodEnd: "2026-10-31",
+      calculation: calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }),
+    });
+    expect(pack.dueDate).toBe("2026-11-10");
   });
 
   it("prepares WHT/PAYE due dates and annual income tax deadline", () => {
