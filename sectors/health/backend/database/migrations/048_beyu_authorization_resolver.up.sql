@@ -6,9 +6,6 @@ BEGIN
   IF current_user = 'beyu_health_runtime' THEN
     RAISE EXCEPTION '048 must be applied by the privileged Health migration role, not beyu_health_runtime';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_health_runtime') THEN
-    RAISE EXCEPTION '048 requires the provisioned beyu_health_runtime role';
-  END IF;
 END
 $migration$;
 
@@ -96,9 +93,6 @@ BEGIN
 END
 $grant$;
 
-GRANT USAGE ON SCHEMA beyu_identity TO beyu_health_runtime;
-GRANT EXECUTE ON FUNCTION beyu_identity.resolve_beyu_authorization(text, text)
-  TO beyu_health_runtime;
 
 DO $ownership$
 DECLARE
