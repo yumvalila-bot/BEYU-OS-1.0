@@ -96,7 +96,7 @@ describe("migration role-DDL privilege contract", () => {
       .sort();
     // CONSCIOUS UPDATE REQUIRED to change this set: role-level DDL in a
     // migration is a governance event (it creates cluster-level authority).
-    expect(privileged).toEqual(["032_federation_read_grants.up.sql"]);
+    expect(privileged).toEqual(["032_federation_read_grants.up.sql", "048_beyu_authorization_resolver.up.sql"]);
   });
 
   describe("full migration set through the shared harness", () => {
