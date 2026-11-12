@@ -86,13 +86,21 @@ export class AuthContextMiddleware implements NestMiddleware {
     }
 
     const userId = claims.sub;
+    // A token without a subject is unauthenticated, not a malformed session
+    // that may be allowed to reach downstream handlers.
+    if (typeof userId !== "string" || !userId) {
+      next();
+      return;
+    }
     const tenantId = claims.tenantId ?? null;
     const countryCode = claims.countryCode ?? null;
     const entityCode = claims.entityCode ?? null;
-    if (!tenantId || !claims.jti || !countryCode || !entityCode) {
-      throw new UnauthorizedException("SESSION_INVALID");
-    }
-    const tenantContext = { tenantId, countryCode, entityCode };
+    if (!claims.jti) throw new UnauthorizedException("SESSION_INVALID");
+    const tenantContext =
+      tenantId && countryCode && entityCode
+        ? { tenantId, countryCode, entityCode }
+        : null;
+    const auditTenantContext = tenantContext ?? {};
     const user = await this.repo.findUserById(userId);
     if (!user) {
       next();
@@ -102,7 +110,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     if (user.account_status !== "active") {
       await this.audit.record({
         globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "account_disabled", status: user.account_status },
@@ -121,7 +129,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     if (!link) {
       await this.audit.record({
         globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "no_canonical_identity_link" },
@@ -131,7 +139,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     if (link.status !== "active") {
       await this.audit.record({
         globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "canonical_identity_link_not_active", status: link.status },
@@ -152,7 +160,7 @@ export class AuthContextMiddleware implements NestMiddleware {
       } catch (e) {
         await this.audit.record({
           globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
           eventType: "token_rejected",
           result: "DENIED",
           context: {
@@ -168,12 +176,16 @@ export class AuthContextMiddleware implements NestMiddleware {
       }
     }
 
+    // The canonical-link denial above intentionally precedes this check:
+    // a tenantless legacy token cannot bypass identity-link enforcement.
+    if (!tenantContext) throw new UnauthorizedException("SESSION_INVALID");
+
     // Authorization changed after the token was issued → reject stale claims.
     const tokenSv = claims.sv ?? 0;
     if (tokenSv !== user.security_version) {
       await this.audit.record({
         globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
         eventType: "token_rejected",
         result: "DENIED",
         context: {
@@ -195,7 +207,7 @@ export class AuthContextMiddleware implements NestMiddleware {
     ) {
       await this.audit.record({
         globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
                 eventType: "token_rejected",
         result: "DENIED",
         context: { reason: "local_session_inactive_or_mismatched", jti: claims.jti },
@@ -216,7 +228,7 @@ export class AuthContextMiddleware implements NestMiddleware {
       if (!membership) {
         await this.audit.record({
           globalUserId: userId,
-        ...tenantContext,
+        ...auditTenantContext,
                     eventType: "token_rejected",
           result: "DENIED",
           context: { reason: "no_active_membership" },
