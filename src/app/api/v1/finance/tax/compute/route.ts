@@ -71,16 +71,17 @@ export async function POST(request: Request) {
     try {
       const calculation = computeTanzaniaTax(body);
       const tin = entity.taxIdentifier ?? "";
-      const filingPack = prepareTaxFilingPack({
+      const filingPack = /^\\d{9}$/.test(tin) ? prepareTaxFilingPack({
         taxpayer: { legalEntityId: entity.id, legalName: entity.legalName, tin },
         periodStart: body.periodStart,
         periodEnd: body.periodEnd,
         calculation,
-      });
+      }) : null;
       return apiOk({
         entity: { id: entity.id, code: entity.code, legalName: entity.legalName, jurisdiction: jurisdiction.code },
         calculation,
         filingPack,
+        filingReadiness: filingPack ? "DRAFT_PACK_PREPARED" : "TIN_REQUIRED_TO_PREPARE_DRAFT_PACK",
         governance: {
           specialistReviewRequired: true,
           canSubmit: false,
