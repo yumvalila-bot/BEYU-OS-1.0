@@ -229,8 +229,8 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
         {taxType === "VAT_WITHHOLDING" && (
           <label className="text-[11.5px]">Supply type
             <select className={inputClass} value={vatSupplyType} onChange={(e) => setVatSupplyType(e.target.value)}>
-              <option value="GOODS">Goods — 15%</option>
-              <option value="SERVICES">Services — 12%</option>
+              <option value="GOODS">Goods — 3% withheld</option>
+              <option value="SERVICES">Services — 6% withheld</option>
               <option value="MIXED">Mixed — statutory 3:2 split</option>
             </select>
           </label>
