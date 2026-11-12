@@ -57,6 +57,7 @@ DO $$ BEGIN
           AND "source_uri" IS NOT NULL
           AND "original_document_id" IS NOT NULL
           AND "official_source_host" IS NOT NULL
+          AND "original_source_sha256" IS NOT NULL
           AND "original_source_sha256" ~ '^[0-9a-fA-F]{64}$'
           AND "published_on" IS NOT NULL
           AND "commenced_on" IS NOT NULL
