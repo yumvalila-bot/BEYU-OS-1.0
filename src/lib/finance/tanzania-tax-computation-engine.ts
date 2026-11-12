@@ -335,7 +335,7 @@ export function calculateCustomsProcessingFee(input: {
   if (!Number.isSafeInteger(vessels) || vessels <= 0) throw new TaxCalculationError("Wet petroleum cargo requires a positive whole vessel count.");
   const fee = vessels * 20_000_000;
   if (!Number.isSafeInteger(fee)) throw new TaxCalculationError("Calculated customs processing fee exceeds safe integer range.");
-  return result("CUSTOMS_PROCESSING_FEE", fee, fee, [{ label: "Specified wet petroleum cargo — TZS 20m per vessel", baseTzs: fee, rateBps: 10000, taxTzs: fee }], [TANZANIA_TAX_SOURCES.OAG_GN_158D_2026], ["Applies only to specified wet petroleum cargo (diesel, petrol, Jet A-1 and illuminating kerosene); confirm the cargo is covered and no exemption applies."]);
+  return result("CUSTOMS_PROCESSING_FEE", 0, fee, [{ label: `Specified wet petroleum cargo — TZS 20m per vessel (${vessels} vessels)`, baseTzs: 0, rateBps: 0, taxTzs: fee }], [TANZANIA_TAX_SOURCES.OAG_GN_158D_2026], ["Applies only to specified wet petroleum cargo (diesel, petrol, Jet A-1 and illuminating kerosene); confirm the cargo is covered and no exemption applies."]);
 }
 
 export function computeTanzaniaTax(input:
