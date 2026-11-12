@@ -115,7 +115,13 @@ The relief is not automatic. Reconcile the official regulation against the Finan
 
 Professional analyses and a reproduced copy describe an administrative regime for non-resident providers of specified services delivered through the internet or other electronic means to Mainland Tanzania residents who are not registered or required to file returns under the Excise Act for the same service. The reported covered categories include electronic communication, pay-to-view television/streaming, betting/gaming/lottery advertising, and money transfer/payment services.
 
-The reproduced and professional sources describe online registration, customer-location indicators, monthly electronic returns, payment by the seventh day of the following month, a 90-day transition for providers already operating at commencement, permitted convertible-currency payment and an EFD exemption. These details remain subject to official text matching. As at 12 November 2026, the reported 90-day transition period appears to have elapsed; confirm the exact statutory counting rule and any subsequent relief before determining that a provider is late. The charging provisions are in Excise Act section 126(4)–(5), inserted by Finance Act 2026 section 8; do not treat the regulations as the source of the charge or infer that the regime is VAT.
+The reproduced and professional sources describe online registration, customer-location indicators, monthly electronic returns, payment by the seventh day of the following month, a 90-day transition for providers already operating at commencement, permitted convertible-currency payment and an EFD exemption.
+
+Professional analysis used only as secondary interpretation leads:
+- EY tax alert (12 August 2026): https://globaltaxnews.ey.com/news/2026-1725-tanzania-issues-excise-non-resident-service-provider-regulations-2026
+- Clyde & Co analysis (24 July 2026): https://www.clydeco.com/fr/insights/2026/07/the-tanzania-excise-non-resident-service-providers
+
+ These details remain subject to official text matching. As at 12 November 2026, the reported 90-day transition period appears to have elapsed; confirm the exact statutory counting rule and any subsequent relief before determining that a provider is late. The charging provisions are in Excise Act section 126(4)–(5), inserted by Finance Act 2026 section 8; do not treat the regulations as the source of the charge or infer that the regime is VAT.
 
 Before implementation, confirm:
 - The precise services and definitions in the official regulations and Act.
