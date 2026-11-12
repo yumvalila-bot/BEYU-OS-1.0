@@ -91,15 +91,15 @@ Before any compliance workflow is designed, confirm:
 
 | GN | Instrument | Source status | Source locator |
 |---|---|---|---|
-| 158A | VAT (Requirements for Deferment on Trailers) Order, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4642 |
+| 158A | VAT (Requirements for Deferment on Trailers) Order, 2026 | Official OAG PDF endpoint verified; bytes/checksum pending | https://oagmis.oag.go.tz/portal/legislation/4642/download |
 | 158B | Income Tax (Presumptive Tax Relief for New Traders) Regulations, 2026 | Reproduced copy located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-presumptive-tax-relief-for-new-traders-regulations-2026 |
-| 158C | Electronic Transactions (Mandatory Electronic Payments for Specified Transactions) Order, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4644 |
-| 158D | Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4645 |
+| 158C | Electronic Transactions (Mandatory Electronic Payments for Specified Transactions) Order, 2026 | Official OAG PDF endpoint verified; bytes/checksum pending | https://oagmis.oag.go.tz/portal/legislation/4644/download |
+| 158D | Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026 | Official OAG PDF endpoint verified; bytes/checksum pending | https://oagmis.oag.go.tz/portal/legislation/4645/download |
 | 158E | Excise (Non-Resident Service Provider) Regulations, 2026 | Reproduced copy and professional analysis located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-excise-non-resident-service-provider-regulations-2026 |
 | 158F | Income Tax (Single Instalment Tax on Forest Produce) Regulations, 2026 | Reproduced copy located; official Gazette match pending | https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-single-instalment-tax-on-forest-produce-regulations-2026 |
-| 158G | Tax Administration (General) (Amendment) Regulations, 2026 | OAG MIS metadata confirmed; full text not acquired | https://oagmis.oag.go.tz/portal/legislation/4648 |
+| 158G | Tax Administration (General) (Amendment) Regulations, 2026 | Official OAG PDF endpoint verified; bytes/checksum pending | https://oagmis.oag.go.tz/portal/legislation/4648/download |
 
-OAG MIS confirms the metadata for GN 158A, 158C, 158D and 158G, including publication on 30 June 2026 and commencement on 1 July 2026. GN 158B, 158E and 158F are identified by reproduced texts/professional analyses but remain pending exact official Gazette matching. Do not infer the missing OAG identifiers or Gazette supplement numbers.
+OAG MIS confirms metadata and provides official PDF endpoints for GN 158A, 158C, 158D and 158G, including publication on 30 June 2026 and commencement on 1 July 2026. The four official PDF texts have been inspected through the OAG endpoints, but the original bytes have not yet been stored/checksummed in the governed documents registry. GN 158B, 158E and 158F remain reproduced-copy leads pending exact official Gazette matching. Do not infer missing OAG identifiers or Gazette supplement numbers.
 
 ### GN 158B — new-trader presumptive relief
 
@@ -172,3 +172,17 @@ The official OAG MIS metadata identifies these instruments and their publication
 5. Acquire and verify the complete official text for all seven GN 158A–158G instruments, including the three instruments currently represented by reproduced copies only.
 6. Have Tanzanian tax counsel/specialist approve the statutory crosswalk and any candidate compliance requirements.
 7. Only after those gates may the team design effective-dated rule candidates and separately test them; no automatic activation is permitted.
+
+
+## 12 November 2026 — official OAG PDF endpoint verification update
+
+The official OAG MIS pages expose downloadable PDF endpoints for four of the seven instruments. The downloaded PDF text was inspected from the OAG endpoint, but the original PDF bytes were not successfully materialized into the repository/document vault in this pass. Therefore this is stronger than metadata-only discovery, but it is **not yet original-file checksum verification or final source authentication**.
+
+| GN | Official OAG PDF | Text facts confirmed from the official endpoint | Remaining gate |
+|---|---|---|---|
+| 158A | https://oagmis.oag.go.tz/portal/legislation/4642/download | HS 87.16 trailers; 100 skilled staff; five qualified Tanzanian engineers; two ≥8-ton cranes; six MIG welders; 50-ton hydraulic bender; power cutting/hacksaw equipment; two forklifts; inspection and deferment disqualification | Store original PDF, calculate SHA-256, page-image check, specialist review |
+| 158C | https://oagmis.oag.go.tz/portal/legislation/4644/download | Schedule specifies nine transaction groupings; electronic means list; six-month transition for existing specified-payment recipients; pre-commencement arrangements/contracts protected | Store original PDF, calculate SHA-256, page-image check, specialist review; interpret schedule and deadlines |
+| 158D | https://oagmis.oag.go.tz/portal/legislation/4645/download | 1% FOB for dry cargo other than petroleum; TZS 20m per vessel for specified wet petroleum cargo; home-consumption entry timing; Second Schedule exemptions | Store original PDF, calculate SHA-256, customs specialist review of FOB base, origin rules and exemptions |
+| 158G | https://oagmis.oag.go.tz/portal/legislation/4648/download | Amends regulation 58 of the 2016 Tax Administration (General) Regulations; social-media business profile/account display of Certificate, TIN or Tax Clearance Certificate | Store original PDF, calculate SHA-256, specialist review and privacy/application assessment |
+
+GN 158A, 158C, 158D and 158G remain `SOURCE_LINKED_NOT_INGESTED`; NOELIA reliance remains blocked. The 158A/158C/158D/158G official PDF URLs are recorded in the source registry metadata, but no checksum or AUTHORITATIVE status is asserted.
