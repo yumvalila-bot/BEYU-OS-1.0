@@ -182,6 +182,21 @@ describe("canonical constitutional hierarchy", () => {
   });
 });
 
+describe("Finance OS shared enterprise role", () => {
+  it("presents shared Finance services as the same authorized Finance OS, not a second system", () => {
+    const capabilityMap = source("src", "app", "os", "capability-map.tsx");
+    expect(capabilityMap).toContain('governedDestinationHrefs.has("/os/finance")');
+    expect(capabilityMap).toContain('aria-labelledby="shared-finance-services"');
+    expect(capabilityMap).toContain("Finance OS · Shared Services");
+    expect(capabilityMap).toContain('renderedHref.get("/os/finance")');
+    expect(capabilityMap).toContain("One Finance OS · One financial source of truth");
+    expect(capabilityMap).toContain("Health financial services");
+    expect(capabilityMap).toContain("Agriculture financial services");
+    expect(capabilityMap).toContain("Ujenzi project finance");
+    expect(capabilityMap).not.toContain('href="/os/finance/shared"');
+  });
+});
+
 describe("permission-conscious discovery", () => {
   it("uses any-of visibility for aggregate destinations without treating it as authority", () => {
     const organisationOnly = principal("organization:entity.read");
