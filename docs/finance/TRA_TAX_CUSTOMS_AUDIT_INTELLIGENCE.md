@@ -73,3 +73,13 @@ the operational financial system of record. BEYU OS retains strategic capital go
    and NOELIA citations.
 6. Implement calculations only from specialist-verified, effective-dated rules and only after
    the existing authority gate permits them.
+
+## 2026 subsidiary legislation verification
+
+A separate source-verification dossier and read-only FINANCE_OS panel now cover:
+- GN 158F of 2026, the Income Tax (Single Instalment Tax on Forest Produce) Regulations: reproduced text located, but the official Gazette PDF and exact issue/supplement match remain pending.
+- GN 158G of 2026, the Tax Administration (General) (Amendment) Regulations: OAG MIS metadata confirms the GN number, publication date (30 June 2026) and commencement date (1 July 2026), but the complete official instrument text remains pending.
+
+The forest-produce reproduced text is mapped clause-by-clause to the official Income Tax Act section 116A as replaced by Finance Act No. 2 of 2026, section 25. The four statutory payment triggers, forest-cess event, valuation definition and temporal version history are preserved. The shorter reproduced regulation 3 wording is explicitly not allowed to narrow the Act.
+
+All subsidiary-instrument records remain SOURCE_LINKED_NOT_INGESTED. GN 158F is not represented as officially authenticated. No certificate workflow, tax calculation, penalty calculation, transport clearance, filing or payment automation is activated.
