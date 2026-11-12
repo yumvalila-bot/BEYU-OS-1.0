@@ -309,7 +309,7 @@ export function computeTanzaniaTax(input:
   | { taxType: "WITHHOLDING_TAX"; grossPaymentTzs: number; category: WithholdingCategory; payeeResidency: "RESIDENT" | "NON_RESIDENT"; treatyReliefClaimed?: boolean }
 ): TaxCalculation {
   switch (input.taxType) {
-    case "PAYE": return calculatePayECompat(input);
+    case "PAYE": return calculatePaye(input);
     case "CORPORATE_INCOME_TAX": return calculateCorporateIncomeTax(input);
     case "PERSONAL_INCOME_TAX": return calculatePersonalIncomeTax(input);
     case "PRESUMPTIVE_INCOME_TAX": return calculatePresumptiveIncomeTax(input);
@@ -318,9 +318,6 @@ export function computeTanzaniaTax(input:
   }
 }
 
-function calculatePayECompat(input: Extract<Parameters<typeof computeTanzaniaTax>[0], { taxType: "PAYE" }>): TaxCalculation {
-  return calculatePaye(input);
-}
 
 function addMonthsDate(date: string, months: number): string {
   const [year, month, day] = date.split("-").map(Number);
@@ -364,6 +361,16 @@ export function prepareTaxFilingPack(input: {
     throw new TaxCalculationError("Filing period must contain valid ordered ISO dates.");
   }
   let dueDate: string | null = null;
+  if (["VAT", "PAYE", "WITHHOLDING_TAX"].includes(input.calculation.taxType)) {
+    const start = new Date(`${input.periodStart}T00:00:00Z`);
+    const end = new Date(`${input.periodEnd}T00:00:00Z`);
+    const firstDay = start.getUTCDate() === 1;
+    const sameMonth = start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth();
+    const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+    if (!firstDay || !sameMonth || end.getUTCDate() !== lastDay) {
+      throw new TaxCalculationError("VAT, PAYE and withholding filing packs require one complete calendar-month period.");
+    }
+  }
   if (input.calculation.taxType === "VAT") {
     const nextMonth = addMonthsDate(input.periodEnd, 1);
     dueDate = `${nextMonth.slice(0, 7)}-20`;
