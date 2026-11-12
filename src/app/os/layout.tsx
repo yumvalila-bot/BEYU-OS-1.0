@@ -48,19 +48,19 @@ async function visibleNav(principal: Principal): Promise<OsNavigationGroup[]> {
     group: section.title,
     items: section.items
       .filter((item) =>
-        section.id === "sector" || section.id === "sister-organization"
+        section.id === "sector" || item.href === "/os/foundation"
           ? governedDestinationHrefs.has(item.href)
           : visible(principal, item),
       )
       .map((item: CapabilityItem) => ({
         href:
-          section.id === "sector" || section.id === "sister-organization"
+          section.id === "sector" || item.href === "/os/foundation"
             ? (renderedHref.get(item.href) ?? item.href)
             : item.href,
         // The canonical organization name remains "BEYU Foundation" in the
         // catalogue; the shell names its architectural kind explicitly so it
         // cannot be mistaken for a fifth Sector OS.
-        label: section.id === "sister-organization" ? "Foundation organization" : item.label,
+        label: item.href === "/os/foundation" ? "Foundation Organization" : item.label,
         icon: item.icon,
       })),
   })).filter((section) => section.items.length > 0);
@@ -154,7 +154,7 @@ export default async function OsLayout({ children }: { children: ReactNode }) {
       tenantCode: principal.tenantCode,
       clearance: principal.clearance,
       canSwitchOperatingSystem: nav.some(
-        (group) => group.group === "Sector operating systems" && group.items.length > 0,
+        (group) => group.group === "Sector Operating Systems" && group.items.length > 0,
       ),
     };
 

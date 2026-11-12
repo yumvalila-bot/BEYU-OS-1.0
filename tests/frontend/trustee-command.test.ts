@@ -136,13 +136,13 @@ describe("A. Trustee Command is a capability, never an OS and never a grant", ()
     const group = CAPABILITY_IA.find((candidate) =>
       candidate.items.some((item) => item.href === "/os/family/trustee-command"),
     );
-    expect(group?.id).toBe("family-office-domains");
+    expect(group?.id).toBe("family-office");
   });
 
   it("never appears as a Sector OS or as a second control-plane route", () => {
     expect(CAPABILITY_IA.find((g) => g.id === "sector")?.items.map((i) => i.href))
       .not.toContain("/os/family/trustee-command");
-    expect(CAPABILITY_IA.find((g) => g.id === "executive")?.items.map((i) => i.href))
+    expect(CAPABILITY_IA.find((g) => g.id === "executive-governance")?.items.map((i) => i.href))
       .not.toContain("/os/family/trustee-command");
   });
 

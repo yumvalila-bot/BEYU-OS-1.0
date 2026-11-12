@@ -62,157 +62,138 @@ const group = (id: string) => {
 };
 
 describe("canonical constitutional hierarchy", () => {
-  it("exposes the four required top-level groups in order", () => {
-    expect(
-      CAPABILITY_IA.slice(0, 4).map(({ id, title }) => ({ id, title })),
-    ).toEqual([
-      { id: "executive", title: "Executive" },
-      { id: "shared", title: "Shared capabilities" },
-      { id: "sister-organization", title: "Sister organization" },
-      { id: "sector", title: "Sector operating systems" },
+  it("exposes the eight approved top-level categories in canonical order", () => {
+    expect(CAPABILITY_IA.map(({ id, title }) => ({ id, title }))).toEqual([
+      { id: "executive-governance", title: "Organisation & Constitutional Governance" },
+      { id: "identity-access", title: "Identity & Access Management" },
+      { id: "enterprise-operations", title: "Enterprise Operations" },
+      { id: "family-office", title: "Family Office" },
+      { id: "noelia-hive", title: "NOELIA AI / HIVE" },
+      { id: "sector", title: "Sector Operating Systems" },
+      { id: "platform-administration", title: "Platform Administration" },
+      { id: "system-assurance", title: "System Operations & Assurance" },
     ]);
+    expect(CAPABILITY_IA.some(({ id }) =>
+      ["finance-governance", "family-office-domains", "agriculture-domains"].includes(id),
+    )).toBe(false);
   });
 
-  it("exposes exactly the required Executive control surfaces", () => {
-    expect(
-      group("executive").items.map(({ label, href }) => ({ label, href })),
-    ).toEqual([
+  it("keeps the Executive Command Centre and constitutional registry together", () => {
+    expect(group("executive-governance").items.slice(0, 3).map(({ label, href }) => ({ label, href }))).toEqual([
       { label: "Executive Control Centre", href: "/os" },
       { label: "OS & Source-of-Truth Registry", href: "/os/registry" },
       { label: "Organisation & Ownership", href: "/os/organization-ownership" },
     ]);
+    expect(group("executive-governance").items.map(({ href }) => href)).toContain("/os/constitution");
   });
 
-  it("models every shared domain as a capability, not as an OS", () => {
-    expect(group("shared").items.map((item) => item.label)).toEqual([
-      "Identity & Access",
-      "Organisation",
-      "Ownership",
-      "Governance",
-      "Risk & Compliance",
-      "HCM",
-      "Documents & Knowledge",
-      "Audit & Events",
-      "Registries",
-      // Shared Holograph spatial-visualization capability — a capability
-      // entry, deliberately NOT labelled an OS (the assertion below still
-      // forbids " OS").
-      "Holograph — Spatial Visualization & Twins",
-      "Family Office",
-      "Communications",
-      "Noelia / HIVE",
+  it("places Holograph & Spatial Intelligence inside NOELIA AI / HIVE", () => {
+    const noelia = group("noelia-hive");
+    expect(noelia.items.map(({ label, href }) => ({ label, href }))).toEqual([
+      { label: "NOELIA AI / HIVE", href: "/os/noelia" },
+      { label: "Holograph & Spatial Intelligence", href: "/os/viz" },
+      { label: "AI Governance & Assurance", href: "/os/noelia/governance" },
     ]);
-    expect(
-      group("shared").items.every((item) => !item.label.endsWith(" OS")),
-    ).toBe(true);
+    expect(noelia.items.find((item) => item.href === "/os/viz")?.description).toContain("NOELIA AI / HIVE");
+    expect(CAPABILITY_IA.some((entry) => /Holograph/i.test(entry.title))).toBe(false);
   });
 
   it("models exactly four Sector OSs beneath BEYU OS", () => {
     const expected = [
       { label: "Finance OS", href: "/os/finance" },
-      // Health OS is a Sector OS like every other one: its canonical route
-      // lives inside the /os namespace. /health remains the denial/availability
-      // surface and re-checks the same federation gate.
       { label: "Health OS", href: "/os/health" },
       { label: "Agriculture OS", href: "/os/agriculture" },
       { label: "Ujenzi OS", href: "/os/ujenzi" },
     ];
-    expect(
-      group("sector").items.map(({ label, href }) => ({ label, href })),
-    ).toEqual(expected);
-    expect(
-      SECTOR_OPERATING_SYSTEMS.map(({ name: label, href }) => ({
-        label,
-        href,
-      })),
-    ).toEqual(expected);
+    expect(group("sector").items.filter(({ href }) => ["/os/finance", "/os/health", "/os/agriculture", "/os/ujenzi"].includes(href)).map(({ label, href }) => ({ label, href }))).toEqual(expected);
+    expect(SECTOR_OPERATING_SYSTEMS.map(({ name: label, href }) => ({ label, href }))).toEqual(expected);
     expect(BEYU_CONTROL_PLANE.level).toBe("CONTROL_PLANE");
-    expect(
-      SECTOR_OPERATING_SYSTEMS.every(
-        (destination) => destination.level === "SECTOR_OS",
-      ),
-    ).toBe(true);
+    expect(SECTOR_OPERATING_SYSTEMS.every((destination) => destination.level === "SECTOR_OS")).toBe(true);
+    const sectorHrefs = group("sector").items.map(({ href }) => href);
+    expect(sectorHrefs).toEqual(expect.arrayContaining([
+      "/os/finance",
+      "/os/agriculture",
+      "/os/capital",
+      "/os/waterfall",
+      "/os/tax",
+      "/os/finance/payments",
+      "/os/agriculture/capabilities",
+    ]));
+    const capabilityMap = source("src", "app", "os", "capability-map.tsx");
+    expect(capabilityMap).toContain('"/os/finance": [');
+    expect(capabilityMap).toContain('"/os/capital"');
+    expect(capabilityMap).toContain('"/os/waterfall"');
+    expect(capabilityMap).toContain('"/os/tax"');
+    expect(capabilityMap).toContain('"/os/finance/payments"');
+    expect(capabilityMap).toContain('"/os/agriculture": ["/os/agriculture/capabilities"]');
+    expect(capabilityMap).toContain("governedDestinationHrefs.has(item.href)");
+    expect(group("family-office").items.map(({ href }) => href)).toEqual(expect.arrayContaining([
+      "/os/family",
+      "/os/family/trustee-command",
+      "/os/family/capital",
+      "/os/family/protection",
+    ]));
   });
 
-  it("models Foundation as the separate nonprofit sister organization", () => {
-    expect(group("sister-organization").items).toEqual([
-      expect.objectContaining({
-        label: "BEYU Foundation",
-        href: "/os/foundation",
-      }),
-    ]);
+  it("keeps Foundation as a separate nonprofit organization, not a Sector OS", () => {
+    expect(group("enterprise-operations").items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Foundation Organization", href: "/os/foundation" }),
+    ]));
     expect(group("sector").items.map(({ href }) => href)).not.toContain("/os/foundation");
   });
 
-  it("exposes a visible Gear-labelled Settings destination in its own System group", () => {
-    expect(group("system").title).toBe("System");
-    expect(group("system").items).toEqual([
-      expect.objectContaining({
-        label: "Settings",
-        href: "/os/settings",
-        icon: "settings",
-        visibility: { kind: "open" },
-      }),
-    ]);
-    expect(visible(principal(), group("system").items[0]!)).toBe(true);
+  it("keeps Settings available in Platform Administration", () => {
+    const settings = group("platform-administration").items.find((item) => item.href === "/os/settings");
+    expect(settings).toEqual(expect.objectContaining({
+      label: "Settings",
+      icon: "settings",
+      visibility: { kind: "open" },
+    }));
+    expect(visible(principal(), settings!)).toBe(true);
   });
 
-  /**
-   * Administration (governed user & tenant capability) — a FIRST-CLASS shared
-   * capability of BEYU OS, NOT an "Admin OS". The group sits AFTER the pinned
-   * executive/shared/sister-organization/sector groups and BEFORE System. Every entry is
-   * permission-gated (never "open"), carries a semantic icon, and no label
-   * ends in "OS": this is capability, not a new operating system.
-   */
-  it("exposes the Administration governance capability as its own group between sector and system", () => {
-    expect(
-      CAPABILITY_IA.slice(0, 5).map(({ id }) => id),
-    ).toEqual(["executive", "shared", "sister-organization", "sector", "administration"]);
-    // Secondary domain groups (shared-workspaces, finance-domains, …) follow the
-    // System group; what matters architecturally is that Administration sits
-    // immediately BEFORE System in the canonical order.
-    const systemIndex = CAPABILITY_IA.findIndex((g) => g.id === "system");
-    expect(systemIndex).toBeGreaterThan(0);
-    expect(CAPABILITY_IA.findIndex((g) => g.id === "administration")).toBe(systemIndex - 1);
-    expect(group("administration").title).toBe("Administration");
-    expect(
-      group("administration").items.map(({ label, href }) => ({ label, href })),
-    ).toEqual([
+  it("separates identity administration from platform administration", () => {
+    expect(group("identity-access").items.map(({ label, href }) => ({ label, href }))).toEqual([
+      { label: "Identity & Access", href: "/os/identity" },
       { label: "Users & Identities", href: "/os/administration" },
-      { label: "Tenants", href: "/os/administration/tenants" },
       { label: "Memberships", href: "/os/administration/memberships" },
       { label: "Roles & Capabilities", href: "/os/administration/roles" },
+    ]);
+    expect(group("platform-administration").items.map(({ label, href }) => ({ label, href }))).toEqual([
+      { label: "Tenants", href: "/os/administration/tenants" },
       { label: "Authority Delegations", href: "/os/administration/delegations" },
       { label: "Administrative Audit", href: "/os/administration/audit" },
-      // BEYU Registry — the unified governed registration console (mission:
-      // canonical identity/organization/family/registration capability).
-      // Deliberate pin update: the administration array grew by exactly ONE
-      // permission-gated, non-OS, unique-href capability entry.
       { label: "BEYU Registry", href: "/os/registration" },
+      { label: "Settings", href: "/os/settings" },
     ]);
-    expect(
-      group("administration").items.every(
-        (item) =>
-          item.visibility.kind === "permission" &&
-          !item.label.endsWith(" OS"),
-      ),
-    ).toBe(true);
-    // The delegation surface must be gated by the high-risk delegation
-    // capability itself — never open, never a weaker read permission.
-    expect(
-      group("administration").items.find((item) => item.href === "/os/administration/delegations")
-        ?.visibility,
-    ).toEqual({ kind: "permission", permission: "identity:delegation.manage" });
+    expect(group("platform-administration").items.find((item) => item.href === "/os/administration/delegations")?.visibility)
+      .toEqual({ kind: "permission", permission: "identity:delegation.manage" });
   });
 
   it("has one route per catalogue entry and a semantic icon for every entry", () => {
     const items = CAPABILITY_IA.flatMap((entry) => entry.items);
     expect(new Set(items.map((item) => item.href)).size).toBe(items.length);
+    expect(items).toHaveLength(51);
     for (const item of items) {
       expect(item.label.trim().length).toBeGreaterThan(0);
       expect(item.description.trim().length).toBeGreaterThan(0);
       expect(item.icon.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("Finance OS shared enterprise role", () => {
+  it("presents shared Finance services as the same authorized Finance OS, not a second system", () => {
+    const capabilityMap = source("src", "app", "os", "capability-map.tsx");
+    expect(capabilityMap).toContain('governedDestinationHrefs.has("/os/finance")');
+    expect(capabilityMap).toContain('aria-labelledby="shared-finance-services"');
+    expect(capabilityMap).toContain("Finance OS · Shared Services");
+    expect(capabilityMap).toContain('renderedHref.get("/os/finance")');
+    expect(capabilityMap).toContain("One Finance OS · One financial source of truth");
+    expect(capabilityMap).toContain("Health financial services");
+    expect(capabilityMap).toContain("Agriculture financial services");
+    expect(capabilityMap).toContain("Ujenzi project finance");
+    expect(capabilityMap).not.toContain('href="/os/finance/shared"');
   });
 });
 
@@ -224,18 +205,10 @@ describe("permission-conscious discovery", () => {
     const complianceOnly = principal("compliance:obligation.read");
     const eventOnly = principal("audit:event.read");
 
-    const organisationOwnership = group("executive").items.find(
-      (item) => item.href === "/os/organization-ownership",
-    )!;
-    const ownership = group("shared").items.find(
-      (item) => item.href === "/os/ownership",
-    )!;
-    const assurance = group("shared").items.find(
-      (item) => item.href === "/os/assurance",
-    )!;
-    const registries = group("shared").items.find(
-      (item) => item.href === "/os/registries",
-    )!;
+    const organisationOwnership = group("executive-governance").items.find((item) => item.href === "/os/organization-ownership")!;
+    const ownership = group("executive-governance").items.find((item) => item.href === "/os/ownership")!;
+    const assurance = group("system-assurance").items.find((item) => item.href === "/os/assurance")!;
+    const registries = group("enterprise-operations").items.find((item) => item.href === "/os/registries")!;
 
     expect(visible(organisationOnly, organisationOwnership)).toBe(true);
     expect(visible(organisationOnly, ownership)).toBe(false);
@@ -247,9 +220,7 @@ describe("permission-conscious discovery", () => {
   });
 
   it("keeps Health federation out of local permission inference", () => {
-    const health = group("sector").items.find(
-      (item) => item.href === "/os/health",
-    )!;
+    const health = group("sector").items.find((item) => item.href === "/os/health")!;
     expect(visible(principal(), health)).toBe(false);
   });
 });

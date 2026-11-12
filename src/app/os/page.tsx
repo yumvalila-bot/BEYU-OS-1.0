@@ -294,11 +294,11 @@ export default async function ControlCentre() {
   return (
     <div className="space-y-6">
       <header>
-        <div className="beyu-kicker text-[#b08d1c]">Executive control centre</div>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Enterprise status — {principal.tenantCode}</h1>
+        <div className="beyu-kicker text-[#b08d1c]">Executive Command Centre</div>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-tight">Executive Command</h1>
         <p className="mt-1.5 max-w-3xl text-[13px] beyu-muted">
-          Every figure below resolves to a declared source of truth and is filtered to your granted
-          permissions, tenant and clearance ({principal.clearance}).
+          Governed enterprise visibility across organisation, capital, people, risk and intelligence —
+          filtered to your granted permissions, tenant and clearance ({principal.clearance}).
         </p>
       </header>
 

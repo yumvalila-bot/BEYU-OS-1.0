@@ -391,17 +391,15 @@ describe("architecture invariants", () => {
   it("Noelia is not an additional operating system", () => {
     const sector = CAPABILITY_IA.find((g) => g.id === "sector");
     expect(sector).toBeDefined();
-    expect(sector!.items.map((i) => i.label)).toEqual([
+    expect(sector!.items.filter((i) => ["Finance OS", "Health OS", "Agriculture OS", "Ujenzi OS"].includes(i.label)).map((i) => i.label)).toEqual([
       "Finance OS",
       "Health OS",
       "Agriculture OS",
       "Ujenzi OS",
     ]);
-    expect(CAPABILITY_IA.find((g) => g.id === "sister-organization")?.items.map((i) => i.label)).toEqual([
-      "BEYU Foundation",
-    ]);
-    // The sidebar itself carries no Noelia entry (only the existing
-    // capability item in the shared-catalogue, rendered via CAPABILITY_IA).
+    expect(CAPABILITY_IA.find((g) => g.id === "enterprise-operations")?.items.map((i) => i.label)).toContain("Foundation Organization");
+    // Noelia remains a single governed identity; HIVE is a capability group,
+    // not a Sector OS or a second identity.
     expect(navigation).not.toContain("Noelia");
   });
 
