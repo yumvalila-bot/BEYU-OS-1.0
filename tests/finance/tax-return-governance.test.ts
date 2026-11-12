@@ -6,6 +6,7 @@ import { ROLES, PERMISSIONS } from "@/lib/constants";
 describe("FINANCE_OS tax return separation of duties", () => {
   const reviewRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/review/route.ts"), "utf8");
   const approveRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/approve/route.ts"), "utf8");
+  const computeRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/compute/route.ts"), "utf8");
   const migration = readFileSync(join(process.cwd(), "drizzle/0077_tax_return_drafts.sql"), "utf8");
 
   it("defines distinct specialist-review and Group-CFO approval permissions", () => {
@@ -25,6 +26,13 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(approveRoute).toContain("draft.specialistReviewerId === ctx.principal.userId");
     expect(approveRoute).toContain("SOURCE_AUTHORITY_INCOMPLETE");
     expect(approveRoute).toContain("source.evidenceStatus === \"AUTHORITATIVE\"");
+  });
+
+  it("does not trust client-supplied evidence flags or reduced VAT rate claims", () => {
+    expect(computeRoute).not.toContain("inputVatCreditVerified: z.boolean()");
+    expect(computeRoute).not.toContain('rate: z.enum(["STANDARD_18", "ZERO_RATED"])');
+    expect(computeRoute).not.toContain("originEvidenceVerified: z.boolean()");
+    expect(computeRoute).toContain("originEvidenceVerified: false");
   });
 
   it("database constraints require specialist review and independent approval before submission", () => {
