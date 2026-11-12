@@ -18,6 +18,7 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
     expect(migration).toContain('"legal_entity_id" text NOT NULL');
     expect(migration).toContain('"calculation_payload" jsonb NOT NULL');
     expect(migration).toContain('"filing_pack" jsonb NOT NULL');
+    expect(migration).toContain("'VAT_WITHHOLDING'");
     expect(migration).toContain("'APPROVED_FOR_SUBMISSION'");
     expect(migration).toContain('"specialist_reviewer_id" IS NOT NULL');
     expect(migration).toContain('"external_reference" IS NOT NULL');
