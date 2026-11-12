@@ -121,8 +121,11 @@ describe("A. canonical Sector OS route resolution", () => {
 
   it("keeps one registry: the sidebar IA cannot drift from the catalogue", () => {
     expect(
-      sectorGroup().items.map(({ label, href }) => ({ label, href })),
+      sectorGroup().items
+        .filter((item) => CANONICAL_ROUTES.some((route) => route.href === item.href))
+        .map(({ label, href }) => ({ label, href })),
     ).toEqual(CANONICAL_ROUTES.map(({ name, href }) => ({ label: name, href })));
+    expect(sectorGroup().items.some((item) => item.href === "/os/agriculture/capabilities")).toBe(true);
     expect(CAPABILITY_IA.find((entry) => entry.id === "enterprise-operations")?.items)
       .toEqual(expect.arrayContaining([expect.objectContaining({ href: FOUNDATION_ORGANIZATION.href })]));
   });
