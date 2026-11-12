@@ -26,7 +26,7 @@ type Result = {
 const money = (value: number) => new Intl.NumberFormat("en-TZ", { style: "currency", currency: "TZS", maximumFractionDigits: 0 }).format(value);
 const inputClass = "mt-1 w-full rounded-lg border border-[color:var(--beyu-line)] bg-transparent px-3 py-2 text-[13px] outline-none focus:border-[#d4af37]";
 
-export function TaxComputationWorkbench({ entities, canCompute, canReview }: { entities: Entity[]; canCompute: boolean; canReview: boolean }) {
+export function TaxComputationWorkbench({ entities, canCompute, canReview, canSubmit, canRecordReceipt }: { entities: Entity[]; canCompute: boolean; canReview: boolean; canSubmit: boolean; canRecordReceipt: boolean }) {
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [taxType, setTaxType] = useState<TaxType>("PAYE");
   const [amount, setAmount] = useState("1000000");
@@ -43,6 +43,13 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
   const [drafts, setDrafts] = useState<SavedDraft[]>([]);
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [selectedDraftId, setSelectedDraftId] = useState("");
+  const [filingAction, setFilingAction] = useState<"SUBMIT" | "RECEIPT" | null>(null);
+  const [traReference, setTraReference] = useState("");
+  const [actionAt, setActionAt] = useState("");
+  const [actionNotes, setActionNotes] = useState("");
+  const [receiptDocumentId, setReceiptDocumentId] = useState("");
+  const [receiptDecision, setReceiptDecision] = useState<"ACCEPTED" | "REJECTED">("ACCEPTED");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -67,6 +74,46 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
     return () => { active = false; };
   }, []);
 
+  async function refreshDrafts() {
+    const response = await fetch("/api/v1/finance/tax/returns");
+    const json = await response.json();
+    if (response.ok && json?.data?.drafts) setDrafts(json.data.drafts as SavedDraft[]);
+  }
+
+  async function recordManualSubmission() {
+    if (!selectedDraftId) return;
+    setReviewBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/v1/finance/tax/returns/${selectedDraftId}/record-submission`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ traReference, submittedAt: new Date(actionAt).toISOString(), notes: actionNotes }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json?.error?.message ?? "Submission record rejected.");
+      setFilingAction(null); setTraReference(""); setActionAt(""); setActionNotes(""); setSelectedDraftId("");
+      await refreshDrafts();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record submission."); }
+    finally { setReviewBusy(false); }
+  }
+
+  async function recordTraReceipt() {
+    if (!selectedDraftId) return;
+    setReviewBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/v1/finance/tax/returns/${selectedDraftId}/record-receipt`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision: receiptDecision, receiptReference: traReference, receiptDocumentId, receivedAt: new Date(actionAt).toISOString(), notes: actionNotes }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json?.error?.message ?? "TRA receipt verification rejected.");
+      setFilingAction(null); setTraReference(""); setActionAt(""); setActionNotes(""); setReceiptDocumentId(""); setSelectedDraftId("");
+      await refreshDrafts();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to record TRA receipt."); }
+    finally { setReviewBusy(false); }
+  }
+
   async function reviewDraft(draftId: string) {
     setReviewBusy(true);
     setError(null);
@@ -79,9 +126,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
       const json = await response.json();
       if (!response.ok) throw new Error(json?.error?.message ?? "Specialist review failed.");
       setReviewNotes("");
-      const saved = await fetch("/api/v1/finance/tax/returns");
-      const savedJson = await saved.json();
-      if (saved.ok && savedJson?.data?.drafts) setDrafts(savedJson.data.drafts as SavedDraft[]);
+      await refreshDrafts();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to record specialist review.");
     } finally {
@@ -119,9 +164,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
       const json = await response.json();
       if (!response.ok) throw new Error(json?.error?.message ?? "Tax calculation rejected.");
       setResult(json.data as Result);
-      const saved = await fetch("/api/v1/finance/tax/returns");
-      const savedJson = await saved.json();
-      if (saved.ok && savedJson?.data?.drafts) setDrafts(savedJson.data.drafts as SavedDraft[]);
+      await refreshDrafts();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to calculate tax.");
     } finally {
@@ -231,11 +274,41 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[10.5px]">
               <thead><tr className="beyu-muted"><th className="py-1 pr-3">Tax type</th><th className="py-1 pr-3">Period</th><th className="py-1 pr-3">Due</th><th className="py-1 pr-3">Amount</th><th className="py-1 pr-3">Status</th><th className="py-1">Action</th></tr></thead>
-              <tbody>{drafts.map((draft) => <tr key={draft.id} className="border-t border-[color:var(--beyu-line)]"><td className="py-2 pr-3">{draft.taxType.replaceAll("_", " ")}</td><td className="py-2 pr-3">{draft.periodStart} – {draft.periodEnd}</td><td className="py-2 pr-3">{draft.dueDate ?? "—"}</td><td className="py-2 pr-3 tabular-nums">{money(Number(draft.amountPayable))}</td><td className="py-2">{draft.status}</td><td className="py-2">{canReview && draft.status === "DRAFT" ? <button type="button" disabled={reviewBusy || reviewNotes.trim().length < 10} onClick={() => reviewDraft(draft.id)} className="rounded border border-[color:var(--beyu-line)] px-2 py-1 disabled:opacity-40">Review provisional</button> : draft.status === "SPECIALIST_REVIEWED_PROVISIONAL" ? <span className="text-amber-700">CFO approval gated</span> : "—"}</td></tr>)}</tbody>
+              <tbody>{drafts.map((draft) => <tr key={draft.id} className="border-t border-[color:var(--beyu-line)]"><td className="py-2 pr-3">{draft.taxType.replaceAll("_", " ")}</td><td className="py-2 pr-3">{draft.periodStart} – {draft.periodEnd}</td><td className="py-2 pr-3">{draft.dueDate ?? "—"}</td><td className="py-2 pr-3 tabular-nums">{money(Number(draft.amountPayable))}</td><td className="py-2">{draft.status}</td><td className="py-2 space-y-1">
+                {canReview && draft.status === "DRAFT" && <button type="button" disabled={reviewBusy || reviewNotes.trim().length < 10} onClick={() => reviewDraft(draft.id)} className="rounded border border-[color:var(--beyu-line)] px-2 py-1 disabled:opacity-40">Review provisional</button>}
+                {canSubmit && draft.status === "APPROVED_FOR_SUBMISSION" && <button type="button" onClick={() => { setSelectedDraftId(draft.id); setFilingAction("SUBMIT"); }} className="rounded border border-[color:var(--beyu-line)] px-2 py-1">Record TRA submission</button>}
+                {canRecordReceipt && draft.status === "SUBMITTED" && <button type="button" onClick={() => { setSelectedDraftId(draft.id); setFilingAction("RECEIPT"); }} className="rounded border border-[color:var(--beyu-line)] px-2 py-1">Record TRA receipt</button>}
+                {draft.status === "SPECIALIST_REVIEWED_PROVISIONAL" && <span className="text-amber-700">CFO approval gated</span>}
+                {draft.status === "APPROVED_FOR_SUBMISSION" && !canSubmit && <span className="beyu-muted">Filing Officer required</span>}
+              </td></tr>)}</tbody>
             </table>
           </div>
         )}
       </div>
+      {filingAction && (
+        <div className="rounded-xl border border-[color:var(--beyu-line)] p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2"><strong className="text-[12px]">{filingAction === "SUBMIT" ? "Record manual TRA submission" : "Record verified TRA acknowledgement"}</strong><button type="button" onClick={() => setFilingAction(null)} className="text-[11px] underline">Cancel</button></div>
+          <p className="text-[10.5px] beyu-muted">{filingAction === "SUBMIT" ? "First submit the approved return through the official TRA Taxpayer Portal/IDRAS. This form only records the external reference." : "Upload the TRA receipt/rejection notice to the governed documents registry, classify it as TAX_FILING_RECEIPT, and have it marked AUTHORITATIVE before recording it here."}</p>
+          <label className="block text-[11px]">TRA reference
+            <input className={inputClass} value={traReference} onChange={(e) => setTraReference(e.target.value)} />
+          </label>
+          {filingAction === "RECEIPT" && <>
+            <label className="block text-[11px]">Receipt document ID
+              <input className={inputClass} value={receiptDocumentId} onChange={(e) => setReceiptDocumentId(e.target.value)} />
+            </label>
+            <label className="block text-[11px]">Decision
+              <select className={inputClass} value={receiptDecision} onChange={(e) => setReceiptDecision(e.target.value as "ACCEPTED" | "REJECTED")}><option value="ACCEPTED">Accepted by TRA</option><option value="REJECTED">Rejected by TRA</option></select>
+            </label>
+          </>}
+          <label className="block text-[11px]">Date and time
+            <input className={inputClass} type="datetime-local" value={actionAt} onChange={(e) => setActionAt(e.target.value)} />
+          </label>
+          <label className="block text-[11px]">Evidence / action notes
+            <textarea className={inputClass} rows={2} value={actionNotes} onChange={(e) => setActionNotes(e.target.value)} />
+          </label>
+          <button type="button" disabled={reviewBusy || traReference.trim().length < 6 || actionNotes.trim().length < 10 || !actionAt || (filingAction === "RECEIPT" && receiptDocumentId.trim().length < 3)} onClick={filingAction === "SUBMIT" ? recordManualSubmission : recordTraReceipt} className="rounded-lg bg-[#0b1d3a] px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-50">Save filing record</button>
+        </div>
+      )}
       {result && (
         <div className="space-y-3 rounded-xl border border-[color:var(--beyu-line)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
