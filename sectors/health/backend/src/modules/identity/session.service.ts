@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHash, randomUUID } from "crypto";
-import { IdentityRepository, StoredSession } from "./identity.repository";
+import { IdentityRepository, StoredSession, TenantRlsContext } from "./identity.repository";
 
 /**
  * Persistent session management with:
