@@ -65,7 +65,7 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
     noeliaReliance: "BLOCKED_PENDING_OFFICIAL_SOURCE_ACQUISITION_AND_SPECIALIST_REVIEW",
     notes: [
-      "OAG MIS identifies GN 158G of 2026, publication 30 June 2026 and commencement 1 July 2026; its official two-page? PDF endpoint is available at the OAG MIS download URL.",
+      "OAG MIS identifies GN 158G of 2026, publication 30 June 2026 and commencement 1 July 2026; its official one-page PDF endpoint is available at the OAG MIS download URL.",
       "The official PDF text has been inspected, but its original bytes have not been stored in the governed documents registry or checksum-verified in this repository task; specialist review remains pending.",
       "The official text amends regulation 58 of the Tax Administration (General) Regulations, 2016: a person conducting business on social media must display the Certificate, TIN or Tax Clearance Certificate visibly on the profile/account. Confirm exact application and privacy implications with a tax specialist before operationalizing.",
     ],
