@@ -22,13 +22,15 @@ export function TanzaniaSubsidiaryLegislationReview() {
           <article key={instrument.code} className="rounded-lg border border-[color:var(--beyu-line)] p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[12px] font-semibold">{instrument.title}</span>
-              <Badge tone={instrument.sourceStatus === "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED" ? "green" : "amber"}>
+              <Badge tone={instrument.sourceStatus === "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED" ? "amber" : "slate"}>
                 {instrument.governmentNotice}
               </Badge>
               <Badge tone="slate">
-                {instrument.sourceStatus === "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED"
-                  ? "Official metadata · text pending"
-                  : "Reproduced copy · Gazette match pending"}
+                {instrument.sourceStatus === "OFFICIAL_OAG_PDF_AVAILABLE_NOT_STORED_OR_CHECKSUMMED"
+                  ? "OAG PDF available · checksum pending"
+                  : instrument.sourceStatus === "OFFICIAL_METADATA_CONFIRMED_TEXT_NOT_ACQUIRED"
+                    ? "Official metadata · text pending"
+                    : "Reproduced copy · Gazette match pending"}
               </Badge>
             </div>
             <div className="mt-2 grid gap-1 text-[10px] sm:grid-cols-2">
@@ -39,6 +41,11 @@ export function TanzaniaSubsidiaryLegislationReview() {
               {instrument.notes.map((note) => <li key={note}>{note}</li>)}
             </ul>
             <div className="mt-3 flex flex-wrap gap-3 text-[10.5px]">
+              {instrument.officialPdfUri && (
+                <a className="underline underline-offset-2" href={instrument.officialPdfUri} target="_blank" rel="noreferrer">
+                  Official OAG PDF
+                </a>
+              )}
               {instrument.officialMetadataUri && (
                 <a className="underline underline-offset-2" href={instrument.officialMetadataUri} target="_blank" rel="noreferrer">
                   OAG official metadata
