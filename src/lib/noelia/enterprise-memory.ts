@@ -155,6 +155,9 @@ export class BeyuNoeliaMemoryService {
       }
       const officialHosts = (process.env.TAX_OFFICIAL_SOURCE_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
       const tax = parsed.taxLegalAuthority;
+      if (tax.specialistReviewerId !== context.principal.userId) {
+        return { headline: "Tax source ingest denied: the named specialist reviewer must be the authenticated ingest actor.", findings: [{ label: "Specialist identity", value: "REVIEWER_IDENTITY_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }], humanReviewRequired: true, confidence: 1 };
+      }
       if (parsed.scopeType === "GLOBAL") throw new Error("Tax legal sources must be bound to an authorized tenant/country scope and an uploaded original document.");
       const [originalDocument] = await db.select().from(documents).where(and(
         eq(documents.id, tax.originalDocumentId),
