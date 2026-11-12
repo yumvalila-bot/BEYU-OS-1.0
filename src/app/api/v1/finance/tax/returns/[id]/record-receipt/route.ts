@@ -54,7 +54,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return apiError("RECEIPT_EVIDENCE_INVALID", "A same-tenant, same-entity, same-jurisdiction TAX_FILING_RECEIPT document must be stored, checksum-backed and specialist-verified before recording acceptance/rejection.", 422, ctx.traceId);
     }
     const receivedAt = new Date(body.receivedAt);
-    if (Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now() + 5 * 60_000) {
+    if (Number.isNaN(receivedAt.getTime()) || receivedAt.getTime() > Date.now() + 5 * 60_000 || !draft.submittedAt || receivedAt < draft.submittedAt) {
       return apiError("INVALID_RECEIPT_TIME", "Receipt timestamp must be valid and cannot be materially in the future.", 422, ctx.traceId);
     }
     const filingPack = {
