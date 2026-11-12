@@ -252,33 +252,34 @@ function HomePageContent() {
             <div>
               <h5>About BEYU</h5>
               <ul>
-                <li>Institutional Structure</li>
-                <li>Governance</li>
-                <li>Sector OS</li>
-                <li>Health OS</li>
+                <li><a href="#architecture">Institutional Structure</a></li>
+                <li><a href="#architecture">Governance</a></li>
+                <li><a href="#sector-os">Sector OS</a></li>
+                <li><a href="/os/health">Health OS</a></li>
               </ul>
             </div>
             <div>
-              <h5>Finance_OS</h5>
+              <h5>Sector OS</h5>
               <ul>
-                <li>Agriculture_OS</li>
-                <li>Ujenzi_OS</li>
-                <li>BEYU Foundation</li>
+                <li><a href="/os/finance">Finance OS</a></li>
+                <li><a href="/os/agriculture">Agriculture OS</a></li>
+                <li><a href="/os/ujenzi">Ujenzi OS</a></li>
+                <li><a href="/os/foundation">BEYU Foundation</a></li>
               </ul>
             </div>
             <div>
               <h5>NOELIA AI</h5>
               <ul>
-                <li>Enterprise Capabilities</li>
-                <li>Technology</li>
-                <li>Contact</li>
+                <li><a href="#capabilities">Enterprise Capabilities</a></li>
+                <li><a href="#technology">Technology</a></li>
+                <li><a href="#contact">Contact</a></li>
               </ul>
             </div>
             <div>
-              <h5>Privacy Policy</h5>
+              <h5>Governance</h5>
               <ul>
-                <li>Terms &amp; Conditions</li>
-                <li>Security</li>
+                <li><a href="/sign-in">Privacy &amp; account access</a></li>
+                <li><a href="/sign-in">Security &amp; sign in</a></li>
               </ul>
             </div>
           </div>
