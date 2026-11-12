@@ -30,6 +30,8 @@ export type ResolvedBeyuActor = {
   };
   tenantId: string;
   role: string;
+  countryCode: string;
+  entityCode: string;
   canonicalUserId: string;
 };
 
