@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 type Entity = { id: string; name: string; country: string };
-type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX";
+type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
 type Result = {
   calculation: {
     status: string;
@@ -32,6 +32,9 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
   const [records, setRecords] = useState("COMPLETE");
   const [whtCategory, setWhtCategory] = useState("SERVICE_FEE");
   const [payeeResidency, setPayeeResidency] = useState("RESIDENT");
+  const [cargoType, setCargoType] = useState("DRY_NON_PETROLEUM");
+  const [importOrigin, setImportOrigin] = useState("NON_EAC");
+  const [originEvidenceVerified, setOriginEvidenceVerified] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,7 +56,9 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
               ? { ...common, annualTurnoverTzs: value, records }
               : taxType === "VAT"
                 ? { ...common, taxableSuppliesTzs: value }
-                : { ...common, grossPaymentTzs: value, category: whtCategory, payeeResidency };
+                : taxType === "WITHHOLDING_TAX"
+                  ? { ...common, grossPaymentTzs: value, category: whtCategory, payeeResidency }
+                  : { ...common, cargoType, importOrigin, originEvidenceVerified, ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
       const response = await fetch("/api/v1/finance/tax/compute", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -92,9 +97,10 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
             <option value="PRESUMPTIVE_INCOME_TAX">Presumptive income tax — annual</option>
             <option value="VAT">VAT — taxable supplies</option>
             <option value="WITHHOLDING_TAX">Withholding tax</option>
+            <option value="CUSTOMS_PROCESSING_FEE">Customs processing fee — GN 158D</option>
           </select>
         </label>
-        <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : "Taxable income (TZS)"}
+        <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : "Taxable income (TZS)"}
           <input className={inputClass} type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>
         <label className="text-[11.5px]">Period start
@@ -120,6 +126,27 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
               <option value="INCOMPLETE">Incomplete records</option>
             </select>
           </label>
+        )}
+        {taxType === "CUSTOMS_PROCESSING_FEE" && (
+          <>
+            <label className="text-[11.5px]">Cargo type
+              <select className={inputClass} value={cargoType} onChange={(e) => setCargoType(e.target.value)}>
+                <option value="DRY_NON_PETROLEUM">Dry cargo — non-petroleum</option>
+                <option value="WET_PETROLEUM">Wet petroleum cargo</option>
+              </select>
+            </label>
+            <label className="text-[11.5px]">Import origin
+              <select className={inputClass} value={importOrigin} onChange={(e) => setImportOrigin(e.target.value)}>
+                <option value="NON_EAC">Outside EAC</option>
+                <option value="EAC_NON_ORIGINATING">EAC goods — not originating</option>
+                <option value="EAC_ORIGINATING">EAC originating goods</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 self-end text-[11.5px]">
+              <input type="checkbox" checked={originEvidenceVerified} onChange={(e) => setOriginEvidenceVerified(e.target.checked)} />
+              Rules of Origin evidence verified
+            </label>
+          </>
         )}
         {taxType === "WITHHOLDING_TAX" && (
           <>
