@@ -18,6 +18,8 @@ export type TaxSourceRef = {
   title: string;
   uri: string;
   provision: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
   evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING";
 };
 
@@ -76,6 +78,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     title: "OAG — Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026",
     uri: "https://oagmis.oag.go.tz/portal/legislation/4645/download",
     provision: "First Schedule: 1% of FOB value for dry cargo other than petroleum; TZS 20m per vessel for specified wet petroleum cargo",
+    effectiveFrom: "2026-07-01",
     evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
   },
   OAG_INCOME_TAX_ACT_2023: {
@@ -99,6 +102,7 @@ export type TaxCalculation = {
   sourceRefs: TaxSourceRef[];
   warnings: string[];
   formulaVersion: "TZ-MAINLAND-TAX-2026.1";
+  sourceSnapshotDate: "2026-11-12";
 };
 
 export class TaxCalculationError extends Error {
@@ -166,6 +170,7 @@ function result(
       ...warnings,
     ],
     formulaVersion: "TZ-MAINLAND-TAX-2026.1",
+    sourceSnapshotDate: "2026-11-12",
   };
 }
 
@@ -345,7 +350,7 @@ export function calculatePresumptiveIncomeTax(input: {
     tax = input.records === "COMPLETE" ? roundBps(turnover - 4_000_000, 300) : 100000;
     label = "Turnover above TZS 4m and not exceeding TZS 7m";
   }
-  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
+  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["Finance Act No. 2 of 2026 commenced 1 July 2026; a 2026 calendar-year computation crosses the commencement date and requires specialist transition treatment before finalization.", "Confirm statutory eligibility (resident individual, business-only income, excluded professions/services), section 43 record-keeping status and the GN 158B/Commissioner-approved new-trader relief before finalizing."]);
 }
 
 export function calculateCustomsProcessingFee(input: {
