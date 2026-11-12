@@ -367,6 +367,7 @@ export function validateTaxAuditEvidence(evidence: TaxAuditEvidence): string[] {
 
 /** NOELIA may explain and compare; it may not elevate model output into legal authority. */
 export function validateNoeliaTaxCitations(input: {
+  jurisdictionCode: string;
   asOf: string;
   sources: readonly TaxLegalAuthorityRecord[];
   citedSourceCodes: readonly string[];
