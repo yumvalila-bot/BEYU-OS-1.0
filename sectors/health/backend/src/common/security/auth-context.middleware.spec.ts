@@ -146,7 +146,7 @@ describe("AuthContextMiddleware (DB-driven authorization freshness)", () => {
     const doctorId = await freshDoctor();
     const token = await signToken(doctorId, await repo.getSecurityVersion(doctorId), tenantAId);
     const claims = jwt.verify<{ jti: string }>(token, { secret: SECRET });
-    await sessions.revokeByJti(doctorId, claims.jti);
+    await sessions.revokeByJti(doctorId, claims.jti, { tenantId: tenantAId, countryCode: "TZ", entityCode: "BEYU" });
     await expect(enter(token)).rejects.toThrow("SESSION_INVALID");
   });
 
