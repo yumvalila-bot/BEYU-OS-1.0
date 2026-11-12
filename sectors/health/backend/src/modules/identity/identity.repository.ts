@@ -26,6 +26,8 @@ export interface StoredTenant {
   tenant_code: string;
   name: string;
   status: string;
+  country_code: string | null;
+  entity_code: string | null;
   metadata: Record<string, unknown>;
   created_at: Date;
   updated_at: Date;
@@ -312,6 +314,8 @@ export class IdentityRepository {
       tenant_code: String(row.tenant_code),
       name: String(row.name),
       status: String(row.status),
+      country_code: row.country_code == null ? null : String(row.country_code),
+      entity_code: row.entity_code == null ? null : String(row.entity_code),
       metadata: (row.metadata as Record<string, unknown>) ?? {},
       created_at: new Date(row.created_at as string),
       updated_at: new Date(row.updated_at as string),
