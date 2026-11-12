@@ -113,7 +113,7 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 75-migration inventory and rejects stale baselines", async () => {
+  it("requires the exact 77-migration inventory and rejects stale baselines", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
@@ -154,9 +154,9 @@ describe("P3 expand/contract — P2 integration", () => {
     // immutable evidence triggers, and security controls without breaking a
     // concurrently running pre-0075 writer. Historical SQL stays byte-exact.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(76);
+    const result = verifyP2MigrationIntegrity(77);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(76);
+    expect(result.count).toBe(77);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);
