@@ -38,6 +38,8 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(computeRoute).not.toContain('rate: z.enum(["STANDARD_18", "ZERO_RATED"])');
     expect(computeRoute).not.toContain("originEvidenceVerified: z.boolean()");
     expect(computeRoute).toContain("originEvidenceVerified: false");
+    expect(computeRoute).toContain('"taxableValueTzs" in body');
+    expect(computeRoute).toContain('"farmGatePriceTzs" in body');
   });
 
   it("records only manual TRA submission and checksum-backed receipt evidence", () => {
