@@ -11,6 +11,10 @@ CREATE INDEX IF NOT EXISTS idx_health_assertion_replays_expiry
 
 -- The Health runtime role performs replay cleanup and atomic jti consumption.
 -- It is a non-owner NOSUPERUSER/NOBYPASSRLS role; no BEYU DB grants are involved.
-GRANT SELECT, INSERT, DELETE
-  ON TABLE beyu_identity.authorization_assertion_replays
-  TO beyu_health_runtime;
+DO $grant$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_health_runtime') THEN
+    EXECUTE 'GRANT SELECT, INSERT, DELETE ON TABLE beyu_identity.authorization_assertion_replays TO beyu_health_runtime';
+  END IF;
+END
+$grant$;
