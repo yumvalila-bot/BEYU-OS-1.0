@@ -540,6 +540,13 @@
       "when": 1794510960000,
       "tag": "0076_tax_legal_authority_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794510961000,
+      "tag": "0077_tax_return_drafts",
+      "breakpoints": true
     }
   ]
 }
