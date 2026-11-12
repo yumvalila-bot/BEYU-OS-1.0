@@ -54,12 +54,12 @@ describe("Tanzania 2026 tax subsidiary legislation verification", () => {
     expect(presumptive?.notes.join(" ")).toContain("chaining");
     expect(vat?.notes.join(" ")).toContain("100 skilled personnel");
     expect(payments?.notes.join(" ")).toContain("six-month transition");
-    expect(customs?.notes.join(" ")).toContain("1% FOB");
+    expect(customs?.notes.join(" ")).toContain("1% of FOB value");
     expect(excise?.notes.join(" ")).toContain("90-day transition");
     expect(excise?.notes.join(" ")).toContain("12 November 2026");
   });
 
-  it("records GN 158G using official OAG metadata without claiming text ingestion", () => {
+  it("records GN 158G official PDF endpoint without claiming bytes stored or ingested", () => {
     const taxAdmin = instruments.find((item) => item.code === "TZ_GN_158G_2026_TAX_ADMIN_GENERAL");
     expect(taxAdmin).toMatchObject({
       governmentNotice: "158G of 2026",
