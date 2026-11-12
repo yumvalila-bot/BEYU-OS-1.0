@@ -56,7 +56,8 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 3000000, records: "COMPLETE" }).taxAmountTzs).toBe(0);
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 6000000, records: "INCOMPLETE" }).taxAmountTzs).toBe(100000);
     expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 10000000, records: "COMPLETE" }).taxAmountTzs).toBe(180000);
-    expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "COMPLETE" }).taxAmountTzs).toBe(480000);
+    expect(calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "INCOMPLETE" }).taxAmountTzs).toBe(480000);
+    expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "COMPLETE" })).toThrow(TaxCalculationError);
     expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 201000000, records: "COMPLETE" })).toThrow(TaxCalculationError);
     expect(() => calculatePresumptiveIncomeTax({ annualTurnoverTzs: 6000000, records: "COMPLETE", newBusinessReliefApproved: true })).toThrow(TaxCalculationError);
   });
@@ -88,6 +89,21 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(calculateCustomsProcessingFee({ cargoType: "DRY_NON_PETROLEUM", importOrigin: "EAC_ORIGINATING", originEvidenceVerified: true, fobValueTzs: 10000000 }).taxAmountTzs).toBe(0);
     expect(() => calculateCustomsProcessingFee({ cargoType: "WET_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, vesselCount: 0 })).toThrow(TaxCalculationError);
     expect(() => calculateCustomsProcessingFee({ cargoType: "DRY_NON_PETROLEUM", importOrigin: "NON_EAC", originEvidenceVerified: false, fobValueTzs: 10000000, exemptionClaimed: true })).toThrow(TaxCalculationError);
+  });
+
+  it("prepares the TRA quarterly estimated-tax calendar for calendar-year entities", () => {
+    const taxpayer = { legalEntityId: "entity-1", legalName: "Example Ltd", tin: "123456789" };
+    const presumptive = prepareTaxFilingPack({
+      taxpayer, periodStart: "2026-01-01", periodEnd: "2026-12-31",
+      calculation: calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "INCOMPLETE" }),
+    });
+    expect(presumptive.dueDate).toBeNull();
+    expect(presumptive.paymentMilestones.map((item) => item.dueDate)).toEqual(["2026-03-31", "2026-06-30", "2026-09-30", "2026-12-31"]);
+    const small = prepareTaxFilingPack({
+      taxpayer, periodStart: "2026-01-01", periodEnd: "2026-12-31",
+      calculation: calculatePresumptiveIncomeTax({ annualTurnoverTzs: 3000000, records: "COMPLETE" }),
+    });
+    expect(small.paymentMilestones).toHaveLength(0);
   });
 
   it("prepares WHT/PAYE due dates and annual income tax deadline", () => {
