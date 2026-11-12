@@ -111,3 +111,8 @@ The official Office of the Solicitor General e-Library PDF is the enacted Financ
 - VAT Act section 71(5)–(6): VAT withheld is paid within ten days after the tax period and the withholding VAT statement filed within ten days of the month following the tax period, section 95.
 
 The OSG-hosted original PDF text has been inspected, but its original bytes have not yet been stored/checksummed in the governed `documents` registry. This source is therefore not yet AUTHORITATIVE for NOELIA or final liability activation.
+
+
+### Forest-produce single instalment tax
+
+The estimate uses Income Tax Act section 116A as amended by Finance Act No. 2 of 2026 section 25: 2% of the greatest of farm-gate price, purchase price or Tanzania Forest Services value. The calculation accepts the four statutory trigger events: receipt of payment, produce about to be transported, transfer of possession/use/control, or payment of forest cess. It requires the taxpayer to confirm instalment-payer status and retain valuation evidence. GN 158F reproduced text describes electronic payment, buyer payment on behalf, a ten-day certificate validity, transport prohibition without a certificate, inspection and a 100-currency-point penalty. The GN 158F original Gazette match and checksum remain outstanding; no certificate or transport-clearance workflow is activated.
