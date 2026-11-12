@@ -77,6 +77,10 @@ describe("IDOR isolation matrix (Phase 11)", () => {
       "/src/integrations/beyu/hive/",
       "/src/integrations/beyu/noelia/",
       "/src/integrations/beyu/governance/",
+      // This call is tenant-bound by the Health-local SECURITY DEFINER
+      // resolver's canonical-user + BEYU-tenant join and active-membership check.
+      // The static scanner cannot see the tenant predicate inside that function.
+      "/src/modules/identity/beyu-authorization-assertion.service.ts",
       "/src/modules/health/health.service.ts",
     ];
     const realViolations = violations.filter(
