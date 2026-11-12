@@ -316,3 +316,45 @@ export const taxStrategyAssessments = pgTable("tax_strategy_assessments", {
   assessedBy: text("assessed_by").notNull(),
   assessedAt: timestamp("assessed_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+
+/**
+ * Tax return drafts are tenant/entity scoped working papers. They never
+ * represent an accepted TRA return or an approved tax liability posting.
+ */
+export const taxReturnDrafts = pgTable(
+  "tax_return_drafts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull().references(() => tenants.id),
+    legalEntityId: text("legal_entity_id").notNull().references(() => legalEntities.id),
+    taxType: text("tax_type").notNull(),
+    jurisdictionCode: text("jurisdiction_code").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    dueDate: date("due_date"),
+    amountPayable: numeric("amount_payable", { precision: 18, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("TZS"),
+    calculationVersion: text("calculation_version").notNull(),
+    calculationPayload: jsonb("calculation_payload").$type<Record<string, unknown>>().notNull(),
+    filingPack: jsonb("filing_pack").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull().default("DRAFT"),
+    classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdBy: text("created_by").notNull(),
+    specialistReviewerId: text("specialist_reviewer_id"),
+    specialistReviewedAt: timestamp("specialist_reviewed_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    externalReference: text("external_reference"),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tax_return_drafts_tenant_idempotency_uidx").on(t.tenantId, t.idempotencyKey),
+    index("tax_return_drafts_tenant_entity_idx").on(t.tenantId, t.legalEntityId),
+    index("tax_return_drafts_due_status_idx").on(t.dueDate, t.status),
+  ],
+);
