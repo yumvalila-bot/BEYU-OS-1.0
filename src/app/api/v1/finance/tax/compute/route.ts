@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { jurisdictions, legalEntities } from "@/db/schema";
+import { jurisdictions, legalEntities, taxReturnDrafts } from "@/db/schema";
 import { apiError, apiOk, guarded, parseBody } from "@/lib/api";
 import { evaluatePolicy } from "@/lib/policy";
 import { tenantScopeIds } from "@/lib/tenant-scope";
@@ -80,10 +81,34 @@ export async function POST(request: Request) {
         periodEnd: body.periodEnd,
         calculation,
       }) : null;
+      let draftId: string | null = null;
+      if (filingPack) {
+        draftId = randomUUID();
+        await db.insert(taxReturnDrafts).values({
+          id: draftId,
+          tenantId: entity.tenantId,
+          legalEntityId: entity.id,
+          taxType: calculation.taxType,
+          jurisdictionCode: "TZ_MAINLAND",
+          periodStart: body.periodStart,
+          periodEnd: body.periodEnd,
+          dueDate: filingPack.dueDate,
+          amountPayable: String(calculation.taxAmountTzs),
+          currency: "TZS",
+          calculationVersion: calculation.formulaVersion,
+          calculationPayload: calculation,
+          filingPack,
+          status: "DRAFT",
+          classification: "CONFIDENTIAL",
+          idempotencyKey: randomUUID(),
+          createdBy: ctx.principal.userId,
+        });
+      }
       return apiOk({
         entity: { id: entity.id, code: entity.code, legalName: entity.legalName, jurisdiction: jurisdiction.code },
         calculation,
         filingPack,
+        draftId,
         filingReadiness: filingPack ? "DRAFT_PACK_PREPARED" : "TIN_REQUIRED_TO_PREPARE_DRAFT_PACK",
         governance: {
           specialistReviewRequired: true,
