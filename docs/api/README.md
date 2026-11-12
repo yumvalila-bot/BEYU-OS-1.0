@@ -281,3 +281,20 @@ constitutionally.
 
 Path-versioned (`/api/v1`). Additive changes only within a major version; breaking changes require
 a new version plus an ADR. Event envelopes carry `specVersion` and `schemaVersion`.
+
+
+### FINANCE_OS — Tax computation and draft filing
+
+#### `POST /api/v1/finance/tax/compute`
+Capability: `finance:tax.assess`. Tenant/entity/classification scoped; currently supports Tanzania Mainland PAYE, standard CIT, annual individual income tax, presumptive tax, VAT, income-tax withholding and GN 158D customs processing-fee estimates. Returns a source-cited `PROVISIONAL_ESTIMATE`. With a registered nine-digit entity TIN it persists a `DRAFT` in `tax_return_drafts`; it never posts a liability or submits to TRA.
+
+#### `GET /api/v1/finance/tax/returns`
+Capability: `finance:tax.read`. Returns at most 50 saved draft summaries within authorized tenant/entity/classification scope.
+
+#### `POST /api/v1/finance/tax/returns/:id/review`
+Capability: `finance:tax.review`. Tax Specialist / Tax Manager, or Customs Specialist for customs-fee drafts, records a provisional review. The preparer cannot review their own draft. Review does not confer legal authority or submission approval.
+
+#### `POST /api/v1/finance/tax/returns/:id/approve`
+Capability: `finance:tax.approve` (Group CFO). Second-person approval is blocked until the stored calculation has AUTHORITATIVE status, an approved rule-set reference and only AUTHORITATIVE source references. No current provisional calculation can pass this gate. Approval never submits or pays.
+
+TRA submission is not automated. After a future approved submission integration or controlled manual filing, the official TRA reference and acceptance evidence must be recorded before the draft lifecycle can advance to SUBMITTED / ACCEPTED.
