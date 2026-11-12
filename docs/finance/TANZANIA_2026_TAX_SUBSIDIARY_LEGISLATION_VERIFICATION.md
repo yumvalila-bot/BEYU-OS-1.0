@@ -133,11 +133,24 @@ Before implementation, confirm:
 
 ### GN 158A, GN 158C and GN 158D
 
-The official OAG MIS metadata identifies these instruments and their publication/commencement dates, but the full text still needs to be downloaded and checked.
+The official OAG MIS metadata identifies these instruments and their publication/commencement dates. Reproduced copies or secondary analyses also provide discovery-level content leads, but the complete official texts still need to be downloaded and matched.
 
-- GN 158A: obtain the trailer classes, conditions and documentation required for VAT deferment.
-- GN 158C: obtain the precise transactions prescribed for mandatory electronic payment and the required proof-of-payment mechanism. Finance Act 2026 section 6 provides the enabling amendment to the Electronic Transactions Act; it does not by itself establish which transaction classes the Order prescribes.
-- GN 158D: obtain the fee base, covered customs transactions, exceptions, calculation, collection and transitional provisions before modifying customs-cost calculations.
+**GN 158A — VAT trailer deferment**
+- Reproduced copy: https://www.scribd.com/document/1076424796/Gn158a-The-Value-Added-Tax-Requirements-for-Deferment-Order-2026-Tgpa
+- The copy describes an order applying to manufacturers/assemblers of locally manufactured or assembled trailers under HS heading 87.16. It reports staffing thresholds (at least 100 skilled personnel and five qualified Tanzanian engineers), specified industrial premises and equipment, and Commissioner General inspection powers.
+- Treat these as provisional details. Verify exact equipment capacities, staffing evidence, eligibility scope and inspection requirements against the signed Order and VAT Act section 11 before designing a deferment workflow.
+
+**GN 158C — mandatory electronic payments**
+- Reproduced copy: https://lysonlaw.co.tz/index.php/guidelines/the-electronic-transactions-mandatory-electronic-payments-for-specified-transactions-order-2026
+- EY analysis: https://globaltaxnews.ey.com/news/2026-1753-tanzania-introduces-mandatory-electronic-payment-for-specific-identified-transactions
+- Reproduced and professional summaries describe specified categories including public transport, shopping/entertainment venues, education, accommodation/food/tourism, high-value property and vehicle transactions, and certain agricultural cooperative payments. They report a six-month transition for persons already receiving payments for specified transactions and protection for pre-existing contracts/payment arrangements.
+- Finance Act 2026 section 6 enables Gazette orders prescribing electronic payments and proof of payment for certain asset-transfer applications. The Act alone does not identify the complete schedule. Do not generalize this Order into a blanket cash prohibition; verify every schedule item, exception and transition clause.
+
+**GN 158D — customs processing fee**
+- Reproduced copy: https://lysonlaw.co.tz/index.php/guidelines/the-tanzania-revenue-authority-customs-processing-fee-regulations-2026?gate=1
+- Secondary analysis: https://tanzaniatradesystems.com/railway-development-levy-and-customs-processing-fee/
+- A secondary analysis reports a 1% FOB fee for dry cargo and TZS 20 million per vessel for specified fuel cargo, applying to imports for home consumption from outside EAC Partner States and EAC goods that fail Rules of Origin, with listed exemptions.
+- Do not change customs costing or charge amounts from the secondary summary. Verify the exact charge base, cargo definitions, exemptions, collection and transitional rules in the official GN 158D PDF.
 
 ## BEYU source-control and NOELIA rules
 
