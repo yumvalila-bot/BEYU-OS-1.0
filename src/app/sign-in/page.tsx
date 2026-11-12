@@ -13,7 +13,7 @@
  * WHY THIS FILE DELEGATES INSTEAD OF RE-IMPLEMENTING
  *   The requirement is ONE shared sign-in foundation with destination-specific
  *   presentation — explicitly NOT eight independent authentication
- *   implementations. `src/app/page.tsx` already IS that foundation: it resolves
+ *   implementations. `src/app/canonical-sign-in.tsx` is that foundation: it resolves
  *   the canonical destination from the `Host` header server-side through the one
  *   contract (`src/lib/canonical-hosts.ts`), renders `GovernedSignIn` for a
  *   destination host and the pre-existing BEYU control-plane surface for the
@@ -39,7 +39,7 @@
  *     the control-plane surface with every existing gate in force; it can never
  *     select a destination frontend.
  */
-import CanonicalSignInPage from "../page";
+import CanonicalSignInPage from "../canonical-sign-in";
 
 // Route segment configuration must be declared by the route module itself: the
 // canonical host, the session and the destination authorization are all
