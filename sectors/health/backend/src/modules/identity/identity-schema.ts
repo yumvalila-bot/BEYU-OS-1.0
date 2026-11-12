@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS beyu_identity.tenants (
   tenant_code  text NOT NULL UNIQUE,
   name         text NOT NULL,
   status       text NOT NULL DEFAULT 'active',  -- active | suspended | archived
+  country_code text,
+  entity_code  text,
   metadata     jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
