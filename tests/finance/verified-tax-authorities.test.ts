@@ -55,7 +55,7 @@ describe("Tanzania verified tax authority register", () => {
   it("records the enacted presumptive and VAT-withholding amendments", () => {
     const act = records.find((record) => record.code === "TZ_FINANCE_ACT_2026_NO_2")!;
     const notes = act.notes.join(" ");
-    expect(notes).toContain("4.0% above TZS 11m");
+    expect(notes).toContain("4.0% of turnover above TZS 11m");
     expect(notes).toContain("fifteen percent for goods and twelve percent for services");
     expect(notes).toContain("within ten days");
   });
