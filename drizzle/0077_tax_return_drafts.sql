@@ -36,12 +36,16 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
     'PRESUMPTIVE_INCOME_TAX', 'VAT', 'WITHHOLDING_TAX', 'CUSTOMS_PROCESSING_FEE'
   )),
   CONSTRAINT "tax_return_drafts_status_ck" CHECK ("status" IN (
-    'DRAFT', 'PENDING_SPECIALIST_REVIEW', 'APPROVED_FOR_SUBMISSION',
+    'DRAFT', 'PENDING_SPECIALIST_REVIEW', 'SPECIALIST_REVIEWED_PROVISIONAL', 'PENDING_FINANCE_APPROVAL', 'APPROVED_FOR_SUBMISSION',
     'SUBMITTED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
   )),
   CONSTRAINT "tax_return_drafts_classification_ck" CHECK ("classification"::text IN (
     'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'HIGHLY_RESTRICTED'
   )),
+  CONSTRAINT "tax_return_drafts_specialist_review_gate_ck" CHECK (
+    "status" NOT IN ('SPECIALIST_REVIEWED_PROVISIONAL', 'PENDING_FINANCE_APPROVAL', 'APPROVED_FOR_SUBMISSION', 'SUBMITTED', 'ACCEPTED')
+    OR ("specialist_reviewer_id" IS NOT NULL AND "specialist_reviewed_at" IS NOT NULL)
+  ),
   CONSTRAINT "tax_return_drafts_review_gate_ck" CHECK (
     "status" NOT IN ('APPROVED_FOR_SUBMISSION', 'SUBMITTED', 'ACCEPTED')
     OR (
