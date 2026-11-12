@@ -87,7 +87,7 @@ export const FINANCE_ACT_2026_CHANGE_INDEX: readonly FinanceAct2026Change[] = [
     sourcePages: "Printed pages 29–31",
     reviewGate: "CONSOLIDATION_AND_SPECIALIST_REVIEW_REQUIRED",
     operationalStatus: "INDEX_ONLY_NOT_A_TAX_RULE",
-    caveat: "The 2026 Single Instalment Tax on Forest Produce Regulations and the Local Government Finance Act forest cess interface must be verified. Do not generalize this provision to corporations or other forest-sector transactions. " + commonCaveat,
+    caveat: "Finance Act No. 11 of 2025, section 58, inserted the earlier section 116A at two percent and set its commencement for 1 January 2026. Finance Act No. 2 of 2026, section 25, repeals and replaces that section, retaining two percent but changing payment triggers and definitions. Reconcile transactions across the 1 July 2026 transition; verify the 2026 regulations and Local Government Finance Act forest-cess interface. Do not generalize to corporations or other forest-sector transactions. " + commonCaveat,
   },
   {
     code: "FA2026_IT_S118_SINGLE_INSTALMENT_LINK",
