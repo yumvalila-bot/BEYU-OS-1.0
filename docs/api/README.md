@@ -286,7 +286,7 @@ a new version plus an ADR. Event envelopes carry `specVersion` and `schemaVersio
 ### FINANCE_OS — Tax computation and draft filing
 
 #### `POST /api/v1/finance/tax/compute`
-Capability: `finance:tax.assess`. Tenant/entity/classification scoped; currently supports Tanzania Mainland PAYE, standard CIT, annual individual income tax, presumptive tax, VAT, Finance Act 2026 VAT withholding (3% goods / 6% services withheld; supplier share 15% / 12%; mixed 3:2), income-tax withholding and GN 158D customs processing-fee estimates. Returns a source-cited `PROVISIONAL_ESTIMATE`. With a registered nine-digit entity TIN it persists a `DRAFT` in `tax_return_drafts`; it never posts a liability or submits to TRA.
+Capability: `finance:tax.assess`. Tenant/entity/classification scoped; currently supports Tanzania Mainland PAYE, standard CIT, annual individual income tax, presumptive tax, VAT, Finance Act 2026 VAT withholding (3% goods / 6% services withheld; supplier share 15% / 12%; mixed 3:2), income-tax withholding and GN 158D customs processing-fee estimates and 2% forest-produce single instalment tax estimates. Returns a source-cited `PROVISIONAL_ESTIMATE`. With a registered nine-digit entity TIN it persists a `DRAFT` in `tax_return_drafts`; it never posts a liability or submits to TRA.
 
 #### `GET /api/v1/finance/tax/returns`
 Capability: `finance:tax.read`. Returns at most 50 saved draft summaries within authorized tenant/entity/classification scope.
