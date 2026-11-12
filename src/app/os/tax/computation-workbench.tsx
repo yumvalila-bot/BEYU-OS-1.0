@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Entity = { id: string; name: string; country: string };
-type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
+type TaxType = "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX" | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "FOREST_PRODUCE_SINGLE_INSTALMENT" | "CUSTOMS_PROCESSING_FEE";
 type SavedDraft = { id: string; legalEntityId: string; taxType: string; periodStart: string; periodEnd: string; dueDate: string | null; amountPayable: string; currency: string; status: string; createdAt: string };
 type Result = {
   calculation: {
@@ -36,6 +36,10 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
   const [records, setRecords] = useState("COMPLETE");
   const [whtCategory, setWhtCategory] = useState("SERVICE_FEE");
   const [vatSupplyType, setVatSupplyType] = useState("GOODS");
+  const [farmGatePrice, setFarmGatePrice] = useState("0");
+  const [purchasePrice, setPurchasePrice] = useState("0");
+  const [tfsValue, setTfsValue] = useState("0");
+  const [forestTrigger, setForestTrigger] = useState("PAYMENT_RECEIVED");
   const [payeeResidency, setPayeeResidency] = useState("RESIDENT");
   const [cargoType, setCargoType] = useState("DRY_NON_PETROLEUM");
 
@@ -155,7 +159,9 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
                   ? { ...common, taxableValueTzs: value, supplyType: vatSupplyType }
                   : taxType === "WITHHOLDING_TAX"
                   ? { ...common, grossPaymentTzs: value, category: whtCategory, payeeResidency }
-                  : { ...common, cargoType, importOrigin: "NON_EAC", ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
+                  : taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT"
+                    ? { ...common, farmGatePriceTzs: Number(farmGatePrice), purchasePriceTzs: Number(purchasePrice), tfsValueTzs: Number(tfsValue), trigger: forestTrigger }
+                    : { ...common, cargoType, importOrigin: "NON_EAC", ...(cargoType === "DRY_NON_PETROLEUM" ? { fobValueTzs: value } : { vesselCount: value }) };
       const response = await fetch("/api/v1/finance/tax/compute", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -195,13 +201,14 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
             <option value="PRESUMPTIVE_INCOME_TAX">Presumptive income tax — annual</option>
             <option value="VAT">VAT — taxable supplies</option>
             <option value="VAT_WITHHOLDING">VAT withholding — Finance Act 2026</option>
-            <option value="WITHHOLDING_TAX">Withholding tax</option>
+            <option value="WITHHOLDING_TAX">Income-tax withholding</option>
+            <option value="FOREST_PRODUCE_SINGLE_INSTALMENT">Forest produce — single instalment tax</option>
             <option value="CUSTOMS_PROCESSING_FEE">Customs processing fee — GN 158D</option>
           </select>
         </label>
-        <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "VAT_WITHHOLDING" ? "Taxable supply value (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : "Taxable income (TZS)"}
+        {taxType !== "FOREST_PRODUCE_SINGLE_INSTALMENT" && <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "VAT_WITHHOLDING" ? "Taxable supply value (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT" ? "Gross payment valuation inputs below" : "Taxable income (TZS)"}
           <input className={inputClass} type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </label>
+        </label>}
         <label className="text-[11.5px]">Period start
           <input className={inputClass} type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
         </label>
@@ -234,6 +241,21 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
               <option value="MIXED">Mixed — statutory 3:2 split</option>
             </select>
           </label>
+        )}
+        {taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT" && (
+          <>
+            <label className="text-[11.5px]">Farm-gate price (TZS)<input className={inputClass} type="number" min="0" value={farmGatePrice} onChange={(e) => setFarmGatePrice(e.target.value)} /></label>
+            <label className="text-[11.5px]">Purchase price (TZS)<input className={inputClass} type="number" min="0" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} /></label>
+            <label className="text-[11.5px]">Tanzania Forest Services value (TZS)<input className={inputClass} type="number" min="0" value={tfsValue} onChange={(e) => setTfsValue(e.target.value)} /></label>
+            <label className="text-[11.5px]">Statutory trigger
+              <select className={inputClass} value={forestTrigger} onChange={(e) => setForestTrigger(e.target.value)}>
+                <option value="PAYMENT_RECEIVED">Receipt of all/part payment</option>
+                <option value="TRANSPORT">Produce about to be transported</option>
+                <option value="POSSESSION_OR_CONTROL">Parting with possession, use or control</option>
+                <option value="FOREST_CESS_PAID">Payment of forest cess</option>
+              </select>
+            </label>
+          </>
         )}
         {taxType === "CUSTOMS_PROCESSING_FEE" && (
           <>
