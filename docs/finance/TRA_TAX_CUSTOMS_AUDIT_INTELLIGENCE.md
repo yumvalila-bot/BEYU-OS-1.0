@@ -117,3 +117,16 @@ Computation, customs, compliance, audit and NOELIA capability contracts are pres
 does not activate numeric tax calculations, HS determinations, filing calendars, return/payment
 actions or customs clearances. The tax rule registry remains empty until official source
 authentication and specialist-approved deterministic rules are complete.
+
+
+## Official OAG PDF endpoint verification — 12 November 2026
+
+The official OAG MIS PDF download endpoints have now been opened and their parsed text inspected for GN 158A, 158C, 158D and 158G:
+- GN 158A: https://oagmis.oag.go.tz/portal/legislation/4642/download
+- GN 158C: https://oagmis.oag.go.tz/portal/legislation/4644/download
+- GN 158D: https://oagmis.oag.go.tz/portal/legislation/4645/download
+- GN 158G: https://oagmis.oag.go.tz/portal/legislation/4648/download
+
+This confirms the official OAG PDF endpoints and enables text-level review. The original PDF bytes have not yet been stored in the governed `documents` registry, SHA-256 checksums have not been computed against those original files, and no specialist has approved ingestion. These records remain source-linked and NOELIA-blocked.
+
+The official text confirms the GN 158A trailer-manufacturer staffing/equipment criteria, GN 158C's scheduled electronic-payment transaction categories and transition, GN 158D's 1% FOB dry-cargo fee / TZS 20m per-vessel wet petroleum fee and exemptions, and GN 158G's social-media profile display amendment. See the full source dossier in `TANZANIA_2026_TAX_SUBSIDIARY_LEGISLATION_VERIFICATION.md`. Do not activate any tax/customs calculations or compliance actions from this text review alone.
