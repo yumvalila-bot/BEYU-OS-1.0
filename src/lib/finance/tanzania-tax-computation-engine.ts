@@ -11,14 +11,14 @@
  */
 export type TanzaniaTaxType =
   | "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX"
-  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
+  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "VAT_WITHHOLDING" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
 
 export type TaxSourceRef = {
   code: string;
   title: string;
   uri: string;
   provision: string;
-  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK";
+  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING";
 };
 
 export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
@@ -63,6 +63,13 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     uri: "https://www.tra.go.tz/page/corporation-tax",
     provision: "Corporate provisional/final return filing periods and instalment calendar",
     evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
+  },
+  OSG_FINANCE_ACT_2026: {
+    code: "TZ_FINANCE_ACT_2_2026",
+    title: "The Finance Act, No. 2 of 2026 — Office of the Solicitor General e-Library",
+    uri: "https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download",
+    provision: "Sections 27, 91 and 95: presumptive tax turnover schedule; VAT withholding rates for goods/services and section 71 payment/statement deadline",
+    evidenceStatus: "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
   },
   OAG_GN_158D_2026: {
     code: "TZ_GN_158D_2026",
@@ -247,6 +254,26 @@ export function calculateVat(input: {
   ]);
 }
 
+export function calculateVatWithholding(input: {
+  taxableValueTzs: number;
+  supplyType: "GOODS" | "SERVICES" | "MIXED";
+}): TaxCalculation {
+  const base = input.taxableValueTzs;
+  assertMoney(base, "Taxable supply value");
+  const goodsBase = input.supplyType === "GOODS" ? base : input.supplyType === "MIXED" ? Math.round((base * 3) / 5) : 0;
+  const servicesBase = base - goodsBase;
+  const goodsTax = roundBps(goodsBase, 1500);
+  const servicesTax = roundBps(servicesBase, 1200);
+  return result("VAT_WITHHOLDING", base, goodsTax + servicesTax, [
+    { label: "VAT withheld on goods — Finance Act 2026 s.91", baseTzs: goodsBase, rateBps: 1500, taxTzs: goodsTax },
+    { label: "VAT withheld on services — Finance Act 2026 s.91", baseTzs: servicesBase, rateBps: 1200, taxTzs: servicesTax },
+  ], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.TRA_VAT_2026], [
+    "Only an appointed VAT withholding agent may withhold. Verify the appointment, taxable status, supply characterization and tax period before use.",
+    "For mixed goods/services supplies, the statutory taxable value is apportioned 3:2 (goods:services).",
+    "The official Finance Act text is reviewed, but original PDF bytes still require storage/checksum in the governed documents registry and specialist ratification.",
+  ]);
+}
+
 export type WithholdingCategory =
   | "DIVIDEND_LISTED" | "DIVIDEND_OTHER" | "INTEREST" | "ROYALTY"
   | "OTHER_INVESTMENT_RETURN" | "COMMERCIAL_RENT" | "MINING_TECHNICAL_SERVICE"
@@ -321,7 +348,7 @@ export function calculatePresumptiveIncomeTax(input: {
     tax = input.records === "COMPLETE" ? roundBps(turnover - 4_000_000, 300) : 100000;
     label = "Turnover above TZS 4m and not exceeding TZS 7m";
   }
-  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
+  return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.OSG_FINANCE_ACT_2026, TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026, TANZANIA_TAX_SOURCES.TRA_INDIVIDUAL_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
 }
 
 export function calculateCustomsProcessingFee(input: {
@@ -361,6 +388,7 @@ export function computeTanzaniaTax(input:
   | { taxType: "PERSONAL_INCOME_TAX"; annualTaxableIncomeTzs: number; nonResident?: boolean }
   | { taxType: "PRESUMPTIVE_INCOME_TAX"; annualTurnoverTzs: number; records: "COMPLETE" | "INCOMPLETE"; newBusinessReliefApproved?: boolean }
   | { taxType: "VAT"; taxableSuppliesTzs: number; inputVatCreditTzs?: number; inputVatCreditVerified?: boolean; rate?: "STANDARD_18" | "ZERO_RATED" }
+  | { taxType: "VAT_WITHHOLDING"; taxableValueTzs: number; supplyType: "GOODS" | "SERVICES" | "MIXED" }
   | { taxType: "WITHHOLDING_TAX"; grossPaymentTzs: number; category: WithholdingCategory; payeeResidency: "RESIDENT" | "NON_RESIDENT"; treatyReliefClaimed?: boolean }
   | { taxType: "CUSTOMS_PROCESSING_FEE"; cargoType: "DRY_NON_PETROLEUM" | "WET_PETROLEUM"; importOrigin: "NON_EAC" | "EAC_NON_ORIGINATING" | "EAC_ORIGINATING"; originEvidenceVerified: boolean; fobValueTzs?: number; vesselCount?: number; exemptionClaimed?: boolean }
 ): TaxCalculation {
@@ -370,6 +398,7 @@ export function computeTanzaniaTax(input:
     case "PERSONAL_INCOME_TAX": return calculatePersonalIncomeTax(input);
     case "PRESUMPTIVE_INCOME_TAX": return calculatePresumptiveIncomeTax(input);
     case "VAT": return calculateVat(input);
+    case "VAT_WITHHOLDING": return calculateVatWithholding(input);
     case "WITHHOLDING_TAX": return calculateWithholdingTax(input);
     case "CUSTOMS_PROCESSING_FEE": return calculateCustomsProcessingFee(input);
   }
@@ -425,7 +454,7 @@ export function prepareTaxFilingPack(input: {
   }
   let dueDate: string | null = null;
   const paymentMilestones: Array<{ dueDate: string; label: string }> = [];
-  if (["VAT", "PAYE", "WITHHOLDING_TAX"].includes(input.calculation.taxType)) {
+  if (["VAT", "VAT_WITHHOLDING", "PAYE", "WITHHOLDING_TAX"].includes(input.calculation.taxType)) {
     const start = new Date(`${input.periodStart}T00:00:00Z`);
     const end = new Date(`${input.periodEnd}T00:00:00Z`);
     const firstDay = start.getUTCDate() === 1;
