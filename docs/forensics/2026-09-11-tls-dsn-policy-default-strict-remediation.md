@@ -94,9 +94,64 @@ weaker connection than another.
 Post-merge production verification is recorded in §5 by the governed pipeline
 (push-to-main `db-release` run) and the production health endpoint.
 
-## 5. Production verification — recorded after merge
+## 5. Production verification — VERIFIED (2026-09-11, post-merge)
 
-- `GET https://beyu-os-1-0.vercel.app/api/health` → target
-  `{"ok":true,"system":"BEYU-OS/1.0.0","checks":{"database":"UP"}}`
-- `db-release` push run: live preflight (admin DSN, now policy-valid, verified
-  TLS), deploy + verify, three-way release record, runtime verification.
+Merged as PR #53 (merge commit `8f5d90d0d518fb33054fdfc56d0a1b8b7f9a56f0`,
+2026-09-11T22:41:42Z). The push-to-main `db-release` run 34655116794 completed
+with EVERY job green:
+
+| Job | Result |
+| --- | --- |
+| Migration validation (scratch PostgreSQL 16) | ✓ 57s |
+| **Production preflight (read-only)** — the previously failing step | **✓ 24s** |
+| Production database deploy + verify (schema fingerprint · migrations · RLS · runtime-role constraints) | ✓ 33s — fingerprint `4122dfedf60ac130f269990bca1f4019` matches expected |
+| Three-way release record | ✓ tag `db-release-8f5d90d0-132` |
+| **Runtime verification (production /api/health)** | **✓ 5s — first poll reported database UP** |
+
+CI on main (run 34655116570): all 7 jobs green, including the committed-secret
+scan and the Root BEYU OS PostgreSQL security gate (full regression suite).
+
+Vercel deployment for main commit `8f5d90d`: state **success** —
+`https://vercel.com/yumvalila-1204s-projects/beyu-os-1-0/5pxBThqnuyb8SZ9hN4C2ShT25EdK`.
+
+Direct production endpoint verification (independent of the pipeline):
+
+```json
+GET https://beyu-os-1-0.vercel.app/api/health  →  HTTP 200
+{"ok":true,"system":"BEYU-OS/1.0.0","checks":{"database":"UP"},"latencyMs":690}
+```
+
+(repeated ~10 min later: `{"ok":true,...,"checks":{"database":"UP"},"latencyMs":675}`).
+The ~0.7 s latency is a real cold serverless connection: pinned-CA TLS
+handshake → SCRAM authentication → `select 1`. A `database: UP` report is only
+reachable through a successful verified connection on the canonical pool
+(`src/lib/db-health.ts`); no non-verifying connection path exists in the
+runtime (`rejectUnauthorized` hard-coded `true`; no `checkServerIdentity`
+override; trust narrowed to the pinned Supabase anchors; hostname verification
+active against the DNS host `aws-0-eu-west-3.pooler.supabase.com`).
+
+## 6. Regression checks — VERIFIED
+
+- CAP_POSTING lock: `tests/security/activation-gate.test.ts` (25 tests) and
+  `tests/architecture/constitutional-invariants.test.ts` green, locally and in
+  the CI root gate. No posting route or capability changes are in the diff.
+- RLS: the db-release deploy job's verify step re-asserted RLS-enabled tables
+  and policies against production; the CI root gate ran the tenant-isolation
+  and RLS suites green. No RLS change is in the diff.
+- Auth/governance/audit surfaces: full suite 3242 passed / 0 failed.
+
+## 7. Follow-up recommendations (not blockers)
+
+1. **Vercel `DATABASE_URL` hygiene (optional):** appending
+   `sslmode=verify-full` to the production DSN remains the recommended
+   spelling and is now accepted; `sslmode=require` is upgraded in code either
+   way, so this is documentation clarity, not a fix.
+2. **Supabase SSL enforcement:** the admin control probe (2026-09-11,
+   run 34648722567) connected to the session pooler over PLAINTEXT (the bare
+   admin DSN + pg's no-TLS default), which indicates the project's SSL
+   enforcement toggle is currently disabled. Enabling it in the Supabase
+   dashboard would reject plaintext clients; BEYU's runtime (verified TLS,
+   pinned CA) is unaffected. Owner action; not required for the remediated
+   connection, which is always verified.
+3. **GitHub `BEYU_ADMIN_DATABASE_URL`:** now policy-valid as configured; no
+   change required.
