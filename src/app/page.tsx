@@ -276,10 +276,10 @@ function HomePageContent() {
               </ul>
             </div>
             <div>
-              <h5>Governance</h5>
+              <h5>Access</h5>
               <ul>
-                <li><a href="/sign-in">Privacy &amp; account access</a></li>
-                <li><a href="/sign-in">Security &amp; sign in</a></li>
+                <li><a href="/sign-in">Sign In</a></li>
+                <li><a href="/os">BEYU OS</a></li>
               </ul>
             </div>
           </div>
