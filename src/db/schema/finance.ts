@@ -365,7 +365,7 @@ export const taxReturnDrafts = pgTable(
     check("tax_return_drafts_amount_ck", sql`${t.amountPayable} >= 0`),
     check("tax_return_drafts_currency_ck", sql`${t.currency} = 'TZS'`),
     check("tax_return_drafts_jurisdiction_ck", sql`${t.jurisdictionCode} = 'TZ_MAINLAND'`),
-    check("tax_return_drafts_type_ck", sql`${t.taxType} IN ('PAYE','CORPORATE_INCOME_TAX','PERSONAL_INCOME_TAX','PRESUMPTIVE_INCOME_TAX','VAT','VAT_WITHHOLDING','WITHHOLDING_TAX','CUSTOMS_PROCESSING_FEE')`),
+    check("tax_return_drafts_type_ck", sql`${t.taxType} IN ('PAYE','CORPORATE_INCOME_TAX','PERSONAL_INCOME_TAX','PRESUMPTIVE_INCOME_TAX','VAT','VAT_WITHHOLDING','WITHHOLDING_TAX','FOREST_PRODUCE_SINGLE_INSTALMENT','CUSTOMS_PROCESSING_FEE')`),
     check("tax_return_drafts_status_ck", sql`${t.status} IN ('DRAFT','PENDING_SPECIALIST_REVIEW','SPECIALIST_REVIEWED_PROVISIONAL','PENDING_FINANCE_APPROVAL','APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED','REJECTED','WITHDRAWN')`),
     check("tax_return_drafts_classification_ck", sql`${t.classification}::text IN ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED','HIGHLY_RESTRICTED')`),
     check("tax_return_drafts_specialist_review_gate_ck", sql`${t.status} NOT IN ('SPECIALIST_REVIEWED_PROVISIONAL','PENDING_FINANCE_APPROVAL','APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED') OR (${t.specialistReviewerId} IS NOT NULL AND ${t.specialistReviewedAt} IS NOT NULL)`),
@@ -374,4 +374,4 @@ export const taxReturnDrafts = pgTable(
     check("tax_return_drafts_acceptance_gate_ck", sql`${t.status} <> 'ACCEPTED' OR (${t.acceptedAt} IS NOT NULL AND ${t.externalReference} IS NOT NULL AND ${t.receiptDocumentId} IS NOT NULL)`),
     check("tax_return_drafts_filing_json_ck", sql`jsonb_typeof(${t.calculationPayload}) = 'object' AND jsonb_typeof(${t.filingPack}) = 'object'`),
   ],
-);
+).enableRLS();
