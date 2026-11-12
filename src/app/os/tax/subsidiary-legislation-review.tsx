@@ -50,6 +50,15 @@ export function TanzaniaSubsidiaryLegislationReview() {
                 </a>
               ))}
             </div>
+            {instrument.supportingAnalysisUris && instrument.supportingAnalysisUris.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-3 text-[10.5px]">
+                {instrument.supportingAnalysisUris.map((uri) => (
+                  <a key={uri} className="underline underline-offset-2" href={uri} target="_blank" rel="noreferrer">
+                    Professional analysis
+                  </a>
+                ))}
+              </div>
+            )}
             <p className="mt-2 text-[9.5px] beyu-muted">
               Not ingested · NOELIA reliance blocked pending official source acquisition and specialist review
             </p>
