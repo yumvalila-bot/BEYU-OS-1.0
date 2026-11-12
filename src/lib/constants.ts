@@ -1057,6 +1057,7 @@ export const ROLES: Record<
       "finance:tax.read",
       "finance:tax.assess",
       "finance:tax.review",
+      "finance:tax.receipt",
       "documents:registry.read",
       "audit:log.read",
     ],
