@@ -13,8 +13,8 @@ The new deterministic module is `src/lib/finance/tanzania-tax-computation-engine
 | PAYE | Resident primary progressive monthly bands; non-resident employee 15%; secondary employment 30%; non-full-time director 15% | Monthly Mainland bands are published by TRA under Income Tax for Individuals; special categories and benefits-in-kind need additional schedules/review. |
 | Corporate income tax | Standard 30% of supplied taxable income | Income Tax Act Cap. 332 R.E.2023 First Schedule para 3(1). Incentives, sector regimes, loss rules, credits and PE repatriated income are not computed. |
 | Personal income tax | Resident annual progressive bands; non-resident 30% | Income Tax Act Cap. 332 R.E.2023 First Schedule para 1. Special investment-gain/pension rules, reliefs and credits excluded. |
-| Presumptive income tax | Published TRA turnover/records schedule up to TZS 200m; complete-record rate above TZS 11m is blocked because the published table does not show a distinct value | Uses current TRA public guide. New-trader 12-month relief is deliberately not applied because GN 158B official Gazette authentication and Commissioner approval are outstanding. Eligibility/excluded professions need specialist confirmation. |
-| VAT | Mainland standard 18%, zero-rated supplies, verified input-credit subtraction | TRA VAT guidance. Input credits are excluded unless the caller explicitly marks evidence verified. Exempt/mixed supplies, reverse charge, imports, apportionment and special relief require further rule modules. |
+| Presumptive income tax | Finance Act 2026 First Schedule: up to TZS 200m; 4% turnover above TZS 11m; 3% marginal/flat amounts in lower bands | Uses enacted Finance Act 2026 table; the first-12-month new-business exemption is not applied without verified application/Commissioner approval and authenticated GN 158B procedure. Eligibility/excluded professions need specialist confirmation. |
+| VAT | Mainland standard 18%, zero-rated supplies, verified input-credit subtraction | TRA VAT guidance. Input credits are excluded at the API boundary unless server-side evidence verification is added. Exempt/mixed supplies, reverse charge, imports, apportionment and special relief require further rule modules. |\n| VAT withholding | Finance Act 2026 s.91: 15% goods, 12% services; mixed supply taxable value apportioned 3:2 | Requires appointed withholding-agent status and transaction validation. Finance Act 2026 s.95: pay withheld VAT within ten days after the tax period and file the statement within ten days of the following month. |
 | Income-tax withholding | Published TRA payment-category schedule for supported categories and residency | Treaty relief is rejected unless a separately authenticated treaty workflow exists. Exemptions and category characterization require review. |
 | Customs processing fee | GN 158D 1% FOB dry cargo other than petroleum; TZS 20m per vessel for specified wet petroleum cargo | Fee estimate only. Requires covered home-consumption import, verified origin facts where EAC goods are concerned, cargo characterization and exemption review. No customs duty is calculated. |
 
@@ -24,7 +24,7 @@ Sources:
 - TRA withholding-tax guide: https://www.tra.go.tz/page/withholding-tax
 - TRA individual-income/presumptive guide: https://www.tra.go.tz/page/income-tax-for-individuals
 - TRA corporation-tax guide: https://www.tra.go.tz/page/corporation-tax
-- TRA-hosted Income Tax Act Cap. 332 R.E.2023 PDF: https://www.tra.go.tz/images/uploads/acts/The_Income_Tax_Act.pdf
+- TRA-hosted Income Tax Act Cap. 332 R.E.2023 PDF: https://www.tra.go.tz/images/uploads/acts/The_Income_Tax_Act.pdf\n- Office of the Solicitor General — Finance Act No. 2 of 2026 (official 57-page Act PDF): https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download
 - OAG GN 158D of 2026: https://oagmis.oag.go.tz/portal/legislation/4645/download
 
 ## 2. API and workspace
@@ -52,7 +52,7 @@ The compute API creates DRAFT records. A separate specialist-review endpoint can
 ## 4. Filing-calendar rules currently encoded
 
 - VAT: 20th day of the following month, per TRA VAT guidance.
-- PAYE / income tax withheld: 7 days after month-end, based on Income Tax Act section 109 and TRA withholding guidance.
+- PAYE / income-tax withholding: 7 days after month-end, based on Income Tax Act section 109 and TRA withholding guidance. VAT withholding: payment within ten days after the tax period and statement within ten days of the following month, under Finance Act 2026 section 95.
 - Corporate/personal annual return: six months after the end of the accounting/year-of-income period, as described by TRA corporation-tax guidance.
 
 These dates are used only to prefill draft packs. The UI asks for the period; the engine does not silently invent a period. For calendar-year corporate, individual and presumptive cases, the pack also lists TRA's four estimated-tax instalment dates (31 March, 30 June, 30 September, 31 December). Presumptive taxpayers with assessed tax not exceeding TZS 50,000 receive no instalment schedule. The taxpayer's approved accounting period, public holidays/business-day treatment, filing extensions and current portal instructions still need confirmation.
@@ -95,8 +95,18 @@ Required CI still includes typecheck, lint, production build, focused tax tests,
 
 ## 9. Current public guidance cross-check — 12 November 2026
 
-The current TRA Individual Income Tax guide expressly publishes Mainland monthly bands (TZS 270,000; 520,000; 760,000; 1,000,000), the presumptive turnover/record-keeping schedule, eligibility criteria, first-year relief application, and the four instalment dates. The calculator uses the published bands; it refuses to auto-apply new-trader relief and blocks the ambiguous complete-record treatment above TZS 11m rather than guessing.
+The current TRA Individual Income Tax guide expressly publishes Mainland monthly bands (TZS 270,000; 520,000; 760,000; 1,000,000), the presumptive turnover/record-keeping schedule, eligibility criteria, first-year relief application, and the four instalment dates. The calculator uses the enacted 4% turnover rate above TZS 11m and does not auto-apply new-trader relief; the exemption requires an application and Commissioner satisfaction under Finance Act 2026 First Schedule paragraph 2.
 
-The current TRA VAT guide publishes the 18% Mainland standard rate, the 20th-of-following-month VAT return/payment deadline, the 3%/6% VAT-withholding rates and the 10th-of-following-month remittance deadline for VAT withheld. The current TRA withholding guide publishes income-tax WHT categories/rates and the seven-day-after-month-end remittance deadline. The current TRA corporation-tax guide publishes quarterly estimated-tax dates and final-return filing within six months of the accounting-period end.
+The current TRA VAT guide publishes the 18% Mainland standard rate and 20th-of-following-month VAT return/payment deadline. Finance Act No. 2 of 2026 section 91 supersedes the older 3%/6% VAT-withholding guidance: 15% applies to goods and 12% to services, with a 3:2 goods/services apportionment for mixed supplies. Section 95 provides the ten-day VAT-withholding payment and statement deadlines. The current TRA withholding guide publishes income-tax WHT categories/rates and the seven-day-after-month-end remittance deadline. The current TRA corporation-tax guide publishes quarterly estimated-tax dates and final-return filing within six months of the accounting-period end.
 
 These pages are official administrative guidance, not a substitute for original statutory text, gazetted notices, taxpayer-specific facts or specialist interpretation. They can change without this code changing. Every calculation therefore remains provisional and must be revalidated against the governed source registry before legal reliance.
+
+
+### Enacted Finance Act 2026 source crosswalk
+
+The official Office of the Solicitor General e-Library PDF is the enacted Finance Act No. 2 of 2026 (57 pages; assent 30 June 2026; commencement 1 July 2026). Relevant provisions include:
+- First Schedule paragraph 2 amendment: presumptive turnover threshold raised from TZS 100m to TZS 200m; turnover table retains 4.0% above TZS 11m; new-business 12-month exemption requires application and Commissioner satisfaction (sections 27 and page 31–32 of the Act).
+- VAT Act section 5(5): VAT withholding 15% for goods and 12% for taxable-person services; mixed supply apportionment 3:2 (goods:services), section 91.
+- VAT Act section 71(5)–(6): VAT withheld is paid within ten days after the tax period and the withholding VAT statement filed within ten days of the month following the tax period, section 95.
+
+The OSG-hosted original PDF text has been inspected, but its original bytes have not yet been stored/checksummed in the governed `documents` registry. This source is therefore not yet AUTHORITATIVE for NOELIA or final liability activation.
