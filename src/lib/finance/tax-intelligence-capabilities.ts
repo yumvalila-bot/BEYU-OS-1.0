@@ -238,15 +238,16 @@ export function evaluateTaxOperationGate(input: {
     if (!REQUIRED_APPROVER_ROLES[input.capability].includes(approval.approverRole)) {
       reasons.push("Approver role is not authorized for this tax capability.");
     }
-    if (!approval.approverId || !approval.approvalRef || !isTaxIsoDate(approval.approvedAt)) {
-      reasons.push("Approval identity, reference and date must be recorded.");
+    if (!approval.approverId || !approval.approvalRef || !isTaxIsoDate(approval.approvedAt) || approval.approvedAt > input.asOf) {
+      reasons.push("Approval identity and a valid approval date on or before the operation date must be recorded.");
     }
     if (approval.expiresAt && (!isTaxIsoDate(approval.expiresAt) || approval.expiresAt < input.asOf)) {
       reasons.push("Specialist approval has expired or has an invalid expiry date.");
     }
     if (approval.sourceCodes.length === 0 || approval.sourceCodes.some((code) =>
-      !effectiveSources.some((source) => source.sourceCode === code))) {
-      reasons.push("Approval must explicitly cover currently effective authenticated source codes.");
+      !effectiveSources.some((source) => source.sourceCode === code)) ||
+      effectiveSources.some((source) => !approval.sourceCodes.includes(source.sourceCode))) {
+      reasons.push("Approval must explicitly cover every source supplied for this operation, and only currently effective authenticated source codes.");
     }
   }
   if (effectiveSources.length === 0) {
@@ -324,6 +325,8 @@ export type TaxComplianceObligation = {
   title: string;
   jurisdictionCode: string;
   period: string;
+  periodStart: string;
+  periodEnd: string;
   dueDate: string;
   sourceCode: string;
   provisionReference: string;
@@ -344,6 +347,8 @@ export function validateTaxComplianceObligation(
     return ["Obligation provision reference is not present in the authenticated source record."];
   }
   if (!isTaxIsoDate(obligation.dueDate)) return ["Due date must be an explicit valid date from the verified legal source."];
+  if (!isTaxIsoDate(obligation.periodStart) || !isTaxIsoDate(obligation.periodEnd) || obligation.periodEnd < obligation.periodStart) return ["Obligation period must have a valid, ordered start and end date."];
+  if ((source.effectiveFrom && source.effectiveFrom > obligation.periodEnd) || (source.effectiveTo && source.effectiveTo < obligation.periodStart)) return ["Source was not effective during the obligation period."];
   if (source.jurisdictionCode !== obligation.jurisdictionCode) return ["Obligation jurisdiction does not match its source."];
   return [];
 }
