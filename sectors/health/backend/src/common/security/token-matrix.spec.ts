@@ -24,7 +24,8 @@
  * REPLAYED_REQUEST (idempotency) and CSRF replay are covered by the
  * idempotency + CSRF suites; WRONG_SERVICE/INSUFFICIENT_SCOPE are
  * service-token concerns (see root matrix). MISSING_TENANT is the
- * tenantless-login case (role falls back to patient; still requires link).
+ * tenantless-login case: the canonical link is necessary but tenant context
+ * and an active Health membership are still required to establish an actor.
  */
 import { describe, it, expect, beforeAll, afterAll, jest } from "@jest/globals";
 import { JwtService } from "@nestjs/jwt";
@@ -366,7 +367,7 @@ describe("Human access-token matrix (AuthContextMiddleware, real DB)", () => {
     await expect(enter(token)).rejects.toThrow("NO_TENANT_MEMBERSHIP");
   });
 
-  it("MISSING_TENANT (tenantless) still requires the canonical link", async () => {
+  it("MISSING_TENANT requires a canonical link but still denies a tenantless Health session", async () => {
     const user = await repo.createUser({
       email: `mx-notenant-${Math.random().toString(36).slice(2)}@a.example`,
       displayName: "NoTenant",
