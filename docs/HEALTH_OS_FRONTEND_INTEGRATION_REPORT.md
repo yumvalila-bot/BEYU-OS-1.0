@@ -96,7 +96,12 @@ No test was weakened, deleted, or skipped by this change. One observed pre-exist
 
 **Pre-merge production observation (2026-09-17, unauthenticated):** `https://beyu-os-1-0.vercel.app/health` fails closed — it redirects unauthenticated visitors to the BEYU sign-in page (the existing placeholder gate behaviour), and `https://beyu-os-1-0.vercel.app/` serves the control-plane sign-in surface normally. This is the expected state before the mount ships.
 
-**Post-merge (performed after merge — recorded in final response section O):** `https://beyu-os-1-0.vercel.app/health` and `/health/os` must fail closed (redirect to `/`) for unauthenticated visitors; `https://beyu-os-1-0.vercel.app/api/health` must report `database: UP`.
+**Post-merge production observation (2026-09-17 12:31–12:35 UTC, unauthenticated, after squash merge `8d2e3a2` at 12:30:43Z):**
+- `GET /api/health` → **200 `{"ok":true,"system":"BEYU-OS/1.0.0","checks":{"database":"UP"},"latencyMs":844}`** — production database UP after the migration.
+- `GET /health` → **307 redirect to `/` (sign-in)** — fails closed, unchanged from the pre-merge baseline.
+- `GET /health/os` → **404** — expected at this moment: the Vercel production deployment of the merge (`dpl_3KeBNzcsrkFMW2BXZFtbvsBa4fvL`) was rejected at **T+15 s (no build ran)**, so production is still serving the pre-merge build, where the route does not exist. Once the Vercel-side issue (§K.1) is resolved and `main` redeploys, unauthenticated `/health/os` will behave as verified in the §G live smoke: 307 → `/`.
+- `main` CI (run 35221528409): **7/7 jobs green**. `main` db-release pipeline (run 35221528352): all jobs green — "Production preflight (read-only)", "Production database deploy + verify" (migrations 001–030 applied to the production Supabase database, including the `beyu_identity` schema/tables + RLS policies; schema-fingerprint, RLS and role-constraint verification passed), "Three-way release record" (provenance), "Runtime verification (production /api/health)".
+- **Vercel account-side failure (not a code defect):** the last successful Vercel deployment was 2026-09-16 22:16 UTC; afterwards BOTH PR preview deployments (heads `5cb19a1`, `c4691d9`) and the `main` production deployment were rejected within 11–16 s with no build logs, while the identical code builds green in CI (full build + no-secrets parity build). No Vercel credentials exist in this environment, so `npx vercel inspect dpl_3KeBNzcsrkFMW2BXZFtbvsBa4fvL --logs` cannot be run here — human-controlled (§K.1).
 
 **Authenticated production verification requires human-controlled credentials** (mission §XXVIII) and cannot be claimed by this integration. The exact human checklist (all steps verified locally against the identical code path):
 
@@ -112,9 +117,10 @@ No test was weakened, deleted, or skipped by this change. One observed pre-exist
 
 ## K. Remaining human-controlled items
 
-1. **Provision the `beyu_identity` schema + `beyu_identity_links` rows in the production Supabase database** (if not already present) and ensure the BEYU runtime role has `USAGE` on the schema and `SELECT` on `beyu_identity.beyu_identity_links` (locally, without that grant the gate correctly fails closed).
-2. **Populate canonical federation links** for production identities (set-once `linkTenant`/link flow — sector `beyu-bridge.ts`).
-3. **Deploy the sector NestJS backend** (database role `beyu_health_runtime`, JWT secrets) and set `HEALTH_API_URL` in the Vercel project; only then does the SPA's sign-in reach the sector auth API.
-4. **Integration credentials** (all human-controlled, none requested or printed by this integration): NHIF, TMDA, TRA, PACS/DICOM, MTUHA, FHIR endpoint, HIVE/Noelia endpoint + token; **DHIS2 requires an implementation decision first** (currently env vars only).
-5. **Runtime auth-flow bridging** (BEYU-asserted identity into the sector session — single sign-on): architectural decision recorded in `sectors/health/INTEGRATION.md`; deliberately not implemented here.
-6. Production clinical data provisioning and vendor activations.
+1. **Resolve the Vercel account-side deployment failure and redeploy `main`.** On 2026-09-17, both PR preview deployments and the `main` production deployment were rejected within 11–16 s with no build logs, immediately after the last successful deployment (2026-09-16 22:16 UTC). The Vercel dashboard (project `beyu-os-1-0`) or `npx vercel inspect dpl_3KeBNzcsrkFMW2BXZFtbvsBa4fvL --logs` is required to read the failure. Until then, production serves the pre-merge build — fail-closed, no regression (§J).
+2. **Confirm the production runtime grant on the link table.** The `beyu_identity` schema/tables + RLS policies were provisioned in production by the merge-time db-release pipeline (migrations 001–030, run 35221528352, schema-fingerprint/RLS/role-constraint verification green). The pipeline's role provisioning (`scripts/setup-db-role.ts`) does not grant the BEYU runtime role `SELECT` on `beyu_identity.beyu_identity_links`; until a DBA confirms that grant (`USAGE` on the schema + `SELECT` on the table), the gate correctly fails closed (demonstrated locally: permission denied → "authorization unavailable", never a 500, never an open door).
+3. **Populate canonical federation links** for production identities (set-once `linkTenant`/link flow — sector `beyu-bridge.ts`).
+4. **Deploy the sector NestJS backend** (database role `beyu_health_runtime`, JWT secrets) and set `HEALTH_API_URL` in the Vercel project; only then does the SPA's sign-in reach the sector auth API.
+5. **Integration credentials** (all human-controlled, none requested or printed by this integration): NHIF, TMDA, TRA, PACS/DICOM, MTUHA, FHIR endpoint, HIVE/Noelia endpoint + token; **DHIS2 requires an implementation decision first** (currently env vars only).
+6. **Runtime auth-flow bridging** (BEYU-asserted identity into the sector session — single sign-on): architectural decision recorded in `sectors/health/INTEGRATION.md`; deliberately not implemented here.
+7. Production clinical data provisioning and vendor activations.
