@@ -74,6 +74,9 @@ the operational financial system of record. BEYU OS retains strategic capital go
 6. Implement calculations only from specialist-verified, effective-dated rules and only after
    the existing authority gate permits them.
 
+The later six-capability expansion adds migration 0076 to extend the existing knowledge_sources
+metadata; it still does not create a separate tax document table or permit direct writes.
+
 ## 2026 subsidiary legislation verification
 
 A separate source-verification dossier and read-only FINANCE_OS panel now cover:
