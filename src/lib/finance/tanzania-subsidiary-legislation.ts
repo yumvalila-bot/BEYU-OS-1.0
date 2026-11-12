@@ -87,7 +87,7 @@ export const TANZANIA_TAX_SUBSIDIARY_INSTRUMENTS: readonly TanzaniaTaxSubsidiary
     commencementDate: "2026-07-01",
     sourceStatus: "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING",
     reproducedTextUris: [
-      "https://www.lysonlaw.co.tz/index.php/guidelines/the-income-tax-presumptive-tax-relief-for-new-traders-regulations-2026",
+      "https://lysonlaw.co.tz/index.php/guidelines/the-income-tax-presumptive-tax-relief-for-new-traders-regulations-2026",
       "https://www.scribd.com/document/1076424817/Gn158b-The-Income-Tax-Presumptive-Tax-Relief-for-New-Traders-Regulations-2026-1-Tgpa",
     ],
     ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
