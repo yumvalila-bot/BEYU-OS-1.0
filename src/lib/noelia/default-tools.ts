@@ -7,7 +7,7 @@ import { BeyuNoeliaAnalyticsService } from "./analytics-service";
 import { BeyuNoeliaWorkforceService } from "./workforce-service";
 import { BeyuNoeliaLegalService } from "./legal-service";
 import { BeyuNoeliaHealthBoundary } from "./health-boundary";
-import { BeyuNoeliaMemoryService } from "./enterprise-memory";
+import { BeyuNoeliaMemoryService, TAX_LEGAL_AUTHORITY_INPUT } from "./enterprise-memory";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
@@ -892,6 +892,7 @@ export function createDefaultNoeliaToolRegistry(
         expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         provenance: z.string().min(3).max(500),
         keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
+        taxLegalAuthority: TAX_LEGAL_AUTHORITY_INPUT.optional(),
       }).strict(),
     },
     execute: (context, input) => memory.ingestKnowledge(context, input),
