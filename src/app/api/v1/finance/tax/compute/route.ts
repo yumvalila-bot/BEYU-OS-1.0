@@ -23,9 +23,9 @@ const ComputeSchema = z.discriminatedUnion("taxType", [
   z.object({ ...base, taxType: z.literal("CORPORATE_INCOME_TAX"), taxableIncomeTzs: z.number().int().nonnegative().safe(), specialRegimeClaimed: z.boolean().optional() }),
   z.object({ ...base, taxType: z.literal("PERSONAL_INCOME_TAX"), annualTaxableIncomeTzs: z.number().int().nonnegative().safe(), nonResident: z.boolean().optional() }),
   z.object({ ...base, taxType: z.literal("PRESUMPTIVE_INCOME_TAX"), annualTurnoverTzs: z.number().int().nonnegative().safe(), records: z.enum(["COMPLETE", "INCOMPLETE"]), newBusinessReliefApproved: z.boolean().optional() }),
-  z.object({ ...base, taxType: z.literal("VAT"), taxableSuppliesTzs: z.number().int().nonnegative().safe(), inputVatCreditTzs: z.number().int().nonnegative().safe().optional(), inputVatCreditVerified: z.boolean().optional(), rate: z.enum(["STANDARD_18", "ZERO_RATED"]).optional() }),
+  z.object({ ...base, taxType: z.literal("VAT"), taxableSuppliesTzs: z.number().int().nonnegative().safe(), inputVatCreditTzs: z.number().int().nonnegative().safe().optional() }),
   z.object({ ...base, taxType: z.literal("WITHHOLDING_TAX"), grossPaymentTzs: z.number().int().nonnegative().safe(), category: z.enum(["DIVIDEND_LISTED", "DIVIDEND_OTHER", "INTEREST", "ROYALTY", "OTHER_INVESTMENT_RETURN", "COMMERCIAL_RENT", "MINING_TECHNICAL_SERVICE", "NON_RESIDENT_TRANSPORT", "NON_RESIDENT_INSURANCE", "GAMING_ADVERTISING_COMMISSION", "SALT_PURCHASE", "MOTOR_VEHICLE_HIRE", "FOREST_PRODUCE", "NATURAL_RESOURCE_PAYMENT", "SERVICE_FEE", "NON_FULL_TIME_DIRECTOR_FEE", "MOBILE_MONEY_AGENT_COMMISSION", "GOVERNMENT_GOODS_SUPPLY", "AIRCRAFT_PAYMENT", "CARBON_CREDIT", "PRECIOUS_METALS"]), payeeResidency: z.enum(["RESIDENT", "NON_RESIDENT"]), treatyReliefClaimed: z.boolean().optional() }),
-  z.object({ ...base, taxType: z.literal("CUSTOMS_PROCESSING_FEE"), cargoType: z.enum(["DRY_NON_PETROLEUM", "WET_PETROLEUM"]), importOrigin: z.enum(["NON_EAC", "EAC_NON_ORIGINATING", "EAC_ORIGINATING"]), originEvidenceVerified: z.boolean(), fobValueTzs: z.number().int().nonnegative().safe().optional(), vesselCount: z.number().int().positive().safe().optional(), exemptionClaimed: z.boolean().optional() }),
+  z.object({ ...base, taxType: z.literal("CUSTOMS_PROCESSING_FEE"), cargoType: z.enum(["DRY_NON_PETROLEUM", "WET_PETROLEUM"]), importOrigin: z.enum(["NON_EAC", "EAC_NON_ORIGINATING", "EAC_ORIGINATING"]), fobValueTzs: z.number().int().nonnegative().safe().optional(), vesselCount: z.number().int().positive().safe().optional(), exemptionClaimed: z.boolean().optional() }),
 ]);
 
 /**
@@ -73,7 +73,9 @@ export async function POST(request: Request) {
     if (policy.effect === "DENY") return apiError("POLICY_DENIED", policy.denials.map((d) => d.message).join(" "), 403, ctx.traceId);
 
     try {
-      const calculation = computeTanzaniaTax(body);
+      const calculation = body.taxType === "CUSTOMS_PROCESSING_FEE"
+        ? computeTanzaniaTax({ ...body, originEvidenceVerified: false })
+        : computeTanzaniaTax(body);
       const tin = entity.taxIdentifier ?? "";
       const filingPack = /^\d{9}$/.test(tin) ? prepareTaxFilingPack({
         taxpayer: { legalEntityId: entity.id, legalName: entity.legalName, tin },
