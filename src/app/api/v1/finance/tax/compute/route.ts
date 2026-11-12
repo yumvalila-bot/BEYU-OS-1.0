@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     try {
       const calculation = computeTanzaniaTax(body);
       const tin = entity.taxIdentifier ?? "";
-      const filingPack = /^\\d{9}$/.test(tin) ? prepareTaxFilingPack({
+      const filingPack = /^\d{9}$/.test(tin) ? prepareTaxFilingPack({
         taxpayer: { legalEntityId: entity.id, legalName: entity.legalName, tin },
         periodStart: body.periodStart,
         periodEnd: body.periodEnd,
