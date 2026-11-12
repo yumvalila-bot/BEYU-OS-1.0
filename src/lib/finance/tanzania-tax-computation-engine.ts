@@ -11,7 +11,7 @@
  */
 export type TanzaniaTaxType =
   | "PAYE" | "CORPORATE_INCOME_TAX" | "PERSONAL_INCOME_TAX"
-  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX";
+  | "PRESUMPTIVE_INCOME_TAX" | "VAT" | "WITHHOLDING_TAX" | "CUSTOMS_PROCESSING_FEE";
 
 export type TaxSourceRef = {
   code: string;
@@ -48,6 +48,13 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     title: "Tanzania Revenue Authority — Income Tax for Individuals",
     uri: "https://www.tra.go.tz/page/income-tax-for-individuals",
     provision: "Published presumptive-turnover schedule; new-business relief is excluded pending individual eligibility approval",
+    evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
+  },
+  OAG_GN_158D_2026: {
+    code: "TZ_GN_158D_2026",
+    title: "OAG — Tanzania Revenue Authority (Customs Processing Fee) Regulations, 2026",
+    uri: "https://oagmis.oag.go.tz/portal/legislation/4645/download",
+    provision: "First Schedule: 1% of FOB value for dry cargo other than petroleum; TZS 20m per vessel for specified wet petroleum cargo",
     evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
   },
   OAG_INCOME_TAX_ACT_2023: {
@@ -300,6 +307,37 @@ export function calculatePresumptiveIncomeTax(input: {
   return result("PRESUMPTIVE_INCOME_TAX", turnover, tax, [{ label: `${label} — ${input.records.toLowerCase()} records`, baseTzs: turnover, rateBps: turnover === 0 ? 0 : Math.round((tax / turnover) * 10000), taxTzs: tax }], [TANZANIA_TAX_SOURCES.TRA_PRESUMPTIVE_2026], ["The published TRA guidance schedule is used; confirm statutory crosswalk, eligibility (resident individual, business-only income, excluded professions/services) and the GN 158B new-trader relief before finalizing."]);
 }
 
+export function calculateCustomsProcessingFee(input: {
+  cargoType: "DRY_NON_PETROLEUM" | "WET_PETROLEUM";
+  importOrigin: "NON_EAC" | "EAC_NON_ORIGINATING" | "EAC_ORIGINATING";
+  originEvidenceVerified: boolean;
+  fobValueTzs?: number;
+  vesselCount?: number;
+  exemptionClaimed?: boolean;
+}): TaxCalculation {
+  if (input.exemptionClaimed) {
+    throw new TaxCalculationError("Customs exemptions require a verified GN 158D Second Schedule category, documentary proof and customs-specialist approval; automated exemption is disabled.");
+  }
+  if (input.importOrigin === "EAC_ORIGINATING") {
+    if (!input.originEvidenceVerified) throw new TaxCalculationError("EAC originating status requires verified Rules of Origin evidence.");
+    return result("CUSTOMS_PROCESSING_FEE", 0, 0, [{ label: "Outside GN 158D fee scope — verified EAC origin", baseTzs: 0, rateBps: 0, taxTzs: 0 }], [TANZANIA_TAX_SOURCES.OAG_GN_158D_2026], ["Confirm Rules of Origin certificate and customs entry evidence before relying on the zero-fee outcome."]);
+  }
+  if (input.importOrigin === "EAC_NON_ORIGINATING" && !input.originEvidenceVerified) {
+    throw new TaxCalculationError("EAC non-originating status must be supported by a customs-origin determination.");
+  }
+  if (input.cargoType === "DRY_NON_PETROLEUM") {
+    const fob = input.fobValueTzs ?? -1;
+    assertMoney(fob, "FOB value");
+    const fee = roundBps(fob, 100);
+    return result("CUSTOMS_PROCESSING_FEE", fob, fee, [{ label: "Dry cargo — 1% of FOB value", baseTzs: fob, rateBps: 100, taxTzs: fee }], [TANZANIA_TAX_SOURCES.OAG_GN_158D_2026], ["Only for covered home-consumption imports; verify cargo category, customs value and Second Schedule exemptions."]);
+  }
+  const vessels = input.vesselCount ?? 0;
+  if (!Number.isSafeInteger(vessels) || vessels <= 0) throw new TaxCalculationError("Wet petroleum cargo requires a positive whole vessel count.");
+  const fee = vessels * 20_000_000;
+  if (!Number.isSafeInteger(fee)) throw new TaxCalculationError("Calculated customs processing fee exceeds safe integer range.");
+  return result("CUSTOMS_PROCESSING_FEE", fee, fee, [{ label: "Specified wet petroleum cargo — TZS 20m per vessel", baseTzs: fee, rateBps: 10000, taxTzs: fee }], [TANZANIA_TAX_SOURCES.OAG_GN_158D_2026], ["Applies only to specified wet petroleum cargo (diesel, petrol, Jet A-1 and illuminating kerosene); confirm the cargo is covered and no exemption applies."]);
+}
+
 export function computeTanzaniaTax(input:
   | { taxType: "PAYE"; monthlyTaxablePayTzs: number; employeeStatus?: Parameters<typeof calculatePaye>[0]["employeeStatus"] }
   | { taxType: "CORPORATE_INCOME_TAX"; taxableIncomeTzs: number; specialRegimeClaimed?: boolean }
@@ -307,6 +345,7 @@ export function computeTanzaniaTax(input:
   | { taxType: "PRESUMPTIVE_INCOME_TAX"; annualTurnoverTzs: number; records: "COMPLETE" | "INCOMPLETE"; newBusinessReliefApproved?: boolean }
   | { taxType: "VAT"; taxableSuppliesTzs: number; inputVatCreditTzs?: number; inputVatCreditVerified?: boolean; rate?: "STANDARD_18" | "ZERO_RATED" }
   | { taxType: "WITHHOLDING_TAX"; grossPaymentTzs: number; category: WithholdingCategory; payeeResidency: "RESIDENT" | "NON_RESIDENT"; treatyReliefClaimed?: boolean }
+  | { taxType: "CUSTOMS_PROCESSING_FEE"; cargoType: "DRY_NON_PETROLEUM" | "WET_PETROLEUM"; importOrigin: "NON_EAC" | "EAC_NON_ORIGINATING" | "EAC_ORIGINATING"; originEvidenceVerified: boolean; fobValueTzs?: number; vesselCount?: number; exemptionClaimed?: boolean }
 ): TaxCalculation {
   switch (input.taxType) {
     case "PAYE": return calculatePaye(input);
@@ -315,6 +354,7 @@ export function computeTanzaniaTax(input:
     case "PRESUMPTIVE_INCOME_TAX": return calculatePresumptiveIncomeTax(input);
     case "VAT": return calculateVat(input);
     case "WITHHOLDING_TAX": return calculateWithholdingTax(input);
+    case "CUSTOMS_PROCESSING_FEE": return calculateCustomsProcessingFee(input);
   }
 }
 
