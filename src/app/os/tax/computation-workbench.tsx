@@ -25,7 +25,7 @@ type Result = {
 const money = (value: number) => new Intl.NumberFormat("en-TZ", { style: "currency", currency: "TZS", maximumFractionDigits: 0 }).format(value);
 const inputClass = "mt-1 w-full rounded-lg border border-[color:var(--beyu-line)] bg-transparent px-3 py-2 text-[13px] outline-none focus:border-[#d4af37]";
 
-export function TaxComputationWorkbench({ entities, canCompute }: { entities: Entity[]; canCompute: boolean }) {
+export function TaxComputationWorkbench({ entities, canCompute, canReview }: { entities: Entity[]; canCompute: boolean; canReview: boolean }) {
   const [entityId, setEntityId] = useState(entities[0]?.id ?? "");
   const [taxType, setTaxType] = useState<TaxType>("PAYE");
   const [amount, setAmount] = useState("1000000");
@@ -40,6 +40,8 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
   const [originEvidenceVerified, setOriginEvidenceVerified] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [drafts, setDrafts] = useState<SavedDraft[]>([]);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -63,6 +65,28 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
       .catch(() => undefined);
     return () => { active = false; };
   }, []);
+
+  async function reviewDraft(draftId: string) {
+    setReviewBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/v1/finance/tax/returns/${draftId}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision: "CONFIRM_PROVISIONAL", notes: reviewNotes }),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json?.error?.message ?? "Specialist review failed.");
+      setReviewNotes("");
+      const saved = await fetch("/api/v1/finance/tax/returns");
+      const savedJson = await saved.json();
+      if (saved.ok && savedJson?.data?.drafts) setDrafts(savedJson.data.drafts as SavedDraft[]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to record specialist review.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
 
   async function calculate() {
     setBusy(true);
@@ -197,11 +221,14 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
       {error && <p role="alert" className="text-[12px] text-rose-600">{error}</p>}
       <div className="rounded-xl border border-[color:var(--beyu-line)] p-4 space-y-2">
         <div className="flex items-center justify-between gap-2"><strong className="text-[12px]">Saved tax return drafts</strong><span className="text-[10px] beyu-muted">{drafts.length} shown · maximum 50</span></div>
+        {canReview && <label className="block text-[10.5px] beyu-muted">Specialist review note (minimum 10 characters)
+          <textarea className={inputClass} rows={2} value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Record the review performed and any limitations acknowledged." />
+        </label>}
         {drafts.length === 0 ? <p className="text-[11px] beyu-muted">No saved drafts in your authorized entity scope.</p> : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[10.5px]">
-              <thead><tr className="beyu-muted"><th className="py-1 pr-3">Tax type</th><th className="py-1 pr-3">Period</th><th className="py-1 pr-3">Due</th><th className="py-1 pr-3">Amount</th><th className="py-1">Status</th></tr></thead>
-              <tbody>{drafts.map((draft) => <tr key={draft.id} className="border-t border-[color:var(--beyu-line)]"><td className="py-2 pr-3">{draft.taxType.replaceAll("_", " ")}</td><td className="py-2 pr-3">{draft.periodStart} – {draft.periodEnd}</td><td className="py-2 pr-3">{draft.dueDate ?? "—"}</td><td className="py-2 pr-3 tabular-nums">{money(Number(draft.amountPayable))}</td><td className="py-2">{draft.status}</td></tr>)}</tbody>
+              <thead><tr className="beyu-muted"><th className="py-1 pr-3">Tax type</th><th className="py-1 pr-3">Period</th><th className="py-1 pr-3">Due</th><th className="py-1 pr-3">Amount</th><th className="py-1 pr-3">Status</th><th className="py-1">Action</th></tr></thead>
+              <tbody>{drafts.map((draft) => <tr key={draft.id} className="border-t border-[color:var(--beyu-line)]"><td className="py-2 pr-3">{draft.taxType.replaceAll("_", " ")}</td><td className="py-2 pr-3">{draft.periodStart} – {draft.periodEnd}</td><td className="py-2 pr-3">{draft.dueDate ?? "—"}</td><td className="py-2 pr-3 tabular-nums">{money(Number(draft.amountPayable))}</td><td className="py-2">{draft.status}</td><td className="py-2">{canReview && draft.status === "DRAFT" ? <button type="button" disabled={reviewBusy || reviewNotes.trim().length < 10} onClick={() => reviewDraft(draft.id)} className="rounded border border-[color:var(--beyu-line)] px-2 py-1 disabled:opacity-40">Review provisional</button> : draft.status === "SPECIALIST_REVIEWED_PROVISIONAL" ? <span className="text-amber-700">CFO approval gated</span> : "—"}</td></tr>)}</tbody>
             </table>
           </div>
         )}
