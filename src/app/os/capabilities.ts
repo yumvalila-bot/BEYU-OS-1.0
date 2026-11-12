@@ -238,7 +238,7 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
   },
   {
     id: "finance-governance",
-    title: "Finance & Capital Governance",
+    title: "Finance OS Domains",
     items: [
       {
               href: "/os/capital",
@@ -299,7 +299,13 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
                 kind: "permission",
                 permission: "familyoffice:trust.read",
               },
-            },
+            }
+    ],
+  },
+  {
+    id: "family-office-domains",
+    title: "Family Office Domains",
+    items: [
       {
               href: "/os/family/capital",
               label: "Family Capital & Wealth",
@@ -397,7 +403,13 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
               description: "Construction operations: projects, sites, BOQ and cost control, procurement, materials, equipment, quality, HSE, variations, claims, payment certificates and handover under BEYU governance and Finance boundaries.",
               icon: "ujenzi",
               visibility: { kind: "permission", permission: "ujenzi:data.read" },
-            },
+            }
+    ],
+  },
+  {
+    id: "agriculture-domains",
+    title: "Agriculture OS Domains",
+    items: [
       {
               href: "/os/agriculture/capabilities",
               label: "Agriculture Capability Surface",
