@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
   "calculation_payload" jsonb NOT NULL,
   "filing_pack" jsonb NOT NULL,
   "status" text NOT NULL DEFAULT 'DRAFT',
-  "classification" text NOT NULL DEFAULT 'CONFIDENTIAL',
+  "classification" "beyu_classification" NOT NULL DEFAULT 'CONFIDENTIAL',
   "idempotency_key" text NOT NULL,
   "created_by" text NOT NULL,
   "specialist_reviewer_id" text,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
     'DRAFT', 'PENDING_SPECIALIST_REVIEW', 'APPROVED_FOR_SUBMISSION',
     'SUBMITTED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
   )),
-  CONSTRAINT "tax_return_drafts_classification_ck" CHECK ("classification" IN (
+  CONSTRAINT "tax_return_drafts_classification_ck" CHECK ("classification"::text IN (
     'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'HIGHLY_RESTRICTED'
   )),
   CONSTRAINT "tax_return_drafts_review_gate_ck" CHECK (
@@ -75,7 +75,7 @@ DROP POLICY IF EXISTS "tax_return_drafts_scope" ON "tax_return_drafts";--> state
 CREATE POLICY "tax_return_drafts_scope" ON "tax_return_drafts"
   USING (
     "tenant_id" = ANY (beyu_tenant_ids())
-    AND "classification" = ANY (string_to_array(current_setting('beyu.governance_classifications', true), ','))
+    AND "classification"::text = ANY (string_to_array(current_setting('beyu.governance_classifications', true), ','))
     AND EXISTS (
       SELECT 1 FROM "legal_entities" e
       WHERE e."id" = "tax_return_drafts"."legal_entity_id"
