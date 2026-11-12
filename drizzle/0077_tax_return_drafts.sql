@@ -90,7 +90,7 @@ CREATE POLICY "tax_return_drafts_scope" ON "tax_return_drafts"
   )
   WITH CHECK (
     "tenant_id" = ANY (beyu_tenant_ids())
-    AND "classification" = ANY (string_to_array(current_setting('beyu.governance_classifications', true), ','))
+    AND "classification"::text = ANY (string_to_array(current_setting('beyu.governance_classifications', true), ','))
     AND EXISTS (
       SELECT 1 FROM "legal_entities" e
       WHERE e."id" = "tax_return_drafts"."legal_entity_id"
