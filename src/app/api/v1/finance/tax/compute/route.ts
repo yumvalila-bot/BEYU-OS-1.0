@@ -66,8 +66,8 @@ export async function POST(request: Request) {
       : (body.vesselCount ?? 0) * 20_000_000;
     const policy = await evaluatePolicy({
       action: "finance:tax.assess",
-      tenantId: ctx.principal.tenantId,
-      jurisdictionCode: entity.countryCode,
+      tenantId: entity.tenantId,
+      jurisdictionCode: jurisdiction.code,
       roles: ctx.principal.roles,
       amount,
     });
