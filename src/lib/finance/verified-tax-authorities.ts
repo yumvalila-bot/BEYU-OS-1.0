@@ -25,6 +25,26 @@ export type VerifiedTaxAuthorityRecord = {
 
 export const VERIFIED_TAX_AUTHORITIES: readonly VerifiedTaxAuthorityRecord[] = [
   {
+    code: "TZ_FINANCE_ACT_2025_NO_11",
+    title: "The Finance Act, No. 11 of 2025",
+    instrumentKind: "ACT",
+    jurisdictionCode: "TZ",
+    status: "ENACTED",
+    enactmentNumber: "11 of 2025",
+    enactmentDate: "2025-06-25",
+    publicationDate: "2025-06-30",
+    commencementDate: "2025-07-01",
+    officialMetadataUri: "https://oagmis.oag.go.tz/portal/acts/329",
+    officialDocumentUri: "https://oagmis.oag.go.tz/portal/acts/329/download",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "Official Office of the Attorney General metadata identifies this as Enactment No. 11 of 2025.",
+      "Section 58 inserted the original Income Tax Act section 116A forest-produce single-instalment provision at two percent, with that section commencing on 1 January 2026.",
+      "The section 116A text was later repealed and replaced by Finance Act No. 2 of 2026, section 25; preserve both versions for temporal legal analysis.",
+    ],
+  },
+  {
     code: "TZ_FINANCE_ACT_2026_NO_2",
     title: "The Finance Act, No. 2 of 2026",
     instrumentKind: "ACT",
