@@ -386,7 +386,16 @@ export const knowledgeSources = pgTable(
     ),
     check(
       "knowledge_sources_tax_original_sha256_ck",
-      sql`original_source_sha256 IS NULL OR original_source_sha256 ~ '^[0-9a-fA-F]{64}
+      sql`original_source_sha256 IS NULL OR original_source_sha256 ~ '^[0-9a-fA-F]{64}$'`,
+    ),
+    check(
+      "knowledge_sources_tax_effective_window_ck",
+      sql`effective_to IS NULL OR effective_to >= effective_from`,
+    ),
+    check(
+      "knowledge_sources_tax_authoritative_evidence_ck",
+      sql`source_type <> 'TAX_LEGAL_AUTHORITY' OR authority_status <> 'AUTHORITATIVE' OR (source_authentication_status = 'AUTHORITATIVE' AND source_uri IS NOT NULL AND original_document_id IS NOT NULL AND official_source_host IS NOT NULL AND original_source_sha256 IS NOT NULL AND original_source_sha256 ~ '^[0-9a-fA-F]{64}$' AND published_on IS NOT NULL AND commenced_on IS NOT NULL AND text_validated_at IS NOT NULL AND text_validated_by IS NOT NULL AND specialist_reviewed_at IS NOT NULL AND specialist_reviewer_id IS NOT NULL AND jsonb_typeof(provision_references) = 'array' AND jsonb_array_length(provision_references) > 0)`,
+    ),
   ],
 );
 
