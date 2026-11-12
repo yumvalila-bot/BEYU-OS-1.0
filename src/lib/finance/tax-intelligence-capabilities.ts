@@ -67,6 +67,7 @@ export type TaxLegalAuthorityRecord = {
   jurisdictionCode: string;
   instrumentKind: TaxInstrumentKind;
   sourceUri: string | null;
+  originalDocumentId: string | null;
   /** SHA-256 of the original acquired source file, not a third-party transcription. */
   sourceSha256: string | null;
   sourceAuthorityStatus: TaxSourceAuthorityStatus;
@@ -123,6 +124,7 @@ export function authenticateTaxLegalSource(
       reasons.push("Source URI is invalid.");
     }
   }
+  if (!source.originalDocumentId) reasons.push("Original uploaded document must be linked in the governed documents registry.");
   if (!source.sourceSha256 || !/^[a-f0-9]{64}$/i.test(source.sourceSha256)) {
     reasons.push("SHA-256 checksum of the acquired original document is required.");
   }
