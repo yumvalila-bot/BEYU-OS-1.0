@@ -9,6 +9,7 @@ import {
   date,
   index,
   integer,
+  check,
   jsonb,
   numeric,
   pgTable,
@@ -22,6 +23,7 @@ import { countries, legalEntities, tenants } from "./core";
 import { users } from "./identity";
 import { approvals } from "./governance";
 import { tsvector } from "./search";
+import { sql } from "drizzle-orm";
 
 /**
  * Serialized append head for tamper-evident ledgers. Writers must lock the
@@ -505,8 +507,8 @@ export const idempotencyRecords = pgTable(
     state: text("state").notNull().default("IN_FLIGHT"), // IN_FLIGHT | COMPLETED
     statusCode: integer("status_code"),
     responseBody: jsonb("response_body").$type<Record<string, unknown> | null>(),
-    tenantId: text("tenant_id").notNull(),
-    actorUserId: text("actor_user_id").notNull(),
+    tenantId: text("tenant_id"),
+    actorUserId: text("actor_user_id"),
     traceId: text("trace_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -516,6 +518,7 @@ export const idempotencyRecords = pgTable(
     primaryKey({ columns: [t.scope, t.idempotencyKey] }),
     index("idempotency_expiry_idx").on(t.expiresAt),
     index("idempotency_records_principal_idx").on(t.tenantId, t.actorUserId, t.expiresAt),
+    check("idempotency_records_principal_required", sql`${t.tenantId} IS NOT NULL AND ${t.actorUserId} IS NOT NULL`),
   ],
 );
 
