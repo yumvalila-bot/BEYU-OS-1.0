@@ -7,6 +7,7 @@ import { can } from "@/lib/authz";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
+import { TaxComputationWorkbench } from "./computation-workbench";
 import { TraSourceLibrary } from "./source-library";
 import { VerifiedTaxAuthorities } from "./verified-authorities";
 import { FinanceAct2026AmendmentIndex } from "./finance-act-2026-index";
@@ -92,6 +93,11 @@ export default async function TaxPage() {
       <TaxWorkbench
         canAssess={canAssess}
         strategies={assessable.map((s) => ({ id: s.id, code: s.code, title: s.title, jurisdiction: s.jurisdictionCode, position: s.position }))}
+        entities={entities.map((e) => ({ id: e.id, name: e.legalName, country: e.countryCode }))}
+      />
+
+      <TaxComputationWorkbench
+        canCompute={canAssess}
         entities={entities.map((e) => ({ id: e.id, name: e.legalName, country: e.countryCode }))}
       />
 
