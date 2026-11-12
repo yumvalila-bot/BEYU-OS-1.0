@@ -21,7 +21,7 @@ export function FinanceAct2026AmendmentIndex() {
     <Panel kicker="Enacted legislation · impact index" title="Finance Act No. 2 of 2026 · selected tax amendments">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="green">Enacted 30 Jun 2026</Badge>
+          <Badge tone="green">Enactment 25 Jun 2026</Badge>
           <Badge tone="amber">Specialist review required</Badge>
           <Badge tone="slate">{total} indexed amendments</Badge>
           <Badge tone="slate">No tax rules activated</Badge>
