@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCorporateIncomeTax,
   calculateCustomsProcessingFee,
+  calculateForestProduceSingleInstalment,
   calculatePaye,
   calculatePersonalIncomeTax,
   calculatePresumptiveIncomeTax,
@@ -45,6 +46,19 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
     expect(calculateVat({ taxableSuppliesTzs: 1000000, inputVatCreditTzs: 50000 }).taxAmountTzs).toBe(180000);
     expect(calculateVat({ taxableSuppliesTzs: 1000000, inputVatCreditTzs: 50000, inputVatCreditVerified: true }).taxAmountTzs).toBe(130000);
     expect(calculateVat({ taxableSuppliesTzs: 1000000, rate: "ZERO_RATED" }).taxAmountTzs).toBe(0);
+  });
+
+  it("computes forest-produce single instalment tax on the greatest statutory gross-payment value", () => {
+    const result = calculateForestProduceSingleInstalment({
+      farmGatePriceTzs: 1000000,
+      purchasePriceTzs: 1200000,
+      tfsValueTzs: 1100000,
+      trigger: "TRANSPORT",
+    });
+    expect(result.taxBaseTzs).toBe(1200000);
+    expect(result.taxAmountTzs).toBe(24000);
+    expect(result.sourceRefs.some((source) => source.code === "TZ_FINANCE_ACT_2_2026")).toBe(true);
+    expect(result.sourceRefs.some((source) => source.code === "TZ_GN_158F_2026_FOREST_PRODUCE")).toBe(true);
   });
 
   it("computes Finance Act 2026 VAT withholding on goods, services and mixed supplies", () => {
