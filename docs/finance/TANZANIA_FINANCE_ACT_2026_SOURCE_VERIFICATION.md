@@ -74,3 +74,22 @@ Required next steps before NOELIA may rely on the Act:
 No tax rate, deduction, threshold, exemption, filing instruction or liability calculation is
 activated by this source-register addition. `CAP_VAT` and `CAP_POSTING` remain governed and
 fail-closed.
+
+## Earlier enacted version: Finance Act No. 11 of 2025
+
+The OAG MIS record identifies the **Finance Act No. 11 of 2025** as enacted on 25 June 2025,
+published on 30 June 2025 and commencing on 1 July 2025.
+
+- OAG MIS record: https://oagmis.oag.go.tz/portal/acts/329
+- Official Act PDF: https://oagmis.oag.go.tz/portal/acts/329/download
+
+This earlier Act is important to temporal tax analysis. Its section 58 inserted Income Tax Act
+section 116A with a two-percent single-instalment tax on forest produce and expressly provided
+that section 116A would commence on 1 January 2026. Finance Act No. 2 of 2026, section 25,
+then repealed and replaced section 116A. The replacement retains the two-percent amount but
+changes the payment-trigger events and statutory definitions.
+
+Therefore, NOELIA must not treat the 2026 text as though it were the first version of the rule,
+nor assume the 2025 and 2026 versions have identical transaction scope. Transactions around
+the 1 July 2026 commencement boundary require review of the exact event date, transitional
+wording, applicable regulations and the Local Government Finance Act forest-cess interface.
