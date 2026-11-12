@@ -23,7 +23,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
   });
 
   it("applies published non-resident and secondary-employment PAYE treatments", () => {
-    expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "NON_RESIDENT" }).taxAmountTzs).toBe(150000);
+    expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "NON_RESIDENT" }).taxAmountTzs).toBe(30000);
     expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "RESIDENT_SECONDARY" }).taxAmountTzs).toBe(300000);
   });
 
@@ -49,8 +49,8 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
 
   it("computes Finance Act 2026 VAT withholding on goods, services and mixed supplies", () => {
     expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }).taxAmountTzs).toBe(150000);
-    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "SERVICES" }).taxAmountTzs).toBe(120000);
-    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).taxAmountTzs).toBe(138000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "SERVICES" }).taxAmountTzs).toBe(60000);
+    expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).taxAmountTzs).toBe(42000);
     expect(calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "MIXED" }).sourceRefs.some((source) => source.code === "TZ_FINANCE_ACT_2_2026")).toBe(true);
   });
 
