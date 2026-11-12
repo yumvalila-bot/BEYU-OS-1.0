@@ -16,7 +16,7 @@ type Result = {
     sourceRefs: Array<{ code: string; title: string; uri: string; provision: string }>;
     warnings: string[];
   };
-  filingPack: { status: string; dueDate: string | null; periodEnd: string; checklist: string[]; submission: { status: string }; taxpayer: { tin: string } } | null;
+  filingPack: { status: string; dueDate: string | null; periodEnd: string; checklist: string[]; paymentMilestones: Array<{ dueDate: string; label: string }>; submission: { status: string }; taxpayer: { tin: string } } | null;
   draftId: string | null;
   filingReadiness: string;
   governance: { specialistReviewRequired: boolean; canSubmit: boolean; canPost: boolean; reason: string };
@@ -250,6 +250,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview }: { e
               <div>Status: {result.filingPack.status}</div>
               <div>Saved draft reference: <span className="font-mono">{result.draftId ?? "Not saved"}</span></div>
               <div>Submission: {result.filingPack.submission.status}</div>
+              {result.filingPack.paymentMilestones.length > 0 && <ul className="list-disc pl-4">{result.filingPack.paymentMilestones.map((item) => <li key={item.dueDate}>{item.dueDate} — {item.label}</li>)}</ul>}
               <button type="button" onClick={downloadDraftPack} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2 font-semibold">Export draft filing pack (JSON)</button>
             </div>
           ) : <div className="rounded-lg border border-amber-500/30 p-3 text-[11.5px]">Calculation completed. A filing pack cannot be prepared until the legal entity has a valid nine-digit TIN registered in BEYU.</div>}
