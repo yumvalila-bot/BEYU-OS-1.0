@@ -71,6 +71,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     title: "The Finance Act, No. 2 of 2026 — Office of the Solicitor General e-Library",
     uri: "https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download",
     provision: "Sections 27, 91 and 95: presumptive tax turnover schedule; VAT withholding rates for goods/services and section 71 payment/statement deadline",
+    effectiveFrom: "2026-07-01",
     evidenceStatus: "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
   },
   OAG_GN_158D_2026: {
