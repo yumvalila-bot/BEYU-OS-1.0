@@ -15,7 +15,8 @@ type Result = {
     sourceRefs: Array<{ code: string; title: string; uri: string; provision: string }>;
     warnings: string[];
   };
-  filingPack: { status: string; dueDate: string | null; checklist: string[]; submission: { status: string } } | null;
+  filingPack: { status: string; dueDate: string | null; checklist: string[]; submission: { status: string }; taxpayer: { tin: string } } | null;
+  filingReadiness: string;
   governance: { specialistReviewRequired: boolean; canSubmit: boolean; canPost: boolean; reason: string };
 };
 
@@ -38,6 +39,18 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function downloadDraftPack() {
+    if (!result?.filingPack) return;
+    const payload = JSON.stringify({ filingPack: result.filingPack, calculation: result.calculation }, null, 2);
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `BEYU-TAX-DRAFT-${result.calculation.taxType}-${result.filingPack.periodEnd}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function calculate() {
     setBusy(true);
@@ -177,7 +190,15 @@ export function TaxComputationWorkbench({ entities, canCompute }: { entities: En
           <div className="space-y-1">
             {result.calculation.breakdown.map((line, index) => <div key={index} className="flex justify-between gap-3 text-[11.5px]"><span>{line.label} ({(line.rateBps / 100).toFixed(2)}%)</span><strong className="tabular-nums">{money(line.taxTzs)}</strong></div>)}
           </div>
-          {result.filingPack && <div className="rounded-lg bg-[color:var(--beyu-surface)] p-3 text-[11.5px]"><strong>Draft filing pack</strong><div>Due date: {result.filingPack.dueDate ?? "Not calculated"}</div><div>Status: {result.filingPack.status}</div><div>Submission: {result.filingPack.submission.status}</div></div>}
+          {result.filingPack ? (
+            <div className="rounded-lg bg-[color:var(--beyu-surface)] p-3 text-[11.5px] space-y-2">
+              <strong>Draft filing pack</strong>
+              <div>Due date: {result.filingPack.dueDate ?? "Not calculated"}</div>
+              <div>Status: {result.filingPack.status}</div>
+              <div>Submission: {result.filingPack.submission.status}</div>
+              <button type="button" onClick={downloadDraftPack} className="rounded-lg border border-[color:var(--beyu-line)] px-3 py-2 font-semibold">Export draft filing pack (JSON)</button>
+            </div>
+          ) : <div className="rounded-lg border border-amber-500/30 p-3 text-[11.5px]">Calculation completed. A filing pack cannot be prepared until the legal entity has a valid nine-digit TIN registered in BEYU.</div>}
           <div className="space-y-1 text-[11px]"><strong>Legal sources</strong>{result.calculation.sourceRefs.map((source) => <div key={source.code}><a className="underline underline-offset-2" href={source.uri} target="_blank" rel="noreferrer">{source.title}</a> · {source.provision}</div>)}</div>
           <ul className="list-disc space-y-1 pl-5 text-[10.5px] beyu-muted">{result.calculation.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>
           <p className="text-[11px] font-semibold text-amber-700">{result.governance.reason}</p>
