@@ -12,15 +12,16 @@ export function TaxIntelligenceCapabilities() {
       <div className="space-y-3">
         <p className="text-[11px] beyu-muted">
           The platform is being built in dependency order. Legal source authentication and the
-          effective-dated knowledge base come first. No tax computation, customs duty, filing
-          deadline, return submission or legal conclusion is activated by this capability register.
+          effective-dated knowledge base come first. The workbench now runs source-cited provisional estimates
+          for selected Mainland taxes and GN 158D customs processing fees, and persists draft filing packs.
+          Final legal determinations, complete tariff computations, specialist approval and TRA submission remain gated.
         </p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {TAX_INTELLIGENCE_CAPABILITIES.map((capability, index) => (
             <article key={capability.code} className="rounded-lg border border-[color:var(--beyu-line)] p-3">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[10px] font-mono beyu-muted">0{index + 1}</span>
-                <Badge tone="amber">INACTIVE · GATED</Badge>
+                <Badge tone={capability.code === "TAX_COMPUTATION_ENGINE" || capability.code === "CUSTOMS_INTELLIGENCE" || capability.code === "TAX_COMPLIANCE_MANAGEMENT" ? "amber" : "slate"}>{capability.code === "TAX_COMPUTATION_ENGINE" ? "PROVISIONAL ESTIMATES" : capability.code === "CUSTOMS_INTELLIGENCE" ? "GN 158D FEE ESTIMATE" : capability.code === "TAX_COMPLIANCE_MANAGEMENT" ? "DRAFT PACKS · NOT FILED" : "INACTIVE · GATED"}</Badge>
               </div>
               <h3 className="mt-2 text-[12px] font-semibold">{capability.title}</h3>
               <p className="mt-1 text-[10.5px] beyu-muted">{capability.description}</p>
@@ -38,7 +39,7 @@ export function TaxIntelligenceCapabilities() {
             <li>Effective-date and jurisdiction matching, with amendments, repeal and supersession relationships preserved.</li>
             <li>Capability-specific approval by an authorized specialist, with an approval reference and review period.</li>
             <li>NOELIA citations restricted to authenticated sources; model-generated text is never legal authority.</li>
-            <li>No automated tax posting, return filing, customs declaration, payment or clearance.</li>
+            <li>Drafts may be prepared and saved; specialist approval is required before submission. No tax posting, TRA filing, customs declaration, payment or clearance is automated.</li>
           </ul>
         </div>
       </div>
