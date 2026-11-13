@@ -67,6 +67,12 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(computeRoute).toContain('body.periodEnd >= "2026-07-01"');
   });
 
+  it("blocks post-commencement tax schedules for pre-commencement filing periods", () => {
+    expect(computeRoute).toContain('"PRESUMPTIVE_INCOME_TAX"].includes(body.taxType)');
+    expect(computeRoute).toContain('body.periodStart < "2026-07-01"');
+    expect(computeRoute).toContain("originEvidenceVerified: false");
+  });
+
   it("database constraints require specialist review and independent approval before submission", () => {
     expect(migration).toContain("'SPECIALIST_REVIEWED_PROVISIONAL'");
     expect(migration).toContain("'APPROVED_FOR_SUBMISSION'");
