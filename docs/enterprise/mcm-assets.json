@@ -131,8 +131,8 @@
         {
           "asset": "financial_periods",
           "source": "src/db/schema/finance.ts",
-          "disposition": "REUSED_UNVERIFIED",
-          "change": "The intercompany service documents a period-lock precondition but the check is not yet wired to financial_periods; the database currently enforces currency/agreement consistency only. Recorded as a gap, not as delivered.",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "Consumed by MCM exactly as-is, with no column or policy added: the intercompany period lock reads Finance OS's period status rather than mirroring it. `assertIntercompanyPeriodOpen` refuses a raise or a side authorisation when either leg's period is CLOSED or LOCKED, and assertAgreementEffectiveForPeriod checks the instrument's window against the same row's dates. Absence of a row is not a lock, and reconciliation is not gated — both stated, both tested (tests/mcm/intercompany-period-lock.test.ts). Was REUSED_UNVERIFIED because no MCM path touched it.",
           "environment": "database"
         },
         {
@@ -353,8 +353,8 @@
   "summary": {
     "implementedNew": 16,
     "extended": 5,
-    "reusedUnchanged": 9,
-    "reusedUnverified": 2,
+    "reusedUnchanged": 10,
+    "reusedUnverified": 1,
     "complete": 1,
     "deferredWithReason": 6,
     "cataloguedAssets": 39,

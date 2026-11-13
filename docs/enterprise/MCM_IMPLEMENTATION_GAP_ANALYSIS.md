@@ -88,16 +88,47 @@ relationship is legal ownership, and the schema now says so structurally rather
 than by convention. Overlapping live relationships of the same type over the same
 pair are refused (409) rather than silently superseded.
 
-### 2.6 Financial periods were not checked for intercompany — **GAP**
+### 2.6 Financial periods were not checked for intercompany — **CLOSED**
 
-`raiseIntercompanyTransaction` documents a period-lock precondition, but the
-implementation does not yet query `financial_periods`. The database enforces
-agreement currency, agreement party set, positive minor-unit amounts and
-idempotency, but a transaction for a `CLOSED` period would currently be accepted.
+`raiseIntercompanyTransaction` documented a period-lock precondition it did not
+perform: a transaction for a `CLOSED` period was accepted. The control now exists
+(`assertIntercompanyPeriodOpen` / `intercompanyPeriodFacts` in
+`src/lib/mcm/services.ts`) and is read from **Finance OS's** `financial_periods`,
+never from an MCM-owned copy of the calendar:
 
-**Consequence:** intercompany records could reference a locked period.
-**Status:** NOT BUILT — GAP. Named here rather than hidden, because the service's
-own docstring would otherwise overstate what it enforces.
+* `CLOSED` or `LOCKED` for **either** leg refuses the write (409
+  `PERIOD_NOT_OPEN`, naming which leg). An intercompany record changes both
+  companies' position, so a lock on one side cannot be worked around by naming the
+  other.
+* The lock gates **raising** and **side authorisation** — a period that closed
+  after a transaction was raised cannot be brought into the group by a late
+  signature. Authority is still checked first, so a principal who may not sign is
+  refused for the reason that binds them.
+* **Reconciliation is deliberately not gated.** Reconciling is how a period becomes
+  ready to close; blocking it would deadlock the close.
+* `CLOSING` is not `CLOSED`, and **the absence of a period row is not a lock**.
+  Treating "no row" as locked would let MCM decide Finance's register by default;
+  the consequence is stated here instead of being papered over with a fabricated
+  lock.
+* A refusal writes **nothing**: no partial transaction, no state drift. The test
+  counts rows before and after each refusal rather than trusting the throw.
+
+The same function also closes a second overclaim: the agreement's effective window
+is now actually checked against the period, using the dates on Finance's
+`financial_periods` row where one exists, and falling back to "effective as of
+today" where none does — because `period_code` has no repository-wide format, and
+inventing a parser for it would make MCM the author of someone else's calendar.
+
+One documented precondition remains **unimplemented and is no longer claimed**:
+"the transaction type is permitted for that agreement type". `intercompany_transactions_type_check`
+constrains the type to a fixed set, but no agreement-type ↔ transaction-type matrix
+exists anywhere in the repository. Pairing them is a transfer-pricing decision
+Finance has not made; MCM does not invent it.
+**Status:** period lock and effective-window check DELIVERED,
+`tests/mcm/intercompany-period-lock.test.ts` (6 tests, fixtures idempotent because
+`intercompany_reconciliation_runs` is append-only even to the admin role — which
+is the immutability control proving itself). Agreement↔type matrix NOT BUILT —
+DECIDED, needs a Finance policy decision, not code.
 
 ### 2.7 Consolidation had records and controls but no engine — **GAP (largest)**
 
@@ -265,9 +296,9 @@ review, capital decisions requiring resolutions, entity-aware module links, a
 governed read surface, and runtime-role-proven isolation.
 
 The **computation and interaction layers are not complete**: the consolidation
-engine, sector-os data contracts in use, in-product mutation forms, the financial-period
-lock for intercompany, and any NOELIA *action* tool (NOELIA read access is delivered
-in §2.11; the actions are refused by design). Each is recorded
+engine, sector-os data contracts in use, in-product mutation forms, and any NOELIA
+*action* tool (NOELIA read access is delivered in §2.11; the actions are refused by
+design). The financial-period lock for intercompany is now enforced (§2.6). Each is recorded
 above with its consequence, and each fails closed rather than fabricating a figure
 or a permission.
 

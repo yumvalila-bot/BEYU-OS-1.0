@@ -37,6 +37,7 @@ import {
   mcmStatutoryFilings,
   ownershipRecords,
   ownershipValidations,
+  financialPeriods,
 } from "@/db/schema";
 import { can, type Principal } from "@/lib/authz";
 import { withAuditTransaction, type EventInput } from "@/lib/audit";
@@ -936,17 +937,121 @@ export type RaiseIntercompanyInput = {
 };
 
 /**
+ * The accounting-period control MCM owes Finance OS.
+ *
+ * Finance OS owns `financial_periods`; MCM may not write into a period Finance
+ * has closed. The rule is deliberately narrow and is stated in full, because the
+ * tempting failure mode here is a lock that silently becomes a policy MCM
+ * invented for someone else's register:
+ *
+ *  - a row whose status is `CLOSED` or `LOCKED` for EITHER leg blocks the write.
+ *    An intercompany record changes both companies' position, so one closed leg
+ *    is enough — a lock on one side cannot be worked around by naming the other;
+ *  - `OPEN` or `CLOSING` permits it. `CLOSING` means the close has started but
+ *    has not been asserted; refusing then would duplicate Finance's own state
+ *    machine in a table MCM does not own;
+ *  - NO ROW permits it. Absence of a period row is not a lock: treating it as one
+ *    would let MCM override Finance by simply never creating the record. That is
+ *    recorded as a real limitation in the gap analysis rather than papered over.
+ *
+ * `reconcileIntercompanyPeriod` is NOT gated by this: reconciling is how a period
+ * becomes ready to close, and it records a difference rather than creating a
+ * balance.
+ */
+async function intercompanyPeriodFacts(entityIds: string[], periodCode: string) {
+  return db
+    .select({
+      legalEntityId: financialPeriods.legalEntityId,
+      code: financialPeriods.code,
+      status: financialPeriods.status,
+      startsOn: financialPeriods.startsOn,
+      endsOn: financialPeriods.endsOn,
+    })
+    .from(financialPeriods)
+    .where(and(inArray(financialPeriods.legalEntityId, entityIds), eq(financialPeriods.code, periodCode)));
+}
+
+function assertPeriodsOpen(periods: Awaited<ReturnType<typeof intercompanyPeriodFacts>>, periodCode: string): void {
+  const blocked = periods.filter((period) => period.status === "CLOSED" || period.status === "LOCKED");
+  if (blocked.length === 0) return;
+  const detail = blocked.map((period) => `${period.legalEntityId} is ${period.status}`).join(", ");
+  throw new McmError(
+    "PERIOD_NOT_OPEN",
+    `Financial period ${periodCode} is not open for ${blocked.length} of the two entities (${detail}). ` +
+      "Finance OS owns the period; MCM cannot raise or authorise into a closed or locked period.",
+    409,
+  );
+}
+
+async function assertIntercompanyPeriodOpen(entityIds: string[], periodCode: string): Promise<void> {
+  assertPeriodsOpen(await intercompanyPeriodFacts(entityIds, periodCode), periodCode);
+}
+
+/**
+ * The agreement must actually cover the period being written.
+ *
+ * The period's DATES are read from Finance OS's own `financial_periods` row, not
+ * parsed out of the period code: a code like `2026-Q1` or `FY2026` has no
+ * repository-wide format, and inventing a parser would let MCM decide what someone
+ * else's calendar means. Where no period row exists the check degrades to "is the
+ * instrument effective today", which is the strongest statement available without
+ * inventing dates — and it is stated, not hidden.
+ */
+function assertAgreementEffectiveForPeriod(
+  agreement: { code: string; effectiveFrom: string; effectiveTo: string | null },
+  periods: Awaited<ReturnType<typeof intercompanyPeriodFacts>>,
+  periodCode: string,
+): void {
+  const dated = periods.find((period) => period.startsOn && period.endsOn);
+  const from = dated?.startsOn ?? null;
+  const to = dated?.endsOn ?? null;
+  if (from && to) {
+    if (agreement.effectiveFrom > to) {
+      throw new McmError(
+        "AGREEMENT_NOT_EFFECTIVE_FOR_PERIOD",
+        `Agreement ${agreement.code} takes effect ${agreement.effectiveFrom}, after period ${periodCode} ends (${to}). It cannot authorise a flow in that period.`,
+        409,
+      );
+    }
+    if (agreement.effectiveTo && agreement.effectiveTo < from) {
+      throw new McmError(
+        "AGREEMENT_NOT_EFFECTIVE_FOR_PERIOD",
+        `Agreement ${agreement.code} ended ${agreement.effectiveTo}, before period ${periodCode} began (${from}). Record a successor agreement rather than writing through an expired one.`,
+        409,
+      );
+    }
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (agreement.effectiveFrom > today || (agreement.effectiveTo !== null && agreement.effectiveTo < today)) {
+    throw new McmError(
+      "AGREEMENT_NOT_EFFECTIVE_FOR_PERIOD",
+      `Agreement ${agreement.code} is not effective on ${today} (window ${agreement.effectiveFrom} to ${agreement.effectiveTo ?? "open"}), and period ${periodCode} has no Finance OS date range to check against. An agreement is only evidence for a period it covers.`,
+      409,
+    );
+  }
+}
+
+
+/**
  * Raise an intercompany transaction.
  *
  * NINE preconditions, all fail-closed:
  *  1. both entities are in the principal's scope;
  *  2. the principal may raise intercompany transactions for the receivable side;
  *  3. the agreement exists, is ACTIVE, is between exactly these two entities,
- *     is in the same currency, and is effective for the period;
- *  4. the transaction type is permitted for that agreement type;
+ *     is in the same currency, and its effective window covers the period;
+ *  4. the transaction type is one the database admits for intercompany records
+ *     (`intercompany_transactions_type_check`). There is NO agreement-type ↔
+ *     transaction-type matrix anywhere in the repository, so none is claimed:
+ *     pairing the two is a policy decision Finance has not made, and inventing
+ *     one here would make MCM the author of a rule it does not own;
  *  5. the amount is a positive integer of minor units;
- *  6. a financial period exists for the entity and is not LOCKED/CLOSED — an
- *     accounting-period control, checked against Finance OS, not MCM's own;
+ *  6. neither leg's financial period is CLOSED or LOCKED — an accounting-period
+ *     control read from Finance OS's `financial_periods`, never MCM's own table
+ *     (see assertIntercompanyPeriodOpen for what absence of a row means);
+ *  6b. the counterparty triple is complete: currency, amount and rate together
+ *     or not at all (the database CHECK refuses a half-stated conversion);
  *  7. the idempotency key has not been used (the database also enforces this);
  *  8. the receivable and payable entities are different;
  *  9. a currency conversion, if present, is accompanied by a rate and an amount.
@@ -1010,6 +1115,23 @@ export async function raiseIntercompanyTransaction(
       422,
     );
   }
+  const fxParts = [input.counterpartyCurrency, input.counterpartyAmountMinor, input.fxRateUsed].filter(
+    (value) => value !== null && value !== undefined && String(value).trim() !== "",
+  ).length;
+  if (fxParts !== 0 && fxParts !== 3) {
+    throw new McmError(
+      "COUNTERPARTY_INCOMPLETE",
+      "A counterparty conversion is stated in parts. counterpartyCurrency, counterpartyAmountMinor and fxRateUsed must be provided together — a half-stated conversion is how an uncheckable figure enters the group.",
+      422,
+    );
+  }
+
+  // Precondition 6 (+ the effective-window half of 3): Finance owns the
+  // calendar, so MCM asks it before writing.
+  const periodFacts = await intercompanyPeriodFacts([receivable.id, payable.id], input.periodCode);
+  assertPeriodsOpen(periodFacts, input.periodCode);
+  assertAgreementEffectiveForPeriod(agreement, periodFacts, input.periodCode);
+
   const [existingIdempotency] = await db
     .select({ id: intercompanyTransactions.id })
     .from(intercompanyTransactions)
@@ -1096,6 +1218,11 @@ export type AuthorizeIntercompanySideInput = {
 /**
  * Authorise ONE side of an intercompany transaction.
  *
+ * The period lock applies here as well as at raising: authorising a side changes
+ * the transaction's state for its period, so a period Finance has closed cannot
+ * be brought into the group by a late signature. A refusal says so rather than
+ * pretending the signature was simply not permitted.
+ *
  * The authority check is per-side: the principal must hold
  * `mcm:intercompany.authorize` on a tuple matching THAT side's legal entity. A
  * principal authorised for the receivable entity cannot authorise the payable
@@ -1133,6 +1260,13 @@ export async function authorizeIntercompanySide(
     "mcm:intercompany.authorize",
     { tenantId: entity.tenantId, entityId: entity.id, countryCode: entity.countryCode },
     "RESTRICTED",
+  );
+
+  // Authority first, then the calendar: a principal who may not sign is refused
+  // for the reason that binds them, not for a period status they cannot act on.
+  await assertIntercompanyPeriodOpen(
+    [transaction.receivableEntityId, transaction.payableEntityId],
+    transaction.periodCode,
   );
 
   const already =
