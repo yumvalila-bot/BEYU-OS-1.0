@@ -36,14 +36,7 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
   });
 
   it("keeps the receipt-document checksum trigger SQL syntactically complete", () => {
-    expect(migration).toContain("receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}
-    expect(migration).toContain("GRANT SELECT, INSERT, UPDATE");
-    expect(migration).not.toContain("GRANT SELECT, INSERT, UPDATE, DELETE");
-    expect(migration).toContain('"status" <> \'ACCEPTED\' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL)');
-  });
-});
- THEN");
-    expect(migration).not.toContain("receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}\n");
+    expect(migration).toContain("receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}$' THEN");
   });
 
   it("does not grant runtime delete or permit accepted returns without an external receipt", () => {
