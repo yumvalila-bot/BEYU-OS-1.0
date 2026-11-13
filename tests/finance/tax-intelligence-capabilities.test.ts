@@ -76,6 +76,8 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
   it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
     expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
     expect(noeliaLegalService).toContain("jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional()");
+    expect(noeliaLegalService).toContain("if (tanzaniaCustomsQuery) jurisdictionCodes.push(\"EAC\")");
+    expect(noeliaLegalService).toContain('inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"])');
     expect(noeliaEnterpriseMemory).toContain("jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional()");
     expect(noeliaLegalService).toContain("asOf: z.string().optional()");
     expect(noeliaLegalService).toContain('inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"])');
