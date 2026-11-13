@@ -40,6 +40,9 @@ export function assessCustomsClassificationReadiness(input: CustomsClassificatio
   if (!input.countryOfOrigin) blockers.push("Country of origin and Rules of Origin evidence are required.");
   if (!input.customsValueTzs || !Number.isSafeInteger(input.customsValueTzs) || input.customsValueTzs <= 0) blockers.push("Customs value and valuation evidence are required.");
   if (!input.valuationMethod) blockers.push("A GATT/WTO customs valuation method must be identified and justified.");
+  if (input.proposedHsCode && !/^\d{6,10}$/.test(input.proposedHsCode)) blockers.push("Proposed HS code must contain 6–10 digits and be supported by a specialist determination or TRA ruling.");
+  if (input.effectiveFrom && !/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom)) activationBlockers.push("Specialist determination effective-from must be an ISO calendar date.");
+  if (input.effectiveTo && (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveTo) || (input.effectiveFrom && input.effectiveTo < input.effectiveFrom))) activationBlockers.push("Specialist determination effective-to must be valid and not precede effective-from.");
   if (!input.specialistId || !input.determinationReference || !input.effectiveFrom) {
     activationBlockers.push("Named specialist HS determination/ruling and effective date are required before any duty computation.");
   }
