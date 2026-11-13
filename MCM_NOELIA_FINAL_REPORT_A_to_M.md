@@ -269,7 +269,7 @@ in this database, so every ledger-shaped assertion is a refusal test, never a ba
 | `/tmp/full-final.log` | 352 passed \| 9 skipped (361) | 5,841 passed \| 75 skipped \| 31 todo (5,947) | 0 |
 | `/tmp/final-full.log` | 359 passed \| 4 skipped (363) | 5,924 passed \| 12 skipped \| 31 todo (5,967) | **1** — zero failed assertions; an unhandled rejection from my own test helper |
 | `/tmp/final-full2.log` | 358 passed \| 1 failed \| 4 skipped (363) | 5,923 passed \| 1 failed \| 12 skipped \| 31 todo (5,967) | **1** — the self-poisoning fixture, **H.2** |
-| `/tmp/final-full3.log` (after both fixes) | *appended below when recorded* | | |
+| `/tmp/final-full3.log` (**after both fixes**) | **359 passed \| 4 skipped (363)** | **5,924 passed \| 12 skipped \| 31 todo (5,967)** | **0** |
 
 Three things worth saying out loud. The file count **moved between consecutive runs**
 (359 → 358) and nobody asked why at the time; that discrepancy *was* the H.2 fixture. The first
@@ -278,7 +278,12 @@ damage there is not the red run but the training: a suite that exits non-zero fo
 reason teaches everyone to ignore the exit code. And the skip counts differ (39 → 9 → 4 files)
 **because the HTTP gate is now on** — those suites are running rather than silently skipping, which
 is the entire point of turning it on, so a shrinking skip count is the control working and not a
-cleaner run.
+cleaner run. Finally, the confirming run came back at **359 passed files with zero failures and
+`EXIT=0`** — the count returned to 359 the moment the fixture was fixed, which closes the 359/358
+discrepancy: the delta was exactly that one file, and nothing else moved. The 4 remaining skipped
+files are the environment-gated ones (`tests/bootstrap/enrollment-http`, `bootstrap/foundation`,
+`bootstrap/preparation`, `communications/security` — the first three need `BEYU_BOOTSTRAP_SECRET`,
+the fourth is 31 `todo`), and CI skips them for the same reason, so this is not a local-only green.
 
 Environment facts that belong in the record, not in a footnote: the local suite needs **both**
 `BEYU_GOVERNANCE_DATABASE_URL` and `BEYU_BOOTSTRAP_PASSWORD` (in git-ignored `.env`);
@@ -300,10 +305,18 @@ direct production advisories (`next` critical, `zod` high — both fixes are bre
 **not** applied); clean-install/upgrade parity; no `policy_provenance` table; which of the 77
 RLS-less tables need policy; whether permission drift should fail a deploy.
 
+**Verified state.** After both test fixes, `npx vitest run` against the live production build
+finished **359 files / 5,924 tests passed, 0 failed, `EXIT=0`**, with only the 4 environment-gated
+files skipped. `tsc --noEmit` clean, `npm run build` EXIT=0, governance gates green (schema-drift
+`blocking: []`; migration integrity 80/80/55 with the three missing snapshots declared as debt;
+runtime privileges `ok: true`, 1,936 checks, 0 failures), and `tests/communications/` run twice
+back-to-back to prove the fixture is no longer self-poisoning.
+
 **Readiness.** MCM's foundation is enforced at the database, its read surface is governed and now
 intelligible to NOELIA without being widened, its one documented-but-absent control is now real,
 and the host-routing gap that would have shipped a public page behind a look-alike Host is closed.
 What is *not* claimed: certification, browser verification, clean-install parity, or that the
-skipped-then-fixed HTTP suites are the last place a silent skip hides something. Recommend merging
-on the strength of the full-suite run in this section; if that run is not green when read, treat
-this report as pending that result rather than complete.
+skipped-then-fixed HTTP suites are the last place a silent skip hides something. Recommend merging on
+the strength of that run. What is *not* evidence yet: browser behaviour (`test:browser` cannot run
+in this sandbox) and clean-install parity — both are named in the list above rather than rounded
+away.
