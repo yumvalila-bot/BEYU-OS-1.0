@@ -172,3 +172,8 @@ Tax-source ingestion and publication fail closed when TAX_OFFICIAL_SOURCE_HOSTS 
 
 
 NOELIA's finance-scoped tax.knowledge.query tool now routes through the same authenticated TAX_LEGAL_AUTHORITY retrieval service as the legal-domain query. It requires a two-letter jurisdiction and supports an explicit as-of date; authenticated SUPERSEDED sources may be cited only inside their historical effective window. The older tax-strategy summary reader is not used as a substitute for primary tax law.
+
+
+### Regional customs-law sources
+
+The primary-source register now includes EAC Customs Management Act 2004 and its 2025 amendment, EAC Customs Management Regulations 2010, EAC Rules of Origin 2015 (Legal Notice EAC/139/2022), the EAC Common External Tariff online schedule, and the EAC Assembling and Manufacturing of Products Regulations 2025 (catalogue states commencement 1 July 2026). EAC is represented as a regional jurisdiction code, distinct from Tanzania's national legislation. These sources remain SOURCE_LINKED_NOT_INGESTED: the full legal text, amendment/commencement crosswalk, current tariff-line data, product legal notes, rules of origin and customs relief schedules must be ingested and specialist-verified before any HS classification or duty estimate is activated. The four headline CET bands must never be used as a substitute for the current tariff line and sensitive-product schedule.
