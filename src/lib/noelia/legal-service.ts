@@ -57,6 +57,13 @@ export class BeyuNoeliaLegalService {
         confidence: 0.4,
       };
     }
+    const jurisdictionCodes = [parsed.jurisdictionCode!];
+    if (parsed.domain === "TAX" && parsed.jurisdictionCode === "TZ_MAINLAND") jurisdictionCodes.push("TZ");
+    const tanzaniaCustomsQuery = parsed.domain === "TAX"
+      && ["TZ", "TZ_MAINLAND"].includes(parsed.jurisdictionCode!)
+      && /\\b(customs|import|export|hs|tariff|origin|duty)\\b/i.test(parsed.question);
+    if (tanzaniaCustomsQuery) jurisdictionCodes.push("EAC");
+    const additionalJurisdictionCodes = jurisdictionCodes.filter((code) => code !== parsed.jurisdictionCode);
     const classifications = this.visibleClassifications(context);
     if (classifications.length === 0) {
       return { findings: [], confidence: 0.2, humanReviewRequired: true };
@@ -72,7 +79,7 @@ export class BeyuNoeliaLegalService {
         parsed.domain === "TAX" ? eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE") : sql`true`,
         parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${asOf})` : sql`true`,
         inArray(knowledgeSources.classification, classifications),
-        parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
+        parsed.jurisdictionCode ? inArray(knowledgeSources.jurisdictionCode, jurisdictionCodes) : sql`true`,
         eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
         lte(knowledgeSources.effectiveFrom, asOf),
         gte(knowledgeSources.reviewDate, today),
