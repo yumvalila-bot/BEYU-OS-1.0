@@ -126,6 +126,20 @@ describe("NOELIA tax citation boundary", () => {
     expect(result.requiresAuthority).toBe(false);
   });
 
+  it("allows an authenticated EAC source as a regional overlay for a Tanzania customs query", () => {
+    const regional = {
+      sourceCode: "EAC_CMA_TEST", title: "EAC customs rule", provision: "s.1", jurisdictionCode: "EAC",
+      effectiveFrom: "2024-01-01", effectiveTo: null, authorityStatus: "AUTHORITATIVE",
+      sourceAuthenticationStatus: "AUTHORITATIVE", uri: "https://www.eac.int/customs/test.pdf",
+    };
+    const withoutOverlay = filterNoeliaTaxCitations({ citations: [regional], jurisdictionCode: "TZ", asOf: "2026-11-13" });
+    const withOverlay = filterNoeliaTaxCitations({
+      citations: [regional], jurisdictionCode: "TZ", additionalJurisdictionCodes: ["EAC"], asOf: "2026-11-13",
+    });
+    expect(withoutOverlay.citations).toHaveLength(0);
+    expect(withOverlay.citations).toHaveLength(1);
+  });
+
   it("can explain a superseded tax rule for its historical effective period only", () => {
     const historical = {
       sourceCode: "OLD", title: "Old rule", provision: "s.1", jurisdictionCode: "TZ",
