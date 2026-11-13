@@ -60,8 +60,18 @@ const approval = (overrides: Partial<TaxSpecialistApproval> = {}): TaxSpecialist
 });
 
 const noeliaLegalService = readFileSync(new URL("../../src/lib/noelia/legal-service.ts", import.meta.url), "utf8");
+const noeliaDefaultTools = readFileSync(new URL("../../src/lib/noelia/default-tools.ts", import.meta.url), "utf8");
 
 describe("FINANCE_OS governed tax-intelligence capabilities", () => {
+  it("routes the tax.knowledge.query tool through authenticated TAX_LEGAL_AUTHORITY retrieval", () => {
+    const start = noeliaDefaultTools.indexOf('name: "tax.knowledge.query"');
+    const end = noeliaDefaultTools.indexOf('name: "legal.knowledge.query"', start);
+    const taxTool = noeliaDefaultTools.slice(start, end);
+    expect(taxTool).toContain('jurisdictionCode: z.string().length(2)');
+    expect(taxTool).toContain('execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" })');
+    expect(taxTool).not.toContain("services.tax(context)");
+  });
+
   it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
     expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
     expect(noeliaLegalService).toContain("asOf: z.string().optional()");
