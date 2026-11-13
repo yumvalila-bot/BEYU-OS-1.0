@@ -60,6 +60,20 @@ describe("FINANCE_OS tax compliance planner", () => {
 });
 
 describe("customs classification workflow", () => {
+  it("rejects malformed specialist HS codes and invalid determination date windows", () => {
+    const result = assessCustomsClassificationReadiness({
+      caseId: "case-2", tenantId: "tenant-1", legalEntityId: "entity-1", jurisdictionCode: "TZ_MAINLAND",
+      goodsDescription: "Industrial pump", composition: "Stainless steel", functionAndUse: "Water transfer",
+      manufacturingProcess: "Machined and assembled", modelOrPartNumber: "P-1", countryOfOrigin: "CN",
+      proposedHsCode: "87A899", customsValueTzs: 1000000, valuationMethod: "TRANSACTION_VALUE",
+      evidenceDocumentIds: ["doc-1"], status: "SPECIALIST_DETERMINED", specialistId: "specialist-1",
+      determinationReference: "TRA-RULING-1", effectiveFrom: "2026-02-31", effectiveTo: "2026-01-01",
+    });
+    expect(result.blockers.some((item) => item.includes("6–10 digits"))).toBe(true);
+    expect(result.activationBlockers.some((item) => item.includes("effective-to"))).toBe(true);
+    expect(result.canCalculateDuty).toBe(false);
+  });
+
   it("never infers an HS code or enables duty calculation", () => {
     const result = assessCustomsClassificationReadiness({
       caseId: "case-1", tenantId: "tenant-1", legalEntityId: "entity-1", jurisdictionCode: "TZ_MAINLAND",
