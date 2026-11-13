@@ -11,23 +11,50 @@
  */
 import { createHmac } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { communicationMessages, communicationProviders, tenants } from "@/db/schema";
+import {
+  communicationLoopDetections,
+  communicationMessages,
+  communicationProviders,
+  communicationSecurityEvents,
+  communicationWebhookEvents,
+  tenants,
+} from "@/db/schema";
+
+/**
+ * The trace/correlation id must be unique PER RUN, and it is a hoisted constant
+ * because `vi.mock` factories run before this module's statements.
+ *
+ * A fixed id here was a self-poisoning fixture. Inbound message creation runs
+ * `checkLoop(tenantId, correlationId, …)`, which blocks once
+ * `communication_loop_detections` holds a row at `MAX_AUTOMATION_DEPTH` (10) for
+ * that correlation. Every run of this file appended exactly one row for
+ * `EVT_WEBHOOK_ROUTE_TEST` and deleted nothing, so the tenth run turned the file
+ * permanently red: the route then answered `WEBHOOK_PROCESSING_FAILED` — "Message
+ * loop detected: correlation EVT_WEBHOOK_ROUTE_TEST depth 10 exceeds limit" — and
+ * every run after it the same way, with the whole suite exiting 1 while its own
+ * assertions stayed green. Nothing in the product was wrong; the guard was doing
+ * its job on a correlation that genuinely had 10 messages. `webhook-ingest.test.ts`
+ * already keys its per-run ids this way.
+ */
+const { RUN, RUN_TRACE } = vi.hoisted(() => {
+  const run = Date.now().toString(36).toUpperCase();
+  return { RUN: run, RUN_TRACE: `EVT_WEBHOOK_ROUTE_${run}` };
+});
 
 vi.mock("@/lib/session", () => ({
   requestMeta: async () => ({
     ip: "203.0.113.10",
     userAgent: "vitest-webhook-route",
-    traceId: "EVT_WEBHOOK_ROUTE_TEST",
-    correlationId: "EVT_WEBHOOK_ROUTE_TEST",
+    traceId: RUN_TRACE,
+    correlationId: RUN_TRACE,
     causationId: null,
   }),
 }));
 
 import { GET, POST } from "@/app/api/v1/communications/webhook/[provider]/route";
 
-const RUN = Date.now().toString(36).toUpperCase();
 /** A seeded tenant. Tests must not insert tenants into the shared database (see webhook-ingest.test.ts). */
 const TENANT_CODE = "BEYU-FINTECH";
 let TENANT_ID = "";
@@ -75,8 +102,26 @@ describe("communications webhook route — HTTP boundary", () => {
     });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     delete process.env[TOKEN_REF];
+    // Remove only what THIS run created — scoped by its own provider code and
+    // message-sid prefix, never by tenant, because `webhook-ingest.test.ts`
+    // writes for the same tenant and this file has no business emptying its
+    // history. The order is dictated by the FK graph, children first:
+    //   security_events → webhook_events → messages → provider.
+    // The loop-detection row is the one that actually had to go: it is what made
+    // the next run fail. The rest had simply never been cleaned up at all (12
+    // leaked provider rows were sitting in the database from 12 runs). Safe to
+    // delete here — unlike the audit and MCM history tables, none of these carry
+    // an immutability trigger that would (correctly) refuse it.
+    const providerId = `PROV_${PROVIDER_CODE}`;
+    await db.delete(communicationSecurityEvents).where(eq(communicationSecurityEvents.providerId, providerId));
+    await db.delete(communicationWebhookEvents).where(eq(communicationWebhookEvents.providerCode, PROVIDER_CODE));
+    await db
+      .delete(communicationMessages)
+      .where(and(eq(communicationMessages.tenantId, TENANT_ID), like(communicationMessages.providerMessageId, `SM${RUN}%`)));
+    await db.delete(communicationLoopDetections).where(eq(communicationLoopDetections.correlationId, RUN_TRACE));
+    await db.delete(communicationProviders).where(eq(communicationProviders.code, PROVIDER_CODE));
   });
 
   it("a Twilio request signed over the exact public URL is accepted and creates one inbound message", async () => {

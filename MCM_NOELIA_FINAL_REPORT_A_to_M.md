@@ -1,8 +1,12 @@
 # MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–M)
 
 Branch `arena/2aef83f7-beyu-os-1-0`, branched from `dc8f848226ed8860ef293f817fe10394360abb1d`
-of `main`. Date 2026-11-13. Seven commits, 74 files, +103,179 / −51 (the 0076 snapshot is
-91,511 of those lines; see **L** for why a snapshot is in the diff at all).
+of `main`. Date 2026-11-13. **Nine commits, 78 files, +103,653 / −57**, counted with
+`git log --oneline dc8f848..HEAD | wc -l` and `git diff --shortstat dc8f848 HEAD` rather than
+recalled. 91,511 of those added lines are the `drizzle/meta/0076_snapshot.json` the integrity gate
+requires (see **C** and **L** for why a snapshot belongs in the diff at all), so the hand-written
+change is roughly 12,000 lines — still worth stating as a number rather than leaving the raw
+figure to impress or alarm a reader.
 
 This report is written so a reviewer can *check* each claim, not so they can admire it. Every
 number came from a command in this environment; commands are given.
