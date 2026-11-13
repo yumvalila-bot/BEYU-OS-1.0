@@ -158,7 +158,39 @@ describe("C. canonical palette, with the one documented contrast correction", ()
 
   it("uses the accessible gold ONLY for small text on light surfaces, and says why", () => {
     expect(GLOBALS).toContain("--beyu-gold-ink: #8a6a12");
-    expect(GLOBALS).toContain("4.60:1");
+
+    /**
+     * The contrast claim is COMPUTED, not matched as a literal.
+     *
+     * The old assertion required the string "4.60:1" to appear in the stylesheet.
+     * The token was correct all along — #8a6a12 on the page surface #f7f9fc
+     * measures 4.80:1 — but the comment quoted a slightly stale figure, so the
+     * test failed on prose while the accessibility property it exists to protect
+     * held. Recomputing WCAG 2.1 relative luminance from the two tokens means the
+     * assertion can only pass while the actual ratio clears AA, and it cannot
+     * drift when a comment is reworded.
+     */
+    const channel = (value: number): number => {
+      const c = value / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = (hex: string): number => {
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    };
+    const ratio = (a: string, b: string): number => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const goldInk = GLOBALS.match(/--beyu-gold-ink:\s*#([0-9a-fA-F]{6})/)?.[1];
+    const surface = GLOBALS.match(/--beyu-surface:\s*#([0-9a-fA-F]{6})/)?.[1];
+    expect(goldInk).toBeDefined();
+    expect(surface).toBeDefined();
+    // WCAG AA for normal-size text.
+    expect(ratio(goldInk!, surface!)).toBeGreaterThanOrEqual(4.5);
+    // And the brand gold is NOT used as small text: it would fail.
+    const brandGold = GLOBALS.match(/--beyu-gold:\s*#([0-9a-fA-F]{6})/)?.[1];
+    expect(ratio(brandGold!, surface!)).toBeLessThan(4.5);
     // The login surfaces consume it for text; the brand gold stays the graphic accent.
     expect(SURFACE).toContain("beyu-gold-ink");
     expect(SURFACE).toContain("text-[#d4a017]");
@@ -228,7 +260,13 @@ describe("D. security is not traded for visual fidelity", () => {
     // The presentation layer never authenticates, and the surfaces never
     // re-implement the form.
     expect(SURFACE).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
-    expect(PAGE).toContain("<SignInForm");
+    // The root page DELEGATES the credential form to the governed sign-in, which
+    // renders the one shared <SignInForm>. Asserting `<SignInForm` directly on the
+    // page enforced a layout that does not exist (and which an unused import had
+    // been faking): what the contract actually requires is that the page routes
+    // through the shared form rather than re-implementing one.
+    expect(PAGE).toMatch(/<GovernedSignIn|<SignInForm/);
+    expect(PAGE).not.toMatch(/type="password"|<input[^>]*name="password"/);
     expect(GOVERNED).toContain("<SignInForm");
     expect(GOVERNED).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
     // A hostname may only be read through the ONE server helper, whose

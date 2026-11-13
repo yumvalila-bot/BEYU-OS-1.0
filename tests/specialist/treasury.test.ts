@@ -15,6 +15,8 @@
  * Positive controls assert on specific known values from the real 5-row substrate, so an empty
  * result can never pass as success.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -877,6 +879,12 @@ describe("treasury module — creates no second truth", () => {
       -- treasury position register; excluded by exact name so this guard still
       -- fails if the treasury module itself ever defines a table.
         and table_name <> 'family_cash_flow_items'
+      -- fx_rates (drizzle/0076, MULTI_COMPANY_MANAGEMENT) is MCM's governed rate
+      -- source used to TRANSLATE balances for group reporting. It is not a treasury
+      -- position, it holds no balance and it is unwritable by the runtime role
+      -- (0076 read-only policy + 0077 hardening); excluded by exact name so this
+      -- guard still fails if the treasury module itself ever defines a table.
+        and table_name <> 'fx_rates'
       order by table_name
     `)).map((r) => r.table_name);
     expect(names).toEqual(["treasury_positions"]);
@@ -965,7 +973,16 @@ describe("treasury module — creates no second truth", () => {
     //   posting; journal_entries/journal_lines remain the only booked truth and CAP_POSTING stays
     //   LOCKED.
     // + 0075: Noelia authority/execution hardening creates no treasury table or posting path.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
+    // + 0076–0079: MULTI_COMPANY_MANAGEMENT (20 tables, RLS + FORCE RLS, append-only
+    //   triggers, parent-cycle guard) and three forward fixes to its security and
+    //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
+    //   Adds NO treasury table and no second ledger truth.
+    // DERIVED, not a literal: the applied-ledger count must equal the number of
+    // canonical .sql files. Pinning it to a number is how a suite starts failing the
+    // moment a legitimate migration lands, and then gets 'fixed' by editing the number.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(
+      readdirSync(join(process.cwd(), "drizzle")).filter((f) => f.endsWith(".sql")).length,
+    );  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

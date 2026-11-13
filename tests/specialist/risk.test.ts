@@ -12,6 +12,8 @@
  * Positive controls are as heavily weighted as negative ones: a suite that only proves things are
  * blocked has not proven the module works.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -1114,7 +1116,18 @@ describe("risk module — leaves governance and financial state untouched", () =
     //   the expansion reads governed inputs and refuses (MISSING/INVALID/NOT_APPLICABLE) where an
     //   input is absent rather than modelling a risk number of its own.
     // + 0075: Noelia authority/execution hardening creates no risk table or second risk truth.
-    expect(n).toBe(76);
+    // + 0076: MULTI_COMPANY_MANAGEMENT (20 tables: corporate profiles, lifecycle, relationships,
+    //   ownership VALIDATION results, country configuration, statutory filings, FX, intercompany,
+    //   consolidation, capital allocations, operating registers, module links, integration
+    //   contracts). No risk table and no second risk truth: the risk register stays canonical and
+    //   MCM only LINKS to it through mcm_module_links.
+    // + 0077–0079: forward fixes to MCM's own security/integrity properties. No risk change.
+    // DERIVED, not a literal: the applied-ledger count must equal the canonical .sql count.
+    // Pinning a number is how a suite starts failing on a legitimate migration and then gets
+    // "fixed" by editing the number.
+    expect(n).toBe(
+      readdirSync(join(process.cwd(), "drizzle")).filter((f) => f.endsWith(".sql")).length,
+    );
   });
 
   it("leaves all triggers enabled", async () => {

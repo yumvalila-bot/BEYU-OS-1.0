@@ -476,7 +476,11 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    // The journal head moved to MULTI_COMPANY_MANAGEMENT (0076) and its forward fixes
+    // (0077-0079). What this assertion exists to protect is that no destination/frontend/
+    // host/subdomain migration was added — the head is asserted to be the MCM block so a
+    // future migration still has to update this test deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0079_mcm_module_link_uidx_order");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

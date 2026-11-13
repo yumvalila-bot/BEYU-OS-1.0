@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import { knowledgeSources } from "@/db/schema";
 import type { Principal } from "@/lib/authz";
@@ -154,8 +154,22 @@ async function queryGovernedMemory(input: {
   const textPredicate = input.terms
     ? sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.content}) ~ ${input.terms.join("|")}`
     : sql`true`;
+  // Retrieval must be DETERMINISTIC and relevance-ordered. Without an ORDER BY,
+  // `limit` returned an arbitrary subset of the matching corpus: which sources
+  // Noelia was shown depended on physical row order, and the `retrievalRank`
+  // recorded in noelia_rag_retrieval_events described that arbitrary order as if
+  // it were relevance. Rank by full-text relevance when the question has terms
+  // (the 0066 tsvector is generated for exactly this), then fall back to a
+  // stable tie-break so two identical questions always retrieve the same set.
+  const question = input.terms ? input.terms.join(" ") : null;
+  const rank = question
+    ? sql<number>`ts_rank(${knowledgeSources.searchTsv}, websearch_to_tsquery('english', ${question}))`
+    : sql<number>`0`;
   const rows = await db
-    .select()
+    .select({
+      row: knowledgeSources,
+      rank,
+    })
     .from(knowledgeSources)
     .where(and(
       eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
@@ -166,9 +180,10 @@ async function queryGovernedMemory(input: {
       or(...scopePredicates(input.scope)),
       textPredicate,
     ))
+    .orderBy(desc(rank), asc(knowledgeSources.code), asc(knowledgeSources.id))
     .limit(Math.min(Math.max(input.limit, 1), 100));
 
-  return rows.flatMap((row): RetrievedMemory[] => {
+  return rows.map((entry) => entry.row).flatMap((row): RetrievedMemory[] => {
     const visibility = decideMemoryVisibility(input.principal, input.scope, {
       scopeType: row.scopeType,
       tenantId: row.tenantId,

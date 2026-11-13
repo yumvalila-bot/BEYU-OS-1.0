@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
-import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
+import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";

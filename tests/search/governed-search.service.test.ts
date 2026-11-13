@@ -121,6 +121,49 @@ async function search(principal: Principal, q: string, extra: Record<string, str
 const ids = (r: GovernedSearchResult, type?: string) =>
   r.results.filter((x) => (type ? x.type === type : true)).map((x) => x.id);
 
+/**
+ * Authorization is a claim about the corpus, not about page one.
+ *
+ * Two things were silently being asserted by `toContain` on a single page:
+ *
+ *  1. "…and it ranks in the top 20 of everything the corpus matches". The corpus
+ *     accumulates: every run cleans only its own RUN tag, and immutable
+ *     knowledge evidence is deliberately retained as audit trail (see afterAll).
+ *     After a few interrupted runs the "search" fixtures tied on ts_rank exceed
+ *     one page, and which ones survive is decided by the type/title tie-break —
+ *     not by the authorization rule under test.
+ *  2. "…and every equally-ranked row from previous runs is also visible", which
+ *     was never the intent.
+ *
+ * So: scope the query to THIS run's fixtures (every fixture carries RUN in a
+ * searchable column — title, code, name or description) and page to exhaustion.
+ * RLS, clearance, scope and per-source permission still decide everything; only
+ * the accidental coupling to accumulated corpus size is removed. The per-source
+ * cap (25) still bounds each source honestly.
+ */
+async function searchAll(
+  principal: Principal,
+  q: string,
+  extra: Record<string, string> = {},
+): Promise<GovernedSearchResult> {
+  const scopedQuery = `${q} ${RUN}`;
+  const PAGE = 50;
+  const seen: GovernedSearchResult["results"] = [];
+  let first: GovernedSearchResult | null = null;
+  for (let offset = 0, pages = 0; pages < 20; pages += 1, offset += PAGE) {
+    const page = await search(principal, scopedQuery, {
+      ...extra,
+      limit: String(PAGE),
+      offset: String(offset),
+    });
+    first ??= page;
+    if (page.results.length === 0) break;
+    seen.push(...page.results);
+    if (page.results.length < PAGE) break;
+  }
+  return { ...(first as GovernedSearchResult), results: seen };
+}
+
 beforeAll(async () => {
   admin = new Client({ connectionString: process.env.BEYU_ADMIN_DATABASE_URL! });
   await admin.connect();
@@ -225,7 +268,7 @@ afterAll(async () => {
 describe("Shared Search — authorization", () => {
   it("A. same-tenant authorized results are visible (ujenzi operator)", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
-    const r = await search(p, "search");
+    const r = await searchAll(p, "search");
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projA);
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projB);
     expect(ids(r, "UJENZI_BOQ")).toContain(F.boqA);
@@ -310,7 +353,7 @@ describe("Shared Search — authorization", () => {
 
   it("D2. the group CEO (HIGHLY_RESTRICTED) sees the above-ceiling rows", async () => {
     const p = await principalFor("ceo@beyu.os");
-    const r = await search(p, "search");
+    const r = await searchAll(p, "search");
     expect(ids(r, "DOCUMENT")).toContain(F.docARestricted);
     expect(ids(r, "UJENZI_PROJECT")).toContain(F.projCRestricted);
     expect(ids(r, "KNOWLEDGE")).toContain(F.ksHR);
@@ -377,7 +420,7 @@ describe("Shared Search — correctness", () => {
 
   it("H2. one query spans multiple resource types across multiple OSes", async () => {
     const p = await principalFor("ceo@beyu.os");
-    const r = await search(p, "search");
+    const r = await searchAll(p, "search");
     const osSeen = new Set(r.results.map((x) => x.os));
     expect(osSeen.has("BEYU")).toBe(true);
     expect(osSeen.has("UJENZI")).toBe(true);

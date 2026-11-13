@@ -36,6 +36,14 @@
   --beyu-navy-soft: #16294a;
   --beyu-gold: #d4af37;
   --beyu-gold-soft: #efd98f;
+  /*
+   * Accessible gold for SMALL TEXT on the light surfaces. The brand gold
+   * (#d4af37) is a graphic accent — it fails WCAG AA as text. This value is
+   * measured, not estimated: against --beyu-surface (#f7f9fc) the contrast ratio
+   * is 4.80:1, and against pure white 5.06:1. Both clear the 4.5:1 AA threshold
+   * for normal text. `tests/sector-domains/login-surface-reference.test.ts`
+   * recomputes that ratio from these two tokens rather than trusting this note.
+   */
   --beyu-gold-ink: #8a6a12;
   --beyu-sage: #4c6f4e;
   --beyu-surface: #f7f9fc;
