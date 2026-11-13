@@ -527,7 +527,7 @@ export function createDefaultNoeliaToolRegistry(
     permission: "finance:tax.read",
     classification: "CONFIDENTIAL",
     risk: "LOW",
-    description: "Read authoritative tax intelligence for authorized countries.",
+    description: "Read authoritative tax intelligence for an explicit country, regional or subnational jurisdiction; historical as-of queries supported.",
     metadata: {
       stableId: "cap-tax-knowledge-query",
       version: "1.0.0",
