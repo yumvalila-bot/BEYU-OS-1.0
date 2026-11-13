@@ -114,6 +114,12 @@ export type TaxCalculation = {
   sourceSnapshotDate: "2026-11-12";
 };
 
+/** Normalize Tanzania's nine-digit TIN from common display forms stored on legal entities. */
+export function normalizeTanzaniaTin(value: string | null | undefined): string | null {
+  const normalized = (value ?? "").trim().replace(/^TIN[-\\s]*/i, "").replace(/[\\s-]/g, "");
+  return /^\\d{9}$/.test(normalized) ? normalized : null;
+}
+
 export class TaxCalculationError extends Error {
   constructor(message: string) {
     super(message);
