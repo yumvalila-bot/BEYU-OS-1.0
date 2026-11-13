@@ -164,3 +164,8 @@ Engineering controls added in this work:
 - Audit/dispute dossiers require valid calendar periods, statutory deadlines, evidence identity, collector, checksum and specialist ownership.
 
 These changes improve draft preparation and evidence handling; they do not activate unauthenticated tax rules, authorize final liability, file returns with TRA or enable CAP_POSTING.
+
+
+### Official-source host allowlist
+
+Tax-source ingestion and publication fail closed when TAX_OFFICIAL_SOURCE_HOSTS is empty. The initial administrator-reviewed allowlist for the registered Tanzania sources is: oagmis.oag.go.tz, elibrary.osg.go.tz, tra.go.tz, and polis.parliament.go.tz. Configure this only through the deployment's approved environment/configuration process after verifying each host; never use a wildcard, URL suffix match or user-provided host. No production environment variable was changed by this PR.
