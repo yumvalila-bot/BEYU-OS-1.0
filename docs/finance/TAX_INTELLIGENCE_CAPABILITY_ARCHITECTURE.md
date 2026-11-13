@@ -126,3 +126,18 @@ The FINANCE_OS tax workbench now exposes `POST /api/v1/finance/tax/compute`, per
 The calculator's PAYE monthly brackets are cross-checked to the current TRA Individual Income Tax guide; standard VAT and income-tax WHT to TRA guides; presumptive threshold/rate and VAT withholding to the enacted Finance Act No. 2 of 2026 (OSG e-Library PDF); standard CIT to the Income Tax Act; GN 158D processing fee to the official OAG PDF endpoint. All remain provisional pending original-document checksum ingestion, complete statutory amendment crosswalk and specialist ratification.
 
 The Group CFO approval endpoint requires calculation authority status AUTHORITATIVE, a rule approval reference and every source reference at AUTHORITATIVE. No current estimate satisfies those conditions. No TRA filing API/credential integration is enabled, no external receipt is fabricated, and CAP_POSTING remains untouched.
+
+
+### Domain engines added in the engineering continuation — 13 November 2026
+
+- `tax-compliance-engine.ts`: deterministic monthly/annual obligation planner for VAT, VAT withholding (separate payment and statement dates), PAYE, income-tax withholding, corporate provisional instalments and annual final returns, and individual returns. Every obligation remains `PLANNED_UNCONFIRMED`; weekend/holiday adjustments, extensions and portal-specific calendars are not inferred.
+- `customs-classification-workflow.ts`: structured product facts, origin, valuation method, evidence and specialist/ruling workflow. It intentionally never infers an HS code or enables duty calculation.
+- `tax-audit-dispute-dossier.ts`: tenant/entity-scoped dossier contract, checksum and period validation, notice/assessment/objection/appeal deadline evidence requirements, and transparent risk-triage factors. A risk band is not a finding of fraud or liability.
+- `noelia/tax-intelligence.ts`: reusable source filter for jurisdiction, as-of date, effective window, authoritative legal status, authenticated source status and URI. The existing NOELIA legal/tax knowledge retrieval now applies this filter before returning tax findings.
+- `tax-domain-engines.test.ts`: regression coverage for monthly/annual compliance dates, fail-closed HS classification, audit evidence and risk triage, and NOELIA effective-source filtering.
+
+The computation API now rejects use of the post-1 July 2026 presumptive, forest-produce, VAT-withholding and customs schedules for periods beginning before commencement. A historical or split-period computation must be added from authenticated pre-commencement rules rather than applying the current schedule retrospectively.
+
+### VAT withholding interpretation guard
+
+The deterministic VAT-withholding estimate uses the current TRA guidance amounts (3% of consideration for goods and 6% for services). Finance Act No. 2 of 2026 section 91 records the supplier's VAT-credit entitlement proportions (15% goods / 12% services) and 3:2 mixed-supply apportionment; section 95 sets the payment and statement deadline. These are distinct concepts and must not be conflated. Appointment as a withholding agent and the transaction facts require verification. The two ten-day milestones are recorded separately in the filing pack.
