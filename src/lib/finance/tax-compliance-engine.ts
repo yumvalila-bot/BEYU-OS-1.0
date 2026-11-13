@@ -93,7 +93,7 @@ export function buildTaxComplianceObligations(input: {
       if (start.getUTCDate() !== 1 || input.periodEnd !== expectedEnd) {
         throw new Error("Corporate provisional instalments require a complete 12-month accounting period beginning on the first day of a month; configure a specialist-reviewed accounting-period calendar for other periods.");
       }
-      const provisional = [3, 6, 9, 12].map((months, index) => ({
+      const provisional = [3, 6, 9, 12].map((months) => ({
         ...make("CORPORATE_PROVISIONAL_INSTALMENT", addDays(addMonths(input.periodStart, months), -1), ["INCOME_TAX_ACT_S88"], ["Provisional income estimate", "Instalment computation", "Payment evidence"]),
         amountTzs: null,
         warnings: ["Instalment amount must be computed from the approved provisional tax estimate; the annual liability is not copied into each instalment.", "Confirm current TRA portal form, taxpayer registration, extensions, weekends and public holidays before relying on this date."],
@@ -107,8 +107,10 @@ export function buildTaxComplianceObligations(input: {
       return [make("INDIVIDUAL_FINAL_RETURN", addMonths(input.periodEnd, 6), ["INCOME_TAX_ACT_S91", "TRA_INDIVIDUAL_GUIDE"], ["Income schedules", "Allowable deduction evidence", "Withholding certificates", "Final return acknowledgement"] )];
     case "PRESUMPTIVE_INCOME_TAX":
       if (input.presumptiveTaxThresholdExceeded === false) return [];
-      return ["03-31", "06-30", "09-30", "12-31"].map((date, index) =>
-        make("PRESUMPTIVE_RETURN", `${year}-${date}`, ["INCOME_TAX_ACT_FIRST_SCHEDULE", "TRA_INDIVIDUAL_GUIDE"], ["Turnover ledger", "Presumptive tax computation", "Payment evidence"])
-      );
+      return ["03-31", "06-30", "09-30", "12-31"].map((date) => ({
+        ...make("PRESUMPTIVE_RETURN", `${input.periodEnd.slice(0, 4)}-${date}`, ["INCOME_TAX_ACT_FIRST_SCHEDULE", "TRA_INDIVIDUAL_GUIDE"], ["Turnover ledger", "Presumptive tax computation", "Payment evidence"]),
+        amountTzs: null,
+        warnings: ["Instalment amount must be computed under the applicable approved presumptive schedule; annual liability is not copied into each instalment.", "Confirm current TRA portal form, taxpayer registration, extensions, weekends and public holidays before relying on this date."],
+      }));
   }
 }
