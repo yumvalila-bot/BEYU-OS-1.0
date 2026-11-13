@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   authenticateTaxLegalSource,
@@ -58,7 +59,14 @@ const approval = (overrides: Partial<TaxSpecialistApproval> = {}): TaxSpecialist
   ...overrides,
 });
 
+const noeliaLegalService = readFileSync(new URL("../../src/lib/noelia/legal-service.ts", import.meta.url), "utf8");
+
 describe("FINANCE_OS governed tax-intelligence capabilities", () => {
+  it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
+    expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
+    expect(noeliaLegalService).not.toContain('parsed.jurisdictionCode ?? row.jurisdictionCode');
+  });
+
   it("does not authenticate metadata-only or reproduced source records", () => {
     const result = authenticateTaxLegalSource(validSource({
       sourceAuthorityStatus: "OFFICIAL_METADATA_VERIFIED",
