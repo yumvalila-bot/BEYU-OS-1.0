@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants";
 import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
 import { filterNoeliaTaxCitations } from "@/lib/noelia/tax-intelligence";
+import { isTaxIsoDate } from "@/lib/finance/tax-intelligence-capabilities";
 
 /**
  * Legal + Tax intelligence (section 12 of the Noelia capability target).
@@ -43,8 +44,10 @@ export class BeyuNoeliaLegalService {
     const parsed = z.object({
       question: z.string().min(1).max(500),
       jurisdictionCode: z.string().length(2).optional(),
+      asOf: z.string().optional(),
       domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
     }).strict().parse(input ?? {});
+    if (parsed.asOf && !isTaxIsoDate(parsed.asOf)) throw new Error("Tax as-of date must be a valid ISO calendar date.");
     if (parsed.domain === "TAX" && !parsed.jurisdictionCode) {
       return {
         headline: "A tax jurisdiction is required before retrieving tax authority.",
@@ -59,6 +62,7 @@ export class BeyuNoeliaLegalService {
       return { findings: [], confidence: 0.2, humanReviewRequired: true };
     }
     const today = new Date().toISOString().slice(0, 10);
+    const asOf = parsed.domain === "TAX" ? (parsed.asOf ?? today) : today;
     const rows = await db
       .select()
       .from(knowledgeSources)
@@ -66,11 +70,11 @@ export class BeyuNoeliaLegalService {
         eq(knowledgeSources.domain, parsed.domain),
         parsed.domain === "TAX" ? eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY") : sql`true`,
         parsed.domain === "TAX" ? eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE") : sql`true`,
-        parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${today})` : sql`true`,
+        parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${asOf})` : sql`true`,
         inArray(knowledgeSources.classification, classifications),
         parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
         eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
-        lte(knowledgeSources.effectiveFrom, today),
+        lte(knowledgeSources.effectiveFrom, asOf),
         gte(knowledgeSources.reviewDate, today),
         sql`(${knowledgeSources.expiresAt} is null or ${knowledgeSources.expiresAt} >= ${today})`,
         sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.content}) ~ ${
@@ -82,7 +86,7 @@ export class BeyuNoeliaLegalService {
     const eligibleRows = parsed.domain === "TAX"
       ? rows.filter((row) => filterNoeliaTaxCitations({
           jurisdictionCode: parsed.jurisdictionCode!,
-          asOf: today,
+          asOf,
           citations: [{
             sourceCode: row.code,
             title: row.title,
@@ -113,7 +117,7 @@ export class BeyuNoeliaLegalService {
     }
 
     return {
-      headline: `Authoritative ${parsed.domain.toLowerCase()} knowledge retrieved within its governed validity window.`,
+      headline: `Authoritative ${parsed.domain.toLowerCase()} knowledge retrieved for ${asOf} within its governed validity window.`,
       findings: eligibleRows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.jurisdictionCode ?? "GLOBAL"} · ${row.authorityStatus} · effective ${row.effectiveFrom}${row.expiresAt ? ` → ${row.expiresAt}` : ""}`,
