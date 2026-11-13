@@ -38,7 +38,7 @@ export function validateTaxDisputeDossier(dossier: TaxDisputeDossier): { readyFo
   if (dossier.evidence.length === 0) blockers.push("At least one source document is required in the governed evidence vault.");
   for (const item of dossier.evidence) {
     if (!/^[a-f0-9]{64}$/i.test(item.sha256)) blockers.push(`Evidence ${item.documentId} has no valid SHA-256 checksum.`);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(item.periodStart) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(item.periodEnd) || item.periodEnd < item.periodStart) blockers.push(`Evidence ${item.documentId} has an invalid period.`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(item.periodStart) || !/^\d{4}-\d{2}-\d{2}$/.test(item.periodEnd) || item.periodEnd < item.periodStart) blockers.push(`Evidence ${item.documentId} has an invalid period.`);
   }
   return { readyForSpecialist: blockers.length === 0, blockers };
 }
