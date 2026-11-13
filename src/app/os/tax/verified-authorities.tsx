@@ -9,7 +9,7 @@ export function VerifiedTaxAuthorities() {
   const records = getVerifiedTaxAuthorities();
 
   return (
-    <Panel kicker="Verified primary-source metadata" title="Tanzania Finance legislation · 2026">
+    <Panel kicker="Official primary-source register" title="Tanzania tax legislation and core statutes">
       <div className="space-y-3">
         <p className="text-[11px] beyu-muted">
           The enacted Act and the earlier Bill are separate legal instruments. The Bill is retained
