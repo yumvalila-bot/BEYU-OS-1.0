@@ -3,11 +3,12 @@
  * NOELIA may explain and compare approved materials; it cannot create authority.
  */
 export type NoeliaTaxCitation = { sourceCode: string; title: string; provision: string; jurisdictionCode: string; effectiveFrom: string; effectiveTo: string | null; authorityStatus: string; sourceAuthenticationStatus: string; uri: string };
-export function filterNoeliaTaxCitations(input: { citations: readonly NoeliaTaxCitation[]; jurisdictionCode: string; asOf: string }): { citations: NoeliaTaxCitation[]; requiresAuthority: boolean; explanation: string } {
+export function filterNoeliaTaxCitations(input: { citations: readonly NoeliaTaxCitation[]; jurisdictionCode: string; additionalJurisdictionCodes?: readonly string[]; asOf: string }): { citations: NoeliaTaxCitation[]; requiresAuthority: boolean; explanation: string } {
   const parsedAsOf = new Date(`${input.asOf}T00:00:00.000Z`);
   const validAsOf = /^\d{4}-\d{2}-\d{2}$/.test(input.asOf) && Number.isFinite(parsedAsOf.getTime()) && parsedAsOf.toISOString().slice(0, 10) === input.asOf;
+  const allowedJurisdictions = new Set([input.jurisdictionCode, ...(input.additionalJurisdictionCodes ?? [])]);
   const citations = validAsOf ? input.citations.filter((source) =>
-    source.jurisdictionCode === input.jurisdictionCode &&
+    allowedJurisdictions.has(source.jurisdictionCode) &&
     (source.authorityStatus === "AUTHORITATIVE" || (source.authorityStatus === "SUPERSEDED" && source.effectiveTo !== null)) &&
     source.sourceAuthenticationStatus === "AUTHORITATIVE" &&
     source.effectiveFrom <= input.asOf &&
