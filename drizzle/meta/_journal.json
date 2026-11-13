@@ -547,6 +547,20 @@
       "when": 1794566591899,
       "tag": "0077_mcm_rls_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1794569997068,
+      "tag": "0078_mcm_module_link_index_alignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1794570190389,
+      "tag": "0079_mcm_module_link_uidx_order",
+      "breakpoints": true
     }
   ]
 }

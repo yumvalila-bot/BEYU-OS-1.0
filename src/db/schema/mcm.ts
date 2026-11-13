@@ -39,7 +39,7 @@ import {
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
+  unique,
 } from "drizzle-orm/pg-core";
 import {
   classificationEnum,
@@ -117,7 +117,7 @@ export const legalEntityProfiles = pgTable(
     updatedBy: text("updated_by").notNull(),
   },
   (t) => [
-    uniqueIndex("legal_entity_profiles_entity_uidx").on(t.legalEntityId),
+    unique("legal_entity_profiles_entity_uidx").on(t.legalEntityId),
     index("legal_entity_profiles_tenant_idx").on(t.tenantId),
     index("legal_entity_profiles_state_idx").on(t.mcmLifecycleState),
   ],
@@ -298,7 +298,7 @@ export const mcmCountryProfiles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("mcm_country_profiles_uidx").on(t.countryCode, t.version),
+    unique("mcm_country_profiles_uidx").on(t.countryCode, t.version),
     index("mcm_country_profiles_country_idx").on(t.countryCode),
   ],
 );
@@ -345,7 +345,7 @@ export const mcmStatutoryFilings = pgTable(
   (t) => [
     index("mcm_statutory_filings_entity_idx").on(t.legalEntityId),
     index("mcm_statutory_filings_due_idx").on(t.dueOn),
-    uniqueIndex("mcm_statutory_filings_uidx").on(t.legalEntityId, t.filingCode, t.period),
+    unique("mcm_statutory_filings_uidx").on(t.legalEntityId, t.filingCode, t.period),
   ],
 );
 
@@ -380,7 +380,7 @@ export const fxRates = pgTable(
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("fx_rates_uidx").on(t.baseCurrency, t.quoteCurrency, t.rateDate, t.rateType),
+    unique("fx_rates_uidx").on(t.baseCurrency, t.quoteCurrency, t.rateDate, t.rateType),
     index("fx_rates_pair_idx").on(t.baseCurrency, t.quoteCurrency),
   ],
 );
@@ -426,7 +426,7 @@ export const intercompanyAgreements = pgTable(
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
   },
   (t) => [
-    uniqueIndex("intercompany_agreements_tenant_code_uidx").on(t.tenantId, t.code),
+    unique("intercompany_agreements_tenant_code_uidx").on(t.tenantId, t.code),
     index("intercompany_agreements_from_idx").on(t.fromEntityId),
     index("intercompany_agreements_to_idx").on(t.toEntityId),
   ],
@@ -492,8 +492,8 @@ export const intercompanyTransactions = pgTable(
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
   },
   (t) => [
-    uniqueIndex("intercompany_transactions_reference_uidx").on(t.reference),
-    uniqueIndex("intercompany_transactions_idem_uidx").on(t.idempotencyKey),
+    unique("intercompany_transactions_reference_uidx").on(t.reference),
+    unique("intercompany_transactions_idem_uidx").on(t.idempotencyKey),
     index("intercompany_transactions_receivable_idx").on(t.receivableEntityId),
     index("intercompany_transactions_payable_idx").on(t.payableEntityId),
     index("intercompany_transactions_tenant_idx").on(t.tenantId),
@@ -579,7 +579,7 @@ export const consolidationRuns = pgTable(
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
   },
   (t) => [
-    uniqueIndex("consolidation_runs_tenant_code_uidx").on(t.tenantId, t.code),
+    unique("consolidation_runs_tenant_code_uidx").on(t.tenantId, t.code),
     index("consolidation_runs_period_idx").on(t.periodCode),
   ],
 );
@@ -616,7 +616,7 @@ export const consolidationEntities = pgTable(
     included: boolean("included").notNull().default(true),
   },
   (t) => [
-    uniqueIndex("consolidation_entities_uidx").on(t.runId, t.legalEntityId),
+    unique("consolidation_entities_uidx").on(t.runId, t.legalEntityId),
     index("consolidation_entities_run_idx").on(t.runId),
   ],
 );
@@ -693,7 +693,7 @@ export const mcmCapitalAllocations = pgTable(
     classification: classificationEnum("classification").notNull().default("RESTRICTED"),
   },
   (t) => [
-    uniqueIndex("mcm_capital_allocations_tenant_code_uidx").on(t.tenantId, t.code),
+    unique("mcm_capital_allocations_tenant_code_uidx").on(t.tenantId, t.code),
     index("mcm_capital_allocations_entity_idx").on(t.beneficiaryEntityId),
   ],
 );
@@ -741,7 +741,7 @@ export const mcmProcurementRegister = pgTable(
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
   },
   (t) => [
-    uniqueIndex("mcm_procurement_register_uidx").on(t.tenantId, t.code),
+    unique("mcm_procurement_register_uidx").on(t.tenantId, t.code),
     index("mcm_procurement_register_entity_idx").on(t.legalEntityId),
   ],
 );
@@ -775,7 +775,7 @@ export const mcmAssetRegister = pgTable(
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
   },
   (t) => [
-    uniqueIndex("mcm_asset_register_uidx").on(t.tenantId, t.code),
+    unique("mcm_asset_register_uidx").on(t.tenantId, t.code),
     index("mcm_asset_register_entity_idx").on(t.legalEntityId),
   ],
 );
@@ -818,7 +818,7 @@ export const mcmProjectPortfolio = pgTable(
     classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
   },
   (t) => [
-    uniqueIndex("mcm_project_portfolio_uidx").on(t.tenantId, t.code),
+    unique("mcm_project_portfolio_uidx").on(t.tenantId, t.code),
     index("mcm_project_portfolio_entity_idx").on(t.legalEntityId),
   ],
 );
@@ -849,7 +849,15 @@ export const mcmModuleLinks = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("mcm_module_links_uidx").on(t.legalEntityId, t.sourceTable, t.sourceId, t.linkRole),
+    // Column order deliberately follows the PHYSICAL column order of the table
+    // (legal_entity_id, module_type, source_id, source_table, link_role, …) rather
+    // than the semantic reading order. `drizzle-kit pull` normalises a unique
+    // constraint's columns to table position, while `generate` preserves the
+    // declaration order — so a declaration written in reading order reports a
+    // phantom drift against the very constraint it created. The SET of columns,
+    // and therefore the uniqueness enforced, is identical either way; this is
+    // about the two snapshots agreeing on a dimension the gate checks on purpose.
+    unique("mcm_module_links_uidx").on(t.legalEntityId, t.sourceId, t.sourceTable, t.linkRole),
     index("mcm_module_links_entity_idx").on(t.legalEntityId),
     index("mcm_module_links_module_idx").on(t.moduleType),
   ],
@@ -897,7 +905,7 @@ export const mcmIntegrationContracts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("mcm_integration_contracts_code_uidx").on(t.code),
+    unique("mcm_integration_contracts_code_uidx").on(t.code),
     index("mcm_integration_contracts_system_idx").on(t.counterpartSystem),
   ],
 );
