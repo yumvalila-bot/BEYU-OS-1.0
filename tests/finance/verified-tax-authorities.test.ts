@@ -4,7 +4,7 @@ import {
   getVerifiedTaxAuthorities,
 } from "@/lib/finance/verified-tax-authorities";
 
-describe("Tanzania verified tax authority register", () => {
+describe("Tanzania and EAC verified tax authority register", () => {
   const records = getVerifiedTaxAuthorities();
 
   it("distinguishes the enacted Finance Act 2026 from the earlier Bill", () => {
