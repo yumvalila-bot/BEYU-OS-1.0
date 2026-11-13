@@ -87,5 +87,6 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(migration).toContain('"specialist_reviewer_id" IS NOT NULL');
     expect(migration).toContain('"approved_by" IS NOT NULL');
     expect(migration).toContain('"external_reference" IS NOT NULL');
+    expect(migration).toContain('"receipt_document_id" IS NOT NULL');
   });
 });
