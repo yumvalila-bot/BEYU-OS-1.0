@@ -83,8 +83,8 @@ export async function POST(request: Request) {
       const calculation = body.taxType === "CUSTOMS_PROCESSING_FEE"
         ? computeTanzaniaTax({ ...body, originEvidenceVerified: false })
         : computeTanzaniaTax(body);
-      const tin = entity.taxIdentifier ?? "";
-      const filingPackBase = /^\d{9}$/.test(tin) ? prepareTaxFilingPack({
+      const tin = normalizeTanzaniaTin(entity.taxIdentifier);
+      const filingPackBase = tin ? prepareTaxFilingPack({
         taxpayer: { legalEntityId: entity.id, legalName: entity.legalName, tin },
         periodStart: body.periodStart,
         periodEnd: body.periodEnd,
