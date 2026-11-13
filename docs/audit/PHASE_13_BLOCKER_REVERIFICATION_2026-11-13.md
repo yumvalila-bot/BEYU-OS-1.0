@@ -90,7 +90,7 @@ import { verifyAuditChain } from "@/lib/audit";
 
 | Run | Result |
 |---|---|
-| Full suite with the HTTP gate against the production build | see §6; recorded from `/tmp/final-full.log` |
+| Full suite with the HTTP gate against the production build | 358 files / 5,923 tests green, **1 failure** in `tests/communications/webhook-route.test.ts` — a self-poisoning fixture (a fixed correlation id that tripped the message-loop guard on its 10th run), fixed in `5ca96ed`. A confirming run after that fix is recorded in the MCM report §L.1. Both numbers are read from `/tmp/final-full2.log`, not from memory. |
 | `tests/mcm/ + tests/finance/ + tests/security/` | 66 files / 1057 tests, all passing |
 | `tests/noelia/ + tests/mcm/ + tests/architecture/` | 53 files / 531 tests, all passing |
 | `tests/noelia/ + tests/security/ + tests/architecture/ + tests/certification/ + tests/mcm/ + tests/viz/ + tests/agriculture/ + tests/family/ + tests/ujenzi/ + tests/government/ + tests/governance/action-execution` | 166 files / 2378 tests, all passing |

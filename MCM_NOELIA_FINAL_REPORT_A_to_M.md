@@ -127,6 +127,47 @@ destination's subtitle/registry code must be absent.
 rewritten to a *stricter* form (per-destination copy absence plus a positive expectation) rather
 than a looser one. No test was deleted and none was skipped to reach green.
 
+### H.2 A test that poisons itself on the tenth run
+
+During the confirming full run, `tests/communications/webhook-route.test.ts` failed — and then
+failed identically in isolation — while the whole suite reported **zero failed assertions** and
+`EXIT=1` for the first 358 files. The route answered `WEBHOOK_PROCESSING_FAILED`; the reason was
+not in the test output but in the database, in the row the service persists:
+
+> Message loop detected: correlation EVT_WEBHOOK_ROUTE_TEST depth 10 exceeds limit
+
+The route test had used a fixed trace/correlation id in its `requestMeta` mock. Inbound message
+creation calls `checkLoop(tenantId, correlationId, …)`, which blocks once
+`communication_loop_detections` holds a row at `MAX_AUTOMATION_DEPTH` (10) for that correlation —
+so every run appended one row against the same key and deleted nothing. The file built its own
+tripwire: green nine times, red from the tenth run onward, permanently, against a database that
+remembers. Nothing in the product was wrong: the guard was handed a correlation with 10 messages,
+which is exactly what it exists to stop, and `webhook-ingest.test.ts` next door already keys its
+per-run ids correctly.
+
+Fixed in `5ca96ed`: a per-run correlation id from a single `vi.hoisted` value (hoisted because the
+mock factory runs before the module's statements), and cleanup in FK order scoped to the run's own
+provider code and message-sid prefix — never by tenant, because the ingest suite writes for the
+same tenant. The 14 provider rows earlier runs leaked are left in place: a test file is not a
+janitor for its own history, and those rows are unreachable now that the id is per-run. Two
+consecutive `tests/communications/` runs are green and the provider count does not move, which is
+how the leak is shown closed rather than asserted closed.
+
+**Two things this is worth keeping in mind.**
+
+* A failure whose only symptom is an exit code can be made to *pass* by wiping the database, and
+  it will silently re-arm nine runs later. Both diagnoses in this section — "unhandled rejection"
+  and "poisoned fixture" — needed the **database** to confirm; `failure_reason` said
+  `Message loop detected`, which no amount of reading the test source would have produced. A red
+  test that goes green after clearing state is not evidence the test was wrong and not evidence the
+  product is fine: it is evidence the test is not isolated from history.
+* The self-check this report should have run earlier and did not: the two full runs before this one
+  were **already different** (359 passed files versus 358) and nobody asked why. It is not an
+  HTTP-gate artefact either — this suite drives the handler in-process, so it poisons itself on any
+  run, `BEYU_TEST_BASE_URL` or not, and would have surfaced at run 10 of the server-less baseline
+  too. A suite whose file count moves between runs is telling you something; the tallies below have
+  now been re-read from the recorded logs rather than from memory.
+
 ## I. NOELIA read-only MCM intelligence
 
 `src/lib/noelia/mcm-tools.ts` — ten tools in the ONE canonical registry:
@@ -210,7 +251,7 @@ in this database, so every ledger-shaped assertion is a refusal test, never a ba
 |---|---|
 | `npx tsc --noEmit` | clean (0 errors), after every change |
 | `npm run build` | EXIT=0, `✓ Compiled successfully`, 170 pages, 499 route lines |
-| `npm test` **with** `BEYU_TEST_BASE_URL` against the production build | see **M** — recorded from `/tmp/final-full.log` |
+| `npm test` **with** `BEYU_TEST_BASE_URL` against the production build | **L.1** — read from the logs, not from memory |
 | `tests/mcm/ + tests/finance/ + tests/security/` | 66 files / 1,057 tests green |
 | `tests/noelia/ + tests/mcm/ + tests/architecture/` | 53 files / 531 tests green |
 | 11-suite enterprise sweep (noelia, security, architecture, certification, mcm, viz, agriculture, family, ujenzi, government, governance/action) | 166 files / 2,378 tests green |
@@ -218,6 +259,26 @@ in this database, so every ledger-shaped assertion is a refusal test, never a ba
 | `npm run verify:scg` | 4 checks, 0 blocking, 0 advisory |
 | `npx tsx scripts/audit-runtime-privileges.ts` | `ok: true`, 0 failures |
 | `curl -H "Host: …" http://127.0.0.1:3100/` | the **G** truth table, against the built server |
+
+### L.1 The full-suite runs — all of them, including the one that disagreed
+
+`npx vitest run` with `BEYU_TEST_BASE_URL` pointed at `next start` on the production build:
+
+| Log | Files | Tests | Exit |
+|---|---|---|---|
+| `/tmp/full-final.log` | 352 passed \| 9 skipped (361) | 5,841 passed \| 75 skipped \| 31 todo (5,947) | 0 |
+| `/tmp/final-full.log` | 359 passed \| 4 skipped (363) | 5,924 passed \| 12 skipped \| 31 todo (5,967) | **1** — zero failed assertions; an unhandled rejection from my own test helper |
+| `/tmp/final-full2.log` | 358 passed \| 1 failed \| 4 skipped (363) | 5,923 passed \| 1 failed \| 12 skipped \| 31 todo (5,967) | **1** — the self-poisoning fixture, **H.2** |
+| `/tmp/final-full3.log` (after both fixes) | *appended below when recorded* | | |
+
+Three things worth saying out loud. The file count **moved between consecutive runs**
+(359 → 358) and nobody asked why at the time; that discrepancy *was* the H.2 fixture. The first
+`EXIT=1` was my own helper attaching `.catch` after an `await` (fixed in `e7623e7`), and the
+damage there is not the red run but the training: a suite that exits non-zero for a non-assertion
+reason teaches everyone to ignore the exit code. And the skip counts differ (39 → 9 → 4 files)
+**because the HTTP gate is now on** — those suites are running rather than silently skipping, which
+is the entire point of turning it on, so a shrinking skip count is the control working and not a
+cleaner run.
 
 Environment facts that belong in the record, not in a footnote: the local suite needs **both**
 `BEYU_GOVERNANCE_DATABASE_URL` and `BEYU_BOOTSTRAP_PASSWORD` (in git-ignored `.env`);
