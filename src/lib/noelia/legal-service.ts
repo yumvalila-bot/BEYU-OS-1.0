@@ -80,7 +80,7 @@ export class BeyuNoeliaLegalService {
         parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${asOf})` : sql`true`,
         inArray(knowledgeSources.classification, classifications),
         parsed.jurisdictionCode ? inArray(knowledgeSources.jurisdictionCode, jurisdictionCodes) : sql`true`,
-        eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
+        inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"]),
         lte(knowledgeSources.effectiveFrom, asOf),
         gte(knowledgeSources.reviewDate, today),
         sql`(${knowledgeSources.expiresAt} is null or ${knowledgeSources.expiresAt} >= ${today})`,
@@ -93,6 +93,7 @@ export class BeyuNoeliaLegalService {
     const eligibleRows = parsed.domain === "TAX"
       ? rows.filter((row) => filterNoeliaTaxCitations({
           jurisdictionCode: parsed.jurisdictionCode!,
+          additionalJurisdictionCodes,
           asOf,
           citations: [{
             sourceCode: row.code,
