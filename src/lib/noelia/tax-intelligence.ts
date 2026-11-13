@@ -8,7 +8,7 @@ export function filterNoeliaTaxCitations(input: { citations: readonly NoeliaTaxC
   const validAsOf = /^\d{4}-\d{2}-\d{2}$/.test(input.asOf) && Number.isFinite(parsedAsOf.getTime()) && parsedAsOf.toISOString().slice(0, 10) === input.asOf;
   const citations = validAsOf ? input.citations.filter((source) =>
     source.jurisdictionCode === input.jurisdictionCode &&
-    source.authorityStatus === "AUTHORITATIVE" &&
+    (source.authorityStatus === "AUTHORITATIVE" || (source.authorityStatus === "SUPERSEDED" && source.effectiveTo !== null)) &&
     source.sourceAuthenticationStatus === "AUTHORITATIVE" &&
     source.effectiveFrom <= input.asOf &&
     (source.effectiveTo === null || source.effectiveTo >= input.asOf) &&
