@@ -38,8 +38,8 @@ describe("customs classification workflow", () => {
       determinationReference: null, effectiveFrom: null, effectiveTo: null,
     });
     expect(result.canCalculateDuty).toBe(false);
-    expect(result.readyForSpecialist).toBe(false);
-    expect(result.blockers).toContain("HS classification must be determined by a Customs Specialist or TRA ruling; no code is inferred.");
+    expect(result.readyForSpecialist).toBe(true);
+    expect(result.activationBlockers.some((item) => item.includes("specialist HS determination"))).toBe(true);
   });
 });
 
