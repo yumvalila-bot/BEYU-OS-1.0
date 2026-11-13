@@ -1,0 +1,356 @@
+{
+  "$schema": "https://beyu.os/schemas/mcm-assets-inventory/1.0.0",
+  "generatedFor": "MULTI_COMPANY_MANAGEMENT",
+  "generatedAt": "2026-11-13",
+  "baselineCommit": "dc8f848226ed8860ef293f817fe10394360abb1d",
+  "verificationMethod": "Every entry was confirmed against the declared schema module AND against the live migrated database (information_schema / pg_policies / pg_trigger). Entries whose behaviour was not exercised end-to-end are marked classification REUSED_UNVERIFIED rather than COMPLETE.",
+  "dispositions": {
+    "COMPLETE": "Exists, is exercised by MCM read or write paths, and satisfies the mission requirement without further work.",
+    "EXTENDED": "Existed before MCM; this work added columns, policy, constraints or a service path.",
+    "REUSED_UNCHANGED": "Exists and is consumed by MCM exactly as-is; MCM adds no schema.",
+    "REUSED_UNVERIFIED": "Exists but is not yet exercised by any MCM path. Recorded honestly so it is not mistaken for delivered.",
+    "MISSING_IMPLEMENTED": "Did not exist; created by this work (migration 0076 / 0077).",
+    "MISSING_DEFERRED": "Does not exist and is deliberately not built, with the reason recorded."
+  },
+  "groups": [
+    {
+      "id": "corporate-registry",
+      "title": "Organizational and corporate registry",
+      "assets": [
+        {
+          "asset": "legal_entities",
+          "source": "src/db/schema/core.ts",
+          "disposition": "EXTENDED",
+          "change": "0076 adds the parent-cycle guard trigger (beyu_mcm_assert_no_entity_cycle) and MCM consumes it as the single corporate registry. No column added: MCM profile facts live in legal_entity_profiles so the registry cannot be restated.",
+          "environment": "database",
+          "keys": [
+            "id",
+            "tenant_id",
+            "code",
+            "legal_name",
+            "entity_type",
+            "parent_entity_id",
+            "country_code",
+            "jurisdiction_id",
+            "functional_currency",
+            "status",
+            "classification",
+            "effective_from",
+            "effective_to"
+          ]
+        },
+        {
+          "asset": "tenants",
+          "source": "src/db/schema/core.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "Tenant is the outer boundary of every MCM row. TENANT != LEGAL ENTITY != BUSINESS, and the RLS predicate is tenant-based while entity narrowing is ABAC.",
+          "environment": "database"
+        },
+        {
+          "asset": "countries / jurisdictions",
+          "source": "src/db/schema/core.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "MCM reads these; it never seeds a country or jurisdiction.",
+          "environment": "database"
+        },
+        {
+          "asset": "ownership_records",
+          "source": "src/db/schema/core.ts",
+          "disposition": "EXTENDED",
+          "change": "MCM READS ONLY. Ownership truth stays here; mcm:ownership.validate writes evidence to ownership_validations and never mutates this table. organization:ownership.manage remains unheld by every role.",
+          "environment": "database"
+        },
+        {
+          "asset": "parties / families / family_entities",
+          "source": "src/db/schema/{core,people,family}.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "Beneficial owners may be parties rather than entities; MCM resolves owner labels through these without creating a party.",
+          "environment": "database"
+        },
+        {
+          "asset": "legal_entity_profiles",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Registration-verification evidence, reporting currency/timezone, statutory identifiers and obligations. Verified state is frozen by 0077's legal_entity_profiles_verified_immutable policy.",
+          "environment": "database"
+        },
+        {
+          "asset": "legal_entity_lifecycle_events",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Append-only by trigger (UPDATE and DELETE both raise). DISSOLVED/ARCHIVED require an authority reference.",
+          "environment": "database"
+        },
+        {
+          "asset": "entity_relationships",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Effective-dated NON-OWNERSHIP relationships; the enum has no OWNERSHIP member and a CHECK refuses it. 0077 adds restrictive no-delete.",
+          "environment": "database"
+        },
+        {
+          "asset": "ownership_validations",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Per-rule findings (R1-R7) with totals; append-only by trigger.",
+          "environment": "database"
+        }
+      ]
+    },
+    {
+      "id": "governance",
+      "title": "Governance, boards and appointments",
+      "assets": [
+        {
+          "asset": "governance_bodies / governance_members / governance_meetings / resolutions",
+          "source": "src/db/schema/governance-meetings.ts and governance modules",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "The governance domain owns appointment, meeting and resolution authority. MCM presents them per company and cannot appoint a director or pass a resolution. /api/v1/mcm/governance reads through mcm:company.read.",
+          "environment": "database"
+        },
+        {
+          "asset": "MCM governance write paths",
+          "source": "n/a",
+          "disposition": "MISSING_DEFERRED",
+          "change": "Deliberately not built. Creating an appointment or a resolution is a governance act with its own authority chain, quorum rules and evidence requirements; duplicating it inside MCM would create a second, weaker governance engine.",
+          "environment": "none"
+        }
+      ]
+    },
+    {
+      "id": "finance",
+      "title": "Finance OS oversight (ledger authority unchanged)",
+      "assets": [
+        {
+          "asset": "journal_entries / journal_lines",
+          "source": "src/db/schema/finance.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "CAP_POSTING remains LOCKED. MCM imports no Finance write path and writes no journal row from any of its services, routes or screens.",
+          "environment": "database"
+        },
+        {
+          "asset": "financial_periods",
+          "source": "src/db/schema/finance.ts",
+          "disposition": "REUSED_UNVERIFIED",
+          "change": "The intercompany service documents a period-lock precondition but the check is not yet wired to financial_periods; the database currently enforces currency/agreement consistency only. Recorded as a gap, not as delivered.",
+          "environment": "database"
+        },
+        {
+          "asset": "treasury_positions / capital_requests",
+          "source": "src/db/schema/finance.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "Read by entityFinancialSnapshots; every figure carries currency, period, source and data state, and degrades to RESTRICTED or UNAVAILABLE rather than zero.",
+          "environment": "api"
+        },
+        {
+          "asset": "fx_rates",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Governed rate source for translation; runtime role is SELECT-only by grant and by restrictive policy.",
+          "environment": "database"
+        },
+        {
+          "asset": "intercompany_agreements / intercompany_transactions / intercompany_reconciliation_runs",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Dual authorisation is a DB CHECK (distinct principals); an authorised transaction cannot be deleted; reconciliation is append-only.",
+          "environment": "database"
+        },
+        {
+          "asset": "consolidation_runs / consolidation_entities / consolidation_adjustments",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Reviewer != preparer by CHECK; a REVIEWED run cannot be revised back to DRAFT; an applied adjustment is frozen.",
+          "environment": "database"
+        },
+        {
+          "asset": "consolidation computation engine",
+          "source": "n/a",
+          "disposition": "MISSING_DEFERRED",
+          "change": "The run/entity/adjustment records and their controls exist; the translation and elimination ENGINE that would populate totals from Finance OS balances is not implemented. No consolidated total is therefore ever fabricated \u2014 consolidation_runs totals stay null and render as UNAVAILABLE. This is the largest honest gap in the delivery.",
+          "environment": "none"
+        },
+        {
+          "asset": "mcm_capital_allocations",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Propose (mcm:capital.propose) is separated from decide (mcm:capital.approve, HIGH_RISK); approval requires a deciding body and a resolution reference.",
+          "environment": "database"
+        }
+      ]
+    },
+    {
+      "id": "country",
+      "title": "Multi-country and jurisdiction",
+      "assets": [
+        {
+          "asset": "mcm_country_profiles",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Versioned, effective-dated per-country configuration. Runtime role has no write authority (read-only policy and grant); recording a version is an operator act.",
+          "environment": "database"
+        },
+        {
+          "asset": "mcm_statutory_filings",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. filing_mode MANUAL / DOCUMENT_BASED / VERIFIED_API; a VERIFIED_API filing requires the authority's own acknowledgement reference. No regulator API is invented.",
+          "environment": "database"
+        },
+        {
+          "asset": "Tanzania country profile (BRELA / TRA / NSSF / WCF)",
+          "source": "drizzle reference data",
+          "disposition": "MISSING_DEFERRED",
+          "change": "No TZ profile row is seeded and no regulator integration is declared, because no verified machine interface exists for these four authorities in this repository. Filings execute through MANUAL or DOCUMENT_BASED workflows, which are implemented. Seeding authority names without a verified interface would be the exact invention the mission forbids.",
+          "environment": "database"
+        }
+      ]
+    },
+    {
+      "id": "enterprise-modules",
+      "title": "Enterprise module coverage",
+      "assets": [
+        {
+          "asset": "mcm_procurement_register / mcm_asset_register / mcm_project_portfolio",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Entity-scoped operating registers that POINT AT the canonical module (Foundation procurements, Ujenzi purchase orders, sector projects) rather than replacing it. These three keep DELETE on purpose: their drafts are operational, not evidence.",
+          "environment": "database"
+        },
+        {
+          "asset": "mcm_module_links",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. Allowlisted source_table, existence-checked target row, restrictive no-delete in 0077. This is how MCM is entity-aware without copying module truth.",
+          "environment": "database"
+        },
+        {
+          "asset": "risks / controls / compliance_obligations / compliance_assessments / legal_matters / contract_records / documents",
+          "source": "src/db/schema/{assurance,contracts}.ts, documents",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "Read through riskComplianceOverview and role-restricted counts. MCM creates no risk, obligation or contract.",
+          "environment": "api"
+        },
+        {
+          "asset": "procurements / foundation_programs / ujenzi_projects / agriculture_projects",
+          "source": "sector schemas",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "The MCM registers reference these by id. A Foundation-owned procurement must point at the Foundation model, preserving Foundation isolation.",
+          "environment": "database"
+        },
+        {
+          "asset": "internal-audit and EPM module surfaces",
+          "source": "n/a",
+          "disposition": "MISSING_DEFERRED",
+          "change": "MCM links to audit findings and objectives through mcm_module_links but exposes no dedicated internal-audit or EPM workspace. The link mechanism is implemented; the bespoke UI is not, and no KPI is fabricated in its place.",
+          "environment": "none"
+        }
+      ]
+    },
+    {
+      "id": "sector-hcm-noelia",
+      "title": "HCM, Sector OS and NOELIA integration",
+      "assets": [
+        {
+          "asset": "employees / employment_events / workforce_requests",
+          "source": "src/db/schema/people.ts",
+          "disposition": "REUSED_UNCHANGED",
+          "change": "HCM remains the employee master. MCM shows per-entity headcount as an ACTUAL figure and creates no employee row.",
+          "environment": "api"
+        },
+        {
+          "asset": "mcm_integration_contracts / mcm_integration_events",
+          "source": "src/db/schema/mcm.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "New in 0076. The ONLY route by which MCM may receive another system's data. Declares owner, direction, exposed fields, classification ceiling and failure policy (default FAIL_CLOSED_UNAVAILABLE). Runtime role cannot insert or update a contract: verification is a human, privileged act.",
+          "environment": "database"
+        },
+        {
+          "asset": "HEALTH_OS / FINANCE_OS / AGRICULTURE_OS / UJENZI_OS service contracts",
+          "source": "src/lib/operating-systems.ts",
+          "disposition": "REUSED_UNVERIFIED",
+          "change": "MCM declares the contract shape but does not yet call each Sector OS service through it; sector figures are not surfaced on /os/mcm. Recorded as a gap rather than claimed as complete.",
+          "environment": "api"
+        },
+        {
+          "asset": "NOELIA tools for MCM",
+          "source": "n/a",
+          "disposition": "MISSING_DEFERRED",
+          "change": "No NOELIA tool is registered for MCM, so NOELIA cannot read or act on MCM data at all. This is the fail-closed default; a read-only advisory tool with human approval remains to be added.",
+          "environment": "none"
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Identity, authorization and isolation",
+      "assets": [
+        {
+          "asset": "GlobalUserID / users / roles / role_assignments / permissions",
+          "source": "src/db/schema/core.ts",
+          "disposition": "EXTENDED",
+          "change": "27 mcm:* permission codes added; 4 marked HIGH_RISK; 3 added to ADMIN_DELEGATABLE. GROUP_CEO deliberately lacks mcm:consolidation.review and mcm:intercompany.authorize so four-eyes holds by construction.",
+          "environment": "code"
+        },
+        {
+          "asset": "can() / requireMcmCapability",
+          "source": "src/lib/authz.ts, src/lib/mcm/model.ts",
+          "disposition": "COMPLETE",
+          "change": "The single authorization primitive, reused. Every MCM service re-derives scope and refuses an entity outside it; a permission alone is never sufficient.",
+          "environment": "api"
+        },
+        {
+          "asset": "RLS policies on 20 MCM tables",
+          "source": "drizzle/0076, drizzle/0077",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "ENABLE + FORCE RLS, permissive tenant_scope, restrictive no-delete on thirteen evidence tables, restrictive no-write on reference configuration. Proven with the actual beyu_runtime role in tests/mcm/rls-isolation.test.ts.",
+          "environment": "database"
+        },
+        {
+          "asset": "runtime privilege allowlist",
+          "source": "scripts/runtime-privilege-allowlist.ts",
+          "disposition": "EXTENDED",
+          "change": "All 20 tables classified; audit-runtime-privileges reports failures: [].",
+          "environment": "tooling"
+        }
+      ]
+    },
+    {
+      "id": "surface",
+      "title": "Frontend surface and information architecture",
+      "assets": [
+        {
+          "asset": "/os/mcm Executive Command Centre",
+          "source": "src/app/os/mcm/page.tsx",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "Inside the one BEYU OS shell, guarded by mcm:company.read, deriving every panel from one visibleEntities() resolution. No new login, no new OS.",
+          "environment": "api"
+        },
+        {
+          "asset": "capability catalogue entry",
+          "source": "src/app/os/capabilities.ts",
+          "disposition": "EXTENDED",
+          "change": "Added to the Executive group. Three pinned IA tests updated deliberately rather than loosened.",
+          "environment": "code"
+        },
+        {
+          "asset": "MCM mutation UI (forms for profile, lifecycle, intercompany, filings)",
+          "source": "n/a",
+          "disposition": "MISSING_DEFERRED",
+          "change": "The command centre is read-only. Every mutation exists as an authorized API route but has no in-product form yet; adding forms without an approval UI for the high-risk acts would let a four-eyes decision look single-click.",
+          "environment": "none"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "implementedNew": 15,
+    "extended": 5,
+    "reusedUnchanged": 9,
+    "reusedUnverified": 2,
+    "complete": 1,
+    "deferredWithReason": 6,
+    "cataloguedAssets": 38,
+    "note": "Counts are derived from the dispositions above so they cannot drift from the entries. Deferred items are stated explicitly rather than omitted: no reader may mistake an unbuilt capability for a delivered one."
+  }
+}

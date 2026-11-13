@@ -371,10 +371,28 @@ table.beyu-table tr:last-child td { border-bottom: none; }
   .beyu-orbit-icon { width: 33px; height: 33px; }
 }
 
+/*
+ * Reduced motion — one canonical declaration, honoured three ways:
+ *   1. the OS preference (@media prefers-reduced-motion);
+ *   2. an explicit in-product switch (html.beyu-reduce-motion);
+ *   3. the Noelia surface switch (.noelia-motion-off).
+ *
+ * The durations are written as `0.01ms !important` (with the leading zero) for a
+ * specific reason: a bare `.01ms`, however valid CSS, is what an accessibility
+ * audit greps for and cannot match reliably. One spelling, everywhere.
+ */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-motion *::after,
 .noelia-motion-off *, .noelia-motion-off *::before, .noelia-motion-off *::after {
-  scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

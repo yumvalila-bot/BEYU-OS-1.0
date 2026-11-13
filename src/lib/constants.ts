@@ -1249,6 +1249,13 @@ export const ROLES: Record<
       "mcm:consolidation.review",
       "mcm:capital.read",
       "mcm:capital.propose",
+      // Group capital approval is CFO-accountable and HIGH_RISK: committing group
+      // capital against a board resolution is a financial decision that must have
+      // exactly one accountable executive holder. It is NOT delegated to the CEO
+      // (reserved matter), NOT granted to the Chief Governance Officer (who
+      // provides the resolution evidence, not the decision), and NOT delegable
+      // through the admin program.
+      "mcm:capital.approve",
       "mcm:procurement.read",
       "mcm:asset.read",
       "mcm:project.read",
