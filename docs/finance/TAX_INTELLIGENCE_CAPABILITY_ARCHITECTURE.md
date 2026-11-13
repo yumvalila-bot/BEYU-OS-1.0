@@ -180,3 +180,6 @@ The primary-source register now includes EAC Customs Management Act 2004 and its
 
 
 For Tanzania customs questions, NOELIA retrieval adds the EAC jurisdiction as a regional legal overlay while preserving Tanzania national authorities. General Tanzania income-tax queries do not automatically pull EAC sources. This overlay is limited to customs/import/export/HS/tariff/origin/duty queries and still requires each source to be authenticated, effective-dated and specialist-reviewed.
+
+
+NOELIA also exposes the read-only tax.computation.explain tool. It retrieves a persisted filing draft only within the caller's tenant, entity and classification scope; reconstructs no missing calculation; and cross-checks each cited source against currently authenticated, effective-dated TAX_LEGAL_AUTHORITY records. It explains the stored breakdown, due dates and compliance candidates, flags missing authorities, and always requires human review. It cannot approve, submit or post a return.
