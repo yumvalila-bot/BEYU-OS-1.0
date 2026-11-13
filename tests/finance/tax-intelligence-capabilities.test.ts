@@ -97,6 +97,19 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
     expect(result.reasons).toContain("Subsidiary legislation must identify its enabling statutory provision.");
   });
 
+  it("retains authenticated superseded law for historical effective windows", () => {
+    const superseded = validSource({
+      sourceCode: "TZ_ACT_OLD",
+      sourceAuthorityStatus: "SUPERSEDED",
+      effectiveFrom: "2024-01-01",
+      effectiveTo: "2025-12-31",
+    });
+    expect(authenticateTaxLegalSource(superseded, OFFICIAL_HOSTS).authenticated).toBe(true);
+    expect(selectEffectiveTaxAuthorities([superseded], "TZ", "2025-06-30", OFFICIAL_HOSTS).map((item) => item.sourceCode))
+      .toEqual(["TZ_ACT_OLD"]);
+    expect(selectEffectiveTaxAuthorities([superseded], "TZ", "2026-01-01", OFFICIAL_HOSTS)).toEqual([]);
+  });
+
   it("selects only authenticated sources within their effective date window", () => {
     const sources = [
       validSource(),
