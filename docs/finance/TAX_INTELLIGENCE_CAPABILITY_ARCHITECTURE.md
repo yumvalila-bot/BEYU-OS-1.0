@@ -141,3 +141,26 @@ The computation API now rejects use of the post-1 July 2026 presumptive, forest-
 ### VAT withholding interpretation guard
 
 The deterministic VAT-withholding estimate uses the current TRA guidance amounts (3% of consideration for goods and 6% for services). Finance Act No. 2 of 2026 section 91 records the supplier's VAT-credit entitlement proportions (15% goods / 12% services) and 3:2 mixed-supply apportionment; section 95 sets the payment and statement deadline. These are distinct concepts and must not be conflated. Appointment as a withholding agent and the transaction facts require verification. The two ten-day milestones are recorded separately in the filing pack.
+
+
+## Expanded primary-law catalogue and operational safeguards — 13 November 2026
+
+The verified-authority metadata register now also links the following OSG/OAG consolidated primary statutes:
+- Income Tax Act, Cap. 332 (R.E. 2023 A.S. 2025), OSG Annual Supplement incorporating amendments through 1 July 2025.
+- Value Added Tax Act, Cap. 148 (R.E. 2023 A.S. 2025), OSG Annual Supplement.
+- Tax Administration Act, Cap. 438 (R.E. 2023 A.S. 2025), OSG Annual Supplement.
+- Excise (Management and Tariff) Act, Cap. 147 (R.E. 2023), OAG revised legislation.
+- Customs (Management and Tariff) Act, Cap. 403 (R.E. 2023), OAG revised legislation.
+
+The catalogue is deliberately not labelled as a complete current law set. Each consolidated Act must be cross-linked to later Finance Acts, subsidiary instruments and relevant EAC customs law. Every record remains SOURCE_LINKED_NOT_INGESTED until the original PDF is uploaded to the existing documents registry, its checksum verified, extracted text/page references validated and specialist review published through the governed knowledge pipeline.
+
+Engineering controls added in this work:
+- Draft filing-pack creation is idempotent across retries for the same tenant, entity, tax type, period, formula version and calculation.
+- Tanzania TINs are normalized from common display formats such as TIN-121-441-002 before draft creation; invalid identifiers do not produce a filing pack.
+- The 2026 presumptive year crossing 1 July is blocked until the transition treatment is reviewed and encoded.
+- Compliance instalments have unique identities, period-relative corporate dates, and no longer repeat the entire annual liability as each quarterly payment amount.
+- NOELIA tax citations are restricted to the exact requested jurisdiction and valid as-of date.
+- Customs specialist HS codes and determination effective dates are validated; duty remains disabled until authenticated tariff schedules and specialist approval are present.
+- Audit/dispute dossiers require valid calendar periods, statutory deadlines, evidence identity, collector, checksum and specialist ownership.
+
+These changes improve draft preparation and evidence handling; they do not activate unauthenticated tax rules, authorize final liability, file returns with TRA or enable CAP_POSTING.
