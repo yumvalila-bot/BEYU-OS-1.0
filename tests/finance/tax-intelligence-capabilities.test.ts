@@ -181,6 +181,25 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
     expect(result.status).toBe("READY_FOR_SPECIALIST_EXECUTION");
   });
 
+  it("does not leak NOELIA tax citations across jurisdictions when source order differs", () => {
+    const kenyaSource = validSource({
+      sourceCode: "KE_ACT_TEST_2026",
+      jurisdictionCode: "KE",
+      sourceUri: "https://oagmis.oag.go.tz/portal/legislation/test",
+      officialSourceHost: "oagmis.oag.go.tz",
+    });
+    const result = validateNoeliaTaxCitations({
+      jurisdictionCode: "TZ",
+      asOf: "2026-11-12",
+      sources: [kenyaSource, validSource()],
+      citedSourceCodes: ["KE_ACT_TEST_2026"],
+      approvedOfficialHosts: OFFICIAL_HOSTS,
+    });
+    expect(result.reliable).toBe(false);
+    expect(result.citations).toEqual([]);
+    expect(result.reasons.join(" ")).toContain("unauthenticated");
+  });
+
   it("validates HS code shape without inferring a classification or tariff", () => {
     expect(validateCustomsAssessmentRequest({
       jurisdictionCode: "TZ",
