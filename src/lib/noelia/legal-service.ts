@@ -43,7 +43,7 @@ export class BeyuNoeliaLegalService {
     this.requireContext();
     const parsed = z.object({
       question: z.string().min(1).max(500),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
       asOf: z.string().optional(),
       domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
     }).strict().parse(input ?? {});
@@ -146,7 +146,7 @@ export class BeyuNoeliaLegalService {
     this.requireContext();
     const parsed = z.object({
       citation: z.string().min(2).max(200),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
     }).strict().parse(input ?? {});
     const classifications = this.visibleClassifications(context);
     const today = new Date().toISOString().slice(0, 10);
