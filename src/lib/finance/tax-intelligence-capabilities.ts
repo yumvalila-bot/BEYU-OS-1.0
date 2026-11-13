@@ -141,8 +141,11 @@ export function authenticateTaxLegalSource(
   if (!isTaxIsoDate(source.specialistReviewedAt) || !source.specialistReviewerId) {
     reasons.push("A named tax/legal specialist review is required.");
   }
-  if (source.sourceAuthorityStatus !== "AUTHORITATIVE") {
-    reasons.push(`Source authority status is ${source.sourceAuthorityStatus}; AUTHORITATIVE is required.`);
+  if (!["AUTHORITATIVE", "SUPERSEDED"].includes(source.sourceAuthorityStatus)) {
+    reasons.push(`Source authority status is ${source.sourceAuthorityStatus}; only published authoritative or superseded sources can support legal analysis.`);
+  }
+  if (source.sourceAuthorityStatus === "SUPERSEDED" && !source.effectiveTo) {
+    reasons.push("A superseded source must have an explicit effective-to date for historical legal analysis.");
   }
   if (source.instrumentKind === "REGULATION" || source.instrumentKind === "ORDER") {
     if (!source.enablingProvision) reasons.push("Subsidiary legislation must identify its enabling statutory provision.");
