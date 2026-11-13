@@ -8,10 +8,10 @@
 export type VerifiedTaxAuthorityRecord = {
   code: string;
   title: string;
-  instrumentKind: "ACT" | "BILL";
-  jurisdictionCode: "TZ";
+  instrumentKind: "ACT" | "BILL" | "REGULATION" | "CUSTOMS_TARIFF";
+  jurisdictionCode: string;
   status: "ENACTED" | "BILL_NOT_LAW";
-  publicationDate: string;
+  publicationDate?: string;
   enactmentDate?: string;
   commencementDate?: string;
   enactmentNumber?: string;
@@ -150,6 +150,101 @@ export const VERIFIED_TAX_AUTHORITIES: readonly VerifiedTaxAuthorityRecord[] = [
       "OAG MIS identifies the revised Chapter 403 text. It describes domestic customs administration and its relationship with East African Community customs law.",
       "The East African Community Customs Management Act and applicable EAC instruments are separate sources and must not be inferred from this national Act.",
       "Original PDF bytes, SHA-256 and specialist review remain outstanding.",
+    ],
+  },
+  {
+    code: "EAC_CUSTOMS_MANAGEMENT_ACT_2004_REVISED_2009",
+    title: "East African Community Customs Management Act, 2004 (Revised Edition 2009)",
+    instrumentKind: "ACT",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    officialMetadataUri: "https://www.eac.int/documents/category/eac-customs-management-act",
+    officialDocumentUri: "https://www.eac.int/documents/category/eac-customs-management-act",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "EAC official document catalogue identifies the 2004 Act and later amendment instruments.",
+      "The 2009 revised edition is not a complete current consolidated text: the 2011, 2012, 2019 and 2025 amendment instruments must be acquired and cross-referenced.",
+      "Do not infer Tanzania tariff rates from this Act alone; the EAC Common External Tariff and product-specific schedules are separate authorities.",
+    ],
+  },
+  {
+    code: "EAC_CUSTOMS_MANAGEMENT_AMENDMENT_ACT_2025",
+    title: "East African Community Customs Management (Amendment) Act, 2025",
+    instrumentKind: "ACT",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    publicationDate: "2025-09-26",
+    officialMetadataUri: "https://www.eac.int/documents/category/eac-customs-management-act",
+    officialDocumentUri: "https://www.eac.int/documents/category/eac-customs-management-act",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "The EAC official catalogue lists this amendment dated 26 September 2025.",
+      "The exact commencement provisions, amendment text and provision crosswalk must be extracted from the official PDF before operative customs reliance.",
+    ],
+  },
+  {
+    code: "EAC_CUSTOMS_MANAGEMENT_REGULATIONS_2010",
+    title: "East African Community Customs Management Regulations, 2010",
+    instrumentKind: "REGULATION",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    publicationDate: "2010-12-01",
+    officialMetadataUri: "https://www.eac.int/documents/type/rules-regulations",
+    officialDocumentUri: "https://www.eac.int/documents?controller=download&file=67723f18-67c4-4fb4-b176-d47ed594166c&name=EAC+Customs+Management+Regulations.pdf&task=download.file",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "The official EAC PDF states that different parts may commence on dates appointed by the Council; commencement must be validated provision by provision.",
+      "Subsequent amendments and notices must be cross-linked before this regulation is used for a current customs determination.",
+    ],
+  },
+  {
+    code: "EAC_RULES_OF_ORIGIN_2015",
+    title: "East African Community Customs Union Rules of Origin, 2015 (Legal Notice EAC/139/2022)",
+    instrumentKind: "REGULATION",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    publicationDate: "2022-07-01",
+    officialMetadataUri: "https://www.eac.int/documents/type/rules-regulations",
+    officialDocumentUri: "https://www.eac.int/documents/type/rules-regulations",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "The EAC official catalogue identifies Legal Notice EAC/139/2022 and an in-force date of 1 July 2022.",
+      "Origin eligibility requires product-specific rules, cumulation and documentary evidence; country of dispatch alone does not establish EAC origin.",
+    ],
+  },
+  {
+    code: "EAC_COMMON_EXTERNAL_TARIFF_2022",
+    title: "East African Community Common External Tariff (2022 structure and subsequent amendments)",
+    instrumentKind: "CUSTOMS_TARIFF",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    publicationDate: "2022-07-01",
+    officialMetadataUri: "https://www.eac.int/?catid=243&id=2464%3Atrade-regime&view=article",
+    officialDocumentUri: "https://www.eac.int/?catid=65&id=2292%3Aonline-tariff&view=article",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "The EAC describes the Common External Tariff as the regional tariff schedule and provides an online tariff browser and duty estimator.",
+      "The 0/10/25/35 percent bands are broad structure only; sensitive-product lines and amendments can exceed or differ from these bands. Do not compute duty from the four bands without the current tariff line, legal notes, origin and relief data.",
+    ],
+  },
+  {
+    code: "EAC_ASSEMBLING_MANUFACTURING_REGULATIONS_2025",
+    title: "East African Community Assembling and Manufacturing of Products Regulations, 2025",
+    instrumentKind: "REGULATION",
+    jurisdictionCode: "EAC",
+    status: "ENACTED",
+    officialMetadataUri: "https://www.eac.int/documents/type/rules-regulations",
+    officialDocumentUri: "https://www.eac.int/documents/type/rules-regulations",
+    ingestionStatus: "SOURCE_LINKED_NOT_INGESTED",
+    noeliaReliance: "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW",
+    notes: [
+      "The EAC official catalogue states that these Regulations come into force on 1 July 2026.",
+      "The full regulation, eligibility criteria, transitional rules and interaction with origin/duty remission provisions must be acquired and reviewed before customs relief is calculated.",
     ],
   },
   {
