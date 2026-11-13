@@ -8,6 +8,7 @@ import { evaluatePolicy } from "@/lib/policy";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { computeTanzaniaTax, normalizeTanzaniaTin, prepareTaxFilingPack } from "@/lib/finance/tanzania-tax-computation-engine";
+import { buildTaxComplianceObligations } from "@/lib/finance/tax-compliance-engine";
 
 export const dynamic = "force-dynamic";
 
