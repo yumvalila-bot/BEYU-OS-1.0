@@ -130,23 +130,75 @@ Finance has not made; MCM does not invent it.
 is the immutability control proving itself). Agreement↔type matrix NOT BUILT —
 DECIDED, needs a Finance policy decision, not code.
 
-### 2.7 Consolidation had records and controls but no engine — **GAP (largest)**
+### 2.7 Consolidation had records and controls but no engine — **CLOSED, with four named limits**
 
 `consolidation_runs`, `consolidation_entities` and `consolidation_adjustments`
 exist with their controls: reviewer ≠ preparer by CHECK, a `REVIEWED` run cannot
 be revised back to `DRAFT`, an applied adjustment is frozen, a `UNAVAILABLE`
 entity needs a reason.
 
-What does **not** exist is the computation: translation of each entity's Finance OS
-balances into the reporting currency, elimination of intercompany balances, and
-the minority-interest split. No totals are populated from any source.
+The computation now exists: `prepareConsolidationRun` translates each member's
+Finance OS trial balance into the reporting currency, splits the non-controlling
+interest by the registry's effective-dated percentages, and proposes the elimination
+of intercompany balances **only** where both sides have authorised them. It writes
+the run, one row per candidate entity (included or excluded, each with its reason),
+and the proposals as `applied = false` — a preparer approves them elsewhere, and
+nothing here touches `journal_entries` or `journal_lines` (CAP_POSTING LOCKED).
 
-**Consequence:** `consolidation_runs` totals stay `null` and every MCM surface
-renders them as `UNAVAILABLE` with a reason. This is the correct fail-closed
-behaviour and it is why no consolidated group figure appears anywhere in the
-product.
-**Status:** NOT BUILT — GAP. Deliberately not faked: a fabricated consolidated
-total is the most dangerous possible output of this capability.
+Design decisions a reviewer should look for, because each is a refusal to be clever:
+
+* **Arithmetic and access are separate modules.** `src/lib/mcm/consolidation-core.ts`
+  owns every calculation and every refusal rule and imports nothing that touches a
+  database; `src/lib/mcm/consolidation.ts` reads state and writes governed records.
+  The reason is not tidiness: ledger rows cannot be committed in a test at all (see
+  below), so arithmetic is only testable if it needs no ledger. Proving 29 behaviours
+  through an adapter against permanently empty tables would have meant proving nothing.
+* **No trial balance ⇒ EXCLUDED, never nil.** A member with no journal lines for the
+  period is reported `UNAVAILABLE` with the reason "no journal entries for period …"
+  and stays out of the totals. Consolidating an absent ledger as zero is the exact
+  failure this capability exists to prevent; a `null` total and `dataState = PENDING`
+  are what an unfinished consolidation looks like, and the surfaces already render that.
+* **No rate ⇒ no figure.** FX rates are read from `fx_rates`, the governed store, and
+  nowhere else. `fx_rates` has no write path (P4 unratified) and zero rows, so a
+  cross-currency member is reported as a gap rather than translated by a rate the
+  engine made up. `deriveRateFromBalances()` returns `never` and is not called; no
+  code path defaults a rate to 1. A caller cannot supply one either: the prepare
+  schema is `.strict()`, so `fxRate`, `rate`, `rates`, `rateSet`, `fxRates` and a
+  free-text `source` are all rejected with 422 — asserted directly in the suite.
+* **Sub-minor precision is refused, not rounded.** The ledger is `numeric(18,2)` in
+  **major** units while the consolidation columns are `numeric(38,0)` in **minor**
+  units, so the scale factor comes from `CURRENCY_EXPONENTS` per currency — a blanket
+  ×100 would be a 100× error on TZS and JPY. A half-tigwe cannot be represented, so
+  the member is excluded with a stated reason; silently rounding a real ledger is a
+  decision about someone else's numbers.
+* **The run records the attempt even when nothing could be consolidated.** Totals are
+  then written `null`, never `"0"`.
+
+**Consequence of the limits below:** no `REVIEWED` run exists in this environment,
+because no run can be completed without a ledger and a rate authority. Every MCM
+surface therefore renders `UNAVAILABLE` for group figures, which is the truth.
+
+**Four limitations the code states itself** — `CONSOLIDATION_LIMITATIONS`, returned in
+every preparation response and recorded verbatim in the audit entry, and deliberately
+*not* reported as gaps a preparer could close:
+
+| Code | Statement |
+|---|---|
+| `INVESTMENT_ELIMINATION` | The parent's investment in the subsidiary is not eliminated against the subsidiary's equity. `consolidation_adjustments` can carry such an entry with a source reference and an approver, but nothing in MCM derives its amount, so the run's equity total double-counts the investment. The cost is named rather than hidden, because a reader who does not know the gap reads the equity total as complete. |
+| `UNREALISED_PROFIT` | No intra-group trading profit or loss is eliminated — not inventory, not fixed assets, not management-fee accruals. Intercompany balances are eliminated; margins inside those balances are not. |
+| `POSTING` | This capability writes no journal entry. Adjustment rows are proposals with `applied = false`; approving one does not post it, because CAP_POSTING is LOCKED and Finance OS owns the ledger. |
+| `RATE_INTAKE` | No governed FX rate can be recorded: `fx_rates` is a read-only reference table with no write path in this capability. Until that authority exists, every run whose members' currencies differ from the reporting currency will report `FX_RATE` gaps rather than translated figures. This limitation is the reason the gaps exist and is stated so that it is not mistaken for a data-entry failure. |
+
+**Status:** engine DELIVERED — `tests/mcm/consolidation-core.test.ts` (30 tests, pure
+arithmetic, no DB) and `tests/mcm/consolidation.test.ts` (14 tests: adapter, governed
+write, four-eyes review, audit and event rows against real Postgres, with every fixture
+token-keyed and removed so no ledger row is left anywhere); the transport boundary is
+asserted over HTTP in `tests/api/mcm-consolidation-http.test.ts` (8 tests, run against
+the built server, including the rate-limiter cooldown the suite respects).
+A member's ledger is read only when the preparer ALSO holds `finance:ledger.read`, and
+one test proves that by stripping the permission from a real seeded principal.
+The four limits above are NOT BUILT — the first two by scope, `POSTING` by a locked
+capability, `RATE_INTAKE` by an unratified authority.
 
 ### 2.8 Reference configuration was writable by the runtime role — closed
 
@@ -279,7 +331,10 @@ in the UI — the worst of both outcomes.
 | Ownership rules R1–R7 incl. human-review and circular refusal | `tests/mcm/model.test.ts` |
 | Closed lifecycle state machine | `tests/mcm/model.test.ts` |
 | Dual-authorisation four-eyes, DB-enforced | CHECK `intercompany_transactions_dual_authorization_check`, asserted in the RLS suite |
-| Consolidated reviewer independence | CHECK `consolidation_runs_review_check`, asserted in the RLS suite |
+| Consolidated reviewer independence | CHECK `consolidation_runs_review_check`, asserted in the RLS suite and prepared/reviewed for real in `tests/mcm/consolidation.test.ts` |
+| Consolidation arithmetic: translation, NCI, elimination eligibility, refusal rules | `tests/mcm/consolidation-core.test.ts` — 29 tests |
+| Governed consolidation write (run + entities + proposals + audit + event, one transaction) | `tests/mcm/consolidation.test.ts` |
+| Caller cannot supply an FX rate | strict prepare schema, asserted in both `tests/mcm/consolidation.test.ts` and `tests/api/mcm-consolidation-http.test.ts` |
 | Governed mutations with audit + event in one transaction | `src/lib/mcm/services.ts` |
 | Type integrity | `NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit` clean |
 | Navigation integration without a new OS | `src/app/os/capabilities.ts`; `tests/frontend/control-plane-ia.test.ts` 22/22 |
@@ -295,12 +350,15 @@ dual authorisation and reconciliation, consolidation records with independent
 review, capital decisions requiring resolutions, entity-aware module links, a
 governed read surface, and runtime-role-proven isolation.
 
-The **computation and interaction layers are not complete**: the consolidation
-engine, sector-os data contracts in use, in-product mutation forms, and any NOELIA
-*action* tool (NOELIA read access is delivered in §2.11; the actions are refused by
-design). The financial-period lock for intercompany is now enforced (§2.6). Each is recorded
-above with its consequence, and each fails closed rather than fabricating a figure
-or a permission.
+The consolidation **computation is now delivered** (§2.7): it translates, allocates
+non-controlling interests and proposes eliminations, and it refuses — rather than
+inventing — every input it was not given. What remains incomplete in the computation
+and interaction layers: the investment and unrealised-profit eliminations, sector-os
+data contracts in use, in-product mutation forms, and any NOELIA *action* tool
+(NOELIA read access is delivered in §2.11; the actions are refused by design). The
+financial-period lock for intercompany is now enforced (§2.6). Each is recorded above
+with its consequence, and each fails closed rather than fabricating a figure or a
+permission.
 
 Six deferred items are all cases where the missing thing is a *decision* (which
 authority to name, which approval surface to build) or a *computation* whose

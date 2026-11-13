@@ -227,10 +227,16 @@ beforeAll(async () => {
     [F.fdnA, T.foundation],
   );
   const krows = [
-    { id: F.ksGlobal, code: `KS-G-${RUN}`, title: "Search Global Knowledge Fixture", scope: "GLOBAL", classification: "INTERNAL", reviewDate: "2027-01-01", extra: "zebraquest" },
-    { id: F.ksExpired, code: `KS-E-${RUN}`, title: "Search Expired Knowledge Fixture", scope: "GLOBAL", classification: "INTERNAL", reviewDate: "2025-01-01", extra: "quasarwind" },
-    { id: F.ksHR, code: `KS-HR-${RUN}`, title: "Search Restricted Knowledge Fixture", scope: "GLOBAL", classification: "HIGHLY_RESTRICTED", reviewDate: "2027-01-01", extra: "nebulate" },
-    { id: F.ksEntity, code: `KS-EN-${RUN}`, title: "Search Entity Knowledge Fixture", scope: "ENTITY", classification: "INTERNAL", reviewDate: "2027-01-01", extra: "vortexa" },
+    // The `extra` token is carried into the content column (see the inserts below) and
+    // is RUN-qualified on purpose. `knowledge_sources` rows are immutable evidence and
+    // this suite's afterAll does NOT delete them, so a shared literal would match every
+    // previous run's row too: the positive assertions (L, I) would then depend on how
+    // many interrupted runs the database happens to remember. A unique token makes the
+    // fixture addressable and the assertion about THIS run's row.
+    { id: F.ksGlobal, code: `KS-G-${RUN}`, title: "Search Global Knowledge Fixture", scope: "GLOBAL", classification: "INTERNAL", reviewDate: "2027-01-01", extra: `zebraquest-${RUN}` },
+    { id: F.ksExpired, code: `KS-E-${RUN}`, title: "Search Expired Knowledge Fixture", scope: "GLOBAL", classification: "INTERNAL", reviewDate: "2025-01-01", extra: `quasarwind-${RUN}` },
+    { id: F.ksHR, code: `KS-HR-${RUN}`, title: "Search Restricted Knowledge Fixture", scope: "GLOBAL", classification: "HIGHLY_RESTRICTED", reviewDate: "2027-01-01", extra: `nebulate-${RUN}` },
+    { id: F.ksEntity, code: `KS-EN-${RUN}`, title: "Search Entity Knowledge Fixture", scope: "ENTITY", classification: "INTERNAL", reviewDate: "2027-01-01", extra: `vortexa-${RUN}` },
   ];
   for (const k of krows) {
     if (k.scope === "ENTITY") {
@@ -323,7 +329,11 @@ describe("Shared Search — authorization", () => {
         countryCode: "TZ",
       })),
     };
-    const r = await search(p, "search");
+    // `searchAll`, not `search`: this file's own rule. The knowledge fixtures are
+    // deliberately retained as append-only evidence, so an unscoped page-one query
+    // eventually has this run's row evicted by an earlier run's — which would make a
+    // PAGE-DEPTH fact decide an AUTHORIZATION assertion (see the comment on `searchAll`).
+    const r = await searchAll(p, "search");
     // Entity-bound sources: only entity-B rows.
     expect(ids(r, "UJENZI_PROJECT")).toEqual([F.projB]);
     expect(ids(r, "AGRICULTURE_FARM")).toEqual([F.farmB]);
@@ -402,7 +412,7 @@ describe("Shared Search — authorization", () => {
     const r2 = await search(scoped, "search");
     expect(ids(r2, "KNOWLEDGE")).not.toContain(F.ksEntity);
     // The expired row must not match even when queried by its unique token.
-    const r3 = await search(p, "quasarwind");
+    const r3 = await search(p, `quasarwind-${RUN}`);
     expect(ids(r3, "KNOWLEDGE")).not.toContain(F.ksExpired);
   });
 });
@@ -553,12 +563,12 @@ describe("Shared Search — security surface", () => {
   it("L. knowledge content is matched for findability but NEVER rendered in results", async () => {
     const p = await principalFor("ujenzi.ops@beyu.os");
     // Query by a token that exists ONLY in the knowledge content column.
-    const r = await search(p, "zebraquest");
+    const r = await search(p, `zebraquest-${RUN}`);
     const k = r.results.find((x) => x.type === "KNOWLEDGE" && x.id === F.ksGlobal);
     expect(k, "content-token search must find the knowledge row").toBeTruthy();
     // But no rendered field may expose the content.
     for (const hit of r.results) {
-      expect(`${hit.title} ${hit.subtitle ?? ""} ${hit.snippet ?? ""}`).not.toContain("zebraquest");
+      expect(`${hit.title} ${hit.subtitle ?? ""} ${hit.snippet ?? ""}`).not.toContain(`zebraquest-${RUN}`);
     }
     // The result payload carries no raw-record fields at all.
     for (const hit of r.results) {

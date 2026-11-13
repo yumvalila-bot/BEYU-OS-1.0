@@ -57,13 +57,14 @@ const today = (): string => new Date().toISOString().slice(0, 10);
 export const MCM_VERSION = "mcm/1.0.0";
 
 /**
- * Canonical enterprise event for an MCM act.
+ * Canonical enterprise event for an MCM act. Exported so `consolidation.ts` uses
+ * the same envelope rather than hand-building a second one.
  *
  * ONE helper so every MCM event carries the same interoperability envelope
  * (domain, operation, destination, classification, authority context) the rest of
  * BEYU OS emits. A hand-built literal is how envelopes drift.
  */
-function mcmEvent(input: {
+export function mcmEvent(input: {
   tenantId: string | null;
   legalEntityId: string | null;
   type: string;

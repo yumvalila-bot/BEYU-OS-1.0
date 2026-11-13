@@ -24,9 +24,10 @@
  *   RESTRICTED / UNAVAILABLE / …). A RESTRICTED figure is reported as "you lack
  *   the source capability", never as zero. A UNAVAILABLE figure is reported as
  *   "no recorded row", never as a zero balance. An entity with no MCM profile is
- *   "not yet profiled", never "no facts". Where the capability genuinely is not
- *   built — the consolidation engine, for instance — the answer says so instead
- *   of implying a consolidated group.
+ *   "not yet profiled", never "no facts". Where the capability genuinely stops —
+ *   no governed FX rate can be recorded yet, and no parent-investment or
+ *   unrealised-profit elimination is computed — the answer says so instead of
+ *   implying a finished consolidation.
  */
 import { z } from "zod";
 import type { NoeliaToolRegistry } from "./tool-registry";
@@ -401,7 +402,7 @@ export function registerMcmTools(registry: NoeliaToolRegistry): void {
           findings: [
             boundary(
               "Consolidation engine",
-              "No run exists. Consolidation is not automated in this capability, so an absent run means consolidation has not been performed — never that the group is consolidated. Treat any consolidated figure as unproduced.",
+              "No run exists. Consolidation runs only when a named preparer calls for it and an independent reviewer reviews it — nothing computes it on a schedule — so an absent run means it has not been performed for these entities and this period, never that the group is consolidated. Treat any consolidated figure as unproduced.",
             ),
           ],
           narrative: `${all.length} ${all.length === 1 ? "company is" : "companies are"} visible to you; that is a scope statement, not a consolidation scope.`,
@@ -409,19 +410,36 @@ export function registerMcmTools(registry: NoeliaToolRegistry): void {
           humanReviewRequired: true,
         };
       }
+      const entitiesWithoutFigures = overview.runs.filter((run) => run.entitiesIncluded === 0).length;
       return {
         headline: `${overview.runs.length} consolidation run(s) recorded`,
-        findings: overview.runs.map((run) => ({
-          label: `Run ${run.periodCode} · ${run.state}`,
-          value: `${run.entitiesIncluded} entities · ${run.dataState}${run.reviewedByUserId ? " · reviewed" : " · NOT reviewed"}`,
-          kind: "FACT" as const,
-          status: run.state === "REVIEWED" || run.reviewedByUserId ? "OBSERVED" : "REQUIRES_HUMAN_REVIEW",
-          provenance: `mcm_consolidation_runs:${run.id}`,
-        })),
+        findings: [
+          ...overview.runs.map((run): NoeliaFinding => ({
+            label: `Run ${run.periodCode} · ${run.state}`,
+            value: `${run.entitiesIncluded} entities · ${run.dataState}${run.reviewedByUserId ? " · reviewed" : " · NOT reviewed"}`,
+            kind: "FACT" as const,
+            status: run.state === "REVIEWED" || run.reviewedByUserId ? "OBSERVED" : "REQUIRES_HUMAN_REVIEW",
+            provenance: `mcm_consolidation_runs:${run.id}`,
+          })),
+          // A run whose totals are populated is still not a filed consolidation, and
+          // an assistant that reads one as complete is the failure mode this tool
+          // exists to prevent. The limits are stated rather than left to be inferred.
+          {
+            label: "Structural limits",
+            value:
+              "no investment-against-equity elimination, no intra-group unrealised-profit elimination, and no posting to the ledger — prepared figures only",
+            kind: "FACT" as const,
+            status: "REQUIRES_HUMAN_REVIEW" as const,
+            provenance: "mcm:consolidation.limitations",
+          },
+        ],
         narrative:
-          "A recorded run is evidence that consolidation was prepared. Finalising it remains a governed finance decision; a run that has not been reviewed is marked as such.",
+          "A recorded run is evidence that consolidation was prepared. Finalising it remains a governed finance decision; a run that has not been reviewed is marked as such." +
+          (entitiesWithoutFigures > 0
+            ? ` ${entitiesWithoutFigures} run(s) consolidated no entities because their balances were unavailable; a run with no consolidated figures is not a nil consolidation, and its totals are not zero.`
+            : ""),
         confidence: 1,
-        humanReviewRequired: overview.runs.some((run) => !run.reviewedByUserId),
+        humanReviewRequired: true,
       };
     },
   });

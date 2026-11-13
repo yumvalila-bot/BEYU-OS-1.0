@@ -147,6 +147,39 @@ export const intercompanyReconcileSchema = z
   .object({ periodCode, currency, reason: mcmReason })
   .strict();
 
+/**
+ * Prepare a consolidation run.
+ *
+ * NO RATE MAY BE SUPPLIED. There is no `rate`, `rateSet` or `source` field and the
+ * schema is `.strict()`, so a caller cannot smuggle an FX rate in: rates come only
+ * from `fx_rates` rows a named human recorded with a stated source. `asOf` is
+ * required rather than defaulted because choosing "which date's rate" is an
+ * accounting-policy decision this boundary will not make on a caller's behalf.
+ */
+export const prepareConsolidationSchema = z
+  .object({
+    // Same rule the service enforces, so the boundary never accepts a code the row
+    // would reject. A run code is a governed identifier: upper case, starting with a
+    // letter, 3-40 characters.
+    code: z.string().trim().min(3).max(40).regex(/^[A-Z][A-Z0-9_-]{2,39}$/, "Use 3-40 upper case letters, digits, underscore or hyphen, starting with a letter."),
+    periodCode,
+    reportingCurrency: currency,
+    asOf: isoDate,
+    entityIds: z.array(z.string().min(4).max(60)).max(200).nullish(),
+    reason: mcmReason,
+  })
+  .strict();
+
+export const reviewConsolidationSchema = z
+  .object({
+    runId: z.string().min(4).max(60),
+    decision: z.enum(["REVIEWED", "REJECTED"]),
+    // The database requires a non-null review note for a REVIEWED run; 8 characters
+    // matches `mcmReason` so the boundary never accepts what the row would reject.
+    note: mcmReason,
+  })
+  .strict();
+
 export const statutoryFilingSchema = z
   .object({
     legalEntityId: z.string().min(4).max(60),

@@ -1,4 +1,4 @@
-# MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–M)
+# MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–N)
 
 Branch `arena/2aef83f7-beyu-os-1-0`, branched from `dc8f848226ed8860ef293f817fe10394360abb1d`
 of `main`. Date 2026-11-13. **12 commits, 79 files, +103,784 / −63**, counted with
@@ -168,6 +168,33 @@ how the leak is shown closed rather than asserted closed.
   too. A suite whose file count moves between runs is telling you something; the tallies below have
   now been re-read from the recorded logs rather than from memory.
 
+### H.3 A neighbouring suite that only passed on a clean database
+
+`tests/search/governed-search.service.test.ts` failed in the first full run of the
+consolidation work, and the cause was not MCM. Test **C** asserted
+`expect(ids(r, "KNOWLEDGE")).toContain(F.ksGlobal)` against `search(p, "search")` — an
+unscoped query, one page. The suite *deliberately* keeps its `knowledge_sources` fixtures
+(`protect_knowledge_original` makes them immutable even to the admin role, and the
+`afterAll` says so), so every run adds four more rows whose titles all contain
+"search". Once the corpus passed the per-source cap, this run's own row was evicted from
+page one by the accumulated rows of earlier runs — and an **authorization** assertion was
+being decided by **page depth**.
+
+Two edits, neither of which weakens anything:
+
+* C now uses the file's own `searchAll()` (query scoped to this run's `RUN` tag, paged to
+  exhaustion), which is what the comment above that helper prescribes and what every
+  neighbouring test already did;
+* the four knowledge fixtures' content tokens are RUN-qualified (`zebraquest-${RUN}`
+  instead of `zebraquest`), so the two positive content-token assertions (L, I) address
+  *this* run's row. The negative ones were already safe.
+
+Proved by running `tests/search` twice in a row — 19/19 both times — and by noting that
+deleting the accumulated rows is impossible by design, so robustness to them is the only
+correct fix. **The lesson generalises:** any suite that asserts `toContain(own fixture)`
+against an unscoped first page is a timer, and this repository has the same shape in
+`knowledge_sources`-adjacent suites. Worth an audit pass by whoever owns search.
+
 ## I. NOELIA read-only MCM intelligence
 
 `src/lib/noelia/mcm-tools.ts` — ten tools in the ONE canonical registry:
@@ -270,6 +297,8 @@ in this database, so every ledger-shaped assertion is a refusal test, never a ba
 | `/tmp/final-full.log` | 359 passed \| 4 skipped (363) | 5,924 passed \| 12 skipped \| 31 todo (5,967) | **1** — zero failed assertions; an unhandled rejection from my own test helper |
 | `/tmp/final-full2.log` | 358 passed \| 1 failed \| 4 skipped (363) | 5,923 passed \| 1 failed \| 12 skipped \| 31 todo (5,967) | **1** — the self-poisoning fixture, **H.2** |
 | `/tmp/final-full3.log` (**after both fixes**) | **359 passed \| 4 skipped (363)** | **5,924 passed \| 12 skipped \| 31 todo (5,967)** | **0** |
+| `/tmp/final-consol.log` (consolidation engine, before the H.3 fix) | 361 passed \| **1 failed** \| 4 skipped (366) | 5,975 passed \| **1 failed** \| 12 skipped \| 31 todo (6,019) | **1** — the search suite's own accumulation defect, **H.3** |
+| `/tmp/final-consol2.log` (**after H.3**) | **362 passed \| 4 skipped (366)** | **5,976 passed \| 12 skipped \| 31 todo (6,019)** | **0** |
 
 Three things worth saying out loud. The file count **moved between consecutive runs**
 (359 → 358) and nobody asked why at the time; that discrepancy *was* the H.2 fixture. The first
@@ -291,11 +320,43 @@ Environment facts that belong in the record, not in a footnote: the local suite 
 `npm run playwright install chromium` **fails here** (the browser CDN is outside the allowed
 egress), so `npm run test:browser` is **not verified** and nothing in this report claims it.
 
+### L.2 The consolidation run — every command, in order
+
+The consolidation work was verified in this sequence, and the order matters because the
+last change came after the long run:
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `node --max-old-space-size=6144 ./node_modules/typescript/bin/tsc --noEmit` | 0 errors, re-run after **every** edit including the last |
+| 2 | `npx vitest run` **with** `BEYU_TEST_BASE_URL` (log `/tmp/final-consol.log`) | 361 passed \| **1 failed** \| 4 skipped — the one failure was `tests/search`, see **H.3** |
+| 3 | the same, after the search fix (log `/tmp/final-consol2.log`) | **362 passed \| 4 skipped (366 files); 5,976 passed \| 12 skipped \| 31 todo (6,019); `EXIT=0`** |
+| 4 | `npx vitest run tests/mcm tests/noelia` | 42 files / 437 tests green (this is the re-run **after** the last source edit) |
+| 5 | `npx vitest run tests/mcm/consolidation-core.test.ts tests/mcm/consolidation.test.ts` | 44 tests, 0.4 s, no database |
+| 6 | `npx vitest run tests/search` twice in a row | 19/19 then 19/19 — the accumulation fix is idempotent |
+| 7 | `npm run build` (logs `/tmp/build-consol2.log`, `/tmp/build-consol3.log`) | `BUILD_EXIT=0` twice; 171+ pages, `/api/v1/mcm/consolidation` present as a dynamic route |
+| 8 | `BEYU_TEST_BASE_URL=… npx vitest run tests/api/mcm-consolidation-http.test.ts` against `next start` on the **final** build | 8/8 green after the 66 s limiter cooldown |
+| 9 | `npm run lint` | 0 errors; 1 pre-existing `<img>` warning in `src/components/noelia-cross-os-visual.tsx`, untouched |
+| 10 | `npm run verify:scg` | 4 checks, 0 blocking, 0 advisory |
+| 11 | `npm run migrate` | applied set unchanged, `fingerprintBefore == fingerprintAfter` (`b8a442c7d9…`) |
+
+Three honest notes on that table.
+
+* Run 2 is reported because it disagreed, and its disagreement was real and not in MCM —
+  a run that quietly deleted the red line would have hidden **H.3**.
+* Run 3 started at 20:39 and finished at 21:12; the last source edit (`mcm:consolidation`
+  tool wording in `src/lib/noelia/mcm-tools.ts`) landed at 20:52, while run 3 was still
+  executing. So run 3 does **not** cleanly cover the final tree, and this report does not
+  claim it does. Runs 4 and 8 do: the targeted re-run after the edit, then a rebuild
+  (run 7, `BUILD_EXIT=0`) and the HTTP boundary re-executed against that build. No test
+  outside `tests/noelia` reads the string that changed, and `tsc` was re-run afterwards.
+* Run 8 needed a 66 s wait on purpose. `mcm:consolidation.prepare` is limited to 6
+  preparations a minute per principal, and that limiter is a control, not an obstacle: a
+  suite that retried through 429s would be asserting nothing. The cooldown belongs to the
+  caller — `scripts/verify.mjs` exists for the same reason.
+
 ## M. Not built, still open, and the merge line
 
-Deliberately **not** built, with the reason: the consolidation **engine** (records and review
-controls exist; nothing computes eliminations — the tools say "consolidation has not been
-performed", never "the group is consolidated"); Sector-OS data surfacing through the declared
+Deliberately **not** built, with the reason: Sector-OS data surfacing through the declared
 contracts; in-product MCM mutation **forms**; the agreement-type ↔ transaction-type matrix;
 Tanzania jurisdiction **data** (BRELA/TRA/NSSF/WCF names would present an integration that does not
 exist — seeding them is a governance decision); and any NOELIA **action** tool.
@@ -329,3 +390,120 @@ skipped-then-fixed HTTP suites are the last place a silent skip hides something.
 the strength of that run. What is *not* evidence yet: browser behaviour (`test:browser` cannot run
 in this sandbox) and clean-install parity — both are named in the list above rather than rounded
 away.
+
+---
+
+## N. The consolidation engine — what computes, and every rule that refuses
+
+§M used to open with "the consolidation **engine** — not built". That entry is removed;
+this section is what replaced it, and what is still refused.
+
+**Files.** `src/lib/mcm/consolidation-core.ts` (730 lines, new) — the arithmetic;
+`src/lib/mcm/consolidation.ts` (898 lines, new) — the governed adapter;
+`src/app/api/v1/mcm/consolidation/route.ts` GET/POST/PATCH; two zod schemas in
+`src/app/api/v1/mcm/_shared.ts`; `tests/mcm/consolidation-core.test.ts`,
+`tests/mcm/consolidation.test.ts`, `tests/api/mcm-consolidation-http.test.ts`.
+
+**Why two modules instead of one.** Not tidiness. `journal_entries` and `journal_lines`
+carry `BEFORE UPDATE OR DELETE` triggers that refuse mutation, and four finance suites
+assert the ledger is *globally empty* while CAP_POSTING is LOCKED, so no test may commit
+a trial balance — not even inside a rolled-back transaction if the assertion is a global
+count. An engine that mixed arithmetic with SQL could therefore only be tested against
+permanently empty tables, i.e. not tested. Splitting it means the 30 assertions that
+decide whether a consolidated figure is *correct* run in ~0.4 s with no database at all,
+and the 14 that decide whether it may be *written* run against real Postgres (44 tests
+in the two files, 0.4 s and 0.35 s).
+
+**What it computes.** For every entity MCM's company profile marks consolidated, in the
+period Finance OS has opened *for that entity*: a trial balance grouped by entry currency
+(assets/expenses at debit-minus-credit, the rest the other way); each currency bucket
+restated into the entity's functional currency at the governed CLOSING rate; the group
+figure translated functional → reporting at CLOSING for balance-sheet lines and AVERAGE
+for income, with income carried at CLOSING and the member flagged `ESTIMATED` when no
+AVERAGE rate exists; the resulting cumulative translation difference as a *computed*
+residual, never as an input; the non-controlling interest as the complement of the
+registry's percentage, applied to equity **including** that difference; and one
+`INTERCOMPANY_ELIMINATION` proposal per intra-group balance that is
+`BOTH_SIDES_AUTHORIZED` or `RECONCILED`, with a zero reconciliation difference and both
+legs in the run. Everything is written in one `withAuditTransaction`: run + entity rows +
+`applied = false` adjustments + audit row + enterprise event.
+
+**What it refuses, and why that is the product.**
+
+| Situation | Behaviour |
+|---|---|
+| entity has no MCM profile at all | excluded before the run; "not profiled" is not "not consolidated" |
+| profile says `consolidated = false` | excluded as a recorded decision, distinct in the reason from a gap |
+| no Finance OS period for that entity and code | excluded — summing every entry instead would put a period label on an unscoped total |
+| **no journal lines for the period** | **excluded (`TRIAL_BALANCE`), never consolidated as nil** |
+| preparer lacks `finance:ledger.read` | the ledger is **not queried at all**; every member excluded with that reason. `mcm:consolidation.prepare` is not a route into someone else's journals |
+| reporting currency has no registered minor-unit exponent | whole preparation refused (`UNSUPPORTED_REPORTING_CURRENCY`), because assuming 2 decimals is a 100× error that still looks like a number |
+| a ledger amount finer than the currency's minor unit | member refused with `AMOUNT_PRECISION`; never rounded |
+| no governed rate for a pair | member excluded with `FX_RATE` and the authority's own reason quoted; never defaulted to 1, never back-derived |
+| ownership rows disagree for one owner | member excluded (`OWNERSHIP_CONFLICT`), no precedence invented |
+| ownership sums past 100% | reported as an impossible register (`OWNERSHIP_IMPOSSIBLE`), **not capped** — capping is a decision about who owns the company |
+| a child has a parent in scope but no ownership record | excluded (`OWNERSHIP`); assuming 100% would silently delete a non-controlling interest |
+| one leg of an intra-group balance is a member this run excluded | reported as `ELIMINATION_PARTIAL`, and not eliminated either way |
+| caller supplies `fxRate` / `rate` / `rates` / `rateSet` / `fxRates` | 422 — the strict schema rejects the key rather than ignoring it |
+| nothing at all could be translated | run still written: `COLLECTING`, `dataState = PENDING`, totals NULL, never `"0"` |
+
+**The four limitations, verbatim** — exported as `CONSOLIDATION_LIMITATIONS`, returned in
+every preparation response and recorded in the audit entry, and deliberately kept out of
+`outstanding` so that a limit of the capability is never read as a gap one period's data
+could close:
+
+* `INVESTMENT_ELIMINATION` — a parent's investment in a subsidiary is not eliminated
+  against that subsidiary's equity, because no account-to-consolidation mapping exists
+  and MCM will not infer one from free-text account categories or names.
+* `UNREALISED_PROFIT` — unrealised profit inside intragroup inventory or asset transfers
+  is not eliminated, because the margin is not recorded on the intercompany transaction.
+* `POSTING` — no elimination is written into Finance OS: CAP_POSTING remains LOCKED,
+  adjustments stay `applied = false`, and a reviewed run remains an analysis a human must
+  still act on through the finance rails.
+* `RATE_INTAKE` — `fx_rates` has no write route and no ratified intake authority, so
+  until a governed rate is recorded by a named person, any member whose functional
+  currency differs from the reporting currency is excluded rather than translated.
+
+**Three defects found while building it**, each of which would have survived a review that
+only looked at happy paths:
+
+1. `complementShare` divided by `PCT_SCALE` but not by 100, so a "70.000000" percentage
+   produced a 7 000%-sized non-controlling interest — an integer of perfectly plausible
+   shape, wrong by two orders of magnitude. The pure-function test that states its own
+   arithmetic (`30%` of `250 000 000` = `75 000 000`) is what caught it.
+2. The trial-balance read filtered `journal_entries.tenant_id = <preparing principal's
+   tenant>`. This group's subsidiaries each live in their *own* tenant, so every child's
+   ledger would have been silently dropped and reported as "no journal entries" — a
+   wrong answer that looks like a true one. Scope is now the visible-entity set with each
+   entity's own tenant in the predicate, mirroring `entityFinancialSnapshots`.
+3. Consolidation authority was sufficient to read the ledger. It is not: MCM's own
+   `entityFinancialSnapshots` checks the owning capability's permission before touching
+   treasury or capital rows, and the ledger needed the same gate. Found by reading the
+   neighbouring module, not by a failing test — which is the argument for writing the
+   refusals as tests afterwards (the `finance:ledger.read` case is now one).
+
+**Verification.** `tsc --noEmit` 0 errors; `tests/mcm/consolidation-core.test.ts` 30 tests
+in ~0.04 s with no database; `tests/mcm/consolidation.test.ts` 14 tests in ~0.36 s against
+real Postgres; `tests/api/mcm-consolidation-http.test.ts` 8 tests against `next start` on
+the production build; `tests/mcm + tests/noelia` together 42 files / 437 tests green; full
+suite **362 files / 5,976 tests, `EXIT=0`** — see **L.2** for the sequence and for which
+run covers the last edit.
+
+**What the tests do not prove.** No test translates a real committed ledger, because none
+can (above). The adapter suite therefore exercises membership, exclusions, the governed
+write, the audit and event rows, the `REVIEWED`-needs-a-different-human CHECK, and
+four-eyes refusal messages — and every member it meets is legitimately excluded for want
+of a trial balance, which is precisely the case a weaker engine would paper over with
+zeros. Translation itself is proved only in the pure suite, on figures the test computes
+by hand: `1 490 000 000` TZS minor → `59 600 000` USD minor at 0.0004 (TZS exponent 0,
+USD exponent 2, so the rescale is `× rate × 100`; forgetting it gives `596 000`),
+residual `−2 300 000`, NCI `3 150 000`. When a governed FX rate authority and a chart of
+accounts exist, the missing end-to-end proof is one fixture away — and it will need a
+chart seeder, since `ledger_accounts` currently holds zero rows.
+
+**Fixture discipline.** `tests/mcm/consolidation.test.ts` inserts only deletable,
+token-keyed rows (`legal_entity_profiles`, one `financial_periods` per member in a
+far-future year derived from the token, and one synthetic reviewer) and removes them in
+both `beforeAll` and `afterAll`; it invents no group structure — the 70% / 100% /
+none-at-all percentages it asserts are the seeded registry's. It writes no journal row,
+which is why the finance suites' global `count(*) = 0` assertions stay green.
