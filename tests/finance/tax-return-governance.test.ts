@@ -7,6 +7,7 @@ describe("FINANCE_OS tax return separation of duties", () => {
   const reviewRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/review/route.ts"), "utf8");
   const approveRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/approve/route.ts"), "utf8");
   const computeRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/compute/route.ts"), "utf8");
+  const workbench = readFileSync(join(process.cwd(), "src/app/os/tax/computation-workbench.tsx"), "utf8");
   const submitRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/record-submission/route.ts"), "utf8");
   const receiptRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/record-receipt/route.ts"), "utf8");
   const migration = readFileSync(join(process.cwd(), "drizzle/0077_tax_return_drafts.sql"), "utf8");
@@ -71,6 +72,13 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(computeRoute).toContain('"PRESUMPTIVE_INCOME_TAX"].includes(body.taxType)');
     expect(computeRoute).toContain('body.periodStart < "2026-07-01"');
     expect(computeRoute).toContain("originEvidenceVerified: false");
+  });
+
+  it("persists and displays source-linked compliance obligation candidates with draft packs", () => {
+    expect(computeRoute).toContain("buildTaxComplianceObligations");
+    expect(computeRoute).toContain("complianceObligations");
+    expect(workbench).toContain("Compliance calendar candidates");
+    expect(workbench).toContain("PLANNED_UNCONFIRMED");
   });
 
   it("database constraints require specialist review and independent approval before submission", () => {
