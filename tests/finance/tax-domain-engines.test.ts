@@ -126,6 +126,18 @@ describe("NOELIA tax citation boundary", () => {
     expect(result.requiresAuthority).toBe(false);
   });
 
+  it("can explain a superseded tax rule for its historical effective period only", () => {
+    const historical = {
+      sourceCode: "OLD", title: "Old rule", provision: "s.1", jurisdictionCode: "TZ",
+      effectiveFrom: "2024-01-01", effectiveTo: "2025-12-31", authorityStatus: "SUPERSEDED",
+      sourceAuthenticationStatus: "AUTHORITATIVE", uri: "https://official.example/old.pdf",
+    };
+    const inWindow = filterNoeliaTaxCitations({ citations: [historical], jurisdictionCode: "TZ", asOf: "2025-06-30" });
+    const outOfWindow = filterNoeliaTaxCitations({ citations: [historical], jurisdictionCode: "TZ", asOf: "2026-01-01" });
+    expect(inWindow.citations).toHaveLength(1);
+    expect(outOfWindow.requiresAuthority).toBe(true);
+  });
+
   it("fails closed when the only source is outside its effective window", () => {
     const result = filterNoeliaTaxCitations({
       citations: [{
