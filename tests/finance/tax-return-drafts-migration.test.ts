@@ -37,6 +37,8 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
 
   it("keeps the receipt-document checksum trigger SQL syntactically complete", () => {
     expect(migration).toContain("receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}$' THEN");
+    expect(migration.match(/CREATE OR REPLACE FUNCTION beyu_validate_tax_return_receipt_document/g)).toHaveLength(1);
+    expect(migration.match(/DO \$tax_return_verify\$/g)).toHaveLength(1);
   });
 
   it("does not grant runtime delete or permit accepted returns without an external receipt", () => {
