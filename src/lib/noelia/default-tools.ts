@@ -551,6 +551,31 @@ export function createDefaultNoeliaToolRegistry(
     execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" }),
   });
   registry.register({
+    name: "tax.computation.explain",
+    permission: "finance:tax.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Explain a persisted FINANCE_OS tax calculation, its source evidence, filing deadlines and compliance risks. Does not approve or submit returns.",
+    metadata: {
+      stableId: "cap-tax-computation-explain",
+      version: "1.0.0",
+      ownerRole: "GROUP_CFO",
+      domain: "TAX",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({ draftId: z.string().min(1).max(128) }).strict(),
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context, input) => legal.taxComputation(context, input),
+  });
+
+  registry.register({
     name: "legal.knowledge.query",
     permission: "legal:matter.read",
     classification: "RESTRICTED",
