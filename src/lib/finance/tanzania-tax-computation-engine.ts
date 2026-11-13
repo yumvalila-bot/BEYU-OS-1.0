@@ -88,7 +88,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     uri: "https://oagmis.oag.go.tz/portal/legislation/4645/download",
     provision: "First Schedule: 1% of FOB value for dry cargo other than petroleum; TZS 20m per vessel for specified wet petroleum cargo",
     effectiveFrom: "2026-07-01",
-    evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW",
+    evidenceStatus: "OFFICIAL_PRIMARY_SOURCE_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
   },
   OAG_INCOME_TAX_ACT_2023: {
     code: "TZ_INCOME_TAX_ACT_CAP332_RE2023",
