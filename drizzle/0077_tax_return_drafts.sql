@@ -122,7 +122,8 @@ BEGIN
      OR receipt.authority_status::text IS DISTINCT FROM 'AUTHORITATIVE'
      OR receipt.storage_uri IS NULL
      OR receipt.checksum IS NULL
-     OR receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64} 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
+     OR receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}$' THEN
+    RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
   END IF;
   RETURN NEW;
 END;
