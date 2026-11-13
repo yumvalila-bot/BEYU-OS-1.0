@@ -27,6 +27,7 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
     expect(migration).toContain('"receipt_document_id" text REFERENCES "documents"("id")');
     expect(migration).toContain('"receipt_document_id" IS NOT NULL');
     expect(migration).toContain("beyu_validate_tax_return_receipt_document");
+    expect(migration).toContain('BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code", "status"');
     expect(migration).toContain("'TAX_FILING_RECEIPT'");
     expect(migration).toContain("'AUTHORITATIVE'");
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
@@ -44,6 +45,6 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
   it("does not grant runtime delete or permit accepted returns without an external receipt", () => {
     expect(migration).toContain("GRANT SELECT, INSERT, UPDATE");
     expect(migration).not.toContain("GRANT SELECT, INSERT, UPDATE, DELETE");
-    expect(migration).toContain('"status" <> \'ACCEPTED\' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL)');
+    expect(migration).toContain('"status" <> \'ACCEPTED\' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL AND "receipt_document_id" IS NOT NULL)');
   });
 });
