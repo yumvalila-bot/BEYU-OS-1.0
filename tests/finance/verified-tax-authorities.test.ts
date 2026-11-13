@@ -32,7 +32,7 @@ describe("Tanzania verified tax authority register", () => {
     expect(records.every((record) => record.noeliaReliance === "BLOCKED_PENDING_GOVERNED_INGESTION_AND_REVIEW")).toBe(true);
   });
 
-  it("only returns the enacted instrument from the enacted-authority selector", () => {
+  it("returns enacted primary authorities and excludes the Finance Bill", () => {
     const enactedCodes = getEnactedTaxAuthorities().map((record) => record.code);
     expect(enactedCodes).toContain("TZ_FINANCE_ACT_2025_NO_11");
     expect(enactedCodes).toContain("TZ_FINANCE_ACT_2026_NO_2");
