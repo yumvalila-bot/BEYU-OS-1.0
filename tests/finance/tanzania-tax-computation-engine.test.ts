@@ -8,7 +8,7 @@ import {
   calculatePresumptiveIncomeTax,
   calculateVat,
   calculateVatWithholding,
-  calculateWithholdingTax,
+  calculateWithholdingTax,\n  normalizeTanzaniaTin,
   computeTanzaniaTax,
   prepareTaxFilingPack,
   TaxCalculationError,
@@ -154,6 +154,13 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
       taxpayer, periodStart: "2026-10-05", periodEnd: "2026-10-31",
       calculation: calculateVat({ taxableSuppliesTzs: 1000 }),
     })).toThrow(TaxCalculationError);
+  });
+
+  it("normalizes formatted Tanzania legal-entity TINs without accepting malformed identifiers", () => {
+    expect(normalizeTanzaniaTin("TIN-121-441-002")).toBe("121441002");
+    expect(normalizeTanzaniaTin("121-441-002")).toBe("121441002");
+    expect(normalizeTanzaniaTin("12345678")).toBeNull();
+    expect(normalizeTanzaniaTin("TIN-123-456-78A")).toBeNull();
   });
 
   it("rejects invalid amounts, invalid TINs and malformed filing periods", () => {
