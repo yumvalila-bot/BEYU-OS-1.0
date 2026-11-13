@@ -74,7 +74,9 @@ export function buildTaxComplianceObligations(input: {
     warnings: ["Confirm current TRA portal form, taxpayer registration, extensions, weekends and public holidays before relying on this date."],
     calendarAdjustmentRequired: true,
   });
-  const nextMonth = addMonths(input.periodEnd, 1);\n  if (input.taxType === "PERSONAL_INCOME_TAX" && !calendarYear) throw new Error("Individual income-tax obligations require a calendar year-of-income period.");\n  if (input.taxType === "PRESUMPTIVE_INCOME_TAX" && !calendarYear) throw new Error("Presumptive income-tax obligations require a calendar year-of-income period.");
+  const nextMonth = addMonths(input.periodEnd, 1);
+  if (input.taxType === "PERSONAL_INCOME_TAX" && !calendarYear) throw new Error("Individual income-tax obligations require a calendar year-of-income period.");
+  if (input.taxType === "PRESUMPTIVE_INCOME_TAX" && !calendarYear) throw new Error("Presumptive income-tax obligations require a calendar year-of-income period.");
   switch (input.taxType) {
     case "VAT":
       return [make("VAT_RETURN_AND_PAYMENT", `${nextMonth.slice(0, 7)}-20`, ["TRA_VAT_GUIDE"], ["Sales and purchase ledgers", "Tax invoices", "Input-credit evidence", "Payment confirmation"] )];
