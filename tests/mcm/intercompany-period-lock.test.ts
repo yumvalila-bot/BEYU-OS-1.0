@@ -103,10 +103,18 @@ async function ownTransactionCount() {
   return Number(row.count);
 }
 
-/** A refusal must leave NOTHING behind: no partial row, no state drift. */
-async function expectRefusal(promise: Promise<unknown>, code: string, message?: RegExp) {
+/**
+ * A refusal must leave NOTHING behind: no partial row, no state drift.
+ *
+ * Takes a THUNK, not a promise. Handing this helper an already-started promise
+ * was a real bug: the row count is awaited before `.catch` is attached, so a fast
+ * refusal could reject unhandled and Node would report it as an unhandled
+ * rejection — an `EXIT=1` on a run whose assertions all passed. Deferring the
+ * call means the handler is attached in the same tick the promise is created.
+ */
+async function expectRefusal(run: () => Promise<unknown>, code: string, message?: RegExp) {
   const before = await ownTransactionCount();
-  const error = await promise.then(() => null).catch((err) => err);
+  const error = await run().then(() => null).catch((err) => err);
   expect(error, `expected a ${code} refusal, but the call succeeded`).toBeInstanceOf(McmError);
   expect((error as McmError).code).toBe(code);
   if (message) expect((error as McmError).message).toMatch(message);
@@ -205,7 +213,7 @@ describe("intercompany writes honour the Finance-owned period", () => {
     expect(await ownTransactionCount()).toBe(1);
 
     await setPeriodStatus([entityB.id], PERIOD, "CLOSED");
-    await expectRefusal(raise("PL_BLOCKED", PERIOD), "PERIOD_NOT_OPEN");
+    await expectRefusal(() => raise("PL_BLOCKED", PERIOD), "PERIOD_NOT_OPEN");
     await setPeriodStatus([entityB.id], PERIOD, "OPEN");
   });
 

@@ -244,8 +244,20 @@ export function registerMcmTools(registry: NoeliaToolRegistry): void {
       for (const snapshot of snapshots) {
         findings.push(figureFinding(`${snapshot.entityCode} · Treasury`, snapshot.treasury, "MCM_TREASURY"));
         findings.push(
+          figureFinding(`${snapshot.entityCode} · Capital requested`, snapshot.capitalRequested, "MCM_CAPITAL_REQUESTED"),
+        );
+        findings.push(
           figureFinding(`${snapshot.entityCode} · Capital approved`, snapshot.capitalApproved, "MCM_CAPITAL_APPROVED"),
         );
+        if (snapshot.treasuryAsOf) {
+          findings.push({
+            label: `${snapshot.entityCode} · Treasury as of`,
+            value: snapshot.treasuryAsOf,
+            kind: "FACT",
+            status: "OBSERVED",
+            provenance: "treasury_positions",
+          });
+        }
         findings.push({
           label: `${snapshot.entityCode} · Headcount`,
           value: snapshot.employeeCount === null ? "UNAVAILABLE (requires hcm:employee.read)" : String(snapshot.employeeCount),
