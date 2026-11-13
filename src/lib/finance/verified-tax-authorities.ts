@@ -1,7 +1,7 @@
 /**
- * Verified primary-source metadata for Tanzania's 2026 finance legislation.
+ * Verified primary-source metadata for Tanzania tax law and East African Community customs law.
  *
- * These records distinguish the June 2026 Bill from the enacted Act. Source
+ * These records distinguish Bills from enacted Acts, regulations and tariff schedules. Source
  * discovery does not itself ingest content into knowledge_sources or authorize
  * NOELIA to rely on a legal proposition.
  */
