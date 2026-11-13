@@ -22,8 +22,8 @@
  */
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { employees, parties, rolePermissions, roles, users } from "@/db/schema";
-import { ROLES, type PermissionCode } from "./constants";
+import { employees, parties, permissions as permissionsTable, rolePermissions, roles, users } from "@/db/schema";
+import { PERMISSIONS, ROLES, type PermissionCode } from "./constants";
 
 export const IDENTITY_VERSION = "identity-graph-1.0.0";
 
@@ -243,9 +243,33 @@ export type PermissionDrift = {
 };
 
 /**
+ * A definition-level disagreement between the two catalogues.
+ *
+ * Separate from `PermissionDrift` because it means something different: a role
+ * drift is someone holding the wrong authority, while a definition drift means the
+ * two catalogues do not agree about which privileges EXIST. The second is the one
+ * a migration introduces quietly.
+ */
+export type PermissionDefinitionDrift = {
+  /** Declared in `PERMISSIONS` with no row in `permissions` — a privilege nothing can grant. */
+  onlyInCode: PermissionCode[];
+  /** A row in `permissions` that the code catalogue never names — a privilege nobody can review. */
+  onlyInDb: string[];
+};
+
+/**
  * H-01 remains open: runtime still reads ROLES in constants.ts.
  * This check proves the seeded `role_permissions` mirror has not drifted, so
  * the two catalogues cannot silently become two permission truths.
+ *
+ * It compares BOTH halves of the mirror:
+ *   · GRANTS — every role's permission set, in each direction;
+ *   · DEFINITIONS — the `permissions` rows against the `PERMISSIONS` catalogue.
+ * The second half was previously unchecked, which meant a migration could add a
+ * privilege to the database that the reviewed catalogue never named (or drop one
+ * it did) and every existing gate would still pass. Measured on a live migrated
+ * database on 2026-11-13: 285 definitions and 976 grants agreed exactly, so this
+ * extension closes a hole rather than reporting one.
  *
  * It does NOT switch the runtime source. That would be a separate, authorised
  * migration of the permission model.
@@ -253,6 +277,7 @@ export type PermissionDrift = {
 export async function assertPermissionCatalogParity(): Promise<{
   ok: boolean;
   drifts: PermissionDrift[];
+  definitions: PermissionDefinitionDrift;
   reason: string;
 }> {
   const rows = await db
@@ -279,12 +304,35 @@ export async function assertPermissionCatalogParity(): Promise<{
     }
   }
 
+  const dbDefinitions = await db
+    .select({ code: permissionsTable.code, description: permissionsTable.description })
+    .from(permissionsTable);
+  const dbCodes = new Set(dbDefinitions.map((row) => row.code));
+  const codeCodes = new Set(Object.keys(PERMISSIONS));
+  const definitions: PermissionDefinitionDrift = {
+    onlyInCode: [...codeCodes].filter((code) => !dbCodes.has(code)) as PermissionCode[],
+    onlyInDb: dbDefinitions.map((row) => row.code).filter((code) => !codeCodes.has(code)),
+  };
+  // A description that differs is drift too: the mirror is documentation, and two
+  // descriptions of one privilege is precisely the "two permission truths" this
+  // function exists to prevent.
+  const descriptionMismatch = dbDefinitions
+    .filter((row) => codeCodes.has(row.code) && row.description !== PERMISSIONS[row.code as PermissionCode])
+    .map((row) => row.code);
+
+  const problems = [
+    ...drifts.map((d) => `role ${d.role}`),
+    ...(definitions.onlyInCode.length > 0 ? [`permissions declared in code but absent from the database (${definitions.onlyInCode.join(", ")})`] : []),
+    ...(definitions.onlyInDb.length > 0 ? [`permissions in the database absent from the code catalogue (${definitions.onlyInDb.join(", ")})`] : []),
+    ...(descriptionMismatch.length > 0 ? [`permission descriptions disagree (${descriptionMismatch.join(", ")})`] : []),
+  ];
   return {
-    ok: drifts.length === 0,
+    ok: problems.length === 0,
     drifts,
+    definitions,
     reason:
-      drifts.length === 0
-        ? `role_permissions mirrors ROLES for ${roleCodes.size} roles.`
-        : `Permission catalogue drift in ${drifts.map((d) => d.role).join(", ")}.`,
+      problems.length === 0
+        ? `role_permissions mirrors ROLES for ${roleCodes.size} roles, and ${dbDefinitions.length} permission definitions match PERMISSIONS exactly.`
+        : `Permission catalogue drift: ${problems.join("; ")}.`,
   };
 }
