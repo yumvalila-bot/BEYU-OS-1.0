@@ -57,41 +57,52 @@ function HomePageContent() {
           </div>
 
           <nav className="beyu-main-nav" aria-label="Main navigation">
-            <a href="#">About BEYU</a>
-            <a href="#">Our Architecture</a>
-            <a href="#">Sector OS</a>
-            <a href="#">Capabilities</a>
-            <a href="#">NOELIA AI</a>
-            <a href="#">Technology</a>
-            <a href="#">Contact</a>
+            <a href="#about">About BEYU</a>
+            <a href="#architecture">Our Architecture</a>
+            <a href="#sector-os">Sector OS</a>
+            <a href="#capabilities">Capabilities</a>
+            <a href="#noelia">NOELIA AI</a>
+            <a href="#technology">Technology</a>
+            <a href="#contact">Contact</a>
           </nav>
+          <details className="beyu-mobile-nav">
+            <summary aria-label="Open site navigation">Menu <span aria-hidden="true">☰</span></summary>
+            <nav aria-label="Mobile navigation">
+              <a href="#about">About BEYU</a>
+              <a href="#architecture">Our Architecture</a>
+              <a href="#sector-os">Sector OS</a>
+              <a href="#capabilities">Capabilities</a>
+              <a href="#noelia">NOELIA AI</a>
+              <a href="#technology">Technology</a>
+              <a href="#contact">Contact</a>
+              <a href="/sign-in">Sign In</a>
+            </nav>
+          </details>
 
           <div className="beyu-top-actions">
-            <button type="button" className="beyu-signin-btn">
-              Sign In <span>→</span>
-            </button>
-            <button type="button" className="beyu-theme-toggle" aria-label="Toggle theme">
-              ☾
-            </button>
+            <a href="/sign-in" className="beyu-signin-btn">
+              Sign In <span aria-hidden="true">→</span>
+            </a>
+            <span className="beyu-theme-mark" aria-hidden="true">☾</span>
           </div>
         </div>
       </header>
 
-      <section className="beyu-hero">
+      <section className="beyu-hero" aria-labelledby="beyu-home-title">
         <div className="beyu-home-inner beyu-hero-inner">
           <div className="beyu-hero-copy">
-            <h1>
+            <h1 id="beyu-home-title">
               Bridging Care.
               <span>Building Trust.</span>
             </h1>
-            <p className="beyu-hero-kicker">A Constitutional Enterprise Operating System.</p>
+            <p className="beyu-hero-kicker">A Constitutional Enterprise Operating Ecosystem.</p>
             <p className="beyu-hero-text">
               BEYU connects institutional governance, enterprise operations, intelligence and multi-sector
               capabilities through one unified operating architecture.
             </p>
             <div className="beyu-hero-actions">
-              <a href="#" className="beyu-primary-btn">Explore BEYU <span>→</span></a>
-              <a href="#" className="beyu-secondary-btn">Explore Our Operating Systems <span>→</span></a>
+              <a href="#about" className="beyu-primary-btn">Explore BEYU <span aria-hidden="true">→</span></a>
+              <a href="#sector-os" className="beyu-secondary-btn">Explore Our Operating Systems <span aria-hidden="true">→</span></a>
             </div>
           </div>
 
@@ -119,16 +130,16 @@ function HomePageContent() {
         </div>
       </section>
 
-      <section className="beyu-about-section">
+      <section className="beyu-about-section" id="about">
         <div className="beyu-home-inner beyu-about-grid">
-          <div className="beyu-about-copy">
+          <div className="beyu-about-copy" id="architecture">
             <h2>ABOUT BEYU</h2>
             <div className="beyu-bar" />
             <p>
               BEYU is a constitutional enterprise ecosystem built on three foundational pillars:
               Constitutional Control Plane, Enterprise Operating Kernel and Governed Intelligence Layer.
             </p>
-            <a href="#" className="beyu-learn-btn">Learn More <span>→</span></a>
+            <a href="#architecture" className="beyu-learn-btn">Learn More <span aria-hidden="true">→</span></a>
           </div>
 
           <div className="beyu-building-visual" aria-hidden="true">
@@ -140,30 +151,30 @@ function HomePageContent() {
         </div>
       </section>
 
-      <section className="beyu-systems-section">
+      <section className="beyu-systems-section" id="sector-os">
         <div className="beyu-home-inner">
           <h3>ONE ECOSYSTEM. FOUR SECTOR OPERATING SYSTEMS.</h3>
           <div className="beyu-systems-grid">
             {[
-              { name: "HEALTH_OS", text: "Integrated healthcare operations for healthier communities.", tone: "gold" },
-              { name: "FINANCE_OS", text: "Financial management for intelligent growth.", tone: "blue" },
-              { name: "AGRICULTURE_OS", text: "Smart agriculture for food security.", tone: "green" },
-              { name: "UJENZI_OS", text: "Infrastructure for a stronger tomorrow.", tone: "light" },
+              { name: "HEALTH_OS", text: "Integrated healthcare operations for healthier communities.", tone: "gold", href: "/os/health" },
+              { name: "FINANCE_OS", text: "Financial management for intelligent growth.", tone: "blue", href: "/os/finance" },
+              { name: "AGRICULTURE_OS", text: "Smart agriculture for food security.", tone: "green", href: "/os/agriculture" },
+              { name: "UJENZI_OS", text: "Infrastructure for a stronger tomorrow.", tone: "light", href: "/os/ujenzi" },
             ].map((item) => (
               <article key={item.name} className={`beyu-system-card beyu-${item.tone}`}>
                 <div className="beyu-system-art" aria-hidden="true" />
                 <div className="beyu-system-label">{item.name}</div>
                 <p>{item.text}</p>
-                <a href="#">Explore <span>→</span></a>
+                <a href={item.href}>Explore <span aria-hidden="true">→</span></a>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="beyu-capability-section">
+      <section className="beyu-capability-section" id="capabilities">
         <div className="beyu-home-inner beyu-capability-shell">
-          <div className="beyu-capabilities-panel">
+          <div className="beyu-capabilities-panel" id="technology">
             <h3>SHARED ENTERPRISE CAPABILITIES</h3>
             <div className="beyu-capability-grid">
               {[
@@ -174,15 +185,22 @@ function HomePageContent() {
                 ["Knowledge Management", "📚"],
                 ["Audit & Accountability", "🧾"],
               ].map(([label, icon]) => (
-                <div key={label} className="beyu-capability-item">
-                  <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
-                  <span>{label}</span>
-                </div>
+                label === "Family Office" ? (
+                  <a key={label} href="/os/family" className="beyu-capability-item">
+                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
+                    <span>{label}</span>
+                  </a>
+                ) : (
+                  <div key={label} className="beyu-capability-item">
+                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                )
               ))}
             </div>
           </div>
 
-          <aside className="beyu-noelia-panel">
+          <aside className="beyu-noelia-panel" id="noelia">
             <div className="beyu-noelia-portrait" aria-hidden="true">
               <div className="beyu-noelia-face" />
             </div>
@@ -190,7 +208,7 @@ function HomePageContent() {
               <h4>NOELIA</h4>
               <p>Intelligence · Governance · Care</p>
               <div className="beyu-noelia-tag">Your governed AI assistant, supporting the BEYU ecosystem.</div>
-              <a href="#">Discover NOELIA <span>→</span></a>
+              <a href="/os/noelia">Discover NOELIA <span aria-hidden="true">→</span></a>
             </div>
           </aside>
         </div>
@@ -207,7 +225,7 @@ function HomePageContent() {
               Rooted in Africa. Inspired globally. BEYU is committed to sustainable development across
               healthcare, finance, agriculture, infrastructure and communities.
             </p>
-            <a href="#" className="beyu-impact-btn">Our Vision <span>→</span></a>
+            <a href="#contact" className="beyu-impact-btn">Our Vision <span aria-hidden="true">→</span></a>
           </div>
 
           <div className="beyu-impact-visual" aria-hidden="true">
@@ -220,12 +238,12 @@ function HomePageContent() {
             <div className="beyu-signin-lock">🔒</div>
             <h4>SIGN IN TO BEYU</h4>
             <p>Access your BEYU environment and explore the ecosystem.</p>
-            <a href="#">Sign In <span>→</span></a>
+            <a href="/sign-in">Sign In <span aria-hidden="true">→</span></a>
           </div>
         </div>
       </section>
 
-      <footer className="beyu-footer">
+      <footer className="beyu-footer" id="contact">
         <div className="beyu-home-inner beyu-footer-inner">
           <div className="beyu-footer-brand">
             <div className="beyu-brand-mark small">
@@ -241,33 +259,34 @@ function HomePageContent() {
             <div>
               <h5>About BEYU</h5>
               <ul>
-                <li>Institutional Structure</li>
-                <li>Governance</li>
-                <li>Sector OS</li>
-                <li>Health OS</li>
+                <li><a href="#architecture">Institutional Structure</a></li>
+                <li><a href="#architecture">Governance</a></li>
+                <li><a href="#sector-os">Sector OS</a></li>
+                <li><a href="/os/health">Health OS</a></li>
               </ul>
             </div>
             <div>
-              <h5>Finance_OS</h5>
+              <h5>Sector OS</h5>
               <ul>
-                <li>Agriculture_OS</li>
-                <li>Ujenzi_OS</li>
-                <li>BEYU Foundation</li>
+                <li><a href="/os/finance">Finance OS</a></li>
+                <li><a href="/os/agriculture">Agriculture OS</a></li>
+                <li><a href="/os/ujenzi">Ujenzi OS</a></li>
+                <li><a href="/os/foundation">BEYU Foundation</a></li>
               </ul>
             </div>
             <div>
               <h5>NOELIA AI</h5>
               <ul>
-                <li>Enterprise Capabilities</li>
-                <li>Technology</li>
-                <li>Contact</li>
+                <li><a href="#capabilities">Enterprise Capabilities</a></li>
+                <li><a href="#technology">Technology</a></li>
+                <li><a href="#contact">Contact</a></li>
               </ul>
             </div>
             <div>
-              <h5>Privacy Policy</h5>
+              <h5>Access</h5>
               <ul>
-                <li>Terms &amp; Conditions</li>
-                <li>Security</li>
+                <li><a href="/sign-in">Sign In</a></li>
+                <li><a href="/os">BEYU OS</a></li>
               </ul>
             </div>
           </div>

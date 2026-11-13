@@ -2,10 +2,12 @@
  * BEYU OS — Platform services: documents, enterprise events, immutable audit,
  * AI governance, knowledge, notifications, integrations, configuration.
  */
+import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -336,6 +338,24 @@ export const knowledgeSources = pgTable(
     effectiveFrom: date("effective_from").notNull(),
     reviewDate: date("review_date").notNull(),
     expiresAt: date("expires_at"),
+    // Tax legal authority metadata is additive to the canonical knowledge_sources
+    // registry. Original-file checksum is distinct from contentDigest (derived text).
+    instrumentKind: text("instrument_kind"),
+    publishedOn: date("published_on"),
+    commencedOn: date("commenced_on"),
+    effectiveTo: date("effective_to"),
+    originalDocumentId: text("original_document_id").references(() => documents.id),
+    originalSourceSha256: text("original_source_sha256"),
+    officialSourceHost: text("official_source_host"),
+    sourceAuthenticationStatus: text("source_authentication_status").notNull().default("DISCOVERED"),
+    textValidatedAt: timestamp("text_validated_at", { withTimezone: true }),
+    textValidatedBy: text("text_validated_by"),
+    specialistReviewedAt: timestamp("specialist_reviewed_at", { withTimezone: true }),
+    specialistReviewerId: text("specialist_reviewer_id"),
+    enablingProvision: text("enabling_provision"),
+    amendsSourceCodes: jsonb("amends_source_codes").$type<string[]>().notNull().default([]),
+    repealsSourceCodes: jsonb("repeals_source_codes").$type<string[]>().notNull().default([]),
+    provisionReferences: jsonb("provision_references").$type<string[]>().notNull().default([]),
     /** Supersession: when a newer authoritative source replaces this one. */
     supersedesCode: text("supersedes_code"),
     content: text("content").notNull(),
@@ -359,6 +379,23 @@ export const knowledgeSources = pgTable(
     index("knowledge_sources_scope_idx").on(t.scopeType, t.tenantId),
     index("knowledge_sources_entity_idx").on(t.legalEntityId),
     index("knowledge_sources_country_idx").on(t.countryCode),
+    index("knowledge_sources_tax_effective_idx").on(t.jurisdictionCode, t.effectiveFrom, t.effectiveTo),
+    check(
+      "knowledge_sources_tax_source_auth_status_ck",
+      sql`source_authentication_status IN ('DISCOVERED', 'OFFICIAL_METADATA_VERIFIED', 'ORIGINAL_ACQUIRED', 'CHECKSUM_VERIFIED', 'TEXT_VALIDATED', 'SPECIALIST_REVIEWED', 'AUTHORITATIVE', 'SUPERSEDED', 'REJECTED')`,
+    ),
+    check(
+      "knowledge_sources_tax_original_sha256_ck",
+      sql`original_source_sha256 IS NULL OR original_source_sha256 ~ '^[0-9a-fA-F]{64}$'`,
+    ),
+    check(
+      "knowledge_sources_tax_effective_window_ck",
+      sql`effective_to IS NULL OR effective_to >= effective_from`,
+    ),
+    check(
+      "knowledge_sources_tax_authoritative_evidence_ck",
+      sql`source_type <> 'TAX_LEGAL_AUTHORITY' OR authority_status <> 'AUTHORITATIVE' OR (source_authentication_status = 'AUTHORITATIVE' AND source_uri IS NOT NULL AND original_document_id IS NOT NULL AND official_source_host IS NOT NULL AND original_source_sha256 IS NOT NULL AND original_source_sha256 ~ '^[0-9a-fA-F]{64}$' AND published_on IS NOT NULL AND commenced_on IS NOT NULL AND text_validated_at IS NOT NULL AND text_validated_by IS NOT NULL AND specialist_reviewed_at IS NOT NULL AND specialist_reviewer_id IS NOT NULL AND jsonb_typeof(provision_references) = 'array' AND jsonb_array_length(provision_references) > 0)`,
+    ),
     index("knowledge_sources_search_tsv_idx").on(t.searchTsv),
   ],
 );
