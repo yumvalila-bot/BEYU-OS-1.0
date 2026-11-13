@@ -61,6 +61,7 @@ const approval = (overrides: Partial<TaxSpecialistApproval> = {}): TaxSpecialist
 
 const noeliaLegalService = readFileSync(new URL("../../src/lib/noelia/legal-service.ts", import.meta.url), "utf8");
 const noeliaDefaultTools = readFileSync(new URL("../../src/lib/noelia/default-tools.ts", import.meta.url), "utf8");
+const noeliaEnterpriseMemory = readFileSync(new URL("../../src/lib/noelia/enterprise-memory.ts", import.meta.url), "utf8");
 
 describe("FINANCE_OS governed tax-intelligence capabilities", () => {
   it("routes the tax.knowledge.query tool through authenticated TAX_LEGAL_AUTHORITY retrieval", () => {
@@ -74,6 +75,8 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
 
   it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
     expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
+    expect(noeliaLegalService).toContain("jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional()");
+    expect(noeliaEnterpriseMemory).toContain("jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional()");
     expect(noeliaLegalService).toContain("asOf: z.string().optional()");
     expect(noeliaLegalService).toContain('inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"])');
     expect(noeliaLegalService).not.toContain('parsed.jurisdictionCode ?? row.jurisdictionCode');
