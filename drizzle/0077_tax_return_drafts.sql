@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
     OR ("submitted_at" IS NOT NULL AND "submitted_by" IS NOT NULL AND "external_reference" IS NOT NULL)
   ),
   CONSTRAINT "tax_return_drafts_acceptance_gate_ck" CHECK (
-    "status" <> 'ACCEPTED' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL)
+    "status" <> 'ACCEPTED' OR ("accepted_at" IS NOT NULL AND "external_reference" IS NOT NULL AND "receipt_document_id" IS NOT NULL)
   ),
   CONSTRAINT "tax_return_drafts_filing_json_ck" CHECK (
     jsonb_typeof("calculation_payload") = 'object'
@@ -105,6 +105,9 @@ LANGUAGE plpgsql
 AS $tax_return_receipt$
 DECLARE receipt record;
 BEGIN
+  IF NEW.status = 'ACCEPTED' AND NEW.receipt_document_id IS NULL THEN
+    RAISE EXCEPTION 'Accepted tax return requires an authoritative TRA receipt document';
+  END IF;
   IF NEW.receipt_document_id IS NULL THEN
     RETURN NEW;
   END IF;
@@ -136,7 +139,7 @@ $tax_return_receipt$;--> statement-breakpoint
 
 DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
 CREATE TRIGGER tax_return_drafts_receipt_scope_trg
-  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
+  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code", "status"
   ON "tax_return_drafts"
   FOR EACH ROW EXECUTE FUNCTION beyu_validate_tax_return_receipt_document();--> statement-breakpoint
 
