@@ -20,7 +20,7 @@ export type TaxSourceRef = {
   provision: string;
   effectiveFrom?: string;
   effectiveTo?: string;
-  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING" | "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING";
+  evidenceStatus: "OFFICIAL_GUIDANCE_REQUIRES_SPECIALIST_REVIEW" | "OFFICIAL_ACT_REQUIRES_AMENDMENT_CROSSWALK" | "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING" | "OFFICIAL_PRIMARY_SOURCE_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING" | "REPRODUCED_COPY_ONLY_OFFICIAL_GAZETTE_MATCH_PENDING";
 };
 
 export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
@@ -72,7 +72,7 @@ export const TANZANIA_TAX_SOURCES: Record<string, TaxSourceRef> = {
     uri: "https://elibrary.osg.go.tz/bitstreams/631b33c8-8b1f-4f86-a238-af89659d06ec/download",
     provision: "Sections 25, 27, 91 and 95: forest-produce single instalment tax (2% and statutory triggers); presumptive tax schedule; VAT supplier entitlement and mixed-supply apportionment; withholding payment/statement deadlines",
     effectiveFrom: "2026-07-01",
-    evidenceStatus: "OFFICIAL_ACT_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
+    evidenceStatus: "OFFICIAL_PRIMARY_SOURCE_TEXT_REVIEWED_ORIGINAL_CHECKSUM_PENDING",
   },
   GN_158F_REPRODUCED_2026: {
     code: "TZ_GN_158F_2026_FOREST_PRODUCE",
