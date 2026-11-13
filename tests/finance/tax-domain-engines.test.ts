@@ -63,7 +63,7 @@ describe("tax audit and dispute dossier", () => {
       lateReturns: 2, unexplainedLedgerVariancesTzs: 1000, missingWithholdingCertificates: 1,
       unsupportedInputVatCreditsTzs: 5000, customsValueAdjustments: 0,
     });
-    expect(result.band).toBe("HIGH");
+    expect(result.band).toBe("CRITICAL");
     expect(result.disclaimer).toContain("not a finding");
   });
 });
