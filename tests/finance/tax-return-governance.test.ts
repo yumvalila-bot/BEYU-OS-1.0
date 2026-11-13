@@ -55,6 +55,18 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(receiptRoute).toContain("BEYU did not contact TRA");
   });
 
+  it("uses deterministic tenant/entity/period/calculation idempotency for draft filing packs", () => {
+    expect(computeRoute).toContain('createHash("sha256")');
+    expect(computeRoute).toContain(".onConflictDoNothing()");
+    expect(computeRoute).toContain("taxReturnDrafts.idempotencyKey");
+  });
+
+  it("blocks a 2026 presumptive year spanning the Finance Act commencement date", () => {
+    expect(computeRoute).toContain("TRANSITIONAL_PERIOD_REVIEW_REQUIRED");
+    expect(computeRoute).toContain('body.taxType === "PRESUMPTIVE_INCOME_TAX"');
+    expect(computeRoute).toContain('body.periodEnd >= "2026-07-01"');
+  });
+
   it("database constraints require specialist review and independent approval before submission", () => {
     expect(migration).toContain("'SPECIALIST_REVIEWED_PROVISIONAL'");
     expect(migration).toContain("'APPROVED_FOR_SUBMISSION'");
