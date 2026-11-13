@@ -43,7 +43,20 @@ export async function POST(request: Request) {
     audit: { objectType: "TAX_CALCULATION" },
   }, async (ctx) => {
     const body = await parseBody(ctx.request, ComputeSchema);
-    if ((["VAT_WITHHOLDING", "CUSTOMS_PROCESSING_FEE", "FOREST_PRODUCE_SINGLE_INSTALMENT", "PRESUMPTIVE_INCOME_TAX"].includes(body.taxType)) && body.periodStart < "2026-07-01") {
+    if (body.taxType === "PRESUMPTIVE_INCOME_TAX") {
+      const taxYear = body.periodStart.slice(0, 4);
+      const fullCalendarYear = body.periodStart === taxYear + "-01-01" && body.periodEnd === taxYear + "-12-31";
+      if (!fullCalendarYear) {
+        return apiError("FULL_CALENDAR_YEAR_REQUIRED", "Presumptive tax must be assessed for a complete calendar year; partial-year turnover cannot be annualized without an approved statutory rule.", 422, ctx.traceId);
+      }
+      if (taxYear < "2026") {
+        return apiError("HISTORICAL_RULE_REQUIRED", "The 2026 presumptive schedule cannot be applied to years before its 1 July 2026 commencement. The prior effective-dated schedule is not activated in this release.", 422, ctx.traceId);
+      }
+      if (taxYear === "2026") {
+        return apiError("TRANSITIONAL_PERIOD_REVIEW_REQUIRED", "The 2026 calendar year crosses the 1 July 2026 Finance Act commencement. Split-period treatment requires an approved transitional rule; the annual estimate is blocked.", 422, ctx.traceId);
+      }
+    }
+    if (["VAT_WITHHOLDING", "CUSTOMS_PROCESSING_FEE", "FOREST_PRODUCE_SINGLE_INSTALMENT"].includes(body.taxType) && body.periodStart < "2026-07-01") {
       return apiError("RULE_NOT_EFFECTIVE", "The selected Finance Act 2026 / GN 158D tax schedule is effective from 1 July 2026. Periods beginning before commencement require historical or split-period legal treatment and cannot use this current schedule.", 422, ctx.traceId);
     }
     const scope = await tenantScopeIds(ctx.principal);
