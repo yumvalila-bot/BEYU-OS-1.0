@@ -303,7 +303,7 @@ export class BeyuNoeliaLegalService {
           .limit(5)
       : [];
 
-    if (eligibleRows.length === 0) {
+    if (rows.length === 0) {
       return {
         headline: "Cited authority is UNKNOWN to the governed corpus.",
         findings: [{
@@ -328,14 +328,14 @@ export class BeyuNoeliaLegalService {
       headline: authoritativeInWindow.length
         ? "Cited authority is present and authoritative within its validity window."
         : "Cited authority exists but is NOT authoritative in-window.",
-      findings: eligibleRows.map((row) => ({
+      findings: rows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.authorityStatus} · ${row.effectiveFrom} → ${row.expiresAt ?? "open"} · review ${row.reviewDate}`,
         kind: authoritativeInWindow.includes(row) ? "FACT" : "INFERENCE",
         status: authoritativeInWindow.includes(row) ? "OBSERVED" : "STALE",
         provenance: `KNOWLEDGE_SOURCE:${row.code}`,
       })),
-      sources: eligibleRows.map((row) => ({
+      sources: rows.map((row) => ({
         kind: "KNOWLEDGE_SOURCE",
         ref: row.code,
         label: row.title,
@@ -364,7 +364,7 @@ export class BeyuNoeliaLegalService {
         inArray(legalMatters.classification, classifications),
       ))
       .limit(10);
-    if (eligibleRows.length === 0) {
+    if (rows.length === 0) {
       return {
         headline: "No legal matters are in the authorized scope.",
         findings: [{ label: "Legal matters", value: "DATA_NOT_AVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
@@ -374,13 +374,13 @@ export class BeyuNoeliaLegalService {
     const open = rows.filter((row) => row.status === "OPEN" || row.status === "ACTIVE");
     return {
       headline: `${open.length} legal matter(s) are open.`,
-      findings: eligibleRows.map((row) => ({
+      findings: rows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.status} · ${row.jurisdictionCode}${row.keyDeadline ? ` · deadline ${row.keyDeadline}` : ""}`,
         kind: "FACT",
         status: "OBSERVED",
       })),
-      sources: eligibleRows.map((row) => ({ kind: "LEGAL_MATTER", ref: row.code, label: row.title, authority: "LEGAL_REGISTER" })),
+      sources: rows.map((row) => ({ kind: "LEGAL_MATTER", ref: row.code, label: row.title, authority: "LEGAL_REGISTER" })),
       narrative: "Legal matters are register evidence; disposition, strategy and advice remain with counsel and accountable humans.",
       humanReviewRequired: open.length > 0,
       confidence: 0.88,
