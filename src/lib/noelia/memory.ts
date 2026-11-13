@@ -162,14 +162,17 @@ async function queryGovernedMemory(input: {
   // (the 0066 tsvector is generated for exactly this), then fall back to a
   // stable tie-break so two identical questions always retrieve the same set.
   const question = input.terms ? input.terms.join(" ") : null;
+  // Relevance is only meaningful when there is a question. With no terms the
+  // catalogue stays deterministically ordered by code/id alone — ordering by a
+  // literal (`order by 0 desc`) is not valid SQL, which is exactly how the
+  // catalogue route failed when this first shipped.
   const rank = question
     ? sql<number>`ts_rank(${knowledgeSources.searchTsv}, websearch_to_tsquery('english', ${question}))`
-    : sql<number>`0`;
+    : null;
+  // `rank` is selected only to order by it; it is never returned, so the
+  // selected shape stays identical whether or not there is a question.
   const rows = await db
-    .select({
-      row: knowledgeSources,
-      rank,
-    })
+    .select({ row: knowledgeSources })
     .from(knowledgeSources)
     .where(and(
       eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
@@ -180,10 +183,14 @@ async function queryGovernedMemory(input: {
       or(...scopePredicates(input.scope)),
       textPredicate,
     ))
-    .orderBy(desc(rank), asc(knowledgeSources.code), asc(knowledgeSources.id))
+    .orderBy(
+      ...(rank ? [desc(rank)] : []),
+      asc(knowledgeSources.code),
+      asc(knowledgeSources.id),
+    )
     .limit(Math.min(Math.max(input.limit, 1), 100));
 
-  return rows.map((entry) => entry.row).flatMap((row): RetrievedMemory[] => {
+  return rows.flatMap(({ row }): RetrievedMemory[] => {
     const visibility = decideMemoryVisibility(input.principal, input.scope, {
       scopeType: row.scopeType,
       tenantId: row.tenantId,

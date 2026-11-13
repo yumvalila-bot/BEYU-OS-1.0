@@ -268,6 +268,23 @@ export function destinationForResolution(resolution: CanonicalHostResolution): C
 }
 
 /**
+ * The control-plane destination contract.
+ *
+ * Every canonical hostname serves the ONE governed sign-in; the hostname selects
+ * the CONTEXT it carries. A NEUTRAL resolution — no Host, a malformed or
+ * look-alike Host, an unknown label, a preview host, a governed tenant hostname —
+ * selects no destination and therefore carries the control-plane context. It does
+ * NOT fall back to an un-governed public page: the sign-in is the entry point on
+ * every host, and the control-plane line ("Sign in to the control plane") is what
+ * a hostile or unknown Host must produce.
+ */
+export const CONTROL_PLANE_DESTINATION: CanonicalDestination = {
+  hostKind: "CONTROL_PLANE",
+  context: BEYU_CONTROL_PLANE,
+  signInSubtitle: destinationSignInSubtitle(BEYU_CONTROL_PLANE),
+};
+
+/**
  * The canonical Sector OS whose route namespace contains `pathname` (exactly
  * four), or null when the path belongs to the control plane, Foundation, a
  * shared capability/surface, the API, or

@@ -147,7 +147,13 @@ export function GovernedSignIn({ destination, landing, identities = [], sessionE
             authentication: same endpoint, same cookie, same MFA. */}
         <div className="order-1 lg:order-2">
           <LoginCard
-            titleId="beyu-destination-signin-title"
+            // The ONE shared form keeps ONE stable title id. It used to carry
+            // `beyu-destination-signin-title`, which made "no destination frontend
+            // was selected" indistinguishable from "the shared sign-in rendered" —
+            // the marker named the shared component, not the destination. It is now
+            // `beyu-signin-title`; destination-specific identity is asserted through
+            // each destination's own copy and `aria-label`.
+            titleId="beyu-signin-title"
             signInSubtitle={destination.signInSubtitle}
             className="mt-0"
           >

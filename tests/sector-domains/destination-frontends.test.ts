@@ -334,7 +334,14 @@ describe("E. sign-in is destination-aware, derived from the host only", () => {
   it("produces the ONE canonical sub-line per destination", () => {
     for (const entry of MATRIX) {
       const destination = destinationForResolution(resolve(entry.host))!;
-      expect(destination.signInSubtitle, entry.host).toBe(`Sign in to ${entry.signIn} — governed by BEYU OS`);
+      // The CORE destination (the apex) carries the control-plane line rather
+      // than "Sign in to BEYU OS — governed by BEYU OS"; every Sector OS and
+      // surface keeps the destination template.
+      const expected =
+        entry.type === "CORE"
+          ? "Sign in to the control plane"
+          : `Sign in to ${entry.signIn} — governed by BEYU OS`;
+      expect(destination.signInSubtitle, entry.host).toBe(expected);
       expect(destinationSignInSubtitle(destination.context), entry.host).toBe(destination.signInSubtitle);
     }
   });

@@ -99,7 +99,7 @@ const SURFACE_MARKERS = (destination: (typeof DESTINATIONS)[number]): string[] =
   `aria-label="Sign in to ${destination.name}"`,
   `Enter ${destination.name}`,
   "beyu-destination-headline",
-  "beyu-destination-signin-title",
+  "beyu-signin-title",
   "beyu-signin-email",
   "beyu-signin-password",
   "beyu-signin-mfa",
@@ -288,10 +288,19 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
+          // The apex owns the control-plane CONTEXT and the control-plane copy.
           expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
           expect(text(res.body), `${host}${path}`).toContain(CONTROL_PLANE_ONLY);
           expect(res.body, `${host}${path}`).toContain('aria-label="Sign in to BEYU OS"');
           expect(text(res.body), `${host}${path}`).toContain("Enter BEYU OS");
+          // …and no Sector OS or surface frontend is selected on it.
+          for (const destination of DESTINATIONS) {
+            expect(text(res.body), `${host}${path} must not select ${destination.host}`).not.toContain(
+              destination.copy,
+            );
+          }
+          // The sign-in is a real form at BOTH canonical URLs.
+          expect(res.body, `${host}${path}`).toContain('id="beyu-signin-email"');
         }
       }
     },

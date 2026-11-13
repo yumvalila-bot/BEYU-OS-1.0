@@ -23,7 +23,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { apiGet, apiPost, serverAvailable } from "../helpers/http";
+import { request as httpRequest } from "node:http";
+import { apiGet, apiPost, baseUrl, serverAvailable } from "../helpers/http";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const source = (...parts: string[]) => readFileSync(path.join(ROOT, ...parts), "utf8");
@@ -49,6 +50,32 @@ const RECOVERY_PAGE = code(source("src", "app", "forgot-password", "page.tsx"));
 const RECOVERY_ROUTE = code(source("src", "app", "api", "v1", "auth", "recovery", "request", "route.ts"));
 const GLOBALS = source("src", "app", "globals.css");
 const available = Boolean(process.env.BEYU_TEST_BASE_URL);
+/** The canonical domain gates the destination-host contract on the server. */
+const canonicalDomain = process.env.BEYU_TEST_CANONICAL_DOMAIN;
+
+/**
+ * GET a path with an explicit `Host` header.
+ *
+ * `fetch` cannot set `Host` (it is a forbidden header name), so the canonical
+ * Host contract can only be exercised over `node:http` — the same mechanism the
+ * canonical-host suite uses.
+ */
+function getWithHost(path: string, host: string): Promise<{ status: number; body: string }> {
+  const url = new URL(baseUrl());
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { hostname: url.hostname, port: url.port, path, method: "GET", headers: { host } },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -278,9 +305,23 @@ describe("D. security is not traded for visual fidelity", () => {
 
 describe("E. the rendered surface (live server)", () => {
   it.skipIf(!available)("serves the reference login page unauthenticated", async () => {
-    const res = await apiGet("/", null);
+    // The reference surface is the SIGN-IN page, and it is served on every
+    // canonical host. `/` is the BEYU control-plane home: it renders the
+    // destination sign-in only for a destination Host, and otherwise renders
+    // HomePageContent. Requesting `/` with no Host header asserted the marketing
+    // home for a login-page contract — the suite never saw the form it describes.
+    // `/sign-in` is the canonical URL for this surface on all eight hostnames
+    // (src/app/sign-in/page.tsx delegates to the one implementation), so assert
+    // the contract there.
+    //
+    // The Host matters as much as the path: the ONE implementation
+    // (src/app/page.tsx) renders the reference surface for a DESTINATION host
+    // and the BEYU control-plane home for the apex/NEUTRAL host. So this asserts
+    // the contract on a destination hostname, which is where it lives.
+    const host = canonicalDomain ? `health.${canonicalDomain}` : "health.beyu.co.tz";
+    const res = await getWithHost("/sign-in", host);
     expect(res.status).toBe(200);
-    const body = text(res.html);
+    const body = text(res.body);
     for (const marker of [
       "Welcome",
       "Log in to access your account",
@@ -325,14 +366,14 @@ describe("E. the rendered surface (live server)", () => {
       expect(body, marker).toContain(marker);
     }
     // The authoritative asset — never a substitute, never the reference PNG.
-    expect(res.html).toContain("/brand/beyu-os-logo.png");
-    expect(res.html).not.toContain("BEYU LOGIN PAGE");
+    expect(res.body).toContain("/brand/beyu-os-logo.png");
+    expect(res.body).not.toContain("BEYU LOGIN PAGE");
     // Real controls, present in the server-rendered HTML.
-    expect(res.html).toContain("<form");
-    expect(res.html).toContain('type="password"');
-    expect(res.html).toContain('id="beyu-signin-mfa"');
-    expect(res.html).toContain('for="beyu-signin-mfa"');
-    expect(res.html).toContain("viewport");
+    expect(res.body).toContain("<form");
+    expect(res.body).toContain('type="password"');
+    expect(res.body).toContain('id="beyu-signin-mfa"');
+    expect(res.body).toContain('for="beyu-signin-mfa"');
+    expect(res.body).toContain("viewport");
   });
 
   it.skipIf(!available)("serves the governed recovery page and refuses nothing silently", async () => {

@@ -433,6 +433,10 @@ describe("E. the running server", () => {
       ];
       for (const spoof of spoofs) {
         const onApex = text((await get("beyu.co.tz", "/", spoof)).body);
+        // The destination comes from the Host header ALONE. A spoofed forwarding
+        // header cannot turn the apex into Health OS, and — since the apex serves
+        // the same governed sign-in as every canonical host — it cannot obtain a
+        // destination frontend either.
         expect(onApex, JSON.stringify(spoof)).toContain("Sign in to the control plane");
         expect(onApex, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
       }
@@ -440,6 +444,7 @@ describe("E. the running server", () => {
       const unknown = text((await get("billing.beyu.co.tz", "/", { "x-forwarded-host": "finance.beyu.co.tz" })).body);
       expect(unknown).toContain("Sign in to the control plane");
       expect(unknown).not.toContain("Sign in to Finance OS");
+      expect(unknown).not.toContain("Sign in to Health OS");
     },
     120_000,
   );
@@ -460,7 +465,21 @@ describe("E. the running server", () => {
         const body = text(reply.body);
         expect(body, host).not.toContain("Sign in to Health OS");
         expect(body, host).not.toContain("Sign in to Finance OS");
-        expect(body, host).not.toMatch(/id="beyu-destination-signin-title"/);
+        // No Sector OS or surface frontend is selected: every destination's own
+        // copy, headline and registry code is absent, and the control-plane line
+        // is what the visitor is actually served. The sign-in itself (and its
+        // shared ids) DOES render — it is the entry point on every host, so an id
+        // can never be the marker that distinguishes a selected destination.
+        expect(body, host).toContain("Sign in to the control plane");
+        for (const destination of Object.values(EXPECTED_CONTRACT)) {
+          if (destination === "HOME") continue;
+          expect(body, `${host} must not select ${destination}`).not.toContain(
+            `Sign in to ${destinationCatalogueEntry(destination).name} — governed by BEYU OS`,
+          );
+          expect(body, `${host} must not select ${destination}`).not.toContain(
+            destinationCatalogueEntry(destination).registryCode,
+          );
+        }
       }
     },
     120_000,

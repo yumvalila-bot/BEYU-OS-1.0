@@ -5,7 +5,7 @@ import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
-import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
+import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 
@@ -281,11 +281,26 @@ export default async function SignInPage() {
   const principal = await resolvePrincipal();
 
   const canonicalHost = await canonicalHostForRequest();
-  const hostDestination = destinationForResolution(canonicalHost);
-  const requestedContext =
-    canonicalHost.kind === "SECTOR_OS" || canonicalHost.kind === "SURFACE"
-      ? canonicalContextOf(canonicalHost)
-      : null;
+  // A NEUTRAL host selects no destination, and this product has no un-governed
+  // page to fall back to: the sign-in is the entry point on EVERY hostname. A
+  // hostile, look-alike, unknown or absent Host therefore receives the
+  // control-plane sign-in — it can never select a destination frontend, and it
+  // cannot obtain a page that bypasses the governed entry either.
+  const hostDestination = destinationForResolution(canonicalHost) ?? CONTROL_PLANE_DESTINATION;
+  // EVERY canonical hostname — the apex, `www`, each Sector OS and each surface —
+  // serves this ONE sign-in; the hostname selects the CONTEXT COPY, never a second
+  // authentication implementation. `destinationForResolution` already resolves the
+  // apex to the control-plane context (`canonicalContextOf` returns it for
+  // CONTROL_PLANE), so there is no host-shape special case here: restricting the
+  // sign-in to SECTOR_OS/SURFACE hosts left the apex with no sign-in route at all,
+  // which is how `/` came to render a marketing page while `/sign-in` — documented
+  // as "the canonical sign-in route on EVERY canonical host" — rendered the same
+  // marketing page on `beyu.co.tz`.
+  //
+  // A NEUTRAL resolution (no Host, malformed, look-alike, unknown label, preview
+  // host, governed tenant hostname) selects NO destination and still receives the
+  // gated control-plane experience below.
+  const requestedContext = hostDestination?.context ?? null;
   const sessionExpired = !principal && (await sessionCookiePresent());
   const identities = isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES;
 
@@ -315,6 +330,9 @@ export default async function SignInPage() {
   }
 
   if (!principal && hostDestination && requestedContext) {
+    // A canonical host and an anonymous visitor: the governed sign-in, carrying
+    // that destination's own context. The landing is the resolved context's own
+    // route — never a query string — so this cannot become an open redirector.
     return (
       <GovernedSignIn
         destination={hostDestination}

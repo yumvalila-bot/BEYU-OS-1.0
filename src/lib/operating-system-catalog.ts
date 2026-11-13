@@ -302,8 +302,17 @@ export function canonicalSurface(
   return surface;
 }
 
-/** Shared sign-in subtitle; presentation only. */
-export function destinationSignInSubtitle(destination: { name: string }): string {
+/**
+ * Shared sign-in subtitle; presentation only.
+ *
+ * The control plane says "Sign in to the control plane", not "Sign in to BEYU OS
+ * — governed by BEYU OS": for the CORE destination the generic template is a
+ * tautology, and the canonical host contract, the unified-routing contract and
+ * the destination sign-in contract all name this string explicitly. Every Sector
+ * OS and surface keeps "Sign in to <name> — governed by BEYU OS".
+ */
+export function destinationSignInSubtitle(destination: { name: string; destinationType: DestinationType }): string {
+  if (destination.destinationType === "CORE") return "Sign in to the control plane";
   return `Sign in to ${destination.name} — governed by BEYU OS`;
 }
 
