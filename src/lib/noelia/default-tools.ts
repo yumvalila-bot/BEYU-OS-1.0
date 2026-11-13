@@ -548,7 +548,7 @@ export function createDefaultNoeliaToolRegistry(
       }).strict(),
       outputSchema: noeliaToolOutputSchema,
     },
-    execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" }),
+    execute: (context, input) => legal.knowledge(context, { ...(input as Record<string, unknown>), domain: "TAX" }),
   });
   registry.register({
     name: "tax.computation.explain",
