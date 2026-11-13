@@ -67,7 +67,7 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
     const start = noeliaDefaultTools.indexOf('name: "tax.knowledge.query"');
     const end = noeliaDefaultTools.indexOf('name: "legal.knowledge.query"', start);
     const taxTool = noeliaDefaultTools.slice(start, end);
-    expect(taxTool).toContain('jurisdictionCode: z.string().length(2)');
+    expect(taxTool).toContain('jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/)');
     expect(taxTool).toContain('execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" })');
     expect(taxTool).not.toContain("services.tax(context)");
   });
