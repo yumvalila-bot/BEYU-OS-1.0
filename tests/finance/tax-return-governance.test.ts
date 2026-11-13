@@ -65,11 +65,14 @@ describe("FINANCE_OS tax return separation of duties", () => {
   it("blocks a 2026 presumptive year spanning the Finance Act commencement date", () => {
     expect(computeRoute).toContain("TRANSITIONAL_PERIOD_REVIEW_REQUIRED");
     expect(computeRoute).toContain('body.taxType === "PRESUMPTIVE_INCOME_TAX"');
-    expect(computeRoute).toContain('body.periodEnd >= "2026-07-01"');
+    expect(computeRoute).toContain('taxYear === "2026"');
+    expect(computeRoute).toContain("TRANSITIONAL_PERIOD_REVIEW_REQUIRED");
   });
 
   it("blocks post-commencement tax schedules for pre-commencement filing periods", () => {
-    expect(computeRoute).toContain('"PRESUMPTIVE_INCOME_TAX"].includes(body.taxType)');
+    expect(computeRoute).toContain("FULL_CALENDAR_YEAR_REQUIRED");
+    expect(computeRoute).toContain("HISTORICAL_RULE_REQUIRED");
+    expect(computeRoute).toContain('["VAT_WITHHOLDING", "CUSTOMS_PROCESSING_FEE", "FOREST_PRODUCE_SINGLE_INSTALMENT"].includes(body.taxType)');
     expect(computeRoute).toContain('body.periodStart < "2026-07-01"');
     expect(computeRoute).toContain("originEvidenceVerified: false");
   });
