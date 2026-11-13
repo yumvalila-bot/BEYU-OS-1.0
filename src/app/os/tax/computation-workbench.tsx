@@ -206,7 +206,7 @@ export function TaxComputationWorkbench({ entities, canCompute, canReview, canSu
             <option value="CUSTOMS_PROCESSING_FEE">Customs processing fee — GN 158D</option>
           </select>
         </label>
-        {taxType !== "FOREST_PRODUCE_SINGLE_INSTALMENT" && <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "VAT_WITHHOLDING" ? "Taxable supply value (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT" ? "Gross payment valuation inputs below" : "Taxable income (TZS)"}
+        {taxType !== "FOREST_PRODUCE_SINGLE_INSTALMENT" && <label className="text-[11.5px]">{taxType === "PAYE" ? "Monthly taxable pay (TZS)" : taxType === "VAT" ? "Taxable supplies (TZS)" : taxType === "VAT_WITHHOLDING" ? "Taxable supply value (TZS)" : taxType === "WITHHOLDING_TAX" ? "Gross payment (TZS)" : taxType === "PRESUMPTIVE_INCOME_TAX" ? "Annual turnover (TZS)" : taxType === "CUSTOMS_PROCESSING_FEE" ? (cargoType === "DRY_NON_PETROLEUM" ? "FOB value (TZS)" : "Number of vessels") : "Taxable income (TZS)"}
           <input className={inputClass} type="number" min="0" step="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </label>}
         <label className="text-[11.5px]">Period start
