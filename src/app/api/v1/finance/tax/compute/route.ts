@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -93,7 +93,12 @@ export async function POST(request: Request) {
       let draftId: string | null = null;
       if (filingPack) {
         draftId = randomUUID();
-        await db.insert(taxReturnDrafts).values({
+        const idempotencyKey = createHash("sha256").update(JSON.stringify({
+          tenantId: entity.tenantId, legalEntityId: entity.id, taxType: calculation.taxType,
+          periodStart: body.periodStart, periodEnd: body.periodEnd,
+          calculationVersion: calculation.formulaVersion, calculation,
+        })).digest("hex");
+        const inserted = await db.insert(taxReturnDrafts).values({
           id: draftId,
           tenantId: entity.tenantId,
           legalEntityId: entity.id,
@@ -109,9 +114,19 @@ export async function POST(request: Request) {
           filingPack,
           status: "DRAFT",
           classification: "CONFIDENTIAL",
-          idempotencyKey: randomUUID(),
+          idempotencyKey,
           createdBy: ctx.principal.userId,
-        });
+        }).onConflictDoNothing().returning({ id: taxReturnDrafts.id });
+        if (inserted[0]) {
+          draftId = inserted[0].id;
+        } else {
+          const [existing] = await db.select({ id: taxReturnDrafts.id }).from(taxReturnDrafts).where(and(
+            eq(taxReturnDrafts.tenantId, entity.tenantId),
+            eq(taxReturnDrafts.idempotencyKey, idempotencyKey),
+          )).limit(1);
+          if (!existing) throw new Error("Idempotent tax draft could not be recovered after conflict.");
+          draftId = existing.id;
+        }
       }
       return apiOk({
         entity: { id: entity.id, code: entity.code, legalName: entity.legalName, jurisdiction: jurisdiction.code },
