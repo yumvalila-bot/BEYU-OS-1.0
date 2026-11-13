@@ -27,9 +27,11 @@ export type CustomsClassificationReadiness = {
   readyForSpecialist: boolean;
   canCalculateDuty: false;
   blockers: string[];
+  activationBlockers: string[];
 };
 export function assessCustomsClassificationReadiness(input: CustomsClassificationCase): CustomsClassificationReadiness {
   const blockers: string[] = [];
+  const activationBlockers: string[] = [];
   if (!input.goodsDescription.trim()) blockers.push("Specific commercial goods description is required.");
   if (!input.composition.trim()) blockers.push("Material/composition and constituent proportions are required.");
   if (!input.functionAndUse.trim()) blockers.push("Principal function and intended use are required.");
@@ -38,7 +40,16 @@ export function assessCustomsClassificationReadiness(input: CustomsClassificatio
   if (!input.countryOfOrigin) blockers.push("Country of origin and Rules of Origin evidence are required.");
   if (!input.customsValueTzs || !Number.isSafeInteger(input.customsValueTzs) || input.customsValueTzs <= 0) blockers.push("Customs value and valuation evidence are required.");
   if (!input.valuationMethod) blockers.push("A GATT/WTO customs valuation method must be identified and justified.");
-  if (!input.proposedHsCode) blockers.push("HS classification must be determined by a Customs Specialist or TRA ruling; no code is inferred.");
-  if (!input.specialistId || !input.determinationReference || !input.effectiveFrom) blockers.push("Named specialist determination/ruling and effective date are required.");
-  return { readyForSpecialist: blockers.length === 0, canCalculateDuty: false, blockers };
+  if (!input.specialistId || !input.determinationReference || !input.effectiveFrom) {
+    activationBlockers.push("Named specialist HS determination/ruling and effective date are required before any duty computation.");
+  }
+  return {
+    readyForSpecialist: blockers.length === 0,
+    canCalculateDuty: false,
+    blockers,
+    activationBlockers: [
+      ...activationBlockers,
+      "An authenticated, effective-dated customs tariff and exemption schedule must be approved before duty calculation.",
+    ],
+  };
 }
