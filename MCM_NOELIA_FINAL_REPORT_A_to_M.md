@@ -300,6 +300,15 @@ contracts; in-product MCM mutation **forms**; the agreement-type ↔ transaction
 Tanzania jurisdiction **data** (BRELA/TRA/NSSF/WCF names would present an integration that does not
 exist — seeding them is a governance decision); and any NOELIA **action** tool.
 
+One product observation the debugging turn produced, outside MCM's scope and therefore
+**recorded, not fixed**: when webhook processing throws, the route returns **HTTP 200** with
+`outcome: ACCEPTED`, `code: WEBHOOK_PROCESSING_FAILED`, `ledgerEffect: NONE`, and the reason goes
+only into `communication_webhook_events.failure_reason`. The in-code comment gives the reason (a
+provider should not retry forever on a business-logic failure) and that is a defensible choice —
+but it means any monitor watching status codes alone will never see a dropped inbound message. If
+communications ever get an operator surface, the failed-event count belongs on it. Not touched
+here: it is a design decision belonging to whoever owns that alerting, not a bug to overwrite.
+
 Open after re-verification: concurrent MFA/lockout proof; nullable `audit_log.trace_id`; two
 direct production advisories (`next` critical, `zod` high — both fixes are breaking majors and were
 **not** applied); clean-install/upgrade parity; no `policy_provenance` table; which of the 77
