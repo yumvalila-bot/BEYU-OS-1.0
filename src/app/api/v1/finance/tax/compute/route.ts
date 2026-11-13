@@ -7,7 +7,7 @@ import { apiError, apiOk, guarded, parseBody } from "@/lib/api";
 import { evaluatePolicy } from "@/lib/policy";
 import { tenantScopeIds } from "@/lib/tenant-scope";
 import { classificationsAtOrBelow } from "@/lib/constants";
-import { computeTanzaniaTax, prepareTaxFilingPack } from "@/lib/finance/tanzania-tax-computation-engine";
+import { computeTanzaniaTax, normalizeTanzaniaTin, prepareTaxFilingPack } from "@/lib/finance/tanzania-tax-computation-engine";
 
 export const dynamic = "force-dynamic";
 
