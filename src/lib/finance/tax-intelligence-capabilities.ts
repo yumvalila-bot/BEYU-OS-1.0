@@ -381,7 +381,7 @@ export function validateNoeliaTaxCitations(input: {
   approvedOfficialHosts: readonly string[];
 }): { reliable: boolean; reasons: string[]; citations: Array<{ sourceCode: string; provisions: readonly string[] }> } {
   const reasons: string[] = [];
-  const effective = selectEffectiveTaxAuthorities(input.sources, input.sources[0]?.jurisdictionCode ?? "", input.asOf, input.approvedOfficialHosts);
+  const effective = selectEffectiveTaxAuthorities(input.sources, input.jurisdictionCode, input.asOf, input.approvedOfficialHosts);
   const citations = input.citedSourceCodes.flatMap((code) => {
     const source = effective.find((candidate) => candidate.sourceCode === code);
     return source ? [{ sourceCode: source.sourceCode, provisions: source.provisionReferences }] : [];
