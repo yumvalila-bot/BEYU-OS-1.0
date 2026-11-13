@@ -544,7 +544,7 @@ export function createDefaultNoeliaToolRegistry(
       inputSchema: z.object({
         question: z.string().min(1).max(500),
         jurisdictionCode: z.string().length(2),
-        asOf: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+        asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       }).strict(),
       outputSchema: noeliaToolOutputSchema,
     },
