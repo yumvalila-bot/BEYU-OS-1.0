@@ -24,7 +24,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
   });
 
   it("applies published non-resident and secondary-employment PAYE treatments", () => {
-    expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "NON_RESIDENT" }).taxAmountTzs).toBe(30000);
+    expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "NON_RESIDENT" }).taxAmountTzs).toBe(150000);
     expect(calculatePaye({ monthlyTaxablePayTzs: 1000000, employeeStatus: "RESIDENT_SECONDARY" }).taxAmountTzs).toBe(300000);
   });
 
@@ -120,6 +120,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
       calculation: calculatePresumptiveIncomeTax({ annualTurnoverTzs: 12000000, records: "INCOMPLETE" }),
     });
     expect(presumptive.dueDate).toBeNull();
+    expect(presumptive.paymentMilestones).toHaveLength(4);
     expect(presumptive.paymentMilestones.map((item) => item.dueDate)).toEqual(["2026-03-31", "2026-06-30", "2026-09-30", "2026-12-31"]);
     const small = prepareTaxFilingPack({
       taxpayer, periodStart: "2026-01-01", periodEnd: "2026-12-31",
@@ -136,6 +137,7 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
       calculation: calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }),
     });
     expect(pack.dueDate).toBe("2026-11-10");
+    expect(pack.paymentMilestones).toEqual([]);
   });
 
   it("prepares WHT/PAYE due dates and annual income tax deadline", () => {
