@@ -10,6 +10,7 @@
  * and that session scope is handled by one helper on both the issue and the
  * clear side.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -327,7 +328,9 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    // The canonical head is the tax return-drafts migration from PR #117; the
+    // next migration must move this pin deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0077_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 
@@ -335,7 +338,19 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
     const env = source(".env.example");
     expect(env).toContain("BEYU_CANONICAL_DOMAIN");
     expect(env).toContain("BEYU_SESSION_COOKIE_DOMAIN");
-    expect(existsSync(path.join(ROOT, ".env"))).toBe(false);
-    expect(existsSync(path.join(ROOT, ".env.production"))).toBe(false);
+    // Only COMMITTED env files matter: a local, git-ignored `.env` is the
+    // documented bootstrap source for a developer machine and for CI, which
+    // writes one before running the suites. What must never be committed is an
+    // env file tracked by git.
+    const tracked = (name: string) => {
+      try {
+        execFileSync("git", ["ls-files", "--error-unmatch", name], { cwd: ROOT, stdio: "ignore" });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    expect(tracked(".env"), ".env must not be committed").toBe(false);
+    expect(tracked(".env.production"), ".env.production must not be committed").toBe(false);
   });
 });

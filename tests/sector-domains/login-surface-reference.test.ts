@@ -229,6 +229,13 @@ describe("D. security is not traded for visual fidelity", () => {
     // re-implement the form.
     expect(SURFACE).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
     expect(PAGE).toContain("<SignInForm");
+    // Both canonical URLs (`/` and `/sign-in`) resolve through this ONE module,
+    // and the control-plane sign-in composes the reference's own primitives
+    // rather than a bespoke page.
+    expect(PAGE).toContain("ControlPlaneSignIn");
+    expect(PAGE).toContain("<LoginShell>");
+    expect(PAGE).toContain("<LoginCard");
+    expect(PAGE).toContain("variant === \"sign-in\"");
     expect(GOVERNED).toContain("<SignInForm");
     expect(GOVERNED).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
     // A hostname may only be read through the ONE server helper, whose
@@ -240,7 +247,10 @@ describe("D. security is not traded for visual fidelity", () => {
 
 describe("E. the rendered surface (live server)", () => {
   it.skipIf(!available)("serves the reference login page unauthenticated", async () => {
-    const res = await apiGet("/", null);
+    // The reference login composition is served at `/sign-in`. `/` is the
+    // canonical PUBLIC HOMEPAGE and renders marketing content, not the form —
+    // so the visual reference is pinned where the credential surface lives.
+    const res = await apiGet("/sign-in", null);
     expect(res.status).toBe(200);
     const body = text(res.html);
     for (const marker of [
@@ -288,6 +298,20 @@ describe("E. the rendered surface (live server)", () => {
     }
     // The authoritative asset — never a substitute, never the reference PNG.
     expect(res.html).toContain("/brand/beyu-os-logo.png");
+    // `/sign-in` is the SAME resolver with the sign-in presentation variant. The
+    // canonical public homepage stays at `/`; asking for sign-in yields the
+    // approved login composition and a real form.
+    const signIn = await apiGet("/sign-in", null);
+    expect(signIn.status).toBe(200);
+    const signInBody = text(signIn.html);
+    for (const marker of ["Welcome", "Log in to access your account", "OUR PILLARS", "Enter", "Cancel", "Forgot Password?"]) {
+      expect(signInBody, marker).toContain(marker);
+    }
+    expect(signIn.html).toContain("<form");
+    expect(signIn.html).toContain('type="password"');
+    expect(signIn.html).toContain('id="beyu-signin-mfa"');
+    expect(signIn.html).toContain("/brand/beyu-os-logo.png");
+    expect(signIn.html).not.toContain("BEYU LOGIN PAGE");
     expect(res.html).not.toContain("BEYU LOGIN PAGE");
     // Real controls, present in the server-rendered HTML.
     expect(res.html).toContain("<form");

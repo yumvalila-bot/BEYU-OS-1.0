@@ -321,7 +321,11 @@ describe("D. authentication is SHARED — one identity, one session, one login",
 
   it("makes /sign-in the SAME implementation as / — no second sign-in to drift", () => {
     const signIn = code(source("src", "app", "sign-in", "page.tsx"));
-    expect(signIn).toContain('import CanonicalSignInPage from "../page"');
+    // `/` is the public homepage, so the sign-in surface is a NAMED export of
+    // the one entry module rather than its default export. The requirement the
+    // assertion encodes is unchanged: this route re-exports that module's own
+    // sign-in surface and re-implements nothing.
+    expect(signIn).toContain('import { CanonicalSignInPage } from "../page"');
     expect(signIn).toContain("export default CanonicalSignInPage");
     expect(signIn).toContain('export const dynamic = "force-dynamic"');
     // It re-implements nothing: no second session resolution, no second login
@@ -476,7 +480,9 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    // The canonical head is the tax return-drafts migration from PR #117; the
+    // next migration must move this pin deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0077_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

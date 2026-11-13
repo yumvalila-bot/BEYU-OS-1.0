@@ -1,8 +1,53 @@
+/**
+ * THE CANONICAL ENTRY MODULE — `/`, `/sign-in` and every destination host.
+ *
+ * ONE resolver, ONE authentication implementation, TWO canonical URLs and TWO
+ * presentations. There is deliberately no second sign-in page, no second
+ * session resolution, no second hostname read and no second authorization
+ * opinion anywhere in this file's dependents.
+ *
+ *   `/`          → the canonical PUBLIC HOMEPAGE (`variant: "homepage"`)
+ *   `/sign-in`   → the control-plane SIGN-IN composition (`variant: "sign-in"`)
+ *
+ * Both variants run the SAME server-side resolution below: the principal from
+ * the session, the canonical host from the `Host` header through the one
+ * contract (`src/lib/canonical-host.ts`), and destination authorization through
+ * the one catalogue (`src/lib/operating-systems.ts`). The variant selects
+ * PRESENTATION ONLY — it is a compile-time route constant, never a query
+ * string, never client input, and it changes no authorization decision.
+ *
+ * WHY THE HOMEPAGE IS NOT THE SIGN-IN FORM
+ *   The public homepage is a marketing surface and must stay one. The sign-in
+ *   composition is a real, reachable, functional interface at `/sign-in`. Both
+ *   compose the SAME `SignInForm` and post to the SAME `/api/v1/auth/login`;
+ *   the reference login composition is therefore fully preserved without
+ *   replacing the public homepage with it.
+ *
+ * SECURITY — unchanged by any of the above
+ *   • The hostname selects PRESENTATION only. Authorization is decided
+ *     server-side here and re-evaluated by the destination route on arrival.
+ *   • Every post-authentication landing is a server-computed same-origin path
+ *     derived from the canonical contract — never from a query string — so no
+ *     route here can be turned into an open redirector.
+ *   • `identities` is empty in production, so no privileged username is
+ *     serialised into any unauthenticated surface's HTML.
+ *   • A hostile, unknown or unconfigured host resolves to NEUTRAL and receives
+ *     the homepage/sign-in with every existing gate in force; it can never
+ *     select a destination frontend.
+ */
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { SignInForm, type BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
+import {
+  LoginCampusBand,
+  LoginCard,
+  LoginHero,
+  LoginPillars,
+  LoginShell,
+  LoginTrustStrip,
+} from "./login-surface";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
 import { canonicalHostForRequest } from "@/lib/canonical-host";
 import { canonicalContextOf, destinationForResolution } from "@/lib/canonical-hosts";
@@ -24,6 +69,7 @@ const BOOTSTRAP_IDENTITIES: BootstrapIdentity[] = [
   { email: "auditor@beyu.os", role: "Internal Auditor (read-only)" },
 ];
 
+/** The five canonical BEYU pillars, in the control plane's own words. */
 const GOVERNANCE_FOUNDATIONS = [
   { title: "Trust", copy: "One constitution, one authority model, one audit truth." },
   { title: "Care", copy: "Family, workforce and beneficiary data held to the highest tier." },
@@ -41,7 +87,16 @@ const CONTROL_PLANE_FACTS = [
   "HUMAN ACCOUNTABILITY",
 ] as const;
 
-function HomePageContent() {
+/**
+ * The CANONICAL PUBLIC HOMEPAGE.
+ *
+ * The marketing surface lives at `/`. It is never replaced by a dashboard, a
+ * launcher, the sign-in form or a generic landing page — that is the homepage
+ * requirement this module exists to honour. It renders the authoritative BEYU
+ * OS emblem, in-page navigation with real anchors, the four Sector OS
+ * destinations and the governed Family Office surface.
+ */
+export function MarketingPage() {
   return (
     <main className="beyu-home-shell">
       <header className="beyu-topbar">
@@ -296,7 +351,120 @@ function HomePageContent() {
   );
 }
 
-export default async function SignInPage() {
+/**
+ * THE CONTROL-PLANE SIGN-IN COMPOSITION — the approved login surface for the
+ * apex/www (`beyu.co.tz`, `www.beyu.co.tz`) and any NEUTRAL or unrecognised
+ * host.
+ *
+ * It is the reference login composition (`src/app/login-surface.tsx`) around the
+ * ONE shared `SignInForm`. Presentation only: it resolves no identity, no
+ * session, no hostname and no authorization decision. Those live in
+ * `CanonicalEntryPage` below and are unchanged.
+ */
+export function ControlPlaneSignIn({
+  identities = [],
+  landing = "/os",
+  sessionExpired = false,
+}: {
+  identities?: BootstrapIdentity[];
+  /** Server-computed same-origin post-authentication path. Never a URL input. */
+  landing?: string;
+  sessionExpired?: boolean;
+}) {
+  return (
+    <LoginShell>
+      <LoginHero />
+
+      <div className="mt-9 grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:items-start lg:gap-x-12">
+        <section className="order-2 lg:order-1" aria-labelledby="beyu-controlplane-headline">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex w-fit items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-[#0B1F4D]/10">
+              <BeyuOsLogo size={44} ariaLabel="BEYU OS — Global Enterprise Control Plane" />
+            </span>
+            <p className="beyu-kicker text-[#5b6b85]">BEYU OS · GLOBAL ENTERPRISE CONTROL PLANE</p>
+          </div>
+
+          <h1
+            id="beyu-controlplane-headline"
+            className="mt-4 max-w-2xl text-[24px] leading-[1.2] font-semibold tracking-tight text-[#0B1F4D] sm:text-[29px]"
+          >
+            The constitutional control plane of the <span className="beyu-gold-ink">BEYU ecosystem</span>.
+          </h1>
+          <p className="mt-4 max-w-2xl text-[13.5px] leading-relaxed text-[#41527a]">
+            BEYU OS governs identity, organisation, ownership, governance, risk, compliance, capital,
+            workforce, data, audit and AI once — and only once. Health OS, Finance OS, Agriculture OS
+            and Ujenzi OS are exactly the four Sector OSs beneath it. The separate nonprofit BEYU Foundation
+            consumes shared capabilities through its own governed tenant and legal-entity scope.
+          </p>
+
+          <LoginPillars
+            className="mt-8"
+            extra={
+              <div className="mt-6 rounded-2xl border border-[#0B1F4D]/10 bg-white/70 p-4">
+                <h2 className="beyu-kicker text-[#5b6b85]">Governance foundations</h2>
+                <dl className="mt-3 grid list-none gap-2 p-0 sm:grid-cols-2">
+                  {GOVERNANCE_FOUNDATIONS.map((foundation) => (
+                    <div key={foundation.title} className="text-[12px] leading-relaxed">
+                      <dt className="font-semibold text-[#0B1F4D]">{foundation.title}</dt>
+                      <dd className="text-[#5b6b85]">{foundation.copy}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            }
+          />
+
+          <LoginTrustStrip items={CONTROL_PLANE_FACTS} />
+          <p className="mt-4 text-[10.5px] tracking-[0.12em] text-[#5b6b85]">BRIDGING CARE. BUILDING TRUST.</p>
+        </section>
+
+        <div className="order-1 lg:order-2">
+          <LoginCard
+            titleId="beyu-controlplane-signin-title"
+            signInSubtitle="Sign in to the control plane"
+            className="mt-0"
+          >
+            <SignInForm identities={identities} sessionExpired={sessionExpired} landing={landing} />
+          </LoginCard>
+
+          <p className="mt-4 text-[11px] leading-relaxed text-[#5b6b85]">
+            Access is least-privilege and fully audited. High-risk capabilities require step-up
+            authentication. Unauthorised access attempts are recorded in the immutable audit ledger.
+          </p>
+        </div>
+      </div>
+
+      <LoginCampusBand
+        notices={
+          <p className="text-[11px] leading-relaxed">
+            First-time setup?{" "}
+            <a
+              href="/enroll"
+              className="text-[#e2c25f] underline underline-offset-2 hover:text-white focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Enroll the initial administrator
+            </a>
+            . Reaching a hostname grants nothing: identity, access and tenant scope are decided server-side, and
+            every consequential action is attributable in the audit ledger.
+          </p>
+        }
+      />
+    </LoginShell>
+  );
+}
+
+/**
+ * The ONE resolver shared by both canonical URLs.
+ *
+ * `variant` selects presentation only (see the module header). Everything above
+ * it — principal, host, destination and denial resolution — is identical for
+ * `/` and `/sign-in`, which is what stops the two URLs drifting apart.
+ */
+export async function CanonicalEntryPage({
+  variant,
+}: {
+  variant: "homepage" | "sign-in";
+}) {
   const principal = await resolvePrincipal();
 
   const canonicalHost = await canonicalHostForRequest();
@@ -307,6 +475,7 @@ export default async function SignInPage() {
       : null;
   const sessionExpired = !principal && (await sessionCookiePresent());
   const identities = isProductionDeployment() ? [] : BOOTSTRAP_IDENTITIES;
+  const landing = requestedContext ? requestedContext.href : "/os";
 
   if (principal) {
     const destinations = await authorizedGovernedDestinations(principal);
@@ -344,5 +513,34 @@ export default async function SignInPage() {
     );
   }
 
-  return <HomePageContent />;
+  // Unauthenticated on a NEUTRAL / apex / www / unrecognised host. The variant
+  // decides which of the two canonical presentations is shown; it decides
+  // nothing else.
+  if (variant === "sign-in") {
+    return (
+      <ControlPlaneSignIn
+        identities={identities}
+        sessionExpired={sessionExpired}
+        landing={landing}
+      />
+    );
+  }
+
+  return <MarketingPage />;
+}
+
+/**
+ * `/` — the canonical PUBLIC HOMEPAGE. This is the route's default export, so a
+ * visitor to `/` receives the marketing surface, never the sign-in form.
+ */
+export default function HomeEntry() {
+  return CanonicalEntryPage({ variant: "homepage" });
+}
+
+/**
+ * `/sign-in` — the canonical SIGN-IN surface, re-exported by
+ * `src/app/sign-in/page.tsx`. A thin re-export, not a second implementation.
+ */
+export function CanonicalSignInPage() {
+  return CanonicalEntryPage({ variant: "sign-in" });
 }

@@ -285,7 +285,10 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
     "the apex and www keep the generic BEYU control-plane surface (unchanged)",
     async () => {
       for (const host of ["beyu.co.tz", "www.beyu.co.tz"]) {
-        for (const path of ["/", "/sign-in"]) {
+        // `/` is the canonical PUBLIC HOMEPAGE; the control-plane sign-in lives
+        // at `/sign-in`. Both are served by the one resolver, and neither ever
+        // selects a destination frontend.
+        for (const path of ["/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
           expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
@@ -302,10 +305,16 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
     "a hostile or unknown host selects NO destination frontend, at / or /sign-in",
     async () => {
       for (const host of HOSTILE_HOSTS) {
+        // The substantive claim is checked on BOTH canonical URLs: a hostile
+        // host selects no destination frontend. `/sign-in` must additionally be
+        // the NEUTRAL control-plane sign-in; `/` is the canonical public
+        // homepage and never a destination surface either.
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          if (path === "/sign-in") {
+            expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          }
           // No privileged destination frontend is reachable by spoofing a host.
           for (const destination of DESTINATIONS) {
             expect(text(res.body), `${host}${path}`).not.toContain(destination.copy);
@@ -658,12 +667,17 @@ describe("9. the documented inactive state — no canonical domain configured", 
   it.skipIf(!enabled || routingConfigured)(
     "no host resolves to a destination frontend: every host serves the control-plane surface",
     async () => {
+      // With no canonical domain configured, no host resolves to a destination
+      // frontend. Establishing that on `/sign-in` — the ONE credential surface —
+      // is the substantive claim: no host can select a destination. `/` is the
+      // canonical public homepage and carries no credential form by design.
       for (const host of ["beyu.co.tz", ...DESTINATIONS.map((destination) => destination.host)]) {
-        for (const path of ["/", "/sign-in"]) {
-          const res = await getWithHost(path, host);
-          expect(res.status, `${host}${path}`).toBe(200);
-          expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
-        }
+        const res = await getWithHost("/sign-in", host);
+        expect(res.status, `${host}/sign-in`).toBe(200);
+        expect(text(res.body), `${host}/sign-in`).toContain("Sign in to the control plane");
+        const home = await getWithHost("/", host);
+        expect(home.status, `${host}/`).toBe(200);
+        expect(text(home.body), `${host}/`).not.toContain('id="beyu-signin-email"');
       }
     },
     240_000,

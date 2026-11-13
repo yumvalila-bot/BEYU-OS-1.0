@@ -36,6 +36,14 @@
   --beyu-navy-soft: #16294a;
   --beyu-gold: #d4af37;
   --beyu-gold-soft: #efd98f;
+  /* ACCESSIBLE GOLD FOR SMALL TEXT ON LIGHT SURFACES.
+   * The brand gold (#D4A017) is a GRAPHIC accent: as small text on white it
+   * falls below WCAG AA. This darker ink is the one deliberate departure from
+   * the palette, used only for text: measured with the WCAG 2.x relative
+   * luminance formula it reaches 5.06:1 on #ffffff and 4.80:1 on the surface
+   * tint #f7f9fc — comfortably above the 4.5:1 AA threshold for normal text and
+   * above the 4.60:1 floor this note commits to. It is never used for large
+   * display type or as a fill, where the brand gold remains correct. */
   --beyu-gold-ink: #8a6a12;
   --beyu-sage: #4c6f4e;
   --beyu-surface: #f7f9fc;
@@ -386,7 +394,10 @@ table.beyu-table tr:last-child td { border-bottom: none; }
 }
 html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-motion *::after,
 .noelia-motion-off *, .noelia-motion-off *::before, .noelia-motion-off *::after {
-  scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 

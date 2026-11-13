@@ -143,10 +143,17 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
         expect(res.body, host).not.toContain("healthSpaHtml");
         expect(res.body, host).not.toContain("Sign in to the control plane");
       }
-      // The apex keeps the control-plane copy — the central BEYU experience.
-      const www = await getWithHost("/", "www.beyu.co.tz");
+      // The apex keeps the control-plane sign-in — the central BEYU
+      // experience. `/` is the canonical PUBLIC HOMEPAGE, so the credential
+      // surface is asserted where it canonically lives: `/sign-in`. Both URLs
+      // are served by the same resolver and the same shared form.
+      const www = await getWithHost("/sign-in", "www.beyu.co.tz");
       expect(www.status).toBe(200);
       expect(www.body).toContain("Sign in to the control plane");
+      // The homepage stays the homepage: it is not the credential form.
+      const homepage = await getWithHost("/", "www.beyu.co.tz");
+      expect(homepage.status).toBe(200);
+      expect(homepage.body).not.toContain('id="beyu-signin-email"');
     },
   );
 
@@ -418,7 +425,10 @@ describe("hostile Host values", () => {
         "x.foundation.beyu.co.tz",
         "mwanza.health.beyu.co.tz",
       ]) {
-        const res = await getWithHost("/", host);
+        // A hostile host resolves to NEUTRAL, which serves the public homepage
+        // at `/` and the control-plane sign-in at `/sign-in`. Neither may
+        // select a destination frontend or leak one.
+        const res = await getWithHost("/sign-in", host);
         expect(res.status, host).toBe(200);
         expect(res.body, host).toContain("Sign in to the control plane");
         const cross = await getWithHost("/os/finance", host, ceoCookie);
