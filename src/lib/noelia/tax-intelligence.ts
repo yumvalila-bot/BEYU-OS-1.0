@@ -5,7 +5,7 @@
 export type NoeliaTaxCitation = { sourceCode: string; title: string; provision: string; jurisdictionCode: string; effectiveFrom: string; effectiveTo: string | null; authorityStatus: string; sourceAuthenticationStatus: string; uri: string };
 export function filterNoeliaTaxCitations(input: { citations: readonly NoeliaTaxCitation[]; jurisdictionCode: string; asOf: string }): { citations: NoeliaTaxCitation[]; requiresAuthority: boolean; explanation: string } {
   const parsedAsOf = new Date(`${input.asOf}T00:00:00.000Z`);
-  const validAsOf = /^\\d{4}-\\d{2}-\\d{2}$/.test(input.asOf) && Number.isFinite(parsedAsOf.getTime()) && parsedAsOf.toISOString().slice(0, 10) === input.asOf;
+  const validAsOf = /^\d{4}-\\d{2}-\\d{2}$/.test(input.asOf) && Number.isFinite(parsedAsOf.getTime()) && parsedAsOf.toISOString().slice(0, 10) === input.asOf;
   const citations = validAsOf ? input.citations.filter((source) =>
     source.jurisdictionCode === input.jurisdictionCode &&
     source.authorityStatus === "AUTHORITATIVE" &&
