@@ -541,10 +541,14 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
-      inputSchema: NOELIA_TOOL_ENVELOPE,
+      inputSchema: z.object({
+        question: z.string().min(1).max(500),
+        jurisdictionCode: z.string().length(2),
+        asOf: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+      }).strict(),
       outputSchema: noeliaToolOutputSchema,
     },
-    execute: (context) => services.tax(context),
+    execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" }),
   });
   registry.register({
     name: "legal.knowledge.query",
