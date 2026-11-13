@@ -57,9 +57,9 @@ const formatTzs = (value: number) => new Intl.NumberFormat("en-TZ", {
 /** Explain a persisted calculation without converting a draft into legal approval or a filing. */
 export function buildNoeliaTaxCalculationExplanation(input: NoeliaTaxCalculationExplanationInput): NoeliaToolOutput {
   const verifiedCodes = new Set(input.authoritativeCitations.map((citation) => citation.sourceCode));
-  const missingSourceCodes = input.calculation.sourceRefs
-    .map((source) => source.code)
-    .filter((code) => !verifiedCodes.has(code));
+  const missingSourceCodes = input.calculation.sourceRefs.length === 0
+    ? ["NO_SOURCE_REFERENCES"]
+    : input.calculation.sourceRefs.map((source) => source.code).filter((code) => !verifiedCodes.has(code));
   const findings = [
     { label: "Tax type", value: input.calculation.taxType, kind: "FACT" as const, status: "OBSERVED" as const },
     { label: "Tax base", value: formatTzs(input.calculation.taxBaseTzs), kind: "INFERENCE" as const, status: "DERIVED" as const },
