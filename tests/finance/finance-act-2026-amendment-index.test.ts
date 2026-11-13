@@ -41,7 +41,7 @@ describe("Finance Act No. 2 of 2026 tax amendment index", () => {
     const vatWithholdingDeadline = changes.find((change) => change.code === "FA2026_VAT_S71_WITHHOLDING_DEADLINES");
 
     expect(forest?.summary).toContain("not a corporation");
-    expect(forest?.caveat).toContain("Regulations");
+    expect(forest?.caveat).toContain("regulations");
     expect(forest?.caveat).toContain("Finance Act No. 11 of 2025");
     expect(forest?.caveat).toContain("1 January 2026");
     expect(withholdingVat?.caveat).toContain("not the general VAT rate");

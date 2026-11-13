@@ -138,7 +138,11 @@ describe("FINANCE_OS Tanzania Mainland tax computation engine", () => {
       calculation: calculateVatWithholding({ taxableValueTzs: 1000000, supplyType: "GOODS" }),
     });
     expect(pack.dueDate).toBe("2026-11-10");
-    expect(pack.paymentMilestones).toEqual([]);
+    // The payment and the STATEMENT are distinct obligations and must both be
+    // surfaced; neither may be collapsed into the other or into the return.
+    expect(pack.paymentMilestones.map((milestone) => milestone.dueDate)).toEqual(["2026-11-10", "2026-11-10"]);
+    expect(pack.paymentMilestones[0].label).toContain("payment");
+    expect(pack.paymentMilestones[1].label).toContain("statement");
   });
 
   it("prepares WHT/PAYE due dates and annual income tax deadline", () => {

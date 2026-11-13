@@ -81,7 +81,14 @@ describe("FINANCE_OS tax return separation of duties", () => {
     expect(computeRoute).toContain("buildTaxComplianceObligations");
     expect(computeRoute).toContain("complianceObligations");
     expect(workbench).toContain("Compliance calendar candidates");
-    expect(workbench).toContain("PLANNED_UNCONFIRMED");
+    // The workbench renders the obligation's STATUTORY status from the engine
+    // (it is never hard-coded in the client), together with the caveat that the
+    // dates are candidates requiring TRA-portal and business-day confirmation.
+    expect(workbench).toContain("item.status");
+    expect(workbench).toContain("require confirmation against the current TRA portal");
+    // …and the engine's own status literal is the unconfirmed one.
+    expect(readFileSync(new URL("../../src/lib/finance/tax-compliance-engine.ts", import.meta.url), "utf8"))
+      .toContain('status: "PLANNED_UNCONFIRMED"');
   });
 
   it("database constraints require specialist review and independent approval before submission", () => {

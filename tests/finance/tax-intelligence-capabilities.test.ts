@@ -69,7 +69,11 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
     const end = noeliaDefaultTools.indexOf('name: "legal.knowledge.query"', start);
     const taxTool = noeliaDefaultTools.slice(start, end);
     expect(taxTool).toContain('jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/)');
-    expect(taxTool).toContain('execute: (context, input) => legal.knowledge(context, { ...input, domain: "TAX" })');
+    // The executor forwards the NARROWED input only after the tool's own strict
+    // schema validates it — an unvalidated `input` cast would let an unknown key
+    // reach the retrieval service.
+    expect(taxTool).toContain('execute: (context, input) => legal.knowledge(context, { ...(input as Record<string, unknown>), domain: "TAX" })');
+    expect(taxTool).toContain("}).strict(),");
     expect(taxTool).not.toContain("services.tax(context)");
   });
 
