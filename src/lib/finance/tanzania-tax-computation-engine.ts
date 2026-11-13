@@ -136,7 +136,7 @@ function assertMoney(value: number, label: string): void {
 function roundBps(base: number, bps: number): number {
   assertMoney(base, "Tax base");
   if (!Number.isInteger(bps) || bps < 0 || bps > 10000) throw new TaxCalculationError("Rate must be 0–10,000 basis points.");
-  const result = (BigInt(base) * BigInt(bps) + 5000n) / 10000n;
+  const result = (BigInt(base) * BigInt(bps) + BigInt(5000)) / BigInt(10000);
   const asNumber = Number(result);
   if (!Number.isSafeInteger(asNumber)) throw new TaxCalculationError("Calculated amount exceeds safe integer range.");
   return asNumber;
