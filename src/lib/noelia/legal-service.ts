@@ -61,7 +61,7 @@ export class BeyuNoeliaLegalService {
     if (parsed.domain === "TAX" && parsed.jurisdictionCode === "TZ_MAINLAND") jurisdictionCodes.push("TZ");
     const tanzaniaCustomsQuery = parsed.domain === "TAX"
       && ["TZ", "TZ_MAINLAND"].includes(parsed.jurisdictionCode!)
-      && /\\b(customs|import|export|hs|tariff|origin|duty)\\b/i.test(parsed.question);
+      && /\b(customs|import|export|hs|tariff|origin|duty)\b/i.test(parsed.question);
     if (tanzaniaCustomsQuery) jurisdictionCodes.push("EAC");
     const additionalJurisdictionCodes = jurisdictionCodes.filter((code) => code !== parsed.jurisdictionCode);
     const classifications = this.visibleClassifications(context);
