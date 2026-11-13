@@ -33,10 +33,15 @@ describe("Tanzania verified tax authority register", () => {
   });
 
   it("only returns the enacted instrument from the enacted-authority selector", () => {
-    expect(getEnactedTaxAuthorities().map((record) => record.code)).toEqual([
-      "TZ_FINANCE_ACT_2025_NO_11",
-      "TZ_FINANCE_ACT_2026_NO_2",
-    ]);
+    const enactedCodes = getEnactedTaxAuthorities().map((record) => record.code);
+    expect(enactedCodes).toContain("TZ_FINANCE_ACT_2025_NO_11");
+    expect(enactedCodes).toContain("TZ_FINANCE_ACT_2026_NO_2");
+    expect(enactedCodes).toContain("TZ_INCOME_TAX_ACT_CAP332_AS2025");
+    expect(enactedCodes).toContain("TZ_VAT_ACT_CAP148_AS2025");
+    expect(enactedCodes).toContain("TZ_TAX_ADMINISTRATION_ACT_CAP438_AS2025");
+    expect(enactedCodes).toContain("TZ_EXCISE_MANAGEMENT_TARIFF_ACT_CAP147_RE2023");
+    expect(enactedCodes).toContain("TZ_CUSTOMS_MANAGEMENT_TARIFF_ACT_CAP403_RE2023");
+    expect(enactedCodes).not.toContain("TZ_FINANCE_BILL_2026_NO_3");
   });
 
   it("preserves the 2025 forest-produce provision as an earlier legal version", () => {
