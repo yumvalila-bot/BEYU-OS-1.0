@@ -64,6 +64,8 @@ const noeliaLegalService = readFileSync(new URL("../../src/lib/noelia/legal-serv
 describe("FINANCE_OS governed tax-intelligence capabilities", () => {
   it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
     expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
+    expect(noeliaLegalService).toContain("asOf: z.string().optional()");
+    expect(noeliaLegalService).toContain('inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"])');
     expect(noeliaLegalService).not.toContain('parsed.jurisdictionCode ?? row.jurisdictionCode');
   });
 
