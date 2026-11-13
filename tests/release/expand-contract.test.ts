@@ -184,7 +184,10 @@ describe("P3 expand/contract — P2 integration", () => {
     expect(verifyP2MigrationIntegrity(71).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(72).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(73).ok).toBe(false);
-    expect(verifyP2MigrationIntegrity(74).ok).toBe(false);\n    expect(verifyP2MigrationIntegrity(75).ok).toBe(false);\n    expect(verifyP2MigrationIntegrity(76).ok).toBe(false);\n    expect(verifyP2MigrationIntegrity(77).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(74).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(75).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(76).ok).toBe(false);
+    expect(verifyP2MigrationIntegrity(77).ok).toBe(false);
   });
 
   it("EXPAND → MIGRATE → VERIFY → CANARY → PROMOTE → CONTRACT chain", () => {
