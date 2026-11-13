@@ -1114,7 +1114,10 @@ describe("risk module — leaves governance and financial state untouched", () =
     //   the expansion reads governed inputs and refuses (MISSING/INVALID/NOT_APPLICABLE) where an
     //   input is absent rather than modelling a risk number of its own.
     // + 0075: Noelia authority/execution hardening creates no risk table or second risk truth.
-    expect(n).toBe(76);
+    // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns; no risk table).
+    // + 0077: Tax return drafts (Finance OS tax register with review/approval/submission gates;
+    //   no risk table and no second risk truth).
+    expect(n).toBe(78);
   });
 
   it("leaves all triggers enabled", async () => {

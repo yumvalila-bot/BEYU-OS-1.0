@@ -965,7 +965,9 @@ describe("treasury module — creates no second truth", () => {
     //   posting; journal_entries/journal_lines remain the only booked truth and CAP_POSTING stays
     //   LOCKED.
     // + 0075: Noelia authority/execution hardening creates no treasury table or posting path.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
+    // + 0076: Tax/legal authority metadata on knowledge_sources (additive; no money path).
+    // + 0077: Tenant-isolated tax return drafts. Draft records only — no ledger entry and no posting path.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

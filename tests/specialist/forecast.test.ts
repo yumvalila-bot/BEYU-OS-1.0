@@ -1074,7 +1074,10 @@ describe("forecast service — hostile inputs", () => {
     //   specialist forecast substrate is untouched. Snapshot chained 0062 -> 0074.
     // + 0075: Noelia authority/execution hardening. It changes authority bindings, RLS, immutable
     //   evidence and execution controls; it creates no forecast/scenario/assumption truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);
+        // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0077: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    //   approval, submission and receipt gates). Adds no forecast/scenario/assumption truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);
     // The only %scenario% match is the attributed Foundation organization table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

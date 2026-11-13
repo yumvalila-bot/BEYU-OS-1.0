@@ -12,7 +12,16 @@ describe("FINANCE_OS tax legal-authority metadata migration", () => {
   };
 
   it("is registered as the next additive migration", () => {
+    // 0076 is the tax legal-authority metadata migration; 0077 (tenant-isolated
+    // tax return drafts) is the NEXT additive migration and is the journal tail.
     expect(journal.entries.at(-1)).toEqual({
+      idx: 77,
+      version: "7",
+      when: 1794510961000,
+      tag: "0077_tax_return_drafts",
+      breakpoints: true,
+    });
+    expect(journal.entries.at(-2)).toEqual({
       idx: 76,
       version: "7",
       when: 1794510960000,

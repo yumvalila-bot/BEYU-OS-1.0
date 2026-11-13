@@ -1233,7 +1233,10 @@ describe("compliance module — creates no second truth", () => {
     //   obligations/evidence tables are untouched and no second compliance truth is created.
     // + 0075: Noelia authority/execution hardening reuses the canonical compliance evidence/audit
     //   architecture and creates no second compliance truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(76);  });
+        // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0077: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    //   approval, submission and receipt gates). Adds no second compliance truth.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);
