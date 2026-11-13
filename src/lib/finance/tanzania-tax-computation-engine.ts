@@ -548,6 +548,12 @@ export function prepareTaxFilingPack(input: {
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
     dueDate,
+    paymentMilestones: input.calculation.taxType === "VAT_WITHHOLDING"
+      ? [
+          { dueDate: addDaysDate(input.periodEnd, 10), label: "VAT withheld payment deadline — within ten days after tax period (Finance Act 2026 s.95)" },
+          { dueDate: `${addMonthsDate(input.periodEnd, 1).slice(0, 7)}-10`, label: "Withholding VAT statement deadline — within ten days of following month (Finance Act 2026 s.95)" },
+        ]
+      : paymentMilestones,
     amountPayableTzs: input.calculation.taxAmountTzs,
     calculation: input.calculation,
     checklist,
