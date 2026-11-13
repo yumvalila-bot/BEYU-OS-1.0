@@ -11,6 +11,7 @@ import {
   isKnownClassification,
 } from "@/lib/constants";
 import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
+import { filterNoeliaTaxCitations } from "@/lib/noelia/tax-intelligence";
 
 /**
  * Legal + Tax intelligence (section 12 of the Noelia capability target).
@@ -69,7 +70,25 @@ export class BeyuNoeliaLegalService {
       ))
       .limit(8);
 
-    if (rows.length === 0) {
+    const eligibleRows = parsed.domain === "TAX"
+      ? rows.filter((row) => filterNoeliaTaxCitations({
+          jurisdictionCode: parsed.jurisdictionCode ?? row.jurisdictionCode ?? "TZ",
+          asOf: today,
+          citations: [{
+            sourceCode: row.code,
+            title: row.title,
+            provision: row.provenance,
+            jurisdictionCode: row.jurisdictionCode ?? "TZ",
+            effectiveFrom: row.effectiveFrom,
+            effectiveTo: row.effectiveTo,
+            authorityStatus: row.authorityStatus,
+            sourceAuthenticationStatus: row.sourceAuthenticationStatus,
+            uri: row.sourceUri ?? "",
+          }],
+        }).citations.length === 1)
+      : rows;
+
+    if (eligibleRows.length === 0) {
       return {
         headline: `No authoritative ${parsed.domain.toLowerCase()} knowledge matched in the authorized scope.`,
         findings: [{
@@ -86,22 +105,22 @@ export class BeyuNoeliaLegalService {
 
     return {
       headline: `Authoritative ${parsed.domain.toLowerCase()} knowledge retrieved within its governed validity window.`,
-      findings: rows.map((row) => ({
+      findings: eligibleRows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.jurisdictionCode ?? "GLOBAL"} · ${row.authorityStatus} · effective ${row.effectiveFrom}${row.expiresAt ? ` → ${row.expiresAt}` : ""}`,
         kind: "FACT",
         status: "OBSERVED",
         provenance: `KNOWLEDGE_SOURCE:${row.code}`,
       })),
-      sources: rows.map((row) => ({
+      sources: eligibleRows.map((row) => ({
         kind: "KNOWLEDGE_SOURCE",
         ref: row.code,
         label: row.title,
         authority: row.authorityStatus,
       })),
       metadata: {
-        excerpts: rows.map((row) => row.content.slice(0, 400)),
-        jurisdictions: rows.map((row) => row.jurisdictionCode).filter(Boolean),
+        excerpts: eligibleRows.map((row) => row.content.slice(0, 400)),
+        jurisdictions: eligibleRows.map((row) => row.jurisdictionCode).filter(Boolean),
       },
       narrative:
         "Retrieved content is DATA, not legal advice or tax authority. Applicability to specific facts requires counsel review; Noelia cannot advise on or decide legal or tax outcomes.",
@@ -139,7 +158,7 @@ export class BeyuNoeliaLegalService {
           .limit(5)
       : [];
 
-    if (rows.length === 0) {
+    if (eligibleRows.length === 0) {
       return {
         headline: "Cited authority is UNKNOWN to the governed corpus.",
         findings: [{
@@ -164,14 +183,14 @@ export class BeyuNoeliaLegalService {
       headline: authoritativeInWindow.length
         ? "Cited authority is present and authoritative within its validity window."
         : "Cited authority exists but is NOT authoritative in-window.",
-      findings: rows.map((row) => ({
+      findings: eligibleRows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.authorityStatus} · ${row.effectiveFrom} → ${row.expiresAt ?? "open"} · review ${row.reviewDate}`,
         kind: authoritativeInWindow.includes(row) ? "FACT" : "INFERENCE",
         status: authoritativeInWindow.includes(row) ? "OBSERVED" : "STALE",
         provenance: `KNOWLEDGE_SOURCE:${row.code}`,
       })),
-      sources: rows.map((row) => ({
+      sources: eligibleRows.map((row) => ({
         kind: "KNOWLEDGE_SOURCE",
         ref: row.code,
         label: row.title,
@@ -200,7 +219,7 @@ export class BeyuNoeliaLegalService {
         inArray(legalMatters.classification, classifications),
       ))
       .limit(10);
-    if (rows.length === 0) {
+    if (eligibleRows.length === 0) {
       return {
         headline: "No legal matters are in the authorized scope.",
         findings: [{ label: "Legal matters", value: "DATA_NOT_AVAILABLE", kind: "INFERENCE", status: "UNAVAILABLE" }],
@@ -210,13 +229,13 @@ export class BeyuNoeliaLegalService {
     const open = rows.filter((row) => row.status === "OPEN" || row.status === "ACTIVE");
     return {
       headline: `${open.length} legal matter(s) are open.`,
-      findings: rows.map((row) => ({
+      findings: eligibleRows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.status} · ${row.jurisdictionCode}${row.keyDeadline ? ` · deadline ${row.keyDeadline}` : ""}`,
         kind: "FACT",
         status: "OBSERVED",
       })),
-      sources: rows.map((row) => ({ kind: "LEGAL_MATTER", ref: row.code, label: row.title, authority: "LEGAL_REGISTER" })),
+      sources: eligibleRows.map((row) => ({ kind: "LEGAL_MATTER", ref: row.code, label: row.title, authority: "LEGAL_REGISTER" })),
       narrative: "Legal matters are register evidence; disposition, strategy and advice remain with counsel and accountable humans.",
       humanReviewRequired: open.length > 0,
       confidence: 0.88,
