@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildTaxComplianceObligations } from "@/lib/finance/tax-compliance-engine";
 import { assessCustomsClassificationReadiness } from "@/lib/finance/customs-classification-workflow";
 import { taxAuditRiskTriage, validateTaxDisputeDossier } from "@/lib/finance/tax-audit-dispute-dossier";
-import { filterNoeliaTaxCitations } from "@/lib/noelia/tax-intelligence";
+import { buildNoeliaTaxCalculationExplanation, filterNoeliaTaxCitations } from "@/lib/noelia/tax-intelligence";
 
 describe("FINANCE_OS tax compliance planner", () => {
   it("creates separate VAT withholding payment and statement milestones", () => {
@@ -124,6 +124,43 @@ describe("NOELIA tax citation boundary", () => {
     const result = filterNoeliaTaxCitations({ citations: [source, { ...source, sourceCode: "DRAFT", authorityStatus: "DRAFT" }], jurisdictionCode: "TZ", asOf: "2026-11-13" });
     expect(result.citations.map((item) => item.sourceCode)).toEqual(["ACT-2026"]);
     expect(result.requiresAuthority).toBe(false);
+  });
+
+  it("explains stored tax calculations only against authenticated sources and surfaces compliance risks", () => {
+    const result = buildNoeliaTaxCalculationExplanation({
+      draftId: "draft-1",
+      draftStatus: "PENDING_SPECIALIST_REVIEW",
+      calculation: {
+        taxType: "VAT",
+        taxBaseTzs: 1000000,
+        taxAmountTzs: 180000,
+        effectiveRateBps: 1800,
+        breakdown: [{ label: "Mainland standard VAT", baseTzs: 1000000, rateBps: 1800, taxTzs: 180000 }],
+        sourceRefs: [
+          { code: "TZ_VAT_ACT", title: "VAT Act", provision: "s.5", uri: "https://official.example/vat.pdf" },
+          { code: "UNVERIFIED_GUIDE", title: "Unverified guide", provision: "n/a", uri: "https://tra.go.tz/guide" },
+        ],
+        warnings: ["Input VAT credit not applied without verified evidence."],
+        formulaVersion: "TZ-MAINLAND-TAX-2026.1",
+        sourceSnapshotDate: "2026-11-12",
+      },
+      filingPack: {
+        dueDate: "2026-11-20",
+        paymentMilestones: [],
+        complianceObligations: [{ kind: "VAT_RETURN", dueDate: "2026-11-20", status: "PLANNED_UNCONFIRMED", sourceCodes: ["TZ_VAT_ACT"] }],
+      },
+      authoritativeCitations: [{
+        sourceCode: "TZ_VAT_ACT", title: "VAT Act", provision: "s.5", jurisdictionCode: "TZ",
+        effectiveFrom: "2026-07-01", effectiveTo: null, authorityStatus: "AUTHORITATIVE",
+        sourceAuthenticationStatus: "AUTHORITATIVE", uri: "https://official.example/vat.pdf",
+      }],
+    });
+    expect(result.sources).toHaveLength(1);
+    expect(result.whatIsMissing).toContain("UNVERIFIED_GUIDE");
+    expect(result.risks?.join(" ")).toContain("Input VAT credit not applied");
+    expect(result.risks?.join(" ")).toContain("planned unconfirmed");
+    expect(result.humanReviewRequired).toBe(true);
+    expect(result.narrative).toContain("not a tax assessment");
   });
 
   it("allows an authenticated EAC source as a regional overlay for a Tanzania customs query", () => {
