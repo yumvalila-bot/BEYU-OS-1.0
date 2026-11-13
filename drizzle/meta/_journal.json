@@ -533,6 +533,20 @@
       "when": 1791404013646,
       "tag": "0075_noelia_authority_execution_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1794565632169,
+      "tag": "0076_multi_company_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1794566591899,
+      "tag": "0077_mcm_rls_hardening",
+      "breakpoints": true
     }
   ]
 }

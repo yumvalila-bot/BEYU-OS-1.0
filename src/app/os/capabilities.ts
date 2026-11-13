@@ -113,6 +113,14 @@ export const CAPABILITY_IA: CapabilityGroup[] = [
         icon: "hierarchy",
         visibility: { kind: "any", permissions: ORGANISATION_OWNERSHIP_READ },
       },
+      {
+        href: "/os/mcm",
+        label: "Multi-Company Management",
+        description:
+          "The group command centre: legal-entity hierarchy, ownership and control evidence, board presence, financial oversight, intercompany position and consolidation review, scoped to the companies your grants reach.",
+        icon: "org",
+        visibility: { kind: "permission", permission: "mcm:company.read" },
+      },
     ],
   },
   {

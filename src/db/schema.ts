@@ -138,3 +138,20 @@ export * from "./schema/compensation";
  * the §12 profitability ladder (additive). A shared enterprise capability, never a PRICING_OS.
  */
 export * from "./schema/pricing";
+
+/*
+ * MULTI_COMPANY_MANAGEMENT (MCM) — ONE capability inside BEYU OS (additive,
+ * migration 0076).
+ *
+ * MCM is NOT an OS. It reuses the canonical corporate registry
+ * (legal_entities / ownership_records / entity_appointments / org_units), the
+ * ONE Finance OS ledger, the ONE HCM employee master, the ONE governance
+ * authority model and the ONE NOELIA runtime. It adds only what was verified
+ * absent: entity profile/lifecycle, non-ownership relationships, ownership
+ * validation evidence, per-country statutory configuration, intercompany
+ * agreements + dual-authorised transactions + reconciliation, a governed FX
+ * rate source, consolidation analysis (never a posting), group capital
+ * allocation, entity-scoped procurement / asset / project registers, module
+ * pointers, and declared cross-OS data contracts. CAP_POSTING remains LOCKED.
+ */
+export * from "./schema/mcm";

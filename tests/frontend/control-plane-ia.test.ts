@@ -80,6 +80,9 @@ describe("canonical constitutional hierarchy", () => {
       { label: "Executive Control Centre", href: "/os" },
       { label: "OS & Source-of-Truth Registry", href: "/os/registry" },
       { label: "Organisation & Ownership", href: "/os/organization-ownership" },
+      // MULTI_COMPANY_MANAGEMENT (0076) — a capability surface inside the one
+      // BEYU OS, deliberately NOT a sixth top-level group and NOT an "OS".
+      { label: "Multi-Company Management", href: "/os/mcm" },
     ]);
   });
 
