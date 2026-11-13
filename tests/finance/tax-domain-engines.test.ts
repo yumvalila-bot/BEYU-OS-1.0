@@ -16,6 +16,38 @@ describe("FINANCE_OS tax compliance planner", () => {
     expect(obligations.every((item) => item.status === "PLANNED_UNCONFIRMED" && item.calendarAdjustmentRequired)).toBe(true);
   });
 
+  it("uses period-relative corporate instalment dates and unique, unallocated instalment rows", () => {
+    const obligations = buildTaxComplianceObligations({
+      taxType: "CORPORATE_INCOME_TAX",
+      periodStart: "2026-07-01",
+      periodEnd: "2027-06-30",
+      amountTzs: 12000000,
+    });
+    const instalments = obligations.filter((item) => item.kind === "CORPORATE_PROVISIONAL_INSTALMENT");
+    expect(instalments.map((item) => item.dueDate)).toEqual([
+      "2026-09-30", "2026-12-31", "2027-03-31", "2027-06-30",
+    ]);
+    expect(new Set(instalments.map((item) => item.id)).size).toBe(4);
+    expect(instalments.every((item) => item.amountTzs === null)).toBe(true);
+    expect(() => buildTaxComplianceObligations({
+      taxType: "CORPORATE_INCOME_TAX",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-06-30",
+    })).toThrow(/complete 12-month accounting period/);
+  });
+
+  it("does not duplicate annual presumptive liability into every quarterly milestone", () => {
+    const obligations = buildTaxComplianceObligations({
+      taxType: "PRESUMPTIVE_INCOME_TAX",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      amountTzs: 500000,
+      presumptiveTaxThresholdExceeded: true,
+    });
+    expect(new Set(obligations.map((item) => item.id)).size).toBe(4);
+    expect(obligations.every((item) => item.amountTzs === null)).toBe(true);
+  });
+
   it("rejects incomplete monthly periods and creates annual final-return deadlines", () => {
     expect(() => buildTaxComplianceObligations({
       taxType: "VAT", periodStart: "2026-10-02", periodEnd: "2026-10-31",
