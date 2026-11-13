@@ -530,7 +530,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Read authoritative tax intelligence for an explicit country, regional or subnational jurisdiction; historical as-of queries supported.",
     metadata: {
       stableId: "cap-tax-knowledge-query",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "GROUP_CFO",
       domain: "TAX",
       sideEffects: "NONE",
@@ -558,7 +558,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Jurisdiction-aware legal knowledge retrieval; unknown authority fails closed.",
     metadata: {
       stableId: "cap-legal-knowledge-query",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "LEGAL",
       sideEffects: "NONE",
@@ -587,7 +587,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Authority status for a cited legal/tax source; unknown authorities fail closed.",
     metadata: {
       stableId: "cap-legal-authority-status",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "LEGAL",
       sideEffects: "NONE",
@@ -870,7 +870,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Register an immutable governed knowledge source UNDER_REVIEW; publication is a separate action.",
     metadata: {
       stableId: "cap-knowledge-ingest",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "KNOWLEDGE",
       sideEffects: "DOMAIN_WRITE",
@@ -911,7 +911,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Prepare an immutable UNDER_REVIEW replacement bound to the authoritative predecessor digest/version.",
     metadata: {
       stableId: "cap-knowledge-replace",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "KNOWLEDGE",
       sideEffects: "DOMAIN_WRITE",
