@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     audit: { objectType: "TAX_CALCULATION" },
   }, async (ctx) => {
     const body = await parseBody(ctx.request, ComputeSchema);
-    if ((body.taxType === "VAT_WITHHOLDING" || body.taxType === "CUSTOMS_PROCESSING_FEE" || body.taxType === "FOREST_PRODUCE_SINGLE_INSTALMENT") && body.periodStart < "2026-07-01") {
-      return apiError("RULE_NOT_EFFECTIVE", "This Finance Act 2026 / GN 158D rule is effective from 1 July 2026; the selected period begins before commencement.", 422, ctx.traceId);
+    if ((["VAT_WITHHOLDING", "CUSTOMS_PROCESSING_FEE", "FOREST_PRODUCE_SINGLE_INSTALMENT", "PRESUMPTIVE_INCOME_TAX"].includes(body.taxType)) && body.periodStart < "2026-07-01") {
+      return apiError("RULE_NOT_EFFECTIVE", "The selected Finance Act 2026 / GN 158D tax schedule is effective from 1 July 2026. Periods beginning before commencement require historical or split-period legal treatment and cannot use this current schedule.", 422, ctx.traceId);
     }
     const scope = await tenantScopeIds(ctx.principal);
     const [entity] = await db.select().from(legalEntities).where(and(
