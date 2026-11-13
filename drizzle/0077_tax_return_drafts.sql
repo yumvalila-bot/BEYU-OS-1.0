@@ -35,11 +35,12 @@ CREATE TABLE IF NOT EXISTS "tax_return_drafts" (
   CONSTRAINT "tax_return_drafts_jurisdiction_ck" CHECK ("jurisdiction_code" = 'TZ_MAINLAND'),
   CONSTRAINT "tax_return_drafts_type_ck" CHECK ("tax_type" IN (
     'PAYE', 'CORPORATE_INCOME_TAX', 'PERSONAL_INCOME_TAX',
-    'PRESUMPTIVE_INCOME_TAX', 'VAT', 'VAT_WITHHOLDING', 'WITHHOLDING_TAX', 'CUSTOMS_PROCESSING_FEE'
+    'PRESUMPTIVE_INCOME_TAX', 'VAT', 'VAT_WITHHOLDING', 'WITHHOLDING_TAX',
+    'CUSTOMS_PROCESSING_FEE', 'FOREST_PRODUCE_SINGLE_INSTALMENT'
   )),
   CONSTRAINT "tax_return_drafts_status_ck" CHECK ("status" IN (
-    'DRAFT', 'PENDING_SPECIALIST_REVIEW', 'SPECIALIST_REVIEWED_PROVISIONAL', 'PENDING_FINANCE_APPROVAL', 'APPROVED_FOR_SUBMISSION',
-    'SUBMITTED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
+    'DRAFT', 'PENDING_SPECIALIST_REVIEW', 'SPECIALIST_REVIEWED_PROVISIONAL', 'PENDING_FINANCE_APPROVAL',
+    'APPROVED_FOR_SUBMISSION', 'SUBMITTED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'
   )),
   CONSTRAINT "tax_return_drafts_classification_ck" CHECK ("classification"::text IN (
     'PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'HIGHLY_RESTRICTED'
@@ -107,14 +108,17 @@ BEGIN
   IF NEW.receipt_document_id IS NULL THEN
     RETURN NEW;
   END IF;
+
   SELECT "tenant_id", "entity_scope", "jurisdiction_code", "category",
          "authority_status", "checksum", "storage_uri"
     INTO receipt
     FROM "documents"
    WHERE "id" = NEW.receipt_document_id;
+
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Tax return receipt document does not exist';
   END IF;
+
   IF receipt.tenant_id IS DISTINCT FROM NEW.tenant_id
      OR receipt.entity_scope IS DISTINCT FROM NEW.legal_entity_id
      OR receipt.jurisdiction_code IS DISTINCT FROM NEW.jurisdiction_code
@@ -125,9 +129,11 @@ BEGIN
      OR receipt.checksum !~ '^(sha256:)?[a-fA-F0-9]{64}$' THEN
     RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
   END IF;
+
   RETURN NEW;
 END;
 $tax_return_receipt$;--> statement-breakpoint
+
 DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
 CREATE TRIGGER tax_return_drafts_receipt_scope_trg
   BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
@@ -141,88 +147,10 @@ DO $tax_return_verify$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = current_schema() AND c.relname = 'tax_return_drafts' AND c.relrowsecurity AND c.relforcerowsecurity
-  ) THEN
-    RAISE EXCEPTION 'tax_return_drafts must have ENABLE and FORCE ROW LEVEL SECURITY';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'tax_return_drafts_scope') THEN
-    RAISE EXCEPTION 'tax_return_drafts tenant/classification isolation policy is required';
-  END IF;
-END $tax_return_verify$;
- THEN
-    RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
-  END IF;
-  RETURN NEW;
-END;
-$tax_return_receipt$;--> statement-breakpoint
-DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
-CREATE TRIGGER tax_return_drafts_receipt_scope_trg
-  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
-  ON "tax_return_drafts"
-  FOR EACH ROW EXECUTE FUNCTION beyu_validate_tax_return_receipt_document();--> statement-breakpoint
-
-DO $tax_return_verify$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime') THEN
-    GRANT SELECT, INSERT, UPDATE ON "tax_return_drafts" TO beyu_runtime;
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = current_schema() AND c.relname = 'tax_return_drafts' AND c.relrowsecurity AND c.relforcerowsecurity
-  ) THEN
-    RAISE EXCEPTION 'tax_return_drafts must have ENABLE and FORCE ROW LEVEL SECURITY';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'tax_return_drafts_scope') THEN
-    RAISE EXCEPTION 'tax_return_drafts tenant/classification isolation policy is required';
-  END IF;
-END $tax_return_verify$;
- THEN
-    RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
-  END IF;
-  RETURN NEW;
-END;
-$tax_return_receipt$;--> statement-breakpoint
-DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
-CREATE TRIGGER tax_return_drafts_receipt_scope_trg
-  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
-  ON "tax_return_drafts"
-  FOR EACH ROW EXECUTE FUNCTION beyu_validate_tax_return_receipt_document();--> statement-breakpoint
-
-DO $tax_return_verify$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime') THEN
-    GRANT SELECT, INSERT, UPDATE ON "tax_return_drafts" TO beyu_runtime;
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = current_schema() AND c.relname = 'tax_return_drafts' AND c.relrowsecurity AND c.relforcerowsecurity
-  ) THEN
-    RAISE EXCEPTION 'tax_return_drafts must have ENABLE and FORCE ROW LEVEL SECURITY';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'tax_return_drafts_scope') THEN
-    RAISE EXCEPTION 'tax_return_drafts tenant/classification isolation policy is required';
-  END IF;
-END $tax_return_verify$;
- THEN
-    RAISE EXCEPTION 'Tax return receipt document must be authoritative, checksum-backed and scoped to the same tenant/entity/jurisdiction';
-  END IF;
-  RETURN NEW;
-END;
-$tax_return_receipt$;--> statement-breakpoint
-DROP TRIGGER IF EXISTS tax_return_drafts_receipt_scope_trg ON "tax_return_drafts";--> statement-breakpoint
-CREATE TRIGGER tax_return_drafts_receipt_scope_trg
-  BEFORE INSERT OR UPDATE OF "receipt_document_id", "tenant_id", "legal_entity_id", "jurisdiction_code"
-  ON "tax_return_drafts"
-  FOR EACH ROW EXECUTE FUNCTION beyu_validate_tax_return_receipt_document();--> statement-breakpoint
-
-DO $tax_return_verify$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'beyu_runtime') THEN
-    GRANT SELECT, INSERT, UPDATE ON "tax_return_drafts" TO beyu_runtime;
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = current_schema() AND c.relname = 'tax_return_drafts' AND c.relrowsecurity AND c.relforcerowsecurity
+    WHERE n.nspname = current_schema()
+      AND c.relname = 'tax_return_drafts'
+      AND c.relrowsecurity
+      AND c.relforcerowsecurity
   ) THEN
     RAISE EXCEPTION 'tax_return_drafts must have ENABLE and FORCE ROW LEVEL SECURITY';
   END IF;
