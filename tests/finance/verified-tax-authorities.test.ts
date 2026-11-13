@@ -41,6 +41,12 @@ describe("Tanzania verified tax authority register", () => {
     expect(enactedCodes).toContain("TZ_TAX_ADMINISTRATION_ACT_CAP438_AS2025");
     expect(enactedCodes).toContain("TZ_EXCISE_MANAGEMENT_TARIFF_ACT_CAP147_RE2023");
     expect(enactedCodes).toContain("TZ_CUSTOMS_MANAGEMENT_TARIFF_ACT_CAP403_RE2023");
+    expect(enactedCodes).toContain("EAC_CUSTOMS_MANAGEMENT_ACT_2004_REVISED_2009");
+    expect(enactedCodes).toContain("EAC_CUSTOMS_MANAGEMENT_AMENDMENT_ACT_2025");
+    expect(enactedCodes).toContain("EAC_CUSTOMS_MANAGEMENT_REGULATIONS_2010");
+    expect(enactedCodes).toContain("EAC_RULES_OF_ORIGIN_2015");
+    expect(enactedCodes).toContain("EAC_COMMON_EXTERNAL_TARIFF_2022");
+    expect(enactedCodes).toContain("EAC_ASSEMBLING_MANUFACTURING_REGULATIONS_2025");
     expect(enactedCodes).not.toContain("TZ_FINANCE_BILL_2026_NO_3");
   });
 
