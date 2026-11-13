@@ -334,6 +334,9 @@ export function resolveNoeliaOSContext(
       "AGRICULTURE",
       "WORKFORCE",
       "LEGAL",
+      // MCM is a capability inside BEYU OS, so its read engine is declared on the
+      // BEYU OS surface. No OS is created and no second runtime exists.
+      "MULTI_COMPANY",
     ],
     FINANCE_OS: [
       "FINANCIAL",

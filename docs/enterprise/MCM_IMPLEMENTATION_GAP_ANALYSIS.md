@@ -169,17 +169,47 @@ privileged) is implemented and tested; the data is a governance decision, not an
 engineering one.
 **Status:** workflow DELIVERED; jurisdiction data NOT BUILT — DECIDED.
 
-### 2.11 NOELIA had no MCM tool — **GAP (safe direction)**
+### 2.11 NOELIA had no MCM tool — **GAP CLOSED for reads; actions still have no tool path**
 
-No NOELIA tool is registered for MCM. NOELIA therefore cannot read or act on MCM
-data at all.
+Ten governed read-only tools are now registered in the ONE canonical Noelia
+surface (`src/lib/noelia/mcm-tools.ts`): `mcm.portfolio.hierarchy`,
+`mcm.company.financial_snapshot`, `mcm.intercompany.position`,
+`mcm.consolidation.status`, `mcm.risk_and_compliance.overview`,
+`mcm.ownership.structure`, `mcm.jurisdiction.coverage`, `mcm.module_rollup`,
+`mcm.governance.overview`, `mcm.integration.health`.
 
-**Consequence:** the mission's advisory requirement is unmet, but the failure
-direction is the safe one — an assistant with no MCM access cannot approve a
-governance decision, appoint a director, modify ownership or post financially
-through MCM, because it cannot reach MCM.
-**Status:** NOT BUILT — GAP, deliberately fail-closed. A read-only advisory tool
-with mandatory human approval remains to be added.
+They are adapters, not a second read path. Every one of them delegates to
+`src/lib/mcm/read-services.ts`, so `visibleEntities()` stays the only place the
+entity boundary is decided, and no tool re-derives tenant, entity, clearance or
+classification. Each carries the full governed contract — `sideEffects: NONE`,
+idempotent, a timeout and retry policy, `NOELIA_TOOL_INVOKED` audit, and a
+permission that already existed in the catalog. Nothing was widened to make the
+tools work: the frozen inventory in `tests/noelia/agent-surface-guard.test.ts`
+was extended deliberately and by review, which is that test's stated purpose.
+
+Two properties are asserted in `tests/mcm/noelia-tools.test.ts` rather than
+claimed here:
+
+* **Honest data states.** A figure the caller may not see is returned as a
+  RESTRICTED boundary naming the missing capability; a figure with no row is
+  UNAVAILABLE with the period it looked at. Neither is ever rendered as zero, and
+  an absent consolidation run is reported as "consolidation has not been
+  performed", never as a consolidated group. `mcm.governance.overview` and
+  `mcm.ownership.structure` check the section capability themselves because
+  those two services answer with an empty set for *both* "nothing recorded" and
+  "you may not see it" — the tool refuses to collapse that distinction.
+* **No leak across entity scope.** A principal scoped to one company sees exactly
+  one company in the hierarchy, and no MCM tool may mention any other entity's
+  code, id or legal name anywhere in its payload.
+
+**Still deliberately absent:** there is no tool path for any MCM *action*.
+Company creation, lifecycle transitions, ownership validation, statutory filing,
+intercompany authorization and reconciliation, consolidation preparation and
+review, and capital proposal and approval remain on their own routes with their
+own approval chains. Reads need no approval; those do. Where a read shows a human
+must act, the answer sets `humanReviewRequired` and says why — it does not
+offer to do it.
+**Status:** read advisory access DELIVERED; action tools NOT BUILT — DECIDED.
 
 ### 2.12 Sector OS data was not surfaced through contracts — **GAP**
 
@@ -235,8 +265,9 @@ review, capital decisions requiring resolutions, entity-aware module links, a
 governed read surface, and runtime-role-proven isolation.
 
 The **computation and interaction layers are not complete**: the consolidation
-engine, sector-os data contracts in use, NOELIA advisory access, in-product
-mutation forms, and the financial-period lock for intercompany. Each is recorded
+engine, sector-os data contracts in use, in-product mutation forms, the financial-period
+lock for intercompany, and any NOELIA *action* tool (NOELIA read access is delivered
+in §2.11; the actions are refused by design). Each is recorded
 above with its consequence, and each fails closed rather than fabricating a figure
 or a permission.
 

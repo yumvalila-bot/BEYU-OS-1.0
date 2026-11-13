@@ -167,7 +167,7 @@
           "asset": "consolidation computation engine",
           "source": "n/a",
           "disposition": "MISSING_DEFERRED",
-          "change": "The run/entity/adjustment records and their controls exist; the translation and elimination ENGINE that would populate totals from Finance OS balances is not implemented. No consolidated total is therefore ever fabricated \u2014 consolidation_runs totals stay null and render as UNAVAILABLE. This is the largest honest gap in the delivery.",
+          "change": "The run/entity/adjustment records and their controls exist; the translation and elimination ENGINE that would populate totals from Finance OS balances is not implemented. No consolidated total is therefore ever fabricated — consolidation_runs totals stay null and render as UNAVAILABLE. This is the largest honest gap in the delivery.",
           "environment": "none"
         },
         {
@@ -273,10 +273,17 @@
           "environment": "api"
         },
         {
-          "asset": "NOELIA tools for MCM",
+          "asset": "NOELIA MCM read tools",
+          "source": "src/lib/noelia/mcm-tools.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "Ten governed read-only tools registered in the canonical Noelia surface: mcm.portfolio.hierarchy, mcm.company.financial_snapshot, mcm.intercompany.position, mcm.consolidation.status, mcm.risk_and_compliance.overview, mcm.ownership.structure, mcm.jurisdiction.coverage, mcm.module_rollup, mcm.governance.overview, mcm.integration.health. Each is an adapter over src/lib/mcm/read-services.ts, so visibleEntities() remains the single entity boundary; every tool is sideEffects NONE, idempotent, audited (NOELIA_TOOL_INVOKED), gated on a pre-existing read permission, and returns the caller's own data states — a RESTRICTED or UNAVAILABLE figure is reported as such, never as zero. The frozen inventory in tests/noelia/agent-surface-guard.test.ts was extended by review, and tests/mcm/noelia-tools.test.ts pins contract, boundary and cross-entity-leak behaviour.",
+          "environment": "code"
+        },
+        {
+          "asset": "NOELIA MCM action tools",
           "source": "n/a",
           "disposition": "MISSING_DEFERRED",
-          "change": "No NOELIA tool is registered for MCM, so NOELIA cannot read or act on MCM data at all. This is the fail-closed default; a read-only advisory tool with human approval remains to be added.",
+          "change": "Still no tool path for any MCM action: company creation, lifecycle transition, ownership validation, statutory filing, intercompany authorization/reconciliation, consolidation preparation/review, and capital proposal/approval. Reads need no approval; these do, and their approval chain lives on their own routes. The absence is the design, asserted by tests/mcm/noelia-tools.test.ts and tests/noelia/agent-surface-guard.test.ts.",
           "environment": "none"
         }
       ]
@@ -344,13 +351,13 @@
     }
   ],
   "summary": {
-    "implementedNew": 15,
+    "implementedNew": 16,
     "extended": 5,
     "reusedUnchanged": 9,
     "reusedUnverified": 2,
     "complete": 1,
     "deferredWithReason": 6,
-    "cataloguedAssets": 38,
+    "cataloguedAssets": 39,
     "note": "Counts are derived from the dispositions above so they cannot drift from the entries. Deferred items are stated explicitly rather than omitted: no reader may mistake an unbuilt capability for a delivered one."
   }
 }

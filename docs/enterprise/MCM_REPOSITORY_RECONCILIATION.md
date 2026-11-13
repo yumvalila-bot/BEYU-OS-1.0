@@ -194,8 +194,10 @@ in §4:
 New code:
 
 - `src/lib/mcm/*` — services (registry, ownership validation, hierarchy validation,
-  intercompany, consolidation, country configuration, integration contracts,
-  Noelia tools).
+  intercompany, consolidation, country configuration, integration contracts).
+- `src/lib/noelia/mcm-tools.ts` — the ten read-only MCM Noelia tools. They live
+  with every other tool family, not under `src/lib/mcm/*`, because the registry is
+  a single canonical surface and one AI runtime; MCM supplies no second one.
 - `src/app/os/mcm/*` — the command centre and its drill-downs.
 - `src/app/api/v1/mcm/*` — governed API routes.
 - `tests/mcm/*` — unit, integration, security and financial tests.
