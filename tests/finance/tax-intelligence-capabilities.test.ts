@@ -73,6 +73,15 @@ describe("FINANCE_OS governed tax-intelligence capabilities", () => {
     expect(taxTool).not.toContain("services.tax(context)");
   });
 
+  it("exposes scoped tax calculation explanation without approval or submission authority", () => {
+    expect(noeliaDefaultTools).toContain('name: "tax.computation.explain"');
+    expect(noeliaDefaultTools).toContain("execute: (context, input) => legal.taxComputation(context, input)");
+    expect(noeliaLegalService).toContain("async taxComputation(context: ToolInvocationContext, input: unknown)");
+    expect(noeliaLegalService).toContain("taxReturnDrafts.tenantId");
+    expect(noeliaLegalService).toContain("classificationsAtOrBelow(context.principal.clearance)");
+    expect(noeliaDefaultTools).toContain('permission: "finance:tax.read"');
+  });
+
   it("requires an explicit jurisdiction before NOELIA retrieves tax law", () => {
     expect(noeliaLegalService).toContain('parsed.domain === "TAX" && !parsed.jurisdictionCode');
     expect(noeliaLegalService).toContain("jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional()");
