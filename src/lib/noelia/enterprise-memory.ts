@@ -137,7 +137,7 @@ export class BeyuNoeliaMemoryService {
       domain: z.string().min(2).max(40),
       content: z.string().min(10).max(20000),
       sourceUri: z.string().url().optional(),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
       scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
       classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
       version: z.string().min(1).max(40).default("1.0.0"),
