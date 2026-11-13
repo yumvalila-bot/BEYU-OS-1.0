@@ -45,6 +45,15 @@ export class BeyuNoeliaLegalService {
       jurisdictionCode: z.string().length(2).optional(),
       domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
     }).strict().parse(input ?? {});
+    if (parsed.domain === "TAX" && !parsed.jurisdictionCode) {
+      return {
+        headline: "A tax jurisdiction is required before retrieving tax authority.",
+        findings: [{ label: "Tax jurisdiction", value: "REQUIRES_AUTHORITY", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        narrative: "NOELIA will not search or compare tax law across jurisdictions. Supply the two-letter jurisdiction code so only applicable, effective-dated authorities can be retrieved.",
+        humanReviewRequired: true,
+        confidence: 0.4,
+      };
+    }
     const classifications = this.visibleClassifications(context);
     if (classifications.length === 0) {
       return { findings: [], confidence: 0.2, humanReviewRequired: true };
@@ -72,7 +81,7 @@ export class BeyuNoeliaLegalService {
 
     const eligibleRows = parsed.domain === "TAX"
       ? rows.filter((row) => filterNoeliaTaxCitations({
-          jurisdictionCode: parsed.jurisdictionCode ?? row.jurisdictionCode ?? "TZ",
+          jurisdictionCode: parsed.jurisdictionCode!,
           asOf: today,
           citations: [{
             sourceCode: row.code,
