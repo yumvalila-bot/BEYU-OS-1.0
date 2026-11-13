@@ -168,7 +168,7 @@ These changes improve draft preparation and evidence handling; they do not activ
 
 ### Official-source host allowlist
 
-Tax-source ingestion and publication fail closed when TAX_OFFICIAL_SOURCE_HOSTS is empty. The initial administrator-reviewed allowlist for the registered Tanzania sources is: oagmis.oag.go.tz, elibrary.osg.go.tz, tra.go.tz, and polis.parliament.go.tz. Configure this only through the deployment's approved environment/configuration process after verifying each host; never use a wildcard, URL suffix match or user-provided host. No production environment variable was changed by this PR.
+Tax-source ingestion and publication fail closed when TAX_OFFICIAL_SOURCE_HOSTS is empty. The initial administrator-reviewed allowlist for the registered Tanzania sources is: oagmis.oag.go.tz, elibrary.osg.go.tz, tra.go.tz, polis.parliament.go.tz, and eac.int. Configure this only through the deployment's approved environment/configuration process after verifying each host; never use a wildcard, URL suffix match or user-provided host. No production environment variable was changed by this PR.
 
 
 NOELIA's finance-scoped tax.knowledge.query tool now routes through the same authenticated TAX_LEGAL_AUTHORITY retrieval service as the legal-domain query. It requires a two-letter jurisdiction and supports an explicit as-of date; authenticated SUPERSEDED sources may be cited only inside their historical effective window. The older tax-strategy summary reader is not used as a substitute for primary tax law.
