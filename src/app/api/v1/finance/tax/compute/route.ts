@@ -84,12 +84,22 @@ export async function POST(request: Request) {
         ? computeTanzaniaTax({ ...body, originEvidenceVerified: false })
         : computeTanzaniaTax(body);
       const tin = entity.taxIdentifier ?? "";
-      const filingPack = /^\d{9}$/.test(tin) ? prepareTaxFilingPack({
+      const filingPackBase = /^\d{9}$/.test(tin) ? prepareTaxFilingPack({
         taxpayer: { legalEntityId: entity.id, legalName: entity.legalName, tin },
         periodStart: body.periodStart,
         periodEnd: body.periodEnd,
         calculation,
       }) : null;
+      const complianceTaxTypes = ["PAYE", "VAT", "VAT_WITHHOLDING", "WITHHOLDING_TAX", "CORPORATE_INCOME_TAX", "PERSONAL_INCOME_TAX", "PRESUMPTIVE_INCOME_TAX"] as const;
+      const complianceObligations = complianceTaxTypes.includes(calculation.taxType as (typeof complianceTaxTypes)[number])
+        ? buildTaxComplianceObligations({
+            taxType: calculation.taxType as (typeof complianceTaxTypes)[number],
+            periodStart: body.periodStart,
+            periodEnd: body.periodEnd,
+            presumptiveTaxThresholdExceeded: calculation.taxType === "PRESUMPTIVE_INCOME_TAX" ? calculation.taxAmountTzs > 50000 : undefined,
+          })
+        : [];
+      const filingPack = filingPackBase ? { ...filingPackBase, complianceObligations } : null;
       let draftId: string | null = null;
       if (filingPack) {
         draftId = randomUUID();
