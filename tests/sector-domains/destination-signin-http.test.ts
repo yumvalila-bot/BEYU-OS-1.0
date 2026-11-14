@@ -285,7 +285,19 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
     "the apex and www keep the generic BEYU control-plane surface (unchanged)",
     async () => {
       for (const host of ["beyu.co.tz", "www.beyu.co.tz"]) {
-        for (const path of ["/", "/sign-in"]) {
+        // `/` is the PUBLIC HOMEPAGE on the control-plane host — a marketing page
+        // that links to the sign-in, carries no credential form and selects no
+        // destination frontend.
+        const home = await getWithHost("/", host);
+        expect(home.status, `${host}/`).toBe(200);
+        expect(home.body, `${host}/`).toContain('class="beyu-mobile-nav"');
+        expect(home.body, `${host}/`).toContain('href="/sign-in"');
+        expect(home.body, `${host}/`).not.toContain('id="beyu-signin-email"');
+        for (const destination of DESTINATIONS) {
+          expect(text(home.body), `${host}/ must not select ${destination.host}`).not.toContain(destination.copy);
+        }
+        // `/sign-in` is the governed control-plane sign-in.
+        for (const path of ["/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
           // The apex owns the control-plane CONTEXT and the control-plane copy.
@@ -299,7 +311,7 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
               destination.copy,
             );
           }
-          // The sign-in is a real form at BOTH canonical URLs.
+          // The sign-in is a real form.
           expect(res.body, `${host}${path}`).toContain('id="beyu-signin-email"');
         }
       }
@@ -311,10 +323,14 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
     "a hostile or unknown host selects NO destination frontend, at / or /sign-in",
     async () => {
       for (const host of HOSTILE_HOSTS) {
+        // A hostile host resolves to NEUTRAL — never to CONTROL_PLANE — so it can
+        // obtain neither a destination frontend nor the apex's public homepage:
+        // BOTH canonical URLs serve the governed control-plane sign-in.
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);
           expect(res.status, `${host}${path}`).toBe(200);
           expect(text(res.body), `${host}${path}`).toContain("Sign in to the control plane");
+          expect(res.body, `${host}${path}`).not.toContain('class="beyu-mobile-nav"');
           // No privileged destination frontend is reachable by spoofing a host.
           for (const destination of DESTINATIONS) {
             expect(text(res.body), `${host}${path}`).not.toContain(destination.copy);
@@ -667,6 +683,9 @@ describe("9. the documented inactive state — no canonical domain configured", 
   it.skipIf(!enabled || routingConfigured)(
     "no host resolves to a destination frontend: every host serves the control-plane surface",
     async () => {
+      // With no canonical domain configured every hostname resolves to NEUTRAL, so
+      // `/` is the governed control-plane sign-in exactly like `/sign-in`: the
+      // public homepage belongs to the CONFIGURED control-plane host only.
       for (const host of ["beyu.co.tz", ...DESTINATIONS.map((destination) => destination.host)]) {
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);

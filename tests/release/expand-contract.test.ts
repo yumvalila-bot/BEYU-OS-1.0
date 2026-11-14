@@ -113,7 +113,7 @@ describe("P3 expand/contract — gate", () => {
 });
 
 describe("P3 expand/contract — P2 integration", () => {
-  it("requires the exact 75-migration inventory and rejects stale baselines", async () => {
+  it("requires the exact 78-migration inventory and rejects stale baselines", async () => {
     // 0063 adds the governed tenant-domain registry (tenant_domains): the ONE
     // hostname → tenant mapping, additive, RLS-protected and runtime read-only.
     // 0064 appends the CAPABILITY_BASE domain type; 0065 adds the Family Office
@@ -158,6 +158,11 @@ describe("P3 expand/contract — P2 integration", () => {
     //   expand-only, no column altered on any pre-existing table.
     // + 0077–0079: forward fixes to MCM's own policies and one unique constraint.
     //   Policies and constraint definitions only; no pre-existing table altered.
+    // + 0080: effective-dated source-authentication metadata and integrity
+    //   constraints on the existing knowledge_sources registry; no second tax
+    //   document store is introduced.
+    // + 0081: tenant/entity/classification-scoped tax filing working papers,
+    //   FORCE RLS, independent review/approval evidence gates and no runtime DELETE.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
     // DERIVED from the canonical folder, then asserted against the inventory.
     // A literal here rots on every legitimate migration and then gets "fixed" by

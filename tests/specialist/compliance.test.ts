@@ -1239,6 +1239,9 @@ describe("compliance module — creates no second truth", () => {
     //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
     //   Adds NO compliance table and no second ledger truth.
     //   architecture and creates no second compliance truth.
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0081: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    //   approval, submission and receipt gates). Adds no second compliance truth.
     // DERIVED, not a literal: the applied-ledger count must equal the number of
     // canonical .sql files. Pinning it to a number is how a suite starts failing the
     // moment a legitimate migration lands, and then gets 'fixed' by editing the number.

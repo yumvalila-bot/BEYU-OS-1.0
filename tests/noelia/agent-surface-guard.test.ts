@@ -105,6 +105,11 @@ const FROZEN_TOOL_NAMES = [
   "pricing.markup_margin.analyse",
   "risk.analysis",
   "risk.register.query",
+  // PR #117: tax computation explanation. Read-only (sideEffects NONE), scoped
+  // to FINANCE_OS `finance:tax.read`, CONFIDENTIAL, and it never approves or
+  // submits a return — added here because a new governed tool must be a
+  // deliberate, reviewed addition to the frozen surface.
+  "tax.computation.explain",
   "tax.knowledge.query",
   "ujenzi.operations.observe",
   "viz.dimensions.explain",

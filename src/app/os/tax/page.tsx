@@ -7,6 +7,12 @@ import { can } from "@/lib/authz";
 import { classificationsAtOrBelow } from "@/lib/constants";
 import { Badge, Denied, Panel, stateTone } from "@/components/brand";
 import { TaxWorkbench } from "./workbench";
+import { TaxComputationWorkbench } from "./computation-workbench";
+import { TraSourceLibrary } from "./source-library";
+import { VerifiedTaxAuthorities } from "./verified-authorities";
+import { FinanceAct2026AmendmentIndex } from "./finance-act-2026-index";
+import { TanzaniaSubsidiaryLegislationReview } from "./subsidiary-legislation-review";
+import { TaxIntelligenceCapabilities } from "./capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +75,9 @@ export default async function TaxPage() {
           .orderBy(taxStrategies.jurisdictionCode)
       : [];
   const canAssess = can(access.principal, "finance:tax.assess").allowed;
+  const canReviewTax = can(access.principal, "finance:tax.review").allowed;
+  const canSubmitTax = can(access.principal, "finance:tax.submit").allowed;
+  const canRecordTaxReceipt = can(access.principal, "finance:tax.receipt").allowed;
   const assessable = strategies.filter((s) => s.position !== "PROHIBITED_EVASION");
 
   return (
@@ -87,6 +96,14 @@ export default async function TaxPage() {
       <TaxWorkbench
         canAssess={canAssess}
         strategies={assessable.map((s) => ({ id: s.id, code: s.code, title: s.title, jurisdiction: s.jurisdictionCode, position: s.position }))}
+        entities={entities.map((e) => ({ id: e.id, name: e.legalName, country: e.countryCode }))}
+      />
+
+      <TaxComputationWorkbench
+        canCompute={canAssess}
+        canReview={canReviewTax}
+        canSubmit={canSubmitTax}
+        canRecordReceipt={canRecordTaxReceipt}
         entities={entities.map((e) => ({ id: e.id, name: e.legalName, country: e.countryCode }))}
       />
 
@@ -147,6 +164,12 @@ export default async function TaxPage() {
           ))}
         </div>
       </Panel>
+
+      <TaxIntelligenceCapabilities />
+      <VerifiedTaxAuthorities />
+      <FinanceAct2026AmendmentIndex />
+      <TanzaniaSubsidiaryLegislationReview />
+      <TraSourceLibrary />
     </div>
   );  });
 }

@@ -1080,6 +1080,9 @@ describe("forecast service — hostile inputs", () => {
     //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
     //   Adds NO forecast table and no second ledger truth.
     //   evidence and execution controls; it creates no forecast/scenario/assumption truth.
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0081: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    //   approval, submission and receipt gates). Adds no forecast/scenario/assumption truth.
     // DERIVED, not a literal: the applied-ledger count must equal the number of
     // canonical .sql files. Pinning it to a number is how a suite starts failing the
     // moment a legitimate migration lands, and then gets 'fixed' by editing the number.
