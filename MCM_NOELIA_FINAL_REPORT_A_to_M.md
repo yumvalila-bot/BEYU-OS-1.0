@@ -298,6 +298,7 @@ in this database, so every ledger-shaped assertion is a refusal test, never a ba
 | `/tmp/final-full2.log` | 358 passed \| 1 failed \| 4 skipped (363) | 5,923 passed \| 1 failed \| 12 skipped \| 31 todo (5,967) | **1** — the self-poisoning fixture, **H.2** |
 | `/tmp/final-full3.log` (**after both fixes**) | **359 passed \| 4 skipped (363)** | **5,924 passed \| 12 skipped \| 31 todo (5,967)** | **0** |
 | `/tmp/final-consol.log` (consolidation engine, before the H.3 fix) | 361 passed \| **1 failed** \| 4 skipped (366) | 5,975 passed \| **1 failed** \| 12 skipped \| 31 todo (6,019) | **1** — the search suite's own accumulation defect, **H.3** |
+| `/tmp/final-consol2.log` (**after the H.3 fix**, 20:39:22 → 21:08:52) | **362 passed \| 4 skipped (366)** | **5,976 passed \| 12 skipped \| 31 todo (6,019)** | **0** |
 | `/tmp/final-consol2.log` (**after H.3**) | **362 passed \| 4 skipped (366)** | **5,976 passed \| 12 skipped \| 31 todo (6,019)** | **0** |
 
 Three things worth saying out loud. The file count **moved between consecutive runs**
@@ -329,8 +330,8 @@ last change came after the long run:
 |---|---|---|
 | 1 | `node --max-old-space-size=6144 ./node_modules/typescript/bin/tsc --noEmit` | 0 errors, re-run after **every** edit including the last |
 | 2 | `npx vitest run` **with** `BEYU_TEST_BASE_URL` (log `/tmp/final-consol.log`) | 361 passed \| **1 failed** \| 4 skipped — the one failure was `tests/search`, see **H.3** |
-| 3 | the same, after the search fix (log `/tmp/final-consol2.log`) | **362 passed \| 4 skipped (366 files); 5,976 passed \| 12 skipped \| 31 todo (6,019); `EXIT=0`** |
-| 4 | `npx vitest run tests/mcm tests/noelia` | 42 files / 437 tests green (this is the re-run **after** the last source edit) |
+| 3 | the same, after the search fix (log `/tmp/final-consol2.log`, 20:39:22 → 21:08:52, 1,770 s) | **362 passed \| 4 skipped (366 files); 5,976 passed \| 12 skipped \| 31 todo (6,019); `EXIT=0`** |
+| 4 | `npx vitest run tests/noelia tests/mcm` | 42 files / 437 tests green — the re-run **after** the last source edit |
 | 5 | `npx vitest run tests/mcm/consolidation-core.test.ts tests/mcm/consolidation.test.ts` | 44 tests, 0.4 s, no database |
 | 6 | `npx vitest run tests/search` twice in a row | 19/19 then 19/19 — the accumulation fix is idempotent |
 | 7 | `npm run build` (logs `/tmp/build-consol2.log`, `/tmp/build-consol3.log`) | `BUILD_EXIT=0` twice; 171+ pages, `/api/v1/mcm/consolidation` present as a dynamic route |
@@ -338,6 +339,8 @@ last change came after the long run:
 | 9 | `npm run lint` | 0 errors; 1 pre-existing `<img>` warning in `src/components/noelia-cross-os-visual.tsx`, untouched |
 | 10 | `npm run verify:scg` | 4 checks, 0 blocking, 0 advisory |
 | 11 | `npm run migrate` | applied set unchanged, `fingerprintBefore == fingerprintAfter` (`b8a442c7d9…`) |
+| 12 | `npx tsx scripts/audit-runtime-privileges.ts` | `ok: true`, `failures: []` over **1,936** checks / 484 tables, role `beyu_runtime` — unchanged by this work, which added no grant |
+| 13 | the same `npx vitest run` again, **after** commit `a8a3a44` (log `/tmp/final-consol3.log`, 21:21:04 → 21:50:43) | **362 passed \| 4 skipped (366 files); 5,976 passed \| 12 skipped \| 31 todo (6,019); `EXIT=0`** — the committed tree, end to end |
 
 Three honest notes on that table.
 
@@ -501,9 +504,27 @@ residual `−2 300 000`, NCI `3 150 000`. When a governed FX rate authority and 
 accounts exist, the missing end-to-end proof is one fixture away — and it will need a
 chart seeder, since `ledger_accounts` currently holds zero rows.
 
+**What the read surface deliberately did not get.** `src/app/os/mcm/page.tsx` renders
+each run as recorded — period, state, entities included, the residual as a `Figure`
+carrying the run's own `dataState`, and whether a second human has reviewed it — and its
+empty state already says a run needs a preparer and an independent reviewer and is never a
+posting. None of that became false when the engine landed, so nothing was changed: the run
+rows now simply appear. The four limitations are returned by the API and the audit entry,
+where the code that produces them can be pointed at; repeating them as hardcoded panel
+prose would be a second source of truth for a statement the engine already owns. The
+absence of in-product MCM **forms** is unchanged and still recorded in §M.
+
 **Fixture discipline.** `tests/mcm/consolidation.test.ts` inserts only deletable,
 token-keyed rows (`legal_entity_profiles`, one `financial_periods` per member in a
 far-future year derived from the token, and one synthetic reviewer) and removes them in
 both `beforeAll` and `afterAll`; it invents no group structure — the 70% / 100% /
-none-at-all percentages it asserts are the seeded registry's. It writes no journal row,
-which is why the finance suites' global `count(*) = 0` assertions stay green.
+none-at-all percentages it asserts are the seeded registry's, re-read from the database
+at the start of the run so a seed change fails with a named error instead of quietly
+asserting something else. It writes no journal row — no rollback needed, because nothing
+it creates is append-only — which is why the four finance suites' global `count(*) = 0`
+assertions stay green while this file runs. Two constraints it had to satisfy rather than
+dodge: `legal_entity_profiles_pending_note_check` (a `PENDING_VERIFICATION` profile must
+carry a note, so the fixture writes the truth — "no verification evidence exists"), and
+`consolidation_runs` tenant scoping (the reviewer must sit in the tenant that OWNS the
+run row, which is why the fixture user's `primary_tenant_id` is the preparer's tenant and
+not a member's).

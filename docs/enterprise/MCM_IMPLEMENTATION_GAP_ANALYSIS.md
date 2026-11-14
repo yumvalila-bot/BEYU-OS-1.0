@@ -191,10 +191,14 @@ every preparation response and recorded verbatim in the audit entry, and deliber
 
 **Status:** engine DELIVERED — `tests/mcm/consolidation-core.test.ts` (30 tests, pure
 arithmetic, no DB) and `tests/mcm/consolidation.test.ts` (14 tests: adapter, governed
-write, four-eyes review, audit and event rows against real Postgres, with every fixture
-token-keyed and removed so no ledger row is left anywhere); the transport boundary is
-asserted over HTTP in `tests/api/mcm-consolidation-http.test.ts` (8 tests, run against
-the built server, including the rate-limiter cooldown the suite respects).
+write, four-eyes review, audit and event rows against real Postgres). Nothing is
+"rolled back" in the second file and nothing needs to be: its fixtures are token-keyed
+`legal_entity_profiles`, `financial_periods` and one synthetic reviewer, removed before
+and after, and it writes **no ledger row at all**, which is why the finance suites' global
+`count(*) = 0` assertions stay green. The transport boundary is asserted over HTTP in
+`tests/api/mcm-consolidation-http.test.ts` (8 tests against the built server); it makes
+one preparing POST per case rather than a loop, because `mcm:consolidation.prepare` is
+limited to 6 per minute and hammering it would test the limiter instead of the contract.
 A member's ledger is read only when the preparer ALSO holds `finance:ledger.read`, and
 one test proves that by stripping the permission from a real seeded principal.
 The four limits above are NOT BUILT — the first two by scope, `POSTING` by a locked

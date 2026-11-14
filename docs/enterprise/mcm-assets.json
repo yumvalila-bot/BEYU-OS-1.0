@@ -3,7 +3,7 @@
   "generatedFor": "MULTI_COMPANY_MANAGEMENT",
   "generatedAt": "2026-11-13",
   "baselineCommit": "dc8f848226ed8860ef293f817fe10394360abb1d",
-  "verificationMethod": "Every entry was confirmed against the declared schema module AND against the live migrated database (information_schema / pg_policies / pg_trigger). Entries whose behaviour was not exercised end-to-end are marked classification REUSED_UNVERIFIED rather than COMPLETE.",
+  "verificationMethod": "Every entry was confirmed against the declared schema module AND against the live migrated database (information_schema / pg_policies / pg_trigger). Entries whose behaviour was not exercised end-to-end are marked classification REUSED_UNVERIFIED rather than COMPLETE. Re-verified 2026-11-13 against the same live database after the consolidation engine landed; the two entries whose state changed (the consolidation records and the computation engine) name their tests.",
   "dispositions": {
     "COMPLETE": "Exists, is exercised by MCM read or write paths, and satisfies the mission requirement without further work.",
     "EXTENDED": "Existed before MCM; this work added columns, policy, constraints or a service path.",
@@ -160,15 +160,23 @@
           "asset": "consolidation_runs / consolidation_entities / consolidation_adjustments",
           "source": "src/db/schema/mcm.ts",
           "disposition": "MISSING_IMPLEMENTED",
-          "change": "New in 0076. Reviewer != preparer by CHECK; a REVIEWED run cannot be revised back to DRAFT; an applied adjustment is frozen.",
-          "environment": "database"
+          "change": "New in 0076. Reviewer != preparer by CHECK; a REVIEWED run cannot be revised back to `DRAFT`; an applied adjustment is frozen; `UNAVAILABLE` requires a reason; a translated figure requires its local amounts and closing rate. They were write-free until this branch: `prepareConsolidationRun` now writes run + one row per candidate entity (included or excluded, each with its reason) + `applied = false` proposals in ONE `withAuditTransaction` with its audit row and enterprise event, and `reviewConsolidationRun` records the second human. The single transaction is load-bearing, not stylistic: migration 0077 gave `consolidation_entities` and `consolidation_adjustments` `USING false` DELETE policies, so a run left half-written by a crash could never be cleaned up by the application role.",
+          "environment": "database",
+          "tests": [
+            "tests/mcm/consolidation.test.ts (governed write, exclusions, audit + event, four-eyes, the review CHECK enforced at the database)"
+          ]
         },
         {
           "asset": "consolidation computation engine",
-          "source": "n/a",
-          "disposition": "MISSING_DEFERRED",
-          "change": "The run/entity/adjustment records and their controls exist; the translation and elimination ENGINE that would populate totals from Finance OS balances is not implemented. No consolidated total is therefore ever fabricated — consolidation_runs totals stay null and render as UNAVAILABLE. This is the largest honest gap in the delivery.",
-          "environment": "none"
+          "source": "src/lib/mcm/consolidation-core.ts + src/lib/mcm/consolidation.ts",
+          "disposition": "MISSING_IMPLEMENTED",
+          "change": "Delivered on this branch in code rather than by migration, so the totals are computed rather than hand-inserted: each member's Finance OS trial balance is restated into its functional currency and translated into the reporting currency (per-currency minor-unit exponents, CLOSING for balance-sheet lines, AVERAGE for income, income at CLOSING with an ESTIMATED flag when no AVERAGE rate exists), the non-controlling interest is the complement of the registry's effective-dated percentage applied to equity including the computed translation difference, and one INTERCOMPANY_ELIMINATION proposal is written per intra-group balance that is BOTH_SIDES_AUTHORIZED or RECONCILED with a nil difference and both legs in the run. Nothing is fabricated when an input is absent: no trial balance excludes the member (TRIAL_BALANCE) rather than consolidating nil, no governed rate excludes it (FX_RATE), sub-minor precision is refused rather than rounded, contradictory or impossible ownership excludes it rather than being capped, and a run nothing could translate is written COLLECTING with NULL totals. The ledger is read only when the preparer separately holds finance:ledger.read. Still deferred, and stated as `CONSOLIDATION_LIMITATIONS` in every response: parent-investment-against-equity elimination (INVESTMENT_ELIMINATION), intra-group unrealised profit (UNREALISED_PROFIT), posting any of it to Finance OS (POSTING, CAP_POSTING LOCKED) and a governed route to record an FX rate (RATE_INTAKE).",
+          "environment": "application",
+          "tests": [
+            "tests/mcm/consolidation-core.test.ts (30 tests, pure arithmetic, no DB)",
+            "tests/mcm/consolidation.test.ts (14 tests, adapter + governed write + four-eyes against real Postgres)",
+            "tests/api/mcm-consolidation-http.test.ts (8 tests, transport boundary against the built server)"
+          ]
         },
         {
           "asset": "mcm_capital_allocations",
