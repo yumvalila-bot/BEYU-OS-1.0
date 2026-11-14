@@ -1,16 +1,22 @@
 # MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–N)
 
 Branch `arena/2aef83f7-beyu-os-1-0`, branched from `dc8f848226ed8860ef293f817fe10394360abb1d`
-of `main`. Date 2026-11-13. **16 commits, 84 files, +107,058 / −71** at head `be6b65e`, counted
+of `main`. Date 2026-11-13. **17 commits, 84 files, +107,062 / −71** at head `c0e6487`, counted
 with `git log --oneline dc8f848..HEAD | wc -l` and `git diff --shortstat dc8f848 HEAD` rather
-than recalled — and re-counted for **N**, because the first version of this paragraph said "12
+than recalled — and re-counted twice now, because the first version of this paragraph said "12
 commits, 79 files" and the two consolidation commits made that stale while it was still claiming
-to be counted. A headline number in a document about honesty gets re-derived or deleted.
-91,511 of the added lines are the `drizzle/meta/0076_snapshot.json` the integrity gate
-requires (see **C** and **L** for why a snapshot belongs in the diff at all), so the hand-written
-change is about 15,500 lines across 84 files — still worth stating as a number rather than
-leaving the raw figure to impress or alarm a reader. Sections **A**–**M** describe the work up to
-`9494255` (14 commits); **§N** is the fifteenth and sixteenth.
+to be counted. A headline number in a document about honesty gets re-derived or deleted; `be6b65e`
+was the count, then the recount commit made *its own* number the stale one, which is the point of
+writing the command next to the figure. 91,511 of the added lines are the
+`drizzle/meta/0076_snapshot.json` the integrity gate requires (see **C** and **L** for why a
+snapshot belongs in the diff at all), so the hand-written change is about 15,500 lines across 84
+files — still worth stating as a number rather than leaving the raw figure to impress or alarm a
+reader. Sections **A**–**M** describe the work up to `9494255` (14 commits); **§N** is the
+fifteenth and sixteenth, **§A**'s own recount is the seventeenth, and **H.4**, **L.2** rows 14–16
+and the CI paragraph of **M** are the eighteenth. That commit's totals are deliberately *not*
+quoted here: a paragraph cannot count the commit that carries it.
+`git diff --shortstat dc8f848 HEAD` gives them in one line, and this paragraph states the rule
+rather than pretending to be current.
 
 This report is written so a reviewer can *check* each claim, not so they can admire it. Every
 number came from a command in this environment; commands are given.
@@ -199,6 +205,57 @@ correct fix. **The lesson generalises:** any suite that asserts `toContain(own f
 against an unscoped first page is a timer, and this repository has the same shape in
 `knowledge_sources`-adjacent suites. Worth an audit pass by whoever owns search.
 
+### H.4 A routing trigger that stole another engine's question — the one thing CI caught and local runs could not
+
+After the committed tree had passed 362 files locally, CI's `Root BEYU OS — PostgreSQL security
+gate` failed exactly one assertion, `tests/noelia/runtime-governed-model.test.ts:117` —
+`expected 'REQUIRES_HUMAN_REVIEW' to be 'UNCERTAINTY'`.
+
+That test is about a governance control, not about MCM. It activates the `CAPABILITY` kill switch
+for `finance-intelligence`, asks *"What is the consolidated cash position?"*, and expects the
+request to fail closed **before any model runs**: `outputClass: "UNCERTAINTY"`, headline matching
+`/blocked/i`, `toolsUsed: []`, `modelExecutionStatus: "DENIED"`. The kill switch is matched on the
+**capability of the routed engine** (`src/lib/noelia/ai-platform.ts`: `targetRef === request.capability`),
+and the engine comes from a regex in `routeEngine()`. This branch widened that regex, adding
+`consolidat` as MCM vocabulary — so the question routed to `MULTI_COMPANY`, whose capability is
+`multi-company-intelligence`. The suspended capability was never requested, so there was nothing
+to suspend: routing completed, every MCM tool was denied to that principal, and `completelyDenied`
+produced `REQUIRES_HUMAN_REVIEW`. The test was right. The routing was wrong.
+
+Why the local suite missed it, stated precisely because it is the uncomfortable part: locally the
+same call *does* fail closed, for an unrelated reason — in this long-lived database the
+`multi-company-intelligence` capability has no approved model route, and `ask()` consults
+`routeAndExecuteModel()` before the tool loop, so **any** route denial yields the same
+`UNCERTAINTY`. A green run here was therefore not evidence about the assertion CI was making.
+CI's freshly migrated and seeded database does have an approved route, and said so.
+
+This is a defect rather than a preference because the trigger's own comment in this branch says a
+payroll or cash question must stay with `WORKFORCE` and `FINANCIAL`, "because stealing another
+engine's question is a routing defect even when the answer happens to be harmless". Bare
+"company" and "group" were held to that; `consolidat` is the one MCM word that is also treasury
+vocabulary, and it was admitted unqualified.
+
+Fix, in `src/lib/noelia/runtime.ts`: `consolidat` was split out of the group-vocabulary alternation
+and qualified — it claims the question only when the question is not about cash, treasury or
+liquidity. Two constraints on that guard, both deliberate:
+
+* the deflecting vocabulary is a **strict subset** of `FINANCIAL`'s own trigger further down the
+  function, so a deflected question cannot fall through unowned into `KNOWLEDGE`;
+* only those three words deflect. `consolidated financial statements`, `consolidated trial
+  balance` and `consolidated group position` stay with MCM; `consolidated cash position`,
+  `consolidated treasury balances` and `consolidated liquidity runway` go back to FINANCIAL.
+
+Pinned both ways in `tests/mcm/noelia-tools.test.ts`, in the block that already held the negative
+cases — which is the honest indictment: that block asserted `"What is our cash position?"` stays
+with FINANCIAL and never asked the phrasing that broke. The red pin was written first and observed
+failing (`expected 'MULTI_COMPANY' to be 'FINANCIAL'`) before `routeEngine()` was touched.
+
+What is *not* claimed: that the fix was demonstrated against the failing test in this environment.
+It cannot be — that test passes here on both trees, as above. What can be shown here is the
+mechanism, and it was: `routeEngine("What is the consolidated cash position?")` returned
+`MULTI_COMPANY` before the change and `FINANCIAL` after. CI, where the failure reproduces, is the
+authoritative gate for the outcome, and the CI numbers behind all of this are in **M**.
+
 ## I. NOELIA read-only MCM intelligence
 
 `src/lib/noelia/mcm-tools.ts` — ten tools in the ONE canonical registry:
@@ -345,6 +402,10 @@ last change came after the long run:
 | 11 | `npm run migrate` | applied set unchanged, `fingerprintBefore == fingerprintAfter` (`b8a442c7d9…`) |
 | 12 | `npx tsx scripts/audit-runtime-privileges.ts` | `ok: true`, `failures: []` over **1,936** checks / 484 tables, role `beyu_runtime` — unchanged by this work, which added no grant |
 | 13 | the same `npx vitest run` again, **after** commit `a8a3a44` (log `/tmp/final-consol3.log`, 21:21:04 → 21:50:43) | **362 passed \| 4 skipped (366 files); 5,976 passed \| 12 skipped \| 31 todo (6,019); `EXIT=0`** — the committed tree, end to end |
+| 14 | `npx vitest run tests/mcm/noelia-tools.test.ts -t "routes a real question"` **before** touching `routeEngine()` | red as intended: `What is the consolidated cash position?: expected 'MULTI_COMPANY' to be 'FINANCIAL'` — the pin was written first and observed failing (**H.4**) |
+| 15 | `npx vitest run tests/mcm/noelia-tools.test.ts tests/noelia/runtime.test.ts tests/noelia/runtime-governed-model.test.ts` **after** the fix | 3 files / 30 tests green, including the kill-switch test that CI had failed |
+| 16 | `tsc --noEmit`; `eslint` on both changed files; `npx vitest run` on the whole tree (log `/tmp/routing-fix-suite.log`, 06:46:18 → 07:14:40, 1,701 s) | `TSC_EXIT=0`, `LINT_EXIT=0`; **357 passed \| 9 skipped (366 files); 5,913 passed \| 75 skipped \| 31 todo; `SUITE_EXIT=0`** |
+| 17 | the 5 files row 16 skipped for want of a server, plus both Noelia HTTP files, with `BEYU_TEST_BASE_URL` set: `npx vitest run tests/registry/registry-http.test.ts tests/tenant-domain/tenant-domain-http.test.ts tests/sector-domains/destination-signin-http.test.ts tests/sector-domains/canonical-host-http.test.ts tests/admin/admin-http.test.ts tests/noelia/http.test.ts tests/noelia/http-coverage.test.ts` | **68 passed \| 1 skipped (69)** — so rows 16 + 17 together cover the same 362 files as run 13 |
 
 Three honest notes on that table.
 
@@ -360,6 +421,17 @@ Three honest notes on that table.
   preparations a minute per principal, and that limiter is a control, not an obstacle: a
   suite that retried through 429s would be asserting nothing. The cooldown belongs to the
   caller — `scripts/verify.mjs` exists for the same reason.
+
+And a fourth, because runs 16 and 17 differ from run 13 in a way that must not look like an
+improvement or a regression: row 16 skipped **9** files where row 13 skipped **4**. The five extra
+ones are the HTTP suites that require `BEYU_TEST_BASE_URL`, which the shell in run 16 did not export
+— not new skips, not a server that died, and not something this commit caused; row 17 exists to make
+that difference cost nothing. The predicate is `describe.skipIf`, so the failure mode is silence,
+which is why the count is diffed against the previous run rather than admired. Row 17 also carries
+a caveat of its own: the server answering it was built at 21:17 (`.next/BUILD_ID`), before this
+commit, so it verifies the routes this commit does not touch and cannot be read as testing the
+changed regex over HTTP — that is covered in-process by row 15, and authoritatively by CI, which
+rebuilds before running the same regression.
 
 ## M. Not built, still open, and the merge line
 
@@ -379,8 +451,41 @@ here: it is a design decision belonging to whoever owns that alerting, not a bug
 
 Open after re-verification: concurrent MFA/lockout proof; nullable `audit_log.trace_id`; two
 direct production advisories (`next` critical, `zod` high — both fixes are breaking majors and were
-**not** applied); clean-install/upgrade parity; no `policy_provenance` table; which of the 77
-RLS-less tables need policy; whether permission drift should fail a deploy.
+**not** applied; the `next` one is reproduced against CI in the paragraph below); clean-install/upgrade
+parity; no `policy_provenance` table; which of the 77 RLS-less tables need policy; whether
+permission drift should fail a deploy.
+
+**CI state of PR #122, and what each red gate means.** The PR opened at `c0e6487`; `gh pr checks 122`
+returned 7 pass, **2 fail**, 8 skip (the `Production*` gates skip for want of secrets on a non-main
+branch, Vercel deployed, migration validation and the secret scan passed on a scratch PostgreSQL 16).
+Neither red gate is treated as noise:
+
+* `Root BEYU OS — PostgreSQL security gate` failed on one assertion and it is this branch's doing —
+  see **H.4**. The commit that adds this paragraph fixes it; the CI re-run is the verification.
+* `Production dependency audit (critical only) (root-beyu-os, ., package-lock.json)` is **not** this
+  branch: no `package.json` or `package-lock.json` is touched (`git diff --stat dc8f848 HEAD --
+  '**/package.json' '**/package-lock.json'` prints nothing), and `main`'s own last run `42598391613`
+  fails the *same two jobs*. Reproduced here on this tree: `npm audit --omit=dev --audit-level=critical`
+  → `2 vulnerabilities (1 high, 1 critical)`. The critical set is three advisories published
+  2026-10-22 against `next` — GHSA-2464-fhr4-w9xw (unauthenticated RCE in Image Optimization when
+  SVG files are used), GHSA-673q-mjm6-r5xr (unauthenticated RCE in `use cache` returning typed
+  arrays), GHSA-p3m5-59mp-jv5r (DoS in App Router server actions, high) — patched in `16.4.1`,
+  while this repository pins `"next": "16.3.8"`.
+
+That second bullet deserves the blunt version: **a production unauthenticated-RCE advisory is
+sitting on a dependency this codebase ships, and the gate that would block it has been red on `main`
+since at least 2026-11-06.** It is not fixed here because closing it means a Next minor upgrade with
+its own build, browser and HTTP verification — folding that into a consolidation PR is how upgrades
+get merged unreviewed. It belongs in its own change, and merging this one neither adds nor removes
+the exposure.
+
+One more thing a reader should not have to discover: `main`'s PostgreSQL gate is red too, on
+*different* assertions — `tests/sector-domains/login-surface-reference.test.ts:161` (contrast ratio
+`4.60:1`) and `Sign in to the control plane` missing from `destination-signin-http.test.ts` and
+`canonical-host-http.test.ts`. Those are the look-alike-host sign-in surface **G** fixed on this
+branch, so this branch turns them green. The readiness claim below therefore rests on the *delta*
+this branch makes, not on `main`'s absolute state, which is worse.
+
 
 **Verified state.** After both test fixes, `npx vitest run` against the live production build
 finished **359 files / 5,924 tests passed, 0 failed, `EXIT=0`**, with only the 4 environment-gated

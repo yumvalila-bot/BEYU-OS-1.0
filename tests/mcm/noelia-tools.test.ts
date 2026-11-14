@@ -245,6 +245,30 @@ describe("MCM tool boundary (an answer is never wider than the caller)", () => {
       expect(routeEngine(question), question).not.toBe("MULTI_COMPANY");
     }
     expect(routeEngine("Which risks exceed appetite?")).not.toBe("MULTI_COMPANY");
+
+    // "consolidated" is MCM vocabulary, but a question about the group's *cash*
+    // is a treasury question. This exact phrasing was caught in CI: the bare
+    // `/consolidat/` trigger routed it away from FINANCIAL, so a governance test
+    // that suspends the `finance-intelligence` capability no longer saw the
+    // suspension — the kill switch fired on a capability the question never used.
+    // The guard is narrow (cash/treasury/liquidity only), so a question about
+    // consolidated *statements* or a consolidated *trial balance* still belongs
+    // to MCM.
+    for (const question of [
+      "What is the consolidated cash position?",
+      "Are the consolidated treasury balances reconciled?",
+      "Show the consolidated liquidity runway.",
+    ]) {
+      expect(routeEngine(question), question).toBe("FINANCIAL");
+    }
+    for (const question of [
+      "Are the consolidated financial statements ready?",
+      "Is the consolidated trial balance complete for 2026-06?",
+      "What is the consolidated group position for FY2026?",
+    ]) {
+      expect(routeEngine(question), question).toBe("MULTI_COMPANY");
+    }
+
     for (const name of ENGINE_TOOLS.MULTI_COMPANY) expect(registry.definition(name)).not.toBeNull();
 
     const cfo = await seededPrincipal("cfo@beyu.os");

@@ -80,12 +80,19 @@ export function routeEngine(question: string): NoeliaEngine {
   // with WORKFORCE and FINANCIAL, because stealing another engine's question is
   // a routing defect even when the answer happens to be harmless. The pinned
   // negative cases in tests/mcm/noelia-tools.test.ts hold this line.
-  if (
-    /subsidiar|parent entit|ultimate parent|corporate (hierarchy|register|structure)|entity structure|group structure|group portfolio|multi-company|multicompany|consolidat|intercompany|legal entit|jurisdiction coverage|registered entit|how many compan|list (the |our |my )?compan|companies (are )?(in scope|visible|we see|you see)|our (group )?(companies|portfolio)/.test(
-      value,
-    )
-  )
-    return "MULTI_COMPANY";
+  //
+  // "consolidat" is the one trigger whose vocabulary another domain shares, so it
+  // is qualified: asking for the group's CASH, TREASURY or LIQUIDITY is a treasury
+  // question that MCM has no tool to answer, and it must stay with FINANCIAL. Only
+  // those three words deflect — a question about consolidated *statements* or a
+  // consolidated *trial balance* is MCM's. The deflection vocabulary is a strict
+  // subset of FINANCIAL's own trigger below, so a deflected question can never
+  // fall through to KNOWLEDGE unowned.
+  const groupVocabulary =
+    /subsidiar|parent entit|ultimate parent|corporate (hierarchy|register|structure)|entity structure|group structure|group portfolio|multi-company|multicompany|intercompany|legal entit|jurisdiction coverage|registered entit|how many compan|list (the |our |my )?compan|companies (are )?(in scope|visible|we see|you see)|our (group )?(companies|portfolio)/;
+  const treasuryVocabulary = /cash|treasury|liquidity/;
+  const consolidationIntent = /consolidat/.test(value) && !treasuryVocabulary.test(value);
+  if (groupVocabulary.test(value) || consolidationIntent) return "MULTI_COMPANY";
   if (/risk|threat|exposure|incident/.test(value)) return "RISK";
   if (/complian|regulat|gdpr|obligation|audit finding/.test(value)) return "COMPLIANCE";
   if (/resolution|board|governance|approval|policy/.test(value)) return "GOVERNANCE";
