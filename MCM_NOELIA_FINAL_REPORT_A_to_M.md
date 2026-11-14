@@ -1,12 +1,16 @@
 # MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–N)
 
 Branch `arena/2aef83f7-beyu-os-1-0`, branched from `dc8f848226ed8860ef293f817fe10394360abb1d`
-of `main`. Date 2026-11-13. **12 commits, 79 files, +103,784 / −63**, counted with
-`git log --oneline dc8f848..HEAD | wc -l` and `git diff --shortstat dc8f848 HEAD` rather than
-recalled. 91,511 of those added lines are the `drizzle/meta/0076_snapshot.json` the integrity gate
+of `main`. Date 2026-11-13. **16 commits, 84 files, +107,058 / −71** at head `be6b65e`, counted
+with `git log --oneline dc8f848..HEAD | wc -l` and `git diff --shortstat dc8f848 HEAD` rather
+than recalled — and re-counted for **N**, because the first version of this paragraph said "12
+commits, 79 files" and the two consolidation commits made that stale while it was still claiming
+to be counted. A headline number in a document about honesty gets re-derived or deleted.
+91,511 of the added lines are the `drizzle/meta/0076_snapshot.json` the integrity gate
 requires (see **C** and **L** for why a snapshot belongs in the diff at all), so the hand-written
-change is roughly 12,000 lines — still worth stating as a number rather than leaving the raw
-figure to impress or alarm a reader.
+change is about 15,500 lines across 84 files — still worth stating as a number rather than
+leaving the raw figure to impress or alarm a reader. Sections **A**–**M** describe the work up to
+`9494255` (14 commits); **§N** is the fifteenth and sixteenth.
 
 This report is written so a reviewer can *check* each claim, not so they can admire it. Every
 number came from a command in this environment; commands are given.
