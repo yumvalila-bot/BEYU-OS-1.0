@@ -393,8 +393,8 @@ describe("E. the running server", () => {
     "serves the SAME canonical login page on all eight hosts, with the host's own context",
     async () => {
       for (const [host, destination] of Object.entries(EXPECTED_CONTRACT)) {
-        // `/` is the canonical public homepage; the ONE login experience lives
-        // at `/sign-in` on every host. Same resolver, same shared form.
+        // The ONE login experience lives at `/sign-in` on every host (on the apex,
+        // `/` is the public homepage). Same resolver, same shared form.
         const reply = await get(host, "/sign-in");
         expect(reply.status, host).toBe(200);
         const body = text(reply.body);
@@ -434,14 +434,20 @@ describe("E. the running server", () => {
         { "x-host": "health.beyu.co.tz" },
       ];
       for (const spoof of spoofs) {
+        // The destination comes from the Host header ALONE. A spoofed forwarding
+        // header cannot turn the apex sign-in into Health OS, and it cannot turn
+        // the apex homepage into a destination frontend either.
         const onApex = text((await get("beyu.co.tz", "/sign-in", spoof)).body);
+        const apexHome = text((await get("beyu.co.tz", "/", spoof)).body);
+        expect(apexHome, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
         expect(onApex, JSON.stringify(spoof)).toContain("Sign in to the control plane");
         expect(onApex, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
       }
       // …and a spoofed header cannot turn an unknown host into a destination either.
-      const unknown = text((await get("billing.beyu.co.tz", "/sign-in", { "x-forwarded-host": "finance.beyu.co.tz" })).body);
+      const unknown = text((await get("billing.beyu.co.tz", "/", { "x-forwarded-host": "finance.beyu.co.tz" })).body);
       expect(unknown).toContain("Sign in to the control plane");
       expect(unknown).not.toContain("Sign in to Finance OS");
+      expect(unknown).not.toContain("Sign in to Health OS");
     },
     120_000,
   );
@@ -462,7 +468,21 @@ describe("E. the running server", () => {
         const body = text(reply.body);
         expect(body, host).not.toContain("Sign in to Health OS");
         expect(body, host).not.toContain("Sign in to Finance OS");
-        expect(body, host).not.toMatch(/id="beyu-destination-signin-title"/);
+        // No Sector OS or surface frontend is selected: every destination's own
+        // copy, headline and registry code is absent, and the control-plane line
+        // is what the visitor is actually served. The sign-in itself (and its
+        // shared ids) DOES render — it is the entry point on every host, so an id
+        // can never be the marker that distinguishes a selected destination.
+        expect(body, host).toContain("Sign in to the control plane");
+        for (const destination of Object.values(EXPECTED_CONTRACT)) {
+          if (destination === "HOME") continue;
+          expect(body, `${host} must not select ${destination}`).not.toContain(
+            `Sign in to ${destinationCatalogueEntry(destination).name} — governed by BEYU OS`,
+          );
+          expect(body, `${host} must not select ${destination}`).not.toContain(
+            destinationCatalogueEntry(destination).registryCode,
+          );
+        }
       }
     },
     120_000,

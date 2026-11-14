@@ -328,9 +328,12 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The canonical head is the tax return-drafts migration from PR #117; the
-    // next migration must move this pin deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0077_tax_return_drafts");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its three
+    // forward fixes (0077-0079) to the tax migrations 0080-0081. The assertion's
+    // purpose is intact: the head is named explicitly, so any new migration must
+    // update this test deliberately, and the directory check below still proves no
+    // host/subdomain migration exists.
+    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 
@@ -338,19 +341,26 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
     const env = source(".env.example");
     expect(env).toContain("BEYU_CANONICAL_DOMAIN");
     expect(env).toContain("BEYU_SESSION_COOKIE_DOMAIN");
-    // Only COMMITTED env files matter: a local, git-ignored `.env` is the
-    // documented bootstrap source for a developer machine and for CI, which
-    // writes one before running the suites. What must never be committed is an
-    // env file tracked by git.
-    const tracked = (name: string) => {
-      try {
-        execFileSync("git", ["ls-files", "--error-unmatch", name], { cwd: ROOT, stdio: "ignore" });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    expect(tracked(".env"), ".env must not be committed").toBe(false);
-    expect(tracked(".env.production"), ".env.production must not be committed").toBe(false);
+
+    // A local `.env` legitimately exists in a developer worktree — it is
+    // gitignored, and asserting its ABSENCE conflated "no committed secrets" with
+    // "nobody may have a local environment file". The contract that matters is
+    // that no environment file is tracked by Git, and that the example carries no
+    // real values.
+    // `git check-ignore` succeeds only when .env is ignored; `.env.production` must
+    // not exist at all.
+    let ignored = false;
+    try {
+      execFileSync("git", ["check-ignore", "-q", ".env"], {
+        cwd: ROOT,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+      ignored = true;
+    } catch {
+      ignored = false;
+    }
+    // If a .env exists it MUST be ignored; if it does not exist the clause is moot.
+    if (existsSync(path.join(ROOT, ".env"))) expect(ignored).toBe(true);
+    expect(existsSync(path.join(ROOT, ".env.production"))).toBe(false);
   });
 });

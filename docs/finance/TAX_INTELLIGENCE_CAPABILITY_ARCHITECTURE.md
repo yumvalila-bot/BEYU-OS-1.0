@@ -12,7 +12,7 @@ The implementation reuses:
 - existing audit/event and NOELIA retrieval controls;
 - `src/lib/specialist/tax-intelligence.ts` as the tax specialist boundary.
 
-The additive migration `0076_tax_legal_authority_metadata.sql` extends `knowledge_sources` with legal instrument metadata. It does not create a parallel tax-source table. `original_source_sha256` identifies the acquired source file; `content_digest` continues to identify the normalized text content.
+The additive migration `0080_tax_legal_authority_metadata.sql` extends `knowledge_sources` with legal instrument metadata. It does not create a parallel tax-source table. `original_source_sha256` identifies the acquired source file; `content_digest` continues to identify the normalized text content.
 
 ## Six capabilities
 

@@ -338,7 +338,14 @@ describe("E. sign-in is destination-aware, derived from the host only", () => {
   it("produces the ONE canonical sub-line per destination", () => {
     for (const entry of MATRIX) {
       const destination = destinationForResolution(resolve(entry.host))!;
-      expect(destination.signInSubtitle, entry.host).toBe(`Sign in to ${entry.signIn} — governed by BEYU OS`);
+      // The CORE destination (the apex) carries the control-plane line rather
+      // than "Sign in to BEYU OS — governed by BEYU OS"; every Sector OS and
+      // surface keeps the destination template.
+      const expected =
+        entry.type === "CORE"
+          ? "Sign in to the control plane"
+          : `Sign in to ${entry.signIn} — governed by BEYU OS`;
+      expect(destination.signInSubtitle, entry.host).toBe(expected);
       expect(destinationSignInSubtitle(destination.context), entry.host).toBe(destination.signInSubtitle);
     }
   });
@@ -480,9 +487,12 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The canonical head is the tax return-drafts migration from PR #117; the
-    // next migration must move this pin deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0077_tax_return_drafts");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its forward
+    // fixes (0077-0079) to the tax migrations 0080-0081. What this assertion exists
+    // to protect is that no destination/frontend/host/subdomain migration was added
+    // — the head is named explicitly so a future migration still has to update this
+    // test deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

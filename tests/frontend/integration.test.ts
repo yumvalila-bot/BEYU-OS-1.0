@@ -41,7 +41,7 @@ const REDIRECT_TO_SIGNIN = async (path: string) => {
 describe("Stage 2/4 — route auth boundary (unauthenticated direct URL)", () => {
   it.skipIf(!available)("direct URL to every protected /os route redirects to sign-in when unauthenticated", async () => {
     const routes = [
-      "/os", "/os/registry", "/os/organization-ownership", "/os/identity",
+      "/os", "/os/registry", "/os/organization-ownership", "/os/mcm", "/os/identity",
       "/os/organization", "/os/ownership", "/os/governance", "/os/assurance",
       "/os/hcm", "/os/documents", "/os/audit-events", "/os/registries",
       "/os/family", "/os/noelia", "/os/finance", "/os/agriculture", "/os/foundation",

@@ -241,6 +241,60 @@ export const PERMISSIONS = {
   "organization:business.register": "Register a business / operating unit (org unit) under an existing in-scope legal entity",
   "organization:ownership.read": "Read ownership and beneficial ownership",
   "organization:ownership.manage": "Record ownership changes",
+  //
+  // MULTI_COMPANY_MANAGEMENT (MCM) — ONE capability inside BEYU OS.
+  //
+  // These EXTEND the existing organization/finance/governance keys; they do not
+  // replace them and they create no new authorization model. The split is
+  // deliberate and constitutional:
+  //
+  //   `mcm:company.read`      the group command centre: the directory, the
+  //                           hierarchy, country and sector views, the rollups.
+  //                           It confers NO new row access — every figure it
+  //                           aggregates is gated by that source's EXISTING
+  //                           permission (finance:ledger.read, risk:register.read,
+  //                           hcm:employee.read, organizational reads), exactly as
+  //                           the Executive Control Centre already does. Holding
+  //                           it therefore never widens what a principal may see.
+  //   `*.manage`              governed mutations with a human actor, evidence and
+  //                           audit. None of them posts money, appoints a
+  //                           director, decides a resolution or changes ownership
+  //                           — those remain `finance:ledger.post`,
+  //                           `governance:*`, `organization:ownership.manage`.
+  //   `*.approve`             four-eyes decisions that the DATABASE refuses to the
+  //                           preparer (consolidation review, intercompany side
+  //                           authorisation, capital allocation approval).
+  //
+  // CAP_POSTING remains LOCKED: no MCM key confers posting authority, and the
+  // consolidation engine is an analysis artefact only.
+  "mcm:company.read": "Read the multi-company command centre: entity directory, corporate hierarchy, country and sector views, and permission-filtered group rollups",
+  "mcm:company.manage": "Register and amend MCM company profiles (registered office, statutory identifiers, reporting currency/timezone, consolidation posture)",
+  "mcm:company.lifecycle": "Transition a legal entity's MCM lifecycle (draft, verify, suspend, dormant, dissolve, archive) — evidence and authority reference required",
+  "mcm:relationship.read": "Read non-ownership entity relationships (parentage, management, governance, branch, shared services, agency, franchise)",
+  "mcm:relationship.manage": "Record and end-date non-ownership entity relationships; never used to record ownership",
+  "mcm:ownership.validate": "Validate an ownership record against its legal instrument and the effective ownership totals (analysis only; never mutates the ownership registry)",
+  "mcm:country.read": "Read per-country MCM configuration and the statutory filing register",
+  "mcm:country.manage": "Maintain per-country MCM configuration (jurisdiction, authorities, filing modes, statutory reports)",
+  "mcm:filing.manage": "Record statutory filings and their evidence; marks nothing complete without a human submitter and a filing date",
+  "mcm:intercompany.read": "Read intercompany agreements, transactions and reconciliation runs",
+  "mcm:intercompany.manage": "Raise and maintain intercompany agreements and transactions (creates no ledger entry)",
+  "mcm:intercompany.authorize": "Authorise ONE side of an intercompany transaction. The database forbids the same principal authorising both sides",
+  "mcm:intercompany.reconcile": "Run and record intercompany reconciliation for a period, including recorded differences",
+  "mcm:consolidation.read": "Read consolidation runs, translated entity balances and proposed eliminations (analysis only; never a ledger)",
+  "mcm:consolidation.prepare": "Prepare a consolidation run: collect, translate and propose eliminations for a period",
+  "mcm:consolidation.review": "Review a consolidation run. The database forbids the preparer reviewing their own run",
+  "mcm:capital.read": "Read group capital allocation proposals",
+  "mcm:capital.propose": "Propose a group capital allocation for a cycle",
+  "mcm:capital.approve": "Approve a group capital allocation against a named governance body and resolution",
+  "mcm:procurement.read": "Read the entity-scoped group procurement register",
+  "mcm:procurement.manage": "Maintain the entity-scoped group procurement register (creates no purchase order and no posting)",
+  "mcm:asset.read": "Read the entity-scoped asset and property register",
+  "mcm:asset.manage": "Maintain the entity-scoped asset and property register",
+  "mcm:project.read": "Read the group project and portfolio register",
+  "mcm:project.manage": "Maintain the group project and portfolio register (sector delivery detail stays in its Sector OS)",
+  "mcm:integration.read": "Read declared cross-OS data contracts and integration health",
+  "mcm:integration.verify": "Verify a cross-OS data contract, or record its degradation and reason",
+  "mcm:advisory.read": "Receive permission-aware MCM advisory intelligence from NOELIA (read-only; no autonomous action)",
   // Governance
   "governance:body.read": "Read governance bodies",
   "governance:resolution.read": "Read resolutions",
@@ -593,6 +647,19 @@ export const ADMIN_DELEGATABLE_PERMISSIONS: readonly PermissionCode[] = [
   "organization:tenant.register",
   "organization:tenant.manage",
   "organization:tenant.remove",
+  // MCM administrative capability that a company secretary may legitimately
+  // delegate for a bounded period: maintaining a company profile and recording
+  // statutory filings. Deliberately NOT delegable, for the same reason
+  // identity:delegation.manage is not — these are four-eyes or irreversible
+  // acts whose whole control is that a specific accountable human performs them:
+  //   mcm:company.lifecycle        irreversible (DISSOLVED/ARCHIVED are terminal)
+  //   mcm:relationship.manage      changes the corporate hierarchy
+  //   mcm:intercompany.authorize   the segregation-of-duties side
+  //   mcm:consolidation.review     the four-eyes reviewer side
+  //   mcm:capital.approve          commits group capital against a resolution
+  "mcm:company.manage",
+  "mcm:filing.manage",
+  "mcm:country.manage",
 ] as const;
 
 /** True when the code is inside the closed delegable set (unknown codes fail closed). */
@@ -643,6 +710,17 @@ export const HIGH_RISK_PERMISSIONS: PermissionCode[] = [
   // changes what BEYU will trust as evidence/execution input. Step-up required.
   "blockchain:manage",
   "governance:policy.manage",
+  // MCM — consequential financial acts. Authorising one side of an intercompany
+  // transaction creates a claim between two legal entities; reviewing a
+  // consolidation run makes a group figure reviewable as a whole; approving a
+  // group capital allocation commits capital policy. All three carry MFA
+  // step-up, and none of them posts anything (CAP_POSTING stays LOCKED).
+  "mcm:intercompany.authorize",
+  "mcm:consolidation.review",
+  "mcm:capital.approve",
+  // Dissolving or archiving a legal entity is the irreversible end of a
+  // corporate lifecycle. Same footing as tenant removal.
+  "mcm:company.lifecycle",
   "government:submission.manage",
   // Federation production activation/revocation is a material external act on
   // the same footing as a government submission: it changes whether BEYU can
@@ -1015,6 +1093,43 @@ export const ROLES: Record<
       "contracts:manage",
       "blockchain:read",
 
+      // MULTI_COMPANY_MANAGEMENT (MCM). The enterprise executive sees the whole
+      // group: directory, hierarchy, country and sector views, ownership
+      // validation, intercompany, consolidation, capital, and the enterprise
+      // module registers. Every aggregated figure is still gated by its source's
+      // own permission, so this grant widens no row access.
+      //
+      // Deliberately NOT granted to the CEO:
+      //   mcm:consolidation.review — four-eyes. The reviewer must not be the
+      //     preparer, and concentration of that power in one seat defeats the
+      //     control the database enforces.
+      //   mcm:intercompany.authorize — a single seat must not be able to
+      //     authorise both sides of a related-party transaction.
+      "mcm:company.read",
+      "mcm:company.manage",
+      "mcm:company.lifecycle",
+      "mcm:relationship.read",
+      "mcm:relationship.manage",
+      "mcm:ownership.validate",
+      "mcm:country.read",
+      "mcm:country.manage",
+      "mcm:filing.manage",
+      "mcm:intercompany.read",
+      "mcm:intercompany.manage",
+      "mcm:intercompany.reconcile",
+      "mcm:consolidation.read",
+      "mcm:consolidation.prepare",
+      "mcm:capital.read",
+      "mcm:capital.propose",
+      "mcm:procurement.read",
+      "mcm:procurement.manage",
+      "mcm:asset.read",
+      "mcm:asset.manage",
+      "mcm:project.read",
+      "mcm:project.manage",
+      "mcm:integration.read",
+      "mcm:advisory.read",
+
       // Universal Dimensional Graphics (shared capability): enterprise-wide governed
       // visualization read + audited export. Sector data access still requires the
       // sector's own read boundary per scene.
@@ -1174,6 +1289,42 @@ export const ROLES: Record<
       "blockchain:read",
       "blockchain:manage",
 
+      // MULTI_COMPANY_MANAGEMENT (MCM) — the CFO is the group financial
+      // oversight authority: consolidation (prepare AND four-eyes review),
+      // intercompany (raise, authorise ONE side, reconcile), FX-translated group
+      // reporting and capital allocation. Corporate-secretarial lifecycle and
+      // country configuration stay with the governance/company-secretary seats.
+      //
+      // None of these posts: CAP_POSTING remains LOCKED and a consolidation run
+      // is an analysis artefact a human reviews, never a journal.
+      "mcm:company.read",
+      "mcm:company.manage",
+      "mcm:relationship.read",
+      "mcm:ownership.validate",
+      "mcm:country.read",
+      "mcm:filing.manage",
+      "mcm:intercompany.read",
+      "mcm:intercompany.manage",
+      "mcm:intercompany.authorize",
+      "mcm:intercompany.reconcile",
+      "mcm:consolidation.read",
+      "mcm:consolidation.prepare",
+      "mcm:consolidation.review",
+      "mcm:capital.read",
+      "mcm:capital.propose",
+      // Group capital approval is CFO-accountable and HIGH_RISK: committing group
+      // capital against a board resolution is a financial decision that must have
+      // exactly one accountable executive holder. It is NOT delegated to the CEO
+      // (reserved matter), NOT granted to the Chief Governance Officer (who
+      // provides the resolution evidence, not the decision), and NOT delegable
+      // through the admin program.
+      "mcm:capital.approve",
+      "mcm:procurement.read",
+      "mcm:asset.read",
+      "mcm:project.read",
+      "mcm:integration.read",
+      "mcm:advisory.read",
+
       // Universal Dimensional Graphics (shared capability): governed visualization read
       // + audited export. Financial visualization is READ-GOVERNED: it never posts,
       // never alters balances and never bypasses Finance authorization (CAP_POSTING
@@ -1288,6 +1439,31 @@ export const ROLES: Record<
       "communications:message.read",
       "federation:approve",
       "federation:audit.read",
+      // MULTI_COMPANY_MANAGEMENT (MCM) — the company-secretarial seat owns the
+      // corporate registry's integrity: lifecycle transitions, non-ownership
+      // relationships, ownership validation and the per-country filing register.
+      // It does NOT get consolidation, intercompany or capital authority: those
+      // are CFO/finance accountabilities. This separation is the whole point of
+      // distinguishing governance from financial oversight.
+      "mcm:company.read",
+      "mcm:company.manage",
+      "mcm:company.lifecycle",
+      "mcm:relationship.read",
+      "mcm:relationship.manage",
+      "mcm:ownership.validate",
+      "mcm:country.read",
+      "mcm:country.manage",
+      "mcm:filing.manage",
+      "mcm:intercompany.read",
+      "mcm:consolidation.read",
+      "mcm:capital.read",
+      "mcm:procurement.read",
+      "mcm:asset.read",
+      "mcm:project.read",
+      "mcm:integration.read",
+      // A governance officer may receive advisory intelligence but never an
+      // authority-bearing recommendation. mcm:advisory.read is read-only.
+      "mcm:advisory.read",
     ],
   },
   CHIEF_RISK_COMPLIANCE: {
@@ -1762,6 +1938,11 @@ export const ROLES: Record<
       "communications:contact.read",
       "communications:conversation.read",
       "communications:message.read",
+      // MCM workforce coordination: the HCM director supplies group workforce
+      // rollups and reads the company directory they roll up against. Employee
+      // truth stays in HCM; nothing here can create or move an employee.
+      "mcm:company.read",
+      "mcm:project.read",
     ],
   },
   SECTOR_OPERATOR: {
@@ -1819,6 +2000,16 @@ export const ROLES: Record<
       "communications:contact.read",
       "communications:conversation.read",
       "communications:message.read",
+      // MULTI_COMPANY_MANAGEMENT (MCM) — a sector operator sees the company they
+      // OPERATE and the registers they contribute to. Read-only, and the entity
+      // ABAC scope still narrows every query to the entities granted to them: a
+      // sector operator of one company cannot read another company's register
+      // merely by holding the permission.
+      "mcm:company.read",
+      "mcm:relationship.read",
+      "mcm:procurement.read",
+      "mcm:asset.read",
+      "mcm:project.read",
     ],
   },
   FOUNDATION_DIRECTOR: {
@@ -2033,6 +2224,21 @@ export const ROLES: Record<
       // No mutation and no operational read of the registry contents beyond
       // what audit requires.
       "federation:audit.read",
+      // MULTI_COMPANY_MANAGEMENT (MCM) — the auditor reads the audit-relevant MCM
+      // evidence (registry, relationships, ownership validation, intercompany,
+      // consolidation, capital, registers, integration health) and holds NO
+      // manage/approve authority of any kind. Independence is structural.
+      "mcm:company.read",
+      "mcm:relationship.read",
+      "mcm:ownership.validate",
+      "mcm:country.read",
+      "mcm:intercompany.read",
+      "mcm:consolidation.read",
+      "mcm:capital.read",
+      "mcm:procurement.read",
+      "mcm:asset.read",
+      "mcm:project.read",
+      "mcm:integration.read",
     ],
   },
   /**

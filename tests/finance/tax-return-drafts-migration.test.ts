@@ -3,13 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("FINANCE_OS tax return draft persistence migration", () => {
-  const migration = readFileSync(join(process.cwd(), "drizzle", "0077_tax_return_drafts.sql"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "drizzle", "0081_tax_return_drafts.sql"), "utf8");
   const journal = JSON.parse(readFileSync(join(process.cwd(), "drizzle", "meta", "_journal.json"), "utf8")) as {
     entries: Array<{ idx: number; tag: string }>;
   };
 
   it("is registered as migration 0077", () => {
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 77, tag: "0077_tax_return_drafts" });
+    expect(journal.entries.at(-1)).toMatchObject({ idx: 81, tag: "0081_tax_return_drafts" });
   });
 
   it("persists only scoped working papers with evidence-gated submission states", () => {

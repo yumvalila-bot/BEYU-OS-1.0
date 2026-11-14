@@ -10,7 +10,7 @@ describe("FINANCE_OS tax return separation of duties", () => {
   const workbench = readFileSync(join(process.cwd(), "src/app/os/tax/computation-workbench.tsx"), "utf8");
   const submitRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/record-submission/route.ts"), "utf8");
   const receiptRoute = readFileSync(join(process.cwd(), "src/app/api/v1/finance/tax/returns/[id]/record-receipt/route.ts"), "utf8");
-  const migration = readFileSync(join(process.cwd(), "drizzle/0077_tax_return_drafts.sql"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "drizzle/0081_tax_return_drafts.sql"), "utf8");
 
   it("defines distinct specialist-review and Group-CFO approval permissions", () => {
     expect(PERMISSIONS["finance:tax.review"]).toBeDefined();

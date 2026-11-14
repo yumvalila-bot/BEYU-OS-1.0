@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("FINANCE_OS tax-return RLS", () => {
-  const migration = readFileSync(join(process.cwd(), "drizzle", "0077_tax_return_drafts.sql"), "utf8");
+  const migration = readFileSync(join(process.cwd(), "drizzle", "0081_tax_return_drafts.sql"), "utf8");
 
   it("uses tenant, classification and legal-entity scope for both visibility and writes", () => {
     const policy = migration.slice(migration.indexOf('CREATE POLICY "tax_return_drafts_scope"'));

@@ -18,6 +18,8 @@
  * substrate has no history at all. Service tests assert against the REAL empty ledger and the REAL
  * populated treasury/risk/compliance registers, with specific non-zero counts.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -1073,11 +1075,20 @@ describe("forecast service — hostile inputs", () => {
     //   second forecast truth: a run is reproducible from its fingerprinted assumption set, and the
     //   specialist forecast substrate is untouched. Snapshot chained 0062 -> 0074.
     // + 0075: Noelia authority/execution hardening. It changes authority bindings, RLS, immutable
+    // + 0076–0079: MULTI_COMPANY_MANAGEMENT (20 tables, RLS + FORCE RLS, append-only
+    //   triggers, parent-cycle guard) and three forward fixes to its security and
+    //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
+    //   Adds NO forecast table and no second ledger truth.
     //   evidence and execution controls; it creates no forecast/scenario/assumption truth.
-        // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
-    // + 0077: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0081: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
     //   approval, submission and receipt gates). Adds no forecast/scenario/assumption truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);
+    // DERIVED, not a literal: the applied-ledger count must equal the number of
+    // canonical .sql files. Pinning it to a number is how a suite starts failing the
+    // moment a legitimate migration lands, and then gets 'fixed' by editing the number.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(
+      readdirSync(join(process.cwd(), "drizzle")).filter((f) => f.endsWith(".sql")).length,
+    );
     // The only %scenario% match is the attributed Foundation organization table. The two
     // Family Office scenario tables from 0037_family_office_capital_wealth are
     // Family Office capital simulations (basis SCENARIO, outcome_guaranteed

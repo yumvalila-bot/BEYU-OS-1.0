@@ -14,6 +14,8 @@
  * success. Where a state cannot occur in seeded data (evidence beyond MISSING, since every seeded
  * assessment has a null evidence link), engine-level fixtures are used and are labelled SYNTHETIC.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -1232,11 +1234,20 @@ describe("compliance module — creates no second truth", () => {
     //   capital, LBO, entrusted capital, pricing, HCM compensation). No compliance-substrate change:
     //   obligations/evidence tables are untouched and no second compliance truth is created.
     // + 0075: Noelia authority/execution hardening reuses the canonical compliance evidence/audit
+    // + 0076–0079: MULTI_COMPANY_MANAGEMENT (20 tables, RLS + FORCE RLS, append-only
+    //   triggers, parent-cycle guard) and three forward fixes to its security and
+    //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
+    //   Adds NO compliance table and no second ledger truth.
     //   architecture and creates no second compliance truth.
-        // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
-    // + 0077: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0081: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
     //   approval, submission and receipt gates). Adds no second compliance truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);  });
+    // DERIVED, not a literal: the applied-ledger count must equal the number of
+    // canonical .sql files. Pinning it to a number is how a suite starts failing the
+    // moment a legitimate migration lands, and then gets 'fixed' by editing the number.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(
+      readdirSync(join(process.cwd(), "drizzle")).filter((f) => f.endsWith(".sql")).length,
+    );  });
 
   it("leaves all triggers enabled", async () => {
     expect(await count(sql`select count(*)::int as n from pg_trigger where tgenabled = 'D' and not tgisinternal`)).toBe(0);

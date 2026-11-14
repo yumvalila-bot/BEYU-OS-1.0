@@ -153,15 +153,25 @@ describe("P3 expand/contract — P2 integration", () => {
     // 0075 adds nullable/defaulted Noelia authority bindings, command-specific RLS,
     // immutable evidence triggers, and security controls without breaking a
     // concurrently running pre-0075 writer. Historical SQL stays byte-exact.
-    // 0076 adds effective-dated source-authentication metadata and integrity
-    // constraints to the existing knowledge_sources registry; no second tax
-    // document store is introduced.
-    // 0077 adds tenant/entity/classification-scoped tax filing working papers,
-    // FORCE RLS, independent review/approval evidence gates and no runtime DELETE.
+    // + 0076: MULTI_COMPANY_MANAGEMENT (20 tables, RLS + FORCE RLS, append-only
+    //   triggers, parent-cycle guard, restrictive no-delete policies) — additive,
+    //   expand-only, no column altered on any pre-existing table.
+    // + 0077–0079: forward fixes to MCM's own policies and one unique constraint.
+    //   Policies and constraint definitions only; no pre-existing table altered.
+    // + 0080: effective-dated source-authentication metadata and integrity
+    //   constraints on the existing knowledge_sources registry; no second tax
+    //   document store is introduced.
+    // + 0081: tenant/entity/classification-scoped tax filing working papers,
+    //   FORCE RLS, independent review/approval evidence gates and no runtime DELETE.
     const { verifyP2MigrationIntegrity } = await import("@/lib/release/expand-contract");
-    const result = verifyP2MigrationIntegrity(78);
+    // DERIVED from the canonical folder, then asserted against the inventory.
+    // A literal here rots on every legitimate migration and then gets "fixed" by
+    // editing the number, which is how a release gate stops meaning anything.
+    const canonicalCount = (await import("node:fs")).readdirSync(`${process.cwd()}/drizzle`)
+      .filter((f: string) => f.endsWith(".sql")).length;
+    const result = verifyP2MigrationIntegrity(canonicalCount);
     expect(result.ok).toBe(true);
-    expect(result.count).toBe(78);
+    expect(result.count).toBe(canonicalCount);
     expect(verifyP2MigrationIntegrity(52).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(53).ok).toBe(false);
     expect(verifyP2MigrationIntegrity(54).ok).toBe(false);

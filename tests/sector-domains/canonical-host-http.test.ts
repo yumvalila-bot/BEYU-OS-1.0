@@ -144,9 +144,8 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
         expect(res.body, host).not.toContain("Sign in to the control plane");
       }
       // The apex keeps the control-plane sign-in — the central BEYU
-      // experience. `/` is the canonical PUBLIC HOMEPAGE, so the credential
-      // surface is asserted where it canonically lives: `/sign-in`. Both URLs
-      // are served by the same resolver and the same shared form.
+      // experience — at `/sign-in`. On the control-plane host `/` is the PUBLIC
+      // HOMEPAGE, so the credential surface is asserted where it lives there.
       const www = await getWithHost("/sign-in", "www.beyu.co.tz");
       expect(www.status).toBe(200);
       expect(www.body).toContain("Sign in to the control plane");
@@ -425,12 +424,24 @@ describe("hostile Host values", () => {
         "x.foundation.beyu.co.tz",
         "mwanza.health.beyu.co.tz",
       ]) {
-        // A hostile host resolves to NEUTRAL, which serves the public homepage
-        // at `/` and the control-plane sign-in at `/sign-in`. Neither may
-        // select a destination frontend or leak one.
-        const res = await getWithHost("/sign-in", host);
+        // A hostile host resolves to NEUTRAL — never to CONTROL_PLANE — so even
+        // `/` serves the governed control-plane sign-in (the public homepage is
+        // the configured apex's alone). It may not select or leak a destination.
+        const res = await getWithHost("/", host);
         expect(res.status, host).toBe(200);
-        expect(res.body, host).toContain("Sign in to the control plane");
+        // A hostile host selects NO destination — and it has no sign-in of its
+        // own either. Every canonical host (the apex included) serves the ONE
+        // governed sign-in; a NEUTRAL resolution renders the control-plane
+        // destination's surface instead of the marketing home, so an attacker
+        // cannot even obtain the un-governed page by lying about the Host. What
+        // matters is that no DESTINATION frontend is selected.
+        expect(text(res.body), host).toContain("Sign in to the control plane");
+        // CANONICAL_HOSTS is the seven destination hosts (the apex has its own
+        // case below); none of their payloads may be selected by a hostile Host.
+        for (const destination of CANONICAL_HOSTS) {
+          expect(text(res.body), `${host} must not select ${destination.host}`).not.toContain(destination.copy);
+        }
+        expect(res.body, host).toContain('id="beyu-signin-email"');
         const cross = await getWithHost("/os/finance", host, ceoCookie);
         expect(cross.status, host).toBe(200); // served in place, no redirect
       }

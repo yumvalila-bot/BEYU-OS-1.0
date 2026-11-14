@@ -477,12 +477,41 @@ export const RUNTIME_TABLE_ALLOWLIST = [
   "private_funds",
   "profitability_analyses",
   "profitability_lines",
+  // MULTI_COMPANY_MANAGEMENT (migration 0076). ONE capability inside BEYU OS.
+  // Every entry is tenant-scoped with FORCE RLS. Reference/configuration tables
+  // (fx_rates, mcm_country_profiles, mcm_integration_contracts) are additionally
+  // classified READ-ONLY below; append-only ledgers are NO_DELETE below.
+  "consolidation_adjustments",
+  "consolidation_entities",
+  "consolidation_runs",
+  "entity_relationships",
+  "fx_rates",
+  "intercompany_agreements",
+  "intercompany_reconciliation_runs",
+  "intercompany_transactions",
+  "legal_entity_lifecycle_events",
+  "legal_entity_profiles",
+  "mcm_asset_register",
+  "mcm_capital_allocations",
+  "mcm_country_profiles",
+  "mcm_integration_contracts",
+  "mcm_integration_events",
+  "mcm_module_links",
+  "mcm_procurement_register",
+  "mcm_project_portfolio",
+  "mcm_statutory_filings",
+  "ownership_validations",
   "valuation_assumption_sets",
   "valuation_models",
   "valuation_runs",
 ] as const;
 
 export const RUNTIME_READ_ONLY_TABLES = [
+  // MCM reference/configuration: readable, never runtime-mutable (0076 restrictive
+  // policies enforce the same fact in the database).
+  "fx_rates",
+  "mcm_country_profiles",
+  "mcm_integration_contracts",
   "admin_bootstrap_state",
   "architecture_decisions",
   "beyu_migrations",
@@ -545,6 +574,35 @@ export const RUNTIME_COLUMN_PRIVILEGES = {
 } as const;
 
 export const RUNTIME_NO_DELETE_TABLES = [
+  // MCM append-only evidence: the ledger of lifecycle transitions, ownership
+  // validations, reconciliation runs and integration observations is history and
+  // cannot be rewritten (0076 also installs database triggers on four of them).
+  "legal_entity_lifecycle_events",
+  "mcm_integration_events",
+  "intercompany_reconciliation_runs",
+  "ownership_validations",
+  "consolidation_runs",
+  // MCM evidence and record tables (0077 restrictive RLS hardening). These carry
+  // the fact that something was verified, filed, agreed, decided or attributed —
+  // so they are amended by state transition, never withdrawn by deletion:
+  //   legal_entity_profiles     verification evidence for a registration;
+  //   entity_relationships      effective-dated chronology of group structure;
+  //   mcm_statutory_filings     the filing register IS the proof of filing;
+  //   intercompany_agreements   the instrument authorising a related-party flow;
+  //   consolidation_entities    children of a reviewed consolidation run;
+  //   consolidation_adjustments children of a reviewed consolidation run;
+  //   mcm_capital_allocations   a governance decision (reversal = new proposal);
+  //   mcm_module_links          provenance tying a module record to its company.
+  // The three operating registers (procurement, asset, project) keep DELETE on
+  // purpose: they hold forward-looking records whose drafts must be withdrawable.
+  "legal_entity_profiles",
+  "entity_relationships",
+  "mcm_statutory_filings",
+  "intercompany_agreements",
+  "consolidation_entities",
+  "consolidation_adjustments",
+  "mcm_capital_allocations",
+  "mcm_module_links",
   "admin_authority_delegations",
   "ai_decisions",
   "approvals",

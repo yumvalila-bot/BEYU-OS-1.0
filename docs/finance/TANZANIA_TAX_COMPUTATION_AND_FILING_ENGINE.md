@@ -40,7 +40,7 @@ Sources:
 
 ## 3. Persisted return drafts
 
-Migration `0077_tax_return_drafts.sql` and schema `taxReturnDrafts` add tenant/entity-scoped working papers. Each draft stores:
+Migration `0081_tax_return_drafts.sql` and schema `taxReturnDrafts` add tenant/entity-scoped working papers. Each draft stores:
 - legal entity, jurisdiction, tax type and tax period;
 - due date where a published deadline is available;
 - amount payable, formula version and complete calculation JSON;

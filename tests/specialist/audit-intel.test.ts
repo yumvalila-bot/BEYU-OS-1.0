@@ -15,6 +15,8 @@
  * generate real activity through the real platform and assert on it. Every positive control below
  * asserts a specific non-zero count.
  */
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -861,7 +863,13 @@ describe("audit module — never mutates the ledger it inspects", () => {
       -- domain's deal-exit ledger: a per-deal disposition record keyed to portfolio companies, an
       -- operational event, not an audit ledger, and it writes nothing to audit_log. Excluded by
       -- exact name so this guard still fails if the audit module itself ever defines a table.
-        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry', 'governance_calendar_events', 'communication_delivery_events', 'communication_security_events', 'communication_webhook_events', 'pe_exit_events')
+      -- legal_entity_lifecycle_events and mcm_integration_events (drizzle/0076) are the
+      -- MULTI_COMPANY_MANAGEMENT domain's own append-only ledgers — corporate lifecycle
+      -- transitions and cross-system integration observations. Both are guarded by their own
+      -- append-only triggers and tenant RLS, both are written by MCM services, and neither is
+      -- written by or read as the audit ledger (recordAudit still owns audit_log alone).
+      -- Excluded by exact name so this guard still fails if the audit module ever defines a table.
+        and table_name not in ('contract_lifecycle_events', 'contract_obligation_events', 'blockchain_events', 'blockchain_oracle_readings', 'smart_contract_registry', 'governance_calendar_events', 'communication_delivery_events', 'communication_security_events', 'communication_webhook_events', 'pe_exit_events', 'legal_entity_lifecycle_events', 'mcm_integration_events')
       order by table_name
     `)).map((r) => r.table_name);
     // The ledger-domain tables: baseline + internal_event_receipts (Phase 8
@@ -969,10 +977,19 @@ describe("audit module — never mutates the ledger it inspects", () => {
     //   chain stays the one owned by recordAudit. (pe_exit_events is a private-capital deal ledger —
     //   excluded by exact name in the table-name guard above, like the other domain event ledgers.)
     // + 0075: Noelia authority/execution hardening. Adds no audit-intel table or second ledger truth.
-        // + 0076: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
-    // + 0077: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
+    // + 0076–0079: MULTI_COMPANY_MANAGEMENT (20 tables, RLS + FORCE RLS, append-only
+    //   triggers, parent-cycle guard) and three forward fixes to its security and
+    //   integrity properties (restrictive DELETE hardening, unique-constraint alignment).
+    //   Adds NO audit-intel table and no second ledger truth.
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns + RLS-preserving).
+    // + 0081: Tenant-isolated tax return drafts (Finance OS tax register with specialist-review,
     //   approval, submission and receipt gates). Adds no audit-intel table or second ledger truth.
-    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(78);  });
+    // DERIVED, not a literal: the applied-ledger count must equal the number of
+    // canonical .sql files. Pinning it to a number is how a suite starts failing the
+    // moment a legitimate migration lands, and then gets 'fixed' by editing the number.
+    expect(await count(sql`select count(*)::int as n from public.beyu_migrations`)).toBe(
+      readdirSync(join(process.cwd(), "drizzle")).filter((f) => f.endsWith(".sql")).length,
+    );  });
 
   it("leaves the decision registry entirely PENDING", async () => {
     expect(await count(sql`select count(*)::int as n from governance_decision_registry where status <> 'PENDING'`)).toBe(0);

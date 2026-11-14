@@ -45,6 +45,7 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os", label: "Executive Control Centre" },
   { href: "/os/registry", label: "OS & Source-of-Truth Registry" },
   { href: "/os/organization-ownership", label: "Organisation & Ownership" },
+  { href: "/os/mcm", label: "Multi-Company Management" },
   { href: "/os/identity", label: "Identity & Access" },
   { href: "/os/organization", label: "Organisation" },
   { href: "/os/ownership", label: "Ownership" },
@@ -114,9 +115,9 @@ beforeAll(async () => {
   auditor = await login("auditor@beyu.os");
 }, 240_000);
 
-// `/` is the canonical PUBLIC HOMEPAGE and carries no credential form by design.
-// The unauthenticated sign-in contract below is asserted on `/sign-in`, the
-// canonical sign-in surface — same resolver, same shared form, same gates.
+// `/sign-in` is the governed sign-in on every host (on the configured apex, `/`
+// is the public homepage), so the unauthenticated sign-in contract below is
+// asserted on `/sign-in` — same resolver, same shared form, same gates.
 describe("Sign-in accessibility (unauthenticated shell)", () => {
   it.skipIf(!available)("every field has a programmatically associated label", async () => {
     const { status, html } = await apiGet("/sign-in", null);

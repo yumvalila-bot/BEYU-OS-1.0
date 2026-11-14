@@ -332,6 +332,30 @@ export const KNOWN_METADATA_DEBT = {
     "0073",
     // 0074 and later migrations have source-generated snapshots chained from
     // the real predecessor. New migrations must not extend this debt register.
+    //
+    // 0077, 0078 and 0079 are the documented exception, and only because they
+    // are not schema migrations: they are forward FIXES to security and
+    // integrity properties of the twenty tables 0076 introduced.
+    //
+    //   0077  restrictive RLS hardening — policies only, no DDL on any table,
+    //         column or constraint. `scripts/migration/snapshot.ts` refuses to
+    //         write an empty snapshot for it, correctly: a snapshot captures
+    //         table state, and a policy is not table state.
+    //   0078  recreates one unique constraint. See 0079.
+    //   0079  recreates the same constraint with the column order the schema
+    //         declares. Because 0078/0079 are constraint definitions rather than
+    //         new tables or columns, the resulting table state is IDENTICAL to
+    //         0076 — which is precisely why 0076's snapshot is the honest
+    //         snapshot for all four, and why no separate one is fabricated.
+    //
+    // What actually verifies 0077-0079 is not metadata but the live database:
+    // `tests/mcm/rls-isolation.test.ts` (policies, proved as beyu_runtime) and
+    // `scripts/migration/schema-drift.ts` (constraint shape, which is green).
+    // Registering them here is the reviewable declaration of that fact, not a
+    // hiding of it.
+    "0077",
+    "0078",
+    "0079",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

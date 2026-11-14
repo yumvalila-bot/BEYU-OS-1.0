@@ -96,7 +96,7 @@ The existing FINANCE_OS tax workspace now surfaces Tax Law Intelligence, Tax Com
 Customs/HS, Compliance, Audit/Dispute and NOELIA Tax Intelligence as one integrated capability
 set. They are explicitly inactive until their evidence and specialist gates are satisfied.
 
-Migration `0076_tax_legal_authority_metadata.sql` adds legal-source provenance fields to the
+Migration `0080_tax_legal_authority_metadata.sql` adds legal-source provenance fields to the
 existing `knowledge_sources` registry: instrument kind, publication/commencement/effective
 dates, original-document SHA-256, official source host, text-validation reviewer, specialist
 reviewer, enabling provision, amendment/repeal links and provision citations. It does not create

@@ -100,6 +100,18 @@ describe("permission catalogue parity (H-01 still open)", () => {
     expect(r.drifts).toEqual([]);
   });
 
+  it("the permission DEFINITIONS match too, not only the grants", async () => {
+    // The grants half alone was not enough: a migration could add a privilege to
+    // `permissions` that the reviewed code catalogue never names, or remove one it
+    // does, and every gate would still read "in sync".
+    const r = await assertPermissionCatalogParity();
+    expect(r.definitions.onlyInCode).toEqual([]);
+    expect(r.definitions.onlyInDb).toEqual([]);
+    expect(r.reason).toMatch(/definitions match PERMISSIONS exactly/);
+    // Sanity: the check is comparing real sets, not two empty ones.
+    expect(r.reason).toMatch(/\d+ permission definitions/);
+  });
+
   it("does not switch the runtime source — authz still reads constants", async () => {
     const src = await import("node:fs").then((fs) =>
       fs.readFileSync(new URL("../../src/lib/authz.ts", import.meta.url), "utf8"),
