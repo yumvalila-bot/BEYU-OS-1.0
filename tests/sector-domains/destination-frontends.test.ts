@@ -321,7 +321,11 @@ describe("D. authentication is SHARED — one identity, one session, one login",
 
   it("makes /sign-in the SAME implementation as / — no second sign-in to drift", () => {
     const signIn = code(source("src", "app", "sign-in", "page.tsx"));
-    expect(signIn).toContain('import CanonicalSignInPage from "../page"');
+    // `/` is the public homepage, so the sign-in surface is a NAMED export of
+    // the one entry module rather than its default export. The requirement the
+    // assertion encodes is unchanged: this route re-exports that module's own
+    // sign-in surface and re-implements nothing.
+    expect(signIn).toContain('import { CanonicalSignInPage } from "../page"');
     expect(signIn).toContain("export default CanonicalSignInPage");
     expect(signIn).toContain('export const dynamic = "force-dynamic"');
     // It re-implements nothing: no second session resolution, no second login
@@ -483,11 +487,12 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The journal head moved to MULTI_COMPANY_MANAGEMENT (0076) and its forward fixes
-    // (0077-0079). What this assertion exists to protect is that no destination/frontend/
-    // host/subdomain migration was added — the head is asserted to be the MCM block so a
-    // future migration still has to update this test deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0079_mcm_module_link_uidx_order");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its forward
+    // fixes (0077-0079) to the tax migrations 0080-0081. What this assertion exists
+    // to protect is that no destination/frontend/host/subdomain migration was added
+    // — the head is named explicitly so a future migration still has to update this
+    // test deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

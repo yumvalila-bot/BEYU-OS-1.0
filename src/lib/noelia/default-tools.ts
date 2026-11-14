@@ -7,7 +7,7 @@ import { BeyuNoeliaAnalyticsService } from "./analytics-service";
 import { BeyuNoeliaWorkforceService } from "./workforce-service";
 import { BeyuNoeliaLegalService } from "./legal-service";
 import { BeyuNoeliaHealthBoundary } from "./health-boundary";
-import { BeyuNoeliaMemoryService } from "./enterprise-memory";
+import { BeyuNoeliaMemoryService, TAX_LEGAL_AUTHORITY_INPUT } from "./enterprise-memory";
 import { BeyuNoeliaModelGateway } from "./model-gateway";
 import { BeyuNoeliaAiPlatformService } from "./ai-platform";
 import { registerFoundationTools } from "@/lib/foundation/noelia-tools";
@@ -528,9 +528,37 @@ export function createDefaultNoeliaToolRegistry(
     permission: "finance:tax.read",
     classification: "CONFIDENTIAL",
     risk: "LOW",
-    description: "Read authoritative tax intelligence for authorized countries.",
+    description: "Read authoritative tax intelligence for an explicit country, regional or subnational jurisdiction; historical as-of queries supported.",
     metadata: {
       stableId: "cap-tax-knowledge-query",
+      version: "1.1.0",
+      ownerRole: "GROUP_CFO",
+      domain: "TAX",
+      sideEffects: "NONE",
+      idempotent: true,
+      timeoutMs: 8000,
+      retryPolicy: null,
+      jurisdictionRestrictions: null,
+      entityRestrictions: "SCOPED",
+      approvalRequirements: null,
+      auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
+      inputSchema: z.object({
+        question: z.string().min(1).max(500),
+        jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/),
+        asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      }).strict(),
+      outputSchema: noeliaToolOutputSchema,
+    },
+    execute: (context, input) => legal.knowledge(context, { ...(input as Record<string, unknown>), domain: "TAX" }),
+  });
+  registry.register({
+    name: "tax.computation.explain",
+    permission: "finance:tax.read",
+    classification: "CONFIDENTIAL",
+    risk: "LOW",
+    description: "Explain a persisted FINANCE_OS tax calculation, its source evidence, filing deadlines and compliance risks. Does not approve or submit returns.",
+    metadata: {
+      stableId: "cap-tax-computation-explain",
       version: "1.0.0",
       ownerRole: "GROUP_CFO",
       domain: "TAX",
@@ -542,11 +570,12 @@ export function createDefaultNoeliaToolRegistry(
       entityRestrictions: "SCOPED",
       approvalRequirements: null,
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
-      inputSchema: NOELIA_TOOL_ENVELOPE,
+      inputSchema: z.object({ draftId: z.string().min(1).max(128) }).strict(),
       outputSchema: noeliaToolOutputSchema,
     },
-    execute: (context) => services.tax(context),
+    execute: (context, input) => legal.taxComputation(context, input),
   });
+
   registry.register({
     name: "legal.knowledge.query",
     permission: "legal:matter.read",
@@ -555,7 +584,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Jurisdiction-aware legal knowledge retrieval; unknown authority fails closed.",
     metadata: {
       stableId: "cap-legal-knowledge-query",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "LEGAL",
       sideEffects: "NONE",
@@ -568,7 +597,8 @@ export function createDefaultNoeliaToolRegistry(
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
       inputSchema: z.object({
         question: z.string().min(1).max(500),
-        jurisdictionCode: z.string().length(2).optional(),
+        jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
+        asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
       }).strict(),
       outputSchema: noeliaToolOutputSchema,
@@ -583,7 +613,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Authority status for a cited legal/tax source; unknown authorities fail closed.",
     metadata: {
       stableId: "cap-legal-authority-status",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "LEGAL",
       sideEffects: "NONE",
@@ -596,7 +626,7 @@ export function createDefaultNoeliaToolRegistry(
       auditRequirements: { event: "NOELIA_TOOL_INVOKED", objectType: "AI_DECISION" },
       inputSchema: z.object({
         citation: z.string().min(2).max(200),
-        jurisdictionCode: z.string().length(2).optional(),
+        jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
       }).strict(),
       outputSchema: noeliaToolOutputSchema,
     },
@@ -866,7 +896,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Register an immutable governed knowledge source UNDER_REVIEW; publication is a separate action.",
     metadata: {
       stableId: "cap-knowledge-ingest",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "KNOWLEDGE",
       sideEffects: "DOMAIN_WRITE",
@@ -884,7 +914,7 @@ export function createDefaultNoeliaToolRegistry(
         domain: z.string().min(2).max(40),
         content: z.string().min(10).max(20000),
         sourceUri: z.string().url().optional(),
-        jurisdictionCode: z.string().length(2).optional(),
+        jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
         scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
         classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
         version: z.string().min(1).max(40).default("1.0.0"),
@@ -893,6 +923,7 @@ export function createDefaultNoeliaToolRegistry(
         expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         provenance: z.string().min(3).max(500),
         keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
+        taxLegalAuthority: TAX_LEGAL_AUTHORITY_INPUT.optional(),
       }).strict(),
     },
     execute: (context, input) => memory.ingestKnowledge(context, input),
@@ -906,7 +937,7 @@ export function createDefaultNoeliaToolRegistry(
     description: "Prepare an immutable UNDER_REVIEW replacement bound to the authoritative predecessor digest/version.",
     metadata: {
       stableId: "cap-knowledge-replace",
-      version: "1.0.0",
+      version: "1.1.0",
       ownerRole: "CHIEF_GOVERNANCE_OFFICER",
       domain: "KNOWLEDGE",
       sideEffects: "DOMAIN_WRITE",
@@ -928,7 +959,7 @@ export function createDefaultNoeliaToolRegistry(
           domain: z.string().min(2).max(40),
           content: z.string().min(10).max(20000),
           sourceUri: z.string().url().optional(),
-          jurisdictionCode: z.string().length(2).optional(),
+          jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
           scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
           classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
           version: z.string().min(1).max(40),
@@ -937,6 +968,7 @@ export function createDefaultNoeliaToolRegistry(
           expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
           provenance: z.string().min(3).max(500),
           keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
+          taxLegalAuthority: TAX_LEGAL_AUTHORITY_INPUT.optional(),
         }).strict(),
       }).strict(),
     },

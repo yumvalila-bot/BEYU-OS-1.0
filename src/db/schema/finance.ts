@@ -3,8 +3,10 @@
  * Authoritative for financial consequences: ledger, capital, treasury,
  * the configurable waterfall engine and Tax Strategy Intelligence.
  */
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -23,6 +25,7 @@ import {
   versionStatusEnum,
 } from "./enums";
 import { legalEntities, tenants } from "./core";
+import { documents } from "./platform";
 
 export const financialPeriods = pgTable(
   "financial_periods",
@@ -316,3 +319,59 @@ export const taxStrategyAssessments = pgTable("tax_strategy_assessments", {
   assessedBy: text("assessed_by").notNull(),
   assessedAt: timestamp("assessed_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+
+/**
+ * Tax return drafts are tenant/entity scoped working papers. They never
+ * represent an accepted TRA return or an approved tax liability posting.
+ */
+export const taxReturnDrafts = pgTable(
+  "tax_return_drafts",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull().references(() => tenants.id),
+    legalEntityId: text("legal_entity_id").notNull().references(() => legalEntities.id),
+    taxType: text("tax_type").notNull(),
+    jurisdictionCode: text("jurisdiction_code").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    dueDate: date("due_date"),
+    amountPayable: numeric("amount_payable", { precision: 18, scale: 2 }).notNull(),
+    currency: text("currency").notNull().default("TZS"),
+    calculationVersion: text("calculation_version").notNull(),
+    calculationPayload: jsonb("calculation_payload").$type<Record<string, unknown>>().notNull(),
+    filingPack: jsonb("filing_pack").$type<Record<string, unknown>>().notNull(),
+    status: text("status").notNull().default("DRAFT"),
+    classification: classificationEnum("classification").notNull().default("CONFIDENTIAL"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdBy: text("created_by").notNull(),
+    specialistReviewerId: text("specialist_reviewer_id"),
+    specialistReviewedAt: timestamp("specialist_reviewed_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    submittedBy: text("submitted_by"),
+    receiptDocumentId: text("receipt_document_id").references(() => documents.id),
+    externalReference: text("external_reference"),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tax_return_drafts_tenant_idempotency_uidx").on(t.tenantId, t.idempotencyKey),
+    index("tax_return_drafts_tenant_entity_idx").on(t.tenantId, t.legalEntityId),
+    index("tax_return_drafts_due_status_idx").on(t.dueDate, t.status),
+    check("tax_return_drafts_period_ck", sql`${t.periodEnd} >= ${t.periodStart}`),
+    check("tax_return_drafts_amount_ck", sql`${t.amountPayable} >= 0`),
+    check("tax_return_drafts_currency_ck", sql`${t.currency} = 'TZS'`),
+    check("tax_return_drafts_jurisdiction_ck", sql`${t.jurisdictionCode} = 'TZ_MAINLAND'`),
+    check("tax_return_drafts_type_ck", sql`${t.taxType} IN ('PAYE','CORPORATE_INCOME_TAX','PERSONAL_INCOME_TAX','PRESUMPTIVE_INCOME_TAX','VAT','VAT_WITHHOLDING','WITHHOLDING_TAX','FOREST_PRODUCE_SINGLE_INSTALMENT','CUSTOMS_PROCESSING_FEE')`),
+    check("tax_return_drafts_status_ck", sql`${t.status} IN ('DRAFT','PENDING_SPECIALIST_REVIEW','SPECIALIST_REVIEWED_PROVISIONAL','PENDING_FINANCE_APPROVAL','APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED','REJECTED','WITHDRAWN')`),
+    check("tax_return_drafts_classification_ck", sql`${t.classification}::text IN ('PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED','HIGHLY_RESTRICTED')`),
+    check("tax_return_drafts_specialist_review_gate_ck", sql`${t.status} NOT IN ('SPECIALIST_REVIEWED_PROVISIONAL','PENDING_FINANCE_APPROVAL','APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED') OR (${t.specialistReviewerId} IS NOT NULL AND ${t.specialistReviewedAt} IS NOT NULL)`),
+    check("tax_return_drafts_review_gate_ck", sql`${t.status} NOT IN ('APPROVED_FOR_SUBMISSION','SUBMITTED','ACCEPTED') OR (${t.specialistReviewerId} IS NOT NULL AND ${t.specialistReviewedAt} IS NOT NULL AND ${t.approvedBy} IS NOT NULL AND ${t.approvedAt} IS NOT NULL)`),
+    check("tax_return_drafts_submission_gate_ck", sql`${t.status} NOT IN ('SUBMITTED','ACCEPTED') OR (${t.submittedAt} IS NOT NULL AND ${t.submittedBy} IS NOT NULL AND ${t.externalReference} IS NOT NULL)`),
+    check("tax_return_drafts_acceptance_gate_ck", sql`${t.status} <> 'ACCEPTED' OR (${t.acceptedAt} IS NOT NULL AND ${t.externalReference} IS NOT NULL AND ${t.receiptDocumentId} IS NOT NULL)`),
+    check("tax_return_drafts_filing_json_ck", sql`jsonb_typeof(${t.calculationPayload}) = 'object' AND jsonb_typeof(${t.filingPack}) = 'object'`),
+  ],
+).enableRLS();

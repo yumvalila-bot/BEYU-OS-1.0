@@ -1122,6 +1122,9 @@ describe("risk module — leaves governance and financial state untouched", () =
     //   contracts). No risk table and no second risk truth: the risk register stays canonical and
     //   MCM only LINKS to it through mcm_module_links.
     // + 0077–0079: forward fixes to MCM's own security/integrity properties. No risk change.
+    // + 0080: Tax/legal authority metadata on knowledge_sources (additive columns; no risk table).
+    // + 0081: Tax return drafts (Finance OS tax register with review/approval/submission gates;
+    //   no risk table and no second risk truth).
     // DERIVED, not a literal: the applied-ledger count must equal the canonical .sql count.
     // Pinning a number is how a suite starts failing on a legitimate migration and then gets
     // "fixed" by editing the number.

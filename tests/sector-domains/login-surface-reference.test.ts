@@ -294,6 +294,11 @@ describe("D. security is not traded for visual fidelity", () => {
     // through the shared form rather than re-implementing one.
     expect(PAGE).toMatch(/<GovernedSignIn|<SignInForm/);
     expect(PAGE).not.toMatch(/type="password"|<input[^>]*name="password"/);
+    // Hybrid entry contract: the public homepage is reachable ONLY for the
+    // control-plane host (apex/`www`) on `/`; every other case renders the one
+    // governed sign-in. There is no second control-plane sign-in composition.
+    expect(PAGE).toContain('variant === "homepage" && canonicalHost.kind === "CONTROL_PLANE"');
+    expect(PAGE).not.toContain("ControlPlaneSignIn");
     expect(GOVERNED).toContain("<SignInForm");
     expect(GOVERNED).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
     // A hostname may only be read through the ONE server helper, whose

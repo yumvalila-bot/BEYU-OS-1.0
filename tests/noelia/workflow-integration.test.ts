@@ -401,7 +401,15 @@ describe("Noelia governed agentic workflow loop", () => {
         target: { tenantId: cfo.tenantId, legalEntityId: null, countryCode: null },
         steps: [
           { toolName: "finance.waterfall.latest", input: {} },
-          { toolName: "tax.knowledge.query", input: {} },
+          // `tax.knowledge.query` requires an explicit question and jurisdiction:
+          // Noelia will not search or compare tax law across jurisdictions, so an
+          // empty envelope is a schema denial (STOPPED), not an escalation. A
+          // well-formed query that finds no authoritative source in scope fails
+          // closed with humanReviewRequired — which is what escalates the loop.
+          {
+            toolName: "tax.knowledge.query",
+            input: { question: "Which authority governs the tax position?", jurisdictionCode: "TZ_MAINLAND" },
+          },
         ],
       },
     }));

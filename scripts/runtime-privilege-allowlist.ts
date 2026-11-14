@@ -391,6 +391,7 @@ export const RUNTIME_TABLE_ALLOWLIST = [
   "structure_proposals",
   "structure_scenarios",
   "tasks",
+  "tax_return_drafts",
   "tax_strategies",
   "tax_strategy_assessments",
   "tenant_domains",
@@ -641,6 +642,7 @@ export const RUNTIME_NO_DELETE_TABLES = [
   "resolution_votes",
   "rollback_requests",
   "sessions",
+  "tax_return_drafts",
   "workflow_instances",
 ] as const;
 

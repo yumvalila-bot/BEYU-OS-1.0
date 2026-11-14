@@ -143,10 +143,16 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
         expect(res.body, host).not.toContain("healthSpaHtml");
         expect(res.body, host).not.toContain("Sign in to the control plane");
       }
-      // The apex keeps the control-plane copy — the central BEYU experience.
-      const www = await getWithHost("/", "www.beyu.co.tz");
+      // The apex keeps the control-plane sign-in — the central BEYU
+      // experience — at `/sign-in`. On the control-plane host `/` is the PUBLIC
+      // HOMEPAGE, so the credential surface is asserted where it lives there.
+      const www = await getWithHost("/sign-in", "www.beyu.co.tz");
       expect(www.status).toBe(200);
       expect(www.body).toContain("Sign in to the control plane");
+      // The homepage stays the homepage: it is not the credential form.
+      const homepage = await getWithHost("/", "www.beyu.co.tz");
+      expect(homepage.status).toBe(200);
+      expect(homepage.body).not.toContain('id="beyu-signin-email"');
     },
   );
 
@@ -418,6 +424,9 @@ describe("hostile Host values", () => {
         "x.foundation.beyu.co.tz",
         "mwanza.health.beyu.co.tz",
       ]) {
+        // A hostile host resolves to NEUTRAL — never to CONTROL_PLANE — so even
+        // `/` serves the governed control-plane sign-in (the public homepage is
+        // the configured apex's alone). It may not select or leak a destination.
         const res = await getWithHost("/", host);
         expect(res.status, host).toBe(200);
         // A hostile host selects NO destination — and it has no sign-in of its

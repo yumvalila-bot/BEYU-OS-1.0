@@ -1,16 +1,21 @@
-import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import {
   knowledgeSources,
   legalMatters,
+  taxReturnDrafts,
 } from "@/db/schema";
 import {
   CLASSIFICATION_ORDER,
   classificationRank,
+  classificationsAtOrBelow,
   isKnownClassification,
 } from "@/lib/constants";
 import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
+import { buildNoeliaTaxCalculationExplanation, filterNoeliaTaxCitations } from "@/lib/noelia/tax-intelligence";
+import { isTaxIsoDate } from "@/lib/finance/tax-intelligence-capabilities";
+import { tenantScopeIds } from "@/lib/tenant-scope";
 
 /**
  * Legal + Tax intelligence (section 12 of the Noelia capability target).
@@ -37,27 +42,170 @@ export class BeyuNoeliaLegalService {
     );
   }
 
+  async taxComputation(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
+    this.requireContext();
+    const parsed = z.object({
+      draftId: z.string().min(1).max(128),
+    }).strict().parse(input);
+    const tenantIds = await tenantScopeIds(context.principal);
+    if (!tenantIds.length) {
+      return {
+        headline: "No tax filing workpaper is available in the authorized tenant scope.",
+        humanReviewRequired: true,
+        confidence: 0,
+        whatIsMissing: ["An authorized tenant scope and tax draft identifier."],
+      };
+    }
+    const predicates = [
+      eq(taxReturnDrafts.id, parsed.draftId),
+      inArray(taxReturnDrafts.tenantId, tenantIds),
+      inArray(taxReturnDrafts.classification, classificationsAtOrBelow(context.principal.clearance)),
+    ];
+    if (context.principal.entityScope.length > 0) {
+      predicates.push(inArray(taxReturnDrafts.legalEntityId, context.principal.entityScope));
+    }
+    const [draft] = await db.select().from(taxReturnDrafts).where(and(...predicates)).limit(1);
+    if (!draft) {
+      return {
+        headline: "Tax filing workpaper not found in the authorized scope.",
+        humanReviewRequired: true,
+        confidence: 0,
+        whatIsMissing: ["A tax draft accessible to this principal and classification clearance."],
+      };
+    }
+    const calculationSchema = z.object({
+      taxType: z.string(),
+      taxBaseTzs: z.number(),
+      taxAmountTzs: z.number(),
+      effectiveRateBps: z.number(),
+      breakdown: z.array(z.object({
+        label: z.string(), baseTzs: z.number(), rateBps: z.number(), taxTzs: z.number(),
+      })),
+      sourceRefs: z.array(z.object({
+        code: z.string(), title: z.string(), provision: z.string(), uri: z.string(),
+        effectiveFrom: z.string().optional(), evidenceStatus: z.string().optional(),
+      })),
+      warnings: z.array(z.string()).default([]),
+      formulaVersion: z.string().optional(),
+      sourceSnapshotDate: z.string().optional(),
+    }).passthrough();
+    const calculation = calculationSchema.safeParse(draft.calculationPayload);
+    if (!calculation.success) {
+      return {
+        headline: "The stored tax calculation payload could not be validated.",
+        humanReviewRequired: true,
+        confidence: 0,
+        risks: ["Noelia will not reconstruct or guess a missing or malformed calculation payload."],
+        whatIsMissing: ["A valid persisted calculation payload and its source references."],
+      };
+    }
+    const filingPackSchema = z.object({
+      dueDate: z.string().nullable().optional(),
+      paymentMilestones: z.array(z.object({ dueDate: z.string(), label: z.string() })).optional(),
+      complianceObligations: z.array(z.object({
+        kind: z.string(), dueDate: z.string(), status: z.string(), sourceCodes: z.array(z.string()).default([]),
+      })).optional(),
+    }).passthrough();
+    const filingPackResult = draft.filingPack ? filingPackSchema.safeParse(draft.filingPack) : null;
+    const filingPack = filingPackResult?.success ? {
+      dueDate: filingPackResult.data.dueDate ?? draft.dueDate ?? null,
+      paymentMilestones: filingPackResult.data.paymentMilestones ?? [],
+      complianceObligations: filingPackResult.data.complianceObligations ?? [],
+    } : null;
+    const sourceCodes = [...new Set(calculation.data.sourceRefs.map((source) => source.code))];
+    const today = new Date().toISOString().slice(0, 10);
+    const jurisdictionCodes = draft.taxType === "CUSTOMS_PROCESSING_FEE" ? ["TZ", "TZ_MAINLAND", "EAC"] : ["TZ", "TZ_MAINLAND"];
+    const rows = sourceCodes.length ? await db.select({
+      code: knowledgeSources.code,
+      title: knowledgeSources.title,
+      sourceUri: knowledgeSources.sourceUri,
+      jurisdictionCode: knowledgeSources.jurisdictionCode,
+      effectiveFrom: knowledgeSources.effectiveFrom,
+      effectiveTo: knowledgeSources.effectiveTo,
+      authorityStatus: knowledgeSources.authorityStatus,
+      sourceAuthenticationStatus: knowledgeSources.sourceAuthenticationStatus,
+      provisionReferences: knowledgeSources.provisionReferences,
+      enablingProvision: knowledgeSources.enablingProvision,
+    }).from(knowledgeSources).where(and(
+      eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY"),
+      inArray(knowledgeSources.code, sourceCodes),
+      inArray(knowledgeSources.jurisdictionCode, jurisdictionCodes),
+      inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"]),
+      eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE"),
+      lte(knowledgeSources.effectiveFrom, draft.periodEnd),
+      or(isNull(knowledgeSources.effectiveTo), gte(knowledgeSources.effectiveTo, draft.periodEnd)),
+      gte(knowledgeSources.reviewDate, today),
+      or(isNull(knowledgeSources.expiresAt), gte(knowledgeSources.expiresAt, today)),
+    )) : [];
+    const citations = rows.map((row) => ({
+      sourceCode: row.code,
+      title: row.title,
+      provision: row.provisionReferences?.join(", ") || row.enablingProvision || "Provision reference pending",
+      jurisdictionCode: row.jurisdictionCode ?? "TZ",
+      effectiveFrom: row.effectiveFrom,
+      effectiveTo: row.effectiveTo,
+      authorityStatus: row.authorityStatus,
+      sourceAuthenticationStatus: row.sourceAuthenticationStatus,
+      uri: row.sourceUri ?? "",
+    }));
+    const filtered = filterNoeliaTaxCitations({
+      citations,
+      jurisdictionCode: "TZ",
+      additionalJurisdictionCodes: jurisdictionCodes.filter((code) => code !== "TZ"),
+      asOf: draft.periodEnd,
+    });
+    return buildNoeliaTaxCalculationExplanation({
+      draftId: draft.id,
+      draftStatus: draft.status,
+      calculation: calculation.data,
+      filingPack,
+      authoritativeCitations: filtered.citations,
+    });
+  }
+
   async knowledge(context: ToolInvocationContext, input: unknown): Promise<NoeliaToolOutput> {
     this.requireContext();
     const parsed = z.object({
       question: z.string().min(1).max(500),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
+      asOf: z.string().optional(),
       domain: z.enum(["LEGAL", "TAX"]).default("LEGAL"),
     }).strict().parse(input ?? {});
+    if (parsed.asOf && !isTaxIsoDate(parsed.asOf)) throw new Error("Tax as-of date must be a valid ISO calendar date.");
+    if (parsed.domain === "TAX" && !parsed.jurisdictionCode) {
+      return {
+        headline: "A tax jurisdiction is required before retrieving tax authority.",
+        findings: [{ label: "Tax jurisdiction", value: "REQUIRES_AUTHORITY", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+        narrative: "NOELIA will not search or compare tax law across jurisdictions. Supply the two-letter jurisdiction code so only applicable, effective-dated authorities can be retrieved.",
+        humanReviewRequired: true,
+        confidence: 0.4,
+      };
+    }
+    const jurisdictionCodes = [parsed.jurisdictionCode!];
+    if (parsed.domain === "TAX" && parsed.jurisdictionCode === "TZ_MAINLAND") jurisdictionCodes.push("TZ");
+    const tanzaniaCustomsQuery = parsed.domain === "TAX"
+      && ["TZ", "TZ_MAINLAND"].includes(parsed.jurisdictionCode!)
+      && /\b(customs|import|export|hs|tariff|origin|duty)\b/i.test(parsed.question);
+    if (tanzaniaCustomsQuery) jurisdictionCodes.push("EAC");
+    const additionalJurisdictionCodes = jurisdictionCodes.filter((code) => code !== parsed.jurisdictionCode);
     const classifications = this.visibleClassifications(context);
     if (classifications.length === 0) {
       return { findings: [], confidence: 0.2, humanReviewRequired: true };
     }
     const today = new Date().toISOString().slice(0, 10);
+    const asOf = parsed.domain === "TAX" ? (parsed.asOf ?? today) : today;
     const rows = await db
       .select()
       .from(knowledgeSources)
       .where(and(
         eq(knowledgeSources.domain, parsed.domain),
+        parsed.domain === "TAX" ? eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY") : sql`true`,
+        parsed.domain === "TAX" ? eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE") : sql`true`,
+        parsed.domain === "TAX" ? sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${asOf})` : sql`true`,
         inArray(knowledgeSources.classification, classifications),
-        parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
-        eq(knowledgeSources.authorityStatus, "AUTHORITATIVE"),
-        lte(knowledgeSources.effectiveFrom, today),
+        parsed.jurisdictionCode ? inArray(knowledgeSources.jurisdictionCode, jurisdictionCodes) : sql`true`,
+        inArray(knowledgeSources.authorityStatus, ["AUTHORITATIVE", "SUPERSEDED"]),
+        lte(knowledgeSources.effectiveFrom, asOf),
         gte(knowledgeSources.reviewDate, today),
         sql`(${knowledgeSources.expiresAt} is null or ${knowledgeSources.expiresAt} >= ${today})`,
         sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.content}) ~ ${
@@ -66,7 +214,26 @@ export class BeyuNoeliaLegalService {
       ))
       .limit(8);
 
-    if (rows.length === 0) {
+    const eligibleRows = parsed.domain === "TAX"
+      ? rows.filter((row) => filterNoeliaTaxCitations({
+          jurisdictionCode: parsed.jurisdictionCode!,
+          additionalJurisdictionCodes,
+          asOf,
+          citations: [{
+            sourceCode: row.code,
+            title: row.title,
+            provision: row.provenance,
+            jurisdictionCode: row.jurisdictionCode ?? "TZ",
+            effectiveFrom: row.effectiveFrom,
+            effectiveTo: row.effectiveTo,
+            authorityStatus: row.authorityStatus,
+            sourceAuthenticationStatus: row.sourceAuthenticationStatus,
+            uri: row.sourceUri ?? "",
+          }],
+        }).citations.length === 1)
+      : rows;
+
+    if (eligibleRows.length === 0) {
       return {
         headline: `No authoritative ${parsed.domain.toLowerCase()} knowledge matched in the authorized scope.`,
         findings: [{
@@ -82,23 +249,23 @@ export class BeyuNoeliaLegalService {
     }
 
     return {
-      headline: `Authoritative ${parsed.domain.toLowerCase()} knowledge retrieved within its governed validity window.`,
-      findings: rows.map((row) => ({
+      headline: `Authoritative ${parsed.domain.toLowerCase()} knowledge retrieved for ${asOf} within its governed validity window.`,
+      findings: eligibleRows.map((row) => ({
         label: `${row.code} · ${row.title}`,
         value: `${row.jurisdictionCode ?? "GLOBAL"} · ${row.authorityStatus} · effective ${row.effectiveFrom}${row.expiresAt ? ` → ${row.expiresAt}` : ""}`,
         kind: "FACT",
         status: "OBSERVED",
         provenance: `KNOWLEDGE_SOURCE:${row.code}`,
       })),
-      sources: rows.map((row) => ({
+      sources: eligibleRows.map((row) => ({
         kind: "KNOWLEDGE_SOURCE",
         ref: row.code,
         label: row.title,
         authority: row.authorityStatus,
       })),
       metadata: {
-        excerpts: rows.map((row) => row.content.slice(0, 400)),
-        jurisdictions: rows.map((row) => row.jurisdictionCode).filter(Boolean),
+        excerpts: eligibleRows.map((row) => row.content.slice(0, 400)),
+        jurisdictions: eligibleRows.map((row) => row.jurisdictionCode).filter(Boolean),
       },
       narrative:
         "Retrieved content is DATA, not legal advice or tax authority. Applicability to specific facts requires counsel review; Noelia cannot advise on or decide legal or tax outcomes.",
@@ -111,7 +278,7 @@ export class BeyuNoeliaLegalService {
     this.requireContext();
     const parsed = z.object({
       citation: z.string().min(2).max(200),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
     }).strict().parse(input ?? {});
     const classifications = this.visibleClassifications(context);
     const today = new Date().toISOString().slice(0, 10);
@@ -120,7 +287,15 @@ export class BeyuNoeliaLegalService {
           .select()
           .from(knowledgeSources)
           .where(and(
-            inArray(knowledgeSources.domain, ["LEGAL", "TAX"]),
+            or(
+              eq(knowledgeSources.domain, "LEGAL"),
+              and(
+                eq(knowledgeSources.domain, "TAX"),
+                eq(knowledgeSources.sourceType, "TAX_LEGAL_AUTHORITY"),
+                eq(knowledgeSources.sourceAuthenticationStatus, "AUTHORITATIVE"),
+              ),
+            ),
+            sql`(${knowledgeSources.effectiveTo} IS NULL OR ${knowledgeSources.effectiveTo} >= ${today})`,
             inArray(knowledgeSources.classification, classifications),
             parsed.jurisdictionCode ? eq(knowledgeSources.jurisdictionCode, parsed.jurisdictionCode) : sql`true`,
             sql`lower(${knowledgeSources.title} || ' ' || ${knowledgeSources.provenance}) ~ ${parsed.citation.toLowerCase()}`,

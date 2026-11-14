@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, hasDatabaseTransactionContext } from "@/db";
 import {
+  documents,
   enterpriseMemory,
   knowledgeSources,
 } from "@/db/schema";
@@ -15,6 +16,7 @@ import {
   type Classification,
 } from "@/lib/constants";
 import { checksumOf } from "@/lib/crypto";
+import { authenticateTaxLegalSource, type TaxLegalAuthorityRecord, type TaxInstrumentKind } from "@/lib/finance/tax-intelligence-capabilities";
 import { newId, ID_PREFIX } from "@/lib/ids";
 import type { NoeliaToolOutput, NoeliaAuthorizedScope, ToolInvocationContext } from "./types";
 
@@ -35,6 +37,25 @@ export const MEMORY_CLASSES = [
 export type MemoryClass = (typeof MEMORY_CLASSES)[number];
 
 const MEMORY_SCOPE_TYPES = ["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"] as const;
+
+/** Strict metadata envelope for a tax legal source entering the shared knowledge registry. */
+export const TAX_LEGAL_AUTHORITY_INPUT = z.object({
+  instrumentKind: z.enum(["ACT", "FINANCE_ACT", "REGULATION", "ORDER", "TREATY", "RULING", "JUDGMENT", "PRACTICE_NOTICE", "RATE_TABLE", "CUSTOMS_TARIFF", "CUSTOMS_NOTICE", "OFFICIAL_FORM", "OTHER"]),
+  publishedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  commencedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  effectiveTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  originalDocumentId: z.string().min(3).max(128),
+  originalSourceSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+  officialSourceHost: z.string().min(3).max(253),
+  textValidatedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  textValidatedBy: z.string().min(2).max(128),
+  specialistReviewedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  specialistReviewerId: z.string().min(2).max(128),
+  enablingProvision: z.string().max(200).nullable().optional(),
+  amendsSourceCodes: z.array(z.string().min(3).max(64)).max(50).default([]),
+  repealsSourceCodes: z.array(z.string().min(3).max(64)).max(50).default([]),
+  provisionReferences: z.array(z.string().min(1).max(120)).min(1).max(100),
+}).strict();
 type MemoryScopeType = (typeof MEMORY_SCOPE_TYPES)[number];
 
 function requireCanonicalContext(): void {
@@ -116,7 +137,7 @@ export class BeyuNoeliaMemoryService {
       domain: z.string().min(2).max(40),
       content: z.string().min(10).max(20000),
       sourceUri: z.string().url().optional(),
-      jurisdictionCode: z.string().length(2).optional(),
+      jurisdictionCode: z.string().regex(/^[A-Z][A-Z0-9_]{1,11}$/).optional(),
       scopeType: z.enum(["GLOBAL", "ENTERPRISE", "TENANT", "ENTITY", "COUNTRY"]),
       classification: z.enum(["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "HIGHLY_RESTRICTED"]),
       version: z.string().min(1).max(40).default("1.0.0"),
@@ -125,7 +146,52 @@ export class BeyuNoeliaMemoryService {
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
       provenance: z.string().min(3).max(500),
       keywords: z.array(z.string().min(1).max(40)).max(30).default([]),
+      taxLegalAuthority: TAX_LEGAL_AUTHORITY_INPUT.optional(),
     }).strict().parse(input);
+
+    if (parsed.taxLegalAuthority) {
+      if (parsed.domain !== "TAX" || !parsed.jurisdictionCode || !parsed.sourceUri) {
+        throw new Error("Tax legal authority metadata requires TAX domain, jurisdiction and original source URI.");
+      }
+      const officialHosts = (process.env.TAX_OFFICIAL_SOURCE_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
+      const tax = parsed.taxLegalAuthority;
+      if (tax.specialistReviewerId !== context.principal.userId) {
+        return { headline: "Tax source ingest denied: the named specialist reviewer must be the authenticated ingest actor.", findings: [{ label: "Specialist identity", value: "REVIEWER_IDENTITY_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }], humanReviewRequired: true, confidence: 1 };
+      }
+      if (parsed.scopeType === "GLOBAL") throw new Error("Tax legal sources must be bound to an authorized tenant/country scope and an uploaded original document.");
+      const [originalDocument] = await db.select().from(documents).where(and(
+        eq(documents.id, tax.originalDocumentId),
+        eq(documents.tenantId, context.target.tenantId),
+      )).limit(1);
+      const registeredChecksum = originalDocument?.checksum.replace(/^sha256:/i, "").toLowerCase();
+      if (!originalDocument || !originalDocument.storageUri || registeredChecksum !== tax.originalSourceSha256.toLowerCase() || ["REJECTED", "SUPERSEDED", "EXPIRED"].includes(originalDocument.authorityStatus)) {
+        return {
+          headline: "Tax source ingest denied: uploaded original document, tenant scope and matching SHA-256 are required.",
+          findings: [{ label: "Original document verification", value: "DOCUMENT_CHECKSUM_OR_SCOPE_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }],
+          humanReviewRequired: true, confidence: 1,
+        };
+      }
+      const candidate: TaxLegalAuthorityRecord = {
+        sourceCode: parsed.code, title: parsed.title, jurisdictionCode: parsed.jurisdictionCode,
+        instrumentKind: tax.instrumentKind as TaxInstrumentKind, sourceUri: parsed.sourceUri,
+        originalDocumentId: tax.originalDocumentId, sourceSha256: tax.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
+        publishedOn: tax.publishedOn, commencedOn: tax.commencedOn, effectiveFrom: parsed.effectiveFrom,
+        effectiveTo: tax.effectiveTo ?? null, officialSourceHost: tax.officialSourceHost,
+        textValidatedAt: tax.textValidatedAt, textValidatedBy: tax.textValidatedBy,
+        specialistReviewedAt: tax.specialistReviewedAt, specialistReviewerId: tax.specialistReviewerId,
+        enablingProvision: tax.enablingProvision ?? null, amendsSourceCodes: tax.amendsSourceCodes,
+        repealsSourceCodes: tax.repealsSourceCodes, supersedesSourceCodes: [],
+        provisionReferences: tax.provisionReferences,
+      };
+      const authentication = authenticateTaxLegalSource(candidate, officialHosts);
+      if (!authentication.authenticated) {
+        return {
+          headline: "Tax legal source rejected: authentication evidence is incomplete.",
+          findings: authentication.reasons.map((reason) => ({ label: "Tax source authentication", value: reason, kind: "INFERENCE" as const, status: "REQUIRES_HUMAN_REVIEW" as const })),
+          humanReviewRequired: true, confidence: 1,
+        };
+      }
+    }
 
     const authorityTarget = parsed.scopeType === "GLOBAL"
       ? { tenantId: null, entityId: null, countryCode: null }
@@ -207,6 +273,23 @@ export class BeyuNoeliaMemoryService {
       content: parsed.content,
       contentDigest,
       keywords: parsed.keywords,
+      sourceType: parsed.taxLegalAuthority ? "TAX_LEGAL_AUTHORITY" : "GOVERNED_DOCUMENT",
+      sourceAuthenticationStatus: parsed.taxLegalAuthority ? "SPECIALIST_REVIEWED" : "DISCOVERED",
+      instrumentKind: parsed.taxLegalAuthority?.instrumentKind ?? null,
+      publishedOn: parsed.taxLegalAuthority?.publishedOn ?? null,
+      commencedOn: parsed.taxLegalAuthority?.commencedOn ?? null,
+      effectiveTo: parsed.taxLegalAuthority?.effectiveTo ?? null,
+      originalDocumentId: parsed.taxLegalAuthority?.originalDocumentId ?? null,
+      originalSourceSha256: parsed.taxLegalAuthority?.originalSourceSha256 ?? null,
+      officialSourceHost: parsed.taxLegalAuthority?.officialSourceHost ?? null,
+      textValidatedAt: parsed.taxLegalAuthority ? new Date(parsed.taxLegalAuthority.textValidatedAt + "T00:00:00.000Z") : null,
+      textValidatedBy: parsed.taxLegalAuthority?.textValidatedBy ?? null,
+      specialistReviewedAt: parsed.taxLegalAuthority ? new Date(parsed.taxLegalAuthority.specialistReviewedAt + "T00:00:00.000Z") : null,
+      specialistReviewerId: parsed.taxLegalAuthority?.specialistReviewerId ?? null,
+      enablingProvision: parsed.taxLegalAuthority?.enablingProvision ?? null,
+      amendsSourceCodes: parsed.taxLegalAuthority?.amendsSourceCodes ?? [],
+      repealsSourceCodes: parsed.taxLegalAuthority?.repealsSourceCodes ?? [],
+      provisionReferences: parsed.taxLegalAuthority?.provisionReferences ?? [],
     };
 
     await db.transaction(async (rawTx) => {
@@ -362,6 +445,38 @@ export class BeyuNoeliaMemoryService {
       throw new Error("Knowledge publication requires one live authority tuple matching the source scope.");
     }
 
+    if (source.sourceType === "TAX_LEGAL_AUTHORITY") {
+      const officialHosts = (process.env.TAX_OFFICIAL_SOURCE_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean);
+      const dateOnly = (value: Date | null): string | null => value ? value.toISOString().slice(0, 10) : null;
+      const candidate: TaxLegalAuthorityRecord = {
+        sourceCode: source.code, title: source.title, jurisdictionCode: source.jurisdictionCode ?? "",
+        instrumentKind: (source.instrumentKind ?? "OTHER") as TaxInstrumentKind, sourceUri: source.sourceUri,
+        originalDocumentId: source.originalDocumentId, sourceSha256: source.originalSourceSha256, sourceAuthorityStatus: "AUTHORITATIVE",
+        publishedOn: source.publishedOn, commencedOn: source.commencedOn, effectiveFrom: source.effectiveFrom,
+        effectiveTo: source.effectiveTo, officialSourceHost: source.officialSourceHost,
+        textValidatedAt: dateOnly(source.textValidatedAt), textValidatedBy: source.textValidatedBy,
+        specialistReviewedAt: dateOnly(source.specialistReviewedAt), specialistReviewerId: source.specialistReviewerId,
+        enablingProvision: source.enablingProvision, amendsSourceCodes: source.amendsSourceCodes ?? [],
+        repealsSourceCodes: source.repealsSourceCodes ?? [], supersedesSourceCodes: source.supersedesCode ? [source.supersedesCode] : [],
+        provisionReferences: source.provisionReferences ?? [],
+      };
+      const authentication = authenticateTaxLegalSource(candidate, officialHosts);
+      const [originalDocument] = source.originalDocumentId && source.tenantId
+        ? await db.select().from(documents).where(and(eq(documents.id, source.originalDocumentId), eq(documents.tenantId, source.tenantId))).limit(1)
+        : [];
+      const registeredChecksum = originalDocument?.checksum.replace(/^sha256:/i, "").toLowerCase();
+      if (!originalDocument || !originalDocument.storageUri || registeredChecksum !== (source.originalSourceSha256 ?? "").toLowerCase() || ["REJECTED", "SUPERSEDED", "EXPIRED"].includes(originalDocument.authorityStatus)) {
+        return { headline: "Tax legal publication denied: original uploaded document is missing, out of scope or checksum-mismatched.", findings: [{ label: "Original document verification", value: "DOCUMENT_CHECKSUM_OR_SCOPE_MISMATCH", kind: "INFERENCE", status: "REQUIRES_HUMAN_REVIEW" }], humanReviewRequired: true, confidence: 1 };
+      }
+      if (source.sourceAuthenticationStatus !== "SPECIALIST_REVIEWED" || !authentication.authenticated) {
+        return {
+          headline: "Tax legal publication denied: authenticated original-source evidence and specialist review are required.",
+          findings: (source.sourceAuthenticationStatus !== "SPECIALIST_REVIEWED" ? ["Source has not completed specialist review."] : []).concat(authentication.reasons).map((reason) => ({ label: "Tax authority gate", value: reason, kind: "INFERENCE" as const, status: "REQUIRES_HUMAN_REVIEW" as const })),
+          humanReviewRequired: true, confidence: 1,
+        };
+      }
+    }
+
     let superseded: typeof source | null = null;
     if (source.supersedesCode) {
       await db.execute(sql`select id from knowledge_sources where code = ${source.supersedesCode} for update`);
@@ -396,7 +511,7 @@ export class BeyuNoeliaMemoryService {
           .returning({ id: knowledgeSources.id });
         if (predecessorTransition.length !== 1) throw new Error("Knowledge predecessor was not superseded exactly once.");
       }
-      const publication = await tx.update(knowledgeSources).set({ authorityStatus: "AUTHORITATIVE" })
+      const publication = await tx.update(knowledgeSources).set({ authorityStatus: "AUTHORITATIVE", ...(source.sourceType === "TAX_LEGAL_AUTHORITY" ? { sourceAuthenticationStatus: "AUTHORITATIVE" } : {}) })
         .where(and(eq(knowledgeSources.id, source.id), eq(knowledgeSources.contentDigest, parsed.expectedDigest), eq(knowledgeSources.authorityStatus, "UNDER_REVIEW")))
         .returning({ id: knowledgeSources.id });
       if (publication.length !== 1) throw new Error("Knowledge source was not published exactly once.");

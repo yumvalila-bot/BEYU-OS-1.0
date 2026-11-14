@@ -328,11 +328,12 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The journal head moved to MULTI_COMPANY_MANAGEMENT (0076) and its three forward
-    // fixes (0077-0079). The assertion's purpose is intact: the head is named
-    // explicitly, so any new migration must update this test deliberately, and the
-    // directory check below still proves no host/subdomain migration exists.
-    expect(journal.entries.at(-1)?.tag).toBe("0079_mcm_module_link_uidx_order");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its three
+    // forward fixes (0077-0079) to the tax migrations 0080-0081. The assertion's
+    // purpose is intact: the head is named explicitly, so any new migration must
+    // update this test deliberately, and the directory check below still proves no
+    // host/subdomain migration exists.
+    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 

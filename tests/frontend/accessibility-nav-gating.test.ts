@@ -115,9 +115,12 @@ beforeAll(async () => {
   auditor = await login("auditor@beyu.os");
 }, 240_000);
 
+// `/sign-in` is the governed sign-in on every host (on the configured apex, `/`
+// is the public homepage), so the unauthenticated sign-in contract below is
+// asserted on `/sign-in` — same resolver, same shared form, same gates.
 describe("Sign-in accessibility (unauthenticated shell)", () => {
   it.skipIf(!available)("every field has a programmatically associated label", async () => {
-    const { status, html } = await apiGet("/", null);
+    const { status, html } = await apiGet("/sign-in", null);
     expect(status).toBe(200);
     // A <label> with no `for` and no nested control is not a label at all:
     // assistive technology reads the field as unlabelled.
@@ -133,7 +136,7 @@ describe("Sign-in accessibility (unauthenticated shell)", () => {
   });
 
   it.skipIf(!available)("the MFA field declares one-time-code autocomplete and a help association", async () => {
-    const { html } = await apiGet("/", null);
+    const { html } = await apiGet("/sign-in", null);
     // HTML attribute NAMES are ASCII case-insensitive (HTML Standard), so the
     // browser parses React's SSR output `autoComplete="one-time-code"` as
     // `autocomplete="one-time-code"`. React 19 emits these two props in
@@ -145,7 +148,7 @@ describe("Sign-in accessibility (unauthenticated shell)", () => {
   });
 
   it.skipIf(!available)("a sign-in failure is announced via an assertive live region", async () => {
-    const { html } = await apiGet("/", null);
+    const { html } = await apiGet("/sign-in", null);
     expect(html).toContain('id="beyu-signin-error"');
     expect(html).toContain('role="alert"');
     expect(html).toContain('aria-live="assertive"');
@@ -166,7 +169,7 @@ describe("Sign-in accessibility (unauthenticated shell)", () => {
    * asserted here.
    */
   it.skipIf(!available)("does not publish privileged identities on the public sign-in page", async () => {
-    const { html } = await apiGet("/", null);
+    const { html } = await apiGet("/sign-in", null);
     expect(html).not.toContain("Governed bootstrap identities");
     for (const email of [
       "ceo@beyu.os",

@@ -393,7 +393,9 @@ describe("E. the running server", () => {
     "serves the SAME canonical login page on all eight hosts, with the host's own context",
     async () => {
       for (const [host, destination] of Object.entries(EXPECTED_CONTRACT)) {
-        const reply = await get(host);
+        // The ONE login experience lives at `/sign-in` on every host (on the apex,
+        // `/` is the public homepage). Same resolver, same shared form.
+        const reply = await get(host, "/sign-in");
         expect(reply.status, host).toBe(200);
         const body = text(reply.body);
         // ONE login experience: the same real form and the same reference surface.
@@ -432,11 +434,12 @@ describe("E. the running server", () => {
         { "x-host": "health.beyu.co.tz" },
       ];
       for (const spoof of spoofs) {
-        const onApex = text((await get("beyu.co.tz", "/", spoof)).body);
         // The destination comes from the Host header ALONE. A spoofed forwarding
-        // header cannot turn the apex into Health OS, and — since the apex serves
-        // the same governed sign-in as every canonical host — it cannot obtain a
-        // destination frontend either.
+        // header cannot turn the apex sign-in into Health OS, and it cannot turn
+        // the apex homepage into a destination frontend either.
+        const onApex = text((await get("beyu.co.tz", "/sign-in", spoof)).body);
+        const apexHome = text((await get("beyu.co.tz", "/", spoof)).body);
+        expect(apexHome, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
         expect(onApex, JSON.stringify(spoof)).toContain("Sign in to the control plane");
         expect(onApex, JSON.stringify(spoof)).not.toContain("Sign in to Health OS");
       }
