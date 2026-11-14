@@ -15,6 +15,7 @@ import { registerFamilyOfficeTools } from "@/lib/family/office/noelia-tools";
 import { registerAgricultureExportTools } from "@/lib/noelia/agriculture-export-tools";
 import { registerVizTools } from "@/lib/viz/noelia-tools";
 import { registerEnterpriseIntelligenceTools } from "@/lib/noelia/enterprise-intelligence-tools";
+import { registerMcmTools } from "@/lib/noelia/mcm-tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1311,6 +1312,7 @@ export function createDefaultNoeliaToolRegistry(
         domains: z.array(z.enum([
           "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
           "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
+          "MULTI_COMPANY",
         ])).min(2).max(10),
         focus: z.string().max(300).optional(),
       }).strict(),
@@ -1320,6 +1322,7 @@ export function createDefaultNoeliaToolRegistry(
         domains: z.array(z.enum([
           "FINANCE", "HCM", "HEALTH", "AGRICULTURE", "TAX", "LEGAL",
           "RISK", "COMPLIANCE", "GOVERNANCE", "FOUNDATION", "FAMILY_OFFICE", "TRUST",
+          "MULTI_COMPANY",
         ])).min(2).max(10),
         focus: z.string().max(300).optional(),
       }).parse(input ?? {});
@@ -1336,6 +1339,7 @@ export function createDefaultNoeliaToolRegistry(
         GOVERNANCE: "governance:resolution.read",
         TAX: "finance:tax.read",
         LEGAL: "legal:matter.read",
+        MULTI_COMPANY: "mcm:company.read",
       };
       const toolByDomain: Record<string, string> = {
         FINANCE: "finance.treasury.aggregate",
@@ -1348,6 +1352,7 @@ export function createDefaultNoeliaToolRegistry(
         GOVERNANCE: "governance.resolution.query",
         TAX: "tax.knowledge.query",
         LEGAL: "legal.knowledge.query",
+        MULTI_COMPANY: "mcm.portfolio.hierarchy",
       };
       const findings: NoeliaFinding[] = [];
       const sources: NoeliaSource[] = [];
@@ -1487,6 +1492,15 @@ export function createDefaultNoeliaToolRegistry(
    * NONE: approval, posting and payment have no Noelia tool path and remain human-governed.
    */
   registerEnterpriseIntelligenceTools(registry);
+  /**
+   * Multi-Company Management — governed, read-only portfolio intelligence. The
+   * tools are adapters over `src/lib/mcm/read-services.ts`, so the entity
+   * boundary is decided in exactly one place. Every tool is sideEffects NONE:
+   * company creation, lifecycle transitions, ownership validation, statutory
+   * filing, intercompany reconciliation, consolidation runs, capital proposals
+   * and module mutations have no Noelia tool path and remain human-governed.
+   */
+  registerMcmTools(registry);
 
   return registry;
 }

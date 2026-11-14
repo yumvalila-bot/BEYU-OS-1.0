@@ -85,6 +85,20 @@ const FROZEN_TOOL_NAMES = [
   "knowledge.replace",
   "legal.authority.status",
   "legal.knowledge.query",
+  // MCM (multi-company) read-only portfolio intelligence. Each is an adapter over
+  // `src/lib/mcm/read-services.ts` with `sideEffects: NONE` — company creation,
+  // lifecycle transitions, ownership validation, filings, intercompany
+  // reconciliation, consolidation runs and capital approval have no tool path.
+  "mcm.company.financial_snapshot",
+  "mcm.consolidation.status",
+  "mcm.governance.overview",
+  "mcm.integration.health",
+  "mcm.intercompany.position",
+  "mcm.jurisdiction.coverage",
+  "mcm.module_rollup",
+  "mcm.ownership.structure",
+  "mcm.portfolio.hierarchy",
+  "mcm.risk_and_compliance.overview",
   "memory.read",
   "memory.write",
   "model.registry.read",

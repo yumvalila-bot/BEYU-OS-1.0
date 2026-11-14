@@ -23,7 +23,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { apiGet, apiPost, serverAvailable } from "../helpers/http";
+import { request as httpRequest } from "node:http";
+import { apiGet, apiPost, baseUrl, serverAvailable } from "../helpers/http";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const source = (...parts: string[]) => readFileSync(path.join(ROOT, ...parts), "utf8");
@@ -49,6 +50,32 @@ const RECOVERY_PAGE = code(source("src", "app", "forgot-password", "page.tsx"));
 const RECOVERY_ROUTE = code(source("src", "app", "api", "v1", "auth", "recovery", "request", "route.ts"));
 const GLOBALS = source("src", "app", "globals.css");
 const available = Boolean(process.env.BEYU_TEST_BASE_URL);
+/** The canonical domain gates the destination-host contract on the server. */
+const canonicalDomain = process.env.BEYU_TEST_CANONICAL_DOMAIN;
+
+/**
+ * GET a path with an explicit `Host` header.
+ *
+ * `fetch` cannot set `Host` (it is a forbidden header name), so the canonical
+ * Host contract can only be exercised over `node:http` — the same mechanism the
+ * canonical-host suite uses.
+ */
+function getWithHost(path: string, host: string): Promise<{ status: number; body: string }> {
+  const url = new URL(baseUrl());
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { hostname: url.hostname, port: url.port, path, method: "GET", headers: { host } },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 /* -------------------------------------------------------------------------- */
 
@@ -158,7 +185,39 @@ describe("C. canonical palette, with the one documented contrast correction", ()
 
   it("uses the accessible gold ONLY for small text on light surfaces, and says why", () => {
     expect(GLOBALS).toContain("--beyu-gold-ink: #8a6a12");
-    expect(GLOBALS).toContain("4.60:1");
+
+    /**
+     * The contrast claim is COMPUTED, not matched as a literal.
+     *
+     * The old assertion required the string "4.60:1" to appear in the stylesheet.
+     * The token was correct all along — #8a6a12 on the page surface #f7f9fc
+     * measures 4.80:1 — but the comment quoted a slightly stale figure, so the
+     * test failed on prose while the accessibility property it exists to protect
+     * held. Recomputing WCAG 2.1 relative luminance from the two tokens means the
+     * assertion can only pass while the actual ratio clears AA, and it cannot
+     * drift when a comment is reworded.
+     */
+    const channel = (value: number): number => {
+      const c = value / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = (hex: string): number => {
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    };
+    const ratio = (a: string, b: string): number => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const goldInk = GLOBALS.match(/--beyu-gold-ink:\s*#([0-9a-fA-F]{6})/)?.[1];
+    const surface = GLOBALS.match(/--beyu-surface:\s*#([0-9a-fA-F]{6})/)?.[1];
+    expect(goldInk).toBeDefined();
+    expect(surface).toBeDefined();
+    // WCAG AA for normal-size text.
+    expect(ratio(goldInk!, surface!)).toBeGreaterThanOrEqual(4.5);
+    // And the brand gold is NOT used as small text: it would fail.
+    const brandGold = GLOBALS.match(/--beyu-gold:\s*#([0-9a-fA-F]{6})/)?.[1];
+    expect(ratio(brandGold!, surface!)).toBeLessThan(4.5);
     // The login surfaces consume it for text; the brand gold stays the graphic accent.
     expect(SURFACE).toContain("beyu-gold-ink");
     expect(SURFACE).toContain("text-[#d4a017]");
@@ -228,7 +287,13 @@ describe("D. security is not traded for visual fidelity", () => {
     // The presentation layer never authenticates, and the surfaces never
     // re-implement the form.
     expect(SURFACE).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
-    expect(PAGE).toContain("<SignInForm");
+    // The root page DELEGATES the credential form to the governed sign-in, which
+    // renders the one shared <SignInForm>. Asserting `<SignInForm` directly on the
+    // page enforced a layout that does not exist (and which an unused import had
+    // been faking): what the contract actually requires is that the page routes
+    // through the shared form rather than re-implementing one.
+    expect(PAGE).toMatch(/<GovernedSignIn|<SignInForm/);
+    expect(PAGE).not.toMatch(/type="password"|<input[^>]*name="password"/);
     expect(GOVERNED).toContain("<SignInForm");
     expect(GOVERNED).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);
     // A hostname may only be read through the ONE server helper, whose
@@ -240,9 +305,23 @@ describe("D. security is not traded for visual fidelity", () => {
 
 describe("E. the rendered surface (live server)", () => {
   it.skipIf(!available)("serves the reference login page unauthenticated", async () => {
-    const res = await apiGet("/", null);
+    // The reference surface is the SIGN-IN page, and it is served on every
+    // canonical host. `/` is the BEYU control-plane home: it renders the
+    // destination sign-in only for a destination Host, and otherwise renders
+    // HomePageContent. Requesting `/` with no Host header asserted the marketing
+    // home for a login-page contract — the suite never saw the form it describes.
+    // `/sign-in` is the canonical URL for this surface on all eight hostnames
+    // (src/app/sign-in/page.tsx delegates to the one implementation), so assert
+    // the contract there.
+    //
+    // The Host matters as much as the path: the ONE implementation
+    // (src/app/page.tsx) renders the reference surface for a DESTINATION host
+    // and the BEYU control-plane home for the apex/NEUTRAL host. So this asserts
+    // the contract on a destination hostname, which is where it lives.
+    const host = canonicalDomain ? `health.${canonicalDomain}` : "health.beyu.co.tz";
+    const res = await getWithHost("/sign-in", host);
     expect(res.status).toBe(200);
-    const body = text(res.html);
+    const body = text(res.body);
     for (const marker of [
       "Welcome",
       "Log in to access your account",
@@ -287,14 +366,14 @@ describe("E. the rendered surface (live server)", () => {
       expect(body, marker).toContain(marker);
     }
     // The authoritative asset — never a substitute, never the reference PNG.
-    expect(res.html).toContain("/brand/beyu-os-logo.png");
-    expect(res.html).not.toContain("BEYU LOGIN PAGE");
+    expect(res.body).toContain("/brand/beyu-os-logo.png");
+    expect(res.body).not.toContain("BEYU LOGIN PAGE");
     // Real controls, present in the server-rendered HTML.
-    expect(res.html).toContain("<form");
-    expect(res.html).toContain('type="password"');
-    expect(res.html).toContain('id="beyu-signin-mfa"');
-    expect(res.html).toContain('for="beyu-signin-mfa"');
-    expect(res.html).toContain("viewport");
+    expect(res.body).toContain("<form");
+    expect(res.body).toContain('type="password"');
+    expect(res.body).toContain('id="beyu-signin-mfa"');
+    expect(res.body).toContain('for="beyu-signin-mfa"');
+    expect(res.body).toContain("viewport");
   });
 
   it.skipIf(!available)("serves the governed recovery page and refuses nothing silently", async () => {

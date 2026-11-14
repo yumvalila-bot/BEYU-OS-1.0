@@ -28,6 +28,13 @@ export const ENGINE_TOOLS: Record<NoeliaEngine, readonly string[]> = {
     "finance.waterfall.latest",
     "finance.cash.position",
     "finance.reconciliation.status",
+    // MCM's money views are finance questions about the GROUP: per-company
+    // posture, intercompany state and recorded consolidation runs. They are
+    // read-only adapters over the MCM read services, so a finance briefing can
+    // name a company without restating the company register.
+    "mcm.company.financial_snapshot",
+    "mcm.intercompany.position",
+    "mcm.consolidation.status",
   ],
   RISK: ["risk.register.query", "risk.analysis"],
   COMPLIANCE: ["compliance.obligation.query", "compliance.analysis"],
@@ -52,6 +59,15 @@ export const ENGINE_TOOLS: Record<NoeliaEngine, readonly string[]> = {
   ],
   ANALYTICS: ["analytics.run"],
   CROSS_OS: ["cross.os.intelligence"],
+  MULTI_COMPANY: [
+    "mcm.portfolio.hierarchy",
+    "mcm.ownership.structure",
+    "mcm.jurisdiction.coverage",
+    "mcm.governance.overview",
+    "mcm.risk_and_compliance.overview",
+    "mcm.module_rollup",
+    "mcm.integration.health",
+  ],
 };
 
 /** Intent routing is deterministic, inspectable and cannot select an arbitrary tool. */
@@ -59,6 +75,24 @@ export function routeEngine(question: string): NoeliaEngine {
   const value = question.toLowerCase();
   if (/tax|vat|withhold|tra |deduction|capital allowance/.test(value)) return "TAX";
   if (/legal|statute|statutory|regulation s\.|authority status|citation|court/.test(value)) return "LEGAL";
+  // Group-portfolio intent is matched on entity vocabulary. Bare "company" or
+  // "group" is deliberately NOT a trigger: a payroll or cash question must stay
+  // with WORKFORCE and FINANCIAL, because stealing another engine's question is
+  // a routing defect even when the answer happens to be harmless. The pinned
+  // negative cases in tests/mcm/noelia-tools.test.ts hold this line.
+  //
+  // "consolidat" is the one trigger whose vocabulary another domain shares, so it
+  // is qualified: asking for the group's CASH, TREASURY or LIQUIDITY is a treasury
+  // question that MCM has no tool to answer, and it must stay with FINANCIAL. Only
+  // those three words deflect — a question about consolidated *statements* or a
+  // consolidated *trial balance* is MCM's. The deflection vocabulary is a strict
+  // subset of FINANCIAL's own trigger below, so a deflected question can never
+  // fall through to KNOWLEDGE unowned.
+  const groupVocabulary =
+    /subsidiar|parent entit|ultimate parent|corporate (hierarchy|register|structure)|entity structure|group structure|group portfolio|multi-company|multicompany|intercompany|legal entit|jurisdiction coverage|registered entit|how many compan|list (the |our |my )?compan|companies (are )?(in scope|visible|we see|you see)|our (group )?(companies|portfolio)/;
+  const treasuryVocabulary = /cash|treasury|liquidity/;
+  const consolidationIntent = /consolidat/.test(value) && !treasuryVocabulary.test(value);
+  if (groupVocabulary.test(value) || consolidationIntent) return "MULTI_COMPANY";
   if (/risk|threat|exposure|incident/.test(value)) return "RISK";
   if (/complian|regulat|gdpr|obligation|audit finding/.test(value)) return "COMPLIANCE";
   if (/resolution|board|governance|approval|policy/.test(value)) return "GOVERNANCE";
@@ -87,6 +121,8 @@ function defaultNarrative(engine: NoeliaEngine): string {
       return "HCM remains the only workforce master; Noelia cannot create employment consequences.";
     case "HEALTH":
       return "Noelia never diagnoses, prescribes, orders treatment or makes binding clinical decisions.";
+    case "MULTI_COMPANY":
+      return "MCM reports the company register as recorded. Noelia creates no company, moves no lifecycle state, validates no ownership, submits no filing, reconciles no intercompany balance and runs no consolidation; each of those stays with an accountable human on its own governed route.";
     default:
       return "Only authoritative, in-window knowledge within the principal's scope and clearance is eligible for retrieval.";
   }
@@ -106,6 +142,7 @@ function defaultHeadline(engine: NoeliaEngine): string {
     EXECUTIVE: "Executive briefing assembled.",
     ANALYTICS: "Governed analytics assembled.",
     CROSS_OS: "Cross-OS intelligence assembled.",
+    MULTI_COMPANY: "Authorized group portfolio evidence assembled.",
   };
   return labels[engine];
 }
@@ -231,6 +268,7 @@ export class NoeliaRuntime {
       case "EXECUTIVE": return "executive-intelligence";
       case "ANALYTICS": return "analytics-intelligence";
       case "CROSS_OS": return "cross-os-intelligence";
+      case "MULTI_COMPANY": return "multi-company-intelligence";
       default: return "noelia-governed-analysis";
     }
   }
@@ -370,6 +408,7 @@ export class NoeliaRuntime {
       EXECUTIVE: "ai:executive.read",
       ANALYTICS: "ai:analytics.read",
       CROSS_OS: "ai:analytics.read",
+      MULTI_COMPANY: "ai:noelia.query",
     };
     const permission = permissionForEngine[engine] as Parameters<typeof can>[1];
     const authz = can(input.principal, permission);

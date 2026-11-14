@@ -325,6 +325,27 @@ export const ID_PREFIX = {
   commBroadcastRecipient: "BCR",
   correlationId: "CORR",
   idempotencyKey: "IDEM",
+  /* MULTI_COMPANY_MANAGEMENT (migration 0076). MCM is one capability, not an OS. */
+  mcmCompanyProfile: "MCP",
+  mcmLifecycleEvent: "MCLE",
+  mcmRelationship: "MCRE",
+  mcmOwnershipValidation: "MCOV",
+  mcmCountryProfile: "MCCP",
+  mcmStatutoryFiling: "MCSF",
+  mcmCapitalAllocation: "MCCA",
+  mcmProcurement: "MCPR",
+  mcmAsset: "MCAS",
+  mcmProject: "MCPS",
+  mcmModuleLink: "MCML",
+  mcmIntegrationContract: "MCIC",
+  mcmIntegrationEvent: "MCIE",
+  mcmReconciliation: "MCRR",
+  intercompanyAgreement: "ICAG",
+  intercompanyTransaction: "ICTX",
+  consolidationRun: "CONR",
+  consolidationEntity: "CONE",
+  consolidationAdjustment: "CONA",
+  fxRate: "FXR",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

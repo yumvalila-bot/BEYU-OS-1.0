@@ -46,6 +46,20 @@ export const entityTypeEnum = pgEnum("beyu_entity_type", [
   "PARTNERSHIP",
   "BRANCH",
   "NON_PROFIT",
+  /**
+   * MCM — APPENDED labels (migration 0076). `ALTER TYPE … ADD VALUE` appends, so
+   * no existing label, row or behaviour moves:
+   *
+   *   SPECIAL_PURPOSE_VEHICLE  a bankruptcy-remote vehicle. Legally distinct from
+   *                            an ASSOCIATE or JOINT_VENTURE, which are ownership
+   *                            stakes in someone else's entity.
+   *   BUSINESS_UNIT            a registered trading division inside ONE legal
+   *                            entity that is not itself a separate registration.
+   *                            Distinct from `org_units`, which model internal
+   *                            divisional structure without any registration.
+   */
+  "SPECIAL_PURPOSE_VEHICLE",
+  "BUSINESS_UNIT",
 ]);
 
 export const partyTypeEnum = pgEnum("beyu_party_type", [
@@ -268,4 +282,101 @@ export const domainTypeEnum = pgEnum("beyu_domain_type", [
    * this?", never "which tenant?".
    */
   "CAPABILITY_BASE",
+]);
+
+/**
+ * MCM — MULTI_COMPANY_MANAGEMENT enumerations.
+ *
+ * These are ADDITIVE and scoped to the MCM capability. No existing enum is
+ * widened, so no existing table's meaning moves.
+ *
+ * `mcmLifecycleStateEnum` exists because `beyu_lifecycle_status` cannot express
+ * DORMANT or DISSOLVED, and widening that enum would silently change the
+ * meaning of ~40 unrelated tables. The MCM lifecycle is recorded on
+ * `legal_entity_profiles.mcm_lifecycle_state` and is DERIVED FROM, never
+ * instead of, `legal_entities.status`.
+ */
+export const mcmLifecycleStateEnum = pgEnum("beyu_mcm_lifecycle_state", [
+  "DRAFT",
+  "PENDING_VERIFICATION",
+  "ACTIVE",
+  "SUSPENDED",
+  "DORMANT",
+  "DISSOLVED",
+  "ARCHIVED",
+]);
+
+/**
+ * Relationship taxonomy. Deliberately SEPARATE from ownership: the mission is
+ * explicit that not every organizational relationship is legal ownership.
+ * `PARENT_SUBSIDIARY` is the only structural parentage link; `OWNERSHIP` is
+ * never recorded here (it lives in `ownership_records`).
+ */
+export const entityRelationshipTypeEnum = pgEnum("beyu_entity_relationship_type", [
+  "PARENT_SUBSIDIARY",
+  "MANAGEMENT",
+  "GOVERNANCE",
+  "BRANCH",
+  "OPERATIONAL_AFFILIATION",
+  "SHARED_SERVICES",
+  "AGENCY",
+  "FRANCHISE",
+]);
+
+/** Directed-ownership validation outcome for an ownership instrument. */
+export const ownershipValidationStateEnum = pgEnum("beyu_ownership_validation_state", [
+  "UNVALIDATED",
+  "VALID",
+  "OVER_ALLOCATED",
+  "INSTRUMENT_MISSING",
+  "PROVENANCE_MISSING",
+  "CIRCULAR",
+  "RETURNS_HUMAN_REVIEW",
+]);
+
+/** Intercompany transaction lifecycle — both sides must authorise. */
+export const intercompanyStateEnum = pgEnum("beyu_intercompany_state", [
+  "DRAFT",
+  "PROPOSED",
+  "AWAITING_COUNTERPARTY",
+  "BOTH_SIDES_AUTHORIZED",
+  "RECONCILED",
+  "DISPUTED",
+  "REJECTED",
+  "CANCELLED",
+]);
+
+/** Consolidation run lifecycle. Analysis only — never a ledger posting. */
+export const consolidationStateEnum = pgEnum("beyu_consolidation_state", [
+  "DRAFT",
+  "COLLECTING",
+  "TRANSLATED",
+  "ELIMINATED",
+  "AWAITING_REVIEW",
+  "REVIEWED",
+  "REJECTED",
+]);
+
+/**
+ * Data-state marker for every MCM figure. The mission requires that Actual,
+ * Consolidated, Estimated, Pending, Restricted and Unavailable be
+ * distinguishable, and that "unavailable" is never rendered as zero.
+ */
+export const mcmDataStateEnum = pgEnum("beyu_mcm_data_state", [
+  "ACTUAL",
+  "CONSOLIDATED",
+  "ESTIMATED",
+  "FORECAST",
+  "PENDING",
+  "RESTRICTED",
+  "UNAVAILABLE",
+]);
+
+/** Cross-OS data contract status used by the integration register. */
+export const mcmIntegrationStateEnum = pgEnum("beyu_mcm_integration_state", [
+  "DECLARED",
+  "VERIFIED",
+  "DEGRADED",
+  "UNAVAILABLE",
+  "RETIRED",
 ]);

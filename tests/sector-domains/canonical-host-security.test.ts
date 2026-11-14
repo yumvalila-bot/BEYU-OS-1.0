@@ -10,6 +10,7 @@
  * and that session scope is handled by one helper on both the issue and the
  * clear side.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -327,7 +328,11 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    expect(journal.entries.at(-1)?.tag).toBe("0075_noelia_authority_execution_hardening");
+    // The journal head moved to MULTI_COMPANY_MANAGEMENT (0076) and its three forward
+    // fixes (0077-0079). The assertion's purpose is intact: the head is named
+    // explicitly, so any new migration must update this test deliberately, and the
+    // directory check below still proves no host/subdomain migration exists.
+    expect(journal.entries.at(-1)?.tag).toBe("0079_mcm_module_link_uidx_order");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 
@@ -335,7 +340,26 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
     const env = source(".env.example");
     expect(env).toContain("BEYU_CANONICAL_DOMAIN");
     expect(env).toContain("BEYU_SESSION_COOKIE_DOMAIN");
-    expect(existsSync(path.join(ROOT, ".env"))).toBe(false);
+
+    // A local `.env` legitimately exists in a developer worktree — it is
+    // gitignored, and asserting its ABSENCE conflated "no committed secrets" with
+    // "nobody may have a local environment file". The contract that matters is
+    // that no environment file is tracked by Git, and that the example carries no
+    // real values.
+    // `git check-ignore` succeeds only when .env is ignored; `.env.production` must
+    // not exist at all.
+    let ignored = false;
+    try {
+      execFileSync("git", ["check-ignore", "-q", ".env"], {
+        cwd: ROOT,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+      ignored = true;
+    } catch {
+      ignored = false;
+    }
+    // If a .env exists it MUST be ignored; if it does not exist the clause is moot.
+    if (existsSync(path.join(ROOT, ".env"))) expect(ignored).toBe(true);
     expect(existsSync(path.join(ROOT, ".env.production"))).toBe(false);
   });
 });

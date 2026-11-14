@@ -420,7 +420,19 @@ describe("hostile Host values", () => {
       ]) {
         const res = await getWithHost("/", host);
         expect(res.status, host).toBe(200);
-        expect(res.body, host).toContain("Sign in to the control plane");
+        // A hostile host selects NO destination — and it has no sign-in of its
+        // own either. Every canonical host (the apex included) serves the ONE
+        // governed sign-in; a NEUTRAL resolution renders the control-plane
+        // destination's surface instead of the marketing home, so an attacker
+        // cannot even obtain the un-governed page by lying about the Host. What
+        // matters is that no DESTINATION frontend is selected.
+        expect(text(res.body), host).toContain("Sign in to the control plane");
+        // CANONICAL_HOSTS is the seven destination hosts (the apex has its own
+        // case below); none of their payloads may be selected by a hostile Host.
+        for (const destination of CANONICAL_HOSTS) {
+          expect(text(res.body), `${host} must not select ${destination.host}`).not.toContain(destination.copy);
+        }
+        expect(res.body, host).toContain('id="beyu-signin-email"');
         const cross = await getWithHost("/os/finance", host, ceoCookie);
         expect(cross.status, host).toBe(200); // served in place, no redirect
       }

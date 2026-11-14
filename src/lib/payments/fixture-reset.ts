@@ -73,6 +73,34 @@ const FK_CHILDREN: Record<"payment_transactions" | "journal_entries", readonly s
   journal_entries: ["journal_lines", "payment_settlements", "payment_corrections", "payment_transactions"],
 };
 
+/**
+ * Referencing tables this reset must NOT delete — it refuses instead.
+ *
+ * `intercompany_transactions` (MULTI_COMPANY_MANAGEMENT, 0076) points at
+ * `journal_entries` through `finance_reference_id`. That is not a payments child
+ * row: it is the intercompany leg of a real group accounting position. Removing
+ * one to tidy up a demo payment fixture would silently rewrite group finance, and
+ * a `set session_replication_role = replica` delete would do it without raising a
+ * single foreign-key error. So the reset treats the presence of such a reference
+ * as a reason to stop and say so.
+ *
+ * Adding a name here is a deliberate decision that the referencing table is
+ * financial truth rather than fixture noise; the guard below still refuses on any
+ * table that is in neither list.
+ */
+const FOREIGN_FINANCIAL_CHILDREN: Record<"payment_transactions" | "journal_entries", readonly string[]> = {
+  payment_transactions: [],
+  journal_entries: ["intercompany_transactions"],
+};
+
+/**
+ * (child table, child column, parent table) triples that are out of scope for a
+ * fixture reset. Each is checked with a real count before anything is deleted.
+ */
+const FINANCIAL_REFERENCES: ReadonlyArray<{ child: string; column: string; parent: "journal_entries" | "payment_transactions" }> = [
+  { child: "intercompany_transactions", column: "finance_reference_id", parent: "journal_entries" },
+];
+
 export type FixtureResetReport = {
   ok: boolean;
   refused?: string;
@@ -182,14 +210,46 @@ export async function removeDemoPaymentRows(input: { prefixes: readonly string[]
   const unknown = (covering.rows as { child: string; parent: string }[]).filter((row) => {
     const child = row.child.replace(/^public\./, "");
     const parent = row.parent.replace(/^public\./, "");
-    return !(FK_CHILDREN[parent as keyof typeof FK_CHILDREN] ?? []).includes(child);
+    const handled = FK_CHILDREN[parent as keyof typeof FK_CHILDREN] ?? [];
+    // A known cross-capability financial reference is not "unhandled": it is
+    // checked (and refused on) by the count below. Anything in NEITHER list is
+    // still an unknown child and stops the reset here.
+    const refusedOn = FOREIGN_FINANCIAL_CHILDREN[parent as keyof typeof FOREIGN_FINANCIAL_CHILDREN] ?? [];
+    return !handled.includes(child) && !refusedOn.includes(child);
   });
   if (unknown.length > 0) {
     return {
       ok: false,
-      refused: `foreign keys from ${unknown.map((u) => `${u.child} -> ${u.parent}`).join(", ")} are not covered by this reset; extending FK_CHILDREN is required before rows can be removed`,
+      refused: `foreign keys from ${unknown.map((u) => `${u.child} -> ${u.parent}`).join(", ")} are not covered by this reset; extending FK_CHILDREN (or FOREIGN_FINANCIAL_CHILDREN) is required before rows can be removed`,
       prefixes,
     };
+  }
+
+  // A reference from a wholly different capability into the rows in scope is
+  // financial truth: stop rather than detach or delete it. Checked with a count,
+  // not by assumption, and in the same breath as the coverage guard above so a
+  // new cross-capability reference cannot slip in unnoticed.
+  if (FOREIGN_FINANCIAL_CHILDREN.journal_entries.length > 0 || FOREIGN_FINANCIAL_CHILDREN.payment_transactions.length > 0) {
+    const scopedEntries = `select 'PAY/' || t.id from public.payment_transactions t
+                             where t.provider_code = '${DEMO_PROVIDER}' and (${like("t.provider_transaction_id")})`;
+    for (const ref of FINANCIAL_REFERENCES) {
+      const parentScope = ref.parent === "journal_entries"
+        ? `select e.id from public.journal_entries e where e.reference in (${scopedEntries})`
+        : `select t.id from public.payment_transactions t
+            where t.provider_code = '${DEMO_PROVIDER}' and (${like("t.provider_transaction_id")})`;
+      const held = await adminPool.query(
+        `select count(*)::int as n from public.${ref.child} c where c.${ref.column} in (${parentScope})`,
+        params,
+      );
+      const n = Number((held.rows as { n: number }[])[0]?.n ?? 0);
+      if (n > 0) {
+        return {
+          ok: false,
+          refused: `${n} row(s) in ${ref.child} still reference the ${ref.parent} rows in scope through ${ref.column}; that is a financial position, not fixture noise — reverse it through its own governed action instead of deleting it`,
+          prefixes,
+        };
+      }
+    }
   }
 
   const client = await adminPool.connect();

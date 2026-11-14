@@ -45,6 +45,7 @@ const MODULE_ROUTES: { href: string; label: string }[] = [
   { href: "/os", label: "Executive Control Centre" },
   { href: "/os/registry", label: "OS & Source-of-Truth Registry" },
   { href: "/os/organization-ownership", label: "Organisation & Ownership" },
+  { href: "/os/mcm", label: "Multi-Company Management" },
   { href: "/os/identity", label: "Identity & Access" },
   { href: "/os/organization", label: "Organisation" },
   { href: "/os/ownership", label: "Ownership" },

@@ -27,7 +27,13 @@ export type NoeliaEngine =
   | "KNOWLEDGE"
   | "EXECUTIVE"
   | "ANALYTICS"
-  | "CROSS_OS";
+  | "CROSS_OS"
+  /**
+   * The group portfolio view: companies, hierarchy, ownership, jurisdictions and
+   * governance bodies AS RECORDED. Reads only — MCM is a capability inside
+   * BEYU OS, not a second OS and not a second AI runtime.
+   */
+  | "MULTI_COMPANY";
 
 /**
  * A single finding. `kind` is the coarse legacy class; `status` is the
