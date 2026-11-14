@@ -62,13 +62,24 @@ function platformAdmin(overrides: Partial<ReturnType<typeof principal>> = {}) {
   };
 }
 
+/**
+ * Routing decisions are idempotent on `requestId`, which the runtime derives
+ * deterministically as `REQ_${traceId}` so that a retried request is never routed
+ * twice. A test that reuses a literal trace id therefore does not exercise the
+ * runtime on a second run: `route()` finds the row the *previous* run recorded and
+ * replays it ("Replay: routing decision already recorded."), which is how this file
+ * kept passing locally while failing in CI on a fresh database. The ids are qualified
+ * per run so every assertion here decides on this run's own evidence.
+ */
+const RUN = `P2${Date.now().toString(36)}`;
+
 describe("Phase 2 deterministic governed model execution", () => {
   it("routes, executes the deterministic BEYU analyst and records model/provider attribution", async () => {
     const p = platformAdmin();
     const answer = await askNoelia({
       principal: p,
       question: "Which risks currently exceed appetite?",
-      traceId: "TRACE_PHASE2_EXECUTION",
+      traceId: `TRACE_PHASE2_EXECUTION_${RUN}`,
       target: { tenantId: "TEN_BEYU_TZ", legalEntityId: null, countryCode: null },
     });
 
@@ -110,7 +121,7 @@ describe("Phase 2 deterministic governed model execution", () => {
       const answer = await askNoelia({
         principal: p,
         question: "What is the consolidated cash position?",
-        traceId: "TRACE_PHASE2_KILLSWITCH",
+        traceId: `TRACE_PHASE2_KILLSWITCH_${RUN}`,
         target: { tenantId: "TEN_BEYU_TZ", legalEntityId: null, countryCode: null },
       });
 
@@ -140,7 +151,7 @@ describe("Phase 2 deterministic governed model execution", () => {
     const answer = await askNoelia({
       principal: p,
       question: "Which risks currently exceed appetite?",
-      traceId: "TRACE_PHASE2_NO_AUTH",
+      traceId: `TRACE_PHASE2_NO_AUTH_${RUN}`,
       target: { tenantId: "TEN_BEYU_TZ", legalEntityId: null, countryCode: null },
     });
     expect(answer.outputClass).toBe("UNCERTAINTY");

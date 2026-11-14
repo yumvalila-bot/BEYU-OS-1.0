@@ -1,7 +1,8 @@
 # MULTI_COMPANY_MANAGEMENT + NOELIA INTELLIGENCE — FINAL REPORT (A–N)
 
 Branch `arena/2aef83f7-beyu-os-1-0`, branched from `dc8f848226ed8860ef293f817fe10394360abb1d`
-of `main`. Date 2026-11-13. **17 commits, 84 files, +107,062 / −71** at head `c0e6487`, counted
+of `main`. Date 2026-11-13, extended 2026-11-14 for **H.4** and the CI state in **M**.
+**17 commits, 84 files, +107,062 / −71** at head `c0e6487`, counted
 with `git log --oneline dc8f848..HEAD | wc -l` and `git diff --shortstat dc8f848 HEAD` rather
 than recalled — and re-counted twice now, because the first version of this paragraph said "12
 commits, 79 files" and the two consolidation commits made that stale while it was still claiming
@@ -12,11 +13,12 @@ writing the command next to the figure. 91,511 of the added lines are the
 snapshot belongs in the diff at all), so the hand-written change is about 15,500 lines across 84
 files — still worth stating as a number rather than leaving the raw figure to impress or alarm a
 reader. Sections **A**–**M** describe the work up to `9494255` (14 commits); **§N** is the
-fifteenth and sixteenth, **§A**'s own recount is the seventeenth, and **H.4**, **L.2** rows 14–16
-and the CI paragraph of **M** are the eighteenth. That commit's totals are deliberately *not*
-quoted here: a paragraph cannot count the commit that carries it.
-`git diff --shortstat dc8f848 HEAD` gives them in one line, and this paragraph states the rule
-rather than pretending to be current.
+fifteenth and sixteenth, **§A**'s own recount is the seventeenth, **H.4**, **L.2** rows 14–17 and the
+CI paragraph of **M** are the eighteenth, and **H.5**, **L.2** rows 18–19 and the trace ids in
+`tests/noelia/runtime-governed-model.test.ts` are the nineteenth. Those last two commits' totals are
+deliberately *not* quoted here: a paragraph cannot count the commit that carries it.
+`git diff --shortstat dc8f848 HEAD` gives them in one line, and this paragraph states the rule rather
+than pretending to be current.
 
 This report is written so a reviewer can *check* each claim, not so they can admire it. Every
 number came from a command in this environment; commands are given.
@@ -222,12 +224,34 @@ and the engine comes from a regex in `routeEngine()`. This branch widened that r
 to suspend: routing completed, every MCM tool was denied to that principal, and `completelyDenied`
 produced `REQUIRES_HUMAN_REVIEW`. The test was right. The routing was wrong.
 
-Why the local suite missed it, stated precisely because it is the uncomfortable part: locally the
-same call *does* fail closed, for an unrelated reason — in this long-lived database the
-`multi-company-intelligence` capability has no approved model route, and `ask()` consults
-`routeAndExecuteModel()` before the tool loop, so **any** route denial yields the same
-`UNCERTAINTY`. A green run here was therefore not evidence about the assertion CI was making.
-CI's freshly migrated and seeded database does have an approved route, and said so.
+Why the local suite missed it, stated precisely because the real reason is more embarrassing than
+"environmental": **this file was deciding its answer from a row a previous run left behind.**
+`route()` is idempotent — `requestId` is derived deterministically as `REQ_${traceId}`
+(`src/lib/noelia/runtime.ts`), and `BeyuNoeliaAiPlatformService.route()` refuses to route a request
+whose `requestId` already has a decision recorded, returning that stored verdict with the reason
+`"Replay: routing decision already recorded."`. The test supplies a *literal* trace id, so the key is
+stable across runs and across processes. The row that answered every local run of this test since
+2026-11-13T10:01:12Z is:
+
+| request_id | capability | decision |
+|---|---|---|
+| `REQ_TRACE_PHASE2_KILLSWITCH` | `finance-intelligence` | FAIL_CLOSED |
+
+recorded on an older tree, *before* `consolidat` was ever in the regex. Locally the assertion was
+therefore true forever and uninformative; CI's fresh database had no such row, so CI actually asked
+the runtime. Two rows written while proving this make the mechanism plain — same test, same
+question, run-qualified id, only `routeEngine()` differing:
+
+| request_id | capability | decision | test |
+|---|---|---|---|
+| `REQ_TRACE_PHASE2_KILLSWITCH_P2mwg2yz4k` | `finance-intelligence` | FAIL_CLOSED | green |
+| `REQ_TRACE_PHASE2_KILLSWITCH_P2mwg2z7ie` | `multi-company-intelligence` | SELECTED | red, as CI saw |
+
+Reproduce with `npx vitest run tests/noelia/runtime-governed-model.test.ts` on this tree (green),
+then `git checkout c0e6487 -- src/lib/noelia/runtime.ts` and run it again — red, with CI's message —
+then `git checkout HEAD -- src/lib/noelia/runtime.ts`. `c0e6487` is the last commit whose
+`routeEngine()` still had the unqualified trigger. Those two runs are what turned "CI disagrees and
+we cannot check it here" into a locally reproducible defect.
 
 This is a defect rather than a preference because the trigger's own comment in this branch says a
 payroll or cash question must stay with `WORKFORCE` and `FINANCIAL`, "because stealing another
@@ -250,11 +274,47 @@ cases — which is the honest indictment: that block asserted `"What is our cash
 with FINANCIAL and never asked the phrasing that broke. The red pin was written first and observed
 failing (`expected 'MULTI_COMPANY' to be 'FINANCIAL'`) before `routeEngine()` was touched.
 
-What is *not* claimed: that the fix was demonstrated against the failing test in this environment.
-It cannot be — that test passes here on both trees, as above. What can be shown here is the
-mechanism, and it was: `routeEngine("What is the consolidated cash position?")` returned
-`MULTI_COMPANY` before the change and `FINANCIAL` after. CI, where the failure reproduces, is the
-authoritative gate for the outcome, and the CI numbers behind all of this are in **M**.
+The fix is therefore *claimed* and demonstrated, not asserted: on the pre-fix `routeEngine()` this
+file now fails locally with the same assertion CI reported, and on the post-fix one it passes
+without a single stale row being deleted — the run-qualified trace ids in this commit make the
+deletion unnecessary, and the routing decisions themselves are evidence that this suite does not
+touch.
+
+### H.5 The replay key: a control a test can accidentally point at yesterday
+
+The idempotency key above is not a bug. `REQ_${traceId}` exists so that a retried governed request is
+never routed and recorded twice, and it works: it is why a client can retry after a dropped connection
+without creating a second model call or a second audit row. What the test did was adopt a *constant*
+where a per-request identifier was required, and the control faithfully returned the first run's answer
+to every later run. A test cannot tell the difference, because the difference is only visible in the
+second run — the first one is always correct.
+
+Two facts a reader should be handed rather than have to discover:
+
+* the exposure is measured, not guessed: `grep -rn 'traceId: "TRACE' tests --include=*.ts | wc -l`
+  → **92** fixed literals in **23** files under `tests/` (95 before this file was fixed). Of the two
+  files that reach `askNoelia`, `tests/noelia/adversarial-ai-security.test.ts` still has three (lines
+  20, 37, 54); the five that remain in `runtime-governed-model.test.ts` are `TRACE_ADAPTER` on direct
+  `provider.generate/stream/embed` calls, which never reach `route()` and so are not replay-affected.
+  Not every fixed literal reaches `route()`; which ones do has **not** been audited here, and this
+  report does not pretend the number means 92 broken tests — it means 92 places to look.
+* the pattern was already half-understood in this repository and never written down: the same
+  adversarial file qualifies *its* isolation ids as `TRACE_ADV_ISOLATION_${suffix}` and leaves the
+  earlier three constants alone, with no comment on either choice. That is how a fix becomes folklore
+  — whoever copies it gets the shape without the reason, and whoever doesn't gets a test that passes
+  by remembering.
+
+Left as they are, deliberately: the three fixed literals in the adversarial file and the 89 others.
+This branch's claim is MCM plus the one assertion CI blamed on MCM; a sweep across another team's
+governance suite is a change someone should own with their whole suite in view, not a drive-by in a
+consolidation PR. It is recorded here so it stops being invisible. A standing check belongs in
+`docs/audit/` — "a routing decision a test reads must have been written by that test's own run" — and
+no such check exists today.
+
+One consequence of leaving them: the rows accumulate. `noelia_routing_decisions` is append-only
+evidence by design ("a kill switch stops capability without mutating or deleting evidence"), so these
+runs left rows behind for their own `P2…` ids and removed nothing. That is correct behaviour for an
+audit table, and it is why the fix had to move the *test* rather than tidy the database.
 
 ## I. NOELIA read-only MCM intelligence
 
@@ -406,6 +466,9 @@ last change came after the long run:
 | 15 | `npx vitest run tests/mcm/noelia-tools.test.ts tests/noelia/runtime.test.ts tests/noelia/runtime-governed-model.test.ts` **after** the fix | 3 files / 30 tests green, including the kill-switch test that CI had failed |
 | 16 | `tsc --noEmit`; `eslint` on both changed files; `npx vitest run` on the whole tree (log `/tmp/routing-fix-suite.log`, 06:46:18 → 07:14:40, 1,701 s) | `TSC_EXIT=0`, `LINT_EXIT=0`; **357 passed \| 9 skipped (366 files); 5,913 passed \| 75 skipped \| 31 todo; `SUITE_EXIT=0`** |
 | 17 | the 5 files row 16 skipped for want of a server, plus both Noelia HTTP files, with `BEYU_TEST_BASE_URL` set: `npx vitest run tests/registry/registry-http.test.ts tests/tenant-domain/tenant-domain-http.test.ts tests/sector-domains/destination-signin-http.test.ts tests/sector-domains/canonical-host-http.test.ts tests/admin/admin-http.test.ts tests/noelia/http.test.ts tests/noelia/http-coverage.test.ts` | **68 passed \| 1 skipped (69)** — so rows 16 + 17 together cover the same 362 files as run 13 |
+| 18 | the reproduction pair, after the trace ids were made run-qualified: `npx vitest run tests/noelia/runtime-governed-model.test.ts`, then `git checkout c0e6487 -- src/lib/noelia/runtime.ts` and the same command, then `git checkout HEAD -- src/lib/noelia/runtime.ts` | green 6/6 → **1 failed \| 5 passed** with CI's exact message → green 6/6. The two runs differ only in `routeEngine()`; each left exactly one `noelia_routing_decisions` row, and the capability column is what changed (**H.4**) |
+| 19 | `npx vitest run tests/noelia tests/mcm` on the tree with the run-qualified trace ids (log `/tmp/noelia-mcm-final.log`) | **42 files / 437 tests passed, `EXIT=0`** — the same counts as run 4, with this branch's pins added inside them — the directory re-run the test-file edit in row 18 required |
+| 20 | a second *whole-tree* run after row 18/19's edits | **not run.** The tree changes since run 16 are one test file's three trace ids and this document; the end-to-end check on the final tree is CI's, which migrates a fresh database, rebuilds, and runs the whole regression at the pushed head — strictly better than a third local run, and the honest thing is to say which claim rests on it |
 
 Three honest notes on that table.
 
@@ -461,7 +524,9 @@ branch, Vercel deployed, migration validation and the secret scan passed on a sc
 Neither red gate is treated as noise:
 
 * `Root BEYU OS — PostgreSQL security gate` failed on one assertion and it is this branch's doing —
-  see **H.4**. The commit that adds this paragraph fixes it; the CI re-run is the verification.
+  see **H.4**. `6f8b0c1` qualified the trigger; the follow-up commit made the same assertion fail and
+  pass locally on command, which is the part a green local run could not previously show. CI's re-run
+  is still the gate that decides.
 * `Production dependency audit (critical only) (root-beyu-os, ., package-lock.json)` is **not** this
   branch: no `package.json` or `package-lock.json` is touched (`git diff --stat dc8f848 HEAD --
   '**/package.json' '**/package-lock.json'` prints nothing), and `main`'s own last run `42598391613`
@@ -479,12 +544,27 @@ its own build, browser and HTTP verification — folding that into a consolidati
 get merged unreviewed. It belongs in its own change, and merging this one neither adds nor removes
 the exposure.
 
-One more thing a reader should not have to discover: `main`'s PostgreSQL gate is red too, on
-*different* assertions — `tests/sector-domains/login-surface-reference.test.ts:161` (contrast ratio
-`4.60:1`) and `Sign in to the control plane` missing from `destination-signin-http.test.ts` and
-`canonical-host-http.test.ts`. Those are the look-alike-host sign-in surface **G** fixed on this
-branch, so this branch turns them green. The readiness claim below therefore rests on the *delta*
-this branch makes, not on `main`'s absolute state, which is worse.
+One more thing a reader should not have to discover: `main`'s PostgreSQL gate is red too, and on
+*different* assertions. `gh api .../check-runs/129096550334/annotations` for main's run lists ten
+`AssertionError` annotations — `tests/sector-domains/login-surface-reference.test.ts:161` (the
+`4.60:1` contrast reference), `Sign in to the control plane` missing at `destination-signin-http`
+`:291` and `:308` and at `canonical-host-http` `:149` and `:423`, `noelia-appearance.test.ts:418`,
+and four in `tests/frontend/accessibility-nav-gating.test.ts`. This branch's run lists exactly **one**
+(`runtime-governed-model.test.ts:117`, the routing defect above) and none from those five files.
+Both halves of that are this branch's work, and the evidence is checkable rather than inferred. The
+`tests/sector-domains` failures are **G**: `b4a4666` touches all three files. The `tests/frontend`
+ones follow from the same two commits for different reasons — `accessibility-nav-gating` asserts the
+governed sign-in HTML `G` introduced (labels, `role="alert"`, `one-time-code`), and
+`noelia-appearance.test.ts:418` asserts `animation-duration: 0.01ms !important` in `globals.css`,
+which exists on this branch and does not on `main`
+(`git show dc8f848:src/app/globals.css | grep -c '0.01ms'` → `0`). Neither test was rewritten to
+make those pass: `noelia-appearance.test.ts` is untouched by this branch (0 commits), and
+`accessibility-nav-gating.test.ts` gained exactly one line in `d5998c4` — the `/os/mcm` nav entry the
+branch legitimately added. That distinction, fix versus accommodation, is the whole point of listing
+which files a branch edits. The inference is bounded by annotation completeness (a problem matcher
+summarises, it does not certify); the comparison is still the honest one to publish, because it is
+the only measurement of this branch's tree against `main`'s. The readiness claim below therefore
+rests on the *delta* this branch makes, not on `main`'s absolute state, which is worse.
 
 
 **Verified state.** After both test fixes, `npx vitest run` against the live production build
@@ -498,7 +578,9 @@ back-to-back to prove the fixture is no longer self-poisoning.
 intelligible to NOELIA without being widened, its one documented-but-absent control is now real,
 and the host-routing gap that would have shipped a public page behind a look-alike Host is closed.
 What is *not* claimed: certification, browser verification, clean-install parity, or that the
-skipped-then-fixed HTTP suites are the last place a silent skip hides something. Recommend merging on
+skipped-then-fixed HTTP suites are the last place a silent skip hides something — **H.4** and **H.5**
+are a second mechanism of the same kind found afterwards (a run answering from another run's row), and
+the count in **H.5** says where to look for more. Recommend merging on
 the strength of that run. What is *not* evidence yet: browser behaviour (`test:browser` cannot run
 in this sandbox) and clean-install parity — both are named in the list above rather than rounded
 away.
