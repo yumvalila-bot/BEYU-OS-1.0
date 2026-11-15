@@ -33,6 +33,7 @@
  *     serialised into any unauthenticated surface's HTML.
  */
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import type { BootstrapIdentity } from "./sign-in-form";
@@ -87,6 +88,7 @@ export function MarketingPage() {
             <a href="#architecture">Our Architecture</a>
             <a href="#sector-os">Sector OS</a>
             <a href="#capabilities">Capabilities</a>
+            <a href="#gateway">Digital Gateway</a>
             <a href="#noelia">NOELIA AI</a>
             <a href="#technology">Technology</a>
             <a href="#contact">Contact</a>
@@ -98,6 +100,7 @@ export function MarketingPage() {
               <a href="#architecture">Our Architecture</a>
               <a href="#sector-os">Sector OS</a>
               <a href="#capabilities">Capabilities</a>
+            <a href="#gateway">Digital Gateway</a>
               <a href="#noelia">NOELIA AI</a>
               <a href="#technology">Technology</a>
               <a href="#contact">Contact</a>
@@ -182,10 +185,10 @@ export function MarketingPage() {
           <h3>ONE ECOSYSTEM. FOUR SECTOR OPERATING SYSTEMS.</h3>
           <div className="beyu-systems-grid">
             {[
-              { name: "HEALTH_OS", text: "Integrated healthcare operations for healthier communities.", tone: "gold", href: "/os/health" },
-              { name: "FINANCE_OS", text: "Financial management for intelligent growth.", tone: "blue", href: "/os/finance" },
-              { name: "AGRICULTURE_OS", text: "Smart agriculture for food security.", tone: "green", href: "/os/agriculture" },
-              { name: "UJENZI_OS", text: "Infrastructure for a stronger tomorrow.", tone: "light", href: "/os/ujenzi" },
+              { name: "HEALTH_OS", text: "Integrated healthcare operations for healthier communities.", tone: "gold", href: "https://health.beyu.co.tz/" },
+              { name: "FINANCE_OS", text: "Financial management for intelligent growth.", tone: "blue", href: "https://finance.beyu.co.tz/" },
+              { name: "AGRICULTURE_OS", text: "Smart agriculture for food security.", tone: "green", href: "https://agriculture.beyu.co.tz/" },
+              { name: "UJENZI_OS", text: "Infrastructure for a stronger tomorrow.", tone: "light", href: "https://ujenzi.beyu.co.tz/" },
             ].map((item) => (
               <article key={item.name} className={`beyu-system-card beyu-${item.tone}`}>
                 <div className="beyu-system-art" aria-hidden="true" />
@@ -205,14 +208,15 @@ export function MarketingPage() {
             <div className="beyu-capability-grid">
               {[
                 ["Constitutional Governance", "⚖"],
-                ["Human Capital Management", "👥"],
+                ["Multi-Company Management (MCM)", "▦"],
+                ["Human Capital Management (HCM)", "👥"],
                 ["Family Office", "🏢"],
                 ["Risk & Assurance", "✓"],
                 ["Knowledge Management", "📚"],
                 ["Audit & Accountability", "🧾"],
               ].map(([label, icon]) => (
                 label === "Family Office" ? (
-                  <a key={label} href="/os/family" className="beyu-capability-item">
+                  <a key={label} href="https://familyoffice.beyu.co.tz/" className="beyu-capability-item">
                     <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
                     <span>{label}</span>
                   </a>
@@ -227,16 +231,46 @@ export function MarketingPage() {
           </div>
 
           <aside className="beyu-noelia-panel" id="noelia">
-            <div className="beyu-noelia-portrait" aria-hidden="true">
-              <div className="beyu-noelia-face" />
+            <div className="beyu-noelia-portrait">
+              <Image
+                src="/NOELIA.png"
+                alt="NOELIA, the BEYU governed intelligence assistant"
+                fill
+                sizes="(max-width: 767px) 42vw, 160px"
+                className="beyu-noelia-image"
+              />
             </div>
             <div className="beyu-noelia-copy">
               <h4>NOELIA</h4>
               <p>Intelligence · Governance · Care</p>
               <div className="beyu-noelia-tag">Your governed AI assistant, supporting the BEYU ecosystem.</div>
-              <a href="/os/noelia">Discover NOELIA <span aria-hidden="true">→</span></a>
+              <a href="https://noelia.beyu.co.tz/">Discover NOELIA <span aria-hidden="true">→</span></a>
             </div>
           </aside>
+        </div>
+      </section>
+
+      <section className="beyu-gateway-section" id="gateway">
+        <div className="beyu-home-inner">
+          <div className="beyu-gateway-heading">
+            <p className="beyu-gateway-eyebrow">BEYU DIGITAL GATEWAY</p>
+            <h3>ONE INSTITUTION. CONNECTED DESTINATIONS.</h3>
+            <p>Choose an institutional destination. Each destination opens its own governed entry point and applies its own server-side access controls.</p>
+          </div>
+          <div className="beyu-gateway-grid">
+            <a className="beyu-gateway-card" href="https://health.beyu.co.tz/"><span>01</span><strong>HEALTH_OS</strong><small>Healthcare and care operations</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://finance.beyu.co.tz/"><span>02</span><strong>FINANCE_OS</strong><small>Financial operations and stewardship</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://agriculture.beyu.co.tz/"><span>03</span><strong>AGRICULTURE_OS</strong><small>Agriculture and production operations</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://ujenzi.beyu.co.tz/"><span>04</span><strong>UJENZI_OS</strong><small>Construction and infrastructure operations</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://foundation.beyu.co.tz/"><span>05</span><strong>BEYU FOUNDATION</strong><small>Nonprofit programmes and public impact</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://familyoffice.beyu.co.tz/"><span>06</span><strong>FAMILY OFFICE</strong><small>Family governance and stewardship</small><b>Enter destination →</b></a>
+            <a className="beyu-gateway-card" href="https://noelia.beyu.co.tz/"><span>07</span><strong>NOELIA AI</strong><small>Governed intelligence and assistance</small><b>Enter destination →</b></a>
+          </div>
+          <div className="beyu-information-grid">
+            <article><span>01 / INSTITUTION</span><h4>Governance & Architecture</h4><p>Understand the principles, institutional structure and operating model behind BEYU.</p><a href="#architecture">Explore architecture →</a></article>
+            <article><span>02 / OPERATIONS</span><h4>Sector Services</h4><p>Explore the four sector operating systems and their distinct responsibilities.</p><a href="#sector-os">Explore sector systems →</a></article>
+            <article><span>03 / CAPABILITIES</span><h4>Shared Enterprise Capabilities</h4><p>Discover the common capabilities that connect and support the BEYU ecosystem.</p><a href="#capabilities">Explore capabilities →</a></article>
+          </div>
         </div>
       </section>
 
@@ -288,33 +322,39 @@ export function MarketingPage() {
                 <li><a href="#architecture">Institutional Structure</a></li>
                 <li><a href="#architecture">Governance</a></li>
                 <li><a href="#sector-os">Sector OS</a></li>
-                <li><a href="/os/health">Health OS</a></li>
+                <li><a href="https://health.beyu.co.tz/">Health OS</a></li>
               </ul>
             </div>
             <div>
               <h5>Sector OS</h5>
               <ul>
-                <li><a href="/os/finance">Finance OS</a></li>
-                <li><a href="/os/agriculture">Agriculture OS</a></li>
-                <li><a href="/os/ujenzi">Ujenzi OS</a></li>
-                <li><a href="/os/foundation">BEYU Foundation</a></li>
+                <li><a href="https://finance.beyu.co.tz/">Finance OS</a></li>
+                <li><a href="https://agriculture.beyu.co.tz/">Agriculture OS</a></li>
+                <li><a href="https://ujenzi.beyu.co.tz/">Ujenzi OS</a></li>
+                <li><a href="https://foundation.beyu.co.tz/">BEYU Foundation</a></li>
               </ul>
             </div>
             <div>
               <h5>NOELIA AI</h5>
               <ul>
                 <li><a href="#capabilities">Enterprise Capabilities</a></li>
-                <li><a href="#technology">Technology</a></li>
-                <li><a href="#contact">Contact</a></li>
+                <li><a href="#gateway">Digital Gateway</a></li>
+                <li><a href="https://noelia.beyu.co.tz/">NOELIA AI</a></li>
               </ul>
             </div>
             <div>
               <h5>Access</h5>
               <ul>
                 <li><a href="/sign-in">Sign In</a></li>
-                <li><a href="/os">BEYU OS</a></li>
+                <li><a href="https://familyoffice.beyu.co.tz/">Family Office</a></li>
+                <li><a href="#gateway">All destinations</a></li>
               </ul>
             </div>
+          </div>
+          <div className="beyu-footer-contact">
+            <span>OFFICIAL BEYU CONTACT</span>
+            <a href="tel:+255615766716">+255 615 766 716</a>
+            <a href="https://wa.me/255615766716">WhatsApp BEYU →</a>
           </div>
         </div>
       </footer>
