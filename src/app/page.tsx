@@ -43,6 +43,9 @@ import { canonicalHostForRequest, destinationHrefForRequest } from "@/lib/canoni
 import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
+import { CANONICAL_SURFACES, FOUNDATION_ORGANIZATION, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
+import { PublicHome } from "./public-home";
+import "./public-home.css";
 
 export const dynamic = "force-dynamic";
 
@@ -454,7 +457,10 @@ export default async function HomeEntry() {
   // entry behavior implemented by CanonicalEntryPage.
   const canonicalHost = await canonicalHostForRequest();
   if (canonicalHost.kind === "CONTROL_PLANE") {
-    return <MarketingPage />;
+    const hrefFor = await destinationHrefForRequest();
+    const sectorLinks = Object.fromEntries(SECTOR_OPERATING_SYSTEMS.map((destination) => [destination.code, hrefFor(destination)]));
+    const noelia = CANONICAL_SURFACES.find((destination) => destination.code === "NOELIA_AI");
+    return <PublicHome sectorLinks={sectorLinks} noeliaLink={noelia ? hrefFor(noelia) : "/sign-in"} foundationLink={hrefFor(FOUNDATION_ORGANIZATION)} />;
   }
   return CanonicalEntryPage({ variant: "homepage" });
 }
