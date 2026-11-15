@@ -98,8 +98,8 @@ export default async function LauncherPage() {
   if (!principal) redirect("/");
 
   const destinations = await authorizedGovernedDestinations(principal);
-  if (destinations.length === 1) redirect(destinations[0].href);
   const hrefFor = await destinationHrefForRequest();
+  if (destinations.length === 1) redirect(hrefFor(destinations[0]));
 
   if (destinations.length === 0) {
     return (
