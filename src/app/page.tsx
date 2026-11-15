@@ -39,7 +39,7 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
-import { canonicalHostForRequest } from "@/lib/canonical-host";
+import { canonicalHostForRequest, destinationHrefForRequest } from "@/lib/canonical-host";
 import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
@@ -417,7 +417,10 @@ export async function CanonicalEntryPage({
       );
     }
     if (destinations.length > 1) redirect("/launcher");
-    if (destinations.length === 1) redirect(destinations[0].href);
+    if (destinations.length === 1) {
+      const hrefFor = await destinationHrefForRequest();
+      redirect(hrefFor(destinations[0]));
+    }
   }
 
   // The public homepage: `/`, on the control-plane host (apex or `www`), for an
