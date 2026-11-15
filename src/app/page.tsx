@@ -44,8 +44,8 @@ import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canon
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 import { CANONICAL_SURFACES, FOUNDATION_ORGANIZATION, SECTOR_OPERATING_SYSTEMS } from "@/lib/operating-system-catalog";
-import { PublicHome } from "./public-home";
-import "./public-home.css";
+import { CorporateHome } from "./corporate-home";
+import "./corporate-home.css";
 
 export const dynamic = "force-dynamic";
 
@@ -460,7 +460,7 @@ export default async function HomeEntry() {
     const hrefFor = await destinationHrefForRequest();
     const sectorLinks = Object.fromEntries(SECTOR_OPERATING_SYSTEMS.map((destination) => [destination.code, hrefFor(destination)]));
     const noelia = CANONICAL_SURFACES.find((destination) => destination.code === "NOELIA_AI");
-    return <PublicHome sectorLinks={sectorLinks} noeliaLink={noelia ? hrefFor(noelia) : "/sign-in"} foundationLink={hrefFor(FOUNDATION_ORGANIZATION)} />;
+    return <CorporateHome sectorLinks={sectorLinks} noeliaLink={noelia ? hrefFor(noelia) : "/sign-in"} foundationLink={hrefFor(FOUNDATION_ORGANIZATION)} />;
   }
   return CanonicalEntryPage({ variant: "homepage" });
 }
