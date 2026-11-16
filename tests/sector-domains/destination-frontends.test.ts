@@ -421,7 +421,7 @@ describe("F. hostname is not authentication and not authorization", () => {
     // to whichever other OS they do hold.
     const denial = page.indexOf("<DestinationDenied");
     const launcher = page.indexOf('redirect("/launcher")');
-    const single = page.indexOf("redirect(destinations[0].href)");
+    const single = page.indexOf("redirect(hrefFor(destinations[0]))");
     expect(denial).toBeGreaterThan(-1);
     expect(launcher).toBeGreaterThan(-1);
     expect(single).toBeGreaterThan(-1);
@@ -429,7 +429,11 @@ describe("F. hostname is not authentication and not authorization", () => {
     expect(denial).toBeLessThan(single);
     // The control-plane routing itself is preserved for the apex and NEUTRAL hosts.
     expect(page).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(page).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
+    expect(page).toContain("if (destinations.length === 1) {");
+    // The single-destination landing is composed by the ONE canonical-host helper
+    // (canonical hostname when configured for it, the relative route otherwise) —
+    // never by concatenating a host in the page.
+    expect(page).toContain("destinationHrefForRequest()");
   });
 
   it("leaves every deep-link gate exactly where it was", () => {

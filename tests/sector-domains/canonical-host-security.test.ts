@@ -234,9 +234,17 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     expect(resolver).toBeGreaterThan(-1);
     expect(sectorRedirect).toBeGreaterThan(resolver);
-    // The existing routing is preserved after the host branch.
+    // The existing routing is preserved after the host branch. A single
+    // destination is opened through the ONE canonical-host helper
+    // (`destinationHrefForRequest()`), so a deployment configured for canonical
+    // hosts and a shared session lands on the destination's own hostname instead
+    // of the relative route; everywhere else the helper returns exactly that
+    // relative route. The property this test exists for is unchanged: the target
+    // is server-computed from the resolver's answer, never from input.
     expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
+    expect(c).toContain("if (destinations.length === 1) {");
+    expect(c).toContain("redirect(hrefFor(destinations[0]));");
+    expect(c).toContain("destinationHrefForRequest()");
     // Host is read through the one server helper; never from a query string.
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);

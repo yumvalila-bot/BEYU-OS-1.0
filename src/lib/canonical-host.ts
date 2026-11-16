@@ -13,6 +13,7 @@ import type { CanonicalHostedDestination } from "./operating-system-catalog";
 import type { OperatingSystemDestination } from "./operating-system-catalog";
 import {
   canonicalDestinationHref,
+  canonicalEntryHref,
   canonicalHostOptionsFromEnvironment,
   resolveCanonicalHost,
   type CanonicalContext,
@@ -75,4 +76,31 @@ export async function destinationHrefForRequest(): Promise<(destination: Canonic
   const current = await canonicalHostForRequest();
   const sharedSession = sessionSharedAcrossCanonicalDomain();
   return (destination) => canonicalDestinationHref(destination, { current, options, sharedSession });
+}
+
+/**
+ * A function that maps a canonical destination to its PUBLIC ENTRY URL for an
+ * anonymous visitor — the canonical hostname when `BEYU_CANONICAL_DOMAIN` is
+ * configured, otherwise the pre-existing internal route.
+ *
+ * Used by the public homepage's destination gateway, which previously hard-coded
+ * `https://health.beyu.co.tz/`, `https://finance.beyu.co.tz/`, … in the rendered
+ * markup. Those literals (a) drift from the catalogue the rest of the routing
+ * layer is derived from, and (b) point at hosts that are not attached in an
+ * environment where the apex is not configured (preview deployments). The host is
+ * now composed from the catalogue + configuration only; no label is written here.
+ */
+export async function entryHrefForRequest(): Promise<(destination: CanonicalHostedDestination) => string> {
+  const options = canonicalHostOptionsFromEnvironment();
+  if (!options.allowLocalhost) {
+    // Production: the composed origin is always `https://<label>.<apex>`; no
+    // request fact is needed at all.
+    return (destination) => canonicalEntryHref(destination, options);
+  }
+  // Development only: `next dev` serves plain HTTP, so preserve the request's
+  // port so a composed `<label>.localhost:<port>` URL is reachable. The Host
+  // header is the only request fact read — the same one the resolver uses.
+  const h = await headers();
+  const port = /:(\d{1,5})$/.exec(h.get("host") ?? "")?.[1] ?? "";
+  return (destination) => canonicalEntryHref(destination, options, { protocol: "http:", port });
 }
