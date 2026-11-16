@@ -33,9 +33,9 @@
  *     serialised into any unauthenticated surface's HTML.
  */
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { NOELIA_CANONICAL_APPEARANCE } from "@/components/brand-assets";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
@@ -274,11 +274,34 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
 
           <aside className="beyu-noelia-panel" id="noelia">
             <div className="beyu-noelia-portrait">
-              <Image
-                src="/NOELIA.png"
-                alt="NOELIA, the BEYU governed intelligence assistant"
-                fill
-                sizes="(max-width: 767px) 42vw, 160px"
+              {/*
+               * NOELIA'S APPEARANCE — the ONE canonical asset, byte-exact.
+               *
+               * This was a `next/image` <Image fill>. The optimizer fetched
+               * `/NOELIA.png` (1,966,448 B) and re-encoded it to 28,897 B of
+               * `image/png` at q=75 — a lossy recompression of the single
+               * canonical Noelia appearance. `brand-assets.ts` states the
+               * contract plainly: this file may never be "modified,
+               * recompressed, recolored, cropped or regenerated", and it is
+               * pinned by SHA-256 (`NOELIA_CANONICAL_APPEARANCE.sha256`) plus
+               * tests. A hash cannot detect an optimizer that re-encodes on the
+               * way out, and every other Noelia surface (`noelia-shell`,
+               * `noelia-avatar`, `noelia-cross-os-visual`) renders the canonical
+               * registry path as a plain <img> for exactly this reason.
+               *
+               * So the homepage now resolves the SAME registry entry every
+               * other surface uses, and serves the bytes unmodified. Portrait
+               * framing comes from CSS (`object-fit: cover;
+               * object-position: center 25%` in globals.css), not from a
+               * re-encoding pipeline.
+               */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={NOELIA_CANONICAL_APPEARANCE.path}
+                alt={NOELIA_CANONICAL_APPEARANCE.altText}
+                width={NOELIA_CANONICAL_APPEARANCE.dimensions.width}
+                height={NOELIA_CANONICAL_APPEARANCE.dimensions.height}
+                draggable={false}
                 className="beyu-noelia-image"
               />
             </div>

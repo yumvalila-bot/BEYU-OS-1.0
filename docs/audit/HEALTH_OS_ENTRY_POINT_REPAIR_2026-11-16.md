@@ -546,3 +546,97 @@ BEYU_TEST_BASE_URL=http://127.0.0.1:3100 BEYU_TEST_CANONICAL_DOMAIN=beyu.co.tz \
 BEYU_TEST_BASE_URL=http://127.0.0.1:3100 BEYU_TEST_CANONICAL_DOMAIN=beyu.co.tz \
   npx vitest run tests/sector-domains/health-entry-point-contract.test.ts
 ```
+
+---
+
+## O. ADDENDUM — CANONICAL BRAND APPEARANCE (logo + Noelia)
+
+**Follow-up request:** "Use the same beyu logo and Noelia appearance."
+
+### O.1 What was already correct (verified, not assumed)
+
+Both identities were already centralized, and **no divergence existed in the
+logo or in the Noelia asset choice**:
+
+- `<BeyuOsLogo>` is the single BEYU mark, read from `BEYU_OS_ASSETS.official`
+  (`/public/brand/beyu-os-logo.png`). It renders a plain `<img>` deliberately —
+  an optimizer would re-encode the authoritative bytes.
+- **Health OS already uses that same component.** `sectors/health/src/components/Logo.tsx`
+  imports `../../../../src/components/beyu-os-logo`; the compiled sector bundle
+  references `/brand/beyu-os-logo.png`. There is no sector-specific logo variant.
+- Noelia already resolves to the ONE canonical `/NOELIA.png` on every surface,
+  via two canonical registries (`NOELIA_ASSETS` / `NOELIA_CANONICAL_APPEARANCE`
+  in `components/brand-assets.ts`, and `NOELIA_ASSET_MAPPING` in
+  `lib/noelia/context-resolver`). The historical per-OS PNGs
+  (`Noelia Health os.png`, `Noelia Finance os.png`, …) are explicitly
+  `HISTORICAL_PRESERVED` with **no runtime path** — correctly so.
+
+Verified live: `/brand/beyu-os-logo.png` server bytes == disk bytes
+(`9fb2161…`) and the identical mark appears on `/`, `/sign-in`, `/launcher` and
+`health.beyu.co.tz/`.
+
+### O.2 The one real defect — the homepage re-encoded Noelia
+
+`src/app/page.tsx` rendered Noelia through **`next/image`**, so the optimizer
+fetched the canonical portrait and served a lossy re-encode:
+
+| | bytes | content-type |
+|---|---|---|
+| Canonical asset on disk (and as shipped) | **1,966,448** | `image/png` |
+| What `/_next/image?url=/NOELIA.png&w=3840&q=75` served | **28,897** | `image/png` |
+
+That is a **98.5% lossy rebuild of the single canonical Noelia appearance** —
+a direct violation of the contract stated in `brand-assets.ts`: *"Neither file
+may be modified, recompressed, recolored, cropped or regenerated."* The SHA-256
+pin in `brand-identity.test.ts` could not catch it: the file on disk was perfect.
+It was re-encoded on the way out.
+
+It also made the homepage the **only** Noelia surface in the product that
+bypassed the registry — `noelia-shell`, `noelia-avatar` and
+`noelia-cross-os-visual` all render plain `<img>` for exactly this reason.
+
+### O.3 Fix
+
+- `src/app/page.tsx` now renders a plain `<img>` from
+  `NOELIA_CANONICAL_APPEARANCE` — the same registry record the rest of the
+  product uses. `next/image` is no longer imported by the page.
+- Intrinsic `width`/`height` come from `NOELIA_CANONICAL_APPEARANCE.dimensions`
+  (1119×1405), so the portrait can never be distorted by a missing box.
+- `src/app/globals.css` — `.beyu-noelia-image` now establishes the frame itself
+  (`position:absolute; inset:0; width/height:100%`) since it is no longer
+  positioned by `fill`. Cropping stays **CSS-only** (`object-fit:cover;
+  object-position:center 25%`) — layout, never a re-encode.
+
+### O.4 Verified after the fix
+
+```
+homepage markup                  src="/NOELIA.png"      (no /_next/image)
+served  sha256                   643b375a…4c990   ← matches contract
+disk    sha256                   643b375a…4c990
+contract pin                     643b375a…4c990
+served bytes                     1,966,448            (was 28,897)
+dimensions                       1119x1405            = contract
+```
+
+`/brand/beyu-os-logo.png` remains byte-exact and identical on every surface.
+
+### O.5 New regression coverage — `tests/frontend/canonical-brand-appearance.test.ts` (16 tests)
+
+Pins the gap the hash tests cannot see: that each surface resolves a **canonical
+registry** entry, that **no optimizer** touches either asset, that the logo is
+the same mark on every surface **including Health OS**, that the Family Trust
+institutional identity is never substituted for the OS mark, and that
+composition shells (`noelia-panel`) delegate rather than resolving an asset.
+
+```
+tests/frontend tests/sector-domains tests/homepage tests/noelia
+ Test Files  64 passed (64)
+      Tests  879 passed | 1 skipped (880)
+```
+
+`tsc --noEmit` clean. `eslint` 0 errors (1 pre-existing warning in an untouched
+file, now suppressed at the new `<img>` with the contract cited in a comment).
+
+**No authorization, session, database or API surface was touched.** The
+appearance of Noelia and the BEYU mark confer no capability of any kind, exactly
+as `brand-assets.ts` states.
