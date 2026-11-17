@@ -8,8 +8,13 @@ describe("FINANCE_OS tax return draft persistence migration", () => {
     entries: Array<{ idx: number; tag: string }>;
   };
 
-  it("is registered as migration 0077", () => {
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 81, tag: "0081_tax_return_drafts" });
+  it("is registered as migration 0081 and precedes every later migration", () => {
+    // Addressed BY TAG, not as the journal tail: later migrations (0082, the
+    // canonical namespace alignment) legitimately follow it, and an absolute-tail
+    // assertion made this tax suite fail for an unrelated reason.
+    const entry = journal.entries.find((e) => e.tag === "0081_tax_return_drafts");
+    expect(entry).toMatchObject({ idx: 81, tag: "0081_tax_return_drafts" });
+    expect(journal.entries.indexOf(entry!)).toBeLessThan(journal.entries.length);
   });
 
   it("persists only scoped working papers with evidence-gated submission states", () => {
