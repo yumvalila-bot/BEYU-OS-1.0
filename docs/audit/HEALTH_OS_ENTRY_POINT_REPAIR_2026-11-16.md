@@ -781,3 +781,44 @@ remain human/operator steps (§4 of that document).
 fresh database and cannot alter schema, drop a row or weaken RLS. Rollback: revert
 the commit; the migration stays applied and harmless (`WHERE hostname = <old>`
 guards make it a no-op thereafter).
+
+### Q.1 CI verification (commit `065e8fe`)
+
+The first CI run on this change (`44040797332`) failed
+`Root BEYU OS — PostgreSQL security gate` in **Full root regression** — and it was
+**my change, not the flaky browser step from §P**. Reproduced locally with CI's
+exact environment; three suites pinned the migration journal **tail**:
+
+| File | Problem | Fix |
+| --- | --- | --- |
+| `tests/finance/tax-legal-authority-migration.test.ts` | asserted 0081 was the absolute tail | address 0080/0081 **by tag**, assert order + recorded metadata |
+| `tests/finance/tax-return-drafts-migration.test.ts` | same | same |
+| `tests/architecture/p1-migration-labels.test.ts` | CI step names hardcoded `0000-0081` | label corrected to `0000-0082` in `.github/workflows/ci.yml` |
+
+The finance pair had the same over-coupling already removed from the two
+sector-domain journal checks in this change; they were simply missed on the first
+pass. Both now assert the invariant they actually protect (present, in order,
+metadata unchanged) instead of an absolute tail, so a future migration no longer
+breaks a tax suite for an unrelated reason. The architecture suite was behaving
+correctly: it requires the CI label to follow the canonical `drizzle/` range.
+
+Two further local-only failures were **harness artifacts**, not defects: seven
+`tests/migration/*-upgrade` suites and `tests/release/pvg.test.ts` fail when
+`NODE_ENV=production` leaks in from a shell profile (the seed refuses a
+production bootstrap; PVG reports `environment_identity`). CI sets neither, and
+both pass with CI's environment.
+
+**Result — CI `44052793941` on `065e8fe`:**
+
+| Check | Result |
+| --- | --- |
+| Root BEYU OS — PostgreSQL security gate | **pass** (47m28s, incl. browser suite) |
+| Migration validation (scratch PostgreSQL 16) | **pass** |
+| Health OS backend — real PostgreSQL gate | **pass** |
+| Health OS frontend verification | **pass** |
+| P3 Release Governance / secret scan / 3× dependency audit / Vercel | **pass** |
+| Production deploy, PVG, drift, preflight, Supabase preview | `skipping` (expected) |
+| PR #126 | `CLEAN` · `MERGEABLE` · `reviewDecision: ""` |
+
+**Local full suite, CI's exact env:** 377 files passed / 4 skipped, **6137 passed /
+12 skipped / 31 todo, 0 failed**. `tsc` clean, eslint 0 errors.
