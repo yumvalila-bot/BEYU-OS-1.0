@@ -640,3 +640,65 @@ file, now suppressed at the new `<img>` with the contract cited in a comment).
 **No authorization, session, database or API surface was touched.** The
 appearance of Noelia and the BEYU mark confer no capability of any kind, exactly
 as `brand-assets.ts` states.
+
+---
+
+## P. MERGE READINESS — CI EVIDENCE (2026-11-17)
+
+**`mergeStateStatus: CLEAN`** · `mergeable: MERGEABLE` · every non-production
+check passes.
+
+```
+pass  Root BEYU OS — PostgreSQL security gate
+pass  Health OS backend — real PostgreSQL gate
+pass  Health OS frontend verification
+pass  Migration validation (scratch PostgreSQL 16)
+pass  P3 Release Governance — DB-free verification
+pass  Committed secret scan
+pass  Production dependency audit (root / health frontend / health backend)
+pass  Vercel, Vercel Preview Comments
+skip  production deploy, PVG, drift report, Supabase preview   (expected on a PR)
+```
+
+### P.1 The one CI failure was flaky, not a defect
+
+The first run failed at *"Browser history, keyboard, responsive and canonical
+identity tests"*. The CI log blob host is outside this sandbox's egress
+allowlist, so instead of guessing, the job was **reproduced locally**:
+
+- `@sparticuz/chromium@131` was fetched from the npm registry and its bundled
+  NSS libraries brotli-extracted (`al2023.tar.br` → `libnss3.so` et al.), then
+  launched through Playwright via `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` +
+  `LD_LIBRARY_PATH`.
+- The full browser suite was run **twice, in two shapes**: bound to `0.0.0.0`,
+  and in CI's exact shape (`next start -H 127.0.0.1 -p 3100` with
+  `BEYU_CANONICAL_DOMAIN=beyu.co.tz`).
+
+```
+39 passed (17.2m)   ← 0.0.0.0
+39 passed (16.7m)   ← CI shape
+```
+
+`history-brand.spec.ts`: **9/9 in both**, including 375 / 768 / 1024 / 1440 px.
+
+Re-running the failed CI job (`gh run rerun --failed`) then passed **on the same
+commit with no code change** → flaky step, not a regression.
+
+### P.2 This closes the earlier NOT VERIFIED item
+
+§F.5 reported the responsive matrix as **NOT VERIFIED** for want of a browser.
+It is now **verified** at 375 / 768 / 1024 / 1440 px in CI's configuration
+against this branch.
+
+### P.3 What still needs a human
+
+1. **No approval exists** (`reviewDecision` is empty). Branch protection does not
+   require one, so GitHub would allow the merge — but the brief specified human
+   review, and the change was not merged here.
+2. **The production blockers are unchanged** and are not this PR's to fix:
+   `HEALTH_API_URL` (sector backend unreachable → SPA sign-in fails closed),
+   `BEYU_CANONICAL_DOMAIN` in the target environment, the `tenant_domains`
+   `beyuos.co.tz` rows, and the session→sector-token federation decision.
+
+**Merge safety:** code only — no migration, no schema change, no environment
+change, no state. Rollback is `git revert`.
