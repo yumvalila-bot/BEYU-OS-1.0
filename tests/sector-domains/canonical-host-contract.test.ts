@@ -152,7 +152,7 @@ describe("B. an arbitrary Host can never select a destination", () => {
       "health-beyu.co.tz",
       "health.beyu.co.tz.evil", // extra label
       "health.beyu.com", // wrong apex
-      "health.beyuos.co.tz", // the legacy tenant-domain namespace is not the production apex
+      "health.beyuos.co.tz", // the RETIRED pre-0082 namespace is not the production apex
       "mwanza.health.beyu.co.tz", // a tenant hostname belongs to the governed tenant-domain registry
       "a.b.health.beyu.co.tz",
       "unknown.beyu.co.tz", // unknown subdomain
@@ -163,7 +163,7 @@ describe("B. an arbitrary Host can never select a destination", () => {
       "familyofficex.beyu.co.tz",
       "x.familyoffice.beyu.co.tz",
       "familyoffice.beyu.co.tz.evil",
-      "familyoffice.beyuos.co.tz",
+      "familyoffice.beyuos.co.tz", // retired pre-0082 namespace
       "noelia.beyu.co.tz.evil",
       "noelia-ai.beyu.co.tz",
       "noelias.beyu.co.tz",
@@ -174,7 +174,7 @@ describe("B. an arbitrary Host can never select a destination", () => {
       "foundations.beyu.co.tz",
       "x.foundation.beyu.co.tz",
       "foundation.beyu.co.tz.evil",
-      "foundation.beyuos.co.tz",
+      "foundation.beyuos.co.tz", // retired pre-0082 namespace
     ]) {
       expect(kindOf(hostile), hostile).toBe("NEUTRAL");
     }

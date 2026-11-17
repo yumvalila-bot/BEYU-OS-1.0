@@ -169,7 +169,7 @@ enterprise event, and nothing is ever deleted — retirement is a terminal statu
 
 DNS is **not** authorization: a wildcard record, a certificate or a deployment
 platform domain mapping grants nothing, and the application resolves only exact
-registered names. `*.health.beyuos.co.tz` is DNS infrastructure; the application
+registered names. `*.health.beyu.co.tz` is DNS infrastructure; the application
 gate, not DNS, decides what may be served. Deployment-platform and DNS
 configuration remain human-controlled and are **not** claimed as done by the
 application work (see `docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md`).

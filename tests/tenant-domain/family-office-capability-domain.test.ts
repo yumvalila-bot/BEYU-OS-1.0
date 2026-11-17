@@ -8,7 +8,7 @@
  *   BEYU OS — Foundation Operations, Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
  *   Workflow, Security and Noelia/HIVE.
  *
- *   `familyoffice.beyuos.co.tz` is the Family Office SHARED CAPABILITY base: a
+ *   `familyoffice.beyu.co.tz` is the Family Office SHARED CAPABILITY base: a
  *   governed NAMESPACE, never an operating system and never a tenant. Family
  *   Office must not become a sixth Sector OS, and it must not gain a route of its
  *   own (`/os/family` stays a control-plane capability page).
@@ -47,7 +47,7 @@ import { activateTestDomain, SEEDED, TEST_HOSTS } from "./fixtures";
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 
-const FAMILY_OFFICE_BASE = "familyoffice.beyuos.co.tz";
+const FAMILY_OFFICE_BASE = "familyoffice.beyu.co.tz";
 const GROUP = SEEDED.group;
 /** Hostname of this suite's own tenant binding under the capability namespace. */
 let scopedCapabilityHost: string | null = null;
@@ -120,10 +120,10 @@ describe("Family Office base domain — resolution and classification", () => {
 
   it("normalises the host the same way as every other governed domain", async () => {
     for (const host of [
-      "FamilyOffice.BEYUOS.co.tz",
-      "familyoffice.beyuos.co.tz:443",
-      "familyoffice.beyuos.co.tz.",
-      "  familyoffice.beyuos.co.tz ",
+      "FamilyOffice.BEYU.co.tz",
+      "familyoffice.beyu.co.tz:443",
+      "familyoffice.beyu.co.tz.",
+      "  familyoffice.beyu.co.tz ",
     ]) {
       const resolved = await resolveRequestHostname(groupAdmin(), host);
       expect(resolved.kind, host).toBe("CAPABILITY_BASE");
@@ -212,9 +212,9 @@ describe("Family Office base domain — resolution and classification", () => {
 
 describe("capability namespace — unknown, unverified and inactive names fail closed", () => {
   it("refuses an unknown name inside the capability namespace (never a default)", async () => {
-    expect(await resolveHostname(groupAdmin(), "not-registered.familyoffice.beyuos.co.tz")).toEqual({
+    expect(await resolveHostname(groupAdmin(), "not-registered.familyoffice.beyu.co.tz")).toEqual({
       kind: "DENIED",
-      hostname: "not-registered.familyoffice.beyuos.co.tz",
+      hostname: "not-registered.familyoffice.beyu.co.tz",
       reason: "UNKNOWN_TENANT_HOST",
     });
   });
@@ -306,7 +306,7 @@ describe("capability namespace — unknown, unverified and inactive names fail c
       id: "TDM_TEST_FO_KIND_MISMATCH",
       tenantId: GROUP,
       os: "HEALTH_OS",
-      hostname: "testdom-fo-kind-mismatch.familyoffice.beyuos.co.tz",
+      hostname: "testdom-fo-kind-mismatch.familyoffice.beyu.co.tz",
       domainType: "CAPABILITY_BASE",
       status: "ACTIVE",
       verificationState: "VERIFIED",
@@ -320,7 +320,7 @@ describe("capability namespace — unknown, unverified and inactive names fail c
       id: "TDM_TEST_OS_KIND_MISMATCH",
       tenantId: GROUP,
       os: "SHARED_FAMILY_OFFICE",
-      hostname: "testdom-os-kind-mismatch.health.beyuos.co.tz",
+      hostname: "testdom-os-kind-mismatch.health.beyu.co.tz",
       domainType: "OS_BASE",
       status: "ACTIVE",
       verificationState: "VERIFIED",
@@ -330,14 +330,14 @@ describe("capability namespace — unknown, unverified and inactive names fail c
       registeredBy: "TEST",
       classification: "CONFIDENTIAL",
     });
-    expect(await resolveHostname(groupAdmin(), "testdom-fo-kind-mismatch.familyoffice.beyuos.co.tz")).toEqual({
+    expect(await resolveHostname(groupAdmin(), "testdom-fo-kind-mismatch.familyoffice.beyu.co.tz")).toEqual({
       kind: "DENIED",
-      hostname: "testdom-fo-kind-mismatch.familyoffice.beyuos.co.tz",
+      hostname: "testdom-fo-kind-mismatch.familyoffice.beyu.co.tz",
       reason: "CAPABILITY_NOT_RECOGNISED",
     });
-    expect(await resolveHostname(groupAdmin(), "testdom-os-kind-mismatch.health.beyuos.co.tz")).toEqual({
+    expect(await resolveHostname(groupAdmin(), "testdom-os-kind-mismatch.health.beyu.co.tz")).toEqual({
       kind: "DENIED",
-      hostname: "testdom-os-kind-mismatch.health.beyuos.co.tz",
+      hostname: "testdom-os-kind-mismatch.health.beyu.co.tz",
       reason: "OS_NOT_RECOGNISED",
     });
   });
@@ -428,7 +428,7 @@ describe("capability authorization boundaries", () => {
 
   it("never lets a capability host stand in for an OS/capability it does not own", async () => {
     const base = await resolveHostname(groupAdmin(), FAMILY_OFFICE_BASE);
-    const healthBase = await resolveHostname(groupAdmin(), "health.beyuos.co.tz");
+    const healthBase = await resolveHostname(groupAdmin(), "health.beyu.co.tz");
     const tenantHost = await resolveHostname(groupAdmin(), TEST_HOSTS.a).catch(() => null);
     for (const other of ["HEALTH_OS", "FINANCE_OS", "AGRICULTURE_OS", "SHARED_FOUNDATION_OPERATIONS", "UJENZI_OS"]) {
       expect(resolutionBelongsToNamespace(base, other), other).toBe(false);
@@ -446,11 +446,11 @@ describe("capability authorization boundaries", () => {
 describe("Host-header and URL manipulation", () => {
   it("refuses hosts that merely CONTAIN or extend the capability base", async () => {
     for (const host of [
-      "familyoffice.beyuos.co.tz.evil.example.com",
-      "evil.example.com.familyoffice.beyuos.co.tz",
-      "familyoffice.beyuos.co.tz@evil.example.com",
-      "familyofficeXbeyuos.co.tz",
-      "http://familyoffice.beyuos.co.tz/",
+      "familyoffice.beyu.co.tz.evil.example.com",
+      "evil.example.com.familyoffice.beyu.co.tz",
+      "familyoffice.beyu.co.tz@evil.example.com",
+      "familyofficeXbeyu.co.tz",
+      "http://familyoffice.beyu.co.tz/",
       "familyoffice",
       "10.0.0.5",
     ]) {
@@ -510,8 +510,8 @@ describe("RLS and audit for the capability base", () => {
           order by hostname`,
       );
       expect(bases.rows).toEqual([
-        { hostname: "familyoffice.beyuos.co.tz", domain_type: "CAPABILITY_BASE" },
-        { hostname: "health.beyuos.co.tz", domain_type: "OS_BASE" },
+        { hostname: "familyoffice.beyu.co.tz", domain_type: "CAPABILITY_BASE" },
+        { hostname: "health.beyu.co.tz", domain_type: "OS_BASE" },
       ]);
       // A TENANT BINDING is tenant data: a session scoped to another tenant does
       // not see it at all. This is the RLS half of the cross-tenant refusal — the
@@ -563,11 +563,11 @@ describe("RLS and audit for the capability base", () => {
 
 describe("existing behaviour is unchanged", () => {
   it("keeps the Health OS base an OS base and its namespace intact", async () => {
-    const resolved = await resolveHostname(groupAdmin(), "health.beyuos.co.tz");
-    expect(resolved).toEqual({ kind: "OS_BASE", hostname: "health.beyuos.co.tz", os: "HEALTH_OS" });
-    expect(await resolveHostname(groupAdmin(), "unknown.health.beyuos.co.tz")).toEqual({
+    const resolved = await resolveHostname(groupAdmin(), "health.beyu.co.tz");
+    expect(resolved).toEqual({ kind: "OS_BASE", hostname: "health.beyu.co.tz", os: "HEALTH_OS" });
+    expect(await resolveHostname(groupAdmin(), "unknown.health.beyu.co.tz")).toEqual({
       kind: "DENIED",
-      hostname: "unknown.health.beyuos.co.tz",
+      hostname: "unknown.health.beyu.co.tz",
       reason: "UNKNOWN_TENANT_HOST",
     });
   });

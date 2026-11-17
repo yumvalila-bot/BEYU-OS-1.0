@@ -108,9 +108,9 @@ async function main() {
   /* ---------------- governed tenant domains ---------------- */
   /*
    * The ONE OS base domain that exists today: the Health OS base
-   * `health.beyuos.co.tz`, owned by the canonical Health OS tenant
+   * `health.beyu.co.tz`, owned by the canonical Health OS tenant
    * (BEYU-HEALTH). It defines the tenant-subdomain NAMESPACE
-   * (<tenant-slug>.health.beyuos.co.tz) and carries NO tenant context itself.
+   * (<tenant-slug>.health.beyu.co.tz) and carries NO tenant context itself.
    * The namespace STRING is current deployment/configuration state —
    * replaceable through future governed configuration, never a permanent
    * architectural identity and never an authorization input.
@@ -142,7 +142,7 @@ async function main() {
         id: fixedId(ID_PREFIX.tenantDomain, "HEALTH_OS_BASE"),
         tenantId: T.health,
         os: "HEALTH_OS",
-        hostname: "health.beyuos.co.tz",
+        hostname: "health.beyu.co.tz",
         domainType: "OS_BASE",
         status: "ACTIVE",
         verificationState: "DOCUMENTED",
@@ -161,7 +161,7 @@ async function main() {
            * operating-system code exists for it, and no Sector OS route is added.
            * This row only
            * names the capability's governed NAMESPACE
-           * (`<tenant>.familyoffice.beyuos.co.tz`); it carries no tenant context and
+           * (`<tenant>.familyoffice.beyu.co.tz`); it carries no tenant context and
            * grants nothing.
            *
            * The owner tenant is the enterprise tenant because the capability's
@@ -177,7 +177,7 @@ async function main() {
           id: fixedId(ID_PREFIX.tenantDomain, "FAMILY_OFFICE_CAPABILITY_BASE"),
           tenantId: T.group,
           os: "SHARED_FAMILY_OFFICE",
-          hostname: "familyoffice.beyuos.co.tz",
+          hostname: "familyoffice.beyu.co.tz",
           domainType: "CAPABILITY_BASE" as const,
           status: "ACTIVE" as const,
           verificationState: "DOCUMENTED" as const,

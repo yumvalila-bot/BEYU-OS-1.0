@@ -575,6 +575,13 @@
       "when": 1794570192389,
       "tag": "0081_tax_return_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794660000000,
+      "tag": "0082_canonical_namespace_alignment",
+      "breakpoints": true
     }
   ]
 }

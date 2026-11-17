@@ -601,7 +601,7 @@ describe("G. the running server — the real production build", () => {
         "evil-health.beyu.co.tz",
         "health.beyu.co.tz.evil.example",
         "mwanza.health.beyu.co.tz",
-        "health.beyuos.co.tz",
+        "health.beyuos.co.tz", // retired pre-0082 namespace: still not Health
       ]) {
         // A NEUTRAL host renders the CONTROL-PLANE sign-in — never a Sector OS's
         // destination surface, and never the public gateway either. Both are

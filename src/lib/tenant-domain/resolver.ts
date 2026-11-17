@@ -19,7 +19,7 @@
  *   • It cannot invent a tenant. The tenant id always comes from a registry row
  *     that the database made visible under the caller's own RLS policy.
  *   • It cannot fall back to a default tenant. Inside a registered OS namespace
- *     that is a hard invariant: an unregistered `X.health.beyuos.co.tz` is a
+ *     that is a hard invariant: an unregistered `X.health.beyu.co.tz` is a
  *     REFUSAL, never "the OS base tenant" and never another tenant.
  *   • It cannot infer roles, capabilities or permissions from a name. A hostname
  *     is not a credential, not a role and not a permission.
@@ -30,8 +30,8 @@
  *   BEYU OS has exactly four SECTOR OSs and a set of SHARED CAPABILITIES implemented once
  *   inside it (Foundation Operations, Family Office, HCM, Governance, Risk/Compliance, Audit/Events,
  *   Workflow, Security, Noelia/HIVE). Both kinds of namespace have a governed base
- *   domain: `health.beyuos.co.tz` (OS_BASE → the canonical `HEALTH_OS`) and
- *   `familyoffice.beyuos.co.tz` (CAPABILITY_BASE → the canonical
+ *   domain: `health.beyu.co.tz` (OS_BASE → the canonical `HEALTH_OS`) and
+ *   `familyoffice.beyu.co.tz` (CAPABILITY_BASE → the canonical
  *   `SHARED_FAMILY_OFFICE`, whose `os_registry.kind` is `SHARED_CAPABILITY`).
  *
  *   The resolver treats the two base types uniformly — a PLATFORM NAMESPACE BASE
@@ -110,13 +110,13 @@ export type TenantDomainResolution =
       reason: "NO_HOST" | "MALFORMED" | "IP_LITERAL" | "SINGLE_LABEL" | "LOCAL" | "UNREGISTERED";
     }
   /**
-   * The host is a registered ACTIVE OS base domain (e.g. `health.beyuos.co.tz`):
+   * The host is a registered ACTIVE OS base domain (e.g. `health.beyu.co.tz`):
    * it identifies the SECTOR OS namespace, never a tenant. No tenant context.
    */
   | { kind: "OS_BASE"; hostname: string; os: string }
   /**
    * The host is a registered ACTIVE shared-capability base domain (e.g.
-   * `familyoffice.beyuos.co.tz`): it identifies the CAPABILITY namespace, never a
+   * `familyoffice.beyu.co.tz`): it identifies the CAPABILITY namespace, never a
    * tenant and never an operating system. No tenant context, no authority.
    */
   | { kind: "CAPABILITY_BASE"; hostname: string; capability: string }

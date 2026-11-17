@@ -23,17 +23,17 @@ import {
 describe("hostname normalisation", () => {
   it("accepts and canonicalises real host forms", () => {
     const cases: Array<[string, string]> = [
-      ["health.beyuos.co.tz", "health.beyuos.co.tz"],
-      ["Health.BEYUOS.co.tz", "health.beyuos.co.tz"],
+      ["health.beyu.co.tz", "health.beyu.co.tz"],
+      ["Health.BEYU.co.tz", "health.beyu.co.tz"],
       // Surrounding whitespace is stripped before validation: a Host value can
       // only ever be mapped to the EXACT registered name (and a registered name
       // still has to be ACTIVE + VERIFIED + in scope before it resolves).
-      ["  health.beyuos.co.tz  ", "health.beyuos.co.tz"],
-      ["health.beyuos.co.tz\t", "health.beyuos.co.tz"],
-      ["health.beyuos.co.tz:443", "health.beyuos.co.tz"],
-      ["health.beyuos.co.tz.", "health.beyuos.co.tz"],
-      ["mwanza.health.beyuos.co.tz", "mwanza.health.beyuos.co.tz"],
-      ["clinic-a.health.beyuos.co.tz", "clinic-a.health.beyuos.co.tz"],
+      ["  health.beyu.co.tz  ", "health.beyu.co.tz"],
+      ["health.beyu.co.tz\t", "health.beyu.co.tz"],
+      ["health.beyu.co.tz:443", "health.beyu.co.tz"],
+      ["health.beyu.co.tz.", "health.beyu.co.tz"],
+      ["mwanza.health.beyu.co.tz", "mwanza.health.beyu.co.tz"],
+      ["clinic-a.health.beyu.co.tz", "clinic-a.health.beyu.co.tz"],
       ["beyu-os-1-0.vercel.app", "beyu-os-1-0.vercel.app"],
     ];
     for (const [input, expected] of cases) {
@@ -52,21 +52,21 @@ describe("hostname normalisation", () => {
 
   it("rejects anything that is not a DNS hostname", () => {
     const malformed = [
-      "http://health.beyuos.co.tz",
-      "https://health.beyuos.co.tz/os/health",
-      "health.beyuos.co.tz/os/health",
-      "health.beyuos.co.tz..",
-      ".health.beyuos.co.tz",
-      "*.health.beyuos.co.tz",
-      "_dmarc.health.beyuos.co.tz",
-      "health_beyu.beyuos.co.tz",
-      "héalth.beyuos.co.tz",
-      "health.beyuos.co.tz@evil.com",
-      "user:pass@health.beyuos.co.tz",
-      `${"a".repeat(64)}.beyuos.co.tz`,
+      "http://health.beyu.co.tz",
+      "https://health.beyu.co.tz/os/health",
+      "health.beyu.co.tz/os/health",
+      "health.beyu.co.tz..",
+      ".health.beyu.co.tz",
+      "*.health.beyu.co.tz",
+      "_dmarc.health.beyu.co.tz",
+      "health_beyu.beyu.co.tz",
+      "héalth.beyu.co.tz",
+      "health.beyu.co.tz@evil.com",
+      "user:pass@health.beyu.co.tz",
+      `${"a".repeat(64)}.beyu.co.tz`,
       `${"a.".repeat(130)}co.tz`,
-      "health.beyuos.co.tz\x00",
-      "health.beyuos.co.tz\nmwanza",
+      "health.beyu.co.tz\x00",
+      "health.beyu.co.tz\nmwanza",
     ];
     for (const input of malformed) {
       const result = normalizeHostname(input);
@@ -85,10 +85,10 @@ describe("hostname normalisation", () => {
   });
 
   it("keeps namespaces strict (never the base itself)", () => {
-    expect(isWithinNamespace("mwanza.health.beyuos.co.tz", "health.beyuos.co.tz")).toBe(true);
-    expect(isWithinNamespace("health.beyuos.co.tz", "health.beyuos.co.tz")).toBe(false);
-    expect(isWithinNamespace("evilhealth.beyuos.co.tz", "health.beyuos.co.tz")).toBe(false);
-    expect(isWithinNamespace("health.beyuos.co.tz.evil.com", "health.beyuos.co.tz")).toBe(false);
+    expect(isWithinNamespace("mwanza.health.beyu.co.tz", "health.beyu.co.tz")).toBe(true);
+    expect(isWithinNamespace("health.beyu.co.tz", "health.beyu.co.tz")).toBe(false);
+    expect(isWithinNamespace("evilhealth.beyu.co.tz", "health.beyu.co.tz")).toBe(false);
+    expect(isWithinNamespace("health.beyu.co.tz.evil.com", "health.beyu.co.tz")).toBe(false);
   });
 
   it("derives canonical slugs and refuses impossible ones", () => {
@@ -104,10 +104,10 @@ describe("hostname normalisation", () => {
 });
 
 describe("DNS TXT challenge", () => {
-  const host = "mwanza.health.beyuos.co.tz";
+  const host = "mwanza.health.beyu.co.tz";
 
   it("builds the canonical challenge record", () => {
-    expect(dnsChallengeRecordName(host)).toBe("_beyu-domain-verification.mwanza.health.beyuos.co.tz");
+    expect(dnsChallengeRecordName(host)).toBe("_beyu-domain-verification.mwanza.health.beyu.co.tz");
     expect(dnsChallengeRecordValue("abc123")).toBe("beyu-domain-verification=abc123");
     expect(generateChallenge()).toMatch(/^[0-9a-f]{64}$/);
     expect(generateChallenge()).not.toBe(generateChallenge());

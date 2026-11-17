@@ -10,15 +10,15 @@ HUMAN-CONTROLLED, NOT DONE** · last reviewed 2026-09-22
 BEYU OS has one constitutional control plane (the `/os` control
 plane, exactly four canonical Sector OS routes) and one governed way for a tenant to
 be reachable at its own hostname. The control plane's identity is
-domain-independent: the domain strings in this document (`beyuos.co.tz` and its
+domain-independent: the domain strings in this document (`beyu.co.tz` and its
 subdomains) are the current deployment/configuration namespace — configuration
 state, replaceable through future governed configuration when BEYU acquires and
 governs a different production domain. No domain string is a constitutional
 value, and no future domain is assumed here.
 
 ```
-health.beyuos.co.tz                    OS base domain  → Health OS, no tenant
-<tenant-slug>.health.beyuos.co.tz      tenant subdomain → exactly ONE tenant
+health.beyu.co.tz                    OS base domain  → Health OS, no tenant
+<tenant-slug>.health.beyu.co.tz      tenant subdomain → exactly ONE tenant
 www.<tenant-owned-domain>              custom domain    → exactly ONE tenant (verified first)
 ```
 
@@ -29,7 +29,8 @@ human operator must do at the DNS and deployment-platform layers.
 > **Related (2026-10-08):** the canonical **entry** subdomains on the
 > production apex — the four Sector OS hosts (`health.`, `finance.`,
 > `agriculture.`, `ujenzi.beyu.co.tz`), the Foundation nonprofit host
-> (`foundation.`), and the two shared-surface hosts (`familyoffice.`, `noelia.beyu.co.tz`) — are a separate,
+> (`foundation.`), and the two shared-surface hosts (`familyoffice.`,
+> `noelia.`) on `beyu.co.tz` — are a separate,
 > presentation-only contract documented in
 > [`SECTOR_OS_SUBDOMAINS.md`](./SECTOR_OS_SUBDOMAINS.md). They are resolved
 > pre-authentication from configuration + the canonical catalogue and select a
@@ -82,7 +83,7 @@ capability or the control plane can never become a tenant-domain namespace.
 
 ### Bootstrap row
 
-`health.beyuos.co.tz` (OS_BASE, owner tenant `BEYU-HEALTH`, status `ACTIVE`,
+`health.beyu.co.tz` (OS_BASE, owner tenant `BEYU-HEALTH`, status `ACTIVE`,
 `verification_state = DOCUMENTED`, method `PLATFORM_DEPLOYMENT_CONFIG`) is created
 by migration 0063 for existing databases and by `src/db/seed.ts` for fresh
 installs — the same fixed id (`TDM_HEALTH_OS_BASE`) in both paths.
@@ -121,7 +122,7 @@ Outcomes:
 
 Deliberate design decisions worth stating:
 
-* **Unknown names inside a governed namespace fail closed.** `x.health.beyuos.co.tz`
+* **Unknown names inside a governed namespace fail closed.** `x.health.beyu.co.tz`
   with no governed row is refused. It never becomes the base tenant, another
   tenant, or a "default" tenant.
 * **Loopback is local.** `localhost` / `127.0.0.1` / `::1` derive no tenant
@@ -193,10 +194,10 @@ promoted.
 
 **Observed DNS state (2026-09-22, read-only lookup, no changes made).** Public
 resolution from the verification environment returns `ENOTFOUND` (NXDOMAIN) for
-both `beyuos.co.tz` and `health.beyuos.co.tz`, while control lookups
+both `beyu.co.tz` and `health.beyu.co.tz`, while control lookups
 (`github.com`, `google.com`, `vercel.app`) resolve normally in the same
 environment. As observed, then, the OS base domain has no public DNS records yet
-— which is exactly why `health.beyuos.co.tz` is recorded in the registry as
+— which is exactly why `health.beyu.co.tz` is recorded in the registry as
 `DOCUMENTED`/`PLATFORM_DEPLOYMENT_CONFIG` rather than as a runtime-verified DNS
 fact, and why DNS readiness is listed here as NOT MET. A split-horizon or
 not-yet-delegated zone cannot be fully excluded from one vantage point; the
@@ -212,12 +213,12 @@ For the base domain:
 
 | Record | Name | Value | Purpose |
 | --- | --- | --- | --- |
-| `A` / `ALIAS` | `health.beyuos.co.tz` | the deployment platform's target | serves the OS base domain |
-| `CNAME` | `www.health.beyuos.co.tz` (optional) | `health.beyuos.co.tz` | convenience alias |
+| `A` / `ALIAS` | `health.beyu.co.tz` | the deployment platform's target | serves the OS base domain |
+| `CNAME` | `www.health.beyu.co.tz` (optional) | `health.beyu.co.tz` | convenience alias |
 
 For tenant subdomains — choose ONE model:
 
-1. **Wildcard (one record, recommended for scale)** — `CNAME *.health.beyuos.co.tz
+1. **Wildcard (one record, recommended for scale)** — `CNAME *.health.beyu.co.tz
    → <platform target>`. This is the model the application is built for: the app
    resolves an EXACT registered hostname, so the wildcard is purely DNS
    infrastructure and grants nothing. Any tenant name that has no governed row is
@@ -235,18 +236,18 @@ The exact value is returned once, by the registration (or reassignment) response
 
 ### 6.2 TLS / certificates
 
-A wildcard certificate for `*.health.beyuos.co.tz` (or per-host certificates) is
+A wildcard certificate for `*.health.beyu.co.tz` (or per-host certificates) is
 issued by the deployment platform / ACME provider. **No certificate is issued or
 managed by the application code**, and DNS-01 wildcard issuance typically requires
-either NS delegation of `health.beyuos.co.tz` to the platform or the platform's
+either NS delegation of `health.beyu.co.tz` to the platform or the platform's
 own DNS integration.
 
 ### 6.3 Deployment platform (Vercel or equivalent)
 
 Add the domains to the EXISTING project:
 
-* `health.beyuos.co.tz`
-* `*.health.beyuos.co.tz` (wildcard domain; requires DNS-01 / NS delegation)
+* `health.beyu.co.tz`
+* `*.health.beyu.co.tz` (wildcard domain; requires DNS-01 / NS delegation)
 
 **One project. Never one project per tenant.** No new `vercel.json` rewrite or
 catch-all is required or wanted: the application resolves hostnames itself, so no
@@ -267,7 +268,7 @@ deliberately absent.)
 2. Publish the TXT record; `POST /api/v1/admin/tenant-domains/<id>/verify`.
 3. `POST /api/v1/admin/tenant-domains/<id>/status` with `{"action":"activate"}`.
 4. Confirm `GET /api/v1/admin/tenant-domains` shows `ACTIVE` + `VERIFIED`.
-5. Request `https://<tenant-slug>.health.beyuos.co.tz/os/health` with a session
+5. Request `https://<tenant-slug>.health.beyu.co.tz/os/health` with a session
    that is federated to Health OS. Expect the SAME Health OS document as
    `/os/health`; expect `404` without a session-scope match; expect `404` for any
    name with no governed row.
@@ -279,7 +280,7 @@ deliberately absent.)
 * DNS and Vercel configuration are **not** done by this work and are not claimed.
 * `verification_method = PLATFORM_DEPLOYMENT_CONFIG` on the OS base row records
   deployment configuration — it does **not** assert that a runtime DNS check was
-  performed against `health.beyuos.co.tz`.
+  performed against `health.beyu.co.tz`.
 * No per-tenant deployment, no per-tenant Vercel project, no second Health OS, no
   second tenant system, no second authorization model, no new security boundary.
 * Tenant-context threading into the sector runtime's own session (bridging the

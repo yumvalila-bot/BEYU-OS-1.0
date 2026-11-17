@@ -164,7 +164,7 @@ describe("A — a known ACTIVE tenant hostname resolves to exactly one tenant", 
     expect(resolved.context.os).toBe("HEALTH_OS");
     expect(resolved.context.domainType).toBe("TENANT_SUBDOMAIN");
     expect(resolved.context.verificationState).toBe("VERIFIED");
-    expect(resolved.context.namespace).toBe("health.beyuos.co.tz");
+    expect(resolved.context.namespace).toBe("health.beyu.co.tz");
     // The resolution carries NO authority of any kind.
     expect(Object.keys(resolved.context)).not.toContain("permissions");
     expect(Object.keys(resolved.context)).not.toContain("allowed");
@@ -178,16 +178,16 @@ describe("A — a known ACTIVE tenant hostname resolves to exactly one tenant", 
 
 describe("B — unknown hostnames fail closed and never fall back", () => {
   it("refuses an unregistered name INSIDE a registered OS namespace", async () => {
-    const resolved = await resolveHostname(groupAdmin(), "not-registered-at-all.health.beyuos.co.tz");
+    const resolved = await resolveHostname(groupAdmin(), "not-registered-at-all.health.beyu.co.tz");
     expect(resolved).toEqual({
       kind: "DENIED",
-      hostname: "not-registered-at-all.health.beyuos.co.tz",
+      hostname: "not-registered-at-all.health.beyu.co.tz",
       reason: "UNKNOWN_TENANT_HOST",
     });
   });
 
   it("refuses it identically through the request entry point", async () => {
-    const resolved = await resolveRequestHostname(groupAdmin(), "not-registered-at-all.health.beyuos.co.tz");
+    const resolved = await resolveRequestHostname(groupAdmin(), "not-registered-at-all.health.beyu.co.tz");
     expect(resolved.kind).toBe("DENIED");
   });
 
@@ -210,8 +210,8 @@ describe("B — unknown hostnames fail closed and never fall back", () => {
   });
 
   it("recognises the OS base domain as a namespace marker, never as a tenant", async () => {
-    const resolved = await resolveHostname(groupAdmin(), "health.beyuos.co.tz");
-    expect(resolved).toEqual({ kind: "OS_BASE", hostname: "health.beyuos.co.tz", os: "HEALTH_OS" });
+    const resolved = await resolveHostname(groupAdmin(), "health.beyu.co.tz");
+    expect(resolved).toEqual({ kind: "OS_BASE", hostname: "health.beyu.co.tz", os: "HEALTH_OS" });
   });
 });
 
@@ -392,7 +392,7 @@ describe("G — cross-OS access", () => {
       registeredBy: "TEST",
       classification: "CONFIDENTIAL",
     });
-    const resolved = await resolveHostname(groupAdmin(), "testdom-cross-os.health.beyuos.co.tz");
+    const resolved = await resolveHostname(groupAdmin(), "testdom-cross-os.health.beyu.co.tz");
     expect(resolved).toEqual({
       kind: "DENIED",
       hostname: TEST_HOSTS.crossOs,
@@ -417,7 +417,7 @@ describe("G — cross-OS access", () => {
     });
     // SHARED_MINING_GOVERNANCE is DRAFT in the canonical registry and has no ACTIVE base domain,
     // so it can never become a tenant namespace — fail closed.
-    expect(await resolveHostname(groupAdmin(), "testdom-draft-os.health.beyuos.co.tz")).toEqual({
+    expect(await resolveHostname(groupAdmin(), "testdom-draft-os.health.beyu.co.tz")).toEqual({
       kind: "DENIED",
       hostname: TEST_HOSTS.draftOs,
       reason: "DOMAIN_NOT_IN_OS_NAMESPACE",
@@ -463,11 +463,11 @@ describe("I — authenticated but unauthorized", () => {
 describe("M/N/O — Host-header manipulation, malformed names and normalisation", () => {
   it("never resolves a crafted host that merely CONTAINS a governed hostname", async () => {
     for (const host of [
-      "testdom-a.health.beyuos.co.tz.evil.example.com",
-      "evil.example.com.testdom-a.health.beyuos.co.tz",
-      "testdom-a.health.beyuos.co.tz@evil.example.com",
-      "testdom-a.healthXbeyuos.co.tz",
-      "testdom-a.health.beyuos.co.tz.evil.health.beyuos.co.tz",
+      "testdom-a.health.beyu.co.tz.evil.example.com",
+      "evil.example.com.testdom-a.health.beyu.co.tz",
+      "testdom-a.health.beyu.co.tz@evil.example.com",
+      "testdom-a.healthXbeyu.co.tz",
+      "testdom-a.health.beyu.co.tz.evil.health.beyu.co.tz",
     ]) {
       const resolved = await resolveRequestHostname(groupAdmin(), host);
       expect(resolved.kind, host).not.toBe("TENANT");
@@ -476,7 +476,7 @@ describe("M/N/O — Host-header manipulation, malformed names and normalisation"
   });
 
   it("refuses unclassifiable Host values outright on the request path", async () => {
-    for (const host of ["http://testdom-a.health.beyuos.co.tz/", "testdom-a.health.beyuos.co.tz/../b", "10.0.0.5", "health", "*"]) {
+    for (const host of ["http://testdom-a.health.beyu.co.tz/", "testdom-a.health.beyu.co.tz/../b", "10.0.0.5", "health", "*"]) {
       const resolved = await resolveRequestHostname(groupAdmin(), host);
       expect(resolved.kind, host).toBe("DENIED");
     }
@@ -484,10 +484,10 @@ describe("M/N/O — Host-header manipulation, malformed names and normalisation"
 
   it("normalises case, a numeric port and the root dot to the same binding", async () => {
     for (const host of [
-      "TESTDOM-A.Health.BEYUOS.co.tz",
-      "testdom-a.health.beyuos.co.tz:443",
-      "testdom-a.health.beyuos.co.tz.",
-      "  Testdom-A.health.beyuos.co.tz  ",
+      "TESTDOM-A.Health.BEYU.co.tz",
+      "testdom-a.health.beyu.co.tz:443",
+      "testdom-a.health.beyu.co.tz.",
+      "  Testdom-A.health.beyu.co.tz  ",
     ]) {
       const resolved = await resolveRequestHostname(groupAdmin(), host);
       expect(resolved.kind, host).toBe("TENANT");
@@ -674,7 +674,7 @@ describe("R — RLS is the final boundary for the registry", () => {
       await expect(
         client.query(
           `insert into tenant_domains (id, tenant_id, os, hostname, domain_type, status, verification_state, verification_method, registered_by)
-           values ('TDM_TEST_RLS_WRITE', $1, 'HEALTH_OS', 'rls-write.health.beyuos.co.tz', 'TENANT_SUBDOMAIN', 'CREATED', 'UNVERIFIED', 'DNS_TXT', 'TEST')`,
+           values ('TDM_TEST_RLS_WRITE', $1, 'HEALTH_OS', 'rls-write.health.beyu.co.tz', 'TENANT_SUBDOMAIN', 'CREATED', 'UNVERIFIED', 'DNS_TXT', 'TEST')`,
           [tenantA],
         ),
       ).rejects.toMatchObject({ code: "42501" });
@@ -739,9 +739,9 @@ describe("T — a hostname is never an authorization decision", () => {
   it("exposes no 'allowed' outcome and no permission data in any resolution", async () => {
     const results = await Promise.all([
       resolveHostname(groupAdmin(), TEST_HOSTS.suspendedTenant),
-      resolveHostname(groupAdmin(), "unknown.health.beyuos.co.tz"),
+      resolveHostname(groupAdmin(), "unknown.health.beyu.co.tz"),
       resolveHostname(groupAdmin(), "beyu-os-1-0.vercel.app"),
-      resolveHostname(groupAdmin(), "health.beyuos.co.tz"),
+      resolveHostname(groupAdmin(), "health.beyu.co.tz"),
     ]);
     for (const result of results) {
       expect(["NOT_APPLICABLE", "OS_BASE", "TENANT", "DENIED"]).toContain(result.kind);

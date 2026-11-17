@@ -176,9 +176,9 @@ host (www, apex, preview, localhost, no Host) and the OS's own host pass
 through to the existing gates.
 
 The DB-backed tenant-domain registry remains the authority for governed
-**tenant** hostnames (`<tenant>.health.beyuos.co.tz`). Registering the canonical
+**tenant** hostnames (`<tenant>.health.beyu.co.tz`). Registering the canonical
 entry hosts as `OS_BASE` / `CAPABILITY_BASE` rows is **not** required for this
-feature (they live on the production apex, not in the `beyuos.co.tz` registry
+feature (they live on the production apex, not in the `beyu.co.tz` registry
 namespace) and **no migration is added**.
 
 ---

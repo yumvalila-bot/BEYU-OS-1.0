@@ -11,7 +11,7 @@
  *   • Nothing here authorizes anything. A normalised hostname is a LOOKUP KEY
  *     into the governed tenant-domain registry; access is decided afterwards by
  *     the existing session/federation/tenant/entity/RBAC/ABAC/policy/RLS chain.
- *   • Nothing here grants wildcard semantics. `*.health.beyuos.co.tz` is DNS
+ *   • Nothing here grants wildcard semantics. `*.health.beyu.co.tz` is DNS
  *     infrastructure; the application resolves an EXACT registered hostname.
  *   • A malformed, absent, IP-literal or local host is never "close enough".
  *     It is classified explicitly and fails closed at the call site.
@@ -46,9 +46,9 @@ const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
  * Normalise a raw Host header (or any caller-supplied name) into a canonical
  * lookup key.
  *
- * Accepts: `Mwanza.Health.BEYUOS.co.tz` → `mwanza.health.beyuos.co.tz`,
- *          `health.beyuos.co.tz:443`     → `health.beyuos.co.tz`,
- *          `health.beyuos.co.tz.`        → `health.beyuos.co.tz` (root dot).
+ * Accepts: `Mwanza.Health.BEYUOS.co.tz` → `mwanza.health.beyu.co.tz`,
+ *          `health.beyu.co.tz:443`     → `health.beyu.co.tz`,
+ *          `health.beyu.co.tz.`        → `health.beyu.co.tz` (root dot).
  * Rejects: schemes, paths, userinfo, ports that are not numeric, spaces,
  *          control characters, wildcards, underscores, non-ASCII (punycode must
  *          be pre-encoded by the client), leading/trailing hyphens, over-long
@@ -72,7 +72,7 @@ export function normalizeHostname(raw: string | null | undefined): NormalizedHos
     return /^[0-9a-f:.]+$/.test(inner) ? { ok: false, reason: "IP_LITERAL" } : { ok: false, reason: "MALFORMED" };
   }
 
-  // Exactly ONE trailing root dot is allowed (`health.beyuos.co.tz.`); two or
+  // Exactly ONE trailing root dot is allowed (`health.beyu.co.tz.`); two or
   // more is a malformed name, not a name to be "cleaned up".
   if (host.endsWith("..")) return { ok: false, reason: "MALFORMED" };
   host = (host.endsWith(".") ? host.slice(0, -1) : host).toLowerCase();

@@ -702,3 +702,82 @@ against this branch.
 
 **Merge safety:** code only — no migration, no schema change, no environment
 change, no state. Rollback is `git revert`.
+
+---
+
+## Q. Canonical namespace alignment — `*.beyuos.co.tz` → `*.beyu.co.tz` (2026-11-16, after §P)
+
+**Request.** Move the `tenant_domains` names off `beyuos.co.tz` onto `beyu.co.tz`.
+
+**Why it mattered — the defect this closes.** The registry and the canonical host
+contract named two different namespaces. `src/lib/canonical-hosts.ts` resolves
+`health.beyu.co.tz` → `HEALTH_OS`; the Health mount (`src/app/os/health/mount.ts`)
+then applies a NAMESPACE SCOPE gate that accepts a host only if it is
+platform-neutral **or proven by a registry row** to belong to the `HEALTH_OS`
+namespace. No row named the canonical host, so:
+
+| Host | Canonical contract | Registry proof | Mount result |
+| --- | --- | --- | --- |
+| `health.beyu.co.tz` | `HEALTH_OS` | none | **REFUSED** |
+| `health.beyuos.co.tz` | not a destination (`NEUTRAL`) | `OS_BASE` row | accepted |
+
+The only host the gate accepted was one the product does not use. Aligning the
+data with the code closes the contradiction.
+
+**What changed.** Two `PLATFORM NAMESPACE BASE` rows only — namespace markers that
+carry no tenant context:
+
+| id | before | after | type |
+| --- | --- | --- | --- |
+| `TDM_HEALTH_OS_BASE` | `health.beyuos.co.tz` | `health.beyu.co.tz` | `OS_BASE` → `HEALTH_OS` |
+| `TDM_FAMILY_OFFICE_CAPABILITY_BASE` | `familyoffice.beyuos.co.tz` | `familyoffice.beyu.co.tz` | `CAPABILITY_BASE` → `SHARED_FAMILY_OFFICE` |
+
+Row identity, owner tenant, OS code, domain type, lifecycle status, verification
+posture, evidence and classification are all **preserved** — this is a rename, not
+a re-provision.
+
+**Why a new migration (0082) and not an edit to 0063/0065.** `scripts/migrate.ts`
+records a sha256 checksum per applied migration and throws
+`Migration checksum drift` on any byte change. 0063 and 0065 are applied on every
+existing database, so editing either would make `npm run migrate` fail for every
+deployment. History is immutable; the correction ships forward.
+
+**Ordering — why a fresh install updates nothing and still ends correct.**
+Migrations run **before** the seed. On a fresh database `tenants` is empty at 0082,
+so both `UPDATE`s match zero rows and the gated `INSERT`s insert nothing; the bases
+are created afterwards by `src/db/seed.ts`, which now names the canonical apex. On
+an existing database the rows are present and the `UPDATE`s do the work. Both paths
+converge on exactly one row per namespace. The verification blocks therefore assert
+*"where a base row exists, it names the canonical apex"* — asserting presence would
+make a clean install un-migratable, which is precisely how 0063/0065 already behave.
+
+**Tenant bindings are out of scope, deliberately.** No tenant `BINDING` row is
+touched. `<tenant>.health.beyuos.co.tz` rows are deployment-specific data that
+auto-suspend with their base (0065); leaving them alone keeps every tenant's
+authorized binding exactly as it was and gives each tenant an explicit, reviewable
+re-registration path instead of silently rewriting the hostname it was verified for.
+
+**Verification performed.**
+
+| Check | Result |
+| --- | --- |
+| `migration integrity` (`scripts/migration/integrity.ts`) | **PASSED** — 0082 registered in the metadata debt register, no blocking issue |
+| `npm run migrate` on a fresh database | applied **0000–0082**; `fingerprintBefore == fingerprintAfter` (**zero schema drift**) |
+| Fresh-install seed end state | both bases on `beyu.co.tz`, `ACTIVE`, `DOCUMENTED` |
+| Upgrade path (simulated production: bases reverted, 0082 re-run) | both rows **renamed in place**, identity/owner/type/lifecycle preserved |
+| Re-run 0082 on the migrated database | idempotent — row count unchanged (2) |
+| `tests/tenant-domain/` | **86 passed** (incl. the 11 HTTP-backed tests) |
+| new `tests/tenant-domain/canonical-namespace-alignment.test.ts` | **9 passed** |
+| `tests/sector-domains/` | **215 passed / 1 skipped**, the only failures being the two journal-head pins updated deliberately to 0082 |
+
+**Residual, stated honestly.** `docs/architecture/TENANT_DOMAIN_ARCHITECTURE.md`
+records that `beyu.co.tz` and `health.beyu.co.tz` returned `ENOTFOUND` on
+2026-09-22. The rename aligns the *registry* with the canonical contract; it does
+not create DNS records, a wildcard certificate or Vercel domain mappings — those
+remain human/operator steps (§4 of that document).
+
+**Merge safety.** One forward migration + seed + tests + docs. `0082` is data-only
+(two `UPDATE`s and two gated `INSERT … SELECT FROM tenants`), so it is a no-op on a
+fresh database and cannot alter schema, drop a row or weaken RLS. Rollback: revert
+the commit; the migration stays applied and harmless (`WHERE hostname = <old>`
+guards make it a no-op thereafter).

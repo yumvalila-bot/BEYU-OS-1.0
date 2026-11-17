@@ -28,7 +28,7 @@
  *   tenant-domain registry. It can only ever NARROW:
  *
  *     • a name inside a registered OS namespace that no governed row proves
- *       (`unknown.health.beyuos.co.tz`) is REFUSED — never served as the base
+ *       (`unknown.health.beyu.co.tz`) is REFUSED — never served as the base
  *       tenant, never served as another tenant, never redirected somewhere that
  *       reveals whether the name exists;
  *     • a governed tenant hostname is accepted only after the registry row is
@@ -122,12 +122,15 @@ export async function serveHealthOS(request: HealthOSMountRequest = {}): Promise
   // Gate 3b — NAMESPACE SCOPE. Health OS may only be served on a host that is
   // either platform-neutral (the deployment platform's own hostname, localhost,
   // no Host — the pre-existing execution surfaces, unchanged) or inside the
-  // HEALTH OS namespace: the `health.beyuos.co.tz` base itself, or a governed
-  // tenant domain bound to HEALTH_OS.
+  // HEALTH OS namespace: the `health.beyu.co.tz` base itself, or a governed
+  // tenant domain bound to HEALTH_OS. Both are proved by a registry row — as of
+  // migration 0082 the bases live on the canonical apex `beyu.co.tz`, the same
+  // apex `canonical-hosts.ts` resolves, so the canonical Health host is accepted
+  // here instead of being refused as an unregistered name.
   //
   // Every other governed namespace is refused. A request arriving on
-  // `familyoffice.beyuos.co.tz` (a SHARED CAPABILITY base, never an OS), on
-  // `finance.beyuos.co.tz`, or on a tenant host belonging to another OS or
+  // `familyoffice.beyu.co.tz` (a SHARED CAPABILITY base, never an OS), on
+  // `finance.beyu.co.tz`, or on a tenant host belonging to another OS or
   // capability therefore CANNOT be answered with the Health OS document: a
   // hostname can never carry one surface's identity into another's. This is the
   // cross-OS / cross-capability half of the fail-closed contract, and it is
