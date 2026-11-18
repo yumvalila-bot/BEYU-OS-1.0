@@ -114,7 +114,7 @@ describe("administrative surface", () => {
       { cookie: ceoCookie },
     );
     expect(created.status).toBe(201);
-    expect(created.body.data?.hostname).toBe("testdom-http.health.beyuos.co.tz");
+    expect(created.body.data?.hostname).toBe("testdom-http.health.beyu.co.tz");
     expect(created.body.data?.status).toBe("CREATED");
     expect(created.body.data?.verificationState).toBe("UNVERIFIED");
     fixtureDomainId = created.body.data?.domainId ?? "";
@@ -155,7 +155,7 @@ describe("administrative surface", () => {
       cookie: adminCookie,
     });
     expect(listed.status).toBe(200);
-    expect(listed.body.data?.some((row) => row.hostname === "testdom-http.health.beyuos.co.tz")).toBe(true);
+    expect(listed.body.data?.some((row) => row.hostname === "testdom-http.health.beyu.co.tz")).toBe(true);
   });
 
   it.skipIf(!enabled)("keeps the OS base row constitutional (never runtime-managed)", async () => {
@@ -171,8 +171,8 @@ describe("administrative surface", () => {
 describe("Health OS route under hostile Host values", () => {
   it.skipIf(!enabled)("does not let a hostname substitute for the session gate", async () => {
     for (const host of [
-      "testdom-http.health.beyuos.co.tz",
-      "health.beyuos.co.tz",
+      "testdom-http.health.beyu.co.tz",
+      "health.beyu.co.tz",
       "localhost",
       "beyu-os-1-0.vercel.app",
     ]) {
@@ -184,9 +184,9 @@ describe("Health OS route under hostile Host values", () => {
 
   it.skipIf(!enabled)("refuses an unproven name inside the governed namespace with a uniform 404", async () => {
     for (const host of [
-      "testdom-http.health.beyuos.co.tz",
-      "not-registered.health.beyuos.co.tz",
-      "mwanza.health.beyuos.co.tz",
+      "testdom-http.health.beyu.co.tz",
+      "not-registered.health.beyu.co.tz",
+      "mwanza.health.beyu.co.tz",
     ]) {
       const res = await getWithHost("/os/health", host, adminCookie);
       expect(res.status, host).toBe(404);
@@ -199,7 +199,7 @@ describe("Health OS route under hostile Host values", () => {
     // classified as an unproven name inside the namespace → uniform 404.
     const suffix = await getWithHost(
       "/os/health",
-      "evil.example.com.testdom-http.health.beyuos.co.tz",
+      "evil.example.com.testdom-http.health.beyu.co.tz",
       adminCookie,
     );
     expect(suffix.status).toBe(404);
@@ -210,8 +210,8 @@ describe("Health OS route under hostile Host values", () => {
     // gates decide. The invariant that matters is that a hostname never GRANTS a
     // tenant response — never a 200, never a tenant document.
     for (const host of [
-      "testdom-http.health.beyuos.co.tz.evil.example.com",
-      "evil-testdom-http.health.beyuos.co.tz.evil.example.com",
+      "testdom-http.health.beyu.co.tz.evil.example.com",
+      "evil-testdom-http.health.beyu.co.tz.evil.example.com",
     ]) {
       const res = await getWithHost("/os/health", host, adminCookie);
       expect(res.status, host).not.toBe(200);
@@ -221,12 +221,12 @@ describe("Health OS route under hostile Host values", () => {
 
   it.skipIf(!enabled)("refuses unclassifiable and non-tenant Host values outright", async () => {
     for (const host of [
-      "testdom-http.health.beyuos.co.tz@evil.example.com",
-      "http://testdom-http.health.beyuos.co.tz/",
-      "testdom-http.health.beyuos.co.tz:not-a-port",
+      "testdom-http.health.beyu.co.tz@evil.example.com",
+      "http://testdom-http.health.beyu.co.tz/",
+      "testdom-http.health.beyu.co.tz:not-a-port",
       "10.0.0.5",
       "health",
-      "*.health.beyuos.co.tz",
+      "*.health.beyu.co.tz",
     ]) {
       const res = await getWithHost("/os/health", host, adminCookie);
       expect(res.status, host).toBe(404);
@@ -234,7 +234,7 @@ describe("Health OS route under hostile Host values", () => {
   });
 
   it.skipIf(!enabled)("leaves the deployment and OS base hosts on the pre-existing path", async () => {
-    for (const host of ["beyu-os-1-0.vercel.app", "health.beyuos.co.tz", "localhost", "127.0.0.1:3100"]) {
+    for (const host of ["beyu-os-1-0.vercel.app", "health.beyu.co.tz", "localhost", "127.0.0.1:3100"]) {
       const res = await getWithHost("/os/health", host, adminCookie);
       // Session is valid, Health federation is unavailable in this harness: the
       // second gate refuses to the denial surface — unchanged behaviour, and the
@@ -246,8 +246,8 @@ describe("Health OS route under hostile Host values", () => {
 
   it.skipIf(!enabled)("keeps the legacy alias and the canonical route identical", async () => {
     for (const path of ["/os/health", "/health/os"]) {
-      const unknown = await getWithHost(path, "not-registered.health.beyuos.co.tz", adminCookie);
-      const base = await getWithHost(path, "health.beyuos.co.tz", adminCookie);
+      const unknown = await getWithHost(path, "not-registered.health.beyu.co.tz", adminCookie);
+      const base = await getWithHost(path, "health.beyu.co.tz", adminCookie);
       expect(unknown.status, path).toBe(404);
       expect(base.status, path).toBe(307);
     }

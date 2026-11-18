@@ -58,7 +58,26 @@ run("npm", ["ci", "--no-audit", "--no-fund", "--include=dev"]);
 console.log("[build-health-spa] sectors/health: vite build (single-file, VITE_API_BASE_URL=/health-os)…");
 run("npm", ["run", "build"], { VITE_API_BASE_URL: "/health-os" });
 
-const html = readFileSync(distHtml, "utf8");
+const distDocument = readFileSync(distHtml, "utf8");
+
+/**
+ * The document is served from a MULTI-SEGMENT path (`/os/health`, and the
+ * `/health/os` alias), never from the site root. `vite-plugin-singlefile` forces
+ * `base: "./"` so Vite rewrites the sector's root-absolute `public/` references
+ * (`href="/brand/favicon.png"`) into RELATIVE ones (`href="./brand/favicon.png"`).
+ * Under the mount that relative URL resolves against `/os/`, i.e.
+ * `/os/brand/favicon.png` — a 404 — instead of the real `/brand/favicon.png`.
+ *
+ * Every script and stylesheet is inlined by the single-file build, so the icon is
+ * the only surviving reference. It is restored to the ROOT-ABSOLUTE form the
+ * sector's `index.html` actually declares, which is correct on every mount point
+ * (including a future nested one) and needs no `public/` duplication. The rewrite
+ * is asserted by `tests/sector-domains/health-entry-point-contract.test.ts`.
+ */
+const html = distDocument.replace(
+  /(\s(?:href|src)=")\.\//g,
+  "$1/",
+);
 
 const header = `/**
  * GENERATED FILE — do not edit; the generated content must NOT be committed.

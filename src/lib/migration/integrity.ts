@@ -356,6 +356,17 @@ export const KNOWN_METADATA_DEBT = {
     "0077",
     "0078",
     "0079",
+    // 0082 is the canonical namespace alignment: two UPDATEs of PLATFORM NAMESPACE
+    // BASE rows (health./familyoffice. beyuos.co.tz → beyu.co.tz) plus two gated
+    // bootstrap INSERTs. It is DATA, not DDL — it creates no table and alters no
+    // column, so it produces no table-level schema state for a snapshot to
+    // capture, and `scripts/migration/snapshot.ts` would correctly refuse to write
+    // an empty one. Registered here for the same documented reason as 0077–0079:
+    // the journal entry IS present and the gap is acknowledged and reviewable, not
+    // hidden. What actually verifies it is the migration's own DO-block assertions
+    // (the base rows must land on the canonical apex) plus
+    // tests/tenant-domain/canonical-namespace-alignment.test.ts.
+    "0082",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

@@ -33,14 +33,19 @@
  *     serialised into any unauthenticated surface's HTML.
  */
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import { resolvePrincipal } from "@/lib/session";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { NOELIA_CANONICAL_APPEARANCE } from "@/components/brand-assets";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
-import { canonicalHostForRequest, destinationHrefForRequest } from "@/lib/canonical-host";
+import { canonicalHostForRequest, destinationHrefForRequest, entryHrefForRequest } from "@/lib/canonical-host";
 import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
+import {
+  CANONICAL_SURFACES,
+  FOUNDATION_ORGANIZATION,
+  SECTOR_OPERATING_SYSTEMS,
+} from "@/lib/operating-system-catalog";
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 
@@ -59,6 +64,43 @@ const BOOTSTRAP_IDENTITIES: BootstrapIdentity[] = [
   { email: "auditor@beyu.os", role: "Internal Auditor (read-only)" },
 ];
 
+/* -------------------------------------------------------------------------- */
+/* The public destination gateway — catalogue-driven, never a host literal     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The destinations the PUBLIC gateway offers, in canonical order: the four Sector
+ * OSs (the catalogue is constitutionally closed at four), then the Foundation
+ * nonprofit sister organization, then the two shared surfaces.
+ *
+ * WHY THIS EXISTS
+ *   The gateway used to spell the seven production DESTINATION hostnames into its
+ *   own markup. That is a SECOND host table beside the ONE canonical contract, and
+ *   it rendered links to hosts that are not attached in an environment where
+ *   `BEYU_CANONICAL_DOMAIN` is not configured (a preview deployment carries no
+ *   canonical hosts at all). The destination list and every label now come from
+ *   the catalogue, and the entry URL comes from the contract (canonical host when
+ *   the apex is configured, internal route otherwise). No file outside
+ *   `src/lib/canonical-hosts.ts` composes a canonical hostname.
+ */
+const GATEWAY_DESTINATIONS = [
+  ...SECTOR_OPERATING_SYSTEMS,
+  FOUNDATION_ORGANIZATION,
+  ...CANONICAL_SURFACES,
+] as const;
+
+const FAMILY_OFFICE_SURFACE = CANONICAL_SURFACES.find((surface) => surface.code === "FAMILY_OFFICE")!;
+const NOELIA_SURFACE = CANONICAL_SURFACES.find((surface) => surface.code === "NOELIA_AI")!;
+const HEALTH_DESTINATION = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "HEALTH")!;
+const FINANCE_DESTINATION = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "FINANCE")!;
+const AGRICULTURE_DESTINATION = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "AGRICULTURE")!;
+const UJENZI_DESTINATION = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "UJENZI")!;
+const FOUNDATION_DESTINATION = FOUNDATION_ORGANIZATION;
+const CAPABILITY_LABEL_FAMILY_OFFICE = "Family Office";
+
+/** Presentation accents, one per Sector OS card position (catalogue order). */
+const SYSTEM_TONES = ["gold", "blue", "green", "light"] as const;
+
 /**
  * The CANONICAL PUBLIC HOMEPAGE.
  *
@@ -67,8 +109,13 @@ const BOOTSTRAP_IDENTITIES: BootstrapIdentity[] = [
  * requirement this module exists to honour. It renders the authoritative BEYU
  * OS emblem, in-page navigation with real anchors, the four Sector OS
  * destinations and the governed Family Office surface.
+ *
+ * `MarketingPage` takes the destination→entry-URL resolver as a prop because the
+ * entry URL depends on DEPLOYMENT configuration (`BEYU_CANONICAL_DOMAIN`), which
+ * is read per request on the server. It is presentation only: an entry URL is
+ * where a visitor is OFFERED a sign-in, never an authorization outcome.
  */
-export function MarketingPage() {
+export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof GATEWAY_DESTINATIONS)[number]) => string }) {
   return (
     <main className="beyu-home-shell">
       <header className="beyu-topbar">
@@ -184,17 +231,12 @@ export function MarketingPage() {
         <div className="beyu-home-inner">
           <h3>ONE ECOSYSTEM. FOUR SECTOR OPERATING SYSTEMS.</h3>
           <div className="beyu-systems-grid">
-            {[
-              { name: "HEALTH_OS", text: "Integrated healthcare operations for healthier communities.", tone: "gold", href: "https://health.beyu.co.tz/" },
-              { name: "FINANCE_OS", text: "Financial management for intelligent growth.", tone: "blue", href: "https://finance.beyu.co.tz/" },
-              { name: "AGRICULTURE_OS", text: "Smart agriculture for food security.", tone: "green", href: "https://agriculture.beyu.co.tz/" },
-              { name: "UJENZI_OS", text: "Infrastructure for a stronger tomorrow.", tone: "light", href: "https://ujenzi.beyu.co.tz/" },
-            ].map((item) => (
-              <article key={item.name} className={`beyu-system-card beyu-${item.tone}`}>
+            {SECTOR_OPERATING_SYSTEMS.map((os, index) => (
+              <article key={os.code} className={`beyu-system-card beyu-${SYSTEM_TONES[index % SYSTEM_TONES.length]}`}>
                 <div className="beyu-system-art" aria-hidden="true" />
-                <div className="beyu-system-label">{item.name}</div>
-                <p>{item.text}</p>
-                <a href={item.href}>Explore <span aria-hidden="true">→</span></a>
+                <div className="beyu-system-label">{os.registryCode}</div>
+                <p>{os.highlights[0]}</p>
+                <a href={entryHref(os)}>Explore <span aria-hidden="true">→</span></a>
               </article>
             ))}
           </div>
@@ -215,8 +257,8 @@ export function MarketingPage() {
                 ["Knowledge Management", "📚"],
                 ["Audit & Accountability", "🧾"],
               ].map(([label, icon]) => (
-                label === "Family Office" ? (
-                  <a key={label} href="https://familyoffice.beyu.co.tz/" className="beyu-capability-item">
+                label === CAPABILITY_LABEL_FAMILY_OFFICE ? (
+                  <a key={label} href={entryHref(FAMILY_OFFICE_SURFACE)} className="beyu-capability-item">
                     <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
                     <span>{label}</span>
                   </a>
@@ -232,11 +274,34 @@ export function MarketingPage() {
 
           <aside className="beyu-noelia-panel" id="noelia">
             <div className="beyu-noelia-portrait">
-              <Image
-                src="/NOELIA.png"
-                alt="NOELIA, the BEYU governed intelligence assistant"
-                fill
-                sizes="(max-width: 767px) 42vw, 160px"
+              {/*
+               * NOELIA'S APPEARANCE — the ONE canonical asset, byte-exact.
+               *
+               * This was a `next/image` <Image fill>. The optimizer fetched
+               * `/NOELIA.png` (1,966,448 B) and re-encoded it to 28,897 B of
+               * `image/png` at q=75 — a lossy recompression of the single
+               * canonical Noelia appearance. `brand-assets.ts` states the
+               * contract plainly: this file may never be "modified,
+               * recompressed, recolored, cropped or regenerated", and it is
+               * pinned by SHA-256 (`NOELIA_CANONICAL_APPEARANCE.sha256`) plus
+               * tests. A hash cannot detect an optimizer that re-encodes on the
+               * way out, and every other Noelia surface (`noelia-shell`,
+               * `noelia-avatar`, `noelia-cross-os-visual`) renders the canonical
+               * registry path as a plain <img> for exactly this reason.
+               *
+               * So the homepage now resolves the SAME registry entry every
+               * other surface uses, and serves the bytes unmodified. Portrait
+               * framing comes from CSS (`object-fit: cover;
+               * object-position: center 25%` in globals.css), not from a
+               * re-encoding pipeline.
+               */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={NOELIA_CANONICAL_APPEARANCE.path}
+                alt={NOELIA_CANONICAL_APPEARANCE.altText}
+                width={NOELIA_CANONICAL_APPEARANCE.dimensions.width}
+                height={NOELIA_CANONICAL_APPEARANCE.dimensions.height}
+                draggable={false}
                 className="beyu-noelia-image"
               />
             </div>
@@ -244,7 +309,7 @@ export function MarketingPage() {
               <h4>NOELIA</h4>
               <p>Intelligence · Governance · Care</p>
               <div className="beyu-noelia-tag">Your governed AI assistant, supporting the BEYU ecosystem.</div>
-              <a href="https://noelia.beyu.co.tz/">Discover NOELIA <span aria-hidden="true">→</span></a>
+              <a href={entryHref(NOELIA_SURFACE)}>Discover NOELIA <span aria-hidden="true">→</span></a>
             </div>
           </aside>
         </div>
@@ -258,13 +323,14 @@ export function MarketingPage() {
             <p>Choose an institutional destination. Each destination opens its own governed entry point and applies its own server-side access controls.</p>
           </div>
           <div className="beyu-gateway-grid">
-            <a className="beyu-gateway-card" href="https://health.beyu.co.tz/"><span>01</span><strong>HEALTH_OS</strong><small>Healthcare and care operations</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://finance.beyu.co.tz/"><span>02</span><strong>FINANCE_OS</strong><small>Financial operations and stewardship</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://agriculture.beyu.co.tz/"><span>03</span><strong>AGRICULTURE_OS</strong><small>Agriculture and production operations</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://ujenzi.beyu.co.tz/"><span>04</span><strong>UJENZI_OS</strong><small>Construction and infrastructure operations</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://foundation.beyu.co.tz/"><span>05</span><strong>BEYU FOUNDATION</strong><small>Nonprofit programmes and public impact</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://familyoffice.beyu.co.tz/"><span>06</span><strong>FAMILY OFFICE</strong><small>Family governance and stewardship</small><b>Enter destination →</b></a>
-            <a className="beyu-gateway-card" href="https://noelia.beyu.co.tz/"><span>07</span><strong>NOELIA AI</strong><small>Governed intelligence and assistance</small><b>Enter destination →</b></a>
+            {GATEWAY_DESTINATIONS.map((destination, index) => (
+              <a key={destination.code} className="beyu-gateway-card" href={entryHref(destination)}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{destination.registryCode}</strong>
+                <small>{destination.headline}</small>
+                <b>Enter destination →</b>
+              </a>
+            ))}
           </div>
           <div className="beyu-information-grid">
             <article><span>01 / INSTITUTION</span><h4>Governance & Architecture</h4><p>Understand the principles, institutional structure and operating model behind BEYU.</p><a href="#architecture">Explore architecture →</a></article>
@@ -322,16 +388,16 @@ export function MarketingPage() {
                 <li><a href="#architecture">Institutional Structure</a></li>
                 <li><a href="#architecture">Governance</a></li>
                 <li><a href="#sector-os">Sector OS</a></li>
-                <li><a href="https://health.beyu.co.tz/">Health OS</a></li>
+                <li><a href={entryHref(HEALTH_DESTINATION)}>{HEALTH_DESTINATION.name}</a></li>
               </ul>
             </div>
             <div>
               <h5>Sector OS</h5>
               <ul>
-                <li><a href="https://finance.beyu.co.tz/">Finance OS</a></li>
-                <li><a href="https://agriculture.beyu.co.tz/">Agriculture OS</a></li>
-                <li><a href="https://ujenzi.beyu.co.tz/">Ujenzi OS</a></li>
-                <li><a href="https://foundation.beyu.co.tz/">BEYU Foundation</a></li>
+                <li><a href={entryHref(FINANCE_DESTINATION)}>{FINANCE_DESTINATION.name}</a></li>
+                <li><a href={entryHref(AGRICULTURE_DESTINATION)}>{AGRICULTURE_DESTINATION.name}</a></li>
+                <li><a href={entryHref(UJENZI_DESTINATION)}>{UJENZI_DESTINATION.name}</a></li>
+                <li><a href={entryHref(FOUNDATION_DESTINATION)}>{FOUNDATION_DESTINATION.name}</a></li>
               </ul>
             </div>
             <div>
@@ -339,14 +405,14 @@ export function MarketingPage() {
               <ul>
                 <li><a href="#capabilities">Enterprise Capabilities</a></li>
                 <li><a href="#gateway">Digital Gateway</a></li>
-                <li><a href="https://noelia.beyu.co.tz/">NOELIA AI</a></li>
+                <li><a href={entryHref(NOELIA_SURFACE)}>{NOELIA_SURFACE.name}</a></li>
               </ul>
             </div>
             <div>
               <h5>Access</h5>
               <ul>
                 <li><a href="/sign-in">Sign In</a></li>
-                <li><a href="https://familyoffice.beyu.co.tz/">Family Office</a></li>
+                <li><a href={entryHref(FAMILY_OFFICE_SURFACE)}>{FAMILY_OFFICE_SURFACE.name}</a></li>
                 <li><a href="#gateway">All destinations</a></li>
               </ul>
             </div>
@@ -426,7 +492,7 @@ export async function CanonicalEntryPage({
   // The public homepage: `/`, on the control-plane host (apex or `www`), for an
   // anonymous visitor. A NEUTRAL host never resolves to CONTROL_PLANE.
   if (!principal && variant === "homepage" && canonicalHost.kind === "CONTROL_PLANE") {
-    return <MarketingPage />;
+    return <MarketingPage entryHref={await entryHrefForRequest()} />;
   }
 
   // Every other case: the ONE governed sign-in, carrying the selected context. The

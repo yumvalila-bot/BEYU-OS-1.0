@@ -16,7 +16,7 @@
  *   registered" — which is also what makes the denial uniform and non-oracular.
  *
  *   The one documented exception is structural: OS_BASE rows (the OS's own base
- *   domain, e.g. `health.beyuos.co.tz`) are readable by any session because their
+ *   domain, e.g. `health.beyu.co.tz`) are readable by any session because their
  *   hostnames are public DNS facts of the platform. They carry no tenant context
  *   and no data — they exist so an unknown name inside a registered OS namespace
  *   can be classified as "unknown tenant host, fail closed" instead of being

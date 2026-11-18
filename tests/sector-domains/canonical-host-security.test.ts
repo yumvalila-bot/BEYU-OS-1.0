@@ -234,9 +234,17 @@ describe("5. reaching a canonical host authorizes nothing", () => {
     const sectorRedirect = c.indexOf("destinations.some((destination) => destination.code === canonicalHost.os.code)");
     expect(resolver).toBeGreaterThan(-1);
     expect(sectorRedirect).toBeGreaterThan(resolver);
-    // The existing routing is preserved after the host branch.
+    // The existing routing is preserved after the host branch. A single
+    // destination is opened through the ONE canonical-host helper
+    // (`destinationHrefForRequest()`), so a deployment configured for canonical
+    // hosts and a shared session lands on the destination's own hostname instead
+    // of the relative route; everywhere else the helper returns exactly that
+    // relative route. The property this test exists for is unchanged: the target
+    // is server-computed from the resolver's answer, never from input.
     expect(c).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(c).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
+    expect(c).toContain("if (destinations.length === 1) {");
+    expect(c).toContain("redirect(hrefFor(destinations[0]));");
+    expect(c).toContain("destinationHrefForRequest()");
     // Host is read through the one server helper; never from a query string.
     expect(c).toContain("canonicalHostForRequest()");
     expect(c).not.toMatch(/searchParams|redirect_to|returnTo|callbackUrl/i);
@@ -328,12 +336,15 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
       expect(existsSync(path.join(ROOT, dir)), dir).toBe(false);
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its three
-    // forward fixes (0077-0079) to the tax migrations 0080-0081. The assertion's
-    // purpose is intact: the head is named explicitly, so any new migration must
-    // update this test deliberately, and the directory check below still proves no
-    // host/subdomain migration exists.
-    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076), its three
+    // forward fixes (0077-0079) and the tax migrations (0080-0081) to 0082, which
+    // aligns the two PLATFORM NAMESPACE BASE rows on `tenant_domains` with the
+    // canonical apex (`*.beyuos.co.tz` → `*.beyu.co.tz`). 0082 is DATA, not a new
+    // host/subdomain architecture: it adds no route, no project and no table, and
+    // the directory check below still proves no host/subdomain migration exists.
+    // The head is named explicitly so any new migration must update this test
+    // deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0082_canonical_namespace_alignment");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 

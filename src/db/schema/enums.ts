@@ -248,11 +248,11 @@ export const eligibilityEnum = pgEnum("beyu_eligibility", [
  * Governed tenant-domain type. A hostname resolves to a tenant ONLY through the
  * canonical registry (`tenant_domains`); the type says what the name IS:
  *
- *   OS_BASE          a SECTOR OS's own origin (e.g. health.beyuos.co.tz) — the
+ *   OS_BASE          a SECTOR OS's own origin (e.g. health.beyu.co.tz) — the
  *                    platform-configured base of an operating system. It defines
  *                    the tenant subdomain NAMESPACE and carries no tenant context.
  *   CAPABILITY_BASE  a SHARED CAPABILITY's own origin
- *                    (e.g. familyoffice.beyuos.co.tz) — the base of a capability
+ *                    (e.g. familyoffice.beyu.co.tz) — the base of a capability
  *                    that is implemented ONCE inside BEYU OS and is never a Sector
  *                    OS (Family Office, HCM, Governance, Risk/Compliance,
  *                    Audit/Events, Workflow, Security, Noelia/HIVE). Like OS_BASE
@@ -261,8 +261,8 @@ export const eligibilityEnum = pgEnum("beyu_eligibility", [
  *                    `SHARED_CAPABILITY`, never a `SECTOR_OS`. The base domain
  *                    being a capability must never be reachable as a seventh OS.
  *   TENANT_SUBDOMAIN a tenant's name inside a platform base NAMESPACE
- *                    (e.g. <tenant-slug>.health.beyuos.co.tz, or a capability
- *                    tenant host such as <tenant>.familyoffice.beyuos.co.tz).
+ *                    (e.g. <tenant-slug>.health.beyu.co.tz, or a capability
+ *                    tenant host such as <tenant>.familyoffice.beyu.co.tz).
  *   CUSTOM_DOMAIN    an externally owned name mapped to one tenant
  *                    (e.g. www.example-health.co.tz). Never inside a platform base
  *                    namespace, so a custom domain can never impersonate one.

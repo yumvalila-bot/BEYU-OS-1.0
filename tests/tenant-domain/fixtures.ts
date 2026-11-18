@@ -34,14 +34,14 @@ export const SEEDED = {
 
 /** Every fixture hostname lives under the governed Health OS namespace. */
 export const TEST_HOSTS = {
-  a: "testdom-a.health.beyuos.co.tz",
-  suspendedTenant: "testdom-susp-agri.health.beyuos.co.tz",
-  unverified: "testdom-unverified.health.beyuos.co.tz",
-  retired: "testdom-retired.health.beyuos.co.tz",
-  badDns: "testdom-bad-dns.health.beyuos.co.tz",
-  otherTenant: "testdom-z-tz.health.beyuos.co.tz",
-  crossOs: "testdom-cross-os.health.beyuos.co.tz",
-  draftOs: "testdom-draft-os.health.beyuos.co.tz",
+  a: "testdom-a.health.beyu.co.tz",
+  suspendedTenant: "testdom-susp-agri.health.beyu.co.tz",
+  unverified: "testdom-unverified.health.beyu.co.tz",
+  retired: "testdom-retired.health.beyu.co.tz",
+  badDns: "testdom-bad-dns.health.beyu.co.tz",
+  otherTenant: "testdom-z-tz.health.beyu.co.tz",
+  crossOs: "testdom-cross-os.health.beyu.co.tz",
+  draftOs: "testdom-draft-os.health.beyu.co.tz",
 } as const;
 
 export async function activateTestDomain(actor: Principal, domainId: string, traceId: string): Promise<void> {

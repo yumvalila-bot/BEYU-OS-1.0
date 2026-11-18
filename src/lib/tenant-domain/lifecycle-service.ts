@@ -32,7 +32,7 @@
  *     act. A tenant SUSPENDED/DEACTIVATED/ARCHIVED/REVOKED tenant cannot resolve
  *     even with an ACTIVE domain, and a domain cannot be activated for a tenant
  *     that is not ACTIVE.
- *   • A SHARED CAPABILITY's base domain (e.g. `familyoffice.beyuos.co.tz`) is a
+ *   • A SHARED CAPABILITY's base domain (e.g. `familyoffice.beyu.co.tz`) is a
  *     constitutional record: it is created with the capability (migration/seed)
  *     and is NOT runtime-registerable, verifiable, transitionable or reassignable.
  *     A runtime endpoint that could mint namespaces would be a second OS/capability
@@ -354,7 +354,7 @@ function baseTypeForRegistryKind(kind: string): "OS_BASE" | "CAPABILITY_BASE" {
 /**
  * The ACTIVE platform namespace base for an OS or shared capability — the
  * namespace a tenant subdomain needs. The base row's type must correspond to the
- * registry kind, so `mwanza.health.beyuos.co.tz` needs the Health OS base and a
+ * registry kind, so `mwanza.health.beyu.co.tz` needs the Health OS base and a
  * capability tenant host needs the capability's own base.
  */
 async function requirePlatformBaseDomain(code: string): Promise<{ hostname: string }> {

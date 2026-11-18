@@ -296,7 +296,6 @@ describe("C. one authoritative host mapping, consumed by the sign-in surfaces", 
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/(^|[^:])\/\/.*$/gm, "$1");
     const surfaces = [
-      ["src", "app", "page.tsx"],
       ["src", "app", "sign-in", "page.tsx"],
       ["src", "app", "governed-sign-in.tsx"],
       ["src", "app", "sign-in-form.tsx"],
@@ -312,6 +311,17 @@ describe("C. one authoritative host mapping, consumed by the sign-in surfaces", 
       expect(code, `${segments.join("/")}`).not.toMatch(/endsWith\(["'`]beyu\.co\.tz/);
     }
     // The entry page resolves the request host through the ONE server helper…
+    // The entry page also keeps no host table: it renders the PUBLIC DESTINATION
+    // GATEWAY from the catalogue and composes every entry URL through the ONE
+    // contract (`entryHrefForRequest()` → `canonicalEntryHref()`), so the seven
+    // production hostnames are no longer written into its markup.
+    const entry = codeOf(["src", "app", "page.tsx"]);
+    for (const host of Object.keys(EXPECTED_CONTRACT)) {
+      expect(entry, `src/app/page.tsx must not carry its own host table`).not.toContain(host);
+    }
+    expect(entry).toContain('from "@/lib/operating-system-catalog"');
+    expect(entry).toContain("entryHrefForRequest()");
+    expect(entry).not.toMatch(/https:\/\/\$\{/);
     expect(source("src", "app", "page.tsx")).toContain("canonicalHostForRequest()");
     // …and the proxy decides routing through the ONE pure contract.
     expect(source("src", "proxy.ts")).toContain("decideProxyAction(");

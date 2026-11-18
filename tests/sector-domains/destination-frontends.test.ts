@@ -421,7 +421,7 @@ describe("F. hostname is not authentication and not authorization", () => {
     // to whichever other OS they do hold.
     const denial = page.indexOf("<DestinationDenied");
     const launcher = page.indexOf('redirect("/launcher")');
-    const single = page.indexOf("redirect(destinations[0].href)");
+    const single = page.indexOf("redirect(hrefFor(destinations[0]))");
     expect(denial).toBeGreaterThan(-1);
     expect(launcher).toBeGreaterThan(-1);
     expect(single).toBeGreaterThan(-1);
@@ -429,7 +429,11 @@ describe("F. hostname is not authentication and not authorization", () => {
     expect(denial).toBeLessThan(single);
     // The control-plane routing itself is preserved for the apex and NEUTRAL hosts.
     expect(page).toContain('if (destinations.length > 1) redirect("/launcher");');
-    expect(page).toContain('if (destinations.length === 1) redirect(destinations[0].href);');
+    expect(page).toContain("if (destinations.length === 1) {");
+    // The single-destination landing is composed by the ONE canonical-host helper
+    // (canonical hostname when configured for it, the relative route otherwise) —
+    // never by concatenating a host in the page.
+    expect(page).toContain("destinationHrefForRequest()");
   });
 
   it("leaves every deep-link gate exactly where it was", () => {
@@ -487,12 +491,15 @@ describe("H. one application, one registry, one routing architecture", () => {
 
   it("adds no migration and leaves the journal at its canonical head", () => {
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
-    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076) and its forward
-    // fixes (0077-0079) to the tax migrations 0080-0081. What this assertion exists
-    // to protect is that no destination/frontend/host/subdomain migration was added
-    // — the head is named explicitly so a future migration still has to update this
-    // test deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0081_tax_return_drafts");
+    // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076), its forward
+    // fixes (0077-0079) and the tax migrations (0080-0081) to 0082, which aligns the
+    // tenant-domain namespace BASE rows with the canonical apex
+    // (`*.beyuos.co.tz` → `*.beyu.co.tz`). 0082 adds no destination, frontend or
+    // route — it corrects governed registry DATA so the registry and the canonical
+    // host contract finally agree. What this assertion exists to protect is that no
+    // destination/frontend/host/subdomain migration was added; the head is named
+    // explicitly so a future migration still has to update this test deliberately.
+    expect(journal.entries.at(-1)?.tag).toBe("0082_canonical_namespace_alignment");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

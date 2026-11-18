@@ -468,3 +468,39 @@ export function canonicalDestinationHref(
   if (resolutionBase(context.current) !== context.options.canonicalDomain) return destination.href;
   return `${canonicalOrigin(destination as CanonicalHostedDestination & { subdomain: string }, context.options.canonicalDomain)}${destination.href}`;
 }
+
+/**
+ * The PUBLIC ENTRY URL of a destination whose experience is served at its own
+ * canonical hostname — the "enter this destination" link an anonymous visitor
+ * needs (the public homepage gateway, a marketing card).
+ *
+ * WHY THIS IS NOT `canonicalDestinationHref`
+ *   `canonicalDestinationHref` answers a different question: "may THIS
+ *   authenticated request be sent to another host?" — so it requires an opt-in
+ *   shared session cookie and otherwise deliberately degrades to the relative
+ *   route (which would force a second sign-in). A public destination gateway has
+ *   no session to share: the visitor is anonymous and the whole point of the link
+ *   is to arrive on the canonical host, sign in THERE, and stay on that hostname.
+ *
+ * HOSTNAMES ARE NEVER HARD-CODED HERE
+ *   The host is composed from the catalogue `subdomain` + the configured apex
+ *   (`BEYU_CANONICAL_DOMAIN`) only. When no apex is configured — every
+ *   environment that has not opted in, and every preview deployment — the
+ *   rendered link is the pre-existing INTERNAL route, so nothing points at a host
+ *   that may not be attached. A development `*.localhost` base is never turned
+ *   into a production URL.
+ */
+export function canonicalEntryHref(
+  destination: CanonicalHostedDestination & { code?: string; name?: string },
+  options: CanonicalHostOptions,
+  development?: { protocol: string; port: string },
+): string {
+  if (!destination.subdomain) return destination.href;
+  const { canonicalDomain } = options;
+  if (!canonicalDomain) return destination.href;
+  return `${canonicalOrigin(
+    destination as CanonicalHostedDestination & { subdomain: string },
+    canonicalDomain,
+    development,
+  )}${destination.href}`;
+}
