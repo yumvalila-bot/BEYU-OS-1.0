@@ -504,3 +504,30 @@ export function canonicalEntryHref(
     development,
   )}${destination.href}`;
 }
+
+/**
+ * The PUBLIC URL of the BEYU CENTRAL HOMEPAGE — the configured apex itself.
+ *
+ * A visitor on a destination hostname needs one governed way back to the
+ * institutional front door (the public homepage at the apex). That URL is the
+ * apex, which is deployment configuration, not a catalogue label: composing it
+ * here keeps every hostname in the ONE contract instead of letting a page
+ * spell `https://www.beyu.co.tz` into its markup.
+ *
+ * When no apex is configured — every environment that has not opted in, and
+ * every preview deployment — the answer is the pre-existing relative root `/`,
+ * so nothing points at a host that may not be attached. A development
+ * `*.localhost` base is never turned into a production URL.
+ */
+export function canonicalApexHref(
+  options: CanonicalHostOptions,
+  development?: { protocol: string; port: string },
+): string {
+  const { canonicalDomain } = options;
+  if (!canonicalDomain) return "/";
+  if (canonicalDomain === "localhost" && development) {
+    const port = development.port ? `:${development.port}` : "";
+    return `${development.protocol}//localhost${port}/`;
+  }
+  return `https://${canonicalDomain}/`;
+}

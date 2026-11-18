@@ -572,19 +572,32 @@ describe("G. the running server — the real production build", () => {
   });
 
   it.skipIf(!enabled || !routingConfigured)(
-    "serves the Health entry on health.beyu.co.tz and the homepage on www",
+    "serves the Health PUBLIC HOMEPAGE on health.beyu.co.tz, the Health sign-in at /sign-in, and the central homepage on www",
     async () => {
+      // `/` on the Health host is Health OS's PUBLIC HOMEPAGE — public
+      // institutional information, no credential form, no destination data.
       const healthRoot = await getWithHost("/", "health.beyu.co.tz");
       expect(healthRoot.status).toBe(200);
-      // The Health DESTINATION sign-in — the destination headline and the Health
-      // authentication surface — not the generic control plane, and never the
-      // public marketing homepage.
-      expect(healthRoot.body).toContain('id="beyu-destination-headline"');
       expect(healthRoot.body).toContain("Health OS — federated care operations");
-      expect(healthRoot.body).toContain("Sign in to Health OS");
+      expect(healthRoot.body).toContain("HEALTH_OS");
+      expect(healthRoot.body).toContain('href="/sign-in"');
+      expect(healthRoot.body).not.toContain('id="beyu-signin-email"');
+      expect(healthRoot.body).not.toContain('id="beyu-signin-password"');
       expect(healthRoot.body).not.toContain("Sign in to the control plane");
-      // The public gateway (the marketing homepage) is not rendered.
+      // The CENTRAL public gateway is not rendered on a destination host.
       expect(healthRoot.body).not.toContain("beyu-system-card");
+
+      // The Health DESTINATION sign-in — the destination headline and the Health
+      // authentication surface — lives at `/sign-in` on the same host, and is
+      // not the generic control plane.
+      const healthSignIn = await getWithHost("/sign-in", "health.beyu.co.tz");
+      expect(healthSignIn.status).toBe(200);
+      expect(healthSignIn.body).toContain('id="beyu-destination-headline"');
+      expect(healthSignIn.body).toContain("Health OS — federated care operations");
+      expect(healthSignIn.body).toContain("Sign in to Health OS");
+      expect(healthSignIn.body).not.toContain("Sign in to the control plane");
+      // The public gateway (the central marketing homepage) is not rendered.
+      expect(healthSignIn.body).not.toContain("beyu-system-card");
 
       const homepage = await getWithHost("/", "www.beyu.co.tz");
       expect(homepage.status).toBe(200);

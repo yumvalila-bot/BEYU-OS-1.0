@@ -8,19 +8,36 @@
  *   `/sign-in`   → the governed sign-in on EVERY hostname. The host selects the
  *                  CONTEXT COPY (control plane, a Sector OS or a surface), never
  *                  a second authentication implementation.
- *   `/`          → the PUBLIC HOMEPAGE on the control-plane host only (the apex
- *                  and `www`). On a Sector OS or surface host, and on any NEUTRAL
- *                  host (no Host, malformed, look-alike, unknown label, preview
- *                  host, governed tenant hostname), `/` is the governed sign-in
- *                  exactly like `/sign-in`.
+ *   `/`          → the PUBLIC HOMEPAGE for an anonymous visitor. There are two
+ *                  homepage surfaces, both public and both marketing:
+ *                    • the configured control-plane host (the apex and `www`)
+ *                      renders the BEYU CENTRAL homepage (`MarketingPage`);
+ *                    • a canonical DESTINATION host renders THAT DESTINATION's
+ *                      own public homepage (`DestinationHomepage`), whose copy
+ *                      comes from `src/lib/destination-homepages.ts` and whose
+ *                      identity comes from the ONE catalogue entry the host
+ *                      resolved.
+ *                  On any NEUTRAL host (no Host, malformed, look-alike, unknown
+ *                  label, preview host, governed tenant hostname), `/` is the
+ *                  governed sign-in exactly like `/sign-in`.
  *
- * WHY THE HOMEPAGE IS CONFINED TO THE CONTROL-PLANE HOST
- *   The apex is BEYU's public front door, so it carries the marketing surface
- *   and links to `/sign-in`. Every other hostname is an entry point into a
- *   governed destination and serves the governed sign-in. A hostile or unknown
- *   Host resolves to NEUTRAL, never to CONTROL_PLANE, so it cannot obtain the
- *   homepage by lying about the Host: it receives the control-plane sign-in and
- *   can never select a destination frontend.
+ * WHY A DESTINATION HOST GETS A HOMEPAGE, AND WHY NEUTRAL STILL DOES NOT
+ *   `health.beyu.co.tz` is a public institutional address: a visitor who types
+ *   it has not asked to be shown a login form. It gets Health OS's public
+ *   homepage, which offers sign-in at `/sign-in`. That is a PRESENTATION choice
+ *   and it changes no security property:
+ *
+ *   • A signed-in identity still never sees a homepage — the principal branch
+ *     below runs FIRST, so an authorized visitor is redirected to the workspace
+ *     and an unauthorized one is shown the governed denial ON the destination
+ *     host. The homepage state is only ever reached by an anonymous visitor.
+ *   • A NEUTRAL resolution is still not CONTROL_PLANE and still not a
+ *     destination, so a hostile or unknown Host obtains neither the central
+ *     homepage NOR a destination homepage — it receives the control-plane
+ *     sign-in. Lying about the Host buys an attacker nothing.
+ *   • No homepage can grant anything: both surfaces render zero session facts,
+ *     zero destination data and zero credential input, and the destination
+ *     route re-runs its own server-side gate on arrival.
  *
  * SECURITY — unchanged by the presentation choice above
  *   • The `variant` is a compile-time route constant, never a query string or
@@ -38,11 +55,18 @@ import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { NOELIA_CANONICAL_APPEARANCE } from "@/components/brand-assets";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
+import { DestinationHomepage } from "./destination-homepage";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
-import { canonicalHostForRequest, destinationHrefForRequest, entryHrefForRequest } from "@/lib/canonical-host";
+import {
+  apexHrefForRequest,
+  canonicalHostForRequest,
+  destinationHrefForRequest,
+  entryHrefForRequest,
+} from "@/lib/canonical-host";
 import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
 import {
   CANONICAL_SURFACES,
+  DESTINATION_TYPE_LABEL,
   FOUNDATION_ORGANIZATION,
   SECTOR_OPERATING_SYSTEMS,
 } from "@/lib/operating-system-catalog";
@@ -132,23 +156,26 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
 
           <nav className="beyu-main-nav" aria-label="Main navigation">
             <a href="#about">About BEYU</a>
-            <a href="#architecture">Our Architecture</a>
+            <a href="#values">Vision &amp; Values</a>
             <a href="#sector-os">Sector OS</a>
             <a href="#capabilities">Capabilities</a>
-            <a href="#gateway">Digital Gateway</a>
             <a href="#noelia">NOELIA AI</a>
-            <a href="#technology">Technology</a>
+            <a href="#news">News &amp; Events</a>
+            <a href="#directory">Directory</a>
             <a href="#contact">Contact</a>
           </nav>
           <details className="beyu-mobile-nav">
             <summary aria-label="Open site navigation">Menu <span aria-hidden="true">☰</span></summary>
             <nav aria-label="Mobile navigation">
               <a href="#about">About BEYU</a>
+              <a href="#values">Vision &amp; Values</a>
               <a href="#architecture">Our Architecture</a>
               <a href="#sector-os">Sector OS</a>
               <a href="#capabilities">Capabilities</a>
-            <a href="#gateway">Digital Gateway</a>
+              <a href="#gateway">Digital Gateway</a>
               <a href="#noelia">NOELIA AI</a>
+              <a href="#news">News &amp; Events</a>
+              <a href="#directory">Directory</a>
               <a href="#technology">Technology</a>
               <a href="#contact">Contact</a>
               <a href="/sign-in">Sign In</a>
@@ -224,6 +251,46 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
               <div className="beyu-building-side" />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="beyu-values-section" id="values" aria-labelledby="values-title">
+        <div className="beyu-home-inner">
+          <div className="beyu-values-head">
+            <h2 id="values-title">VISION, MISSION &amp; VALUES</h2>
+            <span className="beyu-bar" />
+          </div>
+          <div className="beyu-values-grid">
+            <article className="beyu-value-card">
+              <h3>Vision</h3>
+              <p>
+                An Africa-rooted institutional ecosystem in which care, capital and capability are governed
+                once, held accountably and made durable across generations.
+              </p>
+            </article>
+            <article className="beyu-value-card">
+              <h3>Mission</h3>
+              <p>
+                To operate one constitutional enterprise platform that connects governance, finance,
+                healthcare, agriculture and construction to the people and institutions they serve.
+              </p>
+            </article>
+            <article className="beyu-value-card">
+              <h3>Mandate</h3>
+              <p>
+                One authority model, one identity, one audit truth — with every consequential decision
+                attributable to a human being and every capability independently governed.
+              </p>
+            </article>
+          </div>
+          <ul className="beyu-pillar-row" aria-label="The five canonical BEYU pillars">
+            {["Trust", "Care", "Integrity", "Innovation", "Impact"].map((pillar) => (
+              <li key={pillar} className="beyu-pillar">
+                <span aria-hidden="true">◆</span>
+                {pillar}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -315,6 +382,63 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
         </div>
       </section>
 
+      <section className="beyu-news-section" id="news" aria-labelledby="news-title">
+        <div className="beyu-home-inner">
+          <div className="beyu-values-head">
+            <h2 id="news-title">NEWS &amp; ANNOUNCEMENTS</h2>
+            <span className="beyu-bar" />
+          </div>
+          <div className="beyu-news-grid">
+            <article className="beyu-news-card">
+              <span className="beyu-news-tag">INSTITUTIONAL</span>
+              <h3>One ecosystem, eight institutional homepages</h3>
+              <p>
+                Each BEYU destination — Health, Finance, Agriculture, Ujenzi, Foundation, Family Office and
+                NOELIA — now opens its own public institutional homepage and its own governed entry point.
+              </p>
+            </article>
+            <article className="beyu-news-card">
+              <span className="beyu-news-tag">ARCHITECTURE</span>
+              <h3>Canonical identity and governed tenancy</h3>
+              <p>
+                BEYU OS continues to resolve one shared identity and one tenant registry, with server-side
+                authorization and row-level isolation on every request.
+              </p>
+            </article>
+            <article className="beyu-news-card">
+              <span className="beyu-news-tag">GOVERNANCE</span>
+              <h3>Financial posting remains fail-closed</h3>
+              <p>
+                CAP_POSTING stays locked and separately governed. An ACTIVE Finance OS does not enable
+                financial posting; activation is a distinct, governed decision.
+              </p>
+            </article>
+          </div>
+
+          <div className="beyu-events-panel" aria-labelledby="events-title">
+            <h3 id="events-title">EVENTS</h3>
+            <ul className="beyu-event-list">
+              <li>
+                <span className="beyu-event-when">Standing · quarterly</span>
+                <span className="beyu-event-what">Family Assembly and Council sessions (Family Office)</span>
+              </li>
+              <li>
+                <span className="beyu-event-when">Standing · monthly</span>
+                <span className="beyu-event-what">Sector governance reviews — Health, Finance, Agriculture, Ujenzi</span>
+              </li>
+              <li>
+                <span className="beyu-event-when">Standing · continuous</span>
+                <span className="beyu-event-what">Foundation programme and safeguarding reviews</span>
+              </li>
+            </ul>
+            <p className="beyu-events-note">
+              Events are convened through governed workflow for authorized members. Public dates are published
+              here as they are confirmed by the relevant governing body.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="beyu-gateway-section" id="gateway">
         <div className="beyu-home-inner">
           <div className="beyu-gateway-heading">
@@ -336,6 +460,72 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
             <article><span>01 / INSTITUTION</span><h4>Governance & Architecture</h4><p>Understand the principles, institutional structure and operating model behind BEYU.</p><a href="#architecture">Explore architecture →</a></article>
             <article><span>02 / OPERATIONS</span><h4>Sector Services</h4><p>Explore the four sector operating systems and their distinct responsibilities.</p><a href="#sector-os">Explore sector systems →</a></article>
             <article><span>03 / CAPABILITIES</span><h4>Shared Enterprise Capabilities</h4><p>Discover the common capabilities that connect and support the BEYU ecosystem.</p><a href="#capabilities">Explore capabilities →</a></article>
+          </div>
+        </div>
+      </section>
+
+      <section className="beyu-directory-section" id="directory" aria-labelledby="directory-title">
+        <div className="beyu-home-inner">
+          <div className="beyu-values-head">
+            <h2 id="directory-title">INSTITUTIONAL DIRECTORY</h2>
+            <span className="beyu-bar" />
+          </div>
+          <p className="beyu-directory-intro">
+            The canonical addresses of the BEYU ecosystem. Every destination opens its own governed entry
+            point and applies its own server-side access controls.
+          </p>
+          <ul className="beyu-directory-grid">
+            <li>
+              <div className="beyu-directory-card" aria-current="page">
+                <span className="beyu-directory-code">BEYU_OS</span>
+                <strong>BEYU</strong>
+                <small>Central institutional homepage · constitutional control plane</small>
+              </div>
+            </li>
+            {GATEWAY_DESTINATIONS.map((destination) => (
+              <li key={destination.code}>
+                <a className="beyu-directory-card" href={entryHref(destination)}>
+                  <span className="beyu-directory-code">{destination.registryCode}</span>
+                  <strong>{destination.name}</strong>
+                  <small>{DESTINATION_TYPE_LABEL[destination.destinationType]}</small>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="beyu-partnership-section" id="partnerships" aria-labelledby="partnerships-title">
+        <div className="beyu-home-inner">
+          <div className="beyu-values-head">
+            <h2 id="partnerships-title">PARTNERSHIPS &amp; IMPACT</h2>
+            <span className="beyu-bar" />
+          </div>
+          <div className="beyu-partnership-grid">
+            <article>
+              <h3>Institutional partnerships</h3>
+              <p>
+                BEYU works with healthcare providers, financial institutions, agricultural producers and
+                cooperatives, engineering and construction firms, and philanthropic organisations — each
+                engagement governed by written terms and recorded authority.
+              </p>
+            </article>
+            <article>
+              <h3>Shared capability, not shared data</h3>
+              <p>
+                Operating systems share governance, identity and intelligence — never each other&apos;s data.
+                Cross-sector exchange happens only through explicit governed services, under tenant and
+                entity boundaries.
+              </p>
+            </article>
+            <article>
+              <h3>Impact</h3>
+              <p>
+                Impact is measured against stated outcomes in the sectors BEYU serves — care delivered,
+                capital stewarded, food produced and traced, infrastructure built, and communities
+                supported through the Foundation.
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -489,10 +679,29 @@ export async function CanonicalEntryPage({
     }
   }
 
-  // The public homepage: `/`, on the control-plane host (apex or `www`), for an
-  // anonymous visitor. A NEUTRAL host never resolves to CONTROL_PLANE.
-  if (!principal && variant === "homepage" && canonicalHost.kind === "CONTROL_PLANE") {
-    return <MarketingPage entryHref={await entryHrefForRequest()} />;
+  // THE PUBLIC HOMEPAGE STATES — `/`, anonymous visitor only.
+  //
+  // Two public surfaces, one decision:
+  //   • the configured CONTROL-PLANE host (apex/`www`) → the BEYU central homepage;
+  //   • a canonical DESTINATION host → that destination's own public homepage.
+  //
+  // A NEUTRAL host resolves to NO destination, so neither branch can fire for it:
+  // a preview, malformed, look-alike or governed-tenant Host falls through to the
+  // governed sign-in below. That is the fail-safe direction and it is deliberate —
+  // an ungoverned marketing page must never be obtainable by lying about the Host.
+  if (!principal && variant === "homepage") {
+    if (canonicalHost.kind === "CONTROL_PLANE") {
+      return <MarketingPage entryHref={await entryHrefForRequest()} />;
+    }
+    if (selectedDestination) {
+      return (
+        <DestinationHomepage
+          destination={selectedDestination}
+          entryHref={await entryHrefForRequest()}
+          apexHref={await apexHrefForRequest()}
+        />
+      );
+    }
   }
 
   // Every other case: the ONE governed sign-in, carrying the selected context. The
@@ -509,8 +718,10 @@ export async function CanonicalEntryPage({
 }
 
 /**
- * `/` — the public homepage on the control-plane host; the governed sign-in on
- * every other host (see the module header).
+ * `/` — the public homepage for an anonymous visitor: the BEYU central homepage
+ * on the control-plane host, a destination's public homepage on a canonical
+ * destination host, and the governed sign-in on every other (NEUTRAL) host.
+ * See the module header.
  */
 export default function HomeEntry() {
   return CanonicalEntryPage({ variant: "homepage" });

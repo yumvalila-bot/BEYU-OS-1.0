@@ -136,12 +136,16 @@ describe("A/B. every canonical host is an independent entry point (no BEYU-landi
     "unauthenticated: renders that destination's own sign-in (200) on its own host — never a redirect, never another OS's payload",
     async () => {
       for (const { host, copy } of CANONICAL_HOSTS) {
-        const res = await getWithHost("/", host);
+        const res = await getWithHost("/sign-in", host);
         expect(res.status, host).toBe(200);
         expect(res.location, host).toBeUndefined();
         expect(res.body, host).toContain(copy);
         expect(res.body, host).not.toContain("healthSpaHtml");
         expect(res.body, host).not.toContain("Sign in to the control plane");
+        const homepage = await getWithHost("/", host);
+        expect(homepage.status, host).toBe(200);
+        expect(homepage.body, host).toContain('href="/sign-in"');
+        expect(homepage.body, host).not.toContain('id="beyu-signin-email"');
       }
       // The apex keeps the control-plane sign-in — the central BEYU
       // experience — at `/sign-in`. On the control-plane host `/` is the PUBLIC

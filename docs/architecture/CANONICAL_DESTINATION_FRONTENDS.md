@@ -151,8 +151,8 @@ catalogue entry) and is never flattened into "OS":
 | 1 | Destination presentation + canonical status on the **existing** catalogue: `registryCode`, `destinationType`, `status`, `headline`, `accent`, `highlights`, and `destinationSignInSubtitle()` — ONE definition, no parallel table | `src/lib/operating-system-catalog.ts` |
 | 2 | `destinationForResolution()` — resolves a host resolution to its full destination presentation (pure, no I/O) | `src/lib/canonical-hosts.ts` |
 | 3 | `GovernedSignIn` — the ONE shared, destination-aware sign-in surface, and `DestinationDenied` — the governed access-denied state | `src/app/governed-sign-in.tsx` (new) |
-| 4 | `/sign-in` canonical route on **every** host — it renders the SAME page component as `/`, so one sign-in implementation serves two canonical URLs and cannot diverge from it. Deliberately **no `loading.tsx`** on either entry route (see §3.3) | `src/app/sign-in/page.tsx` (new) |
-| 5 | Root page: destination hosts render the destination frontend or the governed denial; apex/`www`/neutral render the unchanged BEYU control-plane surface | `src/app/page.tsx` |
+| 4 | `/sign-in` canonical route on **every** host — it shares the entry component with `/`, but anonymous canonical destination `/` now renders a public homepage; `/sign-in` retains the shared sign-in. Deliberately **no `loading.tsx`** on either entry route (see §3.3) | `src/app/sign-in/page.tsx` (new) |
+| 5 | Root page: anonymous destination hosts render their public homepage; apex/`www` render the central homepage; neutral hosts retain control-plane sign-in. Authenticated decisions remain governed | `src/app/page.tsx` |
 | 6 | Sign-in form takes destination presentation props (`destinationName`, `sessionExpired`); defaults preserve the BEYU surface exactly | `src/app/sign-in-form.tsx` |
 | 7 | `sessionCookiePresent()` — the truthful "session expired" signal (cookie present + null principal) | `src/lib/session-state.ts` (new) |
 | 8 | Launcher separates **global OS status** from **this identity's access** | `src/app/launcher/page.tsx` |
@@ -201,15 +201,15 @@ AUTHORIZED EXPERIENCE
 
 | Request | Unauthenticated | Authenticated + destination access | Authenticated, no destination access |
 | --- | --- | --- | --- |
-| `health.beyu.co.tz/` | Health OS entry + **"Sign in to Health OS"** | → `/os/health` (same host) | **Health OS denial**, no redirect to another OS |
+| `health.beyu.co.tz/` | Health OS public homepage | → `/os/health` (same host) | **Health OS denial**, no redirect to another OS |
 | `health.beyu.co.tz/sign-in` | Health OS sign-in | → `/os/health` (same host) | Health OS denial |
 | `health.beyu.co.tz/os/finance` | 307 → `finance.beyu.co.tz/os/finance` | same | same |
-| `finance.beyu.co.tz/` | Finance OS entry + sign-in | → `/os/finance` | Finance OS denial |
-| `agriculture.beyu.co.tz/` | Agriculture OS entry + sign-in | → `/os/agriculture` | Agriculture OS denial |
-| `ujenzi.beyu.co.tz/` | Ujenzi OS entry + sign-in | → `/os/ujenzi` | Ujenzi OS denial |
-| `foundation.beyu.co.tz/` | Foundation entry + sign-in | → `/os/foundation` | Foundation denial |
-| `familyoffice.beyu.co.tz/` | Family Office entry + sign-in | → `/os/family` | Family Office denial |
-| `noelia.beyu.co.tz/` | Noelia entry + sign-in | → `/os/noelia` | Noelia denial |
+| `finance.beyu.co.tz/` | Finance OS public homepage | → `/os/finance` | Finance OS denial |
+| `agriculture.beyu.co.tz/` | Agriculture OS public homepage | → `/os/agriculture` | Agriculture OS denial |
+| `ujenzi.beyu.co.tz/` | Ujenzi OS public homepage | → `/os/ujenzi` | Ujenzi OS denial |
+| `foundation.beyu.co.tz/` | Foundation public homepage | → `/os/foundation` | Foundation denial |
+| `familyoffice.beyu.co.tz/` | Family Office public homepage | → `/os/family` | Family Office denial |
+| `noelia.beyu.co.tz/` | Noelia public homepage | → `/os/noelia` | Noelia denial |
 | `beyu.co.tz/`, `www.beyu.co.tz/` | **unchanged** BEYU control-plane surface | **unchanged** smart routing (`/launcher` or the one destination) | **unchanged** |
 | unknown / preview / hostile host | **unchanged** (`NEUTRAL` → control-plane surface, every gate in force) | unchanged | unchanged |
 
@@ -244,7 +244,7 @@ is ever 307/308-ed to `beyu.co.tz` to reach its own frontend.
 | Required state | Where it lives |
 | --- | --- |
 | Public entry page | `GovernedSignIn` — destination headline, class, registry code, global status, three honest highlights, BEYU governance strip |
-| Sign-in page | the same surface: one shared `SignInForm`, destination-titled (`aria-label="Sign in to Health OS"`, submit `Enter Health OS`), served at `/` **and** `/sign-in` |
+| Sign-in page | the same surface: one shared `SignInForm`, destination-titled (`aria-label="Sign in to Health OS"`, submit `Enter Health OS`), served at `/sign-in` (anonymous destination `/` is the public homepage) |
 | Authentication loading state | inside the shared form: submit disables, `aria-busy`, label `Authenticating…`; a failure is announced through the assertive `beyu-signin-error` live region |
 | Unauthorized state | `DestinationDenied` — "You are signed in, but you are not authorized for Health OS.", with global status and this identity's access stated separately |
 | Authenticated landing | relative `redirect(<destination home>)` on the same canonical hostname |
