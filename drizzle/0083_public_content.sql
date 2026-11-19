@@ -37,3 +37,27 @@ CREATE POLICY "public_content_tenant_manage" ON "public_content" FOR ALL
 --> statement-breakpoint
 CREATE POLICY "public_content_anonymous_published_read" ON "public_content" FOR SELECT
   USING ("classification" = 'PUBLIC' AND "status" = 'PUBLISHED' AND "published_at" IS NOT NULL AND "published_at" <= now());
+--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_tables
+    WHERE schemaname = 'public' AND tablename = 'public_content' AND rowsecurity = true
+  ) THEN
+    RAISE EXCEPTION 'Migration 0083 verification failed: public_content RLS is not enabled';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'public_content'
+      AND policyname = 'public_content_anonymous_published_read' AND cmd = 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'Migration 0083 verification failed: public read policy is missing';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'public_content'
+      AND policyname = 'public_content_tenant_manage' AND cmd = 'ALL'
+  ) THEN
+    RAISE EXCEPTION 'Migration 0083 verification failed: tenant write policy is missing';
+  END IF;
+END $$;
