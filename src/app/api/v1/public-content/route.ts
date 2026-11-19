@@ -14,7 +14,7 @@ const ContentInput = z.object({
   slug: z.string().min(3).max(180).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   summary: z.string().min(10).max(400),
   body: z.string().min(20).max(20000),
-  imageUrl: z.string().url().max(1000).optional().nullable(),
+  imageUrl: z.string().url().refine((value) => value.startsWith("https://"), "Image URL must use HTTPS").max(1000).optional().nullable(),
   location: z.string().max(180).optional().nullable(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
@@ -73,7 +73,7 @@ export async function PATCH(request: NextRequest) {
   }, async (ctx) => {
     const body = await parseBody(request, z.object({ id: z.string().min(1) }));
     const [row] = await db.update(publicContent).set({ status: "PENDING_APPROVAL", updatedAt: new Date() })
-      .where(and(eq(publicContent.id, body.id), eq(publicContent.tenantId, ctx.principal.tenantId), eq(publicContent.status, "DRAFT")))
+      .where(and(eq(publicContent.id, body.id), eq(publicContent.tenantId, ctx.principal.tenantId), eq(publicContent.status, "DRAFT"), eq(publicContent.classification, "PUBLIC")))
       .returning({ id: publicContent.id });
     if (!row) return { status: 409, body: { error: "ITEM_NOT_DRAFT_OR_OUT_OF_SCOPE" } };
     return apiOk({ id: row.id, status: "PENDING_APPROVAL" }, ctx.traceId);
