@@ -1,6 +1,6 @@
 # Health user-session federation — security decision request
 
-**Status: DIRECTION REPORTED APPROVED / DETAILED CONTRACT PENDING / NOT IMPLEMENTED.** The requester reports owner approval of the BFF direction and selects a shared PostgreSQL database. The concrete protocol and topology details in [HEALTH_FEDERATION_CONTRACT_DRAFT.md](HEALTH_FEDERATION_CONTRACT_DRAFT.md) still require explicit review and approval. Neither document authorizes deployment, identity links, production migrations, or a change to the standalone-auth fence. Review against current code before implementation. Existing PR #127 is a public-homepage change, not proof that Health SSO works.
+**Status: IMPLEMENTATION AND NON-PRODUCTION TESTING APPROVED BY REQUESTER / NOT IMPLEMENTED.** The requester confirmed accountable-owner approval of the draft contract, selected a shared PostgreSQL database and retained BEYU as sole identity authority. The concrete deferred endpoint, replay and topology details in [HEALTH_FEDERATION_CONTRACT_DRAFT.md](HEALTH_FEDERATION_CONTRACT_DRAFT.md) remain to be resolved. Neither document authorizes deployment, identity links, production migrations, or a change to the standalone-auth fence. Review against current code before implementation. Existing PR #127 is a public-homepage change, not proof that Health SSO works.
 
 ## Evidence and the actual boundary
 

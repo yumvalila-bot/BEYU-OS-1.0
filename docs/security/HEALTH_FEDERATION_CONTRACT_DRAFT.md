@@ -1,6 +1,6 @@
 # Draft contract: BEYU-to-Health session federation
 
-**Status: DRAFT FOR SECURITY AND HEALTH OWNER APPROVAL — NOT IMPLEMENTED OR ACTIVATED.** Version `1.0-draft`, 2026-11-18. The requester reports that the security and Health owners approved the proposed BFF direction and selected a shared PostgreSQL database. This report does not establish approval of the specific protocol, database permissions, threat model or release plan below. Owners must review and explicitly approve this document and record approval evidence before implementation; production deployment, identity linking and migrations require separate authorization.
+**Status: USER-CONFIRMED OWNER APPROVAL FOR IMPLEMENTATION AND NON-PRODUCTION TESTING — NOT IMPLEMENTED OR ACTIVATED.** Version `1.0-draft`, 2026-11-18. The requester confirmed that accountable owners approve this draft for implementation and non-production testing, selected the shared PostgreSQL direction, and retained BEYU as sole identity authority. No named signatures or separate approval artifacts were provided. This does not resolve the explicitly deferred endpoint allowlist, request canonicalization, replay-store implementation, or Health ledger location and migration plan; their decisions remain necessary before the corresponding functionality can be enabled. Production deployment, identity linking and production migrations require separate authorization.
 
 ## 1. Goal and non-goals
 
@@ -94,11 +94,12 @@ Run with a real disposable PostgreSQL and actual constrained roles and separatel
 
 | Decision | Accountable reviewer | Approval / evidence |
 | --- | --- | --- |
-| BFF, assertion and mTLS protocol; threat model | Identity and security owners | Pending detailed contract approval |
+| Draft contract for implementation and non-production testing | Accountable owners | Requester confirmed owner approval in session; named approval artifacts not provided |
+| BFF, assertion and mTLS implementation details; threat model | Identity and security owners | Deferred endpoint and operational decisions remain pending |
 | Health API authorization, MFA, tenant/entity mapping and revocation bound | Health and data-governance owners | Pending |
 | Shared DB ledger placement, migration sequence and minimum grants | Database and platform owners | Pending |
 | Endpoint allowlist, canonicalization, replay-store and operations design | Engineering and security owners | Pending |
 | Independent testing and non-production integration | QA, Health and security owners | Pending |
 | Production deployment and individual migrations/links/bindings | Authorized release owner | Separate future approval |
 
-Until detailed approval and successful verification, preserve the no-rewrite and standalone-auth fences. The proposal is not a claim of operational Health integration.
+Until the deferred decisions and successful verification are complete, preserve the no-rewrite and standalone-auth fences. The proposal is not a claim of operational Health integration.
