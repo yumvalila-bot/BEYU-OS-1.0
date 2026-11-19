@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { classificationEnum } from "./enums";
 import { tenants } from "./core";
 
@@ -31,5 +31,5 @@ export const publicContent = pgTable("public_content", {
 }, (t) => [
   index("public_content_tenant_status_idx").on(t.tenantId, t.status),
   index("public_content_publication_idx").on(t.classification, t.status, t.publishedAt),
-  index("public_content_slug_idx").on(t.slug),
+  uniqueIndex("public_content_slug_uidx").on(t.slug),
 ]);
