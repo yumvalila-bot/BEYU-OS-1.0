@@ -116,185 +116,141 @@ const SYSTEM_TONES = ["gold", "blue", "green", "light"] as const;
  * where a visitor is OFFERED a sign-in, never an authorization outcome.
  */
 export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof GATEWAY_DESTINATIONS)[number]) => string }) {
-  return (
-    <main className="beyu-home-shell">
-      <header className="beyu-topbar">
-        <div className="beyu-home-inner beyu-topbar-inner">
-          <div className="beyu-brand">
-            <div className="beyu-brand-mark">
-              <BeyuOsLogo size={30} ariaLabel="BEYU" />
-            </div>
-            <div className="beyu-brand-text">
-              <div className="beyu-brand-name">BEYU</div>
-              <div className="beyu-brand-tag">Bridging Care. Building Trust.</div>
-            </div>
-          </div>
+  const capabilityItems = [
+    ["Constitutional Governance", "⚖"],
+    ["Human Capital Management", "♟"],
+    ["Family Office", "⌂"],
+    ["Risk & Assurance", "✓"],
+    ["Knowledge Management", "▤"],
+    ["Audit & Accountability", "▣"],
+  ] as const;
 
-          <nav className="beyu-main-nav" aria-label="Main navigation">
-            <a href="#about">About BEYU</a>
-            <a href="#architecture">Our Architecture</a>
-            <a href="#sector-os">Sector OS</a>
-            <a href="#capabilities">Capabilities</a>
-            <a href="#gateway">Digital Gateway</a>
-            <a href="#noelia">NOELIA AI</a>
-            <a href="#technology">Technology</a>
+  const sectorIcons: Record<string, string> = {
+    HEALTH: "✚",
+    FINANCE: "▤",
+    AGRICULTURE: "♧",
+    UJENZI: "⌂",
+  };
+
+  return (
+    <main className="beyu-home-shell beyu-home-v2">
+      <div className="beyu-v2-utility">
+        <div className="beyu-home-inner beyu-v2-utility-inner">
+          <div className="beyu-v2-contact">
+            <a href="tel:+255615766716">☎ +255615766716</a>
+            <span aria-hidden="true">|</span>
+            <a href="mailto:info@beyu.co.tz">✉ info@beyu.co.tz</a>
+            <span aria-hidden="true">|</span>
+            <span>⌖ Tanzania</span>
+          </div>
+          <div className="beyu-v2-utility-right">
+            <span>English</span><span aria-hidden="true">|</span><span>Kiswahili</span>
+            <a href="#gateway" className="beyu-v2-search">Search BEYU… <span aria-hidden="true">⌕</span></a>
+          </div>
+        </div>
+      </div>
+
+      <header className="beyu-v2-header">
+        <div className="beyu-home-inner beyu-v2-header-inner">
+          <a className="beyu-v2-brand" href="/" aria-label="BEYU homepage">
+            <span className="beyu-v2-brand-mark"><BeyuOsLogo size={56} ariaLabel="BEYU" /></span>
+            <span className="beyu-v2-brand-lockup">
+              <strong>BEYU</strong>
+              <small>Bridging Care. Building Trust.</small>
+            </span>
+          </a>
+          <nav className="beyu-v2-nav" aria-label="Main navigation">
+            <a className="active" href="/">Home</a>
+            <a href="#about">About BEYU⌄</a>
+            <a href="#sector-os">Our Ecosystem⌄</a>
+            <a href="#capabilities">Capabilities⌄</a>
+            <a href="#news">News & Events⌄</a>
+            <a href="#gateway">Resources⌄</a>
             <a href="#contact">Contact</a>
           </nav>
-          <details className="beyu-mobile-nav">
-            <summary aria-label="Open site navigation">Menu <span aria-hidden="true">☰</span></summary>
-            <nav aria-label="Mobile navigation">
-              <a href="#about">About BEYU</a>
-              <a href="#architecture">Our Architecture</a>
-              <a href="#sector-os">Sector OS</a>
-              <a href="#capabilities">Capabilities</a>
-            <a href="#gateway">Digital Gateway</a>
-              <a href="#noelia">NOELIA AI</a>
-              <a href="#technology">Technology</a>
-              <a href="#contact">Contact</a>
-              <a href="/sign-in">Sign In</a>
-            </nav>
-          </details>
-
-          <div className="beyu-top-actions">
-            <a href="/sign-in" className="beyu-signin-btn">
-              Sign In <span aria-hidden="true">→</span>
-            </a>
-            <span className="beyu-theme-mark" aria-hidden="true">☾</span>
-          </div>
+          <a href="/sign-in" className="beyu-v2-signin">♙ Sign In <span aria-hidden="true">›</span></a>
         </div>
       </header>
 
-      <section className="beyu-hero" aria-labelledby="beyu-home-title">
-        <div className="beyu-home-inner beyu-hero-inner">
-          <div className="beyu-hero-copy">
-            <h1 id="beyu-home-title">
-              Bridging Care.
-              <span>Building Trust.</span>
-            </h1>
-            <p className="beyu-hero-kicker">A Constitutional Enterprise Operating Ecosystem.</p>
-            <p className="beyu-hero-text">
-              BEYU connects institutional governance, enterprise operations, intelligence and multi-sector
-              capabilities through one unified operating architecture.
-            </p>
-            <div className="beyu-hero-actions">
-              <a href="#about" className="beyu-primary-btn">Explore BEYU <span aria-hidden="true">→</span></a>
-              <a href="#sector-os" className="beyu-secondary-btn">Explore Our Operating Systems <span aria-hidden="true">→</span></a>
+      <section className="beyu-v2-hero" aria-labelledby="beyu-home-title">
+        <div className="beyu-home-inner beyu-v2-hero-inner">
+          <div className="beyu-v2-hero-copy">
+            <h1 id="beyu-home-title">Bridging Care.<span>Building Trust.</span></h1>
+            <p className="beyu-v2-kicker">A Constitutional Enterprise Operating Ecosystem.</p>
+            <p>BEYU connects institutional governance, enterprise operations, intelligence and multi-sector capabilities through one unified operating architecture.</p>
+            <div className="beyu-v2-actions">
+              <a href="#about" className="beyu-v2-primary">Explore BEYU <span>›</span></a>
+              <a href="#sector-os" className="beyu-v2-outline">Discover Our Ecosystem <span>›</span></a>
             </div>
           </div>
-
-          <div className="beyu-globe-scene" aria-hidden="true">
-            <div className="beyu-globe-core">
-              <div className="beyu-globe-capture">
-                <div className="beyu-globe-mark">
-                  <BeyuOsLogo size={82} ariaLabel="BEYU OS" />
-                </div>
-                <div className="beyu-globe-word">BEYU</div>
-                <div className="beyu-globe-sub">System</div>
+          <div className="beyu-v2-globe" aria-label="BEYU ecosystem with four sector operating systems">
+            <div className="beyu-v2-orbit beyu-v2-orbit-one" />
+            <div className="beyu-v2-orbit beyu-v2-orbit-two" />
+            <div className="beyu-v2-earth">
+              <div className="beyu-v2-earth-glow" />
+              <div className="beyu-v2-earth-core">
+                <BeyuOsLogo size={76} ariaLabel="BEYU OS" />
+                <strong>BEYU</strong><small>Ecosystem</small>
               </div>
             </div>
-
-            <span className="beyu-label label-health">HEALTH_OS</span>
-            <span className="beyu-label label-finance">FINANCE_OS</span>
-            <span className="beyu-label label-agri">AGRICULTURE_OS</span>
-            <span className="beyu-label label-ujenzi">UJENZI_OS</span>
-
-            <div className="beyu-orbit-icon orbit-health">+</div>
-            <div className="beyu-orbit-icon orbit-finance">◈</div>
-            <div className="beyu-orbit-icon orbit-agri">✦</div>
-            <div className="beyu-orbit-icon orbit-ujenzi">▣</div>
+            <span className="beyu-v2-sector-tag tag-health">✚ HEALTH_OS</span>
+            <span className="beyu-v2-sector-tag tag-finance">▤ FINANCE_OS</span>
+            <span className="beyu-v2-sector-tag tag-agri">♧ AGRICULTURE_OS</span>
+            <span className="beyu-v2-sector-tag tag-ujenzi">⌂ UJENZI_OS</span>
           </div>
         </div>
       </section>
 
-      <section className="beyu-about-section" id="about">
-        <div className="beyu-home-inner beyu-about-grid">
-          <div className="beyu-about-copy" id="architecture">
-            <h2>ABOUT BEYU</h2>
-            <div className="beyu-bar" />
-            <p>
-              BEYU is a constitutional enterprise ecosystem built on three foundational pillars:
-              Constitutional Control Plane, Enterprise Operating Kernel and Governed Intelligence Layer.
-            </p>
-            <a href="#architecture" className="beyu-learn-btn">Learn More <span aria-hidden="true">→</span></a>
+      <section className="beyu-v2-about" id="about">
+        <div className="beyu-home-inner beyu-v2-about-inner">
+          <div className="beyu-v2-about-copy" id="architecture">
+            <h2>About BEYU</h2><span className="beyu-v2-gold-rule" />
+            <p>BEYU is a constitutional enterprise ecosystem built on three foundational pillars: Constitutional Control Plane, Enterprise Operating Kernel and Governed Intelligence Layer.</p>
+            <a href="#capabilities" className="beyu-v2-dark-btn">Learn More <span>›</span></a>
           </div>
-
-          <div className="beyu-building-visual" aria-hidden="true">
-            <div className="beyu-building-card">
-              <div className="beyu-building-main" />
-              <div className="beyu-building-side" />
-            </div>
+          <div className="beyu-v2-building" aria-hidden="true">
+            <div className="beyu-v2-building-tower"><span /><span /><span /><span /><span /><span /></div>
+            <div className="beyu-v2-palms"><i /><i /><i /><i /><i /></div>
           </div>
         </div>
       </section>
 
-      <section className="beyu-systems-section" id="sector-os">
+      <section className="beyu-v2-sectors" id="sector-os">
         <div className="beyu-home-inner">
-          <h3>ONE ECOSYSTEM. FOUR SECTOR OPERATING SYSTEMS.</h3>
-          <div className="beyu-systems-grid">
+          <div className="beyu-v2-section-heading"><span /><h2>One Ecosystem. Four Sector Operating Systems.</h2><span /></div>
+          <div className="beyu-v2-sector-grid">
             {SECTOR_OPERATING_SYSTEMS.map((os, index) => (
-              <article key={os.code} className={`beyu-system-card beyu-${SYSTEM_TONES[index % SYSTEM_TONES.length]}`}>
-                <div className="beyu-system-art" aria-hidden="true" />
-                <div className="beyu-system-label">{os.registryCode}</div>
+              <article key={os.code} className={`beyu-v2-sector-card sector-${index + 1}`}>
+                <div className="beyu-v2-sector-art" aria-hidden="true"><span>{sectorIcons[os.code] ?? "◈"}</span></div>
+                <strong>{os.registryCode}</strong>
                 <p>{os.highlights[0]}</p>
-                <a href={entryHref(os)}>Explore <span aria-hidden="true">→</span></a>
+                <a href={entryHref(os)}>Explore <span>›</span></a>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="beyu-capability-section" id="capabilities">
-        <div className="beyu-home-inner beyu-capability-shell">
-          <div className="beyu-capabilities-panel" id="technology">
-            <h3>SHARED ENTERPRISE CAPABILITIES</h3>
-            <div className="beyu-capability-grid">
-              {[
-                ["Constitutional Governance", "⚖"],
-                ["Multi-Company Management (MCM)", "▦"],
-                ["Human Capital Management (HCM)", "👥"],
-                ["Family Office", "🏢"],
-                ["Risk & Assurance", "✓"],
-                ["Knowledge Management", "📚"],
-                ["Audit & Accountability", "🧾"],
-              ].map(([label, icon]) => (
+      <section className="beyu-v2-capabilities" id="capabilities">
+        <div className="beyu-home-inner beyu-v2-capability-layout">
+          <div className="beyu-v2-capability-main">
+            <h2>Shared Enterprise Capabilities</h2>
+            <p>Powering the BEYU ecosystem with integrated capabilities.</p>
+            <div className="beyu-v2-capability-grid">
+              {capabilityItems.map(([label, icon]) => (
                 label === CAPABILITY_LABEL_FAMILY_OFFICE ? (
-                  <a key={label} href={entryHref(FAMILY_OFFICE_SURFACE)} className="beyu-capability-item">
-                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
-                    <span>{label}</span>
+                  <a key={label} href={entryHref(FAMILY_OFFICE_SURFACE)} className="beyu-v2-capability-card">
+                    <span>{icon}</span><strong>{label}</strong>
                   </a>
                 ) : (
-                  <div key={label} className="beyu-capability-item">
-                    <span className="beyu-capability-icon" aria-hidden="true">{icon}</span>
-                    <span>{label}</span>
-                  </div>
+                  <div key={label} className="beyu-v2-capability-card"><span>{icon}</span><strong>{label}</strong></div>
                 )
               ))}
             </div>
           </div>
-
-          <aside className="beyu-noelia-panel" id="noelia">
-            <div className="beyu-noelia-portrait">
-              {/*
-               * NOELIA'S APPEARANCE — the ONE canonical asset, byte-exact.
-               *
-               * This was a `next/image` <Image fill>. The optimizer fetched
-               * `/NOELIA.png` (1,966,448 B) and re-encoded it to 28,897 B of
-               * `image/png` at q=75 — a lossy recompression of the single
-               * canonical Noelia appearance. `brand-assets.ts` states the
-               * contract plainly: this file may never be "modified,
-               * recompressed, recolored, cropped or regenerated", and it is
-               * pinned by SHA-256 (`NOELIA_CANONICAL_APPEARANCE.sha256`) plus
-               * tests. A hash cannot detect an optimizer that re-encodes on the
-               * way out, and every other Noelia surface (`noelia-shell`,
-               * `noelia-avatar`, `noelia-cross-os-visual`) renders the canonical
-               * registry path as a plain <img> for exactly this reason.
-               *
-               * So the homepage now resolves the SAME registry entry every
-               * other surface uses, and serves the bytes unmodified. Portrait
-               * framing comes from CSS (`object-fit: cover;
-               * object-position: center 25%` in globals.css), not from a
-               * re-encoding pipeline.
-               */}
+          <aside className="beyu-v2-noelia" id="noelia">
+            <div className="beyu-noelia-portrait beyu-v2-noelia-portrait">
+              {/* Canonical portrait: original registry file, rendered directly without an image optimizer. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={NOELIA_CANONICAL_APPEARANCE.path}
@@ -305,122 +261,71 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
                 className="beyu-noelia-image"
               />
             </div>
-            <div className="beyu-noelia-copy">
-              <h4>NOELIA</h4>
-              <p>Intelligence · Governance · Care</p>
-              <div className="beyu-noelia-tag">Your governed AI assistant, supporting the BEYU ecosystem.</div>
-              <a href={entryHref(NOELIA_SURFACE)}>Discover NOELIA <span aria-hidden="true">→</span></a>
+            <div className="beyu-v2-noelia-copy">
+              <h3>NOELIA</h3><p>Intelligence · Governance · Care</p>
+              <span>Your governed AI assistant across the BEYU ecosystem.</span>
+              <a href={entryHref(NOELIA_SURFACE)}>Chat with NOELIA <span>›</span></a>
             </div>
           </aside>
         </div>
       </section>
 
-      <section className="beyu-gateway-section" id="gateway">
+      <section className="beyu-v2-vision" id="vision">
+        <div className="beyu-v2-vision-panel">
+          <div className="beyu-home-inner beyu-v2-vision-copy">
+            <h2>OUR INSTITUTIONAL VISION.</h2>
+            <p>A prosperous, inclusive and digitally empowered Africa through trusted institutions and intelligent ecosystems.</p>
+            <a href="#about" className="beyu-v2-primary">Our Vision <span>›</span></a>
+          </div>
+          <div className="beyu-v2-savannah" aria-hidden="true"><i /><i /><i /></div>
+        </div>
+        <aside className="beyu-v2-quick-access" id="gateway">
+          <h2>Quick Access</h2>
+          <a href="/sign-in">▣ BEYU Digital Services <span>›</span></a>
+          <a href="#news">▤ News & Announcements <span>›</span></a>
+          <a href="#news">▦ Events Calendar <span>›</span></a>
+          <a href="#about">▥ Institutional Directory <span>›</span></a>
+          <a href="#contact">♧ Partner with BEYU <span>›</span></a>
+          <a className="beyu-v2-all-destinations" href="#sector-os">Explore all destinations →</a>
+        </aside>
+      </section>
+
+      <section className="beyu-v2-news" id="news">
+        <div className="beyu-home-inner beyu-v2-news-layout">
+          <div className="beyu-v2-news-main">
+            <div className="beyu-v2-news-heading"><h2>📣 Latest News & Announcements</h2><a href="#sector-os">View All News ›</a></div>
+            <div className="beyu-v2-news-grid">
+              {SECTOR_OPERATING_SYSTEMS.slice(0, 3).map((os, index) => (
+                <a className="beyu-v2-news-card" href={entryHref(os)} key={os.code}>
+                  <span className={`beyu-v2-news-thumb news-${index + 1}`} aria-hidden="true">{sectorIcons[os.code] ?? "◈"}</span>
+                  <span><strong>{os.name}</strong><small>{os.highlights[0]}</small><em>Explore updates →</em></span>
+                </a>
+              ))}
+            </div>
+          </div>
+          <aside className="beyu-v2-join">
+            <div className="beyu-v2-handshake" aria-hidden="true">🤝</div>
+            <h2>Join Our Journey</h2>
+            <p>Partner with BEYU for a healthier, more prosperous and trusted future.</p>
+            <a href="#contact">Get Involved <span>›</span></a>
+          </aside>
+        </div>
+      </section>
+
+      <footer className="beyu-v2-footer" id="contact">
         <div className="beyu-home-inner">
-          <div className="beyu-gateway-heading">
-            <p className="beyu-gateway-eyebrow">BEYU DIGITAL GATEWAY</p>
-            <h3>ONE INSTITUTION. CONNECTED DESTINATIONS.</h3>
-            <p>Choose an institutional destination. Each destination opens its own governed entry point and applies its own server-side access controls.</p>
+          <div className="beyu-v2-footer-main">
+            <a className="beyu-v2-footer-brand" href="/" aria-label="BEYU homepage">
+              <span><BeyuOsLogo size={66} ariaLabel="BEYU" /></span>
+              <strong>BEYU<small>Bridging Care. Building Trust.</small></strong>
+            </a>
+            <div className="beyu-v2-footer-column"><h3>About BEYU</h3><a href="#about">Our Architecture</a><a href="#about">Governance</a><a href="#capabilities">Shared Capabilities</a><a href="#vision">Institutional Vision</a></div>
+            <div className="beyu-v2-footer-column"><h3>Sector OS</h3>{SECTOR_OPERATING_SYSTEMS.map(os => <a key={os.code} href={entryHref(os)}>{os.registryCode}</a>)}<a href={entryHref(FOUNDATION_DESTINATION)}>{FOUNDATION_DESTINATION.name}</a></div>
+            <div className="beyu-v2-footer-column"><h3>NOELIA AI</h3><a href={entryHref(NOELIA_SURFACE)}>Enterprise Capabilities</a><a href={entryHref(NOELIA_SURFACE)}>Technology</a><a href="#contact">Contact</a></div>
+            <div className="beyu-v2-footer-column"><h3>Information</h3><a href="#contact">Privacy Policy</a><a href="#contact">Terms & Conditions</a><a href="#contact">Security</a><a href="mailto:info@beyu.co.tz">Email BEYU</a></div>
           </div>
-          <div className="beyu-gateway-grid">
-            {GATEWAY_DESTINATIONS.map((destination, index) => (
-              <a key={destination.code} className="beyu-gateway-card" href={entryHref(destination)}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{destination.registryCode}</strong>
-                <small>{destination.headline}</small>
-                <b>Enter destination →</b>
-              </a>
-            ))}
-          </div>
-          <div className="beyu-information-grid">
-            <article><span>01 / INSTITUTION</span><h4>Governance & Architecture</h4><p>Understand the principles, institutional structure and operating model behind BEYU.</p><a href="#architecture">Explore architecture →</a></article>
-            <article><span>02 / OPERATIONS</span><h4>Sector Services</h4><p>Explore the four sector operating systems and their distinct responsibilities.</p><a href="#sector-os">Explore sector systems →</a></article>
-            <article><span>03 / CAPABILITIES</span><h4>Shared Enterprise Capabilities</h4><p>Discover the common capabilities that connect and support the BEYU ecosystem.</p><a href="#capabilities">Explore capabilities →</a></article>
-          </div>
-        </div>
-      </section>
-
-      <section className="beyu-impact-section">
-        <div className="beyu-home-inner beyu-impact-grid">
-          <div className="beyu-impact-copy">
-            <h3>
-              BUILDING INSTITUTIONS.
-              <span>CREATING LASTING IMPACT.</span>
-            </h3>
-            <p>
-              Rooted in Africa. Inspired globally. BEYU is committed to sustainable development across
-              healthcare, finance, agriculture, infrastructure and communities.
-            </p>
-            <a href="#contact" className="beyu-impact-btn">Our Vision <span aria-hidden="true">→</span></a>
-          </div>
-
-          <div className="beyu-impact-visual" aria-hidden="true">
-            <div className="beyu-skyline" />
-            <div className="beyu-tree tree-left" />
-            <div className="beyu-tree tree-right" />
-          </div>
-
-          <div className="beyu-signin-card">
-            <div className="beyu-signin-lock">🔒</div>
-            <h4>SIGN IN TO BEYU</h4>
-            <p>Access your BEYU environment and explore the ecosystem.</p>
-            <a href="/sign-in">Sign In <span aria-hidden="true">→</span></a>
-          </div>
-        </div>
-      </section>
-
-      <footer className="beyu-footer" id="contact">
-        <div className="beyu-home-inner beyu-footer-inner">
-          <div className="beyu-footer-brand">
-            <div className="beyu-brand-mark small">
-              <BeyuOsLogo size={26} ariaLabel="BEYU" />
-            </div>
-            <div className="beyu-brand-text">
-              <div className="beyu-brand-name">BEYU</div>
-              <div className="beyu-brand-tag">Bridging Care. Building Trust.</div>
-            </div>
-          </div>
-
-          <div className="beyu-footer-links">
-            <div>
-              <h5>About BEYU</h5>
-              <ul>
-                <li><a href="#architecture">Institutional Structure</a></li>
-                <li><a href="#architecture">Governance</a></li>
-                <li><a href="#sector-os">Sector OS</a></li>
-                <li><a href={entryHref(HEALTH_DESTINATION)}>{HEALTH_DESTINATION.name}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5>Sector OS</h5>
-              <ul>
-                <li><a href={entryHref(FINANCE_DESTINATION)}>{FINANCE_DESTINATION.name}</a></li>
-                <li><a href={entryHref(AGRICULTURE_DESTINATION)}>{AGRICULTURE_DESTINATION.name}</a></li>
-                <li><a href={entryHref(UJENZI_DESTINATION)}>{UJENZI_DESTINATION.name}</a></li>
-                <li><a href={entryHref(FOUNDATION_DESTINATION)}>{FOUNDATION_DESTINATION.name}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5>NOELIA AI</h5>
-              <ul>
-                <li><a href="#capabilities">Enterprise Capabilities</a></li>
-                <li><a href="#gateway">Digital Gateway</a></li>
-                <li><a href={entryHref(NOELIA_SURFACE)}>{NOELIA_SURFACE.name}</a></li>
-              </ul>
-            </div>
-            <div>
-              <h5>Access</h5>
-              <ul>
-                <li><a href="/sign-in">Sign In</a></li>
-                <li><a href={entryHref(FAMILY_OFFICE_SURFACE)}>{FAMILY_OFFICE_SURFACE.name}</a></li>
-                <li><a href="#gateway">All destinations</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="beyu-footer-contact">
-            <span>OFFICIAL BEYU CONTACT</span>
-            <a href="tel:+255615766716">+255 615 766 716</a>
-            <a href="https://wa.me/255615766716">WhatsApp BEYU →</a>
+          <div className="beyu-v2-footer-bottom">
+            <span>◎ www.beyu.co.tz</span><span>© 2026 BEYU. Bridging Care. Building Trust. All rights reserved.</span>
           </div>
         </div>
       </footer>
