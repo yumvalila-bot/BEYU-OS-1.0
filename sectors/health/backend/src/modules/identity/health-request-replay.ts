@@ -27,10 +27,13 @@ export async function consumeHealthRequestOnce(
   expirySeconds: number,
 ): Promise<ReplayResult> {
   if (
-    issuer.length === 0 || issuer.length > 512 ||
+    issuer.length === 0 ||
+    issuer.length > 512 ||
     !/^[A-Za-z0-9_-]{22,128}$/.test(jti) ||
-    !Number.isSafeInteger(expirySeconds) || expirySeconds <= 0
-  ) return "UNAVAILABLE";
+    !Number.isSafeInteger(expirySeconds) ||
+    expirySeconds <= 0
+  )
+    return "UNAVAILABLE";
 
   try {
     const result = await pool.query(
