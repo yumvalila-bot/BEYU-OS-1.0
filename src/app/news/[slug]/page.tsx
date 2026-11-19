@@ -22,7 +22,6 @@ export default async function PublicArticlePage({ params }: { params: Promise<{ 
     <p className="text-xs font-bold uppercase tracking-widest text-amber-700">{item.kind === "EVENT" ? "BEYU Event" : "BEYU News"}</p>
     <h1 className="text-3xl font-bold tracking-tight">{item.title}</h1>
     <p className="text-lg text-slate-600">{item.summary}</p>
-    {item.imageUrl && <img src={item.imageUrl} alt="" className="max-h-[420px] w-full rounded-xl object-cover" />}
     {item.kind === "EVENT" && item.startsAt && <p className="text-sm text-slate-600">When: {item.startsAt.toLocaleString()}{item.location ? ` · ${item.location}` : ""}</p>}
     <article className="whitespace-pre-wrap leading-8 text-slate-800">{item.body}</article>
   </main>;
