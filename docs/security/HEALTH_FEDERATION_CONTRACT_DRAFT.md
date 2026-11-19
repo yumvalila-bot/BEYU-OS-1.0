@@ -2,6 +2,12 @@
 
 **Status: USER-CONFIRMED OWNER APPROVAL FOR IMPLEMENTATION AND NON-PRODUCTION TESTING — NOT IMPLEMENTED OR ACTIVATED.** Version `1.0-draft`, 2026-11-18. The requester confirmed that accountable owners approve this draft for implementation and non-production testing, selected the shared PostgreSQL direction, and retained BEYU as sole identity authority. No named signatures or separate approval artifacts were provided. This does not resolve the explicitly deferred endpoint allowlist, request canonicalization, replay-store implementation, or Health ledger location and migration plan; their decisions remain necessary before the corresponding functionality can be enabled. Production deployment, identity linking and production migrations require separate authorization.
 
+## Pilot decisions and implementation status
+
+The requester selected a single owner-approved read-only pilot endpoint, one exact path without query parameters, a shared PostgreSQL `(issuer, jti)` replay store, and a Health ledger in a dedicated schema. The Health owners still need to identify the endpoint; database owners must review the runner, ownership, grants and upgrade path before selecting the ledger schema. Neither the replay table nor ledger changes are implemented or approved for production.
+
+An isolated, unused helper `src/lib/health/pilot-request-binding.ts` and unit tests implement exact static-path, empty-body GET binding only. This does not verify an assertion or provide authentication, authorization, replay protection or transport. In particular, it needs the original request-target before URL normalization; availability of that target in the eventual Next.js deployment is **not established**. If the transport cannot establish it, the route must remain disabled or a separately reviewed trusted edge must enforce it. The helper does not select or approve a Health endpoint.
+
 ## 1. Goal and non-goals
 
 Enable a user authenticated by BEYU to use existing Health services through a same-origin backend-for-frontend (BFF). BEYU remains the sole identity authority. Health remains independently responsible for tenant membership, operation authorization and RLS. An active identity link or correct hostname is necessary where applicable but is **not** a grant of Health access. Preserve `/os/health`, `/health/os`, `/health`, the tenant-domain registry, the Health mount, and all existing authorization gates.
