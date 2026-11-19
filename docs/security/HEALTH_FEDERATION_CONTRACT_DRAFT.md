@@ -4,7 +4,9 @@
 
 ## Pilot decisions and implementation status
 
-The requester selected a single owner-approved read-only pilot endpoint, one exact path without query parameters, a shared PostgreSQL `(issuer, jti)` replay store, and a Health ledger in a dedicated schema. The Health owners still need to identify the endpoint; database owners must review the runner, ownership, grants and upgrade path before selecting the ledger schema. Neither the replay table nor ledger changes are implemented or approved for production.
+The requester selected `GET /auth/me` as the read-only pilot endpoint, one exact path without query parameters, a shared PostgreSQL `(issuer, jti)` replay store, and a Health ledger in a dedicated schema. The existing `/auth/me` still requires Health JWT authentication and has not been adapted to the BFF. Database owners must review the runner, ownership, grants and upgrade path before selecting the ledger schema. Neither the replay table nor ledger changes are implemented or approved for production.
+
+A new, unassigned `health:federation.exchange` permission and an unwired `authorizeHealthFederationEntry` prerequisite use existing BEYU `can()` authority tuples and the active-link check. No role receives this permission automatically, and the helper does not issue an assertion or establish a Health session. The future caller must independently validate the live session, tenant/domain lifecycle, server-derived scope and operation policy; Health must still authorize each operation. Real provisioning and role-assignment policy require separate governance.
 
 An isolated, unused helper `src/lib/health/pilot-request-binding.ts` and unit tests implement exact static-path, empty-body GET binding only. It does not verify an assertion or provide authentication, authorization or transport. In particular, it needs the original request-target before URL normalization; availability of that target in the eventual Next.js deployment is **not established**. If the transport cannot establish it, the route must remain disabled or a separately reviewed trusted edge must enforce it. The helper does not select or approve a Health endpoint.
 
