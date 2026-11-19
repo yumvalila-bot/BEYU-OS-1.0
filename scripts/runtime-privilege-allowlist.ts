@@ -141,6 +141,7 @@ export const RUNTIME_TABLE_ALLOWLIST = [
   "communication_sla_policies",
   "communication_templates",
   "communication_webhook_events",
+  "public_content",
   "compliance_assessments",
   "compliance_obligations",
   "consents",
