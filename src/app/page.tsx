@@ -48,6 +48,8 @@ import {
 } from "@/lib/operating-system-catalog";
 import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
+import { PublicNewsEvents } from "@/components/public-news-events";
+
 
 export const dynamic = "force-dynamic";
 
@@ -294,14 +296,7 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
         <div className="beyu-home-inner beyu-v2-news-layout">
           <div className="beyu-v2-news-main">
             <div className="beyu-v2-news-heading"><h2>📣 Latest News & Announcements</h2><a href="#sector-os">View All News ›</a></div>
-            <div className="beyu-v2-news-grid">
-              {SECTOR_OPERATING_SYSTEMS.slice(0, 3).map((os, index) => (
-                <a className="beyu-v2-news-card" href={entryHref(os)} key={os.code}>
-                  <span className={`beyu-v2-news-thumb news-${index + 1}`} aria-hidden="true">{sectorIcons[os.code] ?? "◈"}</span>
-                  <span><strong>{os.name}</strong><small>{os.highlights[0]}</small><em>Explore updates →</em></span>
-                </a>
-              ))}
-            </div>
+            <PublicNewsEvents />
           </div>
           <aside className="beyu-v2-join">
             <div className="beyu-v2-handshake" aria-hidden="true">🤝</div>
