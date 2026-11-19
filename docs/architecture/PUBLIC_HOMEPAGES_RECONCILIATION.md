@@ -17,7 +17,7 @@ A destination homepage is institutional copy, not evidence of operational featur
 
 ## Health federation review boundary
 
-Do not exchange a BEYU cookie for a sector token without approved design. A proposed design for review should define issuer/audience, mutually authenticated server-to-server exchange, active server-verified identity links and tenant membership, minimal scoped short-lived credentials, replay prevention, rotation and revocation, audit, error handling and fail-closed behavior. Tokens must never appear in URLs or be derived from client-provided identity. This is a review checklist, not an implemented protocol.
+Do not exchange a BEYU cookie for a sector token without approved design. A proposed design for review should define issuer/audience, mutually authenticated server-to-server exchange, active server-verified identity links and tenant membership, minimal scoped short-lived credentials, replay prevention, rotation and revocation, audit, error handling and fail-closed behavior. Tokens must never appear in URLs or be derived from client-provided identity. This is a review checklist, not an implemented protocol. The detailed pending decision and acceptance criteria are in `docs/security/HEALTH_SESSION_FEDERATION_DECISION.md`. Current root configuration has no Health backend rewrite; `HEALTH_API_URL` alone does not enable one, and standalone credential issuance is fenced in production.
 
 ## Environment and evidence limitations
 
