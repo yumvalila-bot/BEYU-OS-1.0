@@ -4,7 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { publicContent } from "@/db/schema";
 import { guarded, apiOk, parseBody, withIdempotency } from "@/lib/api";
-import { newId } from "@/lib/ids";
+import { newId, ID_PREFIX } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   }, async (ctx) => withIdempotency(ctx, "public-content.create", await request.clone().json().catch(() => ({})), async () => {
     const body = await parseBody(request, ContentInput);
     const [row] = await db.insert(publicContent).values({
-      id: newId("pub"),
+      id: newId(ID_PREFIX.article),
       tenantId: ctx.principal.tenantId,
       kind: body.kind,
       title: body.title,
