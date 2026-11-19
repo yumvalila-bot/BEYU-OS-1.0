@@ -112,6 +112,10 @@ export function classificationsAtOrBelow(clearance: string): Classification[] {
  * A capability that is not listed here does not exist constitutionally.
  */
 export const PERMISSIONS = {
+  // Health federation is an explicit BEYU entry grant, not a clinical permission.
+  // No role receives it by default: governed provisioning requires a separate
+  // authorization decision and Health still enforces its own operation gates.
+  "health:federation.exchange": "Request a governed BEYU-to-Health identity exchange within an authorized scope",
   // Control plane
   "platform:dashboard.read": "View the executive control centre",
   "platform:config.manage": "Manage configuration and feature flags",

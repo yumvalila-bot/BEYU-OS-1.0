@@ -53,11 +53,11 @@
  *   - No bridging of the BEYU session into the sector's own JWT session — that
  *     runtime auth-flow integration is a documented architectural decision
  *     (`sectors/health/INTEGRATION.md`), not routing.
- *   - The SPA's only network surface remains same-origin `/health-os/auth/*`
- *     (its existing `VITE_API_BASE_URL` build-time knob), proxied to the sector
- *     backend by `next.config.ts` rewrites ONLY when `HEALTH_API_URL` is
- *     configured; otherwise those paths 404 and the SPA's sign-in fails closed.
- *     No backend credential ever reaches the browser.
+ *   - The SPA attempts same-origin `/health-os/auth/*` using its existing
+ *     `VITE_API_BASE_URL` build-time knob. The root has no sector backend
+ *     rewrite; setting `HEALTH_API_URL` does not enable one. Standalone Health
+ *     credential issuance is fenced in production. The session-to-sector
+ *     bridge remains unimplemented and requires security approval.
  */
 import { NextResponse } from "next/server";
 import { healthSpaHtml } from "@/app/health/os/spa-content";
