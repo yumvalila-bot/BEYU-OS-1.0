@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { publicContent } from "@/db/schema";
@@ -6,7 +6,7 @@ import { publicContent } from "@/db/schema";
 export const dynamic = "force-dynamic";
 
 /** Anonymous, read-only feed. RLS independently permits only explicitly published PUBLIC records. */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 6);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 12) : 6;
   try {
