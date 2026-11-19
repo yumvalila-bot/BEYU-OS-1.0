@@ -26,7 +26,7 @@ CREATE INDEX "public_content_tenant_status_idx" ON "public_content" ("tenant_id"
 --> statement-breakpoint
 CREATE INDEX "public_content_publication_idx" ON "public_content" ("classification","status","published_at");
 --> statement-breakpoint
-CREATE INDEX "public_content_slug_idx" ON "public_content" ("slug");
+CREATE UNIQUE INDEX "public_content_slug_uidx" ON "public_content" ("slug");
 --> statement-breakpoint
 ALTER TABLE "public_content" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public_content" FORCE ROW LEVEL SECURITY;
