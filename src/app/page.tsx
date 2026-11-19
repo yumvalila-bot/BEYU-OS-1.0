@@ -295,7 +295,7 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
       <section className="beyu-v2-news" id="news">
         <div className="beyu-home-inner beyu-v2-news-layout">
           <div className="beyu-v2-news-main">
-            <div className="beyu-v2-news-heading"><h2>📣 Latest News & Announcements</h2><a href="#sector-os">View All News ›</a></div>
+            <div className="beyu-v2-news-heading"><h2>📣 Latest News & Announcements</h2><a href="/news">View All News ›</a></div>
             <PublicNewsEvents />
           </div>
           <aside className="beyu-v2-join">
