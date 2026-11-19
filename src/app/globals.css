@@ -628,3 +628,5 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
  .beyu-v2-footer-main { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 8px; }.beyu-v2-footer-brand { grid-column:span 2; }.beyu-v2-footer-column { min-height:105px; }.beyu-v2-footer-bottom { flex-direction:column; gap:4px; padding:10px; font-size:9px; }
 }
 @media(max-width:380px) { .beyu-v2-contact { flex-wrap:wrap; justify-content:center; }.beyu-v2-sector-grid { grid-template-columns:1fr; }.beyu-v2-globe { height:220px; }.beyu-v2-earth { width:165px; }.beyu-v2-orbit { width:230px; }.beyu-v2-orbit-two { width:290px; } }
+
+.beyu-v2-feed-state { grid-column:1/-1; margin:0; border:1px solid #d8e6f7; border-radius:10px; background:#fff; padding:18px; color:#445775; font-size:12px; }
