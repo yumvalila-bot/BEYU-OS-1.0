@@ -209,3 +209,49 @@ export async function readMigrationState(
     unknown: unknown.slice(0, SAMPLE),
   };
 }
+
+/**
+ * Ensure the governed ledger table exists with all required columns.
+ * Upgrades legacy ledger schema if checksum/owner/sector columns are missing.
+ */
+export async function ensureLedger(conn: DbConnection): Promise<void> {
+  await conn.exec(`
+    CREATE TABLE IF NOT EXISTS beyu_migrations (
+      id text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+
+  // Check if the ledger already has the governance columns.
+  const cols = await conn.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema = current_schema() AND table_name = 'beyu_migrations' AND column_name IN ('checksum', 'owner', 'sector', 'mode', 'provenance')`,
+  );
+  const colNames = new Set(cols.map((r) => r.column_name));
+
+  if (!colNames.has("checksum")) {
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS checksum text`,
+    );
+  }
+  if (!colNames.has("owner")) {
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS owner text`,
+    );
+  }
+  if (!colNames.has("sector")) {
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS sector text`,
+    );
+  }
+  if (!colNames.has("mode")) {
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS mode text`,
+    );
+  }
+  if (!colNames.has("provenance")) {
+    await conn.exec(
+      `ALTER TABLE beyu_migrations ADD COLUMN IF NOT EXISTS provenance text`,
+    );
+  }
+}

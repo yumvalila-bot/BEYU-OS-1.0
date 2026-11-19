@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client, Pool } from "pg";
 import { consumeHealthRequestOnce } from "../../sectors/health/backend/src/modules/identity/health-request-replay";
@@ -38,10 +39,9 @@ describe.skipIf(!adminUrl)("replay uniqueness against isolated PostgreSQL", () =
     url.pathname = `/${databaseName}`;
     pool = new Pool({ connectionString: url.toString(), max: 12 });
     await pool.query("CREATE SCHEMA beyu_identity");
-    await pool.query(`CREATE TABLE beyu_identity.health_request_replay (
-      issuer text NOT NULL, jti text NOT NULL, retain_until timestamptz NOT NULL,
-      PRIMARY KEY (issuer, jti)
-    )`);
+    const migration = readFileSync("sectors/health/backend/database/migrations/046_beyu_authorization_assertion_replay.up.sql", "utf8");
+    await pool.query(migration);
+    await pool.query(migration); // forward migration remains idempotent
   });
 
   afterAll(async () => {
@@ -61,6 +61,28 @@ describe.skipIf(!adminUrl)("replay uniqueness against isolated PostgreSQL", () =
     expect(outcomes.filter((r) => r === "REPLAY")).toHaveLength(19);
     const rows = await pool.query("SELECT extract(epoch from retain_until)::bigint AS until FROM beyu_identity.health_request_replay");
     expect(Number(rows.rows[0].until)).toBe(expiry + 65);
+  });
+
+  it("supports a least-privilege runtime grant without delete or update", async () => {
+    const role = `health_replay_role_${randomBytes(8).toString("hex")}`;
+    const client = await pool.connect();
+    try {
+      await client.query(`CREATE ROLE "${role}" NOLOGIN`);
+      await client.query(`GRANT USAGE ON SCHEMA beyu_identity TO "${role}"`);
+      await client.query(`GRANT INSERT (issuer, jti, retain_until), SELECT (issuer, jti) ON beyu_identity.health_request_replay TO "${role}"`);
+      await client.query(`SET ROLE "${role}"`);
+      const db = { query: (sql: string, params: unknown[]) => client.query(sql, params) };
+      const expiry = Math.floor(Date.now() / 1000) + 20;
+      expect(await consumeHealthRequestOnce(db, "least-privilege", "abcdefghijklmnoPQRSTUV", expiry)).toBe("CONSUMED");
+      expect(await consumeHealthRequestOnce(db, "least-privilege", "abcdefghijklmnoPQRSTUV", expiry)).toBe("REPLAY");
+      await expect(client.query("DELETE FROM beyu_identity.health_request_replay")).rejects.toThrow(/permission denied/);
+      await expect(client.query("UPDATE beyu_identity.health_request_replay SET retain_until = now()")).rejects.toThrow(/permission denied/);
+    } finally {
+      await client.query("RESET ROLE");
+      await client.query(`DROP OWNED BY "${role}"`);
+      await client.query(`DROP ROLE "${role}"`);
+      client.release();
+    }
   });
 
   it("fails closed after the replay store becomes unavailable", async () => {

@@ -1,6 +1,6 @@
 /**
- * UNWIRED Health BFF replay-consumption primitive. The table and runtime grants
- * do not yet exist in the governed migration chain. No production request uses
+ * UNWIRED Health BFF replay-consumption primitive. Migration 046 defines the
+ * table, but runtime grants require separate provisioning. No production request uses
  * this code. It is not an assertion verifier or an authorization check.
  *
  * The caller MUST first verify signature, issuer, audience, mTLS, times, and
