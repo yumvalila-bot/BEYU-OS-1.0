@@ -512,7 +512,16 @@ export async function CanonicalEntryPage({
  * `/` — the public homepage on the control-plane host; the governed sign-in on
  * every other host (see the module header).
  */
-export default function HomeEntry() {
+export default async function HomeEntry() {
+  // The public control-plane root is a permanent public front door. Do not
+  // redirect authenticated visitors away from the homepage: authentication
+  // and server-side authorization remain in the explicit /sign-in flow and
+  // the destination routes. Sector/surface/neutral hosts retain the governed
+  // entry behavior implemented by CanonicalEntryPage.
+  const canonicalHost = await canonicalHostForRequest();
+  if (canonicalHost.kind === "CONTROL_PLANE") {
+    return <MarketingPage />;
+  }
   return CanonicalEntryPage({ variant: "homepage" });
 }
 
