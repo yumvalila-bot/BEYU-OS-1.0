@@ -153,7 +153,7 @@ describe("0082 — the registry namespace agrees with the canonical host contrac
     );
   });
 
-  it("0082 is the journal head and is declared in the metadata debt register", () => {
+  it("0082 is recorded at idx 82 in the journal and declared in the metadata debt register", () => {
     const journal = JSON.parse(read("drizzle", "meta", "_journal.json")) as {
       entries: Array<{ idx: number; tag: string }>;
     };
@@ -162,7 +162,7 @@ describe("0082 — the registry namespace agrees with the canonical host contrac
     expect(entry!.idx).toBe(82);
     // The journal is the apply ORDER; a duplicate or non-monotonic idx would make
     // migrate.ts apply or skip the wrong migration.
-    expect(journal.entries.at(-1)?.tag).toBe("0082_canonical_namespace_alignment");
+    expect(journal.entries[82]?.tag).toBe("0082_canonical_namespace_alignment");
 
     // P2 policy: a data-only migration produces no table-level schema state, so no
     // snapshot is fabricated. The gap is declared, not hidden.
