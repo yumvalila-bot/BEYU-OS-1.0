@@ -582,6 +582,13 @@
       "when": 1794660000000,
       "tag": "0082_canonical_namespace_alignment",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1795126972009,
+      "tag": "0083_public_content",
+      "breakpoints": true
     }
   ]
 }
