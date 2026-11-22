@@ -18,7 +18,7 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
   return (
     <div className="beyu-public-page">
       <div className="beyu-topbar">
-        <div className="beyu-shell beyu-topbar-inner">
+        <div className="beyu-public-inner beyu-topbar-inner">
           <div className="beyu-topbar-contact">
             <a href="tel:+255615766716">+255615766716</a>
             <span aria-hidden="true">|</span>
@@ -39,7 +39,7 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
       </div>
 
       <header className="beyu-nav-wrap">
-        <div className="beyu-shell beyu-nav-inner">
+        <div className="beyu-public-inner beyu-nav-inner">
           <Link href="/" className="beyu-brand-lockup" aria-label="BEYU home">
             <BeyuOsLogo size={42} ariaLabel="BEYU" />
             <span className="beyu-brand-text">
@@ -55,7 +55,7 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
             <Link href="/#about" className="beyu-nav-link">
               About BEYU
             </Link>
-            <Link href="/#ecosystem" className="beyu-nav-link">
+            <Link href="/#sector-os" className="beyu-nav-link">
               Our Ecosystem
             </Link>
             <Link href="/news" className="beyu-nav-link">
@@ -73,7 +73,7 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
       </header>
 
       <section className="beyu-subpage-hero">
-        <div className="beyu-shell">
+        <div className="beyu-public-inner">
           <p className="beyu-subpage-eyebrow">{eyebrow}</p>
           <h1 className="beyu-subpage-title">{title}</h1>
           <p className="beyu-subpage-subtitle">{subtitle}</p>
@@ -81,11 +81,11 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
       </section>
 
       <main className="beyu-subpage-main">
-        <div className="beyu-shell">{children}</div>
+        <div className="beyu-public-inner">{children}</div>
       </main>
 
       <footer className="beyu-footer-compact">
-        <div className="beyu-shell beyu-footer-compact-inner">
+        <div className="beyu-public-inner beyu-footer-compact-inner">
           <p>© {new Date().getFullYear()} BEYU. All Rights Reserved. Constitutional Enterprise Operating Ecosystem.</p>
           <nav aria-label="Institutional legal and security links" className="beyu-footer-compact-links">
             <Link href="/">Home</Link>

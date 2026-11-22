@@ -120,7 +120,7 @@ table.beyu-table tr:last-child td { border-bottom: none; }
   box-sizing: border-box;
 }
 .beyu-home-inner,
-.beyu-shell {
+.beyu-public-inner {
   width: min(100% - 40px, 1240px);
   margin-inline: auto;
 }
@@ -1632,7 +1632,7 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
 
 @media (max-width: 767px) {
   .beyu-home-inner,
-  .beyu-shell {
+  .beyu-public-inner {
     width: calc(100% - 32px);
   }
   .beyu-utility-inner {
@@ -1662,7 +1662,7 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
 
 @media (max-width: 480px) {
   .beyu-home-inner,
-  .beyu-shell {
+  .beyu-public-inner {
     width: calc(100% - 24px);
   }
   .beyu-topbar-inner {

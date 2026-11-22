@@ -46,6 +46,7 @@ import {
   VisionSavannaArtwork,
 } from "@/components/homepage-artwork";
 import { PublicNewsEvents } from "@/components/public-news-events";
+import { OFFICIAL_BEYU_CONTACT } from "@/components/public-contact";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
@@ -153,11 +154,11 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
       <div className="beyu-utility-bar">
         <div className="beyu-home-inner beyu-utility-inner">
           <div className="beyu-utility-contact">
-            <a href="tel:+255615766716">+255615766716</a>
+            <a href={OFFICIAL_BEYU_CONTACT.phoneHref}>{OFFICIAL_BEYU_CONTACT.phoneDisplay}</a>
             <span className="beyu-utility-sep" aria-hidden="true">|</span>
-            <a href="mailto:info@beyu.co.tz">info@beyu.co.tz</a>
+            <a href={OFFICIAL_BEYU_CONTACT.emailHref}>{OFFICIAL_BEYU_CONTACT.email}</a>
             <span className="beyu-utility-sep" aria-hidden="true">|</span>
-            <span>Tanzania</span>
+            <span>{OFFICIAL_BEYU_CONTACT.country}</span>
           </div>
 
           <div className="beyu-utility-right">
@@ -508,10 +509,10 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
               and institutional stewardship.
             </p>
             <div className="beyu-footer-contact-list">
-              <a href="tel:+255615766716">+255 615 766 716</a>
-              <a href="mailto:info@beyu.co.tz">info@beyu.co.tz</a>
-              <span>Dar es Salaam, Tanzania</span>
-              <a href="https://wa.me/255615766716" rel="noopener noreferrer">WhatsApp BEYU ›</a>
+              <a href={OFFICIAL_BEYU_CONTACT.phoneHref}>{OFFICIAL_BEYU_CONTACT.phoneSpaced}</a>
+              <a href={OFFICIAL_BEYU_CONTACT.emailHref}>{OFFICIAL_BEYU_CONTACT.email}</a>
+              <span>{OFFICIAL_BEYU_CONTACT.cityCountry}</span>
+              <a href={OFFICIAL_BEYU_CONTACT.whatsappHref} rel="noopener noreferrer">WhatsApp BEYU ›</a>
             </div>
           </div>
 
