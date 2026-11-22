@@ -18,6 +18,12 @@ npm test                    # vitest suite (111 test files; PostgreSQL required 
 npm run build && npm start  # production build
 ```
 
+## Cloud-first development (recommended)
+
+Use GitHub Codespaces to develop BEYU OS from a browser or VS Code without requiring PostgreSQL, Docker, or Node.js on your personal computer. The Codespaces setup provisions a disposable loopback-only PostgreSQL 16 database and the repository's pinned Playwright Chromium. GitHub Actions remains the authoritative pull-request test environment, and Vercel Preview is used for visual review.
+
+See [Cloud-first development and testing](docs/operations/CLOUD_DEVELOPMENT_WORKFLOW.md) for setup, security boundaries, test commands, and cost controls.
+
 ## Local disposable PostgreSQL 16
 
 If no system PostgreSQL is available (e.g. the Arena sandbox where apt is
