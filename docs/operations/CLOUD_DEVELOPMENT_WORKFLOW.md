@@ -29,7 +29,7 @@ npm run dev -- --hostname 0.0.0.0 --port 3100
 
 Open the forwarded 3100 port. The Codespaces port is private by default.
 
-The generated .env is ignored by Git and must remain inside the Codespace. Bootstrap refuses a non-generated environment or any database DSN whose host is not loopback. Do not paste production credentials into Codespaces secrets or this development .env.
+The generated .env is ignored by Git and must remain inside the Codespace. Bootstrap refuses a non-generated environment or any database DSN whose host is not loopback. Do not paste production credentials into Codespaces secrets or this development .env. After pulling a branch that adds migrations or changes the lockfile, rerun the bootstrap with: bash scripts/infra/codespaces-bootstrap.sh. It reuses the generated environment and applies pending migrations.
 
 ## Run checks in the Codespace
 
