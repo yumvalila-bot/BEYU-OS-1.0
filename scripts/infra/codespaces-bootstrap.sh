@@ -8,24 +8,27 @@ npm ci
 
 if [[ ! -f .env ]]; then
   umask 077
-  runtime_password="ephemeral_beyu_runtime_password_not_secret"
-  governance_password="ephemeral_beyu_governance_password_not_secret"
-  bootstrap_password="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))')"
-  auth_secret="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
-  mfa_key="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+  gen_ephemeral_token() {
+    node -e "process.stdout.write(require('node:crypto').randomBytes(${1}).toString('${2}'))"
+  }
+  runtime_pwd="$(gen_ephemeral_token 24 base64url)"
+  governance_pwd="$(gen_ephemeral_token 24 base64url)"
+  bootstrap_pwd="$(gen_ephemeral_token 32 base64url)"
+  auth_secret="$(gen_ephemeral_token 32 hex)"
+  mfa_key="$(gen_ephemeral_token 32 hex)"
 
   cat > .env <<EOF
 # Generated inside this Codespace. Disposable credentials; never copy to production.
 BEYU_CLOUD_DEV_ENV=1
 BEYU_ENV=development
-DATABASE_URL=postgresql://beyu_runtime:${runtime_password}@127.0.0.1:5432/beyu_os
-BEYU_RUNTIME_DATABASE_URL=postgresql://beyu_runtime:${runtime_password}@127.0.0.1:5432/beyu_os
-BEYU_GOVERNANCE_DATABASE_URL=postgresql://beyu_governance:${governance_password}@127.0.0.1:5432/beyu_os
+DATABASE_URL=postgresql://beyu_runtime:${runtime_pwd}@127.0.0.1:5432/beyu_os
+BEYU_RUNTIME_DATABASE_URL=postgresql://beyu_runtime:${runtime_pwd}@127.0.0.1:5432/beyu_os
+BEYU_GOVERNANCE_DATABASE_URL=postgresql://beyu_governance:${governance_pwd}@127.0.0.1:5432/beyu_os
 BEYU_ADMIN_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
 BEYU_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/beyu_os
-BEYU_RUNTIME_DB_PASSWORD=${runtime_password}
-BEYU_GOVERNANCE_DB_PASSWORD=${governance_password}
-BEYU_BOOTSTRAP_PASSWORD=${bootstrap_password}
+BEYU_RUNTIME_DB_PASSWORD=${runtime_pwd}
+BEYU_GOVERNANCE_DB_PASSWORD=${governance_pwd}
+BEYU_BOOTSTRAP_PASSWORD=${bootstrap_pwd}
 AUTH_SECRET=${auth_secret}
 MFA_ENCRYPTION_KEY=${mfa_key}
 BEYU_ALLOW_LOCAL_PLAINTEXT_DB=1
