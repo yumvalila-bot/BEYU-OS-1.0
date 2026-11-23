@@ -23,6 +23,7 @@
  *   • `identities` is empty in production, so no privileged username is
  *     serialised into any unauthenticated surface's HTML.
  */
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
@@ -57,6 +58,20 @@ import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
+
+/** Host-selected public metadata is presentation only, never an access grant. */
+export async function generateMetadata(): Promise<Metadata> {
+  const host = await canonicalHostForRequest();
+  if (host.kind !== "SECTOR_OS" && host.kind !== "SURFACE") return {};
+  const context = destinationForResolution(host)?.context;
+  if (!context) return {};
+  return {
+    title: context.name,
+    description: context.description,
+    openGraph: { title: context.name, description: context.description },
+  };
+}
+
 
 function isProductionDeployment(): boolean {
   return process.env["NODE_ENV"] === "production";

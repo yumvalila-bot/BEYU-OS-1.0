@@ -24,6 +24,7 @@ describe("destination public homepage content", () => {
     const healthCopy = JSON.stringify(publicHomepageFor("HEALTH"));
     expect(healthCopy).toContain("session federation is not yet operational");
     expect(healthCopy).toContain("identity link alone does not grant Health access");
+    expect(readFileSync("src/lib/operating-system-catalog.ts", "utf8")).not.toContain("Health federation is resolved server-side on every request");
   });
   it("does not embed production hostnames or credential inputs in public content", () => {
     const content = readFileSync("src/lib/destination-homepages.ts", "utf8");

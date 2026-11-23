@@ -502,7 +502,7 @@ export function canonicalEntryHref(
     destination as CanonicalHostedDestination & { subdomain: string },
     canonicalDomain,
     development,
-  )}${destination.href}`;
+  )}/`;
 }
 
 /**

@@ -166,8 +166,8 @@ describe("A. host resolution — health.beyu.co.tz is HEALTH_OS and nothing else
 
   it("composes the entry URL from configuration, falling back to the internal route", () => {
     const health = SECTOR_OPERATING_SYSTEMS.find((os) => os.code === "HEALTH")!;
-    // Apex configured → the destination's OWN hostname + its canonical route.
-    expect(canonicalEntryHref(health, PROD)).toBe("https://health.beyu.co.tz/os/health");
+    // Apex configured → the destination's public homepage, not its protected route.
+    expect(canonicalEntryHref(health, PROD)).toBe("https://health.beyu.co.tz/");
     // NOT configured (every preview deployment) → the internal route, which is
     // the ONLY thing that can work when no canonical hosts are attached. This is
     // the regression the homepage fix removes: it used to emit the literal
@@ -177,11 +177,11 @@ describe("A. host resolution — health.beyu.co.tz is HEALTH_OS and nothing else
     // preserved so a `next dev` link is reachable.
     expect(
       canonicalEntryHref(health, { canonicalDomain: "localhost", allowLocalhost: true }, { protocol: "http:", port: "3000" }),
-    ).toBe("http://health.localhost:3000/os/health");
+    ).toBe("http://health.localhost:3000/");
     // allowLocalhost WITHOUT the localhost base (a production shape) must never
     // produce a `*.localhost` URL, and must never invent one either.
     expect(canonicalEntryHref(health, PROD, { protocol: "http:", port: "3000" })).toBe(
-      "https://health.beyu.co.tz/os/health",
+      "https://health.beyu.co.tz/",
     );
     // A destination with no hostname can never be composed into one.
     expect(canonicalEntryHref({ ...health, subdomain: "" }, PROD)).toBe("/os/health");

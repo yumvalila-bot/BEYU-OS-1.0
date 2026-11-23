@@ -170,7 +170,7 @@ export const SECTOR_OPERATING_SYSTEMS: OperatingSystemDestination[] = [
     highlights: [
       "Care delivery, clinical operations and health federation.",
       "The highest data tier, safeguarding and evidence trails.",
-      "Health federation is resolved server-side on every request.",
+      "Health access requires separate authorization; session federation is not yet operational.",
     ],
   },
   {

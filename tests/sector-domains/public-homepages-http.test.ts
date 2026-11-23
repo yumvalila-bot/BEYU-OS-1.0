@@ -37,6 +37,7 @@ describe.skipIf(!base || !domain)("public destination HTTP boundary", () => {
       expect(home.status).toBe(200);
       expect(home.body).toContain('id="dest-title"');
       expect(home.body).toContain(name);
+      expect(home.body).toContain(`<title>${name}</title>`);
       expect(home.body.toLowerCase()).toContain(content.toLowerCase());
       expect(home.body).toContain('href="/sign-in"');
       expect(home.body).not.toContain('type="password"');
@@ -50,6 +51,9 @@ describe.skipIf(!base || !domain)("public destination HTTP boundary", () => {
     const central = await get("/", domain!);
     expect(central.status).toBe(200);
     expect(central.body).not.toContain('id="dest-title"');
+    if (domain !== "localhost") {
+      for (const [label] of destinations) expect(central.body).toContain(`https://${label}.${domain}/`);
+    }
     const hostile = await get("/", `health.${domain}.attacker.example`);
     expect(hostile.status).toBe(200);
     expect(hostile.body).not.toContain('id="dest-title"');
