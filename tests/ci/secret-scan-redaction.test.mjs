@@ -131,9 +131,67 @@ test('short explicit template placeholder is accepted', () => fixture(dir => {
 
 test('high-confidence API token embedded in source is detected', () => fixture(dir => {
   const token = 'gh' + 'p_' + 'C'.repeat(36);
-  writeFileSync(join(dir, 'src/fixture'), 'api_key="' + token + '"\n');
+  writeFileSync(join(dir, 'src/fixture'), 'api' + '_key="' + token + '"\n');
   execFileSync('git', ['add', 'src/fixture'], { cwd: dir });
   const result = run('Scan committed tree for high-confidence credential patterns', dir);
   assert.equal(result.status, 1);
   assert.ok(!(result.stdout + result.stderr).includes(token));
+}));
+
+test('generic hardcoded API key is detected without exposing its value', () => fixture(dir => {
+  const value = 'synthetic-' + 'api-credential-98765';
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'api' + `_key="${value}"\n`);
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 1);
+  assert.ok(!(result.stdout + result.stderr).includes(value));
+}));
+
+test('entire shell-generated random credential is accepted', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'runtime_pass' + 'word="$(openssl rand -hex 32)"\n');
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 0, result.stderr);
+}));
+
+test('generated credential with an appended literal is not exempt', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'runtime_pass' + 'word="$(openssl rand -hex 32)literal"\n');
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 1, result.stderr);
+}));
+
+test('short template credential is blocked without printing it', () => fixture(dir => {
+  const value = 'syn' + 'th-12';
+  writeFileSync(join(dir, '.env.example'), 'PASSWORD=' + value + '\n');
+  const result = run('Committed-secret filename scan', dir);
+  assert.equal(result.status, 1);
+  assert.ok(!(result.stdout + result.stderr).includes(value));
+}));
+
+test('template environment reference is accepted', () => fixture(dir => {
+  writeFileSync(join(dir, '.env.example'), 'PASSWORD=' + '${DB_PASSWORD}' + '\n');
+  const result = run('Committed-secret filename scan', dir);
+  assert.equal(result.status, 0, result.stderr);
+}));
+
+test('shell-looking string in non-shell source is not exempt', () => fixture(dir => {
+  writeFileSync(join(dir, 'src/fixture.js'), 'const pass' + 'word="$(openssl rand -hex 32)";\n');
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 1, result.stderr);
+}));
+
+test('single-quoted shell substitution is literal and is not exempt', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'runtime_pass' + "word='$(openssl rand -hex 32)'\n");
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 1, result.stderr);
+}));
+
+test('quoted shell credential references are accepted', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'runtime_pass' + 'word="${RUNTIME_CREDENTIAL}"\ngovernance_pass' + 'word="$GOVERNANCE_CREDENTIAL"\n');
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 0, result.stderr);
+}));
+
+test('mixed shell reference and literal is not exempt', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'runtime_pass' + 'word="${RUNTIME_CREDENTIAL}literal"\n');
+  const result = run('Credential literal scan', dir);
+  assert.equal(result.status, 1, result.stderr);
 }));

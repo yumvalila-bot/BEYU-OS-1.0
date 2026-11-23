@@ -129,15 +129,34 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Report file names only: matching lines can contain the credential itself.
-          if grep -rIl --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
-               -E "BeyuOS#|password\s*=\s*[\"'][^\"']{8,}" src/ scripts/ tests/; then
+          # Retain the password check, and also recognize exact API-key names.
+          # An entire double-quoted shell variable reference or openssl rand
+          # substitution is not a committed literal. Mixed literal text is never
+          # exempt. Report filenames only, never matching lines.
+          pattern='BeyuOS#|(?:password|(?<![[:alnum:]_])(?:api_key|API_KEY|apiKey))[[:space:]]*=[[:space:]]*(?:\x22(?!(?:\$\([[:space:]]*openssl[[:space:]]+rand[[:space:]]+-(?:hex|base64)[[:space:]]+[1-9][0-9]*[[:space:]]*\)|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*)\x22)[^\x22\x27]{8,}|\x27[^\x22\x27]{8,})'
+          if grep -rIlP --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               "$pattern" src/ scripts/ tests/; then
             echo "::error::Possible credential literal committed."
             exit 1
           else
             rc=$?
             if [ "$rc" -ne 1 ]; then
               echo "::error::Credential literal scan failed (exit $rc)."
+              exit "$rc"
+            fi
+          fi
+          # Shell substitutions are not evaluated in source-code string literals.
+          # Limit the exception above to .sh files; this second check examines all
+          # other files for that exact expression rather than excluding them.
+          generated='(?:password|(?<![[:alnum:]_])(?:api_key|API_KEY|apiKey))[[:space:]]*=[[:space:]]*\x22(?:\$\([[:space:]]*openssl[[:space:]]+rand[[:space:]]+-(?:hex|base64)[[:space:]]+[1-9][0-9]*[[:space:]]*\)|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*)\x22'
+          if grep -rIlP --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude='*.sh' \
+               "$generated" src/ scripts/ tests/; then
+            echo "::error::Shell substitution in a non-shell source string is not an ephemeral credential."
+            exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::Credential context scan failed (exit $rc)."
               exit "$rc"
             fi
           fi
@@ -180,6 +199,27 @@ jobs:
               exit "$rc"
             fi
           fi
+          # Short literals can be credentials too. A credential field in an
+          # exempt template may only be empty, CHANGE_ME, or a single environment
+          # variable reference. Never print the field's value.
+          node <<'NODE'
+          const fs = require('node:fs');
+          let bad = false;
+          for (const file of ['.env.example', 'sectors/health/.env.example', 'sectors/health/backend/.env.example']) {
+            const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+            for (const [i, line] of lines.entries()) {
+              if (/^\s*(?:#|$)/.test(line)) continue;
+              const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+              if (!m || !/(?:^|_)(?:PASSWORD|SECRET|TOKEN|KEY)(?:_|$)/i.test(m[1])) continue;
+              let value = m[2];
+              if (/^(['"]).*\1$/.test(value)) value = value.slice(1, -1);
+              if (value === '' || value === 'CHANGE_ME' || /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) continue;
+              console.error(`::error file=${file},line=${i + 1}::Template credential field must be empty, CHANGE_ME or an environment reference.`);
+              bad = true;
+            }
+          }
+          if (bad) process.exit(1);
+          NODE
           echo "No credential files tracked."
 
   # ---------------------------------------------------------------------------
