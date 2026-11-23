@@ -1,3 +1,4 @@
+import { foundationTargetScopeDenial } from "@/lib/foundation/target-scope";
 import { requirePrincipal } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import type { PermissionCode } from "@/lib/constants";
@@ -14,6 +15,9 @@ export const dynamic = "force-dynamic";
 
 export default async function FoundationOperationsPage() {
   const principal = await requirePrincipal();
+  if (await foundationTargetScopeDenial(principal)) {
+    return <Denied reason="Foundation organization is outside the current tenant, classification, or entity scope." capability="foundation:registry.read" />;
+  }
   const permitted = (permission: PermissionCode, classification: "CONFIDENTIAL" | "RESTRICTED") =>
     can(principal, permission, { classification }).allowed;
   const capabilities = {

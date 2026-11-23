@@ -394,7 +394,7 @@ table.beyu-table tr:last-child td { border-bottom: none; }
 }
 
 /* Shared Buttons & Headings */
-.beyu-primary-btn {
+.beyu-home-shell a.beyu-primary-btn {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -784,7 +784,7 @@ table.beyu-table tr:last-child td { border-bottom: none; }
   font-size: 13.5px;
   line-height: 1.55;
 }
-.beyu-noelia-cta {
+.beyu-home-shell a.beyu-noelia-cta {
   display: inline-flex;
   width: fit-content;
   min-height: 40px;
@@ -2013,7 +2013,7 @@ a.beyu-dest-directory-card:hover {
   border-color: var(--home-gold-dark);
   background: #fffdf5;
 }
-.beyu-dest-directory-code { color: #6b7d99; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
+.beyu-dest-directory-code { color: #44587d; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
 .beyu-dest-directory-card strong { font-size: 14px; font-weight: 800; }
 .beyu-dest-directory-card small { color: #44587d; font-size: 11.5px; line-height: 1.35; }
 
