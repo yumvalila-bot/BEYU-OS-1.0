@@ -72,6 +72,9 @@ jobs:
           # Full history: the history scan below cannot see what was not fetched.
           fetch-depth: 0
 
+      - name: Verify scanner diagnostics never print credential values
+        run: node --test tests/ci/secret-scan-redaction.test.mjs
+
       - name: Scan committed tree for high-confidence credential patterns
         shell: bash
         run: |
@@ -86,6 +89,12 @@ jobs:
             sed 's#^#  - #' /tmp/beyu-secret-files
             echo "Secret values are intentionally not printed. Remove the credential and rotate it before retrying."
             exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::Committed-tree secret scan failed (exit $rc)."
+              exit "$rc"
+            fi
           fi
           echo "No high-confidence committed secret patterns detected in the working tree."
 
@@ -107,43 +116,116 @@ jobs:
             awk -F: '{print "  - commit "$1" path "$2}' /tmp/beyu-history-hits | sort -u
             echo "Secret values are intentionally not printed. Rotate the credential and rewrite history."
             exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::History secret scan failed (exit $rc)."
+              exit "$rc"
+            fi
           fi
           echo "No high-confidence secret patterns detected in the last $count commits."
+
+      - name: Scan recent history for added credential literals
+        run: node scripts/ci/scan-history-literals.mjs
 
       - name: Credential literal scan
         shell: bash
         run: |
           set -euo pipefail
-          if grep -rIn --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
-               -E "BeyuOS#|password\s*=\s*[\"'][^\"']{8,}" src/ scripts/ tests/; then
+          # Retain the password check, and also recognize exact API-key names.
+          # An entire double-quoted shell variable reference or openssl rand
+          # substitution is not a committed literal. Mixed literal text is never
+          # exempt. Report filenames only, never matching lines.
+          pattern='BeyuOS#|(?:password|(?<![[:alnum:]_])(?:api_key|API_KEY|apiKey))[[:space:]]*=[[:space:]]*(?:\x22(?!(?:\$\([[:space:]]*openssl[[:space:]]+rand[[:space:]]+-(?:hex|base64)[[:space:]]+[1-9][0-9]*[[:space:]]*\)|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*)\x22)[^\x22\x27]{8,}|\x27[^\x22\x27]{8,})'
+          if grep -rIlP --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git \
+               "$pattern" src/ scripts/ tests/; then
             echo "::error::Possible credential literal committed."
             exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::Credential literal scan failed (exit $rc)."
+              exit "$rc"
+            fi
+          fi
+          # Shell substitutions are not evaluated in source-code string literals.
+          # Limit the exception above to .sh files; this second check examines all
+          # other files for that exact expression rather than excluding them.
+          generated='(?:password|(?<![[:alnum:]_])(?:api_key|API_KEY|apiKey))[[:space:]]*=[[:space:]]*\x22(?:\$\([[:space:]]*openssl[[:space:]]+rand[[:space:]]+-(?:hex|base64)[[:space:]]+[1-9][0-9]*[[:space:]]*\)|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*)\x22'
+          if grep -rIlP --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git --exclude='*.sh' \
+               "$generated" src/ scripts/ tests/; then
+            echo "::error::Shell substitution in a non-shell source string is not an ephemeral credential."
+            exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::Credential context scan failed (exit $rc)."
+              exit "$rc"
+            fi
           fi
           echo "No credential literals found."
 
+      - name: Scan tracked source for uppercase credential literals
+        run: node scripts/ci/scan-credential-literals.mjs
+
       - name: Committed-secret filename scan
-        # Credential-BEARING files only. The placeholder templates `.env.example`
-        # (root) and `sectors/health/.env.example` are the documented bootstrap
-        # mechanism (README quick start) and contain no secrets — verified line
-        # by line. The previous pattern `(^|/)\.env(\.|$)` matched them, which
-        # kept this gate permanently red on main (run 33665368428) without
-        # catching any real credential. Real environment files (.env and
-        # .env.<environment>) and key material remain blocked.
+        # Block environment files and key material. Only the three explicitly
+        # named bootstrap templates are exempt from the filename rule; their
+        # contents still receive the template check below.
         shell: bash
         run: |
           set -euo pipefail
-          pattern='(^|/)\.env$|(^|/)\.env\.(local|production|staging|development|dev|test|ci)$|\.pem$|\.key$|(^|/)id_rsa'
-          if git ls-files | grep -qE "$pattern"; then
-            echo "::error::A credential-bearing file is tracked by git."
-            git ls-files | grep -E "$pattern"
-            exit 1
+          pattern='(^|/)\.env(\..*)?$|\.pem$|\.key$|(^|/)id_rsa'
+          files=$(mktemp)
+          hits=$(mktemp)
+          trap 'rm -f "$files" "$hits"' EXIT
+          git ls-files > "$files"
+          if grep -E "$pattern" "$files" > "$hits"; then
+            # Only the three documented tracked templates are exempt from the
+            # filename rule; each is checked for credential values below.
+            if grep -vEx '(\.env\.example|sectors/health/\.env\.example|sectors/health/backend/\.env\.example)' "$hits"; then
+              echo "::error::A credential-bearing file is tracked by git."
+              exit 1
+            else
+              rc=$?
+              [ "$rc" -eq 1 ] || exit "$rc"
+            fi
+          else
+            rc=$?
+            [ "$rc" -eq 1 ] || exit "$rc"
           fi
-          # Defence-in-depth: the exempted template files must never contain
-          # anything that looks like a real credential either.
-          if grep -rInE '(PASSWORD|SECRET|TOKEN|KEY)=[^\s<$]{16,}' .env.example sectors/health/.env.example; then
+          # Templates can also contain a real value; never print matching lines.
+          if grep -rIlE '(PASSWORD|SECRET|TOKEN|KEY)=[^[:space:]<$]{16,}' .env.example sectors/health/.env.example sectors/health/backend/.env.example; then
             echo "::error::An .env.example template contains a value that looks like a real credential."
             exit 1
+          else
+            rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "::error::Template secret scan failed (exit $rc)."
+              exit "$rc"
+            fi
           fi
+          # Short literals can be credentials too. A credential field in an
+          # exempt template may only be empty, CHANGE_ME, or a single environment
+          # variable reference. Never print the field's value.
+          node <<'NODE'
+          const fs = require('node:fs');
+          let bad = false;
+          for (const file of ['.env.example', 'sectors/health/.env.example', 'sectors/health/backend/.env.example']) {
+            const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+            for (const [i, line] of lines.entries()) {
+              if (/^\s*(?:#|$)/.test(line)) continue;
+              const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+              if (!m || !/(?:^|_)(?:PASSWORD|SECRET|TOKEN|KEY)(?:_|$)/i.test(m[1])) continue;
+              let value = m[2];
+              if (/^(['"]).*\1$/.test(value)) value = value.slice(1, -1);
+              if (value === '' || value === 'CHANGE_ME' || /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) continue;
+              console.error(`::error file=${file},line=${i + 1}::Template credential field must be empty, CHANGE_ME or an environment reference.`);
+              bad = true;
+            }
+          }
+          if (bad) process.exit(1);
+          NODE
           echo "No credential files tracked."
 
   # ---------------------------------------------------------------------------
@@ -298,7 +380,7 @@ jobs:
         # approval, NOT a certification, and it authorizes nothing.
         run: npm run verify:scg
 
-      - name: Apply canonical root migrations 0000-0082
+      - name: Apply canonical root migrations 0000-0083
         # scripts/migrate.ts is the only migration runner. It records every
         # applied version plus a sha256 checksum in beyu_migrations and prints a
         # schema drift fingerprint before and after. drizzle-kit push is never
@@ -308,7 +390,7 @@ jobs:
           set -euo pipefail
           npm run migrate 2>&1 | tee /tmp/root-migrate.log
 
-      - name: Verify migrations 0000-0082 are all recorded
+      - name: Verify migrations 0000-0083 are all recorded
         shell: bash
         run: |
           set -euo pipefail

@@ -1,0 +1,27 @@
+{
+  "name": "BEYU OS cloud development",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash scripts/infra/codespaces-bootstrap.sh",
+  "postStartCommand": "bash scripts/infra/codespaces-start.sh",
+  "forwardPorts": [3100, 5432],
+  "portsAttributes": {
+    "3100": {
+      "label": "BEYU OS development server",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    },
+    "5432": {
+      "label": "BEYU disposable PostgreSQL 16",
+      "visibility": "private"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "ms-playwright.playwright"
+      ]
+    }
+  }
+}

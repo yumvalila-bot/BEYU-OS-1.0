@@ -315,9 +315,22 @@ export function SignInForm({
           type="submit"
           disabled={busy}
           aria-label={`Enter ${destinationName}`}
-          className="h-12 rounded-[12px] bg-[#0B1F4D] text-[14px] font-semibold text-white transition hover:bg-[#132c62] focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none disabled:opacity-60"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[12px] bg-[#0B1F4D] text-[14px] font-semibold text-white shadow-[0_10px_24px_-12px_rgba(11,31,77,0.85)] transition hover:bg-[#132c62] active:translate-y-px focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none disabled:opacity-60"
         >
-          {busy ? "Authenticating…" : "Enter"}
+          {busy && (
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 animate-spin"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" opacity="0.28" />
+              <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
+            </svg>
+          )}
+          <span>{busy ? "Authenticating…" : "Enter"}</span>
         </button>
       </div>
 

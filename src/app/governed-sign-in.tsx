@@ -43,6 +43,7 @@
  *   rendered on every destination surface. No destination- or tenant-specific
  *   BEYU logo exists, and none may be created here.
  */
+import Link from "next/link";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 import { Icon } from "@/components/icons";
 import { DESTINATION_TYPE_LABEL } from "@/lib/operating-system-catalog";
@@ -99,6 +100,33 @@ export function GovernedSignIn({ destination, landing, identities = [], sessionE
 
   return (
     <LoginShell>
+      {destination.hostKind === "CONTROL_PLANE" && (
+        <nav
+          aria-label="Public homepage navigation"
+          className="flex flex-wrap items-center justify-between gap-3 pt-4 text-[12px] font-medium text-[#0B1F4D]/80"
+        >
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#0B1F4D]/15 bg-white/80 px-3.5 py-1.5 text-[#0B1F4D] shadow-xs transition hover:border-[#0B1F4D]/35 hover:bg-white focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none"
+          >
+            <span aria-hidden="true">←</span> Return to BEYU Homepage
+          </Link>
+          <div className="flex items-center gap-4 text-[11.5px] text-[#41527a]">
+            <Link
+              href="/news"
+              className="transition hover:text-[#0B1F4D] hover:underline focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none"
+            >
+              News &amp; Events
+            </Link>
+            <Link
+              href="/security"
+              className="transition hover:text-[#0B1F4D] hover:underline focus-visible:ring-2 focus-visible:ring-[#0B1F4D]/40 focus-visible:outline-none"
+            >
+              Security
+            </Link>
+          </div>
+        </nav>
+      )}
       <LoginHero />
 
       <div className="mt-9 grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,430px)] lg:items-start lg:gap-x-12">
@@ -145,7 +173,7 @@ export function GovernedSignIn({ destination, landing, identities = [], sessionE
 
         {/* The ONE shared sign-in. Destination-aware presentation, shared
             authentication: same endpoint, same cookie, same MFA. */}
-        <div className="order-1 lg:order-2">
+        <div className="order-1 lg:sticky lg:top-8 lg:order-2">
           <LoginCard
             // The ONE shared form keeps ONE stable title id. It used to carry
             // `beyu-destination-signin-title`, which made "no destination frontend
