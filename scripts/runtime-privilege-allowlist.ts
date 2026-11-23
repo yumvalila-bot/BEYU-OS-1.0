@@ -366,6 +366,7 @@ export const RUNTIME_TABLE_ALLOWLIST = [
   "permissions",
   "policies",
   "positions",
+  "public_content",
   "procurements",
   "pvg_runs",
   "regulatory_changes",

@@ -41,6 +41,7 @@ const COMMUNICATION_LINKS = [
   { href: "/os/communications/journeys", label: "Journeys", desc: "Communication journeys, workflow-triggered" },
   { href: "/os/communications/feedback", label: "Feedback", desc: "Feedback, surveys, ratings, AI analysis (preserves original)" },
   { href: "/os/communications/broadcasts", label: "Broadcasts", desc: "Governed bulk messaging with consent, approval, audit" },
+  { href: "/os/communications/publishing", label: "News & Events Publishing", desc: "Draft, review, approve and publish public website content" },
   { href: "/os/communications/delivery", label: "Delivery", desc: "Delivery tracking, retries, failover, loop prevention" },
   { href: "/os/communications/analytics", label: "Analytics", desc: "Channel usage, delivery, response times, SLA compliance" },
   { href: "/os/communications/cost", label: "Cost Intelligence", desc: "Provider cost tracking — NOT accounting, visibility only" },
