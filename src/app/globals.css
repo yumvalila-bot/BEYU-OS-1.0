@@ -1778,13 +1778,13 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
 }
 
 /* ------------------------------------------------------------------ */
-/* Public destination homepages — ONE component, eight canonical hosts */
+/* Public destination homepages — ONE component, seven canonical hosts */
 /*                                                                    */
 /* Scoped to .beyu-dest-shell so the central-homepage composition is   */
 /* untouched. Every value derives from the canonical tokens above plus */
 /* the per-destination accent the catalogue declares (--dest-accent).  */
 /* ------------------------------------------------------------------ */
-.beyu-skip-link {
+.beyu-dest-shell .beyu-skip-link {
   position: absolute;
   top: -100px;
   left: 12px;
@@ -1800,7 +1800,7 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
   font-weight: 800;
   transition: top .15s ease;
 }
-.beyu-skip-link:focus { top: 0; }
+.beyu-dest-shell .beyu-skip-link:focus { top: 0; }
 
 .beyu-dest-shell { --dest-accent: var(--home-gold); }
 
@@ -1980,9 +1980,9 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
 .beyu-dest-status dd { margin: 0; color: #fff; font-size: 12.5px; font-weight: 700; }
 
 .beyu-dest-directory { background: #f4f7fb; padding-block: 40px 48px; }
-.beyu-dest-directory h2, .beyu-directory-section h2 { margin: 0; color: #10366e; font-size: clamp(19px, 2.2vw, 25px); font-weight: 850; letter-spacing: -.03em; }
-.beyu-dest-directory-intro, .beyu-directory-intro { max-width: 720px; margin: 10px 0 20px; color: #40547a; font-size: 13.5px; line-height: 1.5; }
-.beyu-dest-directory-grid, .beyu-directory-grid {
+.beyu-dest-directory h2 { margin: 0; color: #10366e; font-size: clamp(19px, 2.2vw, 25px); font-weight: 850; letter-spacing: -.03em; }
+.beyu-dest-directory-intro { max-width: 720px; margin: 10px 0 20px; color: #40547a; font-size: 13.5px; line-height: 1.5; }
+.beyu-dest-directory-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
@@ -1990,7 +1990,7 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
   padding: 0;
   list-style: none;
 }
-.beyu-dest-directory-card, .beyu-directory-card {
+.beyu-dest-directory-card {
   display: flex;
   height: 100%;
   min-height: 112px;
@@ -2004,108 +2004,22 @@ html.beyu-reduce-motion *, html.beyu-reduce-motion *::before, html.beyu-reduce-m
   box-shadow: 0 4px 12px rgba(9,32,67,.07);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-a.beyu-dest-directory-card:hover, a.beyu-directory-card:hover {
+a.beyu-dest-directory-card:hover {
   transform: translateY(-2px);
   border-color: var(--dest-accent, var(--home-gold-dark));
   box-shadow: 0 10px 22px rgba(9,32,67,.14);
 }
-.beyu-dest-directory-card[aria-current="page"], .beyu-directory-card[aria-current="page"] {
+.beyu-dest-directory-card[aria-current="page"] {
   border-color: var(--home-gold-dark);
   background: #fffdf5;
 }
-.beyu-dest-directory-code, .beyu-directory-code { color: #6b7d99; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
-.beyu-dest-directory-card strong, .beyu-directory-card strong { font-size: 14px; font-weight: 800; }
-.beyu-dest-directory-card small, .beyu-directory-card small { color: #44587d; font-size: 11.5px; line-height: 1.35; }
-
-/* ------------------------------------------------------------------ */
-/* Central homepage — vision & values, news & events, directory,       */
-/* partnerships. Additive sections; the approved hero, globe, Sector   */
-/* OS cards and NOELIA composition above are untouched.                */
-/* ------------------------------------------------------------------ */
-.beyu-values-section, .beyu-news-section, .beyu-directory-section, .beyu-partnership-section {
-  padding-block: 34px;
-  background: #fff;
-}
-.beyu-values-section { background: linear-gradient(180deg, #f4f7fb, #ffffff); }
-.beyu-values-head h2 {
-  margin: 0;
-  color: #10366e;
-  font-size: clamp(19px, 2.4vw, 26px);
-  font-weight: 850;
-  letter-spacing: -.035em;
-}
-.beyu-values-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
-.beyu-value-card {
-  border: 1px solid #d9e3ef;
-  border-top: 3px solid var(--home-gold-dark);
-  border-radius: 12px;
-  background: #fff;
-  padding: 16px 17px;
-  box-shadow: 0 4px 12px rgba(9,32,67,.07);
-}
-.beyu-value-card h3 { margin: 0; color: #0b1f4d; font-size: 14px; font-weight: 850; letter-spacing: .02em; text-transform: uppercase; }
-.beyu-value-card p { margin: 9px 0 0; color: #40547a; font-size: 13px; line-height: 1.5; }
-.beyu-pillar-row { display: flex; flex-wrap: wrap; gap: 9px; margin: 18px 0 0; padding: 0; list-style: none; }
-.beyu-pillar {
-  display: inline-flex;
-  min-height: 38px;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--home-gold-dark);
-  border-radius: 999px;
-  background: #071c42;
-  padding: 0 15px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: .06em;
-}
-.beyu-pillar span { color: var(--home-gold); }
-
-.beyu-news-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
-.beyu-news-card {
-  border: 1px solid #d9e3ef;
-  border-radius: 12px;
-  background: #f9fbfe;
-  padding: 16px 17px;
-  box-shadow: 0 4px 12px rgba(9,32,67,.06);
-}
-.beyu-news-tag { color: var(--home-gold-dark); font-size: 9.5px; font-weight: 800; letter-spacing: .14em; }
-.beyu-news-card h3 { margin: 8px 0 0; color: #0b1f4d; font-size: 14px; font-weight: 800; line-height: 1.3; }
-.beyu-news-card p { margin: 8px 0 0; color: #40547a; font-size: 12.5px; line-height: 1.5; }
-.beyu-events-panel {
-  margin-top: 18px;
-  border: 1px solid #d9e3ef;
-  border-radius: 12px;
-  background: #071c42;
-  padding: 17px 19px;
-  color: #fff;
-}
-.beyu-events-panel h3 { margin: 0 0 11px; color: var(--home-gold); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-.beyu-event-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
-.beyu-event-list li { display: flex; flex-wrap: wrap; gap: 4px 12px; border-bottom: 1px solid rgba(255,255,255,.14); padding-bottom: 8px; font-size: 12.5px; line-height: 1.45; }
-.beyu-event-list li:last-child { border-bottom: 0; padding-bottom: 0; }
-.beyu-event-when { flex: 0 0 auto; color: var(--home-gold); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-.beyu-event-what { color: #e7eefa; }
-.beyu-events-note { margin: 12px 0 0; color: #b9cbe4; font-size: 11.5px; line-height: 1.5; }
-
-.beyu-directory-section { background: linear-gradient(180deg, #ffffff, #f4f7fb); }
-.beyu-partnership-section { background: #f4f7fb; }
-.beyu-partnership-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
-.beyu-partnership-grid article {
-  border: 1px solid #d9e3ef;
-  border-left: 4px solid var(--home-gold-dark);
-  border-radius: 12px;
-  background: #fff;
-  padding: 15px 16px;
-}
-.beyu-partnership-grid h3 { margin: 0; color: #0b1f4d; font-size: 13.5px; font-weight: 800; }
-.beyu-partnership-grid p { margin: 8px 0 0; color: #40547a; font-size: 12.5px; line-height: 1.5; }
+.beyu-dest-directory-code { color: #6b7d99; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; }
+.beyu-dest-directory-card strong { font-size: 14px; font-weight: 800; }
+.beyu-dest-directory-card small { color: #44587d; font-size: 11.5px; line-height: 1.35; }
 
 /* ---------- responsive: destination homepages + new sections ---------- */
 @media (max-width: 1100px) {
-  .beyu-dest-area-grid, .beyu-dest-directory-grid, .beyu-directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .beyu-values-grid, .beyu-news-grid, .beyu-partnership-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .beyu-dest-area-grid, .beyu-dest-directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .beyu-dest-hero-inner { grid-template-columns: minmax(0, 1fr); gap: 26px; padding-block: 34px 38px; }
@@ -2116,8 +2030,7 @@ a.beyu-dest-directory-card:hover, a.beyu-directory-card:hover {
   .beyu-dest-section-index { height: 44px; }
 }
 @media (max-width: 640px) {
-  .beyu-dest-area-grid, .beyu-dest-directory-grid, .beyu-directory-grid,
-  .beyu-values-grid, .beyu-news-grid, .beyu-partnership-grid { grid-template-columns: minmax(0, 1fr); }
+  .beyu-dest-area-grid, .beyu-dest-directory-grid { grid-template-columns: minmax(0, 1fr); }
   .beyu-dest-area { min-height: 0; }
   .beyu-dest-status div { justify-content: flex-start; }
 }
@@ -2125,13 +2038,12 @@ a.beyu-dest-directory-card:hover, a.beyu-directory-card:hover {
   .beyu-dest-hero-copy h1 { font-size: clamp(26px, 8.4vw, 34px); }
   .beyu-dest-hero-actions .beyu-primary-btn,
   .beyu-dest-hero-actions .beyu-secondary-btn { width: 100%; }
-  .beyu-pillar { width: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .beyu-skip-link,
-  .beyu-dest-directory-card, .beyu-directory-card,
-  .beyu-signin-btn, .beyu-primary-btn, .beyu-learn-btn, .beyu-impact-btn { transition: none; }
-  a.beyu-dest-directory-card:hover, a.beyu-directory-card:hover { transform: none; }
+  .beyu-dest-shell .beyu-skip-link,
+  .beyu-dest-shell .beyu-dest-directory-card,
+  .beyu-dest-shell .beyu-signin-btn, .beyu-dest-shell .beyu-primary-btn { transition: none; }
+  a.beyu-dest-directory-card:hover { transform: none; }
 }
 
 .beyu-dest-headline { font-weight: 750; color: #0b1f4d !important; }

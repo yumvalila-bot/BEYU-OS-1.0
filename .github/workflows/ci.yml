@@ -637,6 +637,7 @@ jobs:
           # Must match the server's BEYU_CANONICAL_DOMAIN above; gates the
           # host-specific cases in tests/sector-domains/canonical-host-http.test.ts.
           BEYU_TEST_CANONICAL_DOMAIN: beyu.co.tz
+          BEYU_TEST_PUBLIC_DOMAIN: beyu.co.tz
         shell: bash
         run: |
           set -euo pipefail
@@ -648,6 +649,7 @@ jobs:
       - name: Browser history, keyboard, responsive and canonical identity tests
         env:
           BEYU_TEST_BASE_URL: http://127.0.0.1:3100
+          BEYU_TEST_CANONICAL_DOMAIN: beyu.co.tz
         run: npm run test:browser
 
       - name: Assert no test suite was silently skipped for want of a server

@@ -15,6 +15,16 @@ describe("destination public homepage content", () => {
     }
     expect(publicHomepageFor("unknown")).toBeNull();
   });
+  it("keeps the six Family Office categories and the Health federation boundary honest", () => {
+    const family = publicHomepageFor("FAMILY_OFFICE")!;
+    const categories = family.sections.find((section) => section.title === "The six canonical categories")!;
+    expect(categories.areas.map((area) => area.title.replace(/^\d · /, ""))).toEqual([
+      "Business Development", "Wealth Management", "Wealth Planning", "Family Governance", "Lifestyle Management", "Philanthropy",
+    ]);
+    const healthCopy = JSON.stringify(publicHomepageFor("HEALTH"));
+    expect(healthCopy).toContain("session federation is not yet operational");
+    expect(healthCopy).toContain("identity link alone does not grant Health access");
+  });
   it("does not embed production hostnames or credential inputs in public content", () => {
     const content = readFileSync("src/lib/destination-homepages.ts", "utf8");
     const component = readFileSync("src/app/destination-homepage.tsx", "utf8");

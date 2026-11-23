@@ -123,7 +123,7 @@ export const DESTINATION_PUBLIC_HOMEPAGES: Readonly<Record<PublicHomepageCode, D
           { title: "Payers & claims", detail: "Coverage, claims and settlement interfaces with governed financial truth in Finance OS." },
           { title: "Regulators & reporting", detail: "Statutory returns and inspection evidence produced from governed records." },
           { title: "Referral networks", detail: "Inter-provider exchange limited to an active, authorized care relationship." },
-          { title: "Health federation", detail: "Canonical BEYU identity is federated into Health OS server-side on every request." },
+          { title: "Health federation", detail: "Health access requires a governed identity link and independent Health authorization; session federation is not yet operational." },
         ],
       },
       {
@@ -142,7 +142,7 @@ export const DESTINATION_PUBLIC_HOMEPAGES: Readonly<Record<PublicHomepageCode, D
     notices: [
       "The public homepage presents Health OS's governed remit; it grants no access to any clinical record.",
       "Patient and clinical data are never exposed on a public surface. Access is decided server-side after sign-in.",
-      "Health OS authorization is federated from canonical BEYU identity through an active, governed identity link.",
+      "An active canonical identity link alone does not grant Health access. Session federation remains subject to implementation and review.",
     ],
   },
 
