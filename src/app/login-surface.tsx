@@ -37,6 +37,7 @@
  *   it is a contrast correction, not a palette change.
  */
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
 
 /* -------------------------------------------------------------------------- */
@@ -754,7 +755,31 @@ export function LoginCampusBand({ notices }: { notices?: ReactNode }) {
 
           {notices ? <div className="mx-auto mt-7 max-w-[860px] text-center text-white/70">{notices}</div> : null}
 
-          <p className="pt-6 pb-5 text-center text-[15px] font-semibold tracking-[0.62em] text-[#d4a017] sm:text-[17px]">
+          <nav
+            aria-label="Institutional legal and security links"
+            className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-white/70"
+          >
+            <Link
+              href="/privacy"
+              className="transition hover:text-[#e2c25f] hover:underline focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/terms"
+              className="transition hover:text-[#e2c25f] hover:underline focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Terms &amp; Conditions
+            </Link>
+            <Link
+              href="/security"
+              className="transition hover:text-[#e2c25f] hover:underline focus-visible:ring-2 focus-visible:ring-[#e2c25f]/60 focus-visible:outline-none"
+            >
+              Security
+            </Link>
+          </nav>
+
+          <p className="pt-5 pb-5 text-center text-[15px] font-semibold tracking-[0.62em] text-[#d4a017] sm:text-[17px]">
             BEYU
           </p>
         </div>

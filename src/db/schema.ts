@@ -155,3 +155,7 @@ export * from "./schema/pricing";
  * pointers, and declared cross-OS data contracts. CAP_POSTING remains LOCKED.
  */
 export * from "./schema/mcm";
+
+/* Governed public news and events publishing (additive, migration 0083). */
+export * from "./schema/public-content";
+
