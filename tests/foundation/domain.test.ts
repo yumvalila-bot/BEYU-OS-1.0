@@ -228,6 +228,50 @@ describe("compliance reminder delivery", () => {
     `);
     expect(notificationsForDeadline.rows).toHaveLength(1);
   });
+
+  it("serializes concurrent sweeps so only one in-app notification is created", async () => {
+    const director = await principalFor("FATMA_JUMA");
+    const obligation = (await listObligations(director))[0];
+    expect(obligation).toBeDefined();
+
+    const deadlineId = `FDL_CONCURRENT_${RUN}`;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    createdComplianceDeadlineIds.push(deadlineId);
+    await db.insert(schema.foundationDeadlines).values({
+      id: deadlineId,
+      tenantId: obligation.tenantId,
+      obligationId: obligation.id,
+      foundationId: obligation.foundationId,
+      periodLabel: `CONCURRENT-${RUN}`,
+      triggerDate: todayIso,
+      dueDate: todayIso,
+      reminderSchedule: [0],
+      status: "UPCOMING",
+    });
+
+    const results = await Promise.all([
+      runComplianceSweep(ctxFor(director), { todayIso, channels: ["IN_APP"] }),
+      runComplianceSweep(ctxFor(director), { todayIso, channels: ["IN_APP"] }),
+    ]);
+    expect(results.every((result) => result.failures.length === 0)).toBe(true);
+
+    const deliveries = await db
+      .select()
+      .from(schema.foundationNotificationLog)
+      .where(eq(schema.foundationNotificationLog.deadlineId, deadlineId));
+    expect(deliveries).toHaveLength(1);
+    expect(deliveries[0]?.status).toBe("SENT");
+    expect(deliveries[0]?.attempts).toBe(1);
+    expect(deliveries[0]?.notificationId).toBeTruthy();
+
+    const notificationsForDeadline = await db.execute<{ id: string }>(sql`
+      select n.id
+      from notifications n
+      join foundation_notification_log l on l.notification_id = n.id
+      where l.deadline_id = ${deadlineId}
+    `);
+    expect(notificationsForDeadline.rows).toHaveLength(1);
+  });
 });
 
 describe("tenant-scope isolation", () => {
