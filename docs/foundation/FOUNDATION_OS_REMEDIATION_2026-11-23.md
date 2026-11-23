@@ -21,8 +21,9 @@ The repository already contains a Foundation operations implementation under `sr
 - Focused TypeScript check of `src/lib/foundation/compliance.ts` and `tests/foundation/domain.test.ts` (with project compiler settings) — passed.
 - `npx vitest run tests/foundation/engines.test.ts` — 27 passed.
 - `npm audit --omit=dev --audit-level=high` — **failed**: installed Zod 3.x is affected by GHSA-mrhx-c7xc-m3w5; npm reports the direct fix is Zod 4.6.7, a major-version upgrade not included in this focused patch.
-- Full repository typecheck did not finish within the available command window under the repository-wide type graph. The initial default-heap run exhausted the Node heap; the later larger-heap attempt remained active beyond the tool window and was stopped. A focused TypeScript check passed instead.
-- The database-backed regression test was added but could not be executed locally: the repository's embedded PostgreSQL harness exits during `initdb` because the sandbox image lacks `libpq.so.5`. No production data or schema was modified to work around this.
+- The full repository typecheck did not finish locally under the sandbox's memory/command limits; the focused TypeScript check passed. PR #133's root CI typecheck subsequently passed.
+- The embedded PostgreSQL harness could not run locally because `initdb` cannot load `libpq.so.5` in this sandbox. The committed regression test did run inside PR #133's PostgreSQL-backed root regression, which passed; CI also completed the browser and no-skipped-suite gates.
+- PR #133 CI evidence on the latest branch commit: root TypeScript, lint, migrations `0000`–`0083`, migration idempotency, schema-drift checks, disaster-recovery drill, production builds (with and without runtime secrets), root PostgreSQL-backed + HTTP/E2E regression, browser history/keyboard/responsive checks, no-skipped-suite assertion, committed-secret scan, P3 release governance, Health OS gates, production critical-dependency audits, and Vercel passed. The separate scratch PostgreSQL migration-validation workflow passed on its rerun. The earlier attempt failed before checkout on a transient Docker pull error; it was superseded by the passing rerun. Production migration/deploy/PVG workflow stages were skipped (not run); no claim of production deployment is made.
 
 ## Production database evidence (read-only inspection)
 
