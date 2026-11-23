@@ -37,7 +37,7 @@ const ActionsSchema = z.object({
     "transition.readiness",
     "generate.assessor-package",
   ]),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 }).strict();
 
 function asRecord(value: unknown): Record<string, unknown> {

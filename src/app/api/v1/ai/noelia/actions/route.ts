@@ -13,7 +13,7 @@ const ActionCommandSchema = z.object({
   command: z.enum(["REQUEST", "APPROVE", "EXECUTE"]),
   actionRequestId: z.string().min(1).optional(),
   toolName: z.enum(["knowledge.ingest", "knowledge.replace", "knowledge.publish"]).optional(),
-  toolInput: z.record(z.unknown()).optional(),
+  toolInput: z.record(z.string(), z.unknown()).optional(),
   target: z.object({
     tenantId: z.string().min(1).optional(),
     legalEntityId: z.string().nullable().optional(),

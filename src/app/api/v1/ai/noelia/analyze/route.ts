@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const AnalyzeSchema = z.object({
   analysisType: z.enum(NOELIA_ANALYSIS_TYPES),
-  options: z.record(z.unknown()).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
   context: z.object({
     tenantId: z.string().min(1).max(128).optional(),
     legalEntityId: z.string().min(1).max(128).nullable().optional(),
