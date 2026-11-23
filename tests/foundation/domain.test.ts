@@ -12,6 +12,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import * as schema from "@/db/schema";
 import { employees, tenants, users } from "@/db/schema";
 import {
   clearanceForRoles,
@@ -34,6 +35,7 @@ import {
   complianceDashboard,
   listDeadlines,
   listObligations,
+  runComplianceSweep,
 } from "@/lib/foundation/compliance";
 import { listDonations, listDonors } from "@/lib/foundation/service";
 
@@ -72,8 +74,14 @@ const ctxFor = (principal: Principal): ServiceContext => ({
 
 const RUN = Math.random().toString(36).slice(2, 8).toUpperCase();
 const createdFoundationIds: string[] = [];
+const createdComplianceDeadlineIds: string[] = [];
 
 afterAll(async () => {
+  for (const id of createdComplianceDeadlineIds) {
+    await db.execute(sql`delete from notifications where id in (select notification_id from foundation_notification_log where deadline_id = ${id})`);
+    await db.execute(sql`delete from foundation_notification_log where deadline_id = ${id}`);
+    await db.execute(sql`delete from foundation_deadlines where id = ${id}`);
+  }
   for (const id of createdFoundationIds) {
     await db.execute(sql`delete from foundations where id = ${id}`);
   }
@@ -151,6 +159,74 @@ describe("seed integrity", () => {
       expect(dash.onTimePct).toBeGreaterThanOrEqual(0);
       expect(dash.onTimePct).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+describe("compliance reminder delivery", () => {
+  it("atomically enqueues one canonical notification and treats repeat sweeps as duplicates", async () => {
+    const director = await principalFor("FATMA_JUMA");
+    const obligation = (await listObligations(director))[0];
+    expect(obligation).toBeDefined();
+
+    const deadlineId = `FDL_SWEEP_${RUN}`;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    createdComplianceDeadlineIds.push(deadlineId);
+    await db.insert(schema.foundationDeadlines).values({
+      id: deadlineId,
+      tenantId: obligation.tenantId,
+      obligationId: obligation.id,
+      foundationId: obligation.foundationId,
+      periodLabel: `SWEEP-${RUN}`,
+      triggerDate: todayIso,
+      dueDate: todayIso,
+      reminderSchedule: [0],
+      status: "UPCOMING",
+    });
+
+    const idempotencyKey = `FNDL:${deadlineId}:0:IN_APP`;
+    await db.insert(schema.foundationNotificationLog).values({
+      id: `FNL_FAILED_${RUN}`,
+      tenantId: obligation.tenantId,
+      deadlineId,
+      foundationId: obligation.foundationId,
+      idempotencyKey,
+      channel: "IN_APP",
+      offsetDays: 0,
+      recipientRole: obligation.ownerRole,
+      status: "FAILED",
+      attempts: 1,
+      lastError: "test fixture: prior delivery attempt failed",
+    });
+
+    const first = await runComplianceSweep(ctxFor(director), { todayIso, channels: ["IN_APP"] });
+    expect(first.failures).toEqual([]);
+    const [delivery] = await db
+      .select()
+      .from(schema.foundationNotificationLog)
+      .where(eq(schema.foundationNotificationLog.deadlineId, deadlineId));
+    expect(delivery?.status).toBe("SENT");
+    expect(delivery?.attempts).toBe(2);
+    expect(delivery?.notificationId).toBeTruthy();
+    const [notification] = await db
+      .select()
+      .from(schema.notifications)
+      .where(eq(schema.notifications.id, delivery!.notificationId!));
+    expect(notification?.status).toBe("QUEUED");
+
+    const second = await runComplianceSweep(ctxFor(director), { todayIso, channels: ["IN_APP"] });
+    expect(second.failures).toEqual([]);
+    const deliveries = await db
+      .select()
+      .from(schema.foundationNotificationLog)
+      .where(eq(schema.foundationNotificationLog.deadlineId, deadlineId));
+    expect(deliveries).toHaveLength(1);
+    const notificationsForDeadline = await db.execute<{ id: string }>(sql`
+      select n.id
+      from notifications n
+      join foundation_notification_log l on l.notification_id = n.id
+      where l.deadline_id = ${deadlineId}
+    `);
+    expect(notificationsForDeadline.rows).toHaveLength(1);
   });
 });
 

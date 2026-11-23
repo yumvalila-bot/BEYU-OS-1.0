@@ -11,7 +11,7 @@
  * actionable obligation may silently expire: overdue deadlines raise
  * DEADLINE_MISSED events and escalate per policy.
  */
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import * as s from "@/db/schema";
 import { newId, ID_PREFIX } from "@/lib/ids";
@@ -395,6 +395,132 @@ export type SweepResult = {
 };
 
 /**
+ * Enqueue an in-app reminder atomically with its idempotency record. A failure
+ * must never leave a success-shaped delivery log without the canonical inbox
+ * notification, and failed attempts remain retryable on the next sweep.
+ */
+async function enqueueInAppReminder(input: {
+  tenantId: string;
+  foundationId: string;
+  deadlineId: string;
+  idempotencyKey: string;
+  offsetDays: number;
+  recipientRole: string;
+  urgency: "HIGH" | "NORMAL";
+  subject: string;
+  body: string;
+  linkHref: string;
+}): Promise<"SCHEDULED" | "DUPLICATE"> {
+  const notificationId = newId(ID_PREFIX.notification);
+  const logId = newId(ID_PREFIX.foundationNotification);
+
+  return db.transaction(async (tx) => {
+    // Serialize the absent-row case too; the unique index remains the final
+    // integrity guard if a caller outside this function writes the same key.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`${input.tenantId}:${input.idempotencyKey}`}))`);
+    const [existing] = await tx
+      .select()
+      .from(s.foundationNotificationLog)
+      .where(
+        and(
+          eq(s.foundationNotificationLog.tenantId, input.tenantId),
+          eq(s.foundationNotificationLog.idempotencyKey, input.idempotencyKey),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (existing && ["SENT", "DELIVERED", "ACKNOWLEDGED"].includes(existing.status)) return "DUPLICATE";
+
+    if (existing) {
+      await tx
+        .update(s.foundationNotificationLog)
+        .set({
+          status: "QUEUED",
+          attempts: existing.attempts + 1,
+          notificationId,
+          lastError: null,
+          sentAt: null,
+        })
+        .where(eq(s.foundationNotificationLog.id, existing.id));
+    } else {
+      await tx.insert(s.foundationNotificationLog).values({
+        id: logId,
+        tenantId: input.tenantId,
+        deadlineId: input.deadlineId,
+        foundationId: input.foundationId,
+        idempotencyKey: input.idempotencyKey,
+        channel: "IN_APP",
+        offsetDays: input.offsetDays,
+        recipientRole: input.recipientRole,
+        notificationId,
+        status: "QUEUED",
+        attempts: 1,
+      });
+    }
+
+    await tx.insert(s.notifications).values({
+      id: notificationId,
+      tenantId: input.tenantId,
+      role: input.recipientRole,
+      channel: "IN_APP",
+      urgency: input.urgency,
+      subject: input.subject,
+      body: input.body,
+      classification: "INTERNAL",
+      linkHref: input.linkHref,
+      status: "QUEUED",
+    });
+
+    await tx
+      .update(s.foundationNotificationLog)
+      .set({ status: "SENT", sentAt: new Date(), lastError: null })
+      .where(
+        and(
+          eq(s.foundationNotificationLog.tenantId, input.tenantId),
+          eq(s.foundationNotificationLog.idempotencyKey, input.idempotencyKey),
+        ),
+      );
+    return "SCHEDULED";
+  });
+}
+
+/** Persist an enqueue failure separately so a later sweep can safely retry it. */
+async function recordInAppReminderFailure(input: {
+  tenantId: string;
+  foundationId: string;
+  deadlineId: string;
+  idempotencyKey: string;
+  offsetDays: number;
+  recipientRole: string;
+}): Promise<void> {
+  await db
+    .insert(s.foundationNotificationLog)
+    .values({
+      id: newId(ID_PREFIX.foundationNotification),
+      tenantId: input.tenantId,
+      deadlineId: input.deadlineId,
+      foundationId: input.foundationId,
+      idempotencyKey: input.idempotencyKey,
+      channel: "IN_APP",
+      offsetDays: input.offsetDays,
+      recipientRole: input.recipientRole,
+      status: "FAILED",
+      attempts: 1,
+      lastError: "IN_APP notification enqueue failed; retry required",
+    })
+    .onConflictDoUpdate({
+      target: [s.foundationNotificationLog.tenantId, s.foundationNotificationLog.idempotencyKey],
+      set: {
+        status: "FAILED",
+        attempts: sql`${s.foundationNotificationLog.attempts} + 1`,
+        lastError: "IN_APP notification enqueue failed; retry required",
+      },
+      setWhere: sql`${s.foundationNotificationLog.status} not in ('SENT', 'DELIVERED', 'ACKNOWLEDGED')`,
+    });
+}
+
+/**
  * Run one compliance sweep for the principal's scope as of `todayIso`.
  * IN_APP delivery writes canonical notifications; other channels are recorded
  * as FAILED with an explicit provider-missing error (no silent failure) until
@@ -504,49 +630,40 @@ export async function runComplianceSweep(
             riskRating: obligation.riskRating,
             deadlineId: deadline.id,
           });
-          const logId = newId(ID_PREFIX.foundationNotification);
           if (channel === "IN_APP") {
-            const notificationId = newId(ID_PREFIX.notification);
-            const inserted = await db
-              .insert(s.foundationNotificationLog)
-              .values({
-                id: logId,
+            try {
+              const state = await enqueueInAppReminder({
                 tenantId: deadline.tenantId,
-                deadlineId: deadline.id,
                 foundationId: deadline.foundationId,
+                deadlineId: deadline.id,
                 idempotencyKey: key,
-                channel,
                 offsetDays: reminder.offsetDays,
                 recipientRole: obligation.ownerRole,
-                notificationId,
-                status: "SENT",
-                attempts: 1,
-                sentAt: new Date(),
-              })
-              .onConflictDoNothing()
-              .returning({ id: s.foundationNotificationLog.id });
-            if (inserted.length === 0) {
-              result.remindersSkippedDuplicate += 1;
-              continue;
+                urgency: reminder.overdue ? "HIGH" : "NORMAL",
+                subject: content.subject,
+                body: content.body,
+                linkHref: content.linkHref,
+              });
+              if (state === "DUPLICATE") result.remindersSkippedDuplicate += 1;
+              else result.remindersScheduled += 1;
+            } catch (deliveryError) {
+              try {
+                await recordInAppReminderFailure({
+                  tenantId: deadline.tenantId,
+                  foundationId: deadline.foundationId,
+                  deadlineId: deadline.id,
+                  idempotencyKey: key,
+                  offsetDays: reminder.offsetDays,
+                  recipientRole: obligation.ownerRole,
+                });
+              } catch {
+                // The request result still reports the failure; a database outage
+                // may prevent durable logging, but must not be reported as success.
+              }
+              throw deliveryError;
             }
-            await db.insert(s.notifications).values({
-              id: notificationId,
-              tenantId: deadline.tenantId,
-              role: obligation.ownerRole,
-              channel: "IN_APP",
-              urgency: reminder.overdue ? "HIGH" : "NORMAL",
-              subject: content.subject,
-              body: content.body,
-              classification: "INTERNAL",
-              linkHref: content.linkHref,
-              status: "QUEUED",
-            });
-            await db
-              .update(s.foundationNotificationLog)
-              .set({ status: "DELIVERED" })
-              .where(eq(s.foundationNotificationLog.id, logId));
-            result.remindersScheduled += 1;
           } else {
+            const logId = newId(ID_PREFIX.foundationNotification);
             // No governed provider is configured for out-of-band channels.
             // Record the scheduling attempt as FAILED — loudly, never silently.
             const inserted = await db
@@ -607,7 +724,18 @@ export async function runComplianceSweep(
         }
       }
     } catch (err) {
-      result.failures.push({ deadlineId: deadline.id, error: err instanceof Error ? err.message : String(err) });
+      // Do not echo raw database/provider errors through the sweep API. Keep a
+      // correlation handle and a structured, non-sensitive server diagnostic.
+      console.error(
+        JSON.stringify({
+          level: "error",
+          action: "foundation.compliance.sweep",
+          traceId: ctx.traceId,
+          deadlineId: deadline.id,
+          errorName: err instanceof Error ? err.name : "UnknownError",
+        }),
+      );
+      result.failures.push({ deadlineId: deadline.id, error: `Processing failed; investigate with trace ${ctx.traceId}` });
     }
   }
   return result;
