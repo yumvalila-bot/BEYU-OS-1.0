@@ -125,6 +125,9 @@ jobs:
           fi
           echo "No high-confidence secret patterns detected in the last $count commits."
 
+      - name: Scan recent history for added credential literals
+        run: node scripts/ci/scan-history-literals.mjs
+
       - name: Credential literal scan
         shell: bash
         run: |
@@ -161,6 +164,9 @@ jobs:
             fi
           fi
           echo "No credential literals found."
+
+      - name: Scan tracked source for uppercase credential literals
+        run: node scripts/ci/scan-credential-literals.mjs
 
       - name: Committed-secret filename scan
         # Block environment files and key material. Only the three explicitly

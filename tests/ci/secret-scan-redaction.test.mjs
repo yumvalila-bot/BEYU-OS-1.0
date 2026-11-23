@@ -195,3 +195,84 @@ test('mixed shell reference and literal is not exempt', () => fixture(dir => {
   const result = run('Credential literal scan', dir);
   assert.equal(result.status, 1, result.stderr);
 }));
+
+function commitFixture(dir, content) {
+  const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
+  git('config', 'user.name', 'Synthetic Test');
+  git('config', 'user.email', 'fixture@example.invalid');
+  writeFileSync(join(dir, 'scripts/fixture.sh'), content);
+  git('add', 'scripts/fixture.sh');
+  git('commit', '-qm', 'synthetic fixture');
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'clean\n');
+  git('add', 'scripts/fixture.sh');
+  git('commit', '-qm', 'remove fixture');
+}
+
+function scanLiteralHistory(dir) {
+  return spawnSync(process.execPath, [join(process.cwd(), 'scripts/ci/scan-history-literals.mjs')], { cwd: dir, encoding: 'utf8' });
+}
+
+for (const name of ['password', 'DB_PASSWORD', 'API_KEY']) {
+  test(`added and removed ${name} literal fails the history scan without disclosure`, () => fixture(dir => {
+    const value = 'synthetic-' + 'history-secret-82917';
+    commitFixture(dir, name + '="' + value + '"\n');
+    const result = scanLiteralHistory(dir);
+    assert.equal(result.status, 1, result.stderr);
+    assert.ok(!(result.stdout + result.stderr).includes(value));
+  }));
+}
+
+test('new shell-generated random credentials pass literal history scan', () => fixture(dir => {
+  commitFixture(dir, 'runtime_pass' + 'word="$(openssl rand -hex 32)"\n');
+  const result = scanLiteralHistory(dir);
+  assert.equal(result.status, 0, result.stderr);
+}));
+
+test('new literal is not allowed merely because it is labelled ephemeral', () => fixture(dir => {
+  commitFixture(dir, 'runtime_pass' + 'word="ephemeral_synthetic_not_secret"\n');
+  const result = scanLiteralHistory(dir);
+  assert.equal(result.status, 1, result.stderr);
+}));
+
+test('literal history scan fails closed for an empty repository', () => fixture(dir => {
+  const result = scanLiteralHistory(dir);
+  assert.equal(result.status, 2);
+}));
+
+function scanTrackedLiterals(dir) {
+  return spawnSync(process.execPath, [join(process.cwd(), 'scripts/ci/scan-credential-literals.mjs')], { cwd: dir, encoding: 'utf8' });
+}
+
+for (const name of ['DB_PASSWORD', 'BEYU_RUNTIME_DB_PASSWORD', 'SOME_SERVICE_API_KEY']) {
+  test(`tracked ${name} literal is detected without disclosure`, () => fixture(dir => {
+    const value = 'synthetic-' + 'tracked-literal-27182';
+    writeFileSync(join(dir, 'src/fixture.ts'), name + '="' + value + '"\n');
+    execFileSync('git', ['add', 'src/fixture.ts'], { cwd: dir });
+    const result = scanTrackedLiterals(dir);
+    assert.equal(result.status, 1, result.stderr);
+    assert.ok(!(result.stdout + result.stderr).includes(value));
+  }));
+}
+
+test('uppercase shell credential generated at runtime is accepted', () => fixture(dir => {
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'DB_' + 'PASSWORD="$(openssl rand -hex 32)"\n');
+  execFileSync('git', ['add', 'scripts/fixture.sh'], { cwd: dir });
+  const result = scanTrackedLiterals(dir);
+  assert.equal(result.status, 0, result.stderr);
+}));
+
+test('approved synthetic fixture exemption is pinned to its exact line', () => fixture(dir => {
+  const path = 'tests/security/db-tooling-error-redaction.test.ts';
+  mkdirSync(join(dir, 'tests/security'), { recursive: true });
+  const original = readFileSync(path, 'utf8').split('\n').find(line => line.startsWith('const PASSWORD '));
+  assert.ok(original);
+  writeFileSync(join(dir, path), original + '\n');
+  execFileSync('git', ['add', path], { cwd: dir });
+  assert.equal(scanTrackedLiterals(dir).status, 0);
+  writeFileSync(join(dir, path), original + ' // changed\n');
+  assert.equal(scanTrackedLiterals(dir).status, 1);
+}));
+
+test('uppercase scan fails closed without tracked source files', () => fixture(dir => {
+  assert.equal(scanTrackedLiterals(dir).status, 2);
+}));
