@@ -1081,6 +1081,60 @@ table.beyu-table tr:last-child td { border-bottom: none; }
   width: 85%;
 }
 
+.beyu-signin-lock {
+  color: var(--home-gold-bright);
+  flex-shrink: 0;
+}
+.beyu-cap-subtitle {
+  margin: 6px 0 0;
+  color: var(--home-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.beyu-quick-item-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.beyu-quick-icon {
+  color: var(--home-gold-bright);
+  flex-shrink: 0;
+}
+.beyu-news-heading-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.beyu-news-megaphone {
+  color: var(--home-gold-ink);
+  flex-shrink: 0;
+}
+.beyu-journey-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.beyu-journey-badge {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--home-gold);
+  background: rgba(212, 160, 23, 0.12);
+  color: var(--home-gold-bright);
+}
+.beyu-home-shell a:focus-visible,
+.beyu-home-shell button:focus-visible,
+.beyu-home-shell summary:focus-visible,
+.beyu-public-page a:focus-visible,
+.beyu-public-page button:focus-visible {
+  outline: 2px solid var(--home-gold-bright);
+  outline-offset: 2px;
+}
+
 .beyu-journey-card {
   border-radius: 16px;
   background: linear-gradient(150deg, #0b2254 0%, #071535 100%);

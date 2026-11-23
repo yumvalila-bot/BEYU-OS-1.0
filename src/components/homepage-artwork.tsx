@@ -437,6 +437,128 @@ export function VisionSavannaArtwork() {
   );
 }
 
+export function SignInLockIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="beyu-signin-lock"
+      aria-hidden="true"
+    >
+      <rect x="4" y="9" width="12" height="8.5" rx="2" />
+      <path d="M6.8 9V6.6a3.2 3.2 0 0 1 6.4 0V9" />
+    </svg>
+  );
+}
+
+export function QuickAccessIcon({
+  kind,
+}: {
+  kind: "services" | "announcements" | "calendar" | "directory" | "partner";
+}) {
+  const common = {
+    viewBox: "0 0 24 24",
+    width: 18,
+    height: 18,
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.85,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "beyu-quick-icon",
+    "aria-hidden": true as const,
+  };
+
+  switch (kind) {
+    case "services":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="7" width="17" height="12.5" rx="2.2" />
+          <path d="M8.5 7V5.4A1.9 1.9 0 0 1 10.4 3.5h3.2a1.9 1.9 0 0 1 1.9 1.9V7" />
+          <path d="M3.5 12h17" />
+        </svg>
+      );
+    case "announcements":
+      return (
+        <svg {...common}>
+          <path d="M4 13.5v-3a1.5 1.5 0 0 1 1.5-1.5H9l8-4v14l-8-4H5.5A1.5 1.5 0 0 1 4 13.5Z" />
+          <path d="M9 15l1.3 4.2" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+          <path d="M8 3.5v3.5M16 3.5v3.5M3.5 10h17M8.5 14h2M13.5 14h2" />
+        </svg>
+      );
+    case "directory":
+      return (
+        <svg {...common}>
+          <path d="M4.5 20.5V5.5L12 3l7.5 2.5v15" />
+          <path d="M3 20.5h18M9 9h2M13 9h2M9 13h2M13 13h2M11 20.5V17h2v3.5" />
+        </svg>
+      );
+    case "partner":
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8.5" r="2.8" />
+          <path d="M4 19c0-2.6 2.2-4.6 5-4.6s5 2 5 4.6" />
+          <circle cx="16.8" cy="9.8" r="2.1" />
+          <path d="M16.2 14.8c2 .3 3.8 1.8 3.8 4.2" />
+        </svg>
+      );
+  }
+}
+
+export function NewsMegaphoneIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="beyu-news-megaphone"
+      aria-hidden="true"
+    >
+      <path d="M3.5 13.5v-3A1.5 1.5 0 0 1 5 9h3.8L17.5 4.5v15L8.8 15H5a1.5 1.5 0 0 1-1.5-1.5Z" />
+      <path d="M8.5 15l1.5 4.5M20 9.5a4 4 0 0 1 0 5" />
+    </svg>
+  );
+}
+
+export function JourneyHandshakeBadge() {
+  return (
+    <span className="beyu-journey-badge" aria-hidden="true">
+      <svg
+        viewBox="0 0 40 40"
+        width="36"
+        height="36"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M9 19l5.5-5.5a3.5 3.5 0 0 1 5 0l1.5 1.5" />
+        <path d="M31 19l-5.5-5.5a3.5 3.5 0 0 0-5 0l-3.2 3.2a2.2 2.2 0 0 0 3.1 3.1l2.2-2.2" />
+        <path d="M13 24l4.5 4.2a2.4 2.4 0 0 0 3.4-.1l6.6-6.6" />
+        <path d="M9 19l4 5M31 19l-3.5 3.5" />
+      </svg>
+    </span>
+  );
+}
+
 export function FooterWaveAccent() {
   return (
     <svg viewBox="0 0 1440 110" preserveAspectRatio="none" className="beyu-footer-wave" aria-hidden="true">

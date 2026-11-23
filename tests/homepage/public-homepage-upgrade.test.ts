@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 const page = readFileSync(new URL("../../src/app/page.tsx", import.meta.url), "utf8");
 const artwork = readFileSync(new URL("../../src/components/homepage-artwork.tsx", import.meta.url), "utf8");
 const newsFeed = readFileSync(new URL("../../src/components/public-news-events.tsx", import.meta.url), "utf8");
+const governedSignIn = readFileSync(new URL("../../src/app/governed-sign-in.tsx", import.meta.url), "utf8");
+const loginSurface = readFileSync(new URL("../../src/app/login-surface.tsx", import.meta.url), "utf8");
 
 describe("BEYU public homepage reference upgrade and constitutional fidelity", () => {
   it("corrects mockup typos and preserves constitutional Sector OS naming", () => {
@@ -45,5 +47,19 @@ describe("BEYU public homepage reference upgrade and constitutional fidelity", (
     expect(page).toContain('href="/privacy"');
     expect(page).toContain('href="/terms"');
     expect(page).toContain('href="/security"');
+  });
+
+  it("includes reference homepage icons and connects canonical sign-in cleanly to public institutional pages", () => {
+    expect(page).toContain("<SignInLockIcon");
+    expect(page).toContain("<QuickAccessIcon");
+    expect(page).toContain("<NewsMegaphoneIcon");
+    expect(page).toContain("<JourneyHandshakeBadge");
+    expect(page).toContain("Powering the BEYU ecosystem with integrated capabilities.");
+
+    expect(governedSignIn).toContain("lg:sticky lg:top-8");
+    expect(governedSignIn).toContain("Return to BEYU Homepage");
+    expect(loginSurface).toContain('href="/privacy"');
+    expect(loginSurface).toContain('href="/terms"');
+    expect(loginSurface).toContain('href="/security"');
   });
 });

@@ -42,7 +42,11 @@ import {
   CapabilityIcon,
   FooterWaveAccent,
   HeroEcosystemGlobe,
+  JourneyHandshakeBadge,
+  NewsMegaphoneIcon,
+  QuickAccessIcon,
   SectorBannerArtwork,
+  SignInLockIcon,
   VisionSavannaArtwork,
 } from "@/components/homepage-artwork";
 import { PublicNewsEvents } from "@/components/public-news-events";
@@ -230,7 +234,9 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
 
           <div className="beyu-top-actions">
             <a href="/sign-in" className="beyu-signin-btn">
-              Sign In <span aria-hidden="true">›</span>
+              <SignInLockIcon />
+              <span>Sign In</span>
+              <span aria-hidden="true">›</span>
             </a>
             <span className="beyu-theme-mark" aria-hidden="true">☾</span>
           </div>
@@ -317,6 +323,7 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
           <div className="beyu-home-inner beyu-capability-shell">
             <div className="beyu-capabilities-panel" id="technology">
               <h2 className="beyu-section-title beyu-section-title-sm">Shared Enterprise Capabilities</h2>
+              <p className="beyu-cap-subtitle">Powering the BEYU ecosystem with integrated capabilities.</p>
               <div className="beyu-bar" />
               <div className="beyu-capability-grid">
                 {SHARED_CAPABILITIES.map(({ label, icon }) =>
@@ -384,8 +391,8 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
                 <p className="beyu-vision-eyebrow">OUR INSTITUTIONAL VISION.</p>
                 <h2>Rooted in Africa. Inspired Globally.</h2>
                 <p className="beyu-vision-text">
-                  BEYU is committed to building resilient institutions and sustainable impact across healthcare,
-                  finance, agriculture, infrastructure, and communities.
+                  A prosperous, inclusive and digitally empowered Africa through trusted institutions and intelligent
+                  ecosystems across healthcare, finance, agriculture, and infrastructure.
                 </p>
                 <a href="#gateway" className="beyu-primary-btn">
                   Our Vision <span aria-hidden="true">›</span>
@@ -398,31 +405,46 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
               <ul>
                 <li>
                   <a href="#gateway">
-                    <span>BEYU Digital Services</span>
+                    <span className="beyu-quick-item-left">
+                      <QuickAccessIcon kind="services" />
+                      <span>BEYU Digital Services</span>
+                    </span>
                     <span aria-hidden="true">›</span>
                   </a>
                 </li>
                 <li>
                   <Link href="/news?kind=NEWS">
-                    <span>News &amp; Announcements</span>
+                    <span className="beyu-quick-item-left">
+                      <QuickAccessIcon kind="announcements" />
+                      <span>News &amp; Announcements</span>
+                    </span>
                     <span aria-hidden="true">›</span>
                   </Link>
                 </li>
                 <li>
                   <Link href="/news?kind=EVENT">
-                    <span>Events Calendar</span>
+                    <span className="beyu-quick-item-left">
+                      <QuickAccessIcon kind="calendar" />
+                      <span>Events Calendar</span>
+                    </span>
                     <span aria-hidden="true">›</span>
                   </Link>
                 </li>
                 <li>
                   <a href="#sector-os">
-                    <span>Institutional Directory</span>
+                    <span className="beyu-quick-item-left">
+                      <QuickAccessIcon kind="directory" />
+                      <span>Institutional Directory</span>
+                    </span>
                     <span aria-hidden="true">›</span>
                   </a>
                 </li>
                 <li>
                   <a href="#contact">
-                    <span>Partner with BEYU</span>
+                    <span className="beyu-quick-item-left">
+                      <QuickAccessIcon kind="partner" />
+                      <span>Partner with BEYU</span>
+                    </span>
                     <span aria-hidden="true">›</span>
                   </a>
                 </li>
@@ -437,7 +459,10 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
             <div className="beyu-news-column">
               <div className="beyu-news-header">
                 <div>
-                  <h2 className="beyu-section-title beyu-section-title-sm">Latest News &amp; Announcements</h2>
+                  <div className="beyu-news-heading-row">
+                    <NewsMegaphoneIcon />
+                    <h2 className="beyu-section-title beyu-section-title-sm">Latest News &amp; Announcements</h2>
+                  </div>
                   <div className="beyu-bar" />
                 </div>
                 <Link href="/news" className="beyu-link-arrow">
@@ -448,11 +473,16 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
             </div>
 
             <aside className="beyu-journey-card" aria-labelledby="join-journey-heading">
-              <p className="beyu-journey-eyebrow">INSTITUTIONAL ENGAGEMENT</p>
-              <h2 id="join-journey-heading">Join Our Journey</h2>
+              <div className="beyu-journey-head">
+                <JourneyHandshakeBadge />
+                <div>
+                  <p className="beyu-journey-eyebrow">INSTITUTIONAL ENGAGEMENT</p>
+                  <h2 id="join-journey-heading">Join Our Journey</h2>
+                </div>
+              </div>
               <p>
-                Connect with BEYU and explore partnerships, institutional collaboration, and governed digital services
-                across our growing ecosystem.
+                Partner with BEYU for a healthier, more prosperous and trusted future through institutional
+                collaboration and governed digital services across our growing ecosystem.
               </p>
               <div className="beyu-journey-actions">
                 <a href="#contact" className="beyu-primary-btn">

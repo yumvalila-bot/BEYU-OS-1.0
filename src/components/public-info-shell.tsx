@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { BeyuOsLogo } from "@/components/beyu-os-logo";
+import { SignInLockIcon } from "@/components/homepage-artwork";
 
 type Props = {
   eyebrow: string;
@@ -67,7 +68,9 @@ export function PublicInfoShell({ eyebrow, title, subtitle, children }: Props) {
           </nav>
 
           <Link href="/sign-in" className="beyu-nav-signin">
-            Sign In <span aria-hidden="true">›</span>
+            <SignInLockIcon />
+            <span>Sign In</span>
+            <span aria-hidden="true">›</span>
           </Link>
         </div>
       </header>
