@@ -16,7 +16,7 @@ const CreateSchema = z.object({
   }).strict(),
   steps: z.array(z.object({
     toolName: z.string().min(3).max(80),
-    input: z.record(z.unknown()).default({}),
+    input: z.record(z.string(), z.unknown()).default({}),
     requiresApproval: z.boolean().default(false),
     approverRole: z.string().nullable().optional(),
   }).strict()).min(1).max(12),

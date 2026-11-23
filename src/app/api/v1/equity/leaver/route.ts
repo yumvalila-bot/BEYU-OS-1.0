@@ -28,7 +28,7 @@ const DECIMAL = /^\d+(\.\d{1,6})?$/;
 const InitiateSchema = z.object({
   positionId: z.string().trim().min(1).max(100),
   conditionCode: z.string().trim().min(1).max(80),
-  conditionEvidence: z.record(z.unknown()).optional(),
+  conditionEvidence: z.record(z.string(), z.unknown()).optional(),
   documentRefs: z.array(z.string().trim().max(200)).max(20).optional(),
   classification: z.enum(CLASSIFICATIONS).optional(),
 });

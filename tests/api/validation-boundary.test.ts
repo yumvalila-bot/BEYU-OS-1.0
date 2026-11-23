@@ -16,7 +16,8 @@ describe("application validation boundary", () => {
         {
           code: "too_small",
           path: ["question"],
-          message: "String must contain at least 3 character(s)",
+          // Zod's version-specific issue wording is forwarded unchanged.
+          message: error.error.issues[0].message,
         },
       ],
     });
