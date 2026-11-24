@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 
 export function HeroEcosystemGlobe() {
   return (
-    <div className="beyu-hero-visual" aria-label="BEYU Ecosystem connecting HEALTH_OS, FINANCE_OS, AGRICULTURE_OS, and UJENZI_OS">
+    <div className="beyu-hero-visual" role="img" aria-label="BEYU Ecosystem connecting HEALTH_OS, FINANCE_OS, AGRICULTURE_OS, and UJENZI_OS">
       <svg viewBox="0 0 560 440" role="img" aria-hidden="true" className="beyu-hero-globe-svg">
         <defs>
           <radialGradient id="beyuGlobeGlow" cx="50%" cy="50%" r="50%">

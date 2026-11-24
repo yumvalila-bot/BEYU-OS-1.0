@@ -1,3 +1,4 @@
+import { foundationTargetScopeDenial } from "@/lib/foundation/target-scope";
 import { requireAccess } from "@/lib/guard";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
 import { Badge, Denied, EmptyState, Metric, Panel, money, stateTone } from "@/components/brand";
@@ -8,6 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function FoundationDonorsPage() {
   const access = await requireAccess("foundation:donor.read", { classification: "RESTRICTED" });
   if (!access.allowed) return <Denied reason={access.reason} capability="foundation:donor.read" />;
+  // Layouts and pages can render concurrently; do not rely on the layout gate.
+  if (await foundationTargetScopeDenial(access.principal)) {
+    return <Denied reason="Foundation organization is outside the current tenant, classification, or entity scope." capability="foundation:registry.read" />;
+  }
   return withTenantDatabaseContext(access.principal, async () => {
     const [donors, donations] = await Promise.all([
       listDonors(access.principal),

@@ -11,6 +11,7 @@ import { listFunds } from "@/lib/foundation/service";
 import { listDonations, listGrants } from "@/lib/foundation/service";
 import { listPrograms } from "@/lib/foundation/service-operations";
 import { deadlineHealth } from "@/lib/foundation/deadlines";
+import { foundationTargetScopeDenial } from "@/lib/foundation/target-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,11 @@ const SECTIONS: FoundationSection[] = [
 
 export default async function FoundationPage() {
   const principal = await requirePrincipal();
+  // Next may render page and layout in parallel. Enforce the same target scope
+  // here before starting any dashboard reads, independently of the layout.
+  if (await foundationTargetScopeDenial(principal)) {
+    return <Denied reason="Foundation organization is outside the current tenant, classification, or entity scope." capability="foundation:registry.read" />;
+  }
   const may = (permission: PermissionCode, classification: Classification) =>
     can(principal, permission, { classification }).allowed;
   const hasWorkspace = SECTIONS.some(
@@ -72,17 +78,16 @@ export default async function FoundationPage() {
 
     // Dashboard datasets remain independently authorized. Possession of the
     // registry permission cannot reveal adjacent Foundation capabilities.
-    const [foundationRows, dashboard, missingEvidence, fundRows, donationRows, grantRows, programRows, deadlineRows] =
-      await Promise.all([
-        capabilities.registry ? listFoundations(principal) : Promise.resolve([]),
-        capabilities.compliance ? complianceDashboard(principal, today) : Promise.resolve(null),
-        capabilities.compliance ? deadlinesMissingEvidence(principal) : Promise.resolve([]),
-        capabilities.funds ? listFunds(principal) : Promise.resolve([]),
-        capabilities.donations ? listDonations(principal) : Promise.resolve([]),
-        capabilities.grants ? listGrants(principal) : Promise.resolve([]),
-        capabilities.programs ? listPrograms(principal) : Promise.resolve([]),
-        capabilities.compliance ? listDeadlines(principal) : Promise.resolve([]),
-      ]);
+    // One transaction owns one PostgreSQL client; do not issue concurrent
+    // queries on it. Each read remains independently permission-gated.
+    const foundationRows = capabilities.registry ? await listFoundations(principal) : [];
+    const dashboard = capabilities.compliance ? await complianceDashboard(principal, today) : null;
+    const missingEvidence = capabilities.compliance ? await deadlinesMissingEvidence(principal) : [];
+    const fundRows = capabilities.funds ? await listFunds(principal) : [];
+    const donationRows = capabilities.donations ? await listDonations(principal) : [];
+    const grantRows = capabilities.grants ? await listGrants(principal) : [];
+    const programRows = capabilities.programs ? await listPrograms(principal) : [];
+    const deadlineRows = capabilities.compliance ? await listDeadlines(principal) : [];
 
     const visibleSections = SECTIONS.filter(
       (section) =>

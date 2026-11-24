@@ -12,6 +12,7 @@ import { headers } from "next/headers";
 import type { CanonicalHostedDestination } from "./operating-system-catalog";
 import type { OperatingSystemDestination } from "./operating-system-catalog";
 import {
+  canonicalApexHref,
   canonicalDestinationHref,
   canonicalEntryHref,
   canonicalHostOptionsFromEnvironment,
@@ -103,4 +104,18 @@ export async function entryHrefForRequest(): Promise<(destination: CanonicalHost
   const h = await headers();
   const port = /:(\d{1,5})$/.exec(h.get("host") ?? "")?.[1] ?? "";
   return (destination) => canonicalEntryHref(destination, options, { protocol: "http:", port });
+}
+
+/**
+ * The URL of the BEYU CENTRAL HOMEPAGE (the configured apex) for the current
+ * request — the institutional front door a visitor on a destination hostname can
+ * return to. Composed by the ONE contract (`canonicalApexHref`), never spelled
+ * into a page; the relative root when no apex is configured.
+ */
+export async function apexHrefForRequest(): Promise<string> {
+  const options = canonicalHostOptionsFromEnvironment();
+  if (!options.allowLocalhost) return canonicalApexHref(options);
+  const h = await headers();
+  const port = /:(\d{1,5})$/.exec(h.get("host") ?? "")?.[1] ?? "";
+  return canonicalApexHref(options, { protocol: "http:", port });
 }

@@ -176,6 +176,18 @@ describe("page-level SSR gating parity", () => {
     expect(denied.html).toMatch(/foundation:registry\.read/);
   });
 
+  it.skipIf(!available)("out-of-scope sector operator receives a denial rather than a dashboard rendering error", async () => {
+    // This identity has a Foundation capability in the wrong tenant. Layouts and
+    // pages can render concurrently, so the dashboard must gate itself as well.
+    for (const path of ["/os/foundation", "/os/foundation/programs", "/os/foundation/operations"]) {
+      const denied = await apiGet(path, sector);
+      expect(denied.status, path).toBe(200);
+      expect(isDeniedPage(denied.html), path).toBe(true);
+      expect(denied.html, path).not.toContain("Foundation Executive Dashboard");
+      expect(denied.html, path).not.toContain("Internal Server Error");
+    }
+  });
+
   it.skipIf(!available)("unauthenticated page access redirects to sign-in", async () => {
     const res = await apiGet("/os/foundation", null);
     expect([307, 200]).toContain(res.status);

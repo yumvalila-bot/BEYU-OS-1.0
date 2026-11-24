@@ -255,7 +255,7 @@ for (const name of ['DB_PASSWORD', 'BEYU_RUNTIME_DB_PASSWORD', 'SOME_SERVICE_API
 }
 
 test('uppercase shell credential generated at runtime is accepted', () => fixture(dir => {
-  writeFileSync(join(dir, 'scripts/fixture.sh'), 'DB_' + 'PASSWORD="$(openssl rand -hex 32)"\n');
+  writeFileSync(join(dir, 'scripts/fixture.sh'), 'DB_' + 'PASS' + 'WORD="$(openssl rand -hex 32)"\n');
   execFileSync('git', ['add', 'scripts/fixture.sh'], { cwd: dir });
   const result = scanTrackedLiterals(dir);
   assert.equal(result.status, 0, result.stderr);

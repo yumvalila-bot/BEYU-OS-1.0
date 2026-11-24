@@ -1,3 +1,4 @@
+import { foundationTargetScopeDenial } from "@/lib/foundation/target-scope";
 import { requirePrincipal } from "@/lib/guard";
 import { can } from "@/lib/authz";
 import { withTenantDatabaseContext } from "@/lib/tenant-scope";
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 
 export default async function FoundationProgramsPage() {
   const principal = await requirePrincipal();
+  if (await foundationTargetScopeDenial(principal)) {
+    return <Denied reason="Foundation organization is outside the current tenant, classification, or entity scope." capability="foundation:registry.read" />;
+  }
   const mayReadPrograms = can(principal, "foundation:program.read", { classification: "CONFIDENTIAL" }).allowed;
   const mayReadImpact = can(principal, "foundation:impact.read", { classification: "CONFIDENTIAL" }).allowed;
   if (!mayReadPrograms && !mayReadImpact) {

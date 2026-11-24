@@ -15,6 +15,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGliteConnection } from "../modules/identity/db-connection";
 import {
   assertNotForeignLedger,
+  ensureLedger,
   ForeignLedgerError,
   inspectLedger,
   readMigrationState,
@@ -98,6 +99,32 @@ describe("migration ledger collision guard (T-2)", () => {
         ledger: "FOREIGN",
         reasons: ["LEDGER_FOREIGN"],
       });
+    } finally {
+      await conn.close();
+    }
+  });
+
+  it("upgrades the current-schema ledger even when a foreign schema has governance columns", async () => {
+    const conn = new PGliteConnection(new PGlite());
+    try {
+      await conn.exec(ROOT_LEDGER_DDL);
+      const rootBefore = await columnsOf(conn);
+      await conn.exec(`CREATE SCHEMA health_ledger; SET search_path TO health_ledger, public;
+        CREATE TABLE health_ledger.beyu_migrations (id text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());`);
+      await assertNotForeignLedger(conn);
+      await ensureLedger(conn);
+      expect(await columnsOf(conn)).toEqual(
+        expect.arrayContaining([
+          "id",
+          "checksum",
+          "owner",
+          "sector",
+          "mode",
+          "provenance",
+        ]),
+      );
+      await conn.exec(`SET search_path TO public`);
+      expect(await columnsOf(conn)).toEqual(rootBefore);
     } finally {
       await conn.close();
     }

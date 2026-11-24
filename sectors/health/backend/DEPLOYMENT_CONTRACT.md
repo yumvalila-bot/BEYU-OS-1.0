@@ -6,6 +6,13 @@
 > Supersedes `sectors/health/docs/DEPLOYMENT_GUIDE.md`, a legacy generic guide
 > (TypeORM/Kubernetes) that does not describe this codebase.
 
+> **Current code supersedes older proxy instructions in this document.** The root
+> `next.config.ts` has no Health backend rewrite, and setting `HEALTH_API_URL`
+> alone cannot enable Health sign-in. Production standalone authentication is
+> fenced. The Health-to-BEYU service identity protocol described below is not
+> a BEYU user-session exchange. See
+> `docs/security/HEALTH_SESSION_FEDERATION_DECISION.md`.
+
 ## 1. Canonical components (single instances — do not duplicate)
 
 | Component | Canonical location |
@@ -17,7 +24,7 @@
 | Identity authority | BEYU OS, `POST /api/v1/internal/identity/{register,lookup}`. |
 | Migrations | `database/migrations/001–032`, applied only by `src/database/migration-runner.ts`. |
 
-Request path once deployed:
+Historical proposed request path (not implemented by the current root config):
 
 ```
 Browser → BEYU /os/health (root gates) → embedded SPA
@@ -77,7 +84,7 @@ On the BEYU root (Vercel) deployment:
 
 | Variable | Rule |
 |---|---|
-| `HEALTH_API_URL` | `https://<health-host>`, no trailing slash. Read at **build** time by `next.config.ts`, so a redeploy is required after setting it. Without it, `/health-os/auth/*` returns 404 and Health sign-in fails closed. This is the current production state. |
+| `HEALTH_API_URL` | Not consumed by the current root `next.config.ts`; setting it does not create a proxy. Any future routing change requires an approved bridge and independent security review. Production configuration has not been verified. |
 | `BEYU_INTERNAL_SERVICE_TOKEN` | ≥32 chars. The same value as the Health `BEYU_IDENTITY_TOKEN`. |
 
 Secrets inventory (Health side, 9–10 values): `DATABASE_URL`, `JWT_SECRET`,
@@ -137,8 +144,8 @@ contradict each other. Resolving that is a governance decision, not a code fix.
   intentional: it fails closed until a human decides.
 - Schema: `migration-runner.js down [N]` via the migration channel, by human
   authorization only, after a verified backup.
-- Proxy: unset `HEALTH_API_URL` and redeploy BEYU. `/health-os/auth/*` then
-  returns 404 and sign-in fails closed.
+- Current root has no Health backend proxy to roll back. Any future approved
+  integration must define and exercise a separately reviewed rollback.
 
 ## 8. Human actions required, in order
 
@@ -152,6 +159,7 @@ contradict each other. Resolving that is a governance decision, not a code fix.
    `BEYU_INTERNAL_SERVICE_TOKEN` and Health `BEYU_IDENTITY_TOKEN` to the same value.
 6. Run `migration-runner.js status`, then `up`, through the governed release process.
 7. Deploy the image, then run `scripts/verify-deployment.mjs --backend …`.
-8. Set `HEALTH_API_URL` on BEYU, redeploy, and re-run the probe with `--beyu …`.
+8. Do not configure or enable a proxy until the bridge, routing, security review
+   and production release are separately approved; current code ignores `HEALTH_API_URL`.
 9. Identity registration, linking, tenant binding and federation activation
    are **Phase 9**. Each needs explicit per-item human authorization.

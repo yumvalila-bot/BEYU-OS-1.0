@@ -12,8 +12,11 @@
  *   1. `/sign-in` exists on all eight hosts and renders THAT destination's
  *      sign-in — never the generic BEYU control-plane surface, never a redirect
  *      through the apex.
- *   2. `/` on a destination host renders that destination's OWN first-class
- *      frontend, not the generic BEYU launcher/landing.
+ *   2. `/` on a destination host renders that destination's OWN PUBLIC
+ *      HOMEPAGE for an anonymous visitor — a marketing surface, not the
+ *      generic BEYU launcher/landing and NOT the credential form. The sign-in
+ *      is at `/sign-in` on every host. A destination-aware sign-in page is not
+ *      a public homepage, and the two are asserted separately below.
  *   3. A signed-in identity WITHOUT the destination's access receives the
  *      governed DENIAL on that host — it is never silently redirected to
  *      `/launcher` or to a different OS, and never served the workspace.
@@ -250,32 +253,48 @@ describe("1/2. every canonical host serves its OWN first-class frontend at / and
   );
 
   it.skipIf(!enabled || !routingConfigured)(
-    "unauthenticated: `/` renders the SAME destination frontend — one entry surface, two canonical URLs",
+    "unauthenticated: `/sign-in` renders THAT destination's governed sign-in on every canonical host",
+    async () => {
+      for (const destination of DESTINATIONS) {
+        const signIn = await getWithHost("/sign-in", destination.host);
+        expect(signIn.status, destination.host).toBe(200);
+        // The ONE shared form, presented for THIS destination.
+        expect(text(signIn.body), destination.host).toContain(destination.copy);
+        expect(signIn.body, destination.host).toContain('id="beyu-destination-headline"');
+        expect(signIn.body, destination.host).toContain('id="beyu-signin-email"');
+        expect(signIn.body, destination.host).toContain(`aria-label="Sign in to ${destination.name}"`);
+        expect(text(signIn.body), destination.host).toContain(`Enter ${destination.name}`);
+        expect(text(signIn.body), destination.host).not.toContain("Sign in to the control plane");
+        expect(text(signIn.body), destination.host).not.toContain(CONTROL_PLANE_ONLY);
+      }
+    },
+    180_000,
+  );
+
+  it.skipIf(!enabled || !routingConfigured)(
+    "unauthenticated: `/` renders that destination's PUBLIC HOMEPAGE — marketing, never the credential form",
     async () => {
       for (const destination of DESTINATIONS) {
         const root = await getWithHost("/", destination.host);
-        const signIn = await getWithHost("/sign-in", destination.host);
         expect(root.status, destination.host).toBe(200);
-        expect(text(root.body), destination.host).toContain(destination.copy);
+        // The destination's public institutional identity, from the ONE catalogue
+        // entry the host resolved.
         expect(text(root.body), destination.host).toContain(destination.headline);
+        expect(text(root.body), destination.host).toContain(destination.registry);
+        expect(text(root.body), destination.host).toContain(destination.name);
         expect(text(root.body), destination.host).not.toContain(CONTROL_PLANE_ONLY);
-        // `/` and `/sign-in` are the SAME page component, so the destination
-        // surface they render is identical — asserted on the contract markers,
-        // not on React's streaming envelope (see `surfaceOf`).
-        const markers = surfaceOf(root.body, destination);
-        expect(markers, destination.host).toEqual(surfaceOf(signIn.body, destination));
-        expect(markers, destination.host).toEqual(
-          expect.arrayContaining([
-            destination.copy,
-            destination.headline,
-            destination.registry,
-            `aria-label="Sign in to ${destination.name}"`,
-            `Enter ${destination.name}`,
-            "beyu-signin-email",
-          ]),
-        );
-        expect(markers, destination.host).not.toContain("Sign in to the control plane");
-        expect(markers, destination.host).not.toContain(CONTROL_PLANE_ONLY);
+        // A PUBLIC HOMEPAGE, not a sign-in: no credential input, no privileged
+        // identity, no destination data.
+        expect(root.body, destination.host).not.toContain('id="beyu-signin-email"');
+        expect(root.body, destination.host).not.toContain('id="beyu-signin-password"');
+        expect(root.body, destination.host).not.toContain('aria-label="Sign in to ');
+        expect(root.body, destination.host).not.toContain("You are signed in, but you are not authorized");
+        // It is a real navigation surface that offers the governed sign-in.
+        expect(root.body, destination.host).toContain('class="beyu-mobile-nav"');
+        expect(root.body, destination.host).toContain('href="/sign-in"');
+        expect(root.body, destination.host).toContain("/brand/beyu-os-logo.png");
+        // State the honest limit: the homepage itself grants nothing.
+        expect(text(root.body), destination.host).toContain("decided server-side");
       }
     },
     180_000,
@@ -521,8 +540,15 @@ describe("6/7. deep links keep their own gate; the URL is never an authorization
         // The sign-in it lands on is THIS destination's, on THIS host.
         const followed = await getWithHost(res.location ?? "/", destination.host);
         expect(followed.status, destination.host).toBe(200);
-        if ((res.location ?? "") === "/" || (res.location ?? "") === "/sign-in") {
+        // A deep link lands on the destination's SIGN-IN (`/sign-in`) or, where
+        // the destination route sends an unauthenticated visitor to the canonical
+        // root, on that destination's PUBLIC HOMEPAGE — both on THIS host, and
+        // both carry the destination's own identity.
+        if ((res.location ?? "") === "/sign-in") {
           expect(text(followed.body), destination.host).toContain(destination.copy);
+        } else if ((res.location ?? "") === "/") {
+          expect(text(followed.body), destination.host).toContain(destination.headline);
+          expect(followed.body, destination.host).not.toContain('id="beyu-signin-password"');
         }
       }
     },
@@ -684,8 +710,9 @@ describe("9. the documented inactive state — no canonical domain configured", 
     "no host resolves to a destination frontend: every host serves the control-plane surface",
     async () => {
       // With no canonical domain configured every hostname resolves to NEUTRAL, so
-      // `/` is the governed control-plane sign-in exactly like `/sign-in`: the
-      // public homepage belongs to the CONFIGURED control-plane host only.
+      // `/` is the governed control-plane sign-in exactly like `/sign-in`: BOTH
+      // public homepages (the central one and each destination's) belong to a
+      // CONFIGURED canonical host only. A NEUTRAL host can never obtain one.
       for (const host of ["beyu.co.tz", ...DESTINATIONS.map((destination) => destination.host)]) {
         for (const path of ["/", "/sign-in"]) {
           const res = await getWithHost(path, host);

@@ -8,19 +8,10 @@
  *   `/sign-in`   → the governed sign-in on EVERY hostname. The host selects the
  *                  CONTEXT COPY (control plane, a Sector OS or a surface), never
  *                  a second authentication implementation.
- *   `/`          → the PUBLIC HOMEPAGE on the control-plane host only (the apex
- *                  and `www`). On a Sector OS or surface host, and on any NEUTRAL
- *                  host (no Host, malformed, look-alike, unknown label, preview
- *                  host, governed tenant hostname), `/` is the governed sign-in
- *                  exactly like `/sign-in`.
- *
- * WHY THE HOMEPAGE IS CONFINED TO THE CONTROL-PLANE HOST
- *   The apex is BEYU's public front door, so it carries the marketing surface
- *   and links to `/sign-in`. Every other hostname is an entry point into a
- *   governed destination and serves the governed sign-in. A hostile or unknown
- *   Host resolves to NEUTRAL, never to CONTROL_PLANE, so it cannot obtain the
- *   homepage by lying about the Host: it receives the control-plane sign-in and
- *   can never select a destination frontend.
+ *   `/`          → the central homepage on the control-plane host and the
+ *                  destination homepage on each canonical destination host.
+ *                  Neutral and tenant hosts retain the governed sign-in.
+ * Public presentation never grants access; authorization remains server-side.
  *
  * SECURITY — unchanged by the presentation choice above
  *   • The `variant` is a compile-time route constant, never a query string or
@@ -32,6 +23,7 @@
  *   • `identities` is empty in production, so no privileged username is
  *     serialised into any unauthenticated surface's HTML.
  */
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { resolvePrincipal } from "@/lib/session";
@@ -53,8 +45,9 @@ import { PublicNewsEvents } from "@/components/public-news-events";
 import { OFFICIAL_BEYU_CONTACT } from "@/components/public-contact";
 import type { BootstrapIdentity } from "./sign-in-form";
 import { DestinationDenied, GovernedSignIn } from "./governed-sign-in";
+import { DestinationHomepage } from "./destination-homepage";
 import { authorizedGovernedDestinations } from "@/lib/operating-systems";
-import { canonicalHostForRequest, destinationHrefForRequest, entryHrefForRequest } from "@/lib/canonical-host";
+import { apexHrefForRequest, canonicalHostForRequest, destinationHrefForRequest, entryHrefForRequest } from "@/lib/canonical-host";
 import { CONTROL_PLANE_DESTINATION, destinationForResolution } from "@/lib/canonical-hosts";
 import {
   CANONICAL_SURFACES,
@@ -65,6 +58,20 @@ import { sessionCookiePresent } from "@/lib/session-state";
 import { can } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
+
+/** Host-selected public metadata is presentation only, never an access grant. */
+export async function generateMetadata(): Promise<Metadata> {
+  const host = await canonicalHostForRequest();
+  if (host.kind !== "SECTOR_OS" && host.kind !== "SURFACE") return {};
+  const context = destinationForResolution(host)?.context;
+  if (!context) return {};
+  return {
+    title: context.name,
+    description: context.description,
+    openGraph: { title: context.name, description: context.description },
+  };
+}
+
 
 function isProductionDeployment(): boolean {
   return process.env["NODE_ENV"] === "production";
@@ -603,8 +610,7 @@ export function MarketingPage({ entryHref }: { entryHref: (destination: (typeof 
 /**
  * The ONE resolver shared by both canonical URLs.
  *
- * `variant` selects presentation only, and only on the control-plane host: the
- * homepage variant renders the public homepage there for an anonymous visitor.
+ * `variant` selects public presentation only for anonymous canonical hosts.
  * Everything else — principal, host, destination and denial resolution, and the
  * governed sign-in itself — is identical for `/` and `/sign-in`.
  */
@@ -661,10 +667,14 @@ export async function CanonicalEntryPage({
     }
   }
 
-  // The public homepage: `/`, on the control-plane host (apex or `www`), for an
-  // anonymous visitor. A NEUTRAL host never resolves to CONTROL_PLANE.
-  if (!principal && variant === "homepage" && canonicalHost.kind === "CONTROL_PLANE") {
-    return <MarketingPage entryHref={await entryHrefForRequest()} />;
+  // Public presentation is limited to anonymous users on canonical hosts.
+  if (!principal && variant === "homepage") {
+    if (canonicalHost.kind === "CONTROL_PLANE") {
+      return <MarketingPage entryHref={await entryHrefForRequest()} />;
+    }
+    if (selectedDestination) {
+      return <DestinationHomepage destination={selectedDestination} entryHref={await entryHrefForRequest()} apexHref={await apexHrefForRequest()} />;
+    }
   }
 
   // Every other case: the ONE governed sign-in, carrying the selected context. The
@@ -681,8 +691,7 @@ export async function CanonicalEntryPage({
 }
 
 /**
- * `/` — the public homepage on the control-plane host; the governed sign-in on
- * every other host (see the module header).
+ * `/` — the public homepage on canonical hosts; governed sign-in elsewhere.
  */
 export default function HomeEntry() {
   return CanonicalEntryPage({ variant: "homepage" });
