@@ -66,8 +66,11 @@ describe("repository-discovered capability completeness", () => {
     }
     expect(foundation).toContain("visibleSections");
     expect(foundation).toContain("<Icon name={section.icon}");
-    expect(foundation).toContain("capabilities.funds ? listFunds");
-    expect(foundation).toContain("capabilities.donations ? listDonations");
+    // The landing page gates every dashboard dataset read behind its own
+    // capability, whether the read is issued directly or awaited sequentially
+    // (one transaction owns one PostgreSQL client — see the page comment).
+    expect(foundation).toMatch(/capabilities\.funds \? (?:await )?listFunds/);
+    expect(foundation).toMatch(/capabilities\.donations \? (?:await )?listDonations/);
 
     const operations = source("src", "app", "os", "foundation", "operations", "page.tsx");
     for (const permission of [
