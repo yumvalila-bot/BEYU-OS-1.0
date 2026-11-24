@@ -637,6 +637,7 @@ jobs:
           # Must match the server's BEYU_CANONICAL_DOMAIN above; gates the
           # host-specific cases in tests/sector-domains/canonical-host-http.test.ts.
           BEYU_TEST_CANONICAL_DOMAIN: beyu.co.tz
+          BEYU_TEST_PUBLIC_DOMAIN: beyu.co.tz
         shell: bash
         run: |
           set -euo pipefail
@@ -648,6 +649,7 @@ jobs:
       - name: Browser history, keyboard, responsive and canonical identity tests
         env:
           BEYU_TEST_BASE_URL: http://127.0.0.1:3100
+          BEYU_TEST_CANONICAL_DOMAIN: beyu.co.tz
         run: npm run test:browser
 
       - name: Assert no test suite was silently skipped for want of a server
@@ -860,7 +862,7 @@ jobs:
             | awk -F'|' '{print "  "$1": rolsuper="$2" rolbypassrls="$3" rolcreatedb="$4}'
           echo "Health runtime role verified non-superuser."
 
-      - name: Apply Health migrations 001-045 against real PostgreSQL
+      - name: Apply Health migrations 001-046 against real PostgreSQL
         # Canonical runner: src/database/migration-runner.ts, which records each
         # migration in a beyu_migrations ledger and applies every pair
         # transactionally. No schema object is hand-created here.
@@ -910,7 +912,7 @@ jobs:
           applied=$(PGPASSWORD=postgres psql -Atqc "select count(*) from beyu_migrations")
           echo "migrations recorded in beyu_migrations: $applied"
 
-      - name: Verify Health migrations 001-045 are all recorded
+      - name: Verify Health migrations 001-046 are all recorded
         shell: bash
         run: |
           set -euo pipefail

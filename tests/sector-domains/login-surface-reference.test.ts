@@ -294,10 +294,22 @@ describe("D. security is not traded for visual fidelity", () => {
     // through the shared form rather than re-implementing one.
     expect(PAGE).toMatch(/<GovernedSignIn|<SignInForm/);
     expect(PAGE).not.toMatch(/type="password"|<input[^>]*name="password"/);
-    // Hybrid entry contract: the public homepage is reachable ONLY for the
-    // control-plane host (apex/`www`) on `/`; every other case renders the one
-    // governed sign-in. There is no second control-plane sign-in composition.
-    expect(PAGE).toContain('variant === "homepage" && canonicalHost.kind === "CONTROL_PLANE"');
+    // Hybrid entry contract, as of the public-homepage completion: `/` is a
+    // PUBLIC HOMEPAGE for an anonymous visitor — the BEYU central homepage on
+    // the configured control-plane host and that destination's own public
+    // homepage on a canonical destination host — and the governed sign-in on
+    // every NEUTRAL host. `/sign-in` remains the one governed sign-in on every
+    // hostname. A destination-aware sign-in is NOT a marketing homepage, so the
+    // two states are separate branches here and neither is a second
+    // authentication implementation.
+    expect(PAGE).toContain('variant === "homepage"');
+    expect(PAGE).toContain('if (canonicalHost.kind === "CONTROL_PLANE")');
+    expect(PAGE).toContain("<DestinationHomepage");
+    expect(PAGE).toContain("<MarketingPage");
+    // The NEUTRAL host keeps the governed control-plane sign-in: no homepage
+    // branch may fire without a selected destination or the control plane.
+    expect(PAGE).toContain("if (selectedDestination)");
+    expect(PAGE).toContain("<GovernedSignIn");
     expect(PAGE).not.toContain("ControlPlaneSignIn");
     expect(GOVERNED).toContain("<SignInForm");
     expect(GOVERNED).not.toMatch(/fetch\(|\/api\/v1\/auth\/login/);

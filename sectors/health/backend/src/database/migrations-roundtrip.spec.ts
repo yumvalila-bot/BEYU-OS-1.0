@@ -45,15 +45,44 @@ describe("Database migrations (Phase 2B)", () => {
     await db.close();
   });
 
-  it("down migrations execute without error to a clean state (disposable environments only)", async () => {
+  it("the forward-only replay migration refuses rollback and preserves evidence", async () => {
     const db = new PGlite();
-    for (const f of listMigs("up"))
+    try {
+      for (const f of listMigs("up"))
+        await db.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
+      await db.exec(`INSERT INTO beyu_identity.health_request_replay (issuer, jti, retain_until)
+        VALUES ('test', 'test-id', now())`);
+      await expect(
+        db.exec(
+          fs.readFileSync(
+            path.join(
+              MIG_DIR,
+              "046_beyu_authorization_assertion_replay.down.sql",
+            ),
+            "utf8",
+          ),
+        ),
+      ).rejects.toThrow(/forward-only/);
+      const rows = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM beyu_identity.health_request_replay`,
+      );
+      expect(rows.rows[0].n).toBe(1);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("historical down migrations execute to a clean state (disposable environments only)", async () => {
+    const db = new PGlite();
+    for (const f of listMigs("up").filter((name) => !name.startsWith("046_")))
       await db.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     const before = await db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema='health'`,
     );
     expect(Number(before.rows[0].n)).toBeGreaterThan(10);
-    const downs = listMigs("down").reverse();
+    const downs = listMigs("down")
+      .filter((name) => !name.startsWith("046_"))
+      .reverse();
     for (const f of downs) {
       await db.exec(fs.readFileSync(path.join(MIG_DIR, f), "utf8"));
     }

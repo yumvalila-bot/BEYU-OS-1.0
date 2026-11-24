@@ -38,9 +38,9 @@ Clinical / operational domain
 | Constitutional authority | `assertSectorGrantAllowed` refuses trustee/board/general-counsel + constitutional permissions via the sector path | `beyu-bridge.spec.ts` |
 | Canonical tenant linkage | set-once `linkTenant`; conflicts are hard errors | `beyu-bridge.spec.ts` |
 
-## Database topology (canonical)
+## Database topology (historical intent; deployment decision pending)
 
-- One PostgreSQL database (the canonical BEYU database).
+- The original design envisioned one PostgreSQL database. The deployment contract now records unresolved shared-ledger and privilege blockers; topology is not approved for deployment.
 - `public` schema: BEYU OS (untouched by this sector).
 - `beyu_identity` schema: this sector (migrations 001 imported; 002/003
   additive, this integration).
@@ -71,20 +71,19 @@ TEST_DATABASE_URL=postgresql://<role>@<host>:5432/<db> npm test   # real PG (or 
   existing BEYU gate (canonical session + `beyu_identity.beyu_identity_links`
   federation check, fail-closed). The `/health` page now redirects authorized
   users to the mount; its denial/availability pages are unchanged.
-- When `HEALTH_API_URL` is configured at BEYU build time, same-origin
-  `/health-os/auth/*` is proxied to this backend via `next.config.ts`
-  rewrites; without it the SPA sign-in fails closed. No BEYU route is
-  occupied by the `/health-os/*` namespace and no credential reaches the
-  browser.
+- The SPA attempts same-origin `/health-os/auth/*`, but the current root
+  `next.config.ts` has no sector backend rewrite. Setting `HEALTH_API_URL`
+  does not configure a proxy. Health standalone credential issuance is fenced
+  in production; the BEYU-session-to-Health runtime bridge is not implemented.
+  See `docs/security/HEALTH_SESSION_FEDERATION_DECISION.md` for the pending
+  security decision and release gates.
 
 ## Deliberately NOT done (requires architectural decision / approval)
 
 - Runtime auth-flow integration (sector accepting BEYU-asserted identity vs.
   bridged JWT) — architectural decision.
 - Wrapping sector capabilities in BEYU governed APIs (`/api/v1/health/…`) —
-  architectural decision. (The same-origin `/health-os/auth/*` proxy above is
-  a configuration-level exposure of the sector's OWN API, not a governed-API
-  reimplementation.)
+  architectural decision. The root currently exposes no Health backend proxy.
 - Supabase/Redis/Vercel deployment wiring — BLOCKED (no real credentials).
 - Removing constitutional roles from the sector's *reference catalog* — the
   catalog is preserved (no destructive change); the grants path refuses them.
