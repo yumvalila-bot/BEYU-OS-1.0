@@ -5,7 +5,7 @@ import {
   effectiveBrainReach,
   type NoeliaBrainId,
 } from "@/lib/noelia/cognitive/brain-contracts";
-import { attributeBrains, planQueenBeeWork } from "@/lib/noelia/cognitive/queen-bee";
+import { attributeBrains, attributeBrainsDetailed, planQueenBeeWork } from "@/lib/noelia/cognitive/queen-bee";
 import {
   runSimulation,
   renderSimulation,
@@ -68,19 +68,35 @@ describe("Eight-brain scenario — BEYU hospital outpatient and diagnostic expan
     for (const brain of brains) expect(NOELIA_BRAIN_IDS).toContain(brain);
   });
 
-  it("LIMITATION — attribution is keyword-based, so plain phrasing reaches one brain", () => {
-    // Found while writing this scenario and recorded rather than hidden. A
-    // hospital manager asking the question in their own words does not reach the
-    // analytical or governance brains, because "outpatient" and "diagnostic" are
-    // not trigger terms. The answer is still governed and still honest; it is
-    // simply narrower than the question deserves.
+  it("FIXED — plain phrasing now reaches the specialists the question deserves", () => {
+    // REGRESSION TEST for a real orchestration defect, inverted from the
+    // limitation this file used to assert.
     //
-    // This is a real gap in orchestration quality, not a bug in the test. It is
-    // asserted so it cannot be quietly removed, and it is documented in
-    // NOELIA_ACCEPTANCE_MATRIX.md rather than left to be discovered in use.
-    const brains = attributeBrains(PLAIN_QUESTION);
-    expect(brains).toEqual(["KNOWLEDGE"]);
-    expect(brains.length).toBeLessThan(attributeBrains(QUESTION).length);
+    // Originally: `expect(brains).toEqual(["KNOWLEDGE"])`. A hospital manager
+    // asking in their own words ("Can our Bukoba hospital see more outpatients
+    // and start doing its own tests?") reached only the Knowledge brain,
+    // because attribution matched institutional keywords and "outpatient" and
+    // "diagnostic" were not on the list. The answer was governed and honest but
+    // narrower than the question deserved.
+    //
+    // The cause was architectural, not lexical: the router had no concept of a
+    // DOMAIN, only of words on a list. `attributeBrainsDetailed` now senses
+    // domains first and derives brains from them, so a clinical question
+    // convenes ANALYTICAL (evidence and reasoning) alongside KNOWLEDGE.
+    //
+    // No new brain was invented to make this pass — the eight-brain contract is
+    // unchanged, and the domain is reported separately so a human can see why
+    // those brains were convened.
+    const detail = attributeBrainsDetailed(PLAIN_QUESTION);
+    expect(detail.domains).toContain("CLINICAL");
+    expect(detail.brains).toContain("KNOWLEDGE");
+    expect(detail.brains).toContain("ANALYTICAL");
+    expect(detail.brains.length).toBeGreaterThan(1);
+    // Every convened brain is still canonical.
+    for (const brain of detail.brains) expect(NOELIA_BRAIN_IDS).toContain(brain);
+    // And the improvement is real, not merely different: the plain question now
+    // engages more brains than the bare evidence floor.
+    expect(detail.brains.length).toBeGreaterThan(["KNOWLEDGE"].length);
   });
 
   it("every brain is addressable — each has at least one trigger", () => {
