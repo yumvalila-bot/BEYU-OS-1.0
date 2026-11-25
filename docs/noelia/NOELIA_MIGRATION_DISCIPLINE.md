@@ -266,6 +266,116 @@ Two lessons, both recorded because both are general:
 
 ---
 
+## 5C. The fourth defect: an "optional" extension that was not optional
+
+### Symptom
+
+PR CI failed in two independent jobs, both on the migrate step against a **fresh**
+PostgreSQL 16:
+
+```
+Migration validation (scratch PostgreSQL 16)   → Apply canonical root migrations … fail
+BEYU OS — PostgreSQL-backed security gate      → Apply canonical root migrations 0000-0086  fail
+```
+
+Both passed on `main` (84 migrations) and fail only with the three this branch adds.
+
+### The reproduction that wasted the most time
+
+The failure did not reproduce locally. Nine separate clean-database installs succeeded, including
+one run with `.env` removed to match CI exactly. That was misleading for two reasons:
+
+1. **`dotenv/config` overrides the shell.** `scripts/migrate.ts` begins with
+   `import "dotenv/config"`, and the local `.env` defines `BEYU_ADMIN_DATABASE_URL`. Exporting a
+   different URL in the shell had no effect: the migration silently ran against the development
+   database and reported success. My first three "clean install" tests were therefore re-running
+   against a database that already had everything. The `.env` had to be moved aside before the
+   variable took effect.
+2. **The local cluster has privileges CI's role does not.** Even a genuinely empty database
+   succeeded locally, because the local `postgres` superuser can create extensions. That hid the
+   real condition.
+
+### Root cause
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS "knowledge_sources_title_trgm_idx"
+  ON "knowledge_sources" USING gin ("title" gin_trgm_ops);
+```
+
+`pg_trgm` is a **contrib** extension, not core PostgreSQL. Where contrib is absent, or the
+migrating role lacks the privilege to install it, these statements raise `42704` or `42501` and
+**abort the entire migration run**. The migration's own comment claimed the retrieval layer
+"degrades to full-text + vector without it" — but the code contradicted the comment: it would not
+degrade, it would abort with `noelia_knowledge_embeddings` already created in a rolled-back
+transaction and nothing recorded.
+
+That is the wrong failure mode. Losing fuzzy matching should cost **the fuzzy channel**, not the
+whole schema.
+
+### Proof, before and after
+
+Same role (no `CREATE` on the database), same database:
+
+```
+--- OLD form (bare extension + index) ---
+old form: FAILED -> 42501
+--- NEW form (guarded DO block) ---
+new form: SUCCEEDED
+```
+
+`42501` is `insufficient_privilege`. The old form aborts the migration; the new form completes it
+and skips only the index.
+
+### Fix
+
+A `DO` block that installs the extension and index when possible and records a notice when not:
+
+```sql
+DO $$
+BEGIN
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  EXCEPTION WHEN insufficient_privilege OR undefined_file OR feature_not_supported THEN
+    RAISE NOTICE 'pg_trgm unavailable (%). Fuzzy title matching will be skipped; …', SQLERRM;
+    RETURN;
+  END;
+  BEGIN
+    CREATE INDEX IF NOT EXISTS "knowledge_sources_title_trgm_idx"
+      ON "knowledge_sources" USING gin ("title" gin_trgm_ops);
+  EXCEPTION WHEN undefined_object THEN
+    RAISE NOTICE 'gin_trgm_ops opclass unavailable; trigram index skipped.';
+  END;
+END
+$$;
+```
+
+The block cannot fail. An absent trigram index is a loss of the extra recall channel, not of
+correctness, and nothing in the security or cost posture depends on it.
+
+Verified after the change: `0086 | EXPAND` (still expand-only), fresh install succeeds with the
+extension and index present, and **143/143** across `tests/migration/`,
+`zero-cost-migration-contract.test.ts` and `schema-state.test.ts`. Migration integrity 0 blocking,
+expand/contract passed, schema drift 0 blocking.
+
+### The rule this adds
+
+> **A migration statement that depends on an optional component must be guarded, or it is not
+> optional.** "The code degrades without it" is a claim about the code; the migration has to
+> actually let the database reach that state. Test the *absent* case, not only the happy path —
+> and test it as a role that lacks the privilege, because a superuser cannot reveal the bug.
+
+Two related lessons, both earned here:
+
+> **`dotenv/config` beats the shell.** An environment variable that the repo's `.env` also defines
+> may never reach the process. When reproducing CI locally, move `.env` aside rather than trusting
+> an exported variable.
+
+> **A local superuser is not evidence about CI's role.** Every privilege-sensitive migration must
+> be exercised as a constrained role, or its privilege assumptions are untested.
+
+---
+
 ## 6. What this episode says about the wider work
 
 Three lessons, each now reflected in the codebase:

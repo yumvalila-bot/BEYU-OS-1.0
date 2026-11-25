@@ -91,6 +91,9 @@ that cannot find a context must **throw**, not default to an unscoped query.
   `scripts/setup-db-role.ts`. A `GRANT` inside a migration is silently reverted. Classify
   each new table in the allowlist instead.
 - After applying, run `npx tsx scripts/migration/integrity.ts --with-ledger`.
+- **Guard every `CREATE EXTENSION`.** A contrib extension (`pg_trgm`, …) created unguarded
+  aborts the entire migration run on a build without it, or under a role that lacks the
+  privilege. Wrap it in a `DO` block catching `insufficient_privilege` / `undefined_file`.
 - **The history is expand-only.** `scripts/migration/expand-contract.ts` permits exactly one
   contraction in the whole history (`0001`), and `SET NOT NULL` counts as one. Add a column
   already constrained (`ADD COLUMN … text NOT NULL DEFAULT '…'`) instead of adding it nullable

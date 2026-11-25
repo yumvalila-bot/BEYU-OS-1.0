@@ -71,6 +71,11 @@ Migrations are append-only and immutable once applied.
   adding a constraint that the data would violate.
 - Two sector-domain tests pin `journal.entries.at(-1)?.tag`. Update them deliberately when you
   add a migration, not reflexively.
+- **An optional component must be guarded or it is not optional.** `CREATE EXTENSION` for a
+  contrib module (`pg_trgm`, `uuid-ossp`, …) must run inside a `DO` block that catches
+  `insufficient_privilege` / `undefined_file`, or a deployment without contrib aborts the whole
+  migration run. "The code degrades without it" is a claim about the code — the migration has to
+  let the database reach that state. See `NOELIA_MIGRATION_DISCIPLINE.md` §5C.
 
 Verify with:
 
@@ -131,6 +136,15 @@ NODE_OPTIONS="--max-old-space-size=3072" npx tsc --noEmit
 
 **Do not run `npm run build` while the test suite is running** — they compete for the same
 `.next` directory and the build corrupts the running tests' artifacts.
+
+**`.env` beats your shell.** `scripts/migrate.ts` begins with `import "dotenv/config"`, and the
+local `.env` defines `BEYU_ADMIN_DATABASE_URL`. Exporting a different URL has **no effect** —
+the migration silently runs against the development database and reports success. When
+reproducing a CI failure on a scratch database, move `.env` aside first. Two hours were lost to
+this in this workstream, along with several "clean installs" that were nothing of the kind.
+
+**A local superuser is not evidence about CI's role.** Every privilege-sensitive migration must be
+exercised as a constrained, non-superuser role, or its privilege assumptions are untested.
 
 **A green test run does not mean the code typechecks.** Vitest transpiles without type
 checking, so a test can pass while `tsc` fails on it. This happened in this workstream: two new

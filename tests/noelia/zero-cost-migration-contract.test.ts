@@ -179,6 +179,44 @@ describe("0086 applied state", () => {
     expect(rows[0].def).toMatch(/TRIAL/);
   });
 
+  it("guards every CREATE EXTENSION, so a missing contrib cannot abort the migration", async () => {
+    // REGRESSION TEST for a real CI failure. 0086 originally ran
+    //   CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    // unguarded. pg_trgm is a contrib extension, not core PostgreSQL, so on a
+    // build without it — or under a role without the privilege to install it —
+    // that statement raised 42704/42501 and aborted the ENTIRE migration run.
+    // Losing fuzzy matching must cost the fuzzy channel, not the schema.
+    //
+    // Proven both ways: the bare form failed 42501 as a constrained role while
+    // the guarded DO block succeeded.
+    const sql = readFileSync(join(process.cwd(), "drizzle/0086_zero_cost_model_policy_and_local_embeddings.sql"), "utf8");
+
+    // Strip comments so a mention inside prose does not count as a statement.
+    const executable = sql
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("--"))
+      .join("\n");
+
+    const extensionStatements = executable.match(/CREATE\s+EXTENSION[^;]*;/gi) ?? [];
+    expect(extensionStatements.length).toBeGreaterThan(0);
+
+    // Every extension creation must live inside a DO block body, which is the
+    // only construct here that can catch insufficient_privilege.
+    const doBlocks = executable.match(/DO\s+\$\$[\s\S]*?\$\$;/g) ?? [];
+    const insideDoBlock = doBlocks.join("\n");
+    for (const statement of extensionStatements) {
+      expect(insideDoBlock).toContain(statement.trim());
+    }
+
+    // And the guard must name the privilege failures it handles.
+    expect(insideDoBlock).toMatch(/insufficient_privilege/);
+    expect(insideDoBlock).toMatch(/undefined_file|feature_not_supported/);
+
+    // The trigram index must also be guarded: with the extension present but
+    // gin_trgm_ops missing, an unguarded index still fails.
+    expect(insideDoBlock).toMatch(/undefined_object/);
+  });
+
   it("declares the deterministic analyst as LOCAL_FREE and ALLOWED", async () => {
     if (!client) return;
     const { rows } = await client.query<{

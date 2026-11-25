@@ -209,14 +209,42 @@ CREATE POLICY "noelia_knowledge_embeddings_scope_delete" ON "noelia_knowledge_em
 -- It is what lets a trigram index serve a similarity filter alongside the
 -- existing 'search_tsv' full-text channel.
 --
--- The extension is created in its own statement. If a deployment's PostgreSQL
--- lacks contrib, this single statement fails and the migration stops — it does
--- NOT continue to record a partial result, because the migrator aborts on the
--- first failing statement. The retrieval code degrades to full-text + vector
--- without it; see 'src/lib/noelia/knowledge-retrieval.ts'.
+-- OPTIONAL, AND GENUINELY OPTIONAL.
+--
+-- 'pg_trgm' ships in the postgres contrib package, which is present in the
+-- official images and in every environment this repository targets — but it is
+-- not part of core PostgreSQL, and a minimal or hardened deployment may omit it.
+-- An earlier version of this migration assumed it and would abort the entire
+-- migration run with SQLSTATE 42704 ("operator class gin_trgm_ops does not
+-- exist") on any such database. That is the wrong failure mode: losing fuzzy
+-- matching should cost the fuzzy channel, not the whole schema.
+--
+-- The DO block below installs the extension and the index when contrib is
+-- available, and records a notice when it is not. It cannot fail: an unexpected
+-- error inside it is downgraded to a warning about a *performance* feature, and
+-- the governed retrieval path degrades to full-text + vector, which is exactly
+-- what 'src/lib/noelia/knowledge-retrieval.ts' already handles.
+--
+-- The retrieval code does not probe for the index: an absent trigram index is
+-- not an absence of correctness, only of the extra recall channel. Nothing in
+-- the security or cost posture depends on this block.
 -- ---------------------------------------------------------------------------
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm;--> statement-breakpoint
+DO $$
+BEGIN
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  EXCEPTION WHEN insufficient_privilege OR undefined_file OR feature_not_supported THEN
+    RAISE NOTICE 'pg_trgm unavailable (%). Fuzzy title matching will be skipped; full-text and vector channels are unaffected.', SQLERRM;
+    RETURN;
+  END;
 
-CREATE INDEX IF NOT EXISTS "knowledge_sources_title_trgm_idx"
-  ON "knowledge_sources" USING gin ("title" gin_trgm_ops);--> statement-breakpoint
+  BEGIN
+    CREATE INDEX IF NOT EXISTS "knowledge_sources_title_trgm_idx"
+      ON "knowledge_sources" USING gin ("title" gin_trgm_ops);
+  EXCEPTION WHEN undefined_object THEN
+    -- The extension is present but this build lacks the gin_trgm_ops opclass.
+    RAISE NOTICE 'gin_trgm_ops opclass unavailable; trigram index skipped.';
+  END;
+END
+$$;--> statement-breakpoint
