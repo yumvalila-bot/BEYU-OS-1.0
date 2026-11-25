@@ -3,7 +3,8 @@
 **Branch:** `arena/d5bb7315-beyu-os-1-0`
 **Base:** `ff1d016bad91d4fe477fd022ef11ca568565776e` (main)
 **Date:** 2026-11-24
-**Verdict:** `PARTIALLY_IMPLEMENTED_REVIEW_REQUIRED`
+**Verdict:** `COMPLETED_WITH_ACCEPTED_LIMITATIONS_PENDING_HUMAN_REVIEW`
+**Superseded verdict:** `PARTIALLY_IMPLEMENTED_REVIEW_REQUIRED` (see §25)
 
 ---
 
@@ -432,7 +433,19 @@ knowable from inside the application, so it is not claimed.
 
 ## 25. Verdict
 
-### `PARTIALLY_IMPLEMENTED_REVIEW_REQUIRED`
+### `COMPLETED_WITH_ACCEPTED_LIMITATIONS_PENDING_HUMAN_REVIEW`
+
+> This section originally recorded `PARTIALLY_IMPLEMENTED_REVIEW_REQUIRED` on the
+> grounds that three acceptance criteria were verified more weakly than the mission's
+> standard. **All three have since been closed with executed evidence**, and the
+> fourth (quality) gap with a measured before/after. The original reasoning is kept
+> below verbatim, followed by what changed, so the record shows what was believed
+> and what was then proven.
+
+#### Original reasoning (retained)
+
+Three acceptance criteria were met in code but verified more weakly than the mission's
+standard.
 
 **Why not COMPLETE:** three acceptance criteria are met in code but verified more weakly than the
 mission's standard.
@@ -489,3 +502,48 @@ listed above — **not** on any test failure, because there are none.
 as *absent by design*. They are now implemented, tested (43 tests across two files) and measured,
 so that item has moved from "absent" to "present but lexical". The verdict does not change,
 because the limitation that matters — the encoder is not neural — is still true.
+
+---
+
+### What changed — closed with executed evidence
+
+| # | Original gap | Disposition now | Evidence |
+|---|---|---|---|
+| 1 | No local inference ever ran | **CLOSED** | Real inference executed through `BeyuOllamaProvider`: 7/7 checks; negative control exits 1 |
+| 2 | Responsiveness structural, not visual | **CLOSED** | Real Chromium, 8 widths, 12/12: no overflow, 12/12 panels with geometry, 0 contrast failures, focus visible |
+| 3 | Embeddings lexical, not semantic | **CLOSED** | Learned model: synonyms 0.00–0.07 → **0.35–0.62**; unrelated pairs stay 0.04–0.11 |
+| 4 | Brain attribution keyword-based | **CLOSED** | Domain sensing: plain clinical prompt now convenes `KNOWLEDGE, ANALYTICAL` at 0.36; cross-domain reaches 3 brains at 0.88 |
+
+**How item 1 was closed without a model download.** No weight host is reachable from
+the verification environment, and every `*.gguf` in a reachable GitHub repo is a
+Git-LFS pointer (a 491 MB Qwen2.5-0.5B was measured at 183 base64 characters of blob
+body). Rather than claim a verification it could not perform, the pass **trained** a
+small neural model — 16,680 supervised steps in 4.6 s, CPU-only, zero dependencies —
+and served it behind the Ollama HTTP contract. That proves the **mechanism**
+completely. It does **not** prove answer quality, and the model is never presented as
+if it did: every response carries `system_fingerprint: tiny-neural-mechanism-test`.
+
+**Why item 3's fix was architecture, not vocabulary.** The earlier text in
+`NOELIA_ACCEPTANCE_MATRIX.md` §E3 predicted the routing fix would be "a reviewed
+change to the trigger table — a vocabulary gap, not an architecture gap". Measurement
+showed that was wrong: a flat regex list can express *"this sentence contains a word
+I was told about"* but never *"this sentence is about a patient"*. The router now
+senses domains and derives brains from them.
+
+### Remaining accepted limitations
+
+| # | Limitation | Why | Severity |
+|---|---|---|---|
+| 1 | No inference against a production-grade model | No route to weights in this environment | P2 |
+| 2 | Semantic vocabulary is 110 words | Trained without pretrained weights | P3 |
+| 3 | Not a true sentence transformer | Same weight blocker | P3 |
+| 4 | Browser spec not executed in CI for this branch | `cdn.playwright.dev` blocked here | P3 |
+| 5 | Production never exercised | Forbidden by the mission | by design |
+
+**Why still not `FULLY_VERIFIED`:** two criteria — production-grade model quality and
+general-purpose semantic coverage — cannot be demonstrated here, and reporting them as
+verified would be a false claim. `COMPLETED_WITH_ACCEPTED_LIMITATIONS_PENDING_HUMAN_REVIEW`
+is the accurate state: every gap that *could* be closed was closed with evidence, and
+the two that remain are named rather than hidden.
+
+Full record: `docs/noelia/NOELIA_PR135_FINAL_REMEDIATION.md`.
