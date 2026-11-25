@@ -147,6 +147,14 @@ async function registerOllamaGovernedModel(): Promise<void> {
       lifecycleStatus: "ACTIVE",
       securityStatus: "ASSESSED",
       createdBy: "USR_PROVENANCE_TEST",
+      // Zero-cost declaration: this fixture is the same self-hosted Ollama
+      // runtime the gateway tests use, so LOCAL_FREE/SELF_HOSTED is the truthful
+      // class. Without it the model would carry the fail-closed default
+      // (UNKNOWN/DENIED) and the gateway's zero-cost gate would correctly refuse
+      // to execute it — which is what this test was hitting.
+      costClass: "LOCAL_FREE",
+      deploymentKind: "SELF_HOSTED",
+      zeroCostStatus: "ALLOWED",
     })
     .onConflictDoNothing({ target: modelRegistry.id });
 }

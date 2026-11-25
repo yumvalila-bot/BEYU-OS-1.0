@@ -325,6 +325,28 @@ export const RUNTIME_TABLE_ALLOWLIST = [
   "noelia_impact_assessments",
   "noelia_incidents",
   "noelia_internal_audits",
+  // NOELIA unified cognitive core (migration 0084). These seven tables are
+  // classified deliberately here because this list — not a migration's GRANT —
+  // is the canonical runtime privilege control: scripts/setup-db-role.ts revokes
+  // every privilege from every public table and re-grants only what this file
+  // allows. A migration that grants a table absent from this list has its grant
+  // reverted on the next reconciliation, which is exactly what happened to 0084
+  // until these tables were registered here.
+  "noelia_kg_edges",
+  "noelia_decision_records",
+  "noelia_council_sessions",
+  "noelia_council_findings",
+  "noelia_simulations",
+  // noelia_golden_cases is READ-ONLY for the runtime role: it holds the
+  // evaluation benchmarks and the "must not do" adversarial probes. A runtime
+  // that could write them could weaken its own test.
+  "noelia_golden_cases",
+  "noelia_learning_records",
+  // noelia_knowledge_embeddings (migration 0086) holds chunk vectors derived
+  // from knowledge_sources. It is fully mutable by the runtime: a re-index must
+  // be able to insert, update (digest/status changes) and delete (shortened
+  // documents leave orphaned tail chunks). It is tenant-scoped and FORCE RLS.
+  "noelia_knowledge_embeddings",
   "noelia_kill_switch",
   "noelia_management_reviews",
   "noelia_model_artifacts",
@@ -562,6 +584,9 @@ export const RUNTIME_READ_ONLY_TABLES = [
   "service_principals",
   "source_of_truth",
   "tenant_domains",
+  // Benchmark definitions and adversarial probes. Read-only to the runtime role
+  // so the system under test cannot edit its own tests.
+  "noelia_golden_cases",
 ] as const;
 
 /**
@@ -646,6 +671,15 @@ export const RUNTIME_NO_DELETE_TABLES = [
   "sessions",
   "tax_return_drafts",
   "workflow_instances",
+  // NOELIA institutional records are superseded, never deleted. DELETE is
+  // withheld for the same reason it is withheld on noelia_workflows and
+  // noelia_evidence: destroying a decision record destroys the institution's
+  // memory of what it decided.
+  "noelia_kg_edges",
+  "noelia_decision_records",
+  "noelia_council_sessions",
+  "noelia_council_findings",
+  "noelia_learning_records",
 ] as const;
 
 export const RUNTIME_INSERT_ONLY_TABLES = [
@@ -656,6 +690,9 @@ export const RUNTIME_INSERT_ONLY_TABLES = [
   "noelia_provider_lifecycle_events",
   "noelia_rag_retrieval_events",
   "noelia_routing_decisions",
+  // A simulation is recorded once and then read. It is never updated: a past
+  // scenario must not be silently revised to match a present narrative.
+  "noelia_simulations",
 ] as const;
 
 export const RUNTIME_SEQUENCE_ALLOWLIST = [

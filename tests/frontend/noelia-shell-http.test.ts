@@ -63,9 +63,12 @@ describe("Noelia is not an additional operating system", () => {
     "the shell adds no navigation module and no 'Noelia OS' surface",
     async () => {
       const res = await apiGet("/os", ceo);
-      // Every Noelia ROUTE on the executive surface is one of the two
-      // pre-existing capability routes (rendered once per nav instance:
-      // desktop sidebar + responsive drawer). No other Noelia route exists.
+      // The NAVIGATION surface still exposes exactly the two pre-existing
+      // Noelia capability routes. The Command Centre is deliberately NOT a third
+      // navigation entry: it is reached from inside the NOELIA console, so
+      // NOELIA cannot drift into looking like an additional OS with its own nav
+      // module. (`tests/sector-domains/canonical-host-security.test.ts` pins the
+      // navigation set itself; this assertion pins what /os actually renders.)
       const noeliaRouteHrefs = new Set(
         [...res.html.matchAll(/href="(\/os\/[^"]*noelia[^"]*)"/gi)].map((m) => m[1]),
       );
@@ -73,6 +76,11 @@ describe("Noelia is not an additional operating system", () => {
       for (const href of noeliaRouteHrefs) {
         expect(["/os/noelia", "/os/noelia/governance"]).toContain(href);
       }
+      // The console itself links to the Command Centre — one NOELIA surface, one
+      // identity, reachable from the capability it belongs to.
+      const console = await apiGet("/os/noelia", ceo);
+      expect(console.status).toBe(200);
+      expect(console.html).toContain("Open the Command Centre");
       expect(res.html).toContain("Noelia / HIVE");
       expect(res.html).not.toContain("Noelia OS");
       // Sector OS set is unchanged on the launcher.

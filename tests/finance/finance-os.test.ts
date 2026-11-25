@@ -74,9 +74,24 @@ async function count(q: Parameters<typeof db.execute>[0]): Promise<number> {
 }
 
 let cachedTenant = "";
+/**
+ * The GROUP tenant, resolved by ID — not by "whatever is first".
+ *
+ * This previously read `order by created_at limit 1`. All seven seeded tenants
+ * share an identical `created_at` (they are written in the same transaction, in
+ * the same millisecond), so that ordering has no tiebreaker and returns an
+ * arbitrary row. It happened to return TEN_BEYU_GROUP for a long time and then
+ * began returning TEN_BEYU_FOUNDATION, which silently pointed every test in this
+ * file at a tenant with no treasury positions.
+ *
+ * The function is named `groupTenant`, so it now returns the group tenant. A
+ * non-deterministic selector that usually returns the right answer is a latent
+ * test-isolation defect: it passes until it does not.
+ */
 async function groupTenant(): Promise<string> {
   if (!cachedTenant) {
-    const [r] = await rowsOf<{ id: string }>(sql`select id from tenants order by created_at limit 1`);
+    const [r] = await rowsOf<{ id: string }>(sql`select id from tenants where id = 'TEN_BEYU_GROUP'`);
+    if (!r) throw new Error("Seed is missing TEN_BEYU_GROUP; the finance suite cannot run.");
     cachedTenant = r.id;
   }
   return cachedTenant;

@@ -499,7 +499,7 @@ describe("H. one application, one registry, one routing architecture", () => {
     // protects is that no destination/frontend/host/subdomain migration was
     // added. The head is named explicitly so a future migration still has to
     // update this test deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0083_public_content");
+    expect(journal.entries.at(-1)?.tag).toBe("0086_zero_cost_model_policy_and_local_embeddings");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((file) => /destination|frontend|sign-?in|host|subdomain/i.test(file) && file > "0074")).toBe(false);
   });
 

@@ -265,6 +265,14 @@ export type ToolInvocationContext = {
   target: NoeliaTargetContext;
   scope: NoeliaAuthorizedScope;
   approval?: HumanApprovalEvidence | null;
+  /**
+   * ADDITIVE (cognitive core). The capability names this caller is authorized to
+   * invoke, as resolved by the ONE registry (`authorizedToolNames`). A brain uses
+   * this to compute its EFFECTIVE reach; it is never a grant and never widens
+   * authorization. Absent means "unknown", and consumers must degrade rather
+   * than assume access.
+   */
+  authorizedCapabilities?: string[];
 };
 
 export type NoeliaToolOutput = {

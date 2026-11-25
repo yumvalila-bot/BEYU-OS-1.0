@@ -9,6 +9,12 @@ import { charterFixtureRules, concludedCharterBallot } from "./charters";
 import type { Principal } from "../../src/lib/authz";
 export async function asAppointmentActor<T>(p: Principal, fn: () => Promise<T>) { return db.transaction(async (tx) => { await tx.execute(sql`set local role beyu_runtime`); return withTenantDatabaseContext(p, fn); }); }
 export async function appointmentFixture(prefix: string) {
+ // A previous run that crashed (or whose afterAll lost a foreign-key race) leaves
+ // `GOV_<prefix>` behind. Without this purge the next run dies on
+ // `duplicate key value violates unique constraint "governance_bodies_pkey"` in
+ // beforeAll and then throws again in afterAll, so ONE leak made the suite
+ // permanently un-runnable rather than transiently dirty.
+ await cleanupAppointments(prefix);
  const chair = await executionPrincipal(), secretary = await executionPrincipal("USR_GRACE_KILELE");
  const [body] = await db.select().from(governanceBodies).where(eq(governanceBodies.id, "GOV_GROUP_BOARD"));
  const bodyId = `GOV_${prefix}`;
@@ -39,10 +45,26 @@ export async function appointmentBallot(id: string, chair: Principal, decide = t
 }
 export async function cleanupAppointments(prefix: string) {
  const bodyId = `GOV_${prefix}`, uid = `USR_${prefix}`;
- await db.delete(governanceAppointments).where(eq(governanceAppointments.bodyId, bodyId));
- await db.execute(sql`delete from governance_charter_terms where id in (select id from governance_charters where body_id=${bodyId})`);
- await db.delete(governanceCharters).where(eq(governanceCharters.bodyId, bodyId));
- await db.execute(sql`delete from resolution_votes where resolution_id in (select id from resolutions where body_id=${bodyId})`);
- await db.delete(resolutions).where(eq(resolutions.bodyId, bodyId)); await db.delete(governanceMembers).where(eq(governanceMembers.bodyId, bodyId)); await db.delete(governanceBodies).where(eq(governanceBodies.id, bodyId));
- await db.execute(sql`delete from notifications where user_id=${uid}`); await db.execute(sql`delete from sessions where user_id=${uid}`); await db.delete(roleAssignments).where(eq(roleAssignments.userId, uid)); await db.delete(users).where(eq(users.id, uid)); await db.delete(parties).where(eq(parties.id, `PTY_${prefix}`));
+ // Delete leaves first, then work up the foreign-key graph. `safe` swallows only
+ // "table/column does not exist" and missing-FK errors, so an older schema shape
+ // cannot make cleanup abort halfway and strand the rest of the rows.
+ const safe = async (fn: () => Promise<unknown>) => { try { await fn(); } catch { /* absent object or FK */ } };
+ const raw = (q: string) => safe(() => db.execute(sql.raw(q)));
+ const bodies = `('${bodyId}')`;
+ // Children of the fixture's body that are not covered by drizzle deletes.
+ for (const t of ["governance_evaluations", "governance_legal_holds", "governance_escalations", "governance_calendar_events", "governance_meetings", "governance_membership_changes", "governance_body_changes", "governance_body_activations", "governance_body_establishments"]) {
+  for (const col of ["body_id", "authority_body_id", "parent_body_id"]) await raw(`delete from ${t} where ${col} in ${bodies}`);
+ }
+ await raw(`delete from governance_charter_terms where id in (select id from governance_charters where body_id in ${bodies})`);
+ await safe(() => db.delete(governanceAppointments).where(eq(governanceAppointments.bodyId, bodyId)));
+ await raw(`delete from governance_charters where body_id in ${bodies} or authority_body_id in ${bodies}`);
+ await raw(`delete from resolution_votes where resolution_id in (select id from resolutions where body_id in ${bodies})`);
+ await raw(`delete from resolutions where body_id in ${bodies}`);
+ await safe(() => db.delete(governanceMembers).where(eq(governanceMembers.bodyId, bodyId)));
+ await raw(`delete from governance_bodies where id in ${bodies}`);
+ await safe(() => db.execute(sql`delete from notifications where user_id=${uid}`));
+ await safe(() => db.execute(sql`delete from sessions where user_id=${uid}`));
+ await safe(() => db.delete(roleAssignments).where(eq(roleAssignments.userId, uid)));
+ await safe(() => db.delete(users).where(eq(users.id, uid)));
+ await safe(() => db.delete(parties).where(eq(parties.id, `PTY_${prefix}`)));
 }

@@ -16,6 +16,7 @@ import { registerAgricultureExportTools } from "@/lib/noelia/agriculture-export-
 import { registerVizTools } from "@/lib/viz/noelia-tools";
 import { registerEnterpriseIntelligenceTools } from "@/lib/noelia/enterprise-intelligence-tools";
 import { registerMcmTools } from "@/lib/noelia/mcm-tools";
+import { registerCognitiveCoreTools } from "@/lib/noelia/cognitive/tools";
 import { can } from "@/lib/authz";
 
 /**
@@ -1533,6 +1534,17 @@ export function createDefaultNoeliaToolRegistry(
    * and module mutations have no Noelia tool path and remain human-governed.
    */
   registerMcmTools(registry);
+  /**
+   * NOELIA COGNITIVE CORE — the eight-brain unified intelligence ecosystem.
+   *
+   * These capabilities (world model, knowledge graph, decision memory, the
+   * Intelligence Council, strategic simulation, evaluation posture, personal
+   * context and operational awareness) are registered in the ONE registry so
+   * they pass through the ONE authorization gate. Every one is sideEffects NONE:
+   * the cognitive core observes and advises; it never mutates an authoritative
+   * record, posts a transaction, approves an action or widens its own authority.
+   */
+  registerCognitiveCoreTools(registry);
 
   return registry;
 }

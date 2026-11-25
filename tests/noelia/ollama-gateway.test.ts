@@ -171,6 +171,13 @@ async function registerOllamaGovernedModel(overrides: { approvalStatus?: string;
       lifecycleStatus: "ACTIVE",
       securityStatus: "ASSESSED",
       createdBy: "USR_OLLAMA_TEST_ADMIN",
+      // The zero-cost gate (zero-cost-policy.ts) runs before execution. This
+      // fixture models a genuinely self-hosted Ollama artifact, so LOCAL_FREE /
+      // SELF_HOSTED is the truthful declaration — not a convenience to make the
+      // test pass. A remote model here would (correctly) be denied.
+      costClass: "LOCAL_FREE",
+      deploymentKind: "SELF_HOSTED",
+      zeroCostStatus: "ALLOWED",
     })
     .onConflictDoNothing({ target: modelRegistry.id });
 }

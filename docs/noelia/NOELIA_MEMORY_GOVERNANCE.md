@@ -1,5 +1,9 @@
 # NOELIA MEMORY GOVERNANCE
 
+> **Scope:** `enterprise_memory` and the governed-memory retrieval gate.
+> For institutional *decisions* (a different store with different semantics) see
+> `NOELIA_INSTITUTIONAL_MEMORY.md`. For poisoning attacks see `NOELIA_THREAT_MODEL.md` §T3.
+
 ## Position
 
 **Memory is NOT a source of truth.** Authoritative facts live in Finance OS,

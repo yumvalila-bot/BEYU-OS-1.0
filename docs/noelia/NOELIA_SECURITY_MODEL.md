@@ -1,5 +1,10 @@
 # NOELIA SECURITY MODEL
 
+> **Scope:** the defense mechanism, stage by stage.
+> For the attack catalogue with severity and residual risk see `NOELIA_THREAT_MODEL.md`.
+> For the governance control plane (RBAC/ABAC/RLS/SoD/autonomy level) see
+> `NOELIA_GOVERNANCE_CONTROL_PLANE.md`.
+
 ## Authorization Chain
 
 Every Noelia request passes through the canonical authorization chain:

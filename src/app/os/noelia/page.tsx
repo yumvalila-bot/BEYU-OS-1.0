@@ -87,6 +87,21 @@ export default async function NoeliaPage() {
         </Link>
       )}
 
+      <Link
+        href="/os/noelia/command-centre"
+        className="beyu-panel flex items-start gap-3 p-4 transition hover:border-[#D4A017]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A017]"
+      >
+        <Icon name="hive" className="mt-0.5 h-5 w-5 shrink-0 text-[#b08d1c]" />
+        <span>
+          <span className="block text-[13.5px] font-semibold">Open the Command Centre</span>
+          <span className="mt-0.5 block text-[11.5px] beyu-muted">
+            One identity, eight cognitive brains, institutional decision memory, the Intelligence Council, the recorded
+            digital twin, strategic simulation, the Hive Workforce, Model Centre, Research Centre, Predictive
+            Intelligence, Performance Centre and Workflow Command — every number read from your authorized scope.
+          </span>
+        </span>
+      </Link>
+
       <NoeliaPanel state="idle" href="#noelia-console" ctaLabel="Ask Noelia" />
 
       <div className="flex flex-wrap gap-1.5">

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { inArray, like } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import { db, pool } from "../../src/db";
-import { approvals, noeliaSchedules, noeliaScheduleRuns, noeliaWorkflows, noeliaWorkflowSteps, tenants } from "../../src/db/schema";
+import { approvals, noeliaSchedules, noeliaScheduleRuns, noeliaWorkflows, noeliaWorkflowSteps, tenants, users } from "../../src/db/schema";
 import { apiPost, baseUrl, login, serverAvailable, type ApiResponse } from "../helpers/http";
 
 /**
@@ -47,6 +47,25 @@ afterAll(async () => {
   }
 });
 
+/**
+ * The tenant the governance principal is actually authorized for.
+ *
+ * These tests previously used `(await db.select().from(tenants).limit(1))[0].id`
+ * — an unordered select with no tiebreaker. It happened to return a tenant in
+ * scope until it did not, at which point a schedule was created against
+ * `TEN_BEYU_AGRI` and the subsequent status call correctly returned "Schedule
+ * not found in scope." The route was right; the fixture was incoherent.
+ */
+async function governedTenantId(): Promise<string> {
+  const [row] = await db
+    .select({ id: users.primaryTenantId })
+    .from(users)
+    .where(eq(users.email, "governance@beyu.os"))
+    .limit(1);
+  if (!row?.id) throw new Error("Seed is missing governance@beyu.os; HTTP coverage cannot run.");
+  return row.id;
+}
+
 describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
   it("POST /api/v1/ai/noelia/analyze returns a governed analysis (semantic)", async () => {
     const r = await apiPost<{ data: { analysisType: string; findings: unknown[]; outputClass: string } }>(
@@ -86,7 +105,7 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
         cadence: "WEEKLY",
         horizon: "HORIZON_2_NEAR_TERM",
         briefingFocus: "STANDARD",
-        targetTenantId: (await db.select().from(tenants).limit(1))[0].id,
+        targetTenantId: await governedTenantId(),
         nextRunAt: new Date(Date.now() + 86_400_000).toISOString(),
       },
       { cookie: governance },
@@ -101,6 +120,9 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
       { status: "SUSPENDED" },
       { cookie: governance },
     );
+    if (status.status !== 200) {
+      throw new Error(`status call failed: ${status.status} ${JSON.stringify(status.body)} scheduleId=${scheduleId}`);
+    }
     expect(status.status).toBe(200);
     expect(status.body.data.status).toBe("SUSPENDED");
 
@@ -117,7 +139,7 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
   });
 
   it("POST /api/v1/ai/noelia/workflows plans, validates, authorizes (maker/checker) and executes", async () => {
-    const targetTenantId = (await db.select().from(tenants).limit(1))[0].id;
+    const targetTenantId = await governedTenantId();
     const planned = await apiPost<{ data: { workflowId: string; status: string; steps: unknown[] } }>(
       `${ENDPOINT}/workflows`,
       {
@@ -180,7 +202,7 @@ describe.skipIf(!available)("Iteration 4 HTTP route coverage", () => {
   });
 
   it("POST /api/v1/ai/noelia/workflows/:id/cancel terminates a planned workflow", async () => {
-    const targetTenantId = (await db.select().from(tenants).limit(1))[0].id;
+    const targetTenantId = await governedTenantId();
     const planned = await apiPost<{ data: { workflowId: string } }>(
       `${ENDPOINT}/workflows`,
       {
