@@ -355,15 +355,43 @@ alternative — describing the system as "eight brains analyse every question" �
 The accurate claim is: **eight brains exist and each is addressable; a given question reaches the
 subset its wording triggers, with a Knowledge floor.**
 
-Two things follow, and neither is done in this workstream:
+**UPDATE — this limitation is now FIXED, and the diagnosis above it was wrong.**
 
-1. **A vocabulary gap, not an architecture gap.** The fix is a reviewed change to the trigger
-   table (adding clinical and capital vocabulary), not a new router. Not attempted here because
-   widening a router without measuring routing quality is how hidden routers get created — the
-   very thing the module comment warns against.
-2. **`PERSONAL_CONTEXT` is never keyword-attributed.** It is applied by the personalisation
-   layer instead. That is by design, but it means an eight-brain plan from `planQueenBeeWork`
-   will contain at most seven brains. The test asserts this rather than pretending otherwise.
+The record says the defect was "a vocabulary gap, not an architecture gap", and that the fix
+would be "a reviewed change to the trigger table". **That was incorrect**, and the correction is
+kept here rather than quietly overwritten, because the wrong diagnosis is the instructive part.
+
+Widening the trigger table could not have worked. A flat list of regexes cannot express *"this
+sentence is about a patient"* — it can only express *"this sentence contains a word I was told
+about"*. Every new clinical term would have opened a new gap next to it, and the router would
+still have had no concept of a domain.
+
+The real cause was architectural: the router sensed **words**, not **domains**.
+`attributeBrainsDetailed()` now senses domains first and derives brains from them:
+
+| Question as asked | Brains before | Brains now | Confidence |
+|---|---|---|---|
+| "My patient has a persistent fever and I am unsure about the diagnosis." | KNOWLEDGE | **KNOWLEDGE, ANALYTICAL** | 0.36 |
+| "One of our nurses says a child on the ward is unwell with a rash…" | KNOWLEDGE | **EXECUTIVE, KNOWLEDGE, ANALYTICAL** | 0.52 |
+| "Can our Bukoba hospital see more outpatients and start doing its own tests?" | KNOWLEDGE | **EXECUTIVE, KNOWLEDGE, ANALYTICAL** | 0.52 |
+| "Should the board approve the treasury reallocation…" | KNOWLEDGE | **+ INSTITUTIONAL** | 0.76 |
+| ward + cost + board (cross-domain) | KNOWLEDGE | 3 domains, 3+ brains | 0.88 |
+| "hello" | KNOWLEDGE | KNOWLEDGE | **0.01** |
+
+No ninth brain was invented: eight canonical brains remain exactly eight, and a test asserts it.
+The sensed domain is reported alongside the brains so a human can see *why* they were convened,
+and `confidence` is low for unroutable questions so a caller can disclose uncertainty or escalate.
+
+The test that asserted the old limitation
+(`expect(attributeBrains(PLAIN_QUESTION)).toEqual(["KNOWLEDGE"])`) was **inverted into a
+regression proof**, not deleted.
+
+One thing above still stands:
+
+**`PERSONAL_CONTEXT` is never domain-attributed.** It is applied by the personalisation layer,
+or convened explicitly by an intent match on first-person phrasing. That is by design, and it
+means an eight-brain plan from `planQueenBeeWork` will contain at most seven brains. The test
+asserts this rather than pretending otherwise.
 
 ---
 
