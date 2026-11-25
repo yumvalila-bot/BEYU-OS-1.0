@@ -7,7 +7,7 @@
  * These tests assert that state against a real database.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
 
@@ -215,6 +215,85 @@ describe("0086 applied state", () => {
     // The trigram index must also be guarded: with the extension present but
     // gin_trgm_ops missing, an unguarded index still fails.
     expect(insideDoBlock).toMatch(/undefined_object/);
+  });
+
+  it("never names an application role outside a pg_roles guard, in ANY migration", async () => {
+    // REGRESSION TEST for a real CI failure — the fifth defect.
+    //
+    // FALSIFIED HYPOTHESIS FIRST, so the record is honest: this was initially
+    // blamed on 0086's pg_trgm extension. Guarding that extension was correct
+    // and was done, but CI kept failing with the SAME error, which proved the
+    // diagnosis wrong. The real statement was seven bare, lowercase
+    //   grant select, insert, update on noelia_* to beyu_runtime;
+    // lines at the end of 0084.
+    //
+    // Why it never reproduced locally: setup-db-role.ts had already created
+    // beyu_runtime in the local cluster, so the GRANT always found its grantee.
+    // CI's container is brand new and the pipeline provisions the runtime role
+    // in a LATER step (ci.yml "Provision non-superuser runtime role" runs after
+    // "Apply canonical root migrations"), so on a clean install the role does
+    // not exist and PostgreSQL raises 42704 naming the missing role.
+    //
+    // Why the first greps missed it: every earlier search used uppercase
+    // GRANT/TO/OWNER. These statements are lowercase, so `\bTO\s+role` never
+    // matched. A case-sensitive scan is not a scan.
+    //
+    // The invariant: a migration may only name an application role inside a
+    // construct that is conditional on that role existing. 0030-0047 use
+    // `FOR r IN SELECT rolname FROM pg_roles WHERE rolname = '...'`, which
+    // yields zero iterations when the role is absent — the correct shape.
+    const dir = join(process.cwd(), "drizzle");
+    const files = readdirSync(dir).filter((f) => /^\d+_.*\.sql$/.test(f)).sort();
+
+    const ROLE_NAMES = ["beyu_runtime", "beyu_governance"];
+
+    // Statements that reference a role by name where PostgreSQL resolves the
+    // name to an OID and therefore REQUIRES it to exist.
+    const OFFENDING = [
+      /\bgrant\b[^;]*\bto\s+(beyu_[a-z_]+)/i,
+      /\brevoke\b[^;]*\bfrom\s+(beyu_[a-z_]+)/i,
+      /\balter\s+(?:default\s+privileges\s+)?[^;]*\b(?:to|from)\s+(beyu_[a-z_]+)/i,
+      /\bhas_[a-z_]*privilege\s*\(\s*'(beyu_[a-z_]+)'/i,
+      /\bpg_has_role\s*\(\s*'(beyu_[a-z_]+)'/i,
+      /'\s*(beyu_[a-z_]+)\s*'\s*::\s*regrole/i,
+    ];
+
+    const offenders: string[] = [];
+
+    for (const file of files) {
+      const raw = readFileSync(join(dir, file), "utf8");
+      // Drop comments so prose that mentions a role is not a statement.
+      const executable = raw
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("--"))
+        .join("\n");
+
+      // Collapse to one line so a multi-line GRANT list is still caught.
+      const flat = executable.replace(/\s+/g, " ");
+
+      for (const pattern of OFFENDING) {
+        const match = flat.match(pattern);
+        if (!match) continue;
+        const role = match[1];
+        if (!ROLE_NAMES.includes(role)) continue;
+
+        // Acceptable only when the same file gates the role on pg_roles.
+        const guarded =
+          new RegExp(`FROM\\s+pg_roles\\s+WHERE\\s+rolname\\s*=\\s*'${role}'`, "i").test(flat) ||
+          new RegExp(`EXISTS\\s*\\(\\s*SELECT\\s+1\\s+FROM\\s+pg_roles\\s+WHERE\\s+rolname\\s*=\\s*'${role}'`, "i").test(flat);
+        if (!guarded) offenders.push(`${file}: ${pattern.source.slice(0, 40)} -> ${role}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+
+    // The guarded shape must actually exist somewhere, so this test cannot pass
+    // vacuously if every grant were deleted.
+    const allFlat = files
+      .map((f) => readFileSync(join(dir, f), "utf8"))
+      .join("\n")
+      .replace(/\s+/g, " ");
+    expect(allFlat).toMatch(/FROM\s+pg_roles\s+WHERE\s+rolname\s*=\s*'beyu_runtime'/i);
   });
 
   it("declares the deterministic analyst as LOCAL_FREE and ALLOWED", async () => {

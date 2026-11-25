@@ -376,6 +376,149 @@ Two related lessons, both earned here:
 
 ---
 
+## 5D. The fifth defect — and the one that actually broke CI: a bare `GRANT` to a role that does not exist yet
+
+This is the defect the previous four were mistaken for. It is recorded in full
+because the *misdiagnosis* is the instructive part.
+
+### Symptom
+
+Both PostgreSQL CI jobs failed at the migration step, identically, on a scratch
+database that was completely empty:
+
+```
+migration: ROLE_NOT_FOUND (SQLSTATE 42704)
+```
+
+`main` was green; the branch was not. The failure was 100% reproducible in CI and
+0% reproducible locally.
+
+### The falsified hypothesis, stated plainly
+
+The first diagnosis was `pg_trgm` — §5C above. `0086` created the extension
+unguarded; a build without contrib, or a role without `CREATE` on the database,
+raises `42704`/`42501`. That defect was real, the guard was correct, and the
+before/after proof (`42501` → success) was sound.
+
+**It was not the cause.** After the guard was committed and CI re-ran, the error
+was byte-identical. A fix that does not change the outcome has not fixed the
+cause, whatever else it may have repaired. The guard was kept because it is
+independently correct; the hypothesis was abandoned because it was refuted.
+
+### Root cause
+
+Seven lowercase statements at the end of `0084_noelia_cognitive_core.sql`:
+
+```sql
+grant select, insert, update on noelia_kg_edges to beyu_runtime;
+grant select, insert, update on noelia_decision_records to beyu_runtime;
+grant select, insert, update on noelia_council_sessions to beyu_runtime;
+grant select, insert, update on noelia_council_findings to beyu_runtime;
+grant select, insert on noelia_simulations to beyu_runtime;
+grant select on noelia_golden_cases to beyu_runtime;
+grant select, insert, update on noelia_learning_records to beyu_runtime;
+```
+
+PostgreSQL resolves the grantee name to a role OID, so the role must exist. On a
+clean install it does not: the pipeline provisions `beyu_runtime` in a **later
+step** (`ci.yml`, "Provision non-superuser runtime role", which runs *after*
+"Apply canonical root migrations"). The `GRANT` therefore raises `42704` and
+aborts 0084 — and with it all of 0085 and 0086, because each migration is a
+single transaction inside one advisory-locked run.
+
+### Why it never reproduced locally
+
+`scripts/setup-db-role.ts` had been run against the local cluster at some point in
+the past. `beyu_runtime` and `beyu_governance` therefore existed as cluster
+objects, and every bare `GRANT` found its grantee. **The local database was in a
+privileged state that CI's fresh container never is.** Reproducing the CI failure
+required renaming the roles away (`ALTER ROLE ... RENAME TO ...`), at which point
+the failure appeared immediately and identically:
+
+```
+>>> FAILING MIGRATION 0084_noelia_cognitive_core : 42704 role "beyu_runtime" does not exist
+```
+
+### Why four earlier greps missed it
+
+Every prior search used uppercase patterns — `GRANT`, `TO\s+beyu_`, `OWNER TO`,
+`CREATE ROLE`. The statements are **lowercase**, and the repository is not
+uniform about it: 0030–0047 write `GRANT` inside a `DO` block, 0084 wrote
+`grant`. A case-sensitive scan of a case-insensitive language is not a scan.
+After the fix, the search that finds the real thing is case-insensitive and
+covers `has_*_privilege`, `pg_has_role` and `::regrole` as well — all three raise
+`42704` for an absent role, and all three hide behind a name that a `GRANT`-only
+grep will never see.
+
+### The fix
+
+Mirror the shape the whole repository already uses (0030, 0031, 0034–0047): loop
+over `pg_roles` so an absent role yields **zero iterations** rather than an
+error.
+
+```sql
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT rolname FROM pg_roles WHERE rolname = 'beyu_runtime'
+  LOOP
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE ON %s TO %I',
+      'noelia_kg_edges, noelia_decision_records, noelia_council_sessions, noelia_council_findings, noelia_learning_records',
+      r.rolname);
+    EXECUTE format('GRANT SELECT, INSERT ON %s TO %I', 'noelia_simulations', r.rolname);
+    EXECUTE format('GRANT SELECT ON %s TO %I', 'noelia_golden_cases', r.rolname);
+  END LOOP;
+END
+$$;
+```
+
+These grants were also **redundant**. All seven tables are in
+`RUNTIME_TABLE_ALLOWLIST` in `scripts/runtime-privilege-allowlist.ts`, and
+`setup-db-role.ts` reconciles privileges across the entire catalog by allowlist.
+Verified after provisioning: the seven tables land on exactly the intended
+matrix — `SELECT/INSERT/UPDATE` on the five writable tables, `SELECT/INSERT` on
+`noelia_simulations`, `SELECT` only on `noelia_golden_cases`. The migration-local
+grants duplicated that reconciliation while making the migration dependent on a
+role created later. The guarded form preserves intent without the ordering
+hazard.
+
+### Proof
+
+| Scenario | Before | After |
+| --- | --- | --- |
+| Clean install, roles absent (CI's exact condition) | `42704 role "beyu_runtime" does not exist` | **exit 0 — 494 tables, 87 APPLIED** |
+| Clean install, then `setup-db-role.ts` | n/a (migration never completed) | seven tables at the intended privilege matrix |
+
+A regression test now scans **every** migration for a named application role
+outside a `pg_roles` guard, case-insensitively, across `grant`, `revoke`,
+`alter default privileges`, `has_*_privilege`, `pg_has_role` and `::regrole`. It
+was verified to **fail** against the original lowercase `GRANT` lines and to pass
+against the fix — a guard that has never been seen to fail is not a guard.
+
+### The rules earned here
+
+> **Search case-insensitively, or search twice.** SQL keywords have no case. A grep
+> that assumes uppercase conventions will silently miss a lowercase statement, and
+> the miss looks exactly like a clean result.
+
+> **A green local run is a statement about your local cluster.** Before concluding
+> "cannot reproduce", make the local environment *worse* than CI's — rename the
+> roles away, revoke the privilege, drop the extension. If it still passes, the
+> code is robust. If it fails, you have your reproduction.
+
+> **Never `GRANT` to a role a migration does not create.** A migration may only
+> depend on what it creates, on what PostgreSQL ships, or on an object it has
+> proven present. Everything else is an ordering assumption that a fresh
+> container will eventually punish.
+
+> **A fix that changes nothing about the symptom is a different fix.** Keep it if
+> it is independently correct, but reopen the diagnosis. The `pg_trgm` guard was
+> right and irrelevant, and treating "I fixed something" as "I fixed this" cost a
+> full CI cycle.
+
+---
+
 ## 6. What this episode says about the wider work
 
 Three lessons, each now reflected in the codebase:

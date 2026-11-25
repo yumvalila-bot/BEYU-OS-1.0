@@ -88,8 +88,12 @@ that cannot find a context must **throw**, not default to an unscoped query.
 - **Never** put the marker token inside a comment — it splits the comment and yields
   SQLSTATE 42601.
 - Runtime privileges are granted **only** by `scripts/runtime-privilege-allowlist.ts` +
-  `scripts/setup-db-role.ts`. A `GRANT` inside a migration is silently reverted. Classify
-  each new table in the allowlist instead.
+  `scripts/setup-db-role.ts`. A `GRANT` inside a migration is reverted by that reconciliation —
+  and worse, an **unguarded** one aborts the whole migration run on a clean install, because the
+  runtime role does not exist when migrations execute (`setup-db-role.ts` runs in a later step).
+  Classify each new table in the allowlist instead. If a role must be named at all, loop
+  `FOR r IN SELECT rolname FROM pg_roles WHERE rolname = '…'` so an absent role is zero
+  iterations, not `42704`. See `NOELIA_MIGRATION_DISCIPLINE.md` §5D.
 - After applying, run `npx tsx scripts/migration/integrity.ts --with-ledger`.
 - **Guard every `CREATE EXTENSION`.** A contrib extension (`pg_trgm`, …) created unguarded
   aborts the entire migration run on a build without it, or under a role that lacks the

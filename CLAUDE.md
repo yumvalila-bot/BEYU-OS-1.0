@@ -76,6 +76,20 @@ Migrations are append-only and immutable once applied.
   `insufficient_privilege` / `undefined_file`, or a deployment without contrib aborts the whole
   migration run. "The code degrades without it" is a claim about the code — the migration has to
   let the database reach that state. See `NOELIA_MIGRATION_DISCIPLINE.md` §5C.
+- **Never name an application role in a migration unless you guard it.** A bare
+  `GRANT … TO beyu_runtime` resolves the name to an OID, so it raises `42704` when the role does
+  not exist — and on a clean install it never exists, because `setup-db-role.ts` provisions it in
+  a later pipeline step. Loop `FOR r IN SELECT rolname FROM pg_roles WHERE rolname = '…'` so an
+  absent role is zero iterations, not an error. The same trap hides in `has_*_privilege`,
+  `pg_has_role` and `::regrole`. The migration-local `GRANT` is redundant anyway: runtime
+  privileges come from the allowlist. See `NOELIA_MIGRATION_DISCIPLINE.md` §5D.
+- **SQL keywords have no case — grep case-insensitively or you will miss a statement.** The
+  defect that broke CI was seven lowercase `grant` lines that every uppercase
+  `GRANT|TO|OWNER` scan walked straight past, and a clean grep result is indistinguishable from
+  a clean file.
+- **Before concluding "cannot reproduce", make local worse than CI.** Rename the roles away,
+  revoke the privilege, drop the contrib extension. A passing local run is a fact about your
+  cluster, not about the code.
 
 Verify with:
 

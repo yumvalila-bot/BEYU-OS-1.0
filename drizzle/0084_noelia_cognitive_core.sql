@@ -408,10 +408,22 @@ create policy noelia_learning_records_write on noelia_learning_records
 -- The runtime role may operate within RLS; the governance role may operate
 -- within its stricter boundary. Ownership stays with the migration role.
 -- ---------------------------------------------------------------------------
-grant select, insert, update on noelia_kg_edges to beyu_runtime;
-grant select, insert, update on noelia_decision_records to beyu_runtime;
-grant select, insert, update on noelia_council_sessions to beyu_runtime;
-grant select, insert, update on noelia_council_findings to beyu_runtime;
-grant select, insert on noelia_simulations to beyu_runtime;
-grant select on noelia_golden_cases to beyu_runtime;
-grant select, insert, update on noelia_learning_records to beyu_runtime;
+-- Grants are ROLE-GUARDED and fail-open-to-nothing: on a clean install the
+-- runtime role does not exist yet (setup-db-role.ts provisions it in a LATER
+-- pipeline step), so a bare GRANT raises 42704 and aborts the whole migration.
+-- Iterating pg_roles mirrors 0030-0047 exactly: no role, no grant, no failure.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT rolname FROM pg_roles WHERE rolname = 'beyu_runtime'
+  LOOP
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE ON %s TO %I',
+      'noelia_kg_edges, noelia_decision_records, noelia_council_sessions, noelia_council_findings, noelia_learning_records',
+      r.rolname);
+    EXECUTE format('GRANT SELECT, INSERT ON %s TO %I', 'noelia_simulations', r.rolname);
+    EXECUTE format('GRANT SELECT ON %s TO %I', 'noelia_golden_cases', r.rolname);
+    RAISE NOTICE 'granted NOELIA cognitive-core DML/read to %', r.rolname;
+  END LOOP;
+END
+$$;
