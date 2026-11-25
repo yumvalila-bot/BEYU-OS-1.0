@@ -323,9 +323,30 @@ Every number below was produced by a command in this pass, not carried over.
 | clean install, roles absent | 494 tables, 87 applied |
 | `npm run build` | clean |
 
-Historical suite baseline at entry: 6560 total · 6505 passed · 0 failed ·
-24 skipped · 31 todo. Re-measured totals for this head are reported in the final
-response and in the PR body; the baseline is treated as historical, not assumed.
+### Final measured totals for this head
+
+Run with a production server live and `BEYU_TEST_BASE_URL` set, as CI does:
+
+```
+Full suite: 6594 total · 6539 passed · 0 failed · 24 skipped · 31 todo · 0 failing files
+            6539 + 0 + 24 + 31 = 6594   (exact)
+```
+
+The entry baseline was 6560 total · 6505 passed. The delta is **+34 tests, all
+passing**, from three new suites: `queen-bee-routing` (15),
+`semantic-embeddings` (19). Skipped stayed at 24 and todo at 31 — **no test was
+silently skipped and none was removed.** The historical baseline was treated as
+historical: it was re-measured from source, not carried forward.
+
+### CI — final state
+
+| Workflow | Run | Result |
+| --- | --- | --- |
+| BEYU OS CI — PostgreSQL-backed security gate | `45708683785` | **all 8 jobs success** |
+| BEYU OS — database release | `45708683995` | **Migration validation success** |
+
+`gh pr checks 135` → **11 pass, 0 fail, 0 pending**, 7 skipping (production-only
+jobs, correctly gated off on a pull request).
 
 ---
 
