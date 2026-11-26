@@ -672,6 +672,19 @@ export const modelRegistry = pgTable(
     provenanceStatus: text("provenance_status").notNull().default("EVIDENCE_REQUIRED"),
     verificationStatus: text("verification_status").notNull().default("NOT_VERIFIED"),
     riskStatus: text("risk_status").notNull().default("NOT_ASSESSED"),
+
+    /**
+     * Zero-cost governance (migration 0086).
+     *
+     * `costClass` is the declared cost of running this model. The DEFAULT is
+     * UNKNOWN and the default verdict is DENIED, so a row that was never
+     * classified is unusable rather than implicitly free. See
+     * `src/lib/noelia/zero-cost-policy.ts` — the database CHECK constraint
+     * enforces that nothing APPROVED+ACTIVE can carry a non-ALLOWED verdict.
+     */
+    costClass: text("cost_class").notNull().default("UNKNOWN"), // LOCAL_FREE | FREE_HOSTED | TRIAL | PAID | UNKNOWN
+    deploymentKind: text("deployment_kind").notNull().default("REMOTE"), // LOCAL | SELF_HOSTED | REMOTE
+    zeroCostStatus: text("zero_cost_status").notNull().default("DENIED_COST_UNKNOWN"),
     createdBy: text("created_by").notNull().default("SYSTEM"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

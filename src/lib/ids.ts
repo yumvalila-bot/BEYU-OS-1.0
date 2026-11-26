@@ -136,6 +136,8 @@ export const ID_PREFIX = {
   noeliaWorkflowStep: "NWS",
   noeliaSchedule: "NSH",
   noeliaScheduleRun: "NSR",
+  /** Chunk-level embedding row (migration 0086). */
+  noeliaEmbedding: "NKE",
   knowledge: "KNW",
   notification: "NTF",
   integration: "INT",
@@ -346,6 +348,14 @@ export const ID_PREFIX = {
   consolidationEntity: "CONE",
   consolidationAdjustment: "CONA",
   fxRate: "FXR",
+  // NOELIA cognitive core (migration 0084) — one prefix per artifact class.
+  kgEdge: "KGE",
+  decisionRecord: "NDR",
+  councilSession: "NCS",
+  councilFinding: "NCF",
+  simulation: "NSIM",
+  goldenCase: "NGC",
+  learningRecord: "NLR",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

@@ -337,14 +337,15 @@ describe("7. one application, one registry, one Noelia, no duplicate identities"
     }
     const journal = JSON.parse(source("drizzle", "meta", "_journal.json")) as { entries: Array<{ tag: string }> };
     // The journal head moved past MULTI_COMPANY_MANAGEMENT (0076), its three
-    // forward fixes (0077-0079), the tax migrations (0080-0081), and the
-    // canonical namespace alignment (0082) to 0083, which adds the governed
-    // `public_content` table for public news and events (FORCE RLS +
-    // maker-checker publish CHECK). 0083 adds no host/subdomain architecture,
-    // and the directory check below still proves no host/subdomain migration
-    // exists. The head is named explicitly so any new migration must update
-    // this test deliberately.
-    expect(journal.entries.at(-1)?.tag).toBe("0083_public_content");
+    // forward fixes (0077-0079), the tax migrations (0080-0081), the canonical
+    // namespace alignment (0082), 0083 (the governed `public_content` table),
+    // 0084 (the NOELIA unified cognitive core) and 0085 (its corrective replay:
+    // forced RLS plus the canonical privilege classification for the seven new
+    // tables). None of 0083-0086 adds host, subdomain or routing architecture,
+    // and the directory check below still proves no such migration exists. The
+    // head is named explicitly so any new migration must update this test
+    // deliberately — which is what this line records.
+    expect(journal.entries.at(-1)?.tag).toBe("0086_zero_cost_model_policy_and_local_embeddings");
     expect(readdirSync(path.join(ROOT, "drizzle")).some((f) => /domain|subdomain|host/i.test(f) && f > "0074")).toBe(false);
   });
 

@@ -52,3 +52,6 @@ public/release-identity.json
 # Byte-exact Flutter bundle copy; regenerate with npm run brand:sync
 mobile/flutter/assets/images/beyu-os-logo.png
 pgdata
+
+# Test-run artifacts: large JSON reporter output. Useful locally, never committed.
+.regression*.json

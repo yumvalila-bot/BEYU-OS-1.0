@@ -9,7 +9,7 @@
  * Reads are scope-enforced in the service layer; capability enforcement lives
  * at the HTTP boundary and is proven by tests/foundation/http.test.ts.
  */
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
@@ -76,6 +76,33 @@ const RUN = Math.random().toString(36).slice(2, 8).toUpperCase();
 const createdFoundationIds: string[] = [];
 const createdComplianceDeadlineIds: string[] = [];
 
+/**
+ * The seeded compliance deadline is NOT owned by this suite, but
+ * `runComplianceSweep` operates on every open deadline in the principal's
+ * scope — not just the fixture rows these tests insert. At a real calendar
+ * date past `dueDate` the sweep therefore materialises the seeded row to
+ * OVERDUE and writes reminder/evaluation rows against it (production
+ * behaviour, correctly). The suite must hand that row back untouched.
+ */
+const SEEDED_DEADLINE_ID = fixedId(ID_PREFIX.foundationDeadline, "TZ_NGO_ANNUAL_RETURN_2026");
+const SEEDED_DEADLINE_STATUS = "UPCOMING";
+
+async function restoreSeededDeadline() {
+  await db.execute(sql`delete from notifications where id in (select notification_id from foundation_notification_log where deadline_id = ${SEEDED_DEADLINE_ID})`);
+  await db.execute(sql`delete from foundation_notification_log where deadline_id = ${SEEDED_DEADLINE_ID}`);
+  await db.execute(sql`delete from foundation_escalations where deadline_id = ${SEEDED_DEADLINE_ID}`);
+  await db.execute(sql`
+    update foundation_deadlines
+       set status = ${SEEDED_DEADLINE_STATUS}, completed_at = null
+     where id = ${SEEDED_DEADLINE_ID}
+  `);
+}
+
+beforeAll(async () => {
+  // Purge on entry: a prior aborted run must not poison this one.
+  await restoreSeededDeadline();
+});
+
 afterAll(async () => {
   for (const id of createdComplianceDeadlineIds) {
     await db.execute(sql`delete from notifications where id in (select notification_id from foundation_notification_log where deadline_id = ${id})`);
@@ -85,6 +112,7 @@ afterAll(async () => {
   for (const id of createdFoundationIds) {
     await db.execute(sql`delete from foundations where id = ${id}`);
   }
+  await restoreSeededDeadline();
 });
 
 describe("seed integrity", () => {

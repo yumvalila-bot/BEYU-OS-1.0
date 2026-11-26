@@ -159,3 +159,14 @@ export * from "./schema/mcm";
 /* Governed public news and events publishing (additive, migration 0083). */
 export * from "./schema/public-content";
 
+
+/*
+ * NOELIA COGNITIVE CORE (additive, migration 0084).
+ *
+ * The unified intelligence ecosystem: institutional knowledge-graph edges,
+ * institutional decision memory, Intelligence Council deliberations, strategic
+ * simulations and controlled-learning records. These EXTEND the existing NOELIA
+ * persistence (knowledge_sources, enterprise_memory, ai_decisions,
+ * noelia_workflows) — they do not replace or duplicate it.
+ */
+export * from "./schema/noelia-cognitive";

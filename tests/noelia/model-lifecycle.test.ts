@@ -68,6 +68,14 @@ async function setupModel(provided?: Awaited<ReturnType<typeof seededPrincipal>>
     inputModalities: ["TEXT"],
     outputModalities: ["TEXT"],
     approvedBy: p.userId,
+    // Zero-cost declaration. This fixture is a BEYU self-hosted artifact, so
+    // LOCAL_FREE is accurate. Without it the model carries the fail-closed
+    // default (UNKNOWN/DENIED) and the 0086 CHECK constraint correctly refuses
+    // to let it become APPROVED+ACTIVE — which is the behaviour this test was
+    // hitting.
+    costClass: "LOCAL_FREE",
+    deploymentKind: "SELF_HOSTED",
+    zeroCostStatus: "ALLOWED",
     providerId,
     createdBy: p.userId,
   }).onConflictDoNothing({ target: [modelRegistry.provider, modelRegistry.model, modelRegistry.version] });

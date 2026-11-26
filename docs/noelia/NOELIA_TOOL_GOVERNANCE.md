@@ -1,5 +1,10 @@
 # NOELIA TOOL GOVERNANCE
 
+> **Scope:** the mechanism of tool registration, authorization order and result validation.
+> For the *current* capability list see `NOELIA_CAPABILITY_INVENTORY.md`; for the governance
+> control plane as a whole see `NOELIA_GOVERNANCE_CONTROL_PLANE.md`; for attacks against this
+> mechanism see `NOELIA_THREAT_MODEL.md`.
+
 ## Principle
 
 Every Noelia tool invocation must pass through authorization and policy

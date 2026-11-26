@@ -102,6 +102,22 @@ const FROZEN_TOOL_NAMES = [
   "memory.read",
   "memory.write",
   "model.registry.read",
+  // NOELIA COGNITIVE CORE (migration 0084). The eight-brain unified intelligence
+  // ecosystem: world model, knowledge graph, decision memory, Intelligence
+  // Council, strategic simulation, evaluation posture, personal context and
+  // operational awareness. EVERY one is `sideEffects: NONE` and read-only. The
+  // cognitive core can observe and advise; it cannot post, approve, widen its own
+  // authority or alter an authoritative institutional record. Added here because
+  // a new governed capability must be a deliberate, reviewed change to the
+  // frozen surface — never a side effect.
+  "noelia.council.deliberate",
+  "noelia.decision_memory.query",
+  "noelia.evaluation.status",
+  "noelia.knowledge_graph.query",
+  "noelia.operations.status",
+  "noelia.personal_context.read",
+  "noelia.scenario.simulate",
+  "noelia.world_model.query",
   "pricing.markup_margin.analyse",
   "risk.analysis",
   "risk.register.query",

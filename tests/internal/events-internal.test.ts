@@ -85,7 +85,11 @@ let ACTOR_ID: string | null = null;
 beforeAll(async () => {
   process.env[INTERNAL_SERVICE_TOKEN_ENV] = SECRET;
   const rows = await db.select({ id: tenants.id, code: tenants.code, type: tenants.type }).from(tenants).limit(50);
-  const health = rows.find((r) => r.type === "SECTOR" || /health/i.test(r.code));
+  // Prefer the HEALTH tenant by NAME, not "any SECTOR tenant". Four tenants are
+  // SECTOR, so the old predicate returned whichever row came first physically —
+  // and `envelope()` defaults tenantCode to "BEYU-HEALTH", so a run that picked
+  // AGRI silently made every own-entity call resolve to a different tenant.
+  const health = rows.find((r) => /health/i.test(r.code)) ?? rows.find((r) => r.type === "SECTOR");
   const tenant = health ?? rows[0];
   TENANT_CODE = tenant.code;
   TENANT_ID = tenant.id;
@@ -507,15 +511,18 @@ describe("POST /api/v1/internal/events — Phase 8.5 adversarial hardening", () 
     const foreign = entities.find((e) => e.tenantId !== tenantRow[0].id);
     const own = entities.find((e) => e.tenantId === tenantRow[0].id);
     if (foreign) {
+      // tenantCode is passed explicitly: `envelope()` defaults to BEYU-HEALTH,
+      // and the route resolves the TENANT from the body. Omitting it here meant
+      // the route judged the entity against the wrong tenant.
       const res = await publishRoute(
-        req("http://localhost/api/v1/internal/events", envelope({ legalEntityId: foreign.id }), token()),
+        req("http://localhost/api/v1/internal/events", envelope({ tenantCode: TENANT_CODE, legalEntityId: foreign.id }), token()),
       );
       expect(res.status).toBe(422);
       expect(((await res.json()) as { error: { code: string } }).error.code).toBe("LEGAL_ENTITY_NOT_FOUND");
     }
     if (own) {
       const res = await publishRoute(
-        req("http://localhost/api/v1/internal/events", envelope({ legalEntityId: own.id }), token()),
+        req("http://localhost/api/v1/internal/events", envelope({ tenantCode: TENANT_CODE, legalEntityId: own.id }), token()),
       );
       expect(res.status).toBe(201);
     }

@@ -1,5 +1,9 @@
 # NOELIA CANONICAL IDENTITY
 
+> **Scope:** the single-identity invariant.
+> For how the eight brains and twelve workforce specialisations stay subordinate to that one
+> identity see `NOELIA_EIGHT_BRAINS.md` §4 and `NOELIA_HIVE_WORKFORCE.md`.
+
 ## Executive Statement
 
 **ONE NOELIA. MULTIPLE GOVERNED CONTEXTS.**

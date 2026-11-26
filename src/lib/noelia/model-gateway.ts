@@ -12,6 +12,7 @@ import {
 } from "./model-provider";
 import { BeyuOllamaProvider } from "./ollama-provider";
 import { resolveOllamaRuntimeConfig, type OllamaRuntimeConfig } from "./ollama-config";
+import { evaluateZeroCost, resolveZeroCostPolicyConfig, type ProviderCostDeclaration } from "./zero-cost-policy";
 import type { NoeliaRouteRequest } from "./ai-platform";
 import type { NoeliaToolOutput, ToolInvocationContext } from "./types";
 
@@ -214,6 +215,54 @@ export class BeyuNoeliaModelGateway {
     }
     if (modelRow.status !== "ACTIVE" || modelRow.approvalStatus !== "APPROVED" || modelRow.evaluationStatus !== "APPROVED") {
       return this.unavailable({ ...request, selectedModelId: route.selectedModelId ?? "none" }, route, providerId, `Routed model ${route.selectedModelId} is not ACTIVE/APPROVED/APPROVED.`);
+    }
+
+    // ---- Zero-cost gate ---------------------------------------------------
+    // The highest-priority operational constraint on this platform is that no
+    // execution may incur a charge. Registry approval answers "may this model be
+    // used?"; it does NOT answer "does using it cost money?". Those are separate
+    // questions with separate evidence, so the cost policy is evaluated at the
+    // same boundary that decides to execute.
+    //
+    // Fail-closed: a model whose cost was never classified carries UNKNOWN, and
+    // UNKNOWN is denied. See zero-cost-policy.ts for the full decision table.
+    const costDeclaration: ProviderCostDeclaration = {
+      costClass: (modelRow.costClass ?? "UNKNOWN") as ProviderCostDeclaration["costClass"],
+      deployment: (modelRow.deploymentKind ?? "REMOTE") as ProviderCostDeclaration["deployment"],
+      // Only LOCAL_FREE is authorized without an explicit human verification
+      // step, and LOCAL_FREE/SELF_HOSTED never needs one. A hosted tier is
+      // marked unverified here on purpose: this gateway cannot itself confirm a
+      // third party's billing behaviour, so the declaration must have been
+      // recorded by a human who did.
+      requiresPaymentDetails: false,
+      canTransitionToPaid: false,
+      reliesOnTrialCredits: false,
+      humanVerified: modelRow.costClass === "FREE_HOSTED",
+    };
+    const zeroCost = evaluateZeroCost(costDeclaration, resolveZeroCostPolicyConfig());
+    if (!zeroCost.allowed) {
+      return {
+        requestId: request.requestId,
+        routingId: request.routingId,
+        modelId: modelRow.id,
+        modelVersion: modelRow.version,
+        providerId,
+        providerName: provider.providerName,
+        modelKind: provider.kind,
+        status: "BLOCKED",
+        output: null,
+        // The verdict is reported verbatim so an operator can distinguish "this
+        // model is paid" from "nobody has verified what this model costs".
+        error: `ZERO_COST_POLICY: ${zeroCost.verdict} (${zeroCost.reason}). ${zeroCost.explanation}`,
+        safety: { blocked: true, reasons: [zeroCost.verdict, zeroCost.reason] },
+        metadata: {
+          blockedBy: "ZERO_COST_POLICY",
+          costClass: zeroCost.costClass,
+          verdict: zeroCost.verdict,
+          reason: zeroCost.reason,
+        },
+        executedAt: new Date().toISOString(),
+      };
     }
 
     const executionRequest: ModelExecutionRequest = {
@@ -465,6 +514,9 @@ export class BeyuNoeliaModelGateway {
           jurisdictionRestrictions: row.jurisdictionRestrictions,
           timeoutMs: row.timeoutMs,
           costPerToken: row.costPerToken,
+          costClass: row.costClass,
+          deploymentKind: row.deploymentKind,
+          zeroCostStatus: row.zeroCostStatus,
           latencyMs: row.latencyMs,
           fallbackModelId: row.fallbackModelId,
           effectiveFrom: row.effectiveFrom,

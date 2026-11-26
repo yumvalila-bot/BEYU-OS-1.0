@@ -367,6 +367,34 @@ export const KNOWN_METADATA_DEBT = {
     // (the base rows must land on the canonical apex) plus
     // tests/tenant-domain/canonical-namespace-alignment.test.ts.
     "0082",
+    // 0084 is the NOELIA unified cognitive core (7 tables: noelia_kg_edges,
+    // noelia_decision_records, noelia_council_sessions/findings,
+    // noelia_simulations, noelia_golden_cases, noelia_learning_records).
+    // Hand-authored SQL + journal entry, same policy as 0063–0082: no snapshot
+    // is fabricated. IMPORTANT DEFECT, documented in
+    // docs/noelia/NOELIA_MIGRATION_DISCIPLINE.md: 0084 shipped WITHOUT
+    // statement-breakpoint markers, so the canonical migrator executed only its
+    // first statement and every RLS policy, CHECK constraint and GRANT in the
+    // file was silently skipped. 0085 is the corrective replay.
+    "0084",
+    // 0085 is that corrective migration — grants + forced RLS + the first-ever
+    // RLS on noelia_golden_cases. It purposely contains NO table or column DDL
+    // (the tables themselves were created later by the schema path), so it
+    // produces no table-level state for a snapshot to capture and
+    // scripts/migration/snapshot.ts would correctly refuse to write an empty
+    // one. Registered here for the same documented reason as 0077–0082. What
+    // verifies it is not metadata but the live database:
+    // tests/noelia/cognitive-migration-contract.test.ts proves the grants, the
+    // forced RLS and the cross-tenant denial as the real beyu_runtime role.
+    "0085",
+    // 0086 introduces the zero-cost model policy columns, the chunk-level
+    // embedding store and the pg_trgm index. Registered here for the same
+    // reviewable reason as 0084/0085: it was authored by hand alongside the
+    // schema module, so no drizzle-kit snapshot was generated for it. No
+    // snapshot is fabricated to close the gap — the journal entry and the
+    // ledger checksum are both present and verified, which is what the gate
+    // actually certifies.
+    "0086",
   ] as string[],
   /** Journal inventory reconciled through 0048 on 2026-09-20.
    * Historical snapshots remain absent; no fabricated backdated snapshots. */

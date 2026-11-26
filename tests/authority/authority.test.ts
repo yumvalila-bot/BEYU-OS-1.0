@@ -52,9 +52,18 @@ async function count(q: Parameters<typeof db.execute>[0]): Promise<number> {
 }
 
 let cachedTenantId = "";
+/**
+ * Resolved by ID, not by `order by created_at limit 1`.
+ *
+ * All seeded tenants share an identical `created_at`, so that ordering has no
+ * tiebreaker and returns an arbitrary row. See the full explanation in
+ * `tests/finance/finance-os.test.ts` — the same defect made a treasury
+ * reconciliation assertion read the wrong tenant's data.
+ */
 async function tenantId(): Promise<string> {
   if (!cachedTenantId) {
-    const [row] = await rowsOf<{ id: string }>(sql`select id from tenants order by created_at limit 1`);
+    const [row] = await rowsOf<{ id: string }>(sql`select id from tenants where id = 'TEN_BEYU_GROUP'`);
+    if (!row) throw new Error("Seed is missing TEN_BEYU_GROUP; the authority suite cannot run.");
     cachedTenantId = row.id;
   }
   return cachedTenantId;

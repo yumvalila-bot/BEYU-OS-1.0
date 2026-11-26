@@ -177,7 +177,7 @@ approval gate, kill switch or fail-closed behaviour was weakened or bypassed.
 | Bounded retries (`502/503/504` + connection resets only, ≤ `NOELIA_OLLAMA_MAX_ATTEMPTS`), hard abort timeout, prompt cap, 1 MiB response cap | Bounded resources on a ~4 GB machine; retries can never mask a policy failure |
 | Stable machine error codes only (`OLLAMA_HTTP_ERROR_503`, …); upstream bodies, paths and prompts are never surfaced | Information-disclosure control, asserted by tests |
 | Model text returned only as `modelOutput` (`untrusted: true`, `outputClass: "INFERENCE"`, provenance, usage) and never written into the AI decision evidence row | Provenance without promoting model text to authority |
-| No streaming, no embeddings, no tool calls | Smallest safe increment; the contract allows an explicit `NOT_SUPPORTED` |
+| No streaming, no tool calls | Smallest safe increment; the contract allows an explicit `NOT_SUPPORTED`. **Embeddings are no longer in this list** — since 2026-11-24 they are computed locally by `embeddings.ts`, which is independent of the Ollama provider (no model, no network) |
 | Endpoint validated once; non-loopback hosts require an exact allowlist entry; config is server-side only | SSRF prevention; the endpoint can never be request-supplied |
 
 ---

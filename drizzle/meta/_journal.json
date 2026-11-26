@@ -589,6 +589,27 @@
       "when": 1795208718402,
       "tag": "0083_public_content",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1795800000084,
+      "tag": "0084_noelia_cognitive_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1795800000085,
+      "tag": "0085_noelia_cognitive_core_grants_and_golden_cases_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1795800000086,
+      "tag": "0086_zero_cost_model_policy_and_local_embeddings",
+      "breakpoints": true
     }
   ]
 }
